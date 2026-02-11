@@ -68,3 +68,51 @@ export interface EnvironmentCheck {
   model_available: boolean
   available_models: string[]
 }
+
+// ── Analysis ──────────────────────────────────
+
+export interface AnalyzeRequest {
+  chapter_start?: number | null
+  chapter_end?: number | null
+  force?: boolean
+}
+
+export interface AnalysisTask {
+  id: string
+  novel_id: string
+  status: "pending" | "running" | "paused" | "completed" | "cancelled"
+  chapter_start: number
+  chapter_end: number
+  current_chapter: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AnalysisStats {
+  entities: number
+  relations: number
+  events: number
+}
+
+export interface WsProgress {
+  type: "progress"
+  chapter: number
+  total: number
+  done: number
+  stats: AnalysisStats
+}
+
+export interface WsChapterDone {
+  type: "chapter_done"
+  chapter: number
+  status: "completed" | "failed"
+  error?: string
+}
+
+export interface WsTaskStatus {
+  type: "task_status"
+  status: string
+  stats?: AnalysisStats
+}
+
+export type AnalysisWsMessage = WsProgress | WsChapterDone | WsTaskStatus

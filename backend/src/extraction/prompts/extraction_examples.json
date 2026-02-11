@@ -1,0 +1,90 @@
+[
+  {
+    "chapter_id": 1,
+    "novel_id": "example",
+    "characters": [
+      {
+        "name": "韩立",
+        "new_aliases": ["韩小子"],
+        "appearance": "一个瘦小的少年，面色蜡黄",
+        "abilities_gained": [],
+        "locations_in_chapter": ["七玄门", "落日峰"]
+      },
+      {
+        "name": "墨大夫",
+        "new_aliases": [],
+        "appearance": "白发苍苍的老者",
+        "abilities_gained": [
+          {
+            "dimension": "身份",
+            "name": "七玄门长老",
+            "description": "七玄门的药园管理长老"
+          }
+        ],
+        "locations_in_chapter": ["药园"]
+      }
+    ],
+    "relationships": [
+      {
+        "person_a": "韩立",
+        "person_b": "墨大夫",
+        "relation_type": "师徒",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "墨大夫将韩立收入门下，教他辨认草药。"
+      }
+    ],
+    "locations": [
+      {
+        "name": "七玄门",
+        "type": "门派",
+        "parent": null,
+        "description": "位于越国境内的小门派"
+      },
+      {
+        "name": "药园",
+        "type": "建筑",
+        "parent": "七玄门",
+        "description": "七玄门内种植灵草的园子"
+      }
+    ],
+    "item_events": [
+      {
+        "item_name": "养气丹",
+        "item_type": "丹药",
+        "action": "获得",
+        "actor": "韩立",
+        "recipient": null,
+        "description": "墨大夫赐予韩立一瓶养气丹作为入门礼"
+      }
+    ],
+    "org_events": [
+      {
+        "org_name": "七玄门",
+        "org_type": "门派",
+        "member": "韩立",
+        "role": "弟子",
+        "action": "加入",
+        "description": "韩立正式成为七玄门弟子",
+        "org_relation": null
+      }
+    ],
+    "events": [
+      {
+        "summary": "韩立被墨大夫收为弟子，进入七玄门药园修行",
+        "type": "社交",
+        "importance": "high",
+        "participants": ["韩立", "墨大夫"],
+        "location": "七玄门"
+      }
+    ],
+    "new_concepts": [
+      {
+        "name": "养气丹",
+        "category": "丹药",
+        "definition": "帮助修炼者温养气息的入门丹药",
+        "related": ["灵气"]
+      }
+    ]
+  }
+]
