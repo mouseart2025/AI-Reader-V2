@@ -6,6 +6,7 @@ from src.api.schemas.novels import (
     ConfirmImportRequest,
     NovelListItem,
     NovelResponse,
+    ReSplitRequest,
     UploadPreviewResponse,
 )
 from src.db import novel_store
@@ -48,6 +49,26 @@ async def upload_novel(file: UploadFile):
     return preview
 
 
+@router.get("/split-modes")
+async def get_split_modes():
+    """Return available chapter splitting modes."""
+    return {"modes": novel_service.get_available_modes()}
+
+
+@router.post("/re-split", response_model=UploadPreviewResponse)
+async def re_split_chapters(req: ReSplitRequest):
+    """Re-split a previously uploaded file using a different mode."""
+    try:
+        preview = await novel_service.re_split(
+            file_hash=req.file_hash,
+            mode=req.mode,
+            custom_regex=req.custom_regex,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return preview
+
+
 @router.post("/confirm", response_model=NovelResponse)
 async def confirm_import(req: ConfirmImportRequest):
     """Confirm import of a previously uploaded file."""
@@ -59,6 +80,15 @@ async def confirm_import(req: ConfirmImportRequest):
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return novel
+
+
+@router.get("/{novel_id}", response_model=NovelResponse)
+async def get_novel(novel_id: str):
+    """Return a single novel by ID."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
     return novel
 
 
