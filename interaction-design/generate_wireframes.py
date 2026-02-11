@@ -1971,44 +1971,48 @@ def build_analysis():
 # ═══════════════════════════════════════════════════════════════════════════════
 #  SETTINGS PAGE
 # ═══════════════════════════════════════════════════════════════════════════════
-def build_settings():
-    b = ExcalidrawBuilder()
-    W, H = 1440, 900
-
-    b.text(50, 15, "1. 设置页 — 全局配置", fs=24, color=C_ORANGE_ANNO)
-
-    ox, oy = 50, 50
+def _settings_shell(b, ox, oy, W, H, active_idx, nav_w=220):
+    """Draw the shared settings page shell (top bar + left nav), return content area coords."""
     b.rect(ox, oy, W, H, color=C_DARK, sw=2)
 
-    # Simple top bar (no novel context)
+    # Top bar
     b.rect(ox, oy, W, 48, bg=C_BG, color=C_BORDER)
     b.text(ox + 16, oy + 13, "← 返回", fs=14, color=C_BLUE)
     b.text(ox + 100, oy + 12, "设置", fs=18)
 
     # Left navigation
-    nav_w = 220
     nav_y = oy + 48
     nav_h = H - 48
     b.rect(ox, nav_y, nav_w, nav_h, bg=C_BG, color=C_BORDER)
 
-    sections = [
-        ("LLM 模型配置", True),
-        ("阅读偏好", False),
-        ("数据管理", False),
-        ("关于", False),
-    ]
-    for i, (label, is_active) in enumerate(sections):
+    sections = ["LLM 模型配置", "阅读偏好", "数据管理", "关于"]
+    for i, label in enumerate(sections):
         sy = nav_y + 12 + i * 40
+        is_active = (i == active_idx)
         if is_active:
             b.rect(ox + 6, sy - 2, nav_w - 12, 32, bg="#e7f0fd", color="transparent", rnd={"type": 3})
         b.text(ox + 20, sy + 5, label, fs=14, color=C_BLUE if is_active else C_GRAY)
 
-    # Main content
+    # Content area
     ct_x = ox + nav_w
     ct_y = oy + 48
     ct_w = W - nav_w
     ct_h = H - 48
     b.rect(ct_x, ct_y, ct_w, ct_h, bg=C_BG_WHITE, color=C_BORDER)
+    return ct_x, ct_y, ct_w, ct_h
+
+
+def build_settings():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  Section 1: LLM 模型配置
+    # ══════════════════════════════════════════════════════════════════════════
+    b.text(50, 15, "1. 设置页 — LLM 模型配置", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    ct_x, ct_y, ct_w, ct_h = _settings_shell(b, ox, oy, W, H, active_idx=0)
 
     b.text(ct_x + 40, ct_y + 25, "LLM 模型配置", fs=22)
     b.line(ct_x + 20, ct_y + 60, ct_x + ct_w - 20, ct_y + 60, color=C_BORDER)
@@ -2050,7 +2054,7 @@ def build_settings():
     b.text(ct_x + 55, fy5 + 36, "120", fs=14)
     b.text(ct_x + 200, fy5 + 36, "秒", fs=14, color=C_GRAY)
 
-    # Reading preferences section hint
+    # Environment detection
     fy6 = fy5 + 90
     b.line(ct_x + 20, fy6, ct_x + ct_w - 20, fy6, color=C_BORDER)
     b.text(ct_x + 40, fy6 + 15, "环境检测", fs=16)
@@ -2062,21 +2066,269 @@ def build_settings():
     b.rect(ct_x + ct_w - 160, ct_y + ct_h - 65, 120, 40, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
     b.text(ct_x + ct_w - 140, ct_y + ct_h - 55, "保存设置", fs=14, color=C_WHITE)
 
-    # ── Annotations ──
+    # Annotations
     ax = ox + W + 60
-    b.text(ax, oy + 50, "设置页交互说明", fs=20, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 85, "四个设置分区", fs=16, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 110, "· LLM 模型配置: 模型/参数/服务地址", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 135, "· 阅读偏好: 字号/行距/主题(亮/暗)", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 160, "· 数据管理: 清除缓存/导出数据", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 185, "· 关于: 版本信息/开源协议", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 220, "模型配置", fs=16, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 245, "· 下拉框列出已安装的 Ollama 模型", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 270, "· 实时检测 Ollama 服务状态", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 295, "· 「重新检测环境」重走引导流程", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 325, "全局入口", fs=16, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 350, "· 从任何页面顶栏 ⚙ 进入", fs=14, color=C_ORANGE_ANNO)
-    b.text(ax, oy + 375, "· ← 返回之前所在页面", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 50, "LLM 模型配置说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "· 下拉框列出已安装的 Ollama 模型", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 模型旁标注大小和推荐标记", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 8GB 设备推荐 7B 模型", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· 16GB 设备可选 14B 模型", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 195, "· 实时检测 Ollama 服务状态", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 220, "· 服务未启动时显示红色提示+引导", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 255, "· Temperature 滑块范围 0-1", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 280, "· 超时时间影响单次 LLM 调用", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 315, "· 「重新检测环境」重走首次引导", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 350, "全局入口", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 375, "· 从任何页面顶栏 ⚙ 进入", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 400, "· ← 返回之前所在页面", fs=14, color=C_ORANGE_ANNO)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  Section 2: 阅读偏好
+    # ══════════════════════════════════════════════════════════════════════════
+    s2y = oy + H + 100
+    b.text(50, s2y - 35, "2. 设置页 — 阅读偏好", fs=24, color=C_ORANGE_ANNO)
+
+    ct_x2, ct_y2, ct_w2, ct_h2 = _settings_shell(b, 50, s2y, W, H, active_idx=1)
+
+    b.text(ct_x2 + 40, ct_y2 + 25, "阅读偏好", fs=22)
+    b.line(ct_x2 + 20, ct_y2 + 60, ct_x2 + ct_w2 - 20, ct_y2 + 60, color=C_BORDER)
+
+    # Font size
+    ry = ct_y2 + 80
+    b.text(ct_x2 + 40, ry, "字号", fs=16)
+    b.rect(ct_x2 + 40, ry + 28, 300, 12, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 40, ry + 28, 120, 12, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ct_x2 + 350, ry + 25, "16px", fs=14, color=C_BLUE)
+    b.text(ct_x2 + 40, ry + 48, "12px", fs=11, color=C_GRAY)
+    b.text(ct_x2 + 310, ry + 48, "24px", fs=11, color=C_GRAY)
+
+    # Line height
+    ry2 = ry + 80
+    b.text(ct_x2 + 40, ry2, "行距", fs=16)
+    b.rect(ct_x2 + 40, ry2 + 28, 300, 12, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 40, ry2 + 28, 150, 12, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ct_x2 + 350, ry2 + 25, "1.8", fs=14, color=C_BLUE)
+    b.text(ct_x2 + 40, ry2 + 48, "1.2", fs=11, color=C_GRAY)
+    b.text(ct_x2 + 310, ry2 + 48, "2.5", fs=11, color=C_GRAY)
+
+    # Content width
+    ry3 = ry2 + 80
+    b.text(ct_x2 + 40, ry3, "内容区宽度", fs=16)
+    b.rect(ct_x2 + 40, ry3 + 28, 300, 12, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 40, ry3 + 28, 180, 12, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ct_x2 + 350, ry3 + 25, "800px", fs=14, color=C_BLUE)
+    b.text(ct_x2 + 40, ry3 + 48, "600px", fs=11, color=C_GRAY)
+    b.text(ct_x2 + 300, ry3 + 48, "全宽", fs=11, color=C_GRAY)
+
+    # Theme
+    ry4 = ry3 + 90
+    b.line(ct_x2 + 20, ry4 - 10, ct_x2 + ct_w2 - 20, ry4 - 10, color=C_BORDER)
+    b.text(ct_x2 + 40, ry4, "主题", fs=16)
+
+    # Light theme card
+    b.rect(ct_x2 + 40, ry4 + 30, 160, 100, bg=C_BG_WHITE, color=C_BLUE, sw=2, rnd={"type": 3})
+    b.rect(ct_x2 + 55, ry4 + 45, 130, 10, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 55, ry4 + 62, 110, 10, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 55, ry4 + 79, 120, 10, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.text(ct_x2 + 85, ry4 + 103, "亮色", fs=13, color=C_BLUE)
+    b.text(ct_x2 + 80, ry4 + 135, "● 当前", fs=12, color=C_BLUE)
+
+    # Dark theme card
+    b.rect(ct_x2 + 230, ry4 + 30, 160, 100, bg="#1e1e1e", color=C_BORDER_MED, rnd={"type": 3})
+    b.rect(ct_x2 + 245, ry4 + 45, 130, 10, bg="#3a3a3a", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 245, ry4 + 62, 110, 10, bg="#3a3a3a", color="transparent", rnd={"type": 3})
+    b.rect(ct_x2 + 245, ry4 + 79, 120, 10, bg="#3a3a3a", color="transparent", rnd={"type": 3})
+    b.text(ct_x2 + 275, ry4 + 103, "暗色", fs=13, color=C_GRAY)
+
+    # Auto theme
+    b.rect(ct_x2 + 420, ry4 + 30, 160, 100, bg=C_BG, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x2 + 455, ry4 + 70, "🌗 自动", fs=16, color=C_GRAY)
+    b.text(ct_x2 + 445, ry4 + 103, "跟随系统", fs=13, color=C_GRAY)
+
+    # Entity highlight toggle
+    ry5 = ry4 + 180
+    b.line(ct_x2 + 20, ry5 - 10, ct_x2 + ct_w2 - 20, ry5 - 10, color=C_BORDER)
+    b.text(ct_x2 + 40, ry5, "实体高亮", fs=16)
+    b.text(ct_x2 + 40, ry5 + 30, "在阅读页中显示实体名颜色高亮", fs=13, color=C_GRAY)
+    # Toggle switch ON
+    b.rect(ct_x2 + 450, ry5 + 2, 44, 22, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.ellipse(ct_x2 + 472, ry5 + 4, 18, 18, bg=C_BG_WHITE, color=C_BG_WHITE)
+
+    # Highlight colors preview
+    ry6 = ry5 + 60
+    b.text(ct_x2 + 60, ry6, "● 人物", fs=12, color=C_CHAR)
+    b.text(ct_x2 + 140, ry6, "● 地点", fs=12, color=C_LOC)
+    b.text(ct_x2 + 220, ry6, "● 物品", fs=12, color=C_ITEM)
+    b.text(ct_x2 + 300, ry6, "● 组织", fs=12, color=C_ORG)
+    b.text(ct_x2 + 380, ry6, "● 概念", fs=12, color=C_CONCEPT)
+    b.text(ct_x2 + 60, ry6 + 24, "(颜色不可自定义，保持全局一致)", fs=11, color=C_LIGHT_GRAY)
+
+    # Save button
+    b.rect(ct_x2 + ct_w2 - 160, ct_y2 + ct_h2 - 65, 120, 40, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(ct_x2 + ct_w2 - 140, ct_y2 + ct_h2 - 55, "保存设置", fs=14, color=C_WHITE)
+
+    # Annotations
+    ax2 = 50 + W + 60
+    b.text(ax2, s2y + 50, "阅读偏好说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 85, "· 字号/行距/内容宽度 实时预览", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 110, "· 设置保存后全局生效", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 145, "主题", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 170, "· 亮色 / 暗色 / 跟随系统 三选一", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 195, "· 选中项蓝色边框标识", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 220, "· 切换后立即生效，无需保存", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 255, "实体高亮", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 280, "· 开关控制是否在阅读页显示高亮", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 305, "· 关闭后仍可手动点击文本弹出卡片", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax2, s2y + 330, "· 颜色由系统统一编码不可自定义", fs=14, color=C_ORANGE_ANNO)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  Section 3: 数据管理
+    # ══════════════════════════════════════════════════════════════════════════
+    s3y = s2y + H + 100
+    b.text(50, s3y - 35, "3. 设置页 — 数据管理", fs=24, color=C_ORANGE_ANNO)
+
+    ct_x3, ct_y3, ct_w3, ct_h3 = _settings_shell(b, 50, s3y, W, H, active_idx=2)
+
+    b.text(ct_x3 + 40, ct_y3 + 25, "数据管理", fs=22)
+    b.line(ct_x3 + 20, ct_y3 + 60, ct_x3 + ct_w3 - 20, ct_y3 + 60, color=C_BORDER)
+
+    # Storage overview
+    dy = ct_y3 + 80
+    b.text(ct_x3 + 40, dy, "存储概览", fs=16)
+    b.rect(ct_x3 + 40, dy + 30, ct_w3 - 80, 100, bg=C_BG, color=C_BORDER, rnd={"type": 3})
+
+    stats = [("向量索引", "1.2 GB"), ("知识图谱", "320 MB"), ("分析缓存", "580 MB"), ("合计", "2.1 GB")]
+    for i, (label, val) in enumerate(stats):
+        sx = ct_x3 + 70 + i * 240
+        is_total = (label == "合计")
+        b.text(sx, dy + 48, label, fs=14, color=C_DARK if is_total else C_GRAY)
+        b.text(sx, dy + 72, val, fs=20, color=C_BLUE if is_total else C_BLACK)
+    # Separator before total
+    b.line(ct_x3 + 70 + 3 * 240 - 20, dy + 45, ct_x3 + 70 + 3 * 240 - 20, dy + 100, color=C_BORDER)
+
+    # Per-novel data
+    dy2 = dy + 155
+    b.text(ct_x3 + 40, dy2, "按小说查看", fs=16)
+
+    # Novel data table header
+    b.rect(ct_x3 + 40, dy2 + 30, ct_w3 - 80, 30, bg=C_BG, color=C_BORDER)
+    for label, hx in [("小说", 20), ("章节", 300), ("存储", 420), ("分析状态", 540), ("操作", 700)]:
+        b.text(ct_x3 + 60 + hx, dy2 + 37, label, fs=12, color=C_GRAY)
+
+    novels = [
+        ("凡人修仙传", "2451 章", "1.8 GB", "120/2451 已分析", C_BLUE),
+        ("平凡的世界", "162 章", "310 MB", "162/162 已完成", C_GREEN),
+    ]
+    for i, (name, chs, size, status, clr) in enumerate(novels):
+        ry = dy2 + 60 + i * 40
+        if i % 2 == 0:
+            b.rect(ct_x3 + 40, ry, ct_w3 - 80, 40, bg=C_BG, color="transparent", opacity=30)
+        b.text(ct_x3 + 80, ry + 12, name, fs=14)
+        b.text(ct_x3 + 360, ry + 12, chs, fs=13, color=C_GRAY)
+        b.text(ct_x3 + 480, ry + 12, size, fs=13, color=C_GRAY)
+        b.text(ct_x3 + 600, ry + 12, status, fs=13, color=clr)
+        b.text(ct_x3 + 760, ry + 12, "导出", fs=13, color=C_BLUE)
+        b.text(ct_x3 + 810, ry + 12, "删除", fs=13, color=C_RED)
+
+    # Export / Import section
+    dy3 = dy2 + 160
+    b.line(ct_x3 + 20, dy3, ct_x3 + ct_w3 - 20, dy3, color=C_BORDER)
+    b.text(ct_x3 + 40, dy3 + 15, "导入 / 导出", fs=16)
+    b.text(ct_x3 + 40, dy3 + 45, "将单本小说的全部分析数据导出为 JSON 文件，可在另一台设备导入恢复。", fs=13, color=C_GRAY)
+
+    b.rect(ct_x3 + 40, dy3 + 80, 160, 38, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(ct_x3 + 55, dy3 + 89, "📤 导出数据", fs=14, color=C_WHITE)
+    b.rect(ct_x3 + 220, dy3 + 80, 160, 38, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x3 + 235, dy3 + 89, "📥 导入数据", fs=14, color=C_GRAY)
+
+    # Cache section
+    dy4 = dy3 + 140
+    b.line(ct_x3 + 20, dy4, ct_x3 + ct_w3 - 20, dy4, color=C_BORDER)
+    b.text(ct_x3 + 40, dy4 + 15, "缓存管理", fs=16)
+    b.text(ct_x3 + 40, dy4 + 45, "清除向量索引缓存和临时文件。小说文本和分析结果不受影响。", fs=13, color=C_GRAY)
+    b.rect(ct_x3 + 40, dy4 + 80, 160, 38, color=C_RED, rnd={"type": 3})
+    b.text(ct_x3 + 55, dy4 + 89, "🗑 清除缓存", fs=14, color=C_RED)
+    b.text(ct_x3 + 220, dy4 + 93, "当前缓存: 580 MB", fs=13, color=C_GRAY)
+
+    # Annotations
+    ax3 = 50 + W + 60
+    b.text(ax3, s3y + 50, "数据管理说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 85, "存储概览", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 110, "· 按类型统计占用空间", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 135, "· 按小说查看各自数据量", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 170, "导出/导入", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 195, "· 导出格式: JSON (含图谱+向量+元数据)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 220, "· 可跨设备迁移分析数据", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 245, "· 也可从小说列表行内直接导出", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 280, "删除操作", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 305, "· 删除单本小说数据需二次确认", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 330, "· 清除缓存不影响已有分析结果", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax3, s3y + 355, "· 缓存清除后首次加载会略慢", fs=14, color=C_ORANGE_ANNO)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  Section 4: 关于
+    # ══════════════════════════════════════════════════════════════════════════
+    s4y = s3y + H + 100
+    b.text(50, s4y - 35, "4. 设置页 — 关于", fs=24, color=C_ORANGE_ANNO)
+
+    ct_x4, ct_y4, ct_w4, ct_h4 = _settings_shell(b, 50, s4y, W, H, active_idx=3)
+
+    b.text(ct_x4 + 40, ct_y4 + 25, "关于", fs=22)
+    b.line(ct_x4 + 20, ct_y4 + 60, ct_x4 + ct_w4 - 20, ct_y4 + 60, color=C_BORDER)
+
+    # App info
+    ay = ct_y4 + 85
+    b.text(ct_x4 + 40, ay, "📖 AI Reader", fs=28)
+    b.text(ct_x4 + 40, ay + 40, "智能小说阅读理解系统", fs=16, color=C_GRAY)
+    b.text(ct_x4 + 40, ay + 68, "Version 2.0.0", fs=14, color=C_GRAY)
+
+    # System info table
+    ay2 = ay + 110
+    b.line(ct_x4 + 20, ay2 - 10, ct_x4 + ct_w4 - 20, ay2 - 10, color=C_BORDER)
+    b.text(ct_x4 + 40, ay2, "系统信息", fs=16)
+
+    info_items = [
+        ("运行平台", "macOS 14.0 (Apple M2)"),
+        ("Python", "3.10.12"),
+        ("Ollama", "0.3.6"),
+        ("ChromaDB", "0.4.22"),
+        ("存储路径", "~/Library/Application Support/AI-Reader/"),
+    ]
+    for i, (label, val) in enumerate(info_items):
+        iy = ay2 + 32 + i * 30
+        b.text(ct_x4 + 60, iy, label, fs=14, color=C_GRAY)
+        b.text(ct_x4 + 220, iy, val, fs=14)
+
+    # Tech stack
+    ay3 = ay2 + 32 + len(info_items) * 30 + 20
+    b.line(ct_x4 + 20, ay3 - 10, ct_x4 + ct_w4 - 20, ay3 - 10, color=C_BORDER)
+    b.text(ct_x4 + 40, ay3, "技术栈", fs=16)
+    techs = "Ollama · Qwen 2.5 · ChromaDB · NetworkX · FastAPI · Sentence-Transformers"
+    b.text(ct_x4 + 40, ay3 + 28, techs, fs=13, color=C_GRAY)
+
+    # License & links
+    ay4 = ay3 + 70
+    b.line(ct_x4 + 20, ay4 - 10, ct_x4 + ct_w4 - 20, ay4 - 10, color=C_BORDER)
+    b.text(ct_x4 + 40, ay4, "开源协议", fs=16)
+    b.text(ct_x4 + 40, ay4 + 28, "MIT License", fs=14, color=C_BLUE)
+
+    b.text(ct_x4 + 40, ay4 + 62, "项目地址", fs=16)
+    b.text(ct_x4 + 40, ay4 + 90, "github.com/xxx/ai-reader-v2", fs=14, color=C_BLUE)
+
+    # Privacy notice
+    ay5 = ay4 + 130
+    b.rect(ct_x4 + 40, ay5, ct_w4 - 80, 50, bg="#f0fdf4", color=C_GREEN, rnd={"type": 3})
+    b.text(ct_x4 + 56, ay5 + 8, "🔒 隐私声明", fs=14, color=C_GREEN)
+    b.text(ct_x4 + 56, ay5 + 30, "本应用完全本地运行，不向任何外部服务器发送数据，不收集使用信息。", fs=12, color="#2b8a3e")
+
+    # Annotations
+    ax4 = 50 + W + 60
+    b.text(ax4, s4y + 50, "关于页说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax4, s4y + 85, "· 展示版本号和系统环境信息", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax4, s4y + 110, "· 各依赖组件版本便于调试", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax4, s4y + 135, "· 存储路径可一键复制", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax4, s4y + 165, "· 项目地址/协议可点击跳转", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax4, s4y + 195, "· 隐私声明突出「完全本地」承诺", fs=14, color=C_ORANGE_ANNO)
 
     return b.build()
 
