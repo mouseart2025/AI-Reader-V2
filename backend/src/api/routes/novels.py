@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 
 from src.api.schemas.novels import (
     ConfirmImportRequest,
+    NovelListItem,
     NovelResponse,
     UploadPreviewResponse,
 )
@@ -18,8 +19,9 @@ _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100MB
 
 @router.get("")
 async def list_novels():
-    """Return list of all imported novels."""
-    novels = await novel_store.list_novels()
+    """Return list of all imported novels with progress info."""
+    rows = await novel_store.list_novels()
+    novels = [NovelListItem(**row) for row in rows]
     return {"novels": novels}
 
 

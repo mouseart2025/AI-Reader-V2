@@ -34,3 +34,16 @@ class NovelResponse(BaseModel):
     total_words: int
     created_at: str
     updated_at: str
+
+
+class NovelListItem(BaseModel):
+    id: str
+    title: str
+    author: str | None
+    total_chapters: int
+    total_words: int
+    created_at: str
+    updated_at: str
+    analysis_progress: float = 0.0
+    reading_progress: float = 0.0
+    last_opened: str | None = None

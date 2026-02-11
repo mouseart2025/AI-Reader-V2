@@ -1,3 +1,5 @@
+import type { NovelsListResponse } from "./types"
+
 const BASE = "/api"
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -9,4 +11,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new Error(`API error: ${res.status} ${res.statusText}`)
   }
   return res.json() as Promise<T>
+}
+
+export function fetchNovels(): Promise<NovelsListResponse> {
+  return apiFetch<NovelsListResponse>("/novels")
+}
+
+export function deleteNovel(novelId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/novels/${novelId}`, { method: "DELETE" })
 }
