@@ -1,0 +1,16 @@
+# BMAD BMM Module Configuration
+# Generated manually for AI-Reader-V2
+# Version: 6.0.0-Beta.8
+# Date: 2026-02-11
+
+project_name: "AI-Reader-V2"
+user_skill_level: "expert"
+planning_artifacts: "_bmad-output"
+implementation_artifacts: "_bmad-output"
+project_knowledge: "_bmad-output"
+
+# Inherited from core
+user_name: "leonfeng"
+communication_language: "zh-CN"
+document_output_language: "zh-CN"
+output_folder: "_bmad-output"

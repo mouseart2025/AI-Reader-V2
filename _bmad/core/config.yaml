@@ -1,0 +1,9 @@
+# BMAD Core Configuration
+# Generated manually for AI-Reader-V2
+# Version: 6.0.0-Beta.8
+# Date: 2026-02-11
+
+user_name: "leonfeng"
+communication_language: "zh-CN"
+document_output_language: "zh-CN"
+output_folder: "_bmad-output"

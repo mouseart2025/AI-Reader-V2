@@ -1,0 +1,15 @@
+# BMAD Installation Manifest
+version: "6.0.0-Beta.8"
+installation:
+  date: "2026-02-11T02:00:00.000Z"
+  lastUpdated: "2026-02-11T02:00:00.000Z"
+  method: "manual"
+ides:
+  - claude-code
+modules:
+  - name: core
+    id: core
+    version: "6.0.0-Beta.8"
+  - name: "BMad Method Agile-AI Driven-Development"
+    id: bmm
+    version: "6.0.0-Beta.8"
