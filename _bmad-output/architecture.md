@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments:
   - PRD.md
   - interaction-design/01-bookshelf.excalidraw
@@ -925,3 +925,321 @@ src/
     ├── text_processor.py       # 编码检测、章节切分
     └── chapter_splitter.py     # 章节切分规则引擎
 ```
+
+---
+
+## 7. 实现模式与一致性规则
+
+本节定义全项目统一的命名、格式和行为模式，确保前后端开发和 AI Agent 实现时保持一致，避免冲突。
+
+### 7.1 命名约定
+
+#### 数据库命名
+
+| 元素 | 规则 | 示例 |
+|------|------|------|
+| 表名 | 小写复数，snake_case | `novels`, `chapter_facts`, `analysis_tasks` |
+| 列名 | 小写 snake_case | `novel_id`, `chapter_num`, `fact_json` |
+| 主键 | `id`（TEXT 用 UUID，INTEGER 用自增） | `novels.id` (TEXT), `chapters.id` (INTEGER) |
+| 外键 | `{被引用表单数}_id` | `novel_id`, `chapter_id`, `conversation_id` |
+| 时间戳 | `_at` 后缀，ISO 8601 TEXT | `created_at`, `updated_at`, `analyzed_at` |
+| 布尔列 | `is_` 或 `has_` 前缀 | *（当前设计暂无布尔列）* |
+| JSON 列 | `_json` 后缀 | `fact_json`, `sources_json`, `chapter_range` |
+
+#### API 路由命名
+
+| 规则 | 正确 | 错误 |
+|------|------|------|
+| 小写复数名词，kebab-case | `/api/novels/{id}/chapter-facts` | `/api/Novel/{id}/chapterFacts` |
+| 资源嵌套不超过 3 层 | `/api/novels/{id}/entities/{name}` | `/api/novels/{id}/chapters/{cid}/facts/{fid}/chars` |
+| 动作用 HTTP 方法表达 | `POST /api/novels` (创建) | `POST /api/novels/create` |
+| 查询参数 snake_case | `?chapter_start=1&chapter_end=50` | `?chapterStart=1` |
+
+#### 前端命名
+
+| 元素 | 规则 | 示例 |
+|------|------|------|
+| 组件文件 | PascalCase.tsx | `BookshelfPage.tsx`, `EntityDrawer.tsx` |
+| Hook 文件 | camelCase.ts，use 前缀 | `useEntity.ts`, `useGraph.ts` |
+| Store 文件 | camelCase + Store.ts | `novelStore.ts`, `chatStore.ts` |
+| API 文件 | camelCase.ts | `client.ts`, `types.ts` |
+| 工具文件 | kebab-case.ts | `entity-colors.ts`, `format.ts` |
+| 接口/类型 | PascalCase，无 I 前缀 | `PersonProfile`, `ChapterFact` |
+| 常量 | UPPER_SNAKE_CASE | `ENTITY_COLORS`, `MAX_CACHE_SIZE` |
+| 事件处理 | handle 前缀 | `handleEntityClick`, `handleChapterChange` |
+
+#### 后端命名
+
+| 元素 | 规则 | 示例 |
+|------|------|------|
+| Python 文件 | snake_case.py | `novel_service.py`, `chapter_fact_extractor.py` |
+| 类名 | PascalCase | `AnalysisService`, `ChapterFactExtractor` |
+| 函数/方法 | snake_case | `get_chapter_facts()`, `aggregate_person()` |
+| Pydantic 模型 | PascalCase + Request/Response | `NovelCreateRequest`, `EntityResponse` |
+| 常量 | UPPER_SNAKE_CASE | `DEFAULT_LLM_MODEL`, `MAX_CONTEXT_TOKENS` |
+
+### 7.2 API 响应格式
+
+#### 标准成功响应
+
+```json
+// 单资源
+{
+  "data": { ... }
+}
+
+// 列表资源
+{
+  "data": [ ... ],
+  "total": 42
+}
+
+// 分页列表
+{
+  "data": [ ... ],
+  "total": 200,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### 标准错误响应
+
+```json
+{
+  "error": {
+    "code": "NOVEL_NOT_FOUND",
+    "message": "找不到指定的小说",
+    "detail": "novel_id=abc-123  不存在"
+  }
+}
+```
+
+#### 错误码规则
+
+| HTTP 状态 | 错误码模式 | 使用场景 |
+|-----------|-----------|---------|
+| 400 | `INVALID_{FIELD}` | 请求参数验证失败 |
+| 404 | `{RESOURCE}_NOT_FOUND` | 资源不存在 |
+| 409 | `{RESOURCE}_ALREADY_EXISTS` | 重复创建（如相同 file_hash） |
+| 422 | `ANALYSIS_IN_PROGRESS` | 状态冲突 |
+| 500 | `INTERNAL_ERROR` | 未预期的服务端错误 |
+| 503 | `LLM_UNAVAILABLE` | Ollama 服务不可用 |
+
+### 7.3 错误处理模式
+
+#### 后端分层错误处理
+
+```
+路由层 (routes/)
+  │  捕获 Pydantic ValidationError → 400
+  │  捕获 ServiceException → 对应 HTTP 状态码
+  │  未捕获异常 → 全局异常处理器 → 500
+  │
+服务层 (services/)
+  │  抛出自定义 ServiceException(code, message, status_code)
+  │  不直接返回 HTTP 响应
+  │
+存储层 (db/)
+  │  抛出 StoreException（数据库错误）
+  │  由服务层捕获并转换为 ServiceException
+  │
+基础设施层 (infra/)
+  │  LLM 调用超时 → LLMTimeoutError
+  │  LLM 连接失败 → LLMConnectionError
+  │  由服务层捕获并处理（重试或向上传播）
+```
+
+#### 前端错误处理
+
+| 场景 | 处理方式 |
+|------|---------|
+| API 请求失败 (4xx/5xx) | Toast 通知，显示 error.message |
+| WebSocket 断开 | 自动重连（指数退避，最大 3 次），状态栏提示 |
+| LLM 不可用 (503) | 分析页显示"Ollama 未启动"提示卡片 + 启动指南 |
+| 分析章节失败 | 该章标记 failed，继续下一章，面板显示失败列表 |
+
+### 7.4 状态管理模式
+
+#### Zustand Store 规范
+
+```typescript
+// Store 结构规范
+interface XxxStore {
+  // ── 状态 ──
+  data: DataType | null;
+  loading: boolean;
+  error: string | null;
+
+  // ── 动作（命名：动词开头）──
+  fetchXxx: (params: P) => Promise<void>;
+  setXxx: (value: V) => void;
+  resetXxx: () => void;
+}
+```
+
+#### 加载状态模式
+
+| 场景 | 模式 | 实现 |
+|------|------|------|
+| 页面初始加载 | 骨架屏 (Skeleton) | shadcn/ui Skeleton 组件 |
+| 数据刷新 | 保持旧数据 + 加载指示器 | loading spinner overlay |
+| 分析进度 | 实时进度条 | WebSocket 推送 → store 更新 |
+| 流式问答 | 逐字显示 | WebSocket token → 追加渲染 |
+| 空状态 | 引导提示 | 空态插画 + 操作按钮 |
+
+### 7.5 前后端交互模式
+
+#### REST vs WebSocket 使用边界
+
+| 场景 | 协议 | 理由 |
+|------|------|------|
+| CRUD 操作（增删改查） | REST | 请求-响应模式，简单可靠 |
+| 可视化数据获取 | REST | 一次性获取，无需实时更新 |
+| 分析进度推送 | WebSocket | 服务端主动推送，持续时间长 |
+| 流式问答 | WebSocket | Token 粒度流式推送 |
+| 实体卡片数据 | REST | 按需获取，可缓存 |
+
+#### WebSocket 重连策略
+
+```
+连接断开
+  → 等待 1s → 第 1 次重连
+  → 失败 → 等待 2s → 第 2 次重连
+  → 失败 → 等待 4s → 第 3 次重连
+  → 失败 → 显示"连接断开"提示，手动重连按钮
+```
+
+### 7.6 LLM 调用模式
+
+#### 统一 LLM 客户端接口
+
+```python
+class LLMClient:
+    async def generate(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        format: dict | None = None,  # JSON Schema for structured output
+        timeout: int = 120,
+    ) -> str | dict:
+        """统一 LLM 调用入口。format 非空时返回 dict，否则返回 str。"""
+
+    async def generate_stream(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        timeout: int = 120,
+    ) -> AsyncIterator[str]:
+        """流式生成，用于问答场景。"""
+```
+
+#### 两种调用场景
+
+| 场景 | 方法 | format 参数 | 超时 |
+|------|------|------------|------|
+| ChapterFact 抽取 | `generate()` | ChapterFact JSON Schema | 120s |
+| 问答推理 | `generate_stream()` | 无 | 60s |
+
+### 7.7 测试模式
+
+| 层级 | 工具 | 范围 |
+|------|------|------|
+| 后端单元测试 | pytest + pytest-asyncio | Service、Aggregator、Extractor |
+| 后端集成测试 | pytest + httpx (TestClient) | API 端点 |
+| 前端组件测试 | Vitest + Testing Library | 组件渲染、交互 |
+| E2E 测试 | Playwright | 核心用户流程 |
+
+---
+
+## 8. 架构验证
+
+### 8.1 需求覆盖验证
+
+| PRD 模块 | 关键功能 | 架构支撑 | 覆盖状态 |
+|----------|---------|---------|---------|
+| **书架管理** (F-01~06) | TXT 上传、编码检测、章节切分、卷结构、重复检测 | NovelService + text_processor + chapters 表 + file_hash | ✅ 完全覆盖 |
+| **小说阅读** (F-10~17) | 章节浏览、实体高亮、实体卡片弹出、阅读位置记忆 | chapters 表 + EntityHighlight 组件 + EntityDrawer + user_state 表 | ✅ 完全覆盖 |
+| **实体卡片** (F-20~26) | 4 种卡片、7 种区块、导航栈、消歧 | EntityAggregator (ChapterFact → Profile) + entityDrawerStore 导航栈 | ✅ 完全覆盖 |
+| **知识图谱** (F-30~40) | 关系图、世界地图、时间线、势力图、章节范围联动 | 4 种可视化引擎 + VizService + chapterRangeStore | ✅ 完全覆盖 |
+| **智能问答** (F-50~56) | 混合检索、流式输出、来源标注、对话上下文 | QueryService + WebSocket chat + conversations/messages 表 | ✅ 完全覆盖 |
+| **小说分析** (F-60~66) | 启动/暂停/恢复、进度推送、断点续传 | AnalysisService + analysis_tasks 表 + WebSocket progress | ✅ 完全覆盖 |
+| **百科** (F-70~72) | 分类索引、搜索 | ChapterFact.new_concepts 聚合 → Encyclopedia | ✅ 完全覆盖 |
+| **系统** (F-80~83) | Ollama 状态检测、配置管理、数据导入导出 | ConfigManager + settings API + 导出为 JSON | ✅ 完全覆盖 |
+
+### 8.2 非功能需求验证
+
+| NFR | 目标 | 架构保障 |
+|-----|------|---------|
+| 完全本地 | 无网络依赖 | Ollama 本地推理 + SQLite 本地存储 + ChromaDB 本地嵌入 |
+| 内存 ≤ 7GB | 含模型 | Qwen 7B 约 4.5GB + 应用约 1-2GB；ChapterFact 全量加载约 10MB |
+| 章节切换 ≤ 1s | 响应速度 | SQLite 单章查询 < 10ms；前端路由无页面刷新 |
+| 问答首字 ≤ 3s | LLM 延迟 | 检索 < 500ms + Ollama 流式首 token < 2s（本地 M1+） |
+| 图谱 500 节点 | 渲染性能 | Canvas 渲染（@react-force-graph-2d），非 SVG/DOM |
+| 隐私 | 无遥测 | 无第三方 SDK，无外部 HTTP 请求 |
+
+### 8.3 架构一致性检查
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 数据模型 ↔ 抽取层 | ✅ | ChapterFact 模型是抽取和存储的唯一接口 |
+| 抽取层 ↔ 聚合层 | ✅ | EntityAggregator 消费 ChapterFact 产出 Profile |
+| 聚合层 ↔ API 层 | ✅ | API 返回 Profile 结构，前端直接渲染 |
+| API 格式 ↔ 前端类型 | ✅ | 共享 TypeScript 类型定义（types.ts ↔ Pydantic 模型） |
+| WebSocket 协议 ↔ 前端 Store | ✅ | 消息格式统一，Store 处理对应 type |
+| 章节范围 ↔ 全部视图 | ✅ | chapterRangeStore 被 4 个可视化 + API 共享 |
+| 错误处理 ↔ 前端 Toast | ✅ | 统一 error 格式，前端统一展示 |
+
+### 8.4 技术风险评估
+
+| 风险 | 等级 | 缓解策略 |
+|------|------|---------|
+| Qwen 2.5 7B 结构化输出质量 | 中 | Few-shot 示例 + 后验证 + 可回退到 14B |
+| 2000 章全量聚合性能 | 低 | 10MB 级别内存聚合，LRU 缓存热点实体 |
+| Pixi.js 世界地图自定义复杂度 | 中 | 可先用简化版（层级树视图），后迭代地图 |
+| 前序上下文摘要 token 控制 | 低 | 硬限 2000 token + 活跃实体优先策略 |
+| WebSocket 长连接稳定性 | 低 | 指数退避重连 + 心跳检测 |
+
+### 8.5 实现建议优先级
+
+基于 PRD 的 P0/P1/P2 和架构依赖关系，建议实现顺序：
+
+```
+Phase 1 (核心基础)
+  ├── 后端骨架 (FastAPI + SQLite + 目录结构)
+  ├── 小说上传 + 章节切分 (NovelService)
+  ├── ChapterFact 抽取 (ChapterFactExtractor + LLMClient)
+  └── 分析任务系统 (AnalysisService + WebSocket 进度)
+
+Phase 2 (阅读 + 卡片)
+  ├── 前端骨架 (React + 路由 + 基础 UI)
+  ├── 书架页 + 阅读页
+  ├── 实体聚合 (EntityAggregator)
+  ├── 实体高亮 + 实体卡片
+  └── 章节目录
+
+Phase 3 (可视化)
+  ├── 关系图 (ForceGraph)
+  ├── 势力图 (复用 ForceGraph)
+  ├── 时间线 (Timeline)
+  ├── 章节范围联动
+  └── 世界地图 (Pixi.js, 最后实现)
+
+Phase 4 (问答 + 百科)
+  ├── 问答 Pipeline (QueryService + 混合检索)
+  ├── 流式问答 WebSocket
+  ├── 百科聚合
+  └── 系统设置页
+
+Phase 5 (打磨)
+  ├── 导入导出
+  ├── P2 功能
+  ├── 性能优化
+  └── E2E 测试
+```
+
+---
+
+*架构决策文档完成。下一步：创建 Epic 和 Story (CE 工作流)。*
