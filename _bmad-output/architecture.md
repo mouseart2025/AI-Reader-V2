@@ -305,22 +305,623 @@ ChapterFact 是原始数据层。上层通过聚合产出 PRD 所需的实体档
 
 ## 3. 技术栈决策
 
-_（待后续步骤补充：前端框架、后端框架、存储方案、可视化引擎等）_
+### 3.1 总览
+
+| 层级 | 技术 | 选型理由 |
+|------|------|----------|
+| **前端框架** | React 18 + TypeScript | 复杂状态管理生态最成熟；可视化库支持最广；Tauri 兼容 |
+| **构建工具** | Vite | 开发体验快，HMR 即时生效 |
+| **状态管理** | Zustand | 轻量、TypeScript 友好、支持 middleware；比 Redux 简洁 |
+| **UI 组件库** | shadcn/ui + Tailwind CSS | 可定制、无运行时依赖、暗/亮主题原生支持 |
+| **路由** | React Router v6 | 10 个页面的标准路由方案 |
+| **后端框架** | Python FastAPI | PRD 指定，V1 已验证，异步性能好 |
+| **WebSocket** | FastAPI WebSocket | 分析进度推送 + 流式问答 |
+| **关系数据库** | SQLite (aiosqlite) | 本地部署、零配置、JSON 列支持、异步访问 |
+| **向量数据库** | ChromaDB | V1 已验证，HNSW 索引，cosine 相似度 |
+| **LLM** | Ollama + Qwen 2.5 (7B/14B) | 本地推理，structured output 支持 |
+| **Embedding** | BGE-base-zh-v1.5 | 768 维中文向量，MPS 加速 |
+| **ORM** | 不使用 ORM | 直接 SQL + dataclass，避免 ORM 在 JSON 列和聚合查询上的开销 |
+
+### 3.2 前端可视化引擎
+
+PRD 定义了 4 种可视化视图，各有不同的渲染需求：
+
+| 视图 | 引擎 | 选型理由 |
+|------|------|----------|
+| **人物关系图** | @react-force-graph-2d (基于 d3-force + Canvas) | 500 节点流畅；节点拖拽、缩放、hover 内置；2D Canvas 性能优于 SVG |
+| **世界地图** | Pixi.js v8 + @pixi/react | PRD 建议高性能 2D Canvas；语义缩放需自定义层级控制；羊皮纸风格纹理渲染 |
+| **时间线** | 自研 Canvas 组件 (基于 d3-scale + d3-axis) | 需要章节轴 + 多泳道 + 框选缩放，现有时间线库不支持小说场景的定制需求 |
+| **势力图** | 复用 @react-force-graph-2d | 与关系图同引擎，节点/边样式不同，可共享底层 |
+
+**共享数据层**：4 个视图共享同一个 `ChapterRangeContext`（章节范围状态），通过 Zustand store 联动。
+
+### 3.3 前端关键依赖
+
+| 用途 | 库 | 说明 |
+|------|-----|------|
+| HTTP 客户端 | ky (或 fetch 封装) | 轻量，TypeScript 友好 |
+| WebSocket 客户端 | 原生 WebSocket | 无需额外库 |
+| 图标 | lucide-react | shadcn/ui 配套，树摇优化 |
+| Markdown 渲染 | react-markdown | 问答回答的 Markdown 渲染 |
+| 虚拟滚动 | @tanstack/react-virtual | 长章节列表、百科词条列表的性能 |
+| 图表统计 | recharts | 分析页面的简单统计图表 |
+
+### 3.4 不采用的方案及理由
+
+| 被否决方案 | 理由 |
+|-----------|------|
+| Vue / Svelte | React 在复杂可视化场景的生态更丰富（force-graph、pixi-react 等） |
+| Next.js | 本项目是 SPA + localhost，不需要 SSR/SSG |
+| Neo4j | 本地部署过重；图查询需求可用 SQLite 聚合 + 内存计算覆盖 |
+| PostgreSQL | 需要独立服务进程，不适合本地单用户工具 |
+| D3.js 直接操作 DOM | 与 React 虚拟 DOM 冲突；通过 Canvas 库间接使用 D3 的计算能力 |
+| Tiled / Phaser | PRD 明确说明世界地图不是 tile 地图 |
+| SQLAlchemy ORM | ChapterFact 是深嵌套 JSON，ORM 映射复杂且低效 |
 
 ---
 
 ## 4. 系统分层架构
 
-_（待后续步骤补充：前端层、API 层、服务层、抽取层、存储层的划分）_
+### 4.1 整体架构图
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  前端层 (React + TypeScript)                                     │
+│  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
+│  │ 页面组件    │ │ 实体卡片  │ │ 可视化    │ │ 状态管理         │  │
+│  │ (10 pages) │ │ 系统     │ │ (4 引擎)  │ │ (Zustand stores) │  │
+│  └─────┬──────┘ └────┬─────┘ └────┬─────┘ └──────┬───────────┘  │
+│        └──────────────┴────────────┴──────────────┘              │
+│                          │ REST + WebSocket                      │
+├──────────────────────────┼──────────────────────────────────────┤
+│  API 层 (FastAPI)        │                                       │
+│  ┌───────────────────────┴───────────────────────────────────┐  │
+│  │  REST Routes              │  WebSocket Handlers            │  │
+│  │  /api/novels              │  /ws/analysis/{novel_id}       │  │
+│  │  /api/novels/:id/chapters │  /ws/chat/{session_id}         │  │
+│  │  /api/novels/:id/entities │                                │  │
+│  │  /api/novels/:id/graph    │  Pydantic Schemas              │  │
+│  │  /api/novels/:id/map      │  (Request/Response Models)     │  │
+│  │  /api/novels/:id/timeline │                                │  │
+│  │  /api/novels/:id/chat     │                                │  │
+│  │  /api/settings            │                                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│  服务层 (Business Logic)                                         │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐ │
+│  │ NovelService │ │AnalysisService│ │ EntityAggregator         │ │
+│  │ - 上传解析   │ │ - 任务队列    │ │ - ChapterFact → Profile  │ │
+│  │ - 章节切分   │ │ - 进度追踪    │ │ - PersonProfile          │ │
+│  │ - 编码检测   │ │ - 暂停/恢复   │ │ - LocationProfile        │ │
+│  │ - 重复检测   │ │ - 失败重试    │ │ - ItemProfile            │ │
+│  └──────────────┘ └──────────────┘ │ - OrgProfile             │ │
+│  ┌──────────────┐ ┌──────────────┐ │ - Timeline               │ │
+│  │ QueryService │ │  VizService  │ │ - Encyclopedia           │ │
+│  │ - 混合检索   │ │ - 关系图数据  │ └──────────────────────────┘ │
+│  │ - 推理链     │ │ - 地图数据    │                              │
+│  │ - 流式输出   │ │ - 时间线数据  │                              │
+│  │ - 来源标注   │ │ - 势力图数据  │                              │
+│  └──────────────┘ └──────────────┘                              │
+├─────────────────────────────────────────────────────────────────┤
+│  抽取层 (Extraction)                                             │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  ChapterFactExtractor                                      │ │
+│  │  - LLM 调用 (structured output)                            │ │
+│  │  - ContextSummaryBuilder (前序状态摘要)                     │ │
+│  │  - FactValidator (轻量后验证)                               │ │
+│  │  - SpatialRuleEnhancer (地点层级正则增强，可选)             │ │
+│  └────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────┤
+│  存储层 (Storage)                                                │
+│  ┌──────────────────────┐  ┌─────────────────────────────────┐  │
+│  │  SQLite               │  │  ChromaDB                       │  │
+│  │  - novels             │  │  - chapter_embeddings           │  │
+│  │  - chapters           │  │  - entity_embeddings            │  │
+│  │  - chapter_facts      │  │    (语义检索用)                  │  │
+│  │  - conversations      │  │                                 │  │
+│  │  - user_state         │  └─────────────────────────────────┘  │
+│  │  (聚合视图按需计算)    │                                      │
+│  └──────────────────────┘                                       │
+├─────────────────────────────────────────────────────────────────┤
+│  基础设施层 (Infrastructure)                                     │
+│  ┌──────────────┐ ┌────────────────┐ ┌────────────────────────┐ │
+│  │ LLMClient    │ │ EmbeddingClient│ │ ConfigManager          │ │
+│  │ (Ollama API) │ │ (BGE + MPS)    │ │ (YAML → Settings)     │ │
+│  └──────────────┘ └────────────────┘ └────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 关键设计原则
+
+1. **两数据库原则**：只使用 SQLite + ChromaDB，不再有 7 个 Store
+2. **聚合按需计算**：实体档案（Profile）从 ChapterFact 实时聚合，不持久化为独立表——保证数据一致性，避免同步问题
+3. **前后端分离**：前端 SPA 通过 REST + WebSocket 与后端通信，可独立开发和部署
+4. **抽取层独立**：ChapterFactExtractor 不直接依赖存储层，产出 ChapterFact JSON 后由服务层写入
+5. **无图数据库**：关系图谱数据从 ChapterFact 的 relationships 聚合计算，路径查找在内存中用 BFS 完成（数据规模在千级别，不需要专门的图数据库）
+
+### 4.3 V1 → V2 存储简化
+
+| V1 (7 个 Store) | V2 (2 个) | 数据去向 |
+|------------------|-----------|---------|
+| UnifiedStore (SQLite) | **SQLite** | 保留为主存储 |
+| VectorStore (ChromaDB) | **ChromaDB** | 保留为向量检索 |
+| GraphStore (NetworkX) | ~~删除~~ | 关系数据从 ChapterFact.relationships 聚合 |
+| SpatialStore (SQLite) | ~~删除~~ | 空间数据从 ChapterFact.locations 聚合 |
+| WorldMapStore (SQLite) | ~~删除~~ | 合并到 ChapterFact.locations |
+| TimelineStore (SQLite) | ~~删除~~ | 时间线从 ChapterFact.events 聚合 |
+| MetadataDB (SQLite) | ~~删除~~ | 合并到主 SQLite |
 
 ---
 
 ## 5. 数据模型设计
 
-_（待后续步骤补充：数据库 Schema、ChapterFact 存储、聚合视图等）_
+### 5.1 SQLite 表结构
+
+```sql
+-- ═══════════════════════════════════════════
+-- 核心表
+-- ═══════════════════════════════════════════
+
+CREATE TABLE novels (
+    id              TEXT PRIMARY KEY,         -- UUID
+    title           TEXT NOT NULL,
+    author          TEXT,
+    file_hash       TEXT,                     -- 文件 SHA256，用于重复检测
+    total_chapters  INTEGER DEFAULT 0,
+    total_words     INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE chapters (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    chapter_num     INTEGER NOT NULL,         -- 章节序号（全书唯一）
+    volume_num      INTEGER,                  -- 卷号（可为 NULL，无卷结构时）
+    volume_title    TEXT,                     -- 卷标题
+    title           TEXT NOT NULL,            -- 章节标题
+    content         TEXT NOT NULL,            -- 章节全文
+    word_count      INTEGER DEFAULT 0,
+    analysis_status TEXT DEFAULT 'pending',   -- pending/analyzing/completed/failed
+    analyzed_at     TEXT,
+    UNIQUE(novel_id, chapter_num)
+);
+
+CREATE TABLE chapter_facts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    chapter_id      INTEGER NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    fact_json       TEXT NOT NULL,            -- ChapterFact 完整 JSON
+    llm_model       TEXT,                     -- 使用的模型名
+    extracted_at    TEXT DEFAULT (datetime('now')),
+    extraction_ms   INTEGER,                  -- 抽取耗时（毫秒）
+    UNIQUE(novel_id, chapter_id)              -- 每章仅一条记录，重新分析时覆盖
+);
+
+-- ═══════════════════════════════════════════
+-- 问答
+-- ═══════════════════════════════════════════
+
+CREATE TABLE conversations (
+    id              TEXT PRIMARY KEY,         -- UUID
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    title           TEXT,                     -- 对话标题（自动从首条消息生成）
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE messages (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role            TEXT NOT NULL,            -- user / assistant
+    content         TEXT NOT NULL,
+    sources_json    TEXT,                     -- 来源章节和原文片段 JSON
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- ═══════════════════════════════════════════
+-- 用户状态
+-- ═══════════════════════════════════════════
+
+CREATE TABLE user_state (
+    novel_id        TEXT PRIMARY KEY REFERENCES novels(id) ON DELETE CASCADE,
+    last_chapter    INTEGER,                  -- 最后阅读章节
+    scroll_position REAL,                     -- 滚动位置百分比
+    chapter_range   TEXT,                     -- 可视化章节范围 JSON: [start, end]
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- ═══════════════════════════════════════════
+-- 分析任务
+-- ═══════════════════════════════════════════
+
+CREATE TABLE analysis_tasks (
+    id              TEXT PRIMARY KEY,
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    status          TEXT DEFAULT 'pending',   -- pending/running/paused/completed/cancelled
+    chapter_start   INTEGER NOT NULL,
+    chapter_end     INTEGER NOT NULL,
+    current_chapter INTEGER,                  -- 当前正在处理的章节
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- ═══════════════════════════════════════════
+-- 索引
+-- ═══════════════════════════════════════════
+
+CREATE INDEX idx_chapters_novel      ON chapters(novel_id, chapter_num);
+CREATE INDEX idx_chapter_facts_novel ON chapter_facts(novel_id);
+CREATE INDEX idx_messages_conv       ON messages(conversation_id, created_at);
+CREATE INDEX idx_analysis_novel      ON analysis_tasks(novel_id, status);
+```
+
+### 5.2 ChapterFact 存储策略
+
+ChapterFact 以 JSON 文本存储在 `chapter_facts.fact_json` 列中。
+
+**为什么不拆分为关系型表？**
+
+1. ChapterFact 是深嵌套结构（characters 内含 abilities_gained 数组），拆分为 10+ 张表反而增加复杂度
+2. 查询主要是"按 novel_id 聚合全部"或"按 chapter_id 取单条"，不需要对 JSON 内部字段建索引
+3. SQLite 的 `json_extract()` 函数可在需要时查询 JSON 内部字段
+4. 导入导出天然简单——直接导出 JSON 行即可
+
+### 5.3 聚合查询模式
+
+实体档案不持久化为表，而是从 ChapterFact 按需聚合。以下是关键聚合的实现思路：
+
+**PersonProfile 聚合**（Python 服务层伪代码）：
+
+```python
+def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
+    facts = db.get_all_chapter_facts(novel_id)  # 全部 ChapterFact
+
+    profile = PersonProfile(name=person_name)
+    for fact in facts:
+        chapter = fact.chapter_id
+        # 从 characters 数组找到该人物
+        for char in fact.characters:
+            if char.name == person_name or person_name in char.new_aliases:
+                profile.aliases.extend((alias, chapter) for alias in char.new_aliases)
+                if char.appearance:
+                    profile.appearances.append((chapter, char.appearance))
+                profile.abilities.extend((chapter, a) for a in char.abilities_gained)
+                profile.chapters_appeared.add(chapter)
+
+        # 从 relationships 找到涉及该人物的关系
+        for rel in fact.relationships:
+            if person_name in (rel.person_a, rel.person_b):
+                other = rel.person_b if rel.person_a == person_name else rel.person_a
+                profile.add_relationship_event(other, chapter, rel)
+
+        # 从 item_events 找到该人物的物品关联
+        for item_ev in fact.item_events:
+            if item_ev.actor == person_name or item_ev.recipient == person_name:
+                profile.add_item_event(chapter, item_ev)
+
+        # 从 events 找到该人物参与的事件
+        for event in fact.events:
+            if person_name in event.participants:
+                profile.add_experience(chapter, event)
+
+    return profile
+```
+
+**性能考虑**：
+
+- 2000 章小说，每章 ChapterFact 约 2-5 KB JSON → 全部加载约 4-10 MB → 内存聚合可行
+- 频繁访问的聚合结果可在内存中缓存（LRU cache），新 ChapterFact 写入时失效
+- 首次加载一本小说的全部 ChapterFact 约 50-100ms（SQLite 顺序读）
+
+### 5.4 ChromaDB Collections
+
+| Collection | 内容 | 用途 |
+|-----------|------|------|
+| `{novel_id}_chapters` | 章节文本的嵌入向量 | 语义检索：问答时找相关章节 |
+| `{novel_id}_entities` | 实体描述的嵌入向量 | 语义检索：问答时找相关实体 |
+
+只需 2 个 collection（V1 有 4 个），实体描述从聚合后的 Profile 生成。
 
 ---
 
 ## 6. 关键模块设计
 
-_（待后续步骤补充：分析任务队列、可视化数据接口、实体卡片聚合等）_
+### 6.1 分析任务系统
+
+**核心问题**：分析一本 2000 章的小说需要数小时，必须支持暂停/恢复/取消/进度推送。
+
+**设计**：
+
+```
+用户触发分析
+    │
+    ▼
+AnalysisService.start(novel_id, chapter_range)
+    │
+    ├── 创建 analysis_task 记录 (status=running)
+    │
+    ▼
+逐章循环:
+    ├── 检查任务状态（是否被暂停/取消）
+    │   ├── paused → 保存当前进度，退出循环
+    │   └── cancelled → 保存当前进度，退出循环
+    │
+    ├── ContextSummaryBuilder.build(novel_id, chapter_num)
+    │   └── 从已有 ChapterFact 聚合前序摘要
+    │
+    ├── ChapterFactExtractor.extract(chapter_text, context_summary)
+    │   └── LLM 调用 → ChapterFact JSON
+    │
+    ├── FactValidator.validate(chapter_fact)
+    │   └── 轻量检查，修正明显问题
+    │
+    ├── 写入 chapter_facts 表
+    │
+    ├── 更新 chapters.analysis_status = 'completed'
+    │
+    ├── 更新 analysis_task.current_chapter
+    │
+    ├── WebSocket 推送进度:
+    │   { chapter: 84, total: 200, entities: 1245, relations: 3567 }
+    │
+    └── 继续下一章...
+```
+
+**暂停/恢复机制**：
+- 暂停：前端发送 `PATCH /api/analysis/{task_id}` `{status: "paused"}`，后端在当前章节处理完后退出循环
+- 恢复：前端发送 `PATCH /api/analysis/{task_id}` `{status: "running"}`，后端从 `current_chapter + 1` 继续
+- 已分析的章节数据永远不丢失
+
+### 6.2 实体卡片聚合系统
+
+**核心问题**：4 种实体卡片，每种有 6-7 个数据区块，需要从全部 ChapterFact 实时聚合。
+
+**API 设计**：
+
+```
+GET /api/novels/{novel_id}/entities/{entity_name}
+    → 返回完整实体档案 (PersonProfile / LocationProfile / ...)
+
+GET /api/novels/{novel_id}/entities/{entity_name}/relationships
+    → 返回关系演变链（独立端点，支持分页）
+
+GET /api/novels/{novel_id}/entities/{entity_name}/experiences
+    → 返回人物经历（独立端点，支持分页）
+```
+
+**缓存策略**：
+
+```
+EntityAggregator
+    │
+    ├── 内存缓存 (LRU, 按 novel_id + entity_name)
+    │   - 缓存完整的聚合结果
+    │   - 新 ChapterFact 写入时按 novel_id 失效
+    │   - 最大缓存 100 个实体
+    │
+    └── 聚合计算
+        - 遍历全部 chapter_facts
+        - 按实体名过滤和汇总
+        - 返回结构化 Profile
+```
+
+### 6.3 可视化数据接口
+
+**章节范围联动**：
+
+所有可视化 API 接受 `chapter_start` 和 `chapter_end` 参数，只返回该范围内的数据：
+
+```
+GET /api/novels/{id}/graph?chapter_start=1&chapter_end=50
+    → 返回第 1-50 章的人物关系图数据
+    {
+      nodes: [{ id, name, type, chapter_count, org }],
+      edges: [{ source, target, relation_type, weight, chapters }]
+    }
+
+GET /api/novels/{id}/map?chapter_start=1&chapter_end=50
+    → 返回第 1-50 章的空间地图数据
+    {
+      locations: [{ id, name, type, parent, level, mention_count, x, y }],
+      trajectories: { person_name: [{ location, chapter }] }
+    }
+
+GET /api/novels/{id}/timeline?chapter_start=1&chapter_end=50
+    → 返回第 1-50 章的事件时间线数据
+    {
+      events: [{ chapter, summary, type, importance, participants, location }],
+      swimlanes: { person_name: [event_ids] }
+    }
+
+GET /api/novels/{id}/factions?chapter_start=1&chapter_end=50
+    → 返回第 1-50 章的势力图数据
+    {
+      orgs: [{ id, name, type, member_count }],
+      relations: [{ source, target, type, chapter }],
+      members: { org_name: [{ person, role, status }] }
+    }
+```
+
+**数据生成**：全部从 ChapterFact 聚合。过滤 `chapter_id <= chapter_end && chapter_id >= chapter_start` 后聚合。
+
+### 6.4 问答（QA）Pipeline
+
+```
+用户问题
+    │
+    ▼
+QueryService.query(novel_id, question, conversation_id)
+    │
+    ├── 1. 问题分析
+    │   - 实体识别（从问题中提取实体名）
+    │   - 问题分类（实体/关系/事件/空间/比较/统计/推理/开放）
+    │
+    ├── 2. 混合检索
+    │   ├── 向量检索: ChromaDB 语义搜索相关章节 (权重 0.5)
+    │   ├── 实体检索: 从 ChapterFact 中找到相关实体的事实 (权重 0.3)
+    │   └── 关键词检索: 章节全文关键词匹配 (权重 0.2)
+    │
+    ├── 3. 上下文构建
+    │   - 合并检索结果，去重排序
+    │   - 拼接相关章节片段和实体事实
+    │   - 如有对话历史，附加最近 N 轮
+    │
+    ├── 4. LLM 推理（流式输出）
+    │   - System prompt: 基于原文回答，标注来源章节
+    │   - Context: 检索到的相关内容
+    │   - Question: 用户问题
+    │   - 通过 WebSocket 流式推送 token
+    │
+    └── 5. 后处理
+        - 提取答案中的实体名 → 标记为可交互
+        - 提取来源章节引用 → 标记为可跳转
+        - 保存到 messages 表
+```
+
+### 6.5 WebSocket 协议
+
+两个 WebSocket 端点：
+
+**分析进度** (`/ws/analysis/{novel_id}`)：
+
+```json
+// 服务端 → 客户端
+{ "type": "progress", "chapter": 84, "total": 200,
+  "stats": { "entities": 1245, "relations": 3567, "events": 892 } }
+{ "type": "chapter_done", "chapter": 84, "status": "completed" }
+{ "type": "chapter_done", "chapter": 85, "status": "failed", "error": "LLM timeout" }
+{ "type": "task_status", "status": "paused" }
+{ "type": "task_status", "status": "completed" }
+```
+
+**流式问答** (`/ws/chat/{session_id}`)：
+
+```json
+// 客户端 → 服务端
+{ "type": "query", "novel_id": "xxx", "conversation_id": "yyy", "question": "韩立的师傅是谁？" }
+
+// 服务端 → 客户端
+{ "type": "token", "content": "韩立" }
+{ "type": "token", "content": "有两位" }
+{ "type": "token", "content": "师傅：" }
+...
+{ "type": "done", "sources": [{ "chapter": 3, "text": "..." }, { "chapter": 25, "text": "..." }],
+  "entities": ["韩立", "墨大夫", "李化元"] }
+```
+
+### 6.6 前端目录结构
+
+```
+src/
+├── app/                        # 应用入口、路由、全局 Provider
+│   ├── App.tsx
+│   ├── router.tsx
+│   └── providers.tsx
+├── pages/                      # 10 个页面组件
+│   ├── BookshelfPage.tsx
+│   ├── ReadingPage.tsx
+│   ├── GraphPage.tsx
+│   ├── MapPage.tsx
+│   ├── TimelinePage.tsx
+│   ├── FactionsPage.tsx
+│   ├── ChatPage.tsx
+│   ├── EncyclopediaPage.tsx
+│   ├── AnalysisPage.tsx
+│   └── SettingsPage.tsx
+├── components/                 # 可复用组件
+│   ├── entity-cards/           # 实体卡片系统
+│   │   ├── EntityDrawer.tsx    # 右侧抽屉容器 + 面包屑导航
+│   │   ├── PersonCard.tsx
+│   │   ├── LocationCard.tsx
+│   │   ├── ItemCard.tsx
+│   │   ├── OrgCard.tsx
+│   │   └── ConceptPopover.tsx
+│   ├── visualization/          # 4 种可视化
+│   │   ├── ForceGraph.tsx      # 人物关系图 + 势力图
+│   │   ├── WorldMap.tsx        # 空间地图 (Pixi.js)
+│   │   ├── HierarchyMap.tsx    # 层级地图
+│   │   └── Timeline.tsx        # 时间线
+│   ├── shared/                 # 通用组件
+│   │   ├── ChapterRangeSlider.tsx
+│   │   ├── FilterPanel.tsx
+│   │   ├── QABar.tsx           # 底部常驻问答栏
+│   │   ├── QAFloatingPanel.tsx
+│   │   ├── ChapterSidebar.tsx  # 树形章节目录
+│   │   ├── EntityHighlight.tsx # 实体高亮文本渲染
+│   │   └── TopNav.tsx
+│   └── ui/                     # shadcn/ui 基础组件
+├── stores/                     # Zustand 状态管理
+│   ├── novelStore.ts           # 当前小说状态
+│   ├── chapterRangeStore.ts    # 章节范围（4 视图共享）
+│   ├── entityDrawerStore.ts    # 实体卡片抽屉状态 + 导航栈
+│   ├── analysisStore.ts        # 分析进度状态
+│   └── chatStore.ts            # 对话状态
+├── api/                        # API 客户端
+│   ├── client.ts               # REST 请求封装
+│   ├── websocket.ts            # WebSocket 连接管理
+│   └── types.ts                # API 类型定义
+├── hooks/                      # 自定义 React Hooks
+│   ├── useEntity.ts
+│   ├── useGraph.ts
+│   ├── useAnalysis.ts
+│   └── useChat.ts
+└── lib/                        # 工具函数
+    ├── entity-colors.ts        # 实体类型 → 颜色映射
+    └── format.ts               # 格式化工具
+```
+
+### 6.7 后端目录结构
+
+```
+src/
+├── api/                        # FastAPI 路由
+│   ├── main.py                 # 应用入口、CORS、生命周期
+│   ├── routes/
+│   │   ├── novels.py           # 小说 CRUD + 上传
+│   │   ├── chapters.py         # 章节读取
+│   │   ├── entities.py         # 实体卡片数据
+│   │   ├── graph.py            # 关系图数据
+│   │   ├── map.py              # 世界地图数据
+│   │   ├── timeline.py         # 时间线数据
+│   │   ├── factions.py         # 势力图数据
+│   │   ├── chat.py             # 问答 REST 端点
+│   │   ├── analysis.py         # 分析任务管理
+│   │   └── settings.py         # 设置
+│   ├── websocket/
+│   │   ├── analysis_ws.py      # 分析进度推送
+│   │   └── chat_ws.py          # 流式问答
+│   └── schemas/                # Pydantic 请求/响应模型
+├── services/                   # 业务逻辑
+│   ├── novel_service.py        # 上传、解析、章节切分
+│   ├── analysis_service.py     # 分析任务调度
+│   ├── entity_aggregator.py    # ChapterFact → 实体档案聚合
+│   ├── query_service.py        # 问答 Pipeline
+│   └── viz_service.py          # 可视化数据生成
+├── extraction/                 # 抽取层
+│   ├── chapter_fact_extractor.py   # LLM 调用 + JSON 解析
+│   ├── context_summary_builder.py  # 前序状态摘要生成
+│   ├── fact_validator.py           # 轻量后验证
+│   ├── spatial_rule_enhancer.py    # 地点层级正则增强
+│   └── prompts/
+│       ├── extraction_system.txt   # System prompt
+│       └── extraction_examples.json # Few-shot 示例
+├── db/                         # 存储层
+│   ├── sqlite_db.py            # SQLite 连接管理 + 迁移
+│   ├── chapter_fact_store.py   # ChapterFact CRUD
+│   ├── novel_store.py          # 小说/章节 CRUD
+│   ├── conversation_store.py   # 对话 CRUD
+│   └── vector_store.py         # ChromaDB 封装
+├── models/                     # 数据模型 (dataclass)
+│   ├── chapter_fact.py         # ChapterFact 及子结构
+│   ├── profiles.py             # PersonProfile, LocationProfile, ...
+│   ├── novel.py                # Novel, Chapter
+│   └── conversation.py         # Conversation, Message
+├── infra/                      # 基础设施
+│   ├── llm_client.py           # Ollama API 封装
+│   ├── embedding_client.py     # BGE 嵌入计算
+│   └── config.py               # 配置加载
+└── utils/                      # 工具
+    ├── text_processor.py       # 编码检测、章节切分
+    └── chapter_splitter.py     # 章节切分规则引擎
+```
