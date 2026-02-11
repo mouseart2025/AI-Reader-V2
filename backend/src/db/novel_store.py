@@ -56,7 +56,26 @@ async def list_novels() -> list[dict]:
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT id, title, author, total_chapters, total_words, created_at, updated_at FROM novels ORDER BY created_at DESC"
+            """
+            SELECT
+                n.id, n.title, n.author, n.total_chapters, n.total_words,
+                n.created_at, n.updated_at,
+                COALESCE(
+                    CAST(SUM(CASE WHEN c.analysis_status = 'completed' THEN 1 ELSE 0 END) AS REAL)
+                    / NULLIF(COUNT(c.id), 0),
+                    0
+                ) AS analysis_progress,
+                COALESCE(
+                    CAST(us.last_chapter AS REAL) / NULLIF(n.total_chapters, 0),
+                    0
+                ) AS reading_progress,
+                us.updated_at AS last_opened
+            FROM novels n
+            LEFT JOIN chapters c ON c.novel_id = n.id
+            LEFT JOIN user_state us ON us.novel_id = n.id
+            GROUP BY n.id
+            ORDER BY COALESCE(us.updated_at, n.updated_at) DESC
+            """
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]

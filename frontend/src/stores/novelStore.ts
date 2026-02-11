@@ -1,11 +1,5 @@
 import { create } from "zustand"
-
-interface Novel {
-  id: string
-  title: string
-  author: string
-  totalChapters: number
-}
+import type { Novel } from "@/api/types"
 
 interface NovelState {
   novels: Novel[]
