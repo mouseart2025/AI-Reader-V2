@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.api.schemas.novels import ChapterPreviewItem, UploadPreviewResponse
 from src.db import novel_store
-from src.utils.chapter_splitter import ChapterInfo, split_chapters
+from src.utils.chapter_splitter import AVAILABLE_MODES, ChapterInfo, split_chapters
 from src.utils.text_processor import decode_text
 
 # In-memory cache for upload previews (file_hash -> cached data)
@@ -21,6 +21,7 @@ _CACHE_TTL = 30 * 60  # seconds
 class _CachedUpload:
     preview: UploadPreviewResponse
     chapters: list[ChapterInfo]
+    raw_text: str
     created_at: float
 
 
@@ -120,10 +121,11 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
         duplicate_novel_id=duplicate_novel_id,
     )
 
-    # Cache for confirm step
+    # Cache for confirm step (including raw text for re-split)
     _upload_cache[file_hash] = _CachedUpload(
         preview=preview,
         chapters=chapters,
+        raw_text=text,
         created_at=time.time(),
     )
 
@@ -167,3 +169,67 @@ async def confirm_import(
     # Return the created novel
     novel = await novel_store.get_novel(novel_id)
     return novel
+
+
+def get_available_modes() -> list[str]:
+    """Return available split mode names."""
+    return AVAILABLE_MODES
+
+
+async def re_split(
+    file_hash: str,
+    mode: str | None = None,
+    custom_regex: str | None = None,
+) -> UploadPreviewResponse:
+    """Re-split a previously uploaded file using a different mode.
+
+    Retrieves cached raw text by file_hash, re-runs chapter splitting,
+    and updates the cached preview and chapters.
+    """
+    _evict_expired()
+
+    cached = _upload_cache.get(file_hash)
+    if not cached:
+        raise ValueError("上传数据已过期或不存在，请重新上传文件")
+
+    text = cached.raw_text
+
+    # Re-split with specified mode
+    chapters = split_chapters(text, mode=mode, custom_regex=custom_regex)
+    total_chapters = len(chapters)
+    total_words = sum(ch.word_count for ch in chapters)
+
+    # Rebuild warnings
+    warnings: list[str] = []
+    if total_chapters == 1:
+        warnings.append("仅检测到 1 个章节，可能章节切分未生效")
+    for ch in chapters:
+        if ch.word_count > _LARGE_CHAPTER_WORDS:
+            warnings.append(f"章节 '{ch.title}' 字数为 {ch.word_count}，超过 5 万字")
+
+    # Build updated preview
+    chapter_previews = [
+        ChapterPreviewItem(
+            chapter_num=ch.chapter_num,
+            title=ch.title,
+            word_count=ch.word_count,
+        )
+        for ch in chapters
+    ]
+
+    preview = UploadPreviewResponse(
+        title=cached.preview.title,
+        author=cached.preview.author,
+        file_hash=file_hash,
+        total_chapters=total_chapters,
+        total_words=total_words,
+        chapters=chapter_previews,
+        warnings=warnings,
+        duplicate_novel_id=cached.preview.duplicate_novel_id,
+    )
+
+    # Update cache
+    cached.preview = preview
+    cached.chapters = chapters
+
+    return preview

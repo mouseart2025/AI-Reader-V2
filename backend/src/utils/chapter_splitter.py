@@ -67,13 +67,54 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 
 _MIN_PROLOGUE_CHARS = 100  # Minimum chars to keep a prologue
 
+# Expose available mode names for the API
+AVAILABLE_MODES = [name for name, _ in _PATTERNS]
 
-def split_chapters(text: str) -> list[ChapterInfo]:
-    """Split text into chapters using the best matching pattern.
 
-    Tries all 5 patterns, picks the one with the most matches (>= 2).
+def split_chapters(text: str, mode: str | None = None, custom_regex: str | None = None) -> list[ChapterInfo]:
+    """Split text into chapters.
+
+    If mode is given, uses that specific pattern.
+    If custom_regex is given, compiles and uses it.
+    Otherwise tries all 5 patterns, picks the one with the most matches (>= 2).
     If no pattern matches >= 2 times, returns the entire text as one chapter.
     """
+    # Custom regex mode
+    if custom_regex:
+        try:
+            pattern = re.compile(custom_regex, re.MULTILINE)
+        except re.error:
+            return [
+                ChapterInfo(
+                    chapter_num=1, title="全文",
+                    content=text.strip(), word_count=len(text.strip()),
+                )
+            ]
+        matches = list(pattern.finditer(text))
+        if len(matches) >= 2:
+            return _split_by_matches(text, "custom", matches)
+        return [
+            ChapterInfo(
+                chapter_num=1, title="全文",
+                content=text.strip(), word_count=len(text.strip()),
+            )
+        ]
+
+    # Specific mode
+    if mode:
+        for mode_name, pattern in _PATTERNS:
+            if mode_name == mode:
+                matches = list(pattern.finditer(text))
+                if len(matches) >= 2:
+                    return _split_by_matches(text, mode_name, matches)
+                return [
+                    ChapterInfo(
+                        chapter_num=1, title="全文",
+                        content=text.strip(), word_count=len(text.strip()),
+                    )
+                ]
+
+    # Auto-detect: try all patterns, pick the best
     best_mode = None
     best_matches = []
     best_count = 0
@@ -149,6 +190,16 @@ def _extract_title(mode: str, match: re.Match) -> str:
     if mode == "numbered":
         # Group 2 is the title text after the number
         return match.group(2).strip() if match.group(2) else match.group(0).strip()
+
+    if mode == "custom":
+        # Try group 1, fall back to full match
+        try:
+            title = match.group(1).strip() if match.group(1) else ""
+            if title:
+                return title
+        except IndexError:
+            pass
+        return match.group(0).strip()
 
     # For chapter_zh, section_zh, markdown: group 1 is the title
     title = match.group(1).strip() if match.group(1) else ""

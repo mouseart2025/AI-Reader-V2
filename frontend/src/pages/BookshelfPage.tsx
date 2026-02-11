@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
+  ArrowDownAZ,
   BookOpen,
   Library,
   Search,
@@ -8,7 +9,7 @@ import {
   Upload,
   User,
 } from "lucide-react"
-import { fetchNovels, deleteNovel } from "@/api/client"
+import { fetchNovels, deleteNovel, checkEnvironment } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { useNovelStore } from "@/stores/novelStore"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { SetupGuide } from "@/components/shared/SetupGuide"
+import { UploadDialog } from "@/components/shared/UploadDialog"
+
+type SortKey = "recent" | "title" | "chapters"
 
 function formatWordCount(count: number): string {
   if (count >= 10000) return `${(count / 10000).toFixed(1)}万字`
@@ -152,7 +164,7 @@ function NovelCard({
   )
 }
 
-function EmptyState() {
+function EmptyState({ onUpload }: { onUpload: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-32">
       <Library className="text-muted-foreground/40 mb-6 h-20 w-20" />
@@ -162,7 +174,7 @@ function EmptyState() {
       <p className="text-muted-foreground/60 mb-8 text-sm">
         上传 .txt 或 .md 文件开始阅读和分析
       </p>
-      <Button size="lg">
+      <Button size="lg" onClick={onUpload}>
         <Upload className="mr-2 h-5 w-5" />
         上传小说
       </Button>
@@ -174,9 +186,33 @@ export default function BookshelfPage() {
   const navigate = useNavigate()
   const { novels, setNovels } = useNovelStore()
   const [search, setSearch] = useState("")
+  const [sortKey, setSortKey] = useState<SortKey>("recent")
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
+
+  // Check Ollama environment on first load
+  useEffect(() => {
+    const stored = sessionStorage.getItem("setup_skipped")
+    if (stored === "1") {
+      setSetupNeeded(false)
+      return
+    }
+    checkEnvironment()
+      .then((env) => {
+        setSetupNeeded(!env.ollama_running || !env.model_available)
+      })
+      .catch(() => {
+        setSetupNeeded(false) // Backend unreachable, skip setup guide
+      })
+  }, [])
+
+  const handleSetupReady = useCallback(() => {
+    sessionStorage.setItem("setup_skipped", "1")
+    setSetupNeeded(false)
+  }, [])
 
   const loadNovels = useCallback(async () => {
     try {
@@ -195,14 +231,31 @@ export default function BookshelfPage() {
   }, [loadNovels])
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return novels
-    const q = search.trim().toLowerCase()
-    return novels.filter(
-      (n) =>
-        n.title.toLowerCase().includes(q) ||
-        (n.author && n.author.toLowerCase().includes(q))
-    )
-  }, [novels, search])
+    let result = novels
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      result = result.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          (n.author && n.author.toLowerCase().includes(q))
+      )
+    }
+    // Sort
+    return [...result].sort((a, b) => {
+      switch (sortKey) {
+        case "title":
+          return a.title.localeCompare(b.title, "zh-CN")
+        case "chapters":
+          return b.total_chapters - a.total_chapters
+        case "recent":
+        default: {
+          const ta = a.last_opened ?? a.updated_at
+          const tb = b.last_opened ?? b.updated_at
+          return tb.localeCompare(ta)
+        }
+      }
+    })
+  }, [novels, search, sortKey])
 
   const handleClick = (novel: Novel) => {
     navigate(`/read/${novel.id}`)
@@ -222,6 +275,18 @@ export default function BookshelfPage() {
     }
   }
 
+  // Show setup guide if environment not ready
+  if (setupNeeded === null) {
+    return (
+      <div className="text-muted-foreground flex min-h-screen items-center justify-center text-sm">
+        加载中...
+      </div>
+    )
+  }
+  if (setupNeeded) {
+    return <SetupGuide onReady={handleSetupReady} />
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       {/* Header */}
@@ -230,22 +295,38 @@ export default function BookshelfPage() {
           <BookOpen className="text-primary h-7 w-7" />
           <h1 className="text-2xl font-bold">书架</h1>
         </div>
-        <Button>
+        <Button onClick={() => setUploadOpen(true)}>
           <Upload className="mr-2 h-4 w-4" />
           上传小说
         </Button>
       </div>
 
-      {/* Search */}
+      {/* Search + Sort */}
       {novels.length > 0 && (
-        <div className="relative mb-6">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="搜索书名或作者..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="mb-6 flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              placeholder="搜索书名或作者..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select
+            value={sortKey}
+            onValueChange={(v) => setSortKey(v as SortKey)}
+          >
+            <SelectTrigger className="w-40">
+              <ArrowDownAZ className="mr-2 h-4 w-4" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">最近打开</SelectItem>
+              <SelectItem value="title">按书名</SelectItem>
+              <SelectItem value="chapters">按章节数</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -255,7 +336,7 @@ export default function BookshelfPage() {
           加载中...
         </div>
       ) : novels.length === 0 ? (
-        <EmptyState />
+        <EmptyState onUpload={() => setUploadOpen(true)} />
       ) : filtered.length === 0 ? (
         <div className="text-muted-foreground flex flex-col items-center py-32 text-sm">
           <Search className="text-muted-foreground/40 mb-4 h-12 w-12" />
@@ -273,6 +354,13 @@ export default function BookshelfPage() {
           ))}
         </div>
       )}
+
+      {/* Upload Dialog */}
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onImported={loadNovels}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

@@ -26,6 +26,12 @@ class ConfirmImportRequest(BaseModel):
     author: str | None = None
 
 
+class ReSplitRequest(BaseModel):
+    file_hash: str
+    mode: str | None = None
+    custom_regex: str | None = None
+
+
 class NovelResponse(BaseModel):
     id: str
     title: str
