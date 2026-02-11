@@ -1,4 +1,6 @@
 import type {
+  AnalysisTask,
+  AnalyzeRequest,
   ConfirmImportRequest,
   EnvironmentCheck,
   Novel,
@@ -67,4 +69,36 @@ export function reSplitChapters(req: ReSplitRequest): Promise<UploadPreviewRespo
     method: "POST",
     body: JSON.stringify(req),
   })
+}
+
+// ── Analysis ──────────────────────────────────
+
+export function startAnalysis(
+  novelId: string,
+  req?: AnalyzeRequest,
+): Promise<{ task_id: string; status: string }> {
+  return apiFetch(`/novels/${novelId}/analyze`, {
+    method: "POST",
+    body: JSON.stringify(req ?? {}),
+  })
+}
+
+export function patchAnalysisTask(
+  taskId: string,
+  status: "paused" | "running" | "cancelled",
+): Promise<{ task_id: string; status: string }> {
+  return apiFetch(`/analysis/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  })
+}
+
+export function getAnalysisTask(taskId: string): Promise<AnalysisTask> {
+  return apiFetch<AnalysisTask>(`/analysis/${taskId}`)
+}
+
+export function getLatestAnalysisTask(
+  novelId: string,
+): Promise<{ task: AnalysisTask | null }> {
+  return apiFetch(`/novels/${novelId}/analysis/latest`)
 }
