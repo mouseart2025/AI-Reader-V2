@@ -916,6 +916,1172 @@ def build_reading():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  RELATIONSHIP GRAPH PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_graph():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    # ── Section 1: Main View ─────────────────────────────────────────────────
+    b.text(50, 15, "1. 人物关系图 — 正常浏览状态", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+
+    # Top nav
+    draw_top_nav(b, ox, oy, W, active_tab="关系图")
+
+    # Chapter range slider (shared across all viz views)
+    sl_y = oy + 48
+    b.rect(ox, sl_y, W, 40, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, sl_y + 10, "章节范围:", fs=13, color=C_GRAY)
+    b.rect(ox + 110, sl_y + 13, 700, 14, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ox + 110, sl_y + 13, 340, 14, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.ellipse(ox + 108, sl_y + 9, 20, 20, bg=C_BG_WHITE, color=C_BLUE, sw=2)
+    b.ellipse(ox + 448, sl_y + 9, 20, 20, bg=C_BG_WHITE, color=C_BLUE, sw=2)
+    b.text(ox + 830, sl_y + 10, "第 1 章 — 第 120 章 (共 2451 章)", fs=13, color=C_GRAY)
+
+    # Left filter panel
+    fp_x, fp_y = ox, sl_y + 40
+    fp_w = 240
+    fp_h = H - 48 - 40 - 48
+    b.rect(fp_x, fp_y, fp_w, fp_h, bg=C_BG, color=C_BORDER)
+    b.text(fp_x + 16, fp_y + 12, "筛选", fs=16)
+    b.text(fp_x + fp_w - 30, fp_y + 14, "«", fs=16, color=C_GRAY)
+
+    # Filter: entity type
+    fy = fp_y + 45
+    b.text(fp_x + 16, fy, "实体类型", fs=13, color=C_GRAY)
+    for i, (label, checked) in enumerate([("人物", True), ("智慧生物", False)]):
+        ck = "☑" if checked else "☐"
+        b.text(fp_x + 20, fy + 22 + i * 24, f"{ck} {label}", fs=13)
+
+    # Filter: relationship type
+    fy2 = fy + 80
+    b.text(fp_x + 16, fy2, "关系类型", fs=13, color=C_GRAY)
+    rels = [("亲属", True, "#e8590c"), ("师徒", True, C_BLUE), ("友好", True, C_GREEN),
+            ("敌对", True, C_RED), ("恋爱", False, "#e64980"), ("组织从属", True, C_ORG)]
+    for i, (label, checked, clr) in enumerate(rels):
+        ck = "☑" if checked else "☐"
+        b.text(fp_x + 20, fy2 + 22 + i * 24, f"{ck} {label}", fs=13, color=clr)
+
+    # Filter: min appearance
+    fy3 = fy2 + 175
+    b.text(fp_x + 16, fy3, "最少出场", fs=13, color=C_GRAY)
+    b.rect(fp_x + 16, fy3 + 22, 200, 10, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(fp_x + 16, fy3 + 22, 60, 10, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(fp_x + 16, fy3 + 40, "≥ 3 章", fs=12, color=C_GRAY)
+
+    # Filter: path finding
+    fy4 = fy3 + 70
+    b.line(fp_x + 12, fy4, fp_x + fp_w - 12, fy4, color=C_BORDER)
+    b.text(fp_x + 16, fy4 + 10, "路径查找", fs=13, color=C_GRAY)
+    b.rect(fp_x + 16, fy4 + 32, 200, 28, bg=C_BG_WHITE, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(fp_x + 24, fy4 + 38, "人物 A", fs=12, color=C_LIGHT_GRAY)
+    b.rect(fp_x + 16, fy4 + 66, 200, 28, bg=C_BG_WHITE, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(fp_x + 24, fy4 + 72, "人物 B", fs=12, color=C_LIGHT_GRAY)
+    b.rect(fp_x + 16, fy4 + 102, 90, 28, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(fp_x + 26, fy4 + 108, "查找路径", fs=12, color=C_WHITE)
+
+    # Main graph canvas
+    gx = ox + fp_w
+    gy = sl_y + 40
+    gw = W - fp_w
+    gh = H - 48 - 40 - 48
+    b.rect(gx, gy, gw, gh, bg=C_BG_WHITE, color=C_BORDER)
+
+    # Sample graph nodes
+    nodes = [
+        (gx + 500, gy + 200, 50, "韩立", C_CHAR, 20),
+        (gx + 280, gy + 140, 35, "墨大夫", C_CHAR, 14),
+        (gx + 700, gy + 150, 30, "南宫婉", C_CHAR, 14),
+        (gx + 350, gy + 340, 28, "厉飞雨", C_CHAR, 13),
+        (gx + 650, gy + 350, 28, "张铁", C_CHAR, 13),
+        (gx + 180, gy + 300, 25, "李化元", C_CHAR, 12),
+        (gx + 850, gy + 250, 25, "令狐冲", C_CHAR, 12),
+        (gx + 500, gy + 480, 40, "七玄门", C_ORG, 16),
+    ]
+    for nx, ny, r, label, clr, fs_n in nodes:
+        b.ellipse(nx - r, ny - r, r * 2, r * 2, bg=clr, color=clr, opacity=30)
+        b.ellipse(nx - r + 4, ny - r + 4, r * 2 - 8, r * 2 - 8, bg=clr, color=clr, opacity=60)
+        b.text(nx - len(label) * fs_n // 2, ny + r + 5, label, fs=fs_n, color=clr)
+
+    # Sample edges
+    edges = [
+        (gx + 500, gy + 200, gx + 280, gy + 140, "师徒", C_BLUE),
+        (gx + 500, gy + 200, gx + 700, gy + 150, "道侣", "#e64980"),
+        (gx + 500, gy + 200, gx + 350, gy + 340, "好友", C_GREEN),
+        (gx + 500, gy + 200, gx + 650, gy + 350, "同门", C_BLUE),
+        (gx + 280, gy + 140, gx + 180, gy + 300, "同门", C_BLUE),
+        (gx + 500, gy + 200, gx + 850, gy + 250, "敌对", C_RED),
+        (gx + 350, gy + 340, gx + 500, gy + 480, "从属", C_ORG),
+        (gx + 650, gy + 350, gx + 500, gy + 480, "从属", C_ORG),
+    ]
+    for x1, y1, x2, y2, label, clr in edges:
+        b.line(x1, y1, x2, y2, color=clr, opacity=50)
+
+    # Graph toolbar
+    tb_y = gy + gh - 50
+    b.rect(gx + gw // 2 - 120, tb_y, 240, 36, bg=C_BG_WHITE, color=C_BORDER, rnd={"type": 3})
+    b.text(gx + gw // 2 - 105, tb_y + 8, "＋  −  ⟳  ⊞  📷", fs=16, color=C_GRAY)
+
+    # Bottom Q&A bar
+    draw_qa_bar(b, ox, oy + H - 48, W)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "关系图交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "画布操作", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 拖拽画布平移，滚轮缩放", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 拖拽节点移动位置", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· hover 节点 → 高亮直接关系", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 185, "  其余节点/边半透明", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 215, "节点交互", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 240, "· 点击节点 → 弹出实体卡片", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 265, "· 双击节点 → 聚焦模式", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 290, "  只展示 N 跳内关系网络", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 320, "边交互", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 345, "· 点击边 → 关系详情浮层", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 370, "  关系演变链 + 关键章节", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 400, "章节范围滑块", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 425, "· 四个可视化视图共享", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 450, "· 拖拽选择范围，视图实时更新", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 480, "路径查找", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 505, "· 选中 A 后 Shift+点击 B", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 530, "· 或在筛选面板输入两个人物名", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 555, "· 高亮最短关系路径", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 590, "工具栏", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 615, "· 缩放 / 重置布局 / 适应屏幕 / 截图", fs=14, color=C_ORANGE_ANNO)
+
+    # ── Section 2: Hover / Focus State ───────────────────────────────────────
+    s2y = oy + H + 100
+    b.text(50, s2y - 35, "2. 节点 Hover 高亮 + 关系详情浮层", fs=24, color=C_ORANGE_ANNO)
+
+    # Small illustration: highlighted node
+    hx, hy = 100, s2y + 20
+    # Central node (highlighted)
+    b.ellipse(hx + 150, hy + 80, 50, 50, bg=C_CHAR, color=C_CHAR, opacity=60)
+    b.text(hx + 155, hy + 140, "韩立", fs=16, color=C_CHAR)
+    # Connected nodes (visible)
+    for dx, dy, name in [(0, 0, "墨大夫"), (300, -20, "南宫婉"), (80, 180, "厉飞雨")]:
+        b.ellipse(hx + dx + 5, hy + dy + 5, 30, 30, bg=C_CHAR, color=C_CHAR, opacity=40)
+        b.text(hx + dx - 5, hy + dy + 40, name, fs=12, color=C_CHAR)
+        b.line(hx + 175, hy + 105, hx + dx + 20, hy + dy + 20, color=C_CHAR)
+    # Dimmed nodes
+    for dx, dy in [(350, 160), (400, 60)]:
+        b.ellipse(hx + dx, hy + dy, 24, 24, bg=C_GRAY, color=C_GRAY, opacity=15)
+
+    # Edge detail popover
+    epx = hx + 500
+    b.rect(epx, hy, 320, 160, bg=C_BG_WHITE, color=C_BORDER, sw=2, rnd={"type": 3})
+    b.text(epx + 16, hy + 12, "韩立 — 墨大夫", fs=16)
+    b.text(epx + 16, hy + 38, "关系演变:", fs=13, color=C_GRAY)
+    b.text(epx + 16, hy + 60, "第1章  收为弟子（师徒）", fs=13)
+    b.text(epx + 16, hy + 82, "第50章  墨大夫阵亡", fs=13, color=C_RED)
+    b.text(epx + 16, hy + 104, "互动章节: 1, 2, 3, 5, 10, 45, 50", fs=12, color=C_BLUE)
+    b.text(epx + 16, hy + 130, "点击章节号可跳转阅读 →", fs=12, color=C_BLUE)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  WORLD MAP PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_map():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    # ── Section 1: Spatial Map View ──────────────────────────────────────────
+    b.text(50, 15, "1. 世界地图 — 空间地图视图（默认）", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+    draw_top_nav(b, ox, oy, W, active_tab="世界地图")
+
+    # Chapter range slider
+    sl_y = oy + 48
+    b.rect(ox, sl_y, W, 40, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, sl_y + 10, "章节范围:", fs=13, color=C_GRAY)
+    b.rect(ox + 110, sl_y + 13, 700, 14, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ox + 110, sl_y + 13, 340, 14, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.ellipse(ox + 108, sl_y + 9, 20, 20, bg=C_BG_WHITE, color=C_BLUE, sw=2)
+    b.ellipse(ox + 448, sl_y + 9, 20, 20, bg=C_BG_WHITE, color=C_BLUE, sw=2)
+    b.text(ox + 830, sl_y + 10, "第 1 章 — 第 120 章", fs=13, color=C_GRAY)
+
+    # View toggle tabs (spatial | hierarchy)
+    vt_y = sl_y + 40
+    b.rect(ox, vt_y, W, 32, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, vt_y + 7, "空间地图", fs=14, color=C_BLUE)
+    b.line(ox + 16, vt_y + 28, ox + 90, vt_y + 28, color=C_BLUE, sw=2)
+    b.text(ox + 110, vt_y + 7, "层级地图", fs=14, color=C_GRAY)
+
+    # Right filter panel (this time on the right)
+    fp_w = 260
+    fp_x = ox + W - fp_w
+    fp_y = vt_y + 32
+    fp_h = H - 48 - 40 - 32 - 48
+    b.rect(fp_x, fp_y, fp_w, fp_h, bg=C_BG, color=C_BORDER)
+    b.text(fp_x + 16, fp_y + 12, "筛选 / 轨迹", fs=16)
+
+    # Filter: location type
+    ffy = fp_y + 45
+    b.text(fp_x + 16, ffy, "地点类型", fs=13, color=C_GRAY)
+    for i, (label, checked) in enumerate([("国家/区域", True), ("城市", True),
+                                           ("山脉/水域", True), ("门派", True), ("建筑", False)]):
+        ck = "☑" if checked else "☐"
+        b.text(fp_x + 20, ffy + 22 + i * 22, f"{ck} {label}", fs=12)
+
+    # Filter: trajectory
+    ffy2 = ffy + 140
+    b.line(fp_x + 10, ffy2, fp_x + fp_w - 10, ffy2, color=C_BORDER)
+    b.text(fp_x + 16, ffy2 + 10, "人物轨迹", fs=13, color=C_GRAY)
+    b.rect(fp_x + 16, ffy2 + 32, fp_w - 32, 28, bg=C_BG_WHITE, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(fp_x + 24, ffy2 + 38, "搜索人物...", fs=12, color=C_LIGHT_GRAY)
+    b.text(fp_x + 20, ffy2 + 70, "☑ 韩立", fs=12, color=C_CHAR)
+    b.rect(fp_x + 100, ffy2 + 68, 14, 14, bg=C_CHAR, color=C_CHAR)
+    b.text(fp_x + 20, ffy2 + 92, "☐ 南宫婉", fs=12, color=C_GRAY)
+    b.rect(fp_x + fp_w - 100, ffy2 + 100, 80, 28, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(fp_x + fp_w - 90, ffy2 + 106, "▶ 播放", fs=12, color=C_WHITE)
+
+    # Filter: heatmap toggle
+    ffy3 = ffy2 + 145
+    b.line(fp_x + 10, ffy3, fp_x + fp_w - 10, ffy3, color=C_BORDER)
+    b.text(fp_x + 16, ffy3 + 10, "叠加层", fs=13, color=C_GRAY)
+    b.text(fp_x + 20, ffy3 + 34, "☐ 提及频率热力图", fs=12)
+    b.text(fp_x + 20, ffy3 + 56, "☐ 最少提及 ≥ 2 章", fs=12)
+
+    # Main map canvas
+    mx = ox
+    my = vt_y + 32
+    mw = W - fp_w
+    mh = H - 48 - 40 - 32 - 48
+    b.rect(mx, my, mw, mh, bg="#faf5e8", color=C_BORDER)  # parchment bg
+
+    # Map content: regions and locations
+    # Large region: 越国
+    b.rect(mx + 100, my + 60, 500, 400, bg="#e8f0e8", color="#a0c0a0", ss="dashed", opacity=30, rnd={"type": 3})
+    b.text(mx + 280, my + 70, "越 国", fs=28, color="#6b8e6b", opacity=50)
+
+    # Sub-region: 太南山脉
+    b.rect(mx + 130, my + 120, 260, 280, bg="#d4e8d4", color="#7ca07c", ss="dashed", opacity=25, rnd={"type": 3})
+    b.text(mx + 190, my + 130, "太南山脉", fs=16, color="#5a7a5a", opacity=60)
+
+    # Location nodes
+    locs = [
+        (mx + 200, my + 200, "⛰ 七玄门", 20, "#2b8a3e"),
+        (mx + 270, my + 280, "🌿 药园", 14, "#2b8a3e"),
+        (mx + 180, my + 320, "🏛 藏经阁", 12, "#2b8a3e"),
+        (mx + 340, my + 180, "⛰ 黄枫谷", 16, "#2b8a3e"),
+        (mx + 480, my + 150, "🏰 越国王城", 18, "#e8590c"),
+        (mx + 600, my + 300, "🏪 坊市", 14, "#e8590c"),
+        (mx + 700, my + 180, "⛰ 落云山", 14, "#2b8a3e"),
+    ]
+    for lx, ly, label, fs_l, clr in locs:
+        b.text(lx, ly, label, fs=fs_l, color=clr)
+
+    # Trajectory line (韩立)
+    traj_points = [
+        (mx + 200, my + 215),   # 七玄门
+        (mx + 270, my + 290),   # 药园
+        (mx + 200, my + 215),   # 回七玄门
+        (mx + 480, my + 165),   # 越国王城
+        (mx + 600, my + 310),   # 坊市
+    ]
+    for i in range(len(traj_points) - 1):
+        x1, y1 = traj_points[i]
+        x2, y2 = traj_points[i + 1]
+        b.arrow(x1, y1, x2, y2, color=C_CHAR, opacity=70)
+    b.text(mx + 250, my + 245, "①", fs=11, color=C_CHAR)
+    b.text(mx + 235, my + 260, "②", fs=11, color=C_CHAR)
+    b.text(mx + 350, my + 210, "③", fs=11, color=C_CHAR)
+    b.text(mx + 540, my + 230, "④", fs=11, color=C_CHAR)
+
+    # Zoom level indicator
+    b.rect(mx + 16, my + mh - 50, 180, 36, bg=C_BG_WHITE, color=C_BORDER, rnd={"type": 3})
+    b.text(mx + 28, my + mh - 42, "缩放级别: 3 / 5", fs=13, color=C_GRAY)
+
+    # Map toolbar
+    tb_y = my + mh - 50
+    b.rect(mx + mw // 2 - 120, tb_y, 240, 36, bg=C_BG_WHITE, color=C_BORDER, rnd={"type": 3})
+    b.text(mx + mw // 2 - 105, tb_y + 8, "＋  −  ⟳  ⊞  📷", fs=16, color=C_GRAY)
+
+    draw_qa_bar(b, ox, oy + H - 48, W)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "空间地图交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "语义缩放（5 级）", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· L1 最远: 大洲/世界轮廓", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· L2: 国家/大区域 + 主要地标", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· L3: 城市/门派 + 路线", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 185, "· L4: 建筑/街道/设施", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 210, "· L5 最近: 房间/内部结构", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 240, "· 缩放过程平滑过渡，标签逐级显现", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 275, "地图操作", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 300, "· 点击地点 → 弹出地点卡片", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 325, "· hover → 浮层: 名称/类型/提及数", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 350, "· 长按 0.5s 拖拽 → 手动调整位置", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 380, "人物轨迹", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 405, "· 右侧面板选人物，带箭头曲线", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 430, "· 渐变色体现时间方向", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 455, "· ▶ 播放按钮: 轨迹按章节动画展开", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 480, "· 停留 >N 章的地点显示大圆点", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 510, "视觉风格", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 535, "· 羊皮纸/宣纸背景", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 560, "· 手绘风格线条和区域", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 585, "· 区域半透明色块按势力区分", fs=14, color=C_ORANGE_ANNO)
+
+    # ── Section 2: Hierarchy Map View ────────────────────────────────────────
+    s2y = oy + H + 100
+    b.text(50, s2y - 35, "2. 世界地图 — 层级地图视图", fs=24, color=C_ORANGE_ANNO)
+
+    hx, hy = 50, s2y
+    hw, hh = 900, 500
+    b.rect(hx, hy, hw, hh, bg=C_BG_WHITE, color=C_DARK, sw=2, rnd={"type": 3})
+
+    # Tree structure
+    tree = [
+        (0, "▼ 越国", 18, C_DARK),
+        (1, "▼ 太南山脉", 16, C_LOC),
+        (2, "▼ 七玄门", 15, C_LOC),
+        (3, "药园", 14, C_LOC),
+        (3, "藏经阁", 14, C_LOC),
+        (3, "练功房", 14, C_LOC),
+        (3, "主峰大殿", 14, C_LOC),
+        (2, "▶ 黄枫谷", 15, C_GRAY),
+        (1, "▶ 越国王城", 16, C_GRAY),
+        (1, "▶ 落云山", 16, C_GRAY),
+    ]
+    ty = hy + 20
+    for indent, label, fs_t, clr in tree:
+        b.text(hx + 30 + indent * 28, ty, label, fs=fs_t, color=clr)
+        # node size indicator
+        if indent >= 2 and "▼" not in label and "▶" not in label:
+            b.rect(hx + hw - 120, ty, 80, 16, bg=C_LOC, color="transparent", opacity=20, rnd={"type": 3})
+            b.text(hx + hw - 115, ty + 1, "12 章", fs=11, color=C_GRAY)
+        ty += 35
+
+    # Hierarchy annotations
+    hax = hx + hw + 60
+    b.text(hax, hy + 20, "层级地图交互", fs=18, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 50, "· 双击节点展开/折叠子地点", fs=14, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 75, "· 点击节点弹出地点卡片", fs=14, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 100, "· 「在空间地图中定位」按钮", fs=14, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 125, "· 节点大小映射提及章节数", fs=14, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 150, "· 颜色按类型: 自然(绿)/城镇(橙)", fs=14, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 175, "  /门派(蓝)/其他(灰)", fs=14, color=C_ORANGE_ANNO)
+    b.text(hax, hy + 210, "也可用 Treemap 嵌套矩形模式展示", fs=14, color=C_ORANGE_ANNO)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TIMELINE PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_timeline():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    b.text(50, 15, "1. 时间线 — 单轨道 + 泳道模式", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+    draw_top_nav(b, ox, oy, W, active_tab="时间线")
+
+    # Chapter range slider
+    sl_y = oy + 48
+    b.rect(ox, sl_y, W, 40, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, sl_y + 10, "章节范围:", fs=13, color=C_GRAY)
+    b.rect(ox + 110, sl_y + 13, 700, 14, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ox + 110, sl_y + 13, 700, 14, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ox + 830, sl_y + 10, "全部 (第 1 — 120 章)", fs=13, color=C_GRAY)
+
+    # Left filter panel
+    fp_w = 220
+    fp_x = ox
+    fp_y = sl_y + 40
+    fp_h = H - 48 - 40 - 48
+    b.rect(fp_x, fp_y, fp_w, fp_h, bg=C_BG, color=C_BORDER)
+    b.text(fp_x + 16, fp_y + 12, "筛选", fs=16)
+
+    # Event type filter
+    ffy = fp_y + 42
+    b.text(fp_x + 16, ffy, "事件类型", fs=13, color=C_GRAY)
+    evts = [("战斗", True, C_RED), ("成长", True, C_BLUE), ("社交", True, C_GREEN),
+            ("旅行", True, "#e8590c"), ("其他", False, C_GRAY)]
+    for i, (label, checked, clr) in enumerate(evts):
+        ck = "☑" if checked else "☐"
+        b.text(fp_x + 20, ffy + 22 + i * 22, f"{ck} {label}", fs=12, color=clr)
+
+    # Character filter
+    ffy2 = ffy + 140
+    b.line(fp_x + 10, ffy2, fp_x + fp_w - 10, ffy2, color=C_BORDER)
+    b.text(fp_x + 16, ffy2 + 10, "涉及人物", fs=13, color=C_GRAY)
+    for i, (name, checked) in enumerate([("全部", True), ("韩立", False), ("墨大夫", False)]):
+        ck = "☑" if checked else "☐"
+        b.text(fp_x + 20, ffy2 + 32 + i * 22, f"{ck} {name}", fs=12)
+
+    # View mode
+    ffy3 = ffy2 + 110
+    b.line(fp_x + 10, ffy3, fp_x + fp_w - 10, ffy3, color=C_BORDER)
+    b.text(fp_x + 16, ffy3 + 10, "视图模式", fs=13, color=C_GRAY)
+    b.text(fp_x + 20, ffy3 + 34, "◉ 单轨道", fs=12, color=C_BLUE)
+    b.text(fp_x + 20, ffy3 + 56, "○ 多泳道（按人物）", fs=12, color=C_GRAY)
+
+    # Importance filter
+    ffy4 = ffy3 + 85
+    b.line(fp_x + 10, ffy4, fp_x + fp_w - 10, ffy4, color=C_BORDER)
+    b.text(fp_x + 16, ffy4 + 10, "重要度阈值", fs=13, color=C_GRAY)
+    b.rect(fp_x + 16, ffy4 + 32, 180, 10, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(fp_x + 16, ffy4 + 32, 40, 10, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(fp_x + 16, ffy4 + 50, "≥ 低", fs=12, color=C_GRAY)
+
+    # Main timeline canvas
+    tx = ox + fp_w
+    ty = sl_y + 40
+    tw = W - fp_w
+    th = H - 48 - 40 - 48
+    b.rect(tx, ty, tw, th, bg=C_BG_WHITE, color=C_BORDER)
+
+    # Horizontal axis
+    axis_y = ty + th // 2
+    b.line(tx + 40, axis_y, tx + tw - 40, axis_y, color=C_BORDER, sw=2)
+
+    # Chapter markers
+    for i in range(7):
+        cx = tx + 80 + i * 150
+        b.line(cx, axis_y - 5, cx, axis_y + 5, color=C_GRAY)
+        ch_num = 1 + i * 20
+        b.text(cx - 10, axis_y + 12, f"第{ch_num}章", fs=10, color=C_GRAY)
+
+    # Event nodes along the axis
+    events = [
+        (tx + 100, axis_y - 80, 16, C_GREEN, "入门七玄门"),
+        (tx + 170, axis_y + 50, 12, C_BLUE, "开始修炼"),
+        (tx + 300, axis_y - 60, 20, C_RED, "七玄门之战"),
+        (tx + 440, axis_y + 40, 10, "#e8590c", "前往坊市"),
+        (tx + 530, axis_y - 90, 14, C_GREEN, "结识南宫婉"),
+        (tx + 680, axis_y + 60, 18, C_BLUE, "筑基成功"),
+        (tx + 800, axis_y - 50, 12, C_RED, "遭遇魔修"),
+        (tx + 950, axis_y + 40, 10, "#e8590c", "离开越国"),
+    ]
+    for ex, ey, r, clr, label in events:
+        b.ellipse(ex - r // 2, ey - r // 2, r, r, bg=clr, color=clr)
+        b.line(ex, ey + r // 2, ex, axis_y, color=clr, opacity=30, ss="dashed")
+        b.text(ex - len(label) * 6, ey - r - 16, label, fs=11, color=clr)
+
+    # Hovered event detail popover
+    hpx = tx + 270
+    hpy = axis_y - 180
+    b.rect(hpx, hpy, 280, 100, bg=C_BG_WHITE, color=C_BORDER, sw=2, rnd={"type": 3})
+    b.text(hpx + 12, hpy + 8, "七玄门之战", fs=16, color=C_RED)
+    b.text(hpx + 12, hpy + 32, "涉及: 韩立、墨大夫、魔道修士", fs=12)
+    b.text(hpx + 12, hpy + 52, "地点: 七玄门", fs=12)
+    b.text(hpx + 12, hpy + 72, "章节: 第 45-50 章  点击跳转 →", fs=12, color=C_BLUE)
+
+    draw_qa_bar(b, ox, oy + H - 48, W)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "时间线交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "坐标轴", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 横轴默认: 章节编号", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 可切换: 故事内时间", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 165, "事件节点", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 190, "· 大小 = 重要度", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 215, "· 颜色 = 类型 (战斗/成长/社交/旅行)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 240, "· hover → 事件摘要浮层", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 265, "· 点击 → 跳转到该章节阅读", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 295, "画布操作", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 320, "· 左右拖拽平移", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 345, "· 滚轮缩放时间粒度", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 370, "· 框选区域放大", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 400, "多泳道模式", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 425, "· 每个人物一条横向轨道", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 450, "· 适合对比多人物事件节奏", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 475, "· 在筛选面板切换模式", fs=14, color=C_ORANGE_ANNO)
+
+    # ── Section 2: Swimlane Mode ─────────────────────────────────────────────
+    s2y = oy + H + 100
+    b.text(50, s2y - 35, "2. 时间线 — 多泳道模式（按人物分行）", fs=24, color=C_ORANGE_ANNO)
+
+    sx, sy = 100, s2y
+    sw, sh = 1000, 300
+    b.rect(sx, sy, sw, sh, bg=C_BG_WHITE, color=C_DARK, sw=2, rnd={"type": 3})
+
+    # Swimlanes
+    lanes = ["韩立", "墨大夫", "张铁"]
+    lane_h = sh // len(lanes)
+    for i, name in enumerate(lanes):
+        ly = sy + i * lane_h
+        if i > 0:
+            b.line(sx, ly, sx + sw, ly, color=C_BORDER)
+        b.text(sx + 12, ly + lane_h // 2 - 8, name, fs=14, color=C_CHAR)
+        # Axis line
+        b.line(sx + 80, ly + lane_h // 2, sx + sw - 20, ly + lane_h // 2, color="#e9ecef")
+        # Sample events
+        for j in range(4 + (2 - i)):
+            ex = sx + 120 + j * 140 + (i * 30)
+            if ex < sx + sw - 40:
+                r = 8 + (j % 3) * 4
+                clrs = [C_RED, C_BLUE, C_GREEN, "#e8590c", C_BLUE, C_RED]
+                b.ellipse(ex - r // 2, ly + lane_h // 2 - r // 2, r, r,
+                         bg=clrs[j % len(clrs)], color=clrs[j % len(clrs)])
+
+    # Chapter axis at bottom
+    b.line(sx + 80, sy + sh - 20, sx + sw - 20, sy + sh - 20, color=C_GRAY)
+    for i in range(6):
+        cx = sx + 120 + i * 150
+        b.text(cx, sy + sh - 15, f"第{1 + i * 20}章", fs=10, color=C_GRAY)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  FACTIONS PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_factions():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    b.text(50, 15, "1. 势力图 — 组织关系网络", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+    draw_top_nav(b, ox, oy, W, active_tab="势力图")
+
+    # Chapter range slider
+    sl_y = oy + 48
+    b.rect(ox, sl_y, W, 40, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, sl_y + 10, "章节范围:", fs=13, color=C_GRAY)
+    b.rect(ox + 110, sl_y + 13, 700, 14, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ox + 110, sl_y + 13, 700, 14, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ox + 830, sl_y + 10, "全部", fs=13, color=C_GRAY)
+
+    # Left filter panel
+    fp_w = 220
+    fp_y = sl_y + 40
+    fp_h = H - 48 - 40 - 48
+    b.rect(ox, fp_y, fp_w, fp_h, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, fp_y + 12, "筛选", fs=16)
+
+    ffy = fp_y + 42
+    b.text(ox + 16, ffy, "组织类型", fs=13, color=C_GRAY)
+    for i, (label, checked) in enumerate([("门派", True), ("家族", True), ("国家", True), ("帮派", False)]):
+        ck = "☑" if checked else "☐"
+        b.text(ox + 20, ffy + 22 + i * 22, f"{ck} {label}", fs=12)
+
+    ffy2 = ffy + 115
+    b.line(ox + 10, ffy2, ox + fp_w - 10, ffy2, color=C_BORDER)
+    b.text(ox + 16, ffy2 + 10, "关系类型", fs=13, color=C_GRAY)
+    for i, (label, checked, clr) in enumerate([("盟友", True, C_GREEN), ("敌对", True, C_RED),
+                                                ("从属", True, C_BLUE), ("竞争", True, "#e8590c")]):
+        ck = "☑" if checked else "☐"
+        b.text(ox + 20, ffy2 + 32 + i * 22, f"{ck} {label}", fs=12, color=clr)
+
+    ffy3 = ffy2 + 130
+    b.line(ox + 10, ffy3, ox + fp_w - 10, ffy3, color=C_BORDER)
+    b.text(ox + 16, ffy3 + 10, "最少成员", fs=13, color=C_GRAY)
+    b.rect(ox + 16, ffy3 + 32, 180, 10, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ox + 16, ffy3 + 32, 30, 10, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ox + 16, ffy3 + 50, "≥ 2 人", fs=12, color=C_GRAY)
+
+    # Main graph canvas
+    gx = ox + fp_w
+    gy = sl_y + 40
+    gw = W - fp_w
+    gh = H - 48 - 40 - 48
+    b.rect(gx, gy, gw, gh, bg=C_BG_WHITE, color=C_BORDER)
+
+    # Organization nodes (larger, with member count)
+    orgs = [
+        (gx + 450, gy + 200, 60, "七玄门", "32人", C_ORG),
+        (gx + 750, gy + 180, 50, "黄枫谷", "28人", C_ORG),
+        (gx + 300, gy + 400, 45, "掩月宗", "18人", C_ORG),
+        (gx + 650, gy + 420, 40, "魔道", "45人", C_RED),
+        (gx + 900, gy + 350, 35, "御灵宗", "15人", C_ORG),
+        (gx + 200, gy + 200, 70, "越 国", "#e8590c"),
+    ]
+    for item in orgs:
+        if len(item) == 7:
+            nx, ny, r, label, members, clr = item[0], item[1], item[2], item[3], item[4], item[5]
+        else:
+            nx, ny, r, label, clr = item[0], item[1], item[2], item[3], item[4]
+            members = None
+        b.ellipse(nx - r, ny - r, r * 2, r * 2, bg=clr, color=clr, opacity=20)
+        b.ellipse(nx - r + 6, ny - r + 6, r * 2 - 12, r * 2 - 12, bg=clr, color=clr, opacity=40)
+        b.text(nx - len(label) * 8, ny - 8, label, fs=15, color=clr)
+        if members:
+            b.text(nx - 12, ny + 12, members, fs=11, color=C_GRAY)
+
+    # Edges between orgs
+    org_edges = [
+        (gx + 450, gy + 200, gx + 750, gy + 180, C_GREEN, "盟友"),         # 七玄门-黄枫谷
+        (gx + 450, gy + 200, gx + 300, gy + 400, C_GREEN, "盟友"),         # 七玄门-掩月宗
+        (gx + 450, gy + 200, gx + 650, gy + 420, C_RED, "敌对"),           # 七玄门-魔道
+        (gx + 750, gy + 180, gx + 650, gy + 420, C_RED, "敌对"),           # 黄枫谷-魔道
+        (gx + 450, gy + 200, gx + 200, gy + 200, C_BLUE, "从属", "dashed"),  # 七玄门-越国
+        (gx + 750, gy + 180, gx + 200, gy + 200, C_BLUE, "从属", "dashed"),
+    ]
+    for edge in org_edges:
+        x1, y1, x2, y2, clr, label = edge[0], edge[1], edge[2], edge[3], edge[4], edge[5]
+        ss = edge[6] if len(edge) > 6 else "solid"
+        b.line(x1, y1, x2, y2, color=clr, opacity=60, ss=ss)
+        mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+        b.text(mx - 10, my - 15, label, fs=10, color=clr)
+
+    # Toolbar
+    tb_y = gy + gh - 50
+    b.rect(gx + gw // 2 - 120, tb_y, 240, 36, bg=C_BG_WHITE, color=C_BORDER, rnd={"type": 3})
+    b.text(gx + gw // 2 - 105, tb_y + 8, "＋  −  ⟳  ⊞  📷", fs=16, color=C_GRAY)
+
+    draw_qa_bar(b, ox, oy + H - 48, W)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "势力图交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "节点", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 大小 = 成员数量", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 颜色 = 门派(蓝)/家族(橙)/国家(紫)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· hover → 浮层: 成员数/据点数", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 185, "· 点击 → 组织卡片", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 210, "· 双击 → 展开内部结构", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 235, "  (内部机构 + 核心成员 + 职位)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 270, "边", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 295, "· 盟友=绿实线 敌对=红实线", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 320, "· 从属=蓝虚线 竞争=橙虚线", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 345, "· hover → 关系详情", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 370, "· 点击 → 关系详情浮层", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 405, "视图联动", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 430, "· 点击组织 → 关系图自动筛选该组织", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 455, "· 章节范围滑块与其他视图共享", fs=14, color=C_ORANGE_ANNO)
+
+    # ── Section 2: Expanded Org ──────────────────────────────────────────────
+    s2y = oy + H + 100
+    b.text(50, s2y - 35, "2. 组织内部展开视图（双击节点触发）", fs=24, color=C_ORANGE_ANNO)
+
+    ex, ey = 100, s2y
+    ew, eh = 600, 350
+    b.rect(ex, ey, ew, eh, bg=C_BG_WHITE, color=C_ORG, sw=2, rnd={"type": 3})
+    b.text(ex + 20, ey + 15, "七玄门 — 内部结构", fs=18, color=C_ORG)
+    b.text(ex + ew - 80, ey + 18, "收起 ✕", fs=13, color=C_GRAY)
+    b.line(ex + 10, ey + 45, ex + ew - 10, ey + 45, color=C_BORDER)
+
+    # Internal departments
+    depts = [("百药堂", "药修", 3), ("百锻堂", "器修", 2), ("执法堂", "战修", 5), ("外门", "杂务", 12)]
+    for i, (name, desc, count) in enumerate(depts):
+        dx = ex + 30 + (i % 2) * 280
+        dy = ey + 60 + (i // 2) * 120
+        b.rect(dx, dy, 250, 90, bg=C_BG, color=C_BORDER, rnd={"type": 3})
+        b.text(dx + 12, dy + 8, name, fs=15, color=C_ORG)
+        b.text(dx + 12, dy + 30, f"类型: {desc}", fs=12, color=C_GRAY)
+        b.text(dx + 12, dy + 50, f"核心成员: {count} 人", fs=12, color=C_GRAY)
+        b.text(dx + 12, dy + 70, "查看成员 →", fs=12, color=C_BLUE)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CHAT (FULL SCREEN) PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_chat():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    b.text(50, 15, "1. 问答全屏页 — 深度对话模式", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+    draw_top_nav(b, ox, oy, W, active_tab=None)
+
+    # Left sidebar: conversation list
+    sb_w = 280
+    sb_x = ox
+    sb_y = oy + 48
+    sb_h = H - 48
+    b.rect(sb_x, sb_y, sb_w, sb_h, bg=C_BG, color=C_BORDER)
+
+    b.text(sb_x + 16, sb_y + 14, "对话列表", fs=16)
+    b.rect(sb_x + sb_w - 80, sb_y + 10, 65, 28, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(sb_x + sb_w - 72, sb_y + 16, "+ 新对话", fs=12, color=C_WHITE)
+
+    # Conversation items
+    convos = [
+        ("韩立的师承关系", "3 天前", True),
+        ("七玄门之战分析", "5 天前", False),
+        ("修炼体系总结", "1 周前", False),
+        ("人物关系梳理", "2 周前", False),
+    ]
+    for i, (title, time, is_active) in enumerate(convos):
+        cy = sb_y + 55 + i * 56
+        if is_active:
+            b.rect(sb_x + 8, cy - 4, sb_w - 16, 50, bg="#e7f0fd", color="transparent", rnd={"type": 3})
+        b.text(sb_x + 20, cy + 4, title, fs=14, color=C_BLUE if is_active else C_BLACK)
+        b.text(sb_x + 20, cy + 26, time, fs=11, color=C_LIGHT_GRAY)
+        b.text(sb_x + sb_w - 30, cy + 10, "⋯", fs=16, color=C_LIGHT_GRAY)
+
+    # Export button at bottom
+    b.line(sb_x + 10, sb_y + sb_h - 50, sb_x + sb_w - 10, sb_y + sb_h - 50, color=C_BORDER)
+    b.text(sb_x + 16, sb_y + sb_h - 35, "📥 导出当前对话为 Markdown", fs=12, color=C_BLUE)
+
+    # Main chat area
+    ch_x = ox + sb_w
+    ch_y = oy + 48
+    ch_w = W - sb_w
+    ch_h = H - 48
+    b.rect(ch_x, ch_y, ch_w, ch_h, bg=C_BG_WHITE, color=C_BORDER)
+
+    # Chat title
+    b.text(ch_x + 30, ch_y + 14, "韩立的师承关系", fs=18)
+    b.line(ch_x + 10, ch_y + 45, ch_x + ch_w - 10, ch_y + 45, color=C_BORDER)
+
+    # Messages
+    msg_x = ch_x + 40
+    msg_w = ch_w - 80
+
+    # User msg 1
+    my1 = ch_y + 65
+    b.rect(msg_x + msg_w - 300, my1, 290, 32, bg="#e7f0fd", color="transparent", rnd={"type": 3})
+    b.text(msg_x + msg_w - 290, my1 + 7, "韩立的师傅是谁？", fs=14, color=C_BLUE)
+
+    # AI response 1
+    my2 = my1 + 50
+    b.text(msg_x, my2, "韩立有两位师傅：", fs=14)
+    b.text(msg_x, my2 + 26, "1.", fs=14)
+    b.text(msg_x + 20, my2 + 26, "墨大夫", fs=14, color=C_CHAR)
+    b.text(msg_x + 75, my2 + 26, "— 在药园传授基础药理（第 3 章起），启蒙恩师", fs=14)
+    b.text(msg_x, my2 + 52, "2.", fs=14)
+    b.text(msg_x + 20, my2 + 52, "李化元", fs=14, color=C_CHAR)
+    b.text(msg_x + 75, my2 + 52, "— 在七玄门内门指导修炼（第 25 章起），传授御剑术", fs=14)
+    b.text(msg_x, my2 + 84, "来源: ", fs=12, color=C_GRAY)
+    b.text(msg_x + 42, my2 + 84, "第 3、10、25、26 章", fs=12, color=C_BLUE)
+
+    # User msg 2
+    my3 = my2 + 120
+    b.rect(msg_x + msg_w - 280, my3, 270, 32, bg="#e7f0fd", color="transparent", rnd={"type": 3})
+    b.text(msg_x + msg_w - 270, my3 + 7, "墨大夫后来怎么了？", fs=14, color=C_BLUE)
+
+    # AI response 2
+    my4 = my3 + 50
+    b.text(msg_x, my4, "墨大夫", fs=14, color=C_CHAR)
+    b.text(msg_x + 55, my4, "在第 50 章", fs=14)
+    b.text(msg_x + 135, my4, "七玄门", fs=14, color=C_ORG)
+    b.text(msg_x + 185, my4, "遭", fs=14)
+    b.text(msg_x + 205, my4, "魔道", fs=14, color=C_RED)
+    b.text(msg_x + 242, my4, "偷袭时，为掩护弟子撤退而阵亡。", fs=14)
+    b.text(msg_x, my4 + 28, "来源: ", fs=12, color=C_GRAY)
+    b.text(msg_x + 42, my4 + 28, "第 50 章", fs=12, color=C_BLUE)
+    b.text(msg_x, my4 + 55, "基于已分析的 120 章内容", fs=11, color=C_LIGHT_GRAY)
+
+    # Input area
+    inp_y = ch_y + ch_h - 70
+    b.line(ch_x + 10, inp_y, ch_x + ch_w - 10, inp_y, color=C_BORDER)
+    b.rect(ch_x + 20, inp_y + 14, ch_w - 120, 40, bg=C_BG, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ch_x + 40, inp_y + 24, "继续提问...", fs=14, color=C_LIGHT_GRAY)
+    b.rect(ch_x + ch_w - 85, inp_y + 14, 65, 40, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(ch_x + ch_w - 72, inp_y + 24, "发送", fs=14, color=C_WHITE)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "全屏问答交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "对话管理", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 左侧侧栏管理多个对话", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 「+ 新对话」清空上下文开始新主题", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· ⋯ 菜单: 重命名 / 删除", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 185, "· 导出为 Markdown 文件", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 220, "答案交互", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 245, "· 流式输出（逐字显现）", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 270, "· 实体名高亮可点击 → 实体卡片", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 295, "· 章节号可点击 → 跳转阅读", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 320, "· 来源可展开查看原文片段", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 345, "· 部分分析标注「基于 X 章」", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 380, "与浮动面板关系", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 405, "· 共享对话上下文", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 430, "· 浮动面板「全屏模式」跳转到此页", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 455, "· ← 返回可回到之前的页面", fs=14, color=C_ORANGE_ANNO)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ENCYCLOPEDIA PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_encyclopedia():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    b.text(50, 15, "1. 百科页 — 实体索引与概念词条", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+    draw_top_nav(b, ox, oy, W, active_tab="百科")
+
+    # Left category navigation
+    cn_w = 240
+    cn_x = ox
+    cn_y = oy + 48
+    cn_h = H - 48 - 48
+    b.rect(cn_x, cn_y, cn_w, cn_h, bg=C_BG, color=C_BORDER)
+    b.text(cn_x + 16, cn_y + 14, "分类导航", fs=16)
+
+    # Category tree
+    cats = [
+        (0, "全部 (1,892)", True),
+        (1, "人物 (456)", False),
+        (1, "地点 (238)", False),
+        (1, "物品 (312)", False),
+        (1, "组织 (89)", False),
+        (1, "概念 (797)", False),
+        (2, "修炼体系 (45)", False),
+        (2, "种族 (23)", False),
+        (2, "货币/资源 (18)", False),
+        (2, "功法/技能 (156)", False),
+        (2, "其他 (555)", False),
+    ]
+    cy = cn_y + 48
+    for indent, label, is_active in cats:
+        if is_active:
+            b.rect(cn_x + 6, cy - 3, cn_w - 12, 24, bg="#e7f0fd", color="transparent", rnd={"type": 3})
+        clr = C_BLUE if is_active else (C_BLACK if indent <= 1 else C_GRAY)
+        b.text(cn_x + 16 + indent * 18, cy, label, fs=13, color=clr)
+        cy += 28
+
+    # Main content area
+    ct_x = ox + cn_w
+    ct_y = oy + 48
+    ct_w = W - cn_w
+    ct_h = H - 48 - 48
+    b.rect(ct_x, ct_y, ct_w, ct_h, bg=C_BG_WHITE, color=C_BORDER)
+
+    # Search bar
+    b.rect(ct_x + 20, ct_y + 14, 400, 34, bg=C_BG, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x + 36, ct_y + 22, "🔍 搜索词条...", fs=13, color=C_LIGHT_GRAY)
+    b.text(ct_x + ct_w - 200, ct_y + 22, "排序: 名称 ▾", fs=13, color=C_GRAY)
+
+    # Entry list
+    entries = [
+        ("韩立", "人物", "凡人修仙传主角，原为贫苦农家子弟", "第 1 章", C_CHAR),
+        ("墨大夫", "人物", "韩立启蒙师父，七玄门药修长老", "第 1 章", C_CHAR),
+        ("七玄门", "组织", "越国太南山脉修仙门派", "第 1 章", C_ORG),
+        ("筑基期", "概念", "修仙第二大境界，寿命可达数百年", "第 5 章", C_CONCEPT),
+        ("筑基丹", "物品", "助修士突破筑基的丹药", "第 8 章", C_ITEM),
+        ("落云山", "地点", "七玄门所在山脉主峰", "第 2 章", C_LOC),
+    ]
+    ey = ct_y + 65
+    for name, etype, desc, first_ch, clr in entries:
+        b.rect(ct_x + 20, ey, ct_w - 40, 60, bg=C_BG_WHITE, color=C_BORDER, rnd={"type": 3})
+        b.text(ct_x + 35, ey + 8, name, fs=16, color=clr)
+        b.rect(ct_x + 35 + len(name) * 16 + 10, ey + 10, len(etype) * 13 + 14, 20,
+               bg=C_BG, color=clr, rnd={"type": 3})
+        b.text(ct_x + 35 + len(name) * 16 + 17, ey + 13, etype, fs=11, color=clr)
+        b.text(ct_x + 35, ey + 34, desc, fs=12, color=C_GRAY)
+        b.text(ct_x + ct_w - 100, ey + 8, first_ch, fs=12, color=C_LIGHT_GRAY)
+        ey += 70
+
+    # Pagination
+    b.text(ct_x + ct_w // 2 - 60, ct_y + ct_h - 40, "< 1 2 3 ... 38 >", fs=14, color=C_BLUE)
+
+    draw_qa_bar(b, ox, oy + H - 48, W)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "百科页交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "分类导航", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 点击分类筛选右侧列表", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 概念下有子分类可展开", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· 显示各分类数量统计", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 195, "词条交互", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 220, "· 点击人物/地点/物品/组织", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 245, "  → 弹出实体卡片（右侧抽屉）", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 270, "· 点击概念词条", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 295, "  → 打开概念详情页", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 325, "概念详情", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 350, "· 定义 + 原文摘录(1-3条)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 375, "· 首次提及章节(可跳转)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 400, "· 关联概念(可点击)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 425, "· 关联实体(可点击弹卡片)", fs=14, color=C_ORANGE_ANNO)
+
+    # ── Section 2: Concept Detail View ───────────────────────────────────────
+    s2y = oy + H + 100
+    b.text(50, s2y - 35, "2. 概念词条详情（点击概念后展开）", fs=24, color=C_ORANGE_ANNO)
+
+    dx, dy = 100, s2y
+    dw, dh = 800, 450
+    b.rect(dx, dy, dw, dh, bg=C_BG_WHITE, color=C_DARK, sw=2, rnd={"type": 3})
+
+    b.rect(dx + 20, dy + 18, 45, 22, bg=C_BG, color=C_CONCEPT, rnd={"type": 3})
+    b.text(dx + 28, dy + 21, "概念", fs=12, color=C_CONCEPT)
+    b.text(dx + 80, dy + 16, "筑基期", fs=22)
+    b.text(dx + 190, dy + 22, "修炼体系", fs=13, color=C_GRAY)
+
+    b.line(dx + 15, dy + 50, dx + dw - 15, dy + 50, color=C_BORDER)
+
+    # Definition
+    b.text(dx + 20, dy + 62, "定义", fs=14, color=C_GRAY)
+    b.text(dx + 20, dy + 84, "修仙第二大境界。修士在练气期巅峰服用筑基丹或凭自身悟性突破后", fs=14)
+    b.text(dx + 20, dy + 106, "进入此境界，寿命可达数百年，实力远超练气期。", fs=14)
+    b.text(dx + 20, dy + 128, "筑基期分为初期、中期、后期三个小境界。", fs=14)
+
+    # First mention
+    b.text(dx + 20, dy + 162, "首次提及", fs=14, color=C_GRAY)
+    b.text(dx + 100, dy + 162, "第 5 章", fs=14, color=C_BLUE)
+
+    # Quotes
+    b.text(dx + 20, dy + 196, "原文摘录", fs=14, color=C_GRAY)
+    b.rect(dx + 20, dy + 218, dw - 40, 50, bg=C_BG, color=C_BORDER, rnd={"type": 3})
+    b.text(dx + 32, dy + 224, "第 23 章：「筑基成功后，韩立只觉体内灵力暴涨数倍，", fs=12)
+    b.text(dx + 32, dy + 244, "感知范围扩大了不止一筹。」", fs=12)
+
+    b.rect(dx + 20, dy + 278, dw - 40, 40, bg=C_BG, color=C_BORDER, rnd={"type": 3})
+    b.text(dx + 32, dy + 284, "第 42 章：「筑基丹可助练气期巅峰修士强行突破，但有三成失败风险。」", fs=12)
+
+    # Related
+    b.text(dx + 20, dy + 335, "关联概念", fs=14, color=C_GRAY)
+    b.text(dx + 100, dy + 335, "练气期", fs=14, color=C_CONCEPT)
+    b.text(dx + 170, dy + 335, "→", fs=14, color=C_GRAY)
+    b.text(dx + 195, dy + 335, "筑基期", fs=14, color=C_BLUE)
+    b.text(dx + 265, dy + 335, "→", fs=14, color=C_GRAY)
+    b.text(dx + 290, dy + 335, "结丹期", fs=14, color=C_CONCEPT)
+
+    b.text(dx + 20, dy + 365, "关联实体", fs=14, color=C_GRAY)
+    b.text(dx + 100, dy + 365, "韩立", fs=14, color=C_CHAR)
+    b.text(dx + 150, dy + 365, "墨大夫", fs=14, color=C_CHAR)
+    b.text(dx + 215, dy + 365, "筑基丹", fs=14, color=C_ITEM)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ANALYSIS PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_analysis():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    b.text(50, 15, "1. 分析页 — 分析管理与统计", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+    draw_top_nav(b, ox, oy, W, active_tab="分析")
+
+    ct_y = oy + 48
+    b.rect(ox, ct_y, W, H - 48, bg=C_BG_WHITE, color=C_BORDER)
+
+    # Analysis status header
+    b.text(ox + 40, ct_y + 20, "《凡人修仙传》 分析状态", fs=22)
+
+    # Progress section
+    py = ct_y + 65
+    b.rect(ox + 40, py, W - 80, 180, bg=C_BG, color=C_BORDER, rnd={"type": 3})
+    b.text(ox + 60, py + 16, "分析进度", fs=16)
+    # Status badge
+    b.rect(ox + 175, py + 14, 70, 24, bg="#fff3cd", color="#e8590c", rnd={"type": 3})
+    b.text(ox + 183, py + 18, "分析中", fs=13, color="#e8590c")
+
+    # Progress bar
+    b.rect(ox + 60, py + 55, W - 160, 20, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ox + 60, py + 55, (W - 160) * 120 // 2451, 20, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ox + 60 + (W - 160) * 120 // 2451 + 10, py + 56, "4.9%", fs=13, color=C_BLUE)
+
+    # Stats
+    b.text(ox + 60, py + 92, "当前: 第 120 / 2451 章", fs=14)
+    b.text(ox + 60, py + 116, "已提取: 1,245 个实体  |  3,567 条关系  |  892 个事件", fs=14, color=C_GRAY)
+    b.text(ox + 60, py + 140, "预计剩余: 约 2331 章待分析", fs=14, color=C_GRAY)
+
+    # Action buttons
+    b.rect(ox + W - 310, py + 130, 100, 36, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ox + W - 288, py + 139, "暂停", fs=14, color=C_GRAY)
+    b.rect(ox + W - 195, py + 130, 100, 36, color=C_RED, rnd={"type": 3})
+    b.text(ox + W - 173, py + 139, "取消", fs=14, color=C_RED)
+
+    # Chapter analysis detail
+    dy = py + 200
+    b.text(ox + 40, dy, "章节分析详情", fs=18)
+
+    # Analysis mode selector
+    b.rect(ox + 40, dy + 35, 160, 34, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(ox + 55, dy + 43, "分析全部章节", fs=13, color=C_WHITE)
+    b.rect(ox + 220, dy + 35, 160, 34, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ox + 240, dy + 43, "指定范围分析", fs=13, color=C_GRAY)
+    b.rect(ox + 400, dy + 35, 160, 34, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ox + 425, dy + 43, "重新分析", fs=13, color=C_GRAY)
+
+    # Chapter status table
+    ty = dy + 85
+    # Header
+    b.rect(ox + 40, ty, W - 80, 30, bg=C_BG, color=C_BORDER)
+    headers = [("章节", 40), ("标题", 180), ("状态", 420), ("实体数", 560), ("关系数", 660), ("操作", 770)]
+    for label, hx_off in headers:
+        b.text(ox + 40 + hx_off, ty + 7, label, fs=12, color=C_GRAY)
+
+    # Rows
+    rows = [
+        ("第 1 章", "穷山僻壤", "✓ 已完成", C_GREEN, "23", "45", ""),
+        ("第 2 章", "墨大夫", "✓ 已完成", C_GREEN, "18", "32", ""),
+        ("第 3 章", "七玄门", "✓ 已完成", C_GREEN, "31", "67", ""),
+        ("...", "", "", C_GRAY, "", "", ""),
+        ("第 120 章", "灵药园", "● 分析中", C_BLUE, "—", "—", ""),
+        ("第 121 章", "夺舍", "○ 待分析", C_LIGHT_GRAY, "—", "—", "分析"),
+        ("第 122 章", "鬼灵门", "○ 待分析", C_LIGHT_GRAY, "—", "—", "分析"),
+    ]
+    for i, (ch, title, status, clr, ent, rel, action) in enumerate(rows):
+        ry = ty + 30 + i * 32
+        if i % 2 == 0:
+            b.rect(ox + 40, ry, W - 80, 32, bg=C_BG, color="transparent", opacity=30)
+        b.text(ox + 80, ry + 8, ch, fs=12, color=C_GRAY if ch == "..." else C_BLACK)
+        b.text(ox + 220, ry + 8, title, fs=12)
+        b.text(ox + 460, ry + 8, status, fs=12, color=clr)
+        b.text(ox + 600, ry + 8, ent, fs=12, color=C_GRAY)
+        b.text(ox + 700, ry + 8, rel, fs=12, color=C_GRAY)
+        if action:
+            b.text(ox + 810, ry + 8, action, fs=12, color=C_BLUE)
+
+    # Statistics summary at bottom
+    sty = ty + 30 + len(rows) * 32 + 20
+    b.line(ox + 40, sty, ox + W - 40, sty, color=C_BORDER)
+    b.text(ox + 40, sty + 15, "统计概览", fs=16)
+
+    stats = [("实体总数", "1,245"), ("关系总数", "3,567"), ("事件总数", "892"),
+             ("已分析章节", "120 / 2451")]
+    for i, (label, val) in enumerate(stats):
+        sx = ox + 60 + i * 220
+        b.rect(sx, sty + 42, 180, 60, bg=C_BG, color=C_BORDER, rnd={"type": 3})
+        b.text(sx + 15, sty + 52, label, fs=12, color=C_GRAY)
+        b.text(sx + 15, sty + 72, val, fs=20, color=C_BLUE)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "分析页交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "分析控制", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· 三种模式: 全部/指定范围/重新分析", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 暂停: 临时中断，可恢复", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· 取消: 终止任务，数据保留", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 185, "· 进度通过 WebSocket 实时更新", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 220, "章节状态", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 245, "· ✓ 绿色=已完成  ● 蓝色=分析中", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 270, "· ● 红色=失败(可重试)  ○ 灰色=待分析", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 295, "· 单章可独立触发分析", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 330, "重新分析", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 355, "· 选择章节范围 → 确认覆盖", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 380, "· 用于更换模型后更新数据", fs=14, color=C_ORANGE_ANNO)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SETTINGS PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_settings():
+    b = ExcalidrawBuilder()
+    W, H = 1440, 900
+
+    b.text(50, 15, "1. 设置页 — 全局配置", fs=24, color=C_ORANGE_ANNO)
+
+    ox, oy = 50, 50
+    b.rect(ox, oy, W, H, color=C_DARK, sw=2)
+
+    # Simple top bar (no novel context)
+    b.rect(ox, oy, W, 48, bg=C_BG, color=C_BORDER)
+    b.text(ox + 16, oy + 13, "← 返回", fs=14, color=C_BLUE)
+    b.text(ox + 100, oy + 12, "设置", fs=18)
+
+    # Left navigation
+    nav_w = 220
+    nav_y = oy + 48
+    nav_h = H - 48
+    b.rect(ox, nav_y, nav_w, nav_h, bg=C_BG, color=C_BORDER)
+
+    sections = [
+        ("LLM 模型配置", True),
+        ("阅读偏好", False),
+        ("数据管理", False),
+        ("关于", False),
+    ]
+    for i, (label, is_active) in enumerate(sections):
+        sy = nav_y + 12 + i * 40
+        if is_active:
+            b.rect(ox + 6, sy - 2, nav_w - 12, 32, bg="#e7f0fd", color="transparent", rnd={"type": 3})
+        b.text(ox + 20, sy + 5, label, fs=14, color=C_BLUE if is_active else C_GRAY)
+
+    # Main content
+    ct_x = ox + nav_w
+    ct_y = oy + 48
+    ct_w = W - nav_w
+    ct_h = H - 48
+    b.rect(ct_x, ct_y, ct_w, ct_h, bg=C_BG_WHITE, color=C_BORDER)
+
+    b.text(ct_x + 40, ct_y + 25, "LLM 模型配置", fs=22)
+    b.line(ct_x + 20, ct_y + 60, ct_x + ct_w - 20, ct_y + 60, color=C_BORDER)
+
+    # Ollama status
+    fy = ct_y + 80
+    b.text(ct_x + 40, fy, "Ollama 服务状态", fs=16)
+    b.rect(ct_x + 230, fy - 2, 80, 24, bg="#d3f9d8", color=C_GREEN, rnd={"type": 3})
+    b.text(ct_x + 240, fy + 2, "运行中", fs=12, color=C_GREEN)
+    b.text(ct_x + 40, fy + 30, "地址: http://localhost:11434", fs=13, color=C_GRAY)
+
+    # Model selection
+    fy2 = fy + 70
+    b.text(ct_x + 40, fy2, "推理模型", fs=16)
+    b.rect(ct_x + 40, fy2 + 28, 400, 36, bg=C_BG_WHITE, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x + 55, fy2 + 36, "qwen2.5:7b", fs=14)
+    b.text(ct_x + 390, fy2 + 36, "▾", fs=14, color=C_GRAY)
+    b.text(ct_x + 460, fy2 + 36, "4.7GB · 推荐", fs=13, color=C_GREEN)
+
+    # Embedding model
+    fy3 = fy2 + 80
+    b.text(ct_x + 40, fy3, "Embedding 模型", fs=16)
+    b.rect(ct_x + 40, fy3 + 28, 400, 36, bg=C_BG_WHITE, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x + 55, fy3 + 36, "bge-base-zh-v1.5", fs=14)
+    b.text(ct_x + 390, fy3 + 36, "▾", fs=14, color=C_GRAY)
+
+    # Temperature
+    fy4 = fy3 + 80
+    b.text(ct_x + 40, fy4, "Temperature", fs=16)
+    b.rect(ct_x + 40, fy4 + 28, 300, 12, bg="#e9ecef", color="transparent", rnd={"type": 3})
+    b.rect(ct_x + 40, fy4 + 28, 90, 12, bg=C_BLUE, color="transparent", rnd={"type": 3})
+    b.text(ct_x + 350, fy4 + 25, "0.3", fs=14, color=C_BLUE)
+    b.text(ct_x + 40, fy4 + 48, "较低=更准确  较高=更有创意", fs=12, color=C_GRAY)
+
+    # Timeout
+    fy5 = fy4 + 80
+    b.text(ct_x + 40, fy5, "超时时间", fs=16)
+    b.rect(ct_x + 40, fy5 + 28, 150, 36, bg=C_BG_WHITE, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x + 55, fy5 + 36, "120", fs=14)
+    b.text(ct_x + 200, fy5 + 36, "秒", fs=14, color=C_GRAY)
+
+    # Reading preferences section hint
+    fy6 = fy5 + 90
+    b.line(ct_x + 20, fy6, ct_x + ct_w - 20, fy6, color=C_BORDER)
+    b.text(ct_x + 40, fy6 + 15, "环境检测", fs=16)
+    b.rect(ct_x + 40, fy6 + 45, 140, 36, bg=C_BG, color=C_BORDER_MED, rnd={"type": 3})
+    b.text(ct_x + 52, fy6 + 53, "重新检测环境", fs=13, color=C_GRAY)
+    b.text(ct_x + 200, fy6 + 53, "触发首次使用引导中的环境检测流程", fs=12, color=C_GRAY)
+
+    # Save button
+    b.rect(ct_x + ct_w - 160, ct_y + ct_h - 65, 120, 40, bg=C_BLUE, color=C_BLUE, rnd={"type": 3})
+    b.text(ct_x + ct_w - 140, ct_y + ct_h - 55, "保存设置", fs=14, color=C_WHITE)
+
+    # ── Annotations ──
+    ax = ox + W + 60
+    b.text(ax, oy + 50, "设置页交互说明", fs=20, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 85, "四个设置分区", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 110, "· LLM 模型配置: 模型/参数/服务地址", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 135, "· 阅读偏好: 字号/行距/主题(亮/暗)", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 160, "· 数据管理: 清除缓存/导出数据", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 185, "· 关于: 版本信息/开源协议", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 220, "模型配置", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 245, "· 下拉框列出已安装的 Ollama 模型", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 270, "· 实时检测 Ollama 服务状态", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 295, "· 「重新检测环境」重走引导流程", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 325, "全局入口", fs=16, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 350, "· 从任何页面顶栏 ⚙ 进入", fs=14, color=C_ORANGE_ANNO)
+    b.text(ax, oy + 375, "· ← 返回之前所在页面", fs=14, color=C_ORANGE_ANNO)
+
+    return b.build()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 def save(data, filename):
@@ -926,17 +2092,31 @@ def save(data, filename):
     print(f"  ✓ {filename} ({count} elements)")
 
 
+ALL_PAGES = {
+    "bookshelf":    ("01-bookshelf.excalidraw",    build_bookshelf),
+    "reading":      ("02-reading.excalidraw",      build_reading),
+    "graph":        ("03-graph.excalidraw",        build_graph),
+    "map":          ("04-map.excalidraw",          build_map),
+    "timeline":     ("05-timeline.excalidraw",     build_timeline),
+    "factions":     ("06-factions.excalidraw",     build_factions),
+    "chat":         ("07-chat.excalidraw",         build_chat),
+    "encyclopedia": ("08-encyclopedia.excalidraw", build_encyclopedia),
+    "analysis":     ("09-analysis.excalidraw",     build_analysis),
+    "settings":     ("10-settings.excalidraw",     build_settings),
+}
+
+
 def main():
-    targets = sys.argv[1:] if len(sys.argv) > 1 else ["bookshelf", "reading"]
+    targets = sys.argv[1:] if len(sys.argv) > 1 else list(ALL_PAGES.keys())
 
     print("Generating AI Reader V2 wireframes...")
     for target in targets:
-        if target == "bookshelf":
-            save(build_bookshelf(), "01-bookshelf.excalidraw")
-        elif target == "reading":
-            save(build_reading(), "02-reading.excalidraw")
+        if target in ALL_PAGES:
+            filename, builder = ALL_PAGES[target]
+            save(builder(), filename)
         else:
             print(f"  ? Unknown target: {target}")
+            print(f"    Available: {', '.join(ALL_PAGES.keys())}")
     print("Done.")
 
 
