@@ -201,6 +201,48 @@ export interface OrgProfile {
 
 export type EntityProfile = PersonProfile | LocationProfile | ItemProfile | OrgProfile
 
+// ── Map ──────────────────────────────────────
+
+export interface MapLocation {
+  id: string
+  name: string
+  type: string
+  parent: string | null
+  level: number
+  mention_count: number
+}
+
+export interface MapLayoutItem {
+  name: string
+  x: number
+  y: number
+  radius: number
+}
+
+export interface SpatialConstraint {
+  source: string
+  target: string
+  relation_type: string
+  value: string
+  confidence: string
+  narrative_evidence: string
+}
+
+export interface TrajectoryPoint {
+  location: string
+  chapter: number
+}
+
+export interface MapData {
+  locations: MapLocation[]
+  trajectories: Record<string, TrajectoryPoint[]>
+  spatial_constraints: SpatialConstraint[]
+  layout: MapLayoutItem[]
+  layout_mode: "constraint" | "hierarchy"
+  terrain_url: string | null
+  analyzed_range: [number, number]
+}
+
 // ── Chat ──────────────────────────────────────
 
 export interface Conversation {

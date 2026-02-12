@@ -74,12 +74,22 @@ class ConceptFact(BaseModel):
     related: list[str] = []
 
 
+class SpatialRelationship(BaseModel):
+    source: str
+    target: str
+    relation_type: str  # direction/distance/contains/adjacent/separated_by/terrain
+    value: str  # e.g. "north_of", "三天路程（步行）", "河流", "on_coast"
+    confidence: str = "medium"  # high/medium/low
+    narrative_evidence: str = ""
+
+
 class ChapterFact(BaseModel):
     chapter_id: int
     novel_id: str
     characters: list[CharacterFact] = []
     relationships: list[RelationshipFact] = []
     locations: list[LocationFact] = []
+    spatial_relationships: list[SpatialRelationship] = []
     item_events: list[ItemEventFact] = []
     org_events: list[OrgEventFact] = []
     events: list[EventFact] = []

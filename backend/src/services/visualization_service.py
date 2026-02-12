@@ -7,10 +7,19 @@ All functions accept chapter_start/chapter_end to filter by range.
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
+from src.services.map_layout_service import (
+    ConstraintSolver,
+    compute_chapter_hash,
+    generate_terrain,
+    layout_to_list,
+)
+
+logger = logging.getLogger(__name__)
 
 
 async def _load_facts_in_range(
@@ -129,6 +138,9 @@ async def get_graph_data(
 # ── Map (Location Hierarchy + Trajectories) ──────
 
 
+_CONFIDENCE_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
 async def get_map_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
@@ -137,6 +149,8 @@ async def get_map_data(
     loc_info: dict[str, dict] = {}
     loc_chapters: dict[str, set[int]] = defaultdict(set)
     trajectories: dict[str, list[dict]] = defaultdict(list)
+    # Spatial constraint aggregation: (source, target, relation_type) -> best entry
+    constraint_map: dict[tuple[str, str, str], dict] = {}
 
     for fact in facts:
         ch = fact.chapter_id
@@ -159,6 +173,21 @@ async def get_map_data(
                     "location": loc_name,
                     "chapter": ch,
                 })
+
+        # Aggregate spatial relationships
+        for sr in fact.spatial_relationships:
+            key = (sr.source, sr.target, sr.relation_type)
+            new_rank = _CONFIDENCE_RANK.get(sr.confidence, 1)
+            existing = constraint_map.get(key)
+            if existing is None or new_rank > _CONFIDENCE_RANK.get(existing["confidence"], 1):
+                constraint_map[key] = {
+                    "source": sr.source,
+                    "target": sr.target,
+                    "relation_type": sr.relation_type,
+                    "value": sr.value,
+                    "confidence": sr.confidence,
+                    "narrative_evidence": sr.narrative_evidence,
+                }
 
     # Calculate hierarchy levels
     def get_level(name: str, visited: set[str] | None = None) -> int:
@@ -196,7 +225,132 @@ async def get_map_data(
                 unique.append(entry)
         trajectories[person] = unique
 
-    return {"locations": locations, "trajectories": dict(trajectories)}
+    spatial_constraints = list(constraint_map.values())
+
+    # ── Layout computation with caching ──
+    ch_hash = compute_chapter_hash(chapter_start, chapter_end)
+    layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
+        novel_id, ch_hash, locations, spatial_constraints,
+    )
+
+    return {
+        "locations": locations,
+        "trajectories": dict(trajectories),
+        "spatial_constraints": spatial_constraints,
+        "layout": layout_data,
+        "layout_mode": layout_mode,
+        "terrain_url": terrain_url,
+    }
+
+
+async def _load_user_overrides(novel_id: str) -> dict[str, tuple[float, float]]:
+    """Load user-adjusted coordinates for a novel."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT location_name, x, y FROM map_user_overrides WHERE novel_id = ?",
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        return {row["location_name"]: (row["x"], row["y"]) for row in rows}
+    finally:
+        await conn.close()
+
+
+async def save_user_override(
+    novel_id: str, location_name: str, x: float, y: float
+) -> None:
+    """Save or update a user coordinate override and invalidate layout cache."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """INSERT INTO map_user_overrides (novel_id, location_name, x, y, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))
+               ON CONFLICT (novel_id, location_name)
+               DO UPDATE SET x=excluded.x, y=excluded.y, updated_at=datetime('now')""",
+            (novel_id, location_name, x, y),
+        )
+        # Invalidate all cached layouts for this novel
+        await conn.execute(
+            "DELETE FROM map_layouts WHERE novel_id = ?", (novel_id,),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def invalidate_layout_cache(novel_id: str) -> None:
+    """Invalidate layout cache when chapter facts are updated."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "DELETE FROM map_layouts WHERE novel_id = ?", (novel_id,),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def _compute_or_load_layout(
+    novel_id: str,
+    chapter_hash: str,
+    locations: list[dict],
+    spatial_constraints: list[dict],
+) -> tuple[list[dict], str, str | None]:
+    """Load cached layout or compute a new one.
+
+    Returns (layout_list, layout_mode, terrain_url).
+    """
+    # Try loading from cache
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT layout_json, layout_mode, terrain_path FROM map_layouts WHERE novel_id = ? AND chapter_hash = ?",
+            (novel_id, chapter_hash),
+        )
+        row = await cursor.fetchone()
+        if row:
+            layout_data = json.loads(row["layout_json"])
+            terrain_path = row["terrain_path"]
+            terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
+            return layout_data, row["layout_mode"], terrain_url
+    finally:
+        await conn.close()
+
+    if not locations:
+        return [], "hierarchy", None
+
+    # Load user overrides
+    user_overrides = await _load_user_overrides(novel_id)
+
+    # Compute layout
+    solver = ConstraintSolver(locations, spatial_constraints, user_overrides)
+    layout_coords, layout_mode = solver.solve()
+    layout_data = layout_to_list(layout_coords, locations)
+
+    # Generate terrain image (only for constraint mode with enough locations)
+    terrain_path = None
+    if layout_mode == "constraint" and len(layout_coords) >= 3:
+        terrain_path = generate_terrain(locations, layout_coords, novel_id)
+
+    terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
+
+    # Cache the result
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """INSERT INTO map_layouts (novel_id, chapter_hash, layout_json, layout_mode, terrain_path, created_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT (novel_id, chapter_hash)
+               DO UPDATE SET layout_json=excluded.layout_json, layout_mode=excluded.layout_mode,
+                            terrain_path=excluded.terrain_path, created_at=datetime('now')""",
+            (novel_id, chapter_hash, json.dumps(layout_data, ensure_ascii=False), layout_mode, terrain_path),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+    return layout_data, layout_mode, terrain_url
 
 
 # ── Timeline (Events) ────────────────────────────

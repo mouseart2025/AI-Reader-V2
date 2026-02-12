@@ -97,7 +97,8 @@ class ChapterFactExtractor:
             "2. relationships 数组必须包含人物之间的关系，evidence 引用原文\n"
             "3. locations 数组必须包含所有地名\n"
             "4. events 数组中每个事件的 participants 必须列出参与者姓名，location 必须填写地点\n"
-            "5. 只提取原文明确出现的内容，禁止编造\n"
+            "5. spatial_relationships 提取地点间的方位、距离、包含、相邻、分隔、地形关系\n"
+            "6. 只提取原文明确出现的内容，禁止编造\n"
         )
 
         # First attempt

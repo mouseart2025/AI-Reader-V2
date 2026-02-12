@@ -14,6 +14,7 @@ from src.extraction.fact_validator import FactValidator
 from src.infra.config import OLLAMA_MODEL
 from src.infra.llm_client import get_llm_client
 from src.services import embedding_service
+from src.services.visualization_service import invalidate_layout_cache
 
 logger = logging.getLogger(__name__)
 
@@ -267,6 +268,9 @@ class AnalysisService:
                 await analysis_task_store.update_chapter_analysis_status(
                     novel_id, chapter_num, "completed"
                 )
+
+                # Invalidate map layout cache (spatial data may have changed)
+                await invalidate_layout_cache(novel_id)
 
                 # Update cumulative stats
                 stats["entities"] += len(fact.characters) + len(fact.locations)

@@ -10,6 +10,7 @@ import type {
   EntitySummary,
   EnvironmentCheck,
   ImportPreview,
+  MapData,
   Novel,
   NovelsListResponse,
   ReSplitRequest,
@@ -166,8 +167,20 @@ export function fetchMapData(
   novelId: string,
   start?: number,
   end?: number,
-): Promise<Record<string, unknown>> {
-  return apiFetch(`/novels/${novelId}/map${rangeParams(start, end)}`)
+): Promise<MapData> {
+  return apiFetch<MapData>(`/novels/${novelId}/map${rangeParams(start, end)}`)
+}
+
+export function saveLocationOverride(
+  novelId: string,
+  locationName: string,
+  x: number,
+  y: number,
+): Promise<{ status: string; message: string }> {
+  return apiFetch(`/novels/${novelId}/map/layout/${encodeURIComponent(locationName)}`, {
+    method: "PUT",
+    body: JSON.stringify({ x, y }),
+  })
 }
 
 export function fetchTimelineData(
