@@ -43,19 +43,23 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
 
       {/* B. Appearances — merged by description, latest first */}
       <CardSection title="外貌特征" defaultLimit={3}>
-        {[...appearances].reverse().map((a, i) => (
-          <div key={i} className="text-sm">
-            <span className="text-muted-foreground text-xs">
-              {a.chapters.length === 1
-                ? `Ch.${a.chapters[0]}`
-                : a.chapters.length <= 3
-                  ? `Ch.${a.chapters.join(",")}`
-                  : `Ch.${a.chapters[0]}–${a.chapters[a.chapters.length - 1]}(${a.chapters.length}次)`
-              }
-            </span>
-            <span className="ml-1.5">{a.description}</span>
-          </div>
-        ))}
+        {[...appearances].reverse().map((a, i) => {
+          // Support both old ({chapter}) and new ({chapters}) format
+          const chs: number[] = a.chapters ?? ((a as any).chapter != null ? [(a as any).chapter] : [])
+          return (
+            <div key={i} className="text-sm">
+              <span className="text-muted-foreground text-xs">
+                {chs.length === 1
+                  ? `Ch.${chs[0]}`
+                  : chs.length <= 3
+                    ? `Ch.${chs.join(",")}`
+                    : `Ch.${chs[0]}–${chs[chs.length - 1]}(${chs.length}次)`
+                }
+              </span>
+              <span className="ml-1.5">{a.description}</span>
+            </div>
+          )
+        })}
       </CardSection>
 
       {/* C. Relations — stages with consecutive same-type merged */}
@@ -74,7 +78,9 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
               {rel.stages.length > 1 && (
                 <span className="text-muted-foreground ml-1 text-xs">
                   ({rel.stages.map((s) => {
-                    const chs = s.chapters
+                    // Support both old ({chapter}) and new ({chapters}) format
+                    const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
+                    if (chs.length === 0) return s.relation_type
                     const tag = chs.length === 1
                       ? `Ch.${chs[0]}`
                       : `Ch.${chs[0]}–${chs[chs.length - 1]}`
