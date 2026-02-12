@@ -13,6 +13,7 @@ from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
 from src.infra.config import OLLAMA_MODEL
 from src.infra.llm_client import get_llm_client
+from src.services import embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,15 @@ class AnalysisService:
         total = chapter_end - chapter_start + 1
         stats = {"entities": 0, "relations": 0, "events": 0}
 
+        # Broadcast initial state immediately so frontend shows total count
+        await manager.broadcast(novel_id, {
+            "type": "progress",
+            "chapter": chapter_start,
+            "total": total,
+            "done": 0,
+            "stats": stats,
+        })
+
         for chapter_num in range(chapter_start, chapter_end + 1):
             # Check for pause/cancel signal
             signal = self._task_signals.get(task_id, "running")
@@ -149,6 +159,15 @@ class AnalysisService:
             chapter = await analysis_task_store.get_chapter_content(novel_id, chapter_num)
             if not chapter:
                 logger.warning("Chapter %d not found for novel %s, skipping", chapter_num, novel_id)
+                # Still broadcast progress so frontend updates
+                done_count = chapter_num - chapter_start + 1
+                await manager.broadcast(novel_id, {
+                    "type": "progress",
+                    "chapter": chapter_num,
+                    "total": total,
+                    "done": done_count,
+                    "stats": stats,
+                })
                 continue
 
             # Skip already-completed chapters unless force=True
@@ -164,6 +183,13 @@ class AnalysisService:
                     "stats": stats,
                 })
                 continue
+
+            # Broadcast "processing" before LLM call so UI shows current chapter
+            await manager.broadcast(novel_id, {
+                "type": "processing",
+                "chapter": chapter_num,
+                "total": total,
+            })
 
             chapter_pk = chapter["id"]
             start_ms = int(time.time() * 1000)
@@ -193,6 +219,19 @@ class AnalysisService:
                     llm_model=OLLAMA_MODEL,
                     extraction_ms=elapsed_ms,
                 )
+
+                # Index embeddings in ChromaDB
+                try:
+                    fact_data = fact.model_dump()
+                    fact_summary = embedding_service.build_fact_summary(fact_data)
+                    embedding_service.index_chapter(
+                        novel_id, chapter_num, chapter["content"], fact_summary
+                    )
+                    embedding_service.index_entities_from_fact(
+                        novel_id, chapter_num, fact_data
+                    )
+                except Exception as e:
+                    logger.warning("Embedding indexing failed for chapter %d: %s", chapter_num, e)
 
                 # Update chapter status
                 await analysis_task_store.update_chapter_analysis_status(

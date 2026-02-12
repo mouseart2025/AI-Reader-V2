@@ -1,89 +1,133 @@
 [
   {
-    "chapter_id": 1,
+    "chapter_id": 2,
     "novel_id": "example",
     "characters": [
       {
         "name": "韩立",
-        "new_aliases": ["韩小子"],
-        "appearance": "一个瘦小的少年，面色蜡黄",
+        "new_aliases": ["二愣子"],
+        "appearance": "皮肤黑黑的，普通的农家小孩模样",
         "abilities_gained": [],
-        "locations_in_chapter": ["七玄门", "落日峰"]
+        "locations_in_chapter": ["山村"]
       },
       {
-        "name": "墨大夫",
+        "name": "韩铸",
+        "new_aliases": ["二哥"],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["山村"]
+      },
+      {
+        "name": "三叔",
         "new_aliases": [],
-        "appearance": "白发苍苍的老者",
-        "abilities_gained": [
-          {
-            "dimension": "身份",
-            "name": "七玄门长老",
-            "description": "七玄门的药园管理长老"
-          }
-        ],
-        "locations_in_chapter": ["药园"]
+        "appearance": "穿着一身崭新的缎子衣服，胖胖的圆脸，留着一撮小胡子",
+        "abilities_gained": [],
+        "locations_in_chapter": ["山村"]
+      },
+      {
+        "name": "韩父",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["山村"]
+      },
+      {
+        "name": "韩母",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["山村"]
       }
     ],
     "relationships": [
       {
         "person_a": "韩立",
-        "person_b": "墨大夫",
-        "relation_type": "师徒",
+        "person_b": "韩铸",
+        "relation_type": "兄弟",
         "is_new": true,
         "previous_type": null,
-        "evidence": "墨大夫将韩立收入门下，教他辨认草药。"
+        "evidence": "在他身边紧挨着的另一人，是二哥韩铸"
+      },
+      {
+        "person_a": "韩立",
+        "person_b": "三叔",
+        "relation_type": "叔侄",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "这位贵客，是跟他血缘很近的一位至亲——他的亲三叔"
+      },
+      {
+        "person_a": "韩立",
+        "person_b": "韩父",
+        "relation_type": "父子",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "韩父反复嘱咐韩立，做人要老实"
+      },
+      {
+        "person_a": "韩立",
+        "person_b": "韩母",
+        "relation_type": "母子",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "韩母则要他多注意身体，要吃好睡好"
       }
     ],
     "locations": [
       {
-        "name": "七玄门",
-        "type": "门派",
+        "name": "山村",
+        "type": "村庄",
         "parent": null,
-        "description": "位于越国境内的小门派"
-      },
-      {
-        "name": "药园",
-        "type": "建筑",
-        "parent": "七玄门",
-        "description": "七玄门内种植灵草的园子"
+        "description": "韩立的家乡，偏远贫穷的小山村"
       }
     ],
-    "item_events": [
-      {
-        "item_name": "养气丹",
-        "item_type": "丹药",
-        "action": "获得",
-        "actor": "韩立",
-        "recipient": null,
-        "description": "墨大夫赐予韩立一瓶养气丹作为入门礼"
-      }
-    ],
+    "item_events": [],
     "org_events": [
       {
         "org_name": "七玄门",
         "org_type": "门派",
-        "member": "韩立",
-        "role": "弟子",
+        "member": "三叔",
+        "role": "外门弟子",
         "action": "加入",
-        "description": "韩立正式成为七玄门弟子",
+        "description": "三叔正式成为了七玄门的外门弟子",
         "org_relation": null
       }
     ],
     "events": [
       {
-        "summary": "韩立被墨大夫收为弟子，进入七玄门药园修行",
+        "summary": "三叔来到韩家，提议带韩立参加七玄门招收内门弟子的考验",
         "type": "社交",
         "importance": "high",
-        "participants": ["韩立", "墨大夫"],
-        "location": "七玄门"
+        "participants": ["韩立", "三叔", "韩父"],
+        "location": "山村"
+      },
+      {
+        "summary": "韩父犹豫后同意让韩立去七玄门",
+        "type": "社交",
+        "importance": "medium",
+        "participants": ["韩父", "三叔"],
+        "location": "山村"
+      },
+      {
+        "summary": "三叔一个多月后接走韩立，韩立第一次出远门与父母分别",
+        "type": "旅行",
+        "importance": "medium",
+        "participants": ["韩立", "三叔", "韩父", "韩母"],
+        "location": "山村"
       }
     ],
     "new_concepts": [
       {
-        "name": "养气丹",
-        "category": "丹药",
-        "definition": "帮助修炼者温养气息的入门丹药",
-        "related": ["灵气"]
+        "name": "外门弟子",
+        "category": "门派制度",
+        "definition": "七玄门外围人员，替门派打理门外的生意",
+        "related": ["七玄门", "内门弟子"]
+      },
+      {
+        "name": "内门弟子",
+        "category": "门派制度",
+        "definition": "七玄门正式弟子，免费习武，每月有一两散银零花钱",
+        "related": ["七玄门", "外门弟子"]
       }
     ]
   }

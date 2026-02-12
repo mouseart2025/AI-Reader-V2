@@ -69,6 +69,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
             progress: Math.round((msg.done / msg.total) * 100),
             stats: msg.stats,
           })
+        } else if (msg.type === "processing") {
+          // LLM is working on this chapter — update display immediately
+          set({
+            currentChapter: msg.chapter,
+            totalChapters: msg.total,
+          })
         } else if (msg.type === "chapter_done") {
           if (msg.status === "failed") {
             set({

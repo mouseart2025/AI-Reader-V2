@@ -84,10 +84,12 @@ function NovelCard({
   novel,
   onDelete,
   onClick,
+  onNavigate,
 }: {
   novel: Novel
   onDelete: (novel: Novel) => void
   onClick: (novel: Novel) => void
+  onNavigate: (path: string) => void
 }) {
   return (
     <Card
@@ -142,23 +144,48 @@ function NovelCard({
         </div>
       </CardContent>
 
-      <CardFooter className="flex items-center justify-between">
-        <span className="text-muted-foreground text-xs">
-          {novel.last_opened
-            ? formatDate(novel.last_opened)
-            : formatDate(novel.created_at)}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground hover:text-destructive h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(novel)
-          }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+      <CardFooter className="flex flex-col gap-2">
+        {/* Quick-access buttons */}
+        <div className="flex w-full gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {[
+            { label: "分析", path: `/analysis/${novel.id}` },
+            { label: "图谱", path: `/graph/${novel.id}` },
+            { label: "百科", path: `/encyclopedia/${novel.id}` },
+            { label: "问答", path: `/chat/${novel.id}` },
+          ].map((link) => (
+            <Button
+              key={link.label}
+              variant="outline"
+              size="xs"
+              className="flex-1 text-[10px] h-6"
+              onClick={(e) => {
+                e.stopPropagation()
+                onNavigate(link.path)
+              }}
+            >
+              {link.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex w-full items-center justify-between">
+          <span className="text-muted-foreground text-xs">
+            {novel.last_opened
+              ? formatDate(novel.last_opened)
+              : formatDate(novel.created_at)}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(novel)
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )
@@ -295,10 +322,15 @@ export default function BookshelfPage() {
           <BookOpen className="text-primary h-7 w-7" />
           <h1 className="text-2xl font-bold">书架</h1>
         </div>
-        <Button onClick={() => setUploadOpen(true)}>
-          <Upload className="mr-2 h-4 w-4" />
-          上传小说
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
+            设置
+          </Button>
+          <Button onClick={() => setUploadOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            上传小说
+          </Button>
+        </div>
       </div>
 
       {/* Search + Sort */}
@@ -350,6 +382,7 @@ export default function BookshelfPage() {
               novel={novel}
               onDelete={setDeleteTarget}
               onClick={handleClick}
+              onNavigate={(path) => navigate(path)}
             />
           ))}
         </div>

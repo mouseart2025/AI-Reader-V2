@@ -12,6 +12,7 @@ class ChapterInfo:
     word_count: int
     volume_num: int | None = None
     volume_title: str | None = None
+    _text_pos: int = field(default=0, repr=False)  # internal: position in source text
 
 
 # Chinese number mapping for conversion
@@ -22,20 +23,22 @@ _CN_NUMS = {
 }
 
 # 5 splitting modes ordered by priority
+# \s* after ^ to tolerate leading whitespace (fullwidth spaces, tabs, etc.)
 _PATTERNS: list[tuple[str, re.Pattern]] = [
-    # Mode 1: 第X章
+    # Mode 1: 第X章 / 番外X / 后记 / 尾声 / 完本感言
+    # Note: 两 is needed for 第两千章 etc.
     (
         "chapter_zh",
         re.compile(
-            r"^第[零〇一二三四五六七八九十百千万\d]+[章][\s：:]*(.*)$",
+            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|后记|尾声|完本感言)[\s：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
-    # Mode 2: 第X回/节/卷
+    # Mode 2: 第X回/节/卷/幕/场
     (
         "section_zh",
         re.compile(
-            r"^第[零〇一二三四五六七八九十百千万\d]+[回节卷][\s：:]*(.*)$",
+            r"^\s*第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷][\s：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
@@ -67,6 +70,12 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 
 _MIN_PROLOGUE_CHARS = 100  # Minimum chars to keep a prologue
 
+# Volume/part markers — detected as secondary markers within chapter content
+_VOLUME_PATTERN = re.compile(
+    r"^\s*第[零〇一二两三四五六七八九十百千万\d]+[卷部集][\s：:]*(.*)$",
+    re.MULTILINE,
+)
+
 # Expose available mode names for the API
 AVAILABLE_MODES = [name for name, _ in _PATTERNS]
 
@@ -79,6 +88,9 @@ def split_chapters(text: str, mode: str | None = None, custom_regex: str | None 
     Otherwise tries all 5 patterns, picks the one with the most matches (>= 2).
     If no pattern matches >= 2 times, returns the entire text as one chapter.
     """
+    # Normalize line endings: \r\n → \n, standalone \r → \n
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
     # Custom regex mode
     if custom_regex:
         try:
@@ -137,7 +149,9 @@ def split_chapters(text: str, mode: str | None = None, custom_regex: str | None 
             )
         ]
 
-    return _split_by_matches(text, best_mode, best_matches)
+    chapters = _split_by_matches(text, best_mode, best_matches)
+    _assign_volumes(text, chapters)
+    return chapters
 
 
 def _split_by_matches(
@@ -157,12 +171,12 @@ def _split_by_matches(
                 title="序章",
                 content=prologue_text,
                 word_count=len(prologue_text),
+                _text_pos=0,
             )
         )
 
     # Split at each match position
     for i, match in enumerate(matches):
-        chapter_num += 1
         title = _extract_title(mode, match)
 
         # Content runs from after the title line to the next match (or end)
@@ -170,12 +184,18 @@ def _split_by_matches(
         content_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         content = text[content_start:content_end].strip()
 
+        # Skip empty chapters (duplicate markers or formatting artifacts)
+        if not content:
+            continue
+
+        chapter_num += 1
         chapters.append(
             ChapterInfo(
                 chapter_num=chapter_num,
                 title=title,
                 content=content,
                 word_count=len(content),
+                _text_pos=match.start(),
             )
         )
 
@@ -208,3 +228,35 @@ def _extract_title(mode: str, match: re.Match) -> str:
 
     # Fallback: use the entire matched line
     return match.group(0).strip()
+
+
+def _assign_volumes(text: str, chapters: list[ChapterInfo]) -> None:
+    """Detect volume markers in text and assign volume info to chapters.
+
+    Finds all volume markers (第X卷/部/集) in the original text,
+    then assigns each chapter to the appropriate volume based on text position.
+    Also strips volume marker lines from chapter content.
+    """
+    vol_matches = list(_VOLUME_PATTERN.finditer(text))
+    if not vol_matches:
+        return
+
+    # Build volume list sorted by position: (start_pos, vol_num, vol_title)
+    volumes = [
+        (m.start(), i + 1, m.group(1).strip() if m.group(1) else "")
+        for i, m in enumerate(vol_matches)
+    ]
+
+    # Assign each chapter to the most recent volume before its position
+    for ch in chapters:
+        for vol_start, vol_num, vol_title in reversed(volumes):
+            if ch._text_pos >= vol_start:
+                ch.volume_num = vol_num
+                ch.volume_title = vol_title
+                break
+
+        # Strip volume marker lines from content
+        cleaned = _VOLUME_PATTERN.sub("", ch.content).strip()
+        if cleaned != ch.content:
+            ch.content = cleaned
+            ch.word_count = len(cleaned)

@@ -9,6 +9,7 @@ dependencies = [
     "uvicorn[standard]",
     "aiosqlite",
     "chromadb",
+    "sentence-transformers",
     "pydantic>=2.0",
     "httpx",
     "websockets",

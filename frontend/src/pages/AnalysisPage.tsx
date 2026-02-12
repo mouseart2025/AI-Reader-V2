@@ -164,7 +164,7 @@ export default function AnalysisPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">加载中...</p>
       </div>
     )
   }
@@ -172,9 +172,9 @@ export default function AnalysisPage() {
   if (!novel) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Novel not found</p>
+        <p className="text-muted-foreground">未找到该小说</p>
         <Button variant="outline" onClick={() => navigate("/")}>
-          Back to Bookshelf
+          返回书架
         </Button>
       </div>
     )
@@ -189,12 +189,12 @@ export default function AnalysisPage() {
             className="text-muted-foreground mb-1 text-sm hover:underline"
             onClick={() => navigate("/")}
           >
-            &larr; Back to Bookshelf
+            &larr; 返回书架
           </button>
           <h1 className="text-2xl font-bold">{novel.title}</h1>
           <p className="text-muted-foreground text-sm">
-            {novel.total_chapters} chapters &middot;{" "}
-            {novel.total_words.toLocaleString()} words
+            共 {novel.total_chapters} 章 &middot;{" "}
+            {novel.total_words.toLocaleString()} 字
           </p>
         </div>
       </div>
@@ -216,14 +216,14 @@ export default function AnalysisPage() {
               {isPaused && (
                 <span className="inline-block size-2 rounded-full bg-yellow-500" />
               )}
-              {isRunning ? "Analyzing..." : "Paused"}
+              {isRunning ? "正在分析..." : "已暂停"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="mb-1 flex justify-between text-sm">
                 <span>
-                  Chapter {currentChapter} / {totalChapters}
+                  第 {currentChapter} 章 / 共 {totalChapters} 章
                 </span>
                 <span>{progress}%</span>
               </div>
@@ -231,27 +231,27 @@ export default function AnalysisPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-center">
-              <StatCard label="Entities" value={stats.entities} />
-              <StatCard label="Relations" value={stats.relations} />
-              <StatCard label="Events" value={stats.events} />
+              <StatCard label="实体" value={stats.entities} />
+              <StatCard label="关系" value={stats.relations} />
+              <StatCard label="事件" value={stats.events} />
             </div>
 
             <div className="flex gap-2">
               {isRunning && (
                 <>
                   <Button variant="outline" onClick={handlePause}>
-                    Pause
+                    暂停
                   </Button>
                   <Button variant="destructive" onClick={handleCancel}>
-                    Cancel
+                    取消
                   </Button>
                 </>
               )}
               {isPaused && (
                 <>
-                  <Button onClick={handleResume}>Resume</Button>
+                  <Button onClick={handleResume}>继续</Button>
                   <Button variant="destructive" onClick={handleCancel}>
-                    Cancel
+                    取消
                   </Button>
                 </>
               )}
@@ -266,20 +266,20 @@ export default function AnalysisPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="inline-block size-2 rounded-full bg-blue-500" />
-              Analysis Complete
+              分析完成
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4 text-center">
-              <StatCard label="Entities" value={stats.entities} />
-              <StatCard label="Relations" value={stats.relations} />
-              <StatCard label="Events" value={stats.events} />
+              <StatCard label="实体" value={stats.entities} />
+              <StatCard label="关系" value={stats.relations} />
+              <StatCard label="事件" value={stats.events} />
             </div>
             <p className="text-muted-foreground text-sm">
-              Analyzed chapters {task?.chapter_start} - {task?.chapter_end}
+              已分析第 {task?.chapter_start} - {task?.chapter_end} 章
             </p>
             <Button variant="outline" onClick={handleReanalyze}>
-              Re-analyze
+              重新分析
             </Button>
           </CardContent>
         </Card>
@@ -291,13 +291,12 @@ export default function AnalysisPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="inline-block size-2 rounded-full bg-gray-400" />
-              Analysis Cancelled
+              分析已取消
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4 text-sm">
-              Stopped at chapter {task?.current_chapter}. Already analyzed data
-              is preserved.
+              已在第 {task?.current_chapter} 章停止。已完成的分析数据已保留。
             </p>
           </CardContent>
         </Card>
@@ -307,7 +306,7 @@ export default function AnalysisPage() {
       {failedChapters.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Failed Chapters ({failedChapters.length})</CardTitle>
+            <CardTitle>失败章节 ({failedChapters.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -316,7 +315,7 @@ export default function AnalysisPage() {
                   key={fc.chapter}
                   className="flex items-center justify-between rounded-md border p-2 text-sm"
                 >
-                  <span>Chapter {fc.chapter}</span>
+                  <span>第 {fc.chapter} 章</span>
                   <span className="text-muted-foreground max-w-[60%] truncate text-xs">
                     {fc.error}
                   </span>
@@ -331,13 +330,11 @@ export default function AnalysisPage() {
       {!isActive && (
         <Card>
           <CardHeader>
-            <CardTitle>Start Analysis</CardTitle>
+            <CardTitle>开始分析</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Analyze chapters using AI to extract characters, relationships,
-              locations, events, and more. Already completed chapters will be
-              skipped.
+              使用 AI 逐章分析小说，提取人物、关系、地点、事件、物品、组织等结构化信息。已完成的章节将自动跳过。
             </p>
 
             {/* Range toggle */}
@@ -349,14 +346,14 @@ export default function AnalysisPage() {
                   onChange={(e) => setShowRangeMode(e.target.checked)}
                   className="mr-2"
                 />
-                Specify chapter range
+                指定章节范围
               </label>
             </div>
 
             {showRangeMode && (
               <div className="flex items-end gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="range-start">From</Label>
+                  <Label htmlFor="range-start">起始章</Label>
                   <Input
                     id="range-start"
                     type="number"
@@ -368,7 +365,7 @@ export default function AnalysisPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="range-end">To</Label>
+                  <Label htmlFor="range-end">结束章</Label>
                   <Input
                     id="range-end"
                     type="number"
@@ -380,7 +377,7 @@ export default function AnalysisPage() {
                   />
                 </div>
                 <span className="text-muted-foreground pb-2 text-sm">
-                  / {novel.total_chapters}
+                  / 共 {novel.total_chapters} 章
                 </span>
               </div>
             )}
@@ -390,11 +387,11 @@ export default function AnalysisPage() {
                 onClick={() => handleStartAnalysis(false)}
                 disabled={starting || isActive}
               >
-                {starting ? "Starting..." : "Start Analysis"}
+                {starting ? "启动中..." : "开始分析"}
               </Button>
               {(isCompleted || isCancelled) && (
                 <Button variant="outline" onClick={handleReanalyze}>
-                  Force Re-analyze
+                  强制重新分析
                 </Button>
               )}
             </div>
@@ -409,16 +406,15 @@ export default function AnalysisPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Re-analysis</AlertDialogTitle>
+            <AlertDialogTitle>确认重新分析</AlertDialogTitle>
             <AlertDialogDescription>
-              This will re-analyze all chapters in the selected range, including
-              already completed ones. Existing analysis data will be overwritten.
+              将重新分析所选范围内的所有章节（包括已完成的），现有分析数据将被覆盖。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={confirmReanalyze}>
-              Re-analyze
+              确认重新分析
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

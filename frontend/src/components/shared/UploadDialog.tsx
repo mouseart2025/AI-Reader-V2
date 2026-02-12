@@ -41,8 +41,8 @@ import {
 const ALLOWED_EXTENSIONS = [".txt", ".md"]
 
 const MODE_LABELS: Record<string, string> = {
-  chapter_zh: "第X章",
-  section_zh: "第X回/节/卷",
+  chapter_zh: "第X章 / 番外",
+  section_zh: "第X回/节/卷/幕/场",
   numbered: "数字编号 (1. / 001)",
   markdown: "Markdown 标题",
   separator: "分隔线 (--- / ===)",
