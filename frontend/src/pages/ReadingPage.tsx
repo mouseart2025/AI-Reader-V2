@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   fetchChapterContent,
-  fetchChapterEntities,
   fetchChapters,
+  fetchEntities,
   fetchNovel,
   fetchUserState,
   saveUserState,
@@ -359,15 +359,21 @@ export default function ReadingPage() {
 
     async function load() {
       try {
-        const [n, { chapters: chs }, userState] = await Promise.all([
+        const [n, { chapters: chs }, userState, { entities: allEnts }] = await Promise.all([
           fetchNovel(novelId!),
           fetchChapters(novelId!),
           fetchUserState(novelId!),
+          // Load ALL entities for the novel once — used for highlighting across all chapters.
+          // This avoids missing highlights for entities not extracted in the current chapter's fact.
+          fetchEntities(novelId!),
         ])
         if (cancelled) return
 
         setNovel(n)
         setChapters(chs)
+
+        // Set all entities for highlighting (name + type from every analyzed chapter)
+        setEntities(allEnts.map((e) => ({ name: e.name, type: e.type })))
 
         // Restore reading position
         const startChapter = userState.last_chapter ?? 1
@@ -377,17 +383,6 @@ export default function ReadingPage() {
         const content = await fetchChapterContent(novelId!, startChapter)
         if (cancelled) return
         setCurrentChapter(content)
-
-        // Load entities for highlighting
-        if (content.analysis_status === "completed") {
-          const { entities: ents } = await fetchChapterEntities(
-            novelId!,
-            startChapter,
-          )
-          if (!cancelled) setEntities(ents)
-        } else {
-          setEntities([])
-        }
 
         // Restore scroll position
         if (userState.scroll_position && contentRef.current) {
@@ -451,16 +446,7 @@ export default function ReadingPage() {
         setCurrentChapter(content)
         setCurrentChapterNum(chapterNum)
 
-        // Load entities
-        if (content.analysis_status === "completed") {
-          const { entities: ents } = await fetchChapterEntities(
-            novelId,
-            chapterNum,
-          )
-          setEntities(ents)
-        } else {
-          setEntities([])
-        }
+        // Entities are already loaded for the whole novel — no per-chapter fetch needed
 
         // Scroll to top
         if (contentRef.current) {
@@ -478,7 +464,7 @@ export default function ReadingPage() {
         setLoading(false)
       }
     },
-    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, setEntities],
+    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum],
   )
 
   const handleSearch = useCallback(
