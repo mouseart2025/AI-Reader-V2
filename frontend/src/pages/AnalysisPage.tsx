@@ -93,6 +93,27 @@ export default function AnalysisPage() {
     }
   }, [novelId, setTask, connectWs, disconnectWs])
 
+  // Re-sync task status when page becomes visible (e.g. after laptop wake)
+  useEffect(() => {
+    if (!novelId) return
+
+    function handleVisibilityChange() {
+      if (document.visibilityState !== "visible") return
+      // Re-fetch task status and reconnect WS if needed
+      getLatestAnalysisTask(novelId!).then(({ task: latestTask }) => {
+        if (latestTask) {
+          setTask(latestTask)
+          if (latestTask.status === "running" || latestTask.status === "paused") {
+            connectWs(novelId!)
+          }
+        }
+      }).catch(() => { /* ignore */ })
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [novelId, setTask, connectWs])
+
   const handleStartAnalysis = useCallback(
     async (force = false) => {
       if (!novelId || !novel) return
