@@ -27,6 +27,20 @@
 3. 有上级归属时填写 parent，如 parent="东京" 对于 name="金梁桥"
 4. description 简要描述该地点
 
+## 空间关系提取规则（spatial_relationships）
+1. 提取地点之间的所有空间信息：方位、距离、包含、相邻、分隔、地形
+2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain
+3. direction 的 value 使用英文方位：north_of, south_of, east_of, west_of, northeast_of, northwest_of, southeast_of, southwest_of
+4. distance 的 value 描述距离信息，如 "三天路程（步行）"、"百里"、"very_near"
+5. contains 的 value 描述包含关系，如 "城市在国境内"
+6. adjacent 的 value 为 "adjacent"（相邻/接壤/毗邻）
+7. separated_by 的 value 描述分隔物：如 "大河"、"山脉"、"荒漠"
+8. terrain 的 value 描述地形特征：on_coast, in_forest, on_mountain, in_desert, by_river, in_plains
+9. confidence: high=原文明确描述, medium=可推断, low=模糊暗示
+10. narrative_evidence: 摘录原文依据，不超过50字
+11. 只提取文中有依据的关系，不要推测
+12. source 和 target 必须是本章或之前出现过的地点名
+
 ## 事件提取规则（events）⚠️ participants 和 location 必填
 1. **participants 必须列出所有参与者的名字**，不可为空列表
 2. **location 必须填写事件发生的地点名**，不可为 null

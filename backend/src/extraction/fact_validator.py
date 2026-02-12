@@ -8,6 +8,7 @@ from src.models.chapter_fact import (
     EventFact,
     ItemEventFact,
     OrgEventFact,
+    SpatialRelationship,
 )
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,10 @@ _VALID_ITEM_ACTIONS = {"出现", "获得", "使用", "赠予", "消耗", "丢失
 _VALID_ORG_ACTIONS = {"加入", "离开", "晋升", "阵亡", "叛出", "逐出"}
 _VALID_EVENT_TYPES = {"战斗", "成长", "社交", "旅行", "其他"}
 _VALID_IMPORTANCE = {"high", "medium", "low"}
+_VALID_SPATIAL_RELATION_TYPES = {
+    "direction", "distance", "contains", "adjacent", "separated_by", "terrain"
+}
+_VALID_CONFIDENCE = {"high", "medium", "low"}
 
 _NAME_MIN_LEN = 1
 _NAME_MAX_LEN = 20
@@ -37,6 +42,9 @@ class FactValidator:
         characters = self._validate_characters(fact.characters)
         relationships = self._validate_relationships(fact.relationships, characters)
         locations = self._validate_locations(fact.locations, characters)
+        spatial_relationships = self._validate_spatial_relationships(
+            fact.spatial_relationships, locations
+        )
         item_events = self._validate_item_events(fact.item_events)
         org_events = self._validate_org_events(fact.org_events)
         events = self._validate_events(fact.events)
@@ -63,6 +71,7 @@ class FactValidator:
             characters=characters,
             relationships=relationships,
             locations=locations,
+            spatial_relationships=spatial_relationships,
             item_events=item_events,
             org_events=org_events,
             events=events,
@@ -160,6 +169,50 @@ class FactValidator:
                 if is_hallucinated:
                     continue
             valid.append(loc.model_copy(update={"name": name}))
+        return valid
+
+    def _validate_spatial_relationships(
+        self, rels: list[SpatialRelationship], locations: list
+    ) -> list[SpatialRelationship]:
+        """Validate spatial relationships: check types, dedup, and ensure source/target exist."""
+        loc_names = {loc.name for loc in locations}
+        valid = []
+        seen: set[tuple[str, str, str]] = set()
+        for rel in rels:
+            source = _clamp_name(rel.source)
+            target = _clamp_name(rel.target)
+            if len(source) < _NAME_MIN_LEN or len(target) < _NAME_MIN_LEN:
+                continue
+            if source == target:
+                continue
+            relation_type = rel.relation_type
+            if relation_type not in _VALID_SPATIAL_RELATION_TYPES:
+                logger.debug(
+                    "Dropping spatial rel with invalid type: %s", relation_type
+                )
+                continue
+            confidence = rel.confidence if rel.confidence in _VALID_CONFIDENCE else "medium"
+            # Deduplicate by (source, target, relation_type)
+            key = (source, target, relation_type)
+            if key in seen:
+                continue
+            seen.add(key)
+            # Warn but don't drop if source/target not in extracted locations
+            # (they may reference locations from other chapters)
+            if source not in loc_names and target not in loc_names:
+                logger.debug(
+                    "Spatial rel %s->%s: neither in current chapter locations",
+                    source, target,
+                )
+            evidence = rel.narrative_evidence[:50] if rel.narrative_evidence else ""
+            valid.append(SpatialRelationship(
+                source=source,
+                target=target,
+                relation_type=relation_type,
+                value=rel.value,
+                confidence=confidence,
+                narrative_evidence=evidence,
+            ))
         return valid
 
     def _validate_item_events(

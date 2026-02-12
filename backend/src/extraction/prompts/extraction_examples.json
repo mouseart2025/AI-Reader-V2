@@ -81,6 +81,7 @@
         "description": "韩立的家乡，偏远贫穷的小山村"
       }
     ],
+    "spatial_relationships": [],
     "item_events": [],
     "org_events": [
       {
@@ -196,6 +197,16 @@
         "description": "韩立修习武艺的门派"
       }
     ],
+    "spatial_relationships": [
+      {
+        "source": "七玄门",
+        "target": "山村",
+        "relation_type": "distance",
+        "value": "一个多月路程（步行）",
+        "confidence": "medium",
+        "narrative_evidence": "三叔一个多月后接走韩立"
+      }
+    ],
     "item_events": [
       {
         "item_name": "清灵散",
@@ -224,5 +235,106 @@
         "related": ["张铁", "墨大夫"]
       }
     ]
+  },
+  {
+    "_comment": "示例3：展示空间关系的丰富提取",
+    "chapter_id": 50,
+    "novel_id": "example",
+    "characters": [
+      {
+        "name": "韩立",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["落云宗", "天星城"]
+      }
+    ],
+    "relationships": [],
+    "locations": [
+      {
+        "name": "落云宗",
+        "type": "门派",
+        "parent": "乱星海",
+        "description": "乱星海中的一个修仙宗门"
+      },
+      {
+        "name": "天星城",
+        "type": "城市",
+        "parent": "乱星海",
+        "description": "乱星海中最大的城市"
+      },
+      {
+        "name": "乱星海",
+        "type": "海域",
+        "parent": null,
+        "description": "天南修仙界东部的广袤海域"
+      },
+      {
+        "name": "天南",
+        "type": "域",
+        "parent": null,
+        "description": "修仙界的一个大区域"
+      },
+      {
+        "name": "翠屏山",
+        "type": "山",
+        "parent": "乱星海",
+        "description": "落云宗所在的山脉"
+      }
+    ],
+    "spatial_relationships": [
+      {
+        "source": "乱星海",
+        "target": "天南",
+        "relation_type": "direction",
+        "value": "east_of",
+        "confidence": "high",
+        "narrative_evidence": "乱星海位于天南修仙界以东"
+      },
+      {
+        "source": "天星城",
+        "target": "落云宗",
+        "relation_type": "distance",
+        "value": "数日飞行",
+        "confidence": "medium",
+        "narrative_evidence": "韩立御剑飞行了数日方才到达天星城"
+      },
+      {
+        "source": "落云宗",
+        "target": "翠屏山",
+        "relation_type": "terrain",
+        "value": "on_mountain",
+        "confidence": "high",
+        "narrative_evidence": "落云宗建于翠屏山之上"
+      },
+      {
+        "source": "落云宗",
+        "target": "乱星海",
+        "relation_type": "contains",
+        "value": "落云宗位于乱星海范围内",
+        "confidence": "high",
+        "narrative_evidence": "落云宗是乱星海中的宗门之一"
+      },
+      {
+        "source": "天星城",
+        "target": "乱星海",
+        "relation_type": "terrain",
+        "value": "on_coast",
+        "confidence": "medium",
+        "narrative_evidence": "天星城临海而建"
+      }
+    ],
+    "item_events": [],
+    "org_events": [],
+    "events": [
+      {
+        "summary": "韩立从落云宗出发前往天星城采购炼丹材料",
+        "type": "旅行",
+        "importance": "medium",
+        "participants": ["韩立"],
+        "location": "天星城"
+      }
+    ],
+    "new_concepts": []
   }
 ]

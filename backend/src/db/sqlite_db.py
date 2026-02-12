@@ -75,6 +75,25 @@ CREATE TABLE IF NOT EXISTS analysis_tasks (
     updated_at      TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS map_layouts (
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    chapter_hash    TEXT NOT NULL,
+    layout_json     TEXT NOT NULL,
+    layout_mode     TEXT NOT NULL DEFAULT 'hierarchy',
+    terrain_path    TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (novel_id, chapter_hash)
+);
+
+CREATE TABLE IF NOT EXISTS map_user_overrides (
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    location_name   TEXT NOT NULL,
+    x               REAL NOT NULL,
+    y               REAL NOT NULL,
+    updated_at      TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (novel_id, location_name)
+);
+
 CREATE INDEX IF NOT EXISTS idx_chapters_novel      ON chapters(novel_id, chapter_num);
 CREATE INDEX IF NOT EXISTS idx_chapter_facts_novel  ON chapter_facts(novel_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conv        ON messages(conversation_id, created_at);
