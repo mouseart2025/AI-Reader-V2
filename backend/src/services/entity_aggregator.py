@@ -105,7 +105,8 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
 
     aliases: list[AliasEntry] = []
     seen_aliases: set[str] = set()
-    appearances: list[AppearanceEntry] = []
+    # Collect raw appearances then merge duplicates after the loop
+    _raw_appearances: list[tuple[int, str]] = []  # (chapter, description)
     abilities: list[AbilityEntry] = []
     relations_map: dict[str, list[RelationStage]] = defaultdict(list)
     items: list[ItemAssociation] = []
@@ -130,9 +131,7 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                     aliases.append(AliasEntry(name=alias, first_chapter=ch))
 
             if char.appearance:
-                appearances.append(
-                    AppearanceEntry(chapter=ch, description=char.appearance)
-                )
+                _raw_appearances.append((ch, char.appearance))
 
             for ab in char.abilities_gained:
                 abilities.append(
@@ -189,6 +188,17 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
         RelationChain(other_person=other, stages=stages)
         for other, stages in relations_map.items()
     ]
+
+    # Merge duplicate appearances: group by description, collect chapters
+    _appearance_map: dict[str, list[int]] = {}
+    for ch, desc in _raw_appearances:
+        _appearance_map.setdefault(desc, []).append(ch)
+    appearances = [
+        AppearanceEntry(chapters=sorted(chs), description=desc)
+        for desc, chs in _appearance_map.items()
+    ]
+    # Sort by earliest chapter
+    appearances.sort(key=lambda a: a.chapters[0])
 
     profile = PersonProfile(
         name=person_name,

@@ -14,7 +14,7 @@ class AliasEntry(BaseModel):
 
 
 class AppearanceEntry(BaseModel):
-    chapter: int
+    chapters: list[int]
     description: str
 
 
