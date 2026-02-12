@@ -417,6 +417,8 @@ export default function GraphPage() {
           nodeCanvasObject={(node: GraphNode, ctx, globalScale) => {
             const isOnPath = hasPath && pathNodes.has(node.id)
             const isPathStart = pathStart === node.id
+            const isHovered = hoverNode === node.id
+            const isConnected = hoverNode != null && connectedNodes.has(node.id)
             const size = isOnPath
               ? Math.max(5, Math.sqrt(node.chapter_count) * 2)
               : Math.max(3, Math.sqrt(node.chapter_count) * 1.5)
@@ -446,10 +448,17 @@ export default function GraphPage() {
               ctx.stroke()
             }
 
-            // Draw label
-            const showLabel = isOnPath || isPathStart || globalScale > 1.5 || node.chapter_count >= 5
+            // Draw label — constant screen-pixel size, progressive visibility by zoom
+            // Priority labels always shown; others shown progressively as user zooms in
+            const alwaysShow = isOnPath || isPathStart || isHovered || isConnected
+            // Threshold decreases as you zoom in: zoom 1x → need 20+ chapters,
+            // zoom 2x → 10+, zoom 4x → 5+, zoom 8x → 2+
+            const chapterThreshold = Math.max(2, Math.round(20 / globalScale))
+            const showLabel = alwaysShow || node.chapter_count >= chapterThreshold
+
             if (showLabel) {
-              const fontSize = Math.max(10, 12 / globalScale)
+              // Constant 12px on screen regardless of zoom level
+              const fontSize = 12 / globalScale
               ctx.font = isOnPath ? `bold ${fontSize}px sans-serif` : `${fontSize}px sans-serif`
               ctx.textAlign = "center"
               ctx.textBaseline = "top"
@@ -460,7 +469,7 @@ export default function GraphPage() {
                   : hoverNode && !connectedNodes.has(node.id)
                     ? "#9ca3af"
                     : "#374151"
-              ctx.fillText(node.name, node.x!, node.y! + size + 2)
+              ctx.fillText(node.name, node.x!, node.y! + size + fontSize * 0.2)
             }
           }}
           linkColor={(edge: GraphEdge) => {
