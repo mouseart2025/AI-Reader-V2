@@ -1,24 +1,46 @@
+import { lazy, Suspense } from "react"
 import { createBrowserRouter } from "react-router-dom"
-import BookshelfPage from "@/pages/BookshelfPage"
-import ReadingPage from "@/pages/ReadingPage"
-import GraphPage from "@/pages/GraphPage"
-import MapPage from "@/pages/MapPage"
-import TimelinePage from "@/pages/TimelinePage"
-import FactionsPage from "@/pages/FactionsPage"
-import ChatPage from "@/pages/ChatPage"
-import EncyclopediaPage from "@/pages/EncyclopediaPage"
-import AnalysisPage from "@/pages/AnalysisPage"
-import SettingsPage from "@/pages/SettingsPage"
+import { NovelLayout } from "./NovelLayout"
+
+const BookshelfPage = lazy(() => import("@/pages/BookshelfPage"))
+const ReadingPage = lazy(() => import("@/pages/ReadingPage"))
+const GraphPage = lazy(() => import("@/pages/GraphPage"))
+const MapPage = lazy(() => import("@/pages/MapPage"))
+const TimelinePage = lazy(() => import("@/pages/TimelinePage"))
+const FactionsPage = lazy(() => import("@/pages/FactionsPage"))
+const ChatPage = lazy(() => import("@/pages/ChatPage"))
+const EncyclopediaPage = lazy(() => import("@/pages/EncyclopediaPage"))
+const AnalysisPage = lazy(() => import("@/pages/AnalysisPage"))
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
+
+function SuspenseWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-muted-foreground flex min-h-screen items-center justify-center text-sm">
+          加载中...
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  )
+}
 
 export const router = createBrowserRouter([
-  { path: "/", element: <BookshelfPage /> },
-  { path: "/read/:novelId", element: <ReadingPage /> },
-  { path: "/graph/:novelId", element: <GraphPage /> },
-  { path: "/map/:novelId", element: <MapPage /> },
-  { path: "/timeline/:novelId", element: <TimelinePage /> },
-  { path: "/factions/:novelId", element: <FactionsPage /> },
-  { path: "/chat/:novelId", element: <ChatPage /> },
-  { path: "/encyclopedia/:novelId", element: <EncyclopediaPage /> },
-  { path: "/analysis/:novelId", element: <AnalysisPage /> },
-  { path: "/settings", element: <SettingsPage /> },
+  { path: "/", element: <SuspenseWrapper><BookshelfPage /></SuspenseWrapper> },
+  {
+    element: <NovelLayout />,
+    children: [
+      { path: "/read/:novelId", element: <SuspenseWrapper><ReadingPage /></SuspenseWrapper> },
+      { path: "/graph/:novelId", element: <SuspenseWrapper><GraphPage /></SuspenseWrapper> },
+      { path: "/map/:novelId", element: <SuspenseWrapper><MapPage /></SuspenseWrapper> },
+      { path: "/timeline/:novelId", element: <SuspenseWrapper><TimelinePage /></SuspenseWrapper> },
+      { path: "/factions/:novelId", element: <SuspenseWrapper><FactionsPage /></SuspenseWrapper> },
+      { path: "/encyclopedia/:novelId", element: <SuspenseWrapper><EncyclopediaPage /></SuspenseWrapper> },
+      { path: "/analysis/:novelId", element: <SuspenseWrapper><AnalysisPage /></SuspenseWrapper> },
+    ],
+  },
+  { path: "/chat/:novelId", element: <SuspenseWrapper><ChatPage /></SuspenseWrapper> },
+  { path: "/settings", element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },
 ])

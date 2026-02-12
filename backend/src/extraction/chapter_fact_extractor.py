@@ -1,5 +1,6 @@
 """ChapterFact extractor: sends chapter text to LLM and parses structured output."""
 
+import copy
 import json
 import logging
 from pathlib import Path
@@ -10,6 +11,9 @@ from src.models.chapter_fact import ChapterFact
 logger = logging.getLogger(__name__)
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+# Max chapter text length sent to LLM (chars) to avoid token overflow
+_MAX_CHAPTER_LEN = 8000
 
 
 class ExtractionError(Exception):
@@ -26,6 +30,34 @@ def _load_examples() -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _build_extraction_schema() -> dict:
+    """Build a customized JSON schema with stricter constraints for better LLM output."""
+    schema = ChapterFact.model_json_schema()
+
+    # Remove $defs reference layer if present — flatten for simpler LLM consumption
+    # Add minItems hints to encourage non-empty arrays
+    defs = schema.get("$defs", {})
+
+    # Patch EventFact: require participants with minItems=1
+    if "EventFact" in defs:
+        props = defs["EventFact"].get("properties", {})
+        if "participants" in props:
+            props["participants"]["minItems"] = 1
+            props["participants"].pop("default", None)
+        if "location" in props:
+            # Remove default null to encourage filling
+            props["location"].pop("default", None)
+
+    # Patch ChapterFact: require non-empty characters, relationships, locations, events
+    root_props = schema.get("properties", {})
+    for field in ("characters", "relationships", "locations", "events"):
+        if field in root_props:
+            root_props[field]["minItems"] = 1
+            root_props[field].pop("default", None)
+
+    return schema
+
+
 class ChapterFactExtractor:
     """Extract structured ChapterFact from a single chapter using LLM."""
 
@@ -33,6 +65,7 @@ class ChapterFactExtractor:
         self.llm = llm or get_llm_client()
         self.system_template = _load_system_prompt()
         self.examples = _load_examples()
+        self._schema = _build_extraction_schema()
 
     async def extract(
         self,
@@ -43,14 +76,34 @@ class ChapterFactExtractor:
     ) -> ChapterFact:
         """Extract ChapterFact from chapter text. Retries once on failure."""
         system = self.system_template.replace("{context}", context_summary or "（无前序上下文）")
-        user_prompt = f"## 第 {chapter_id} 章\n\n{chapter_text}"
 
-        schema = ChapterFact.model_json_schema()
+        # Truncate very long chapters to avoid token overflow
+        if len(chapter_text) > _MAX_CHAPTER_LEN:
+            chapter_text = chapter_text[:_MAX_CHAPTER_LEN]
+
+        # Build user prompt with example and explicit instructions
+        example_text = ""
+        if self.examples:
+            example_text = (
+                "## 参考示例\n"
+                f"```json\n{json.dumps(self.examples[0], ensure_ascii=False, indent=2)}\n```\n\n"
+            )
+
+        user_prompt = (
+            f"{example_text}"
+            f"## 第 {chapter_id} 章\n\n{chapter_text}\n\n"
+            "【关键要求】\n"
+            "1. characters 数组必须包含所有出现的有名字的人物\n"
+            "2. relationships 数组必须包含人物之间的关系，evidence 引用原文\n"
+            "3. locations 数组必须包含所有地名\n"
+            "4. events 数组中每个事件的 participants 必须列出参与者姓名，location 必须填写地点\n"
+            "5. 只提取原文明确出现的内容，禁止编造\n"
+        )
 
         # First attempt
         try:
             return await self._call_and_parse(
-                system, user_prompt, schema, novel_id, chapter_id
+                system, user_prompt, novel_id, chapter_id
             )
         except (LLMError, ExtractionError, Exception) as first_err:
             logger.warning(
@@ -60,13 +113,14 @@ class ChapterFactExtractor:
 
         # Retry with corrective hint
         retry_prompt = (
-            f"{user_prompt}\n\n"
-            "【重要提示】请确保输出严格的 JSON 格式，"
-            "完全匹配给定的 JSON Schema，不要包含任何额外文字。"
+            f"{user_prompt}\n"
+            "【重要】上一次输出有误。请重新输出严格的 JSON，"
+            "确保 characters/relationships/locations/events 数组都不为空，"
+            "events 中的 participants 和 location 必须填写。"
         )
         try:
             return await self._call_and_parse(
-                system, retry_prompt, schema, novel_id, chapter_id
+                system, retry_prompt, novel_id, chapter_id
             )
         except Exception as second_err:
             raise ExtractionError(
@@ -77,7 +131,6 @@ class ChapterFactExtractor:
         self,
         system: str,
         prompt: str,
-        schema: dict,
         novel_id: str,
         chapter_id: int,
     ) -> ChapterFact:
@@ -85,10 +138,11 @@ class ChapterFactExtractor:
         result = await self.llm.generate(
             system=system,
             prompt=prompt,
-            format=schema,
+            format=self._schema,
             temperature=0.1,
-            max_tokens=4096,
-            timeout=120,
+            max_tokens=8192,
+            timeout=300,
+            num_ctx=16384,
         )
 
         if isinstance(result, str):

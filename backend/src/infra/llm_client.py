@@ -1,5 +1,6 @@
 """Async Ollama HTTP API client with structured output support."""
 
+import asyncio
 import json
 import logging
 import re
@@ -10,6 +11,18 @@ import httpx
 from src.infra.config import OLLAMA_BASE_URL, OLLAMA_MODEL
 
 logger = logging.getLogger(__name__)
+
+# Global semaphore to serialize Ollama calls (single GPU processes one request at a time).
+# Without this, concurrent novel analyses cause timeout cascades.
+_llm_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    """Lazily create semaphore in the running event loop."""
+    global _llm_semaphore
+    if _llm_semaphore is None:
+        _llm_semaphore = asyncio.Semaphore(1)
+    return _llm_semaphore
 
 
 class LLMError(Exception):
@@ -64,41 +77,51 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 4096,
         timeout: int = 120,
+        num_ctx: int | None = None,
     ) -> str | dict:
         """Call Ollama chat API. Returns dict when format is given, str otherwise."""
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ]
+        options: dict = {
+            "temperature": temperature,
+            "num_predict": max_tokens,
+        }
+        # Allow caller to override context window (default 4096 is too small for
+        # long chapters + system prompt + schema in structured output mode)
+        if num_ctx is not None:
+            options["num_ctx"] = num_ctx
         payload: dict = {
             "model": self.model,
             "messages": messages,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            },
+            "think": False,  # Disable thinking mode (qwen3) to get content directly
+            "options": options,
         }
         if format is not None:
             payload["format"] = format
 
-        try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(timeout, connect=10.0)
-            ) as client:
-                resp = await client.post(
-                    f"{self.base_url}/api/chat",
-                    json=payload,
-                )
-                resp.raise_for_status()
-        except httpx.TimeoutException as exc:
-            raise LLMTimeoutError(
-                f"Ollama request timed out after {timeout}s"
-            ) from exc
-        except httpx.HTTPStatusError as exc:
-            raise LLMError(
-                f"Ollama HTTP error {exc.response.status_code}: {exc.response.text[:300]}"
-            ) from exc
+        sem = _get_semaphore()
+        async with sem:
+            logger.debug("LLM semaphore acquired for generate()")
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(timeout, connect=10.0)
+                ) as client:
+                    resp = await client.post(
+                        f"{self.base_url}/api/chat",
+                        json=payload,
+                    )
+                    resp.raise_for_status()
+            except httpx.TimeoutException as exc:
+                raise LLMTimeoutError(
+                    f"Ollama request timed out after {timeout}s"
+                ) from exc
+            except httpx.HTTPStatusError as exc:
+                raise LLMError(
+                    f"Ollama HTTP error {exc.response.status_code}: {exc.response.text[:300]}"
+                ) from exc
 
         data = resp.json()
         content: str = data.get("message", {}).get("content", "")
@@ -128,29 +151,33 @@ class LLMClient:
             "model": self.model,
             "messages": messages,
             "stream": True,
+            "think": False,  # Disable thinking mode (qwen3) for streaming
         }
 
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout, connect=10.0)
-        ) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/api/chat",
-                json=payload,
-            ) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    try:
-                        chunk = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    token = chunk.get("message", {}).get("content", "")
-                    if token:
-                        yield token
-                    if chunk.get("done"):
-                        break
+        sem = _get_semaphore()
+        async with sem:
+            logger.debug("LLM semaphore acquired for generate_stream()")
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(timeout, connect=10.0)
+            ) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json=payload,
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        token = chunk.get("message", {}).get("content", "")
+                        if token:
+                            yield token
+                        if chunk.get("done"):
+                            break
 
 
 # Module-level singleton
