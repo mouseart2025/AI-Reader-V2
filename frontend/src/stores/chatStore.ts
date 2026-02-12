@@ -141,9 +141,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
             state._addMessage(assistantMsg)
             break
           }
-          case "error":
-            set({ streaming: false, streamingContent: "" })
+          case "error": {
+            const errContent = msg.message || "请求出错，请稍后重试"
+            const state = get()
+            // Show error as an assistant message so user sees feedback
+            const errMsg: ChatMessage = {
+              id: Date.now(),
+              conversation_id: state.activeConversationId ?? "",
+              role: "assistant",
+              content: `[错误] ${errContent}`,
+              sources: [],
+              created_at: new Date().toISOString(),
+            }
+            set((s) => ({
+              streaming: false,
+              streamingContent: "",
+              messages: [...s.messages, errMsg],
+            }))
             break
+          }
         }
       } catch {
         /* ignore parse errors */
@@ -161,9 +177,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendQuestion: (novelId, question) => {
     const { ws, activeConversationId } = get()
-    if (!ws || ws.readyState !== WebSocket.OPEN) return
 
-    // Add user message locally
+    // Add user message locally first so it always appears
     const userMsg: ChatMessage = {
       id: Date.now(),
       conversation_id: activeConversationId ?? "",
@@ -172,6 +187,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       sources: [],
       created_at: new Date().toISOString(),
     }
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      // Show user message + error feedback instead of silently dropping
+      const errMsg: ChatMessage = {
+        id: Date.now() + 1,
+        conversation_id: activeConversationId ?? "",
+        role: "assistant",
+        content: "[连接断开] 无法发送消息，正在尝试重新连接...",
+        sources: [],
+        created_at: new Date().toISOString(),
+      }
+      set((s) => ({
+        messages: [...s.messages, userMsg, errMsg],
+      }))
+      // Attempt to reconnect
+      get().connectWs(`fullpage-${novelId}`)
+      return
+    }
+
     set((s) => ({
       messages: [...s.messages, userMsg],
       streaming: true,

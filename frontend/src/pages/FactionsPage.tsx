@@ -148,7 +148,7 @@ export default function FactionsPage() {
   )
 
   return (
-    <VisualizationLayout activeTab="factions">
+    <VisualizationLayout>
       <div className="flex h-full">
         {/* Graph area */}
         <div className="relative flex-1" ref={containerRef}>

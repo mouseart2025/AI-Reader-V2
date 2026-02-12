@@ -124,25 +124,18 @@ export default function EncyclopediaPage() {
   }, [stats])
 
   return (
-    <div className="flex h-screen flex-col">
-      {/* Header */}
-      <header className="flex items-center gap-4 border-b px-4 py-2">
-        <button
-          className="text-muted-foreground text-sm hover:underline"
-          onClick={() => navigate("/")}
-        >
-          &larr; {novel?.title ?? "..."}
-        </button>
-        <span className="text-sm font-medium">百科</span>
-        <div className="flex-1" />
+    <div className="flex h-full flex-col">
+      {/* Search bar */}
+      <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-1.5">
+        <span className="text-muted-foreground text-xs">搜索</span>
         <Input
           type="text"
-          placeholder="搜索..."
+          placeholder="搜索实体、概念..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-48 h-7 text-xs"
+          className="w-56 h-7 text-xs"
         />
-      </header>
+      </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Category sidebar */}

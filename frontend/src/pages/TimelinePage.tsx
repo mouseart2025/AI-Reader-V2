@@ -120,7 +120,7 @@ export default function TimelinePage() {
   const EVENT_TYPES: FilterType[] = ["all", "战斗", "成长", "社交", "旅行", "其他"]
 
   return (
-    <VisualizationLayout activeTab="timeline">
+    <VisualizationLayout>
       <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex items-center gap-3 border-b px-4 py-2 flex-shrink-0">

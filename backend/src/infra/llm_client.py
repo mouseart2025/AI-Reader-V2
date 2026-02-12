@@ -140,9 +140,16 @@ class LLMClient:
         self,
         system: str,
         prompt: str,
-        timeout: int = 60,
+        timeout: int = 180,
     ) -> AsyncIterator[str]:
-        """Stream tokens from Ollama chat API."""
+        """Stream tokens from Ollama chat API.
+
+        NOTE: This method does NOT acquire the LLM semaphore. Chat/QA streaming
+        must remain responsive even when analysis is running. Ollama handles
+        concurrent request queueing internally — the chat request will wait in
+        Ollama's queue until the current analysis chunk finishes, then stream
+        immediately. This avoids indefinite Python-level blocking.
+        """
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
@@ -154,30 +161,28 @@ class LLMClient:
             "think": False,  # Disable thinking mode (qwen3) for streaming
         }
 
-        sem = _get_semaphore()
-        async with sem:
-            logger.debug("LLM semaphore acquired for generate_stream()")
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(timeout, connect=10.0)
-            ) as client:
-                async with client.stream(
-                    "POST",
-                    f"{self.base_url}/api/chat",
-                    json=payload,
-                ) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if not line:
-                            continue
-                        try:
-                            chunk = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        token = chunk.get("message", {}).get("content", "")
-                        if token:
-                            yield token
-                        if chunk.get("done"):
-                            break
+        logger.debug("generate_stream() sending request (no semaphore)")
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout, connect=10.0)
+        ) as client:
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/api/chat",
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        yield token
+                    if chunk.get("done"):
+                        break
 
 
 # Module-level singleton

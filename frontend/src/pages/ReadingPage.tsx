@@ -492,7 +492,7 @@ export default function ReadingPage() {
 
   if (loading && !currentChapter) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     )
@@ -500,7 +500,7 @@ export default function ReadingPage() {
 
   if (!novel) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Novel not found</p>
         <Button variant="outline" onClick={() => navigate("/")}>
           Back to Bookshelf
@@ -510,7 +510,7 @@ export default function ReadingPage() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       {/* Sidebar */}
       {sidebarOpen && (
         <div className="w-64 shrink-0">
@@ -527,8 +527,8 @@ export default function ReadingPage() {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="flex items-center gap-3 border-b px-4 py-2">
+        {/* Reading toolbar */}
+        <header className="flex items-center gap-3 border-b px-4 py-1.5">
           {!sidebarOpen && (
             <Button
               variant="ghost"
@@ -539,34 +539,6 @@ export default function ReadingPage() {
               <PanelLeftOpen className="size-4" />
             </Button>
           )}
-
-          <button
-            className="text-muted-foreground text-sm hover:underline"
-            onClick={() => navigate("/")}
-          >
-            &larr; {novel.title}
-          </button>
-
-          {/* Quick nav links */}
-          <div className="flex gap-0.5">
-            {[
-              { label: "图谱", path: `/graph/${novelId}` },
-              { label: "地图", path: `/map/${novelId}` },
-              { label: "时间线", path: `/timeline/${novelId}` },
-              { label: "百科", path: `/encyclopedia/${novelId}` },
-              { label: "问答", path: `/chat/${novelId}` },
-            ].map((link) => (
-              <Button
-                key={link.label}
-                variant="ghost"
-                size="xs"
-                className="text-muted-foreground h-6 px-1.5 text-[11px]"
-                onClick={() => navigate(link.path)}
-              >
-                {link.label}
-              </Button>
-            ))}
-          </div>
 
           <div className="flex-1" />
 

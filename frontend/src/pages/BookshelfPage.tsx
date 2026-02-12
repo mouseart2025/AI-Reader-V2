@@ -321,6 +321,9 @@ export default function BookshelfPage() {
         <div className="flex items-center gap-3">
           <BookOpen className="text-primary h-7 w-7" />
           <h1 className="text-2xl font-bold">书架</h1>
+          <span className="text-[10px] text-muted-foreground/50 tabular-nums self-end mb-0.5">
+            v{__APP_VERSION__}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>

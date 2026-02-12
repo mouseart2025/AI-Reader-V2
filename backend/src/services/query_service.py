@@ -309,7 +309,7 @@ async def query_stream(
         async for token in llm.generate_stream(
             system=system_prompt,
             prompt=user_prompt,
-            timeout=60,
+            timeout=180,
         ):
             full_answer += token
             yield {"type": "token", "content": token}

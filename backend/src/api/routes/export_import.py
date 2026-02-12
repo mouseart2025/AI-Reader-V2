@@ -1,6 +1,7 @@
 """Export / import novel data endpoints."""
 
 import json
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
@@ -19,10 +20,12 @@ async def export_novel(novel_id: str):
         raise HTTPException(404, "Novel not found")
     try:
         data = await export_service.export_novel(novel_id)
+        filename = f'{novel["title"]}_export.json'
+        encoded = quote(filename)
         return JSONResponse(
             content=data,
             headers={
-                "Content-Disposition": f'attachment; filename="{novel["title"]}_export.json"',
+                "Content-Disposition": f"attachment; filename=\"export.json\"; filename*=UTF-8''{encoded}",
             },
         )
     except Exception as e:
