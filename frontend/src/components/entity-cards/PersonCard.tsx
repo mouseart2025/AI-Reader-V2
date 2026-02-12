@@ -58,7 +58,7 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
         ))}
       </CardSection>
 
-      {/* C. Relations */}
+      {/* C. Relations — stages with consecutive same-type merged */}
       <CardSection title="人物关系" defaultLimit={10}>
         {relations.map((rel) => {
           const latest = rel.stages[rel.stages.length - 1]
@@ -73,7 +73,13 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
               <span>{latest?.relation_type ?? "未知"}</span>
               {rel.stages.length > 1 && (
                 <span className="text-muted-foreground ml-1 text-xs">
-                  ({rel.stages.map((s) => s.relation_type).join(" → ")})
+                  ({rel.stages.map((s) => {
+                    const chs = s.chapters
+                    const tag = chs.length === 1
+                      ? `Ch.${chs[0]}`
+                      : `Ch.${chs[0]}–${chs[chs.length - 1]}`
+                    return `${s.relation_type}(${tag})`
+                  }).join(" → ")})
                 </span>
               )}
             </div>

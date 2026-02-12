@@ -108,7 +108,8 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
     # Collect raw appearances then merge duplicates after the loop
     _raw_appearances: list[tuple[int, str]] = []  # (chapter, description)
     abilities: list[AbilityEntry] = []
-    relations_map: dict[str, list[RelationStage]] = defaultdict(list)
+    # Collect raw relation entries, merge consecutive same-type stages after the loop
+    _raw_relations: dict[str, list[tuple[int, str, str]]] = defaultdict(list)  # other -> [(ch, type, evidence)]
     items: list[ItemAssociation] = []
     experiences: list[PersonExperience] = []
     chapter_set: set[int] = set()
@@ -151,13 +152,7 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                 other = rel.person_a
             else:
                 continue
-            relations_map[other].append(
-                RelationStage(
-                    chapter=ch,
-                    relation_type=rel.relation_type,
-                    evidence=rel.evidence,
-                )
-            )
+            _raw_relations[other].append((ch, rel.relation_type, rel.evidence))
 
         # Item events involving this person
         for ie in fact.item_events:
@@ -184,10 +179,25 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                     )
                 )
 
-    relation_chains = [
-        RelationChain(other_person=other, stages=stages)
-        for other, stages in relations_map.items()
-    ]
+    # Merge consecutive same-type relation stages:
+    # [(ch3,"师徒"), (ch5,"师徒"), (ch8,"弟子"), (ch9,"师徒")]
+    # → [RelationStage(chapters=[3,5], type="师徒"), RS(chapters=[8], type="弟子"), RS(chapters=[9], type="师徒")]
+    relation_chains: list[RelationChain] = []
+    for other, raw_stages in _raw_relations.items():
+        merged: list[RelationStage] = []
+        for ch, rtype, evidence in raw_stages:
+            if merged and merged[-1].relation_type == rtype:
+                merged[-1].chapters.append(ch)
+                # Keep the longest evidence
+                if len(evidence) > len(merged[-1].evidence):
+                    merged[-1].evidence = evidence
+            else:
+                merged.append(RelationStage(
+                    chapters=[ch],
+                    relation_type=rtype,
+                    evidence=evidence,
+                ))
+        relation_chains.append(RelationChain(other_person=other, stages=merged))
 
     # Merge duplicate appearances: group by description, collect chapters
     _appearance_map: dict[str, list[int]] = {}
