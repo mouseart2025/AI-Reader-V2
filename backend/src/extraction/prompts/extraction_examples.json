@@ -130,5 +130,99 @@
         "related": ["七玄门", "外门弟子"]
       }
     ]
+  },
+  {
+    "_comment": "示例2：展示功法/丹药/物品的详细描述提取",
+    "chapter_id": 10,
+    "novel_id": "example",
+    "characters": [
+      {
+        "name": "韩立",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [
+          {
+            "dimension": "技能",
+            "name": "象甲功",
+            "description": "张铁所练的外门功法，共分九层。前三层易练；第四层起极度痛苦，许多人中途放弃；突破第六层到第七层后又一路平坦，但每月仍需定期承受剧痛。练至第九层可刀枪不入，水火不侵，更拥有巨象之力，能活擒恶狼、生撕虎豹。"
+          }
+        ],
+        "locations_in_chapter": ["七玄门"]
+      },
+      {
+        "name": "张铁",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [
+          {
+            "dimension": "技能",
+            "name": "象甲功",
+            "description": "张铁正在修炼的功法，目前修炼层数不明"
+          }
+        ],
+        "locations_in_chapter": ["七玄门"]
+      },
+      {
+        "name": "墨大夫",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["七玄门"]
+      }
+    ],
+    "relationships": [
+      {
+        "person_a": "韩立",
+        "person_b": "张铁",
+        "relation_type": "朋友",
+        "is_new": false,
+        "previous_type": "同门",
+        "evidence": "韩立与张铁关系日渐亲近"
+      },
+      {
+        "person_a": "张铁",
+        "person_b": "墨大夫",
+        "relation_type": "师徒",
+        "is_new": false,
+        "previous_type": null,
+        "evidence": "据墨大夫所说是一门很少见的武功"
+      }
+    ],
+    "locations": [
+      {
+        "name": "七玄门",
+        "type": "门派",
+        "parent": null,
+        "description": "韩立修习武艺的门派"
+      }
+    ],
+    "item_events": [
+      {
+        "item_name": "清灵散",
+        "item_type": "丹药",
+        "action": "使用",
+        "actor": "韩立",
+        "recipient": null,
+        "description": "一种驱毒药物，韩立用来尝试驱除丹田内的阴寒之物，但未能奏效"
+      }
+    ],
+    "org_events": [],
+    "events": [
+      {
+        "summary": "韩立发现丹田内有阴寒之物潜伏，使用清灵散等各种驱毒方法未能奏效",
+        "type": "成长",
+        "importance": "medium",
+        "participants": ["韩立"],
+        "location": "七玄门"
+      }
+    ],
+    "new_concepts": [
+      {
+        "name": "象甲功",
+        "category": "功法",
+        "definition": "一门罕见的外门武功，共分九层。前三层与普通武功难度相当；第四层起突然变得极其艰难，修炼者需承受非人的痛苦，许多人因此放弃；但突破第六层到第七层后又变得平坦，仅每月需定期忍受剧痛。练至第九层可身如宝甲、刀枪不入、水火不侵，并能获得巨象之力，力大无穷。因修炼痛苦巨大，此功法几近失传。",
+        "related": ["张铁", "墨大夫"]
+      }
+    ]
   }
 ]
