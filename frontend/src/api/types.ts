@@ -158,7 +158,7 @@ export interface PersonProfile {
   name: string
   type: "person"
   aliases: { name: string; first_chapter: number }[]
-  appearances: { chapter: number; description: string }[]
+  appearances: { chapters: number[]; description: string }[]
   abilities: { chapter: number; dimension: string; name: string; description: string }[]
   relations: {
     other_person: string

@@ -41,11 +41,18 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
         </div>
       </div>
 
-      {/* B. Appearances */}
+      {/* B. Appearances — merged by description, latest first */}
       <CardSection title="外貌特征" defaultLimit={3}>
         {[...appearances].reverse().map((a, i) => (
           <div key={i} className="text-sm">
-            <ChapterTag chapter={a.chapter} />
+            <span className="text-muted-foreground text-xs">
+              {a.chapters.length === 1
+                ? `Ch.${a.chapters[0]}`
+                : a.chapters.length <= 3
+                  ? `Ch.${a.chapters.join(",")}`
+                  : `Ch.${a.chapters[0]}–${a.chapters[a.chapters.length - 1]}(${a.chapters.length}次)`
+              }
+            </span>
             <span className="ml-1.5">{a.description}</span>
           </div>
         ))}
