@@ -58,6 +58,7 @@ class AnalysisService:
         self.context_builder = ContextSummaryBuilder()
         # Track running tasks for pause/cancel
         self._task_signals: dict[str, str] = {}  # task_id -> desired status
+        self._active_loops: set[str] = set()  # task_ids with currently-running loops
 
     async def start(
         self,
@@ -96,28 +97,44 @@ class AnalysisService:
         await analysis_task_store.update_task_status(task_id, "running")
         self._task_signals[task_id] = "running"
 
-        # Resume from current_chapter + 1
-        resume_from = task["current_chapter"] + 1
-        chapter_end = task["chapter_end"]
         novel_id = task["novel_id"]
-
-        asyncio.create_task(self._run_loop(task_id, novel_id, resume_from, chapter_end))
-
         await manager.broadcast(novel_id, {"type": "task_status", "status": "running"})
 
+        # Only start a new loop if the old one has fully exited.
+        # If the old loop is still running (finishing its current chapter after
+        # pause was signalled), it will see the signal reset to "running" and
+        # continue on its own — no new loop needed.
+        if task_id not in self._active_loops:
+            resume_from = task["current_chapter"] + 1
+            chapter_end = task["chapter_end"]
+            asyncio.create_task(self._run_loop(task_id, novel_id, resume_from, chapter_end))
+
     async def pause(self, task_id: str) -> None:
-        """Signal a running task to pause after current chapter."""
+        """Signal a running task to pause after current chapter.
+
+        Updates DB and broadcasts immediately so the UI responds instantly.
+        The loop will finish the current chapter and then stop.
+        """
         task = await analysis_task_store.get_task(task_id)
         if not task:
             raise ValueError(f"Task {task_id} not found")
         self._task_signals[task_id] = "paused"
+        # Immediate DB + broadcast so frontend updates without waiting for the loop
+        await analysis_task_store.update_task_status(task_id, "paused")
+        await manager.broadcast(task["novel_id"], {"type": "task_status", "status": "paused"})
 
     async def cancel(self, task_id: str) -> None:
-        """Signal a running task to cancel after current chapter."""
+        """Signal a running task to cancel after current chapter.
+
+        Updates DB and broadcasts immediately so the UI responds instantly.
+        """
         task = await analysis_task_store.get_task(task_id)
         if not task:
             raise ValueError(f"Task {task_id} not found")
         self._task_signals[task_id] = "cancelled"
+        # Immediate DB + broadcast so frontend updates without waiting for the loop
+        await analysis_task_store.update_task_status(task_id, "cancelled")
+        await manager.broadcast(task["novel_id"], {"type": "task_status", "status": "cancelled"})
 
     async def _run_loop(
         self,
@@ -128,6 +145,21 @@ class AnalysisService:
         force: bool = False,
     ) -> None:
         """Main analysis loop. Runs as a background asyncio task."""
+        self._active_loops.add(task_id)
+        try:
+            await self._run_loop_inner(task_id, novel_id, chapter_start, chapter_end, force)
+        finally:
+            self._active_loops.discard(task_id)
+
+    async def _run_loop_inner(
+        self,
+        task_id: str,
+        novel_id: str,
+        chapter_start: int,
+        chapter_end: int,
+        force: bool = False,
+    ) -> None:
+        """Inner analysis loop body."""
         total = chapter_end - chapter_start + 1
         stats = {"entities": 0, "relations": 0, "events": 0}
 
@@ -144,14 +176,12 @@ class AnalysisService:
             # Check for pause/cancel signal
             signal = self._task_signals.get(task_id, "running")
             if signal == "paused":
-                await analysis_task_store.update_task_status(task_id, "paused")
-                await manager.broadcast(novel_id, {"type": "task_status", "status": "paused"})
-                logger.info("Task %s paused at chapter %d", task_id, chapter_num)
+                # DB status and broadcast already handled by pause()
+                logger.info("Task %s loop stopping (paused) at chapter %d", task_id, chapter_num)
                 return
             if signal == "cancelled":
-                await analysis_task_store.update_task_status(task_id, "cancelled")
-                await manager.broadcast(novel_id, {"type": "task_status", "status": "cancelled"})
-                logger.info("Task %s cancelled at chapter %d", task_id, chapter_num)
+                # DB status and broadcast already handled by cancel()
+                logger.info("Task %s loop stopping (cancelled) at chapter %d", task_id, chapter_num)
                 self._task_signals.pop(task_id, None)
                 return
 

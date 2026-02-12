@@ -149,29 +149,33 @@ export default function AnalysisPage() {
     if (!task) return
     try {
       await patchAnalysisTask(task.id, "paused")
+      // Optimistic UI update — don't wait for WS broadcast
+      setTask({ ...task, status: "paused" })
     } catch (err) {
       setError(String(err))
     }
-  }, [task])
+  }, [task, setTask])
 
   const handleResume = useCallback(async () => {
     if (!task || !novelId) return
     try {
       await patchAnalysisTask(task.id, "running")
+      setTask({ ...task, status: "running" })
       connectWs(novelId)
     } catch (err) {
       setError(String(err))
     }
-  }, [task, novelId, connectWs])
+  }, [task, novelId, setTask, connectWs])
 
   const handleCancel = useCallback(async () => {
     if (!task) return
     try {
       await patchAnalysisTask(task.id, "cancelled")
+      setTask({ ...task, status: "cancelled" })
     } catch (err) {
       setError(String(err))
     }
-  }, [task])
+  }, [task, setTask])
 
   const handleReanalyze = useCallback(() => {
     setShowReanalyzeConfirm(true)
@@ -184,7 +188,7 @@ export default function AnalysisPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">加载中...</p>
       </div>
     )
@@ -192,7 +196,7 @@ export default function AnalysisPage() {
 
   if (!novel) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4">
+      <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">未找到该小说</p>
         <Button variant="outline" onClick={() => navigate("/")}>
           返回书架
@@ -202,22 +206,14 @@ export default function AnalysisPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <button
-            className="text-muted-foreground mb-1 text-sm hover:underline"
-            onClick={() => navigate("/")}
-          >
-            &larr; 返回书架
-          </button>
-          <h1 className="text-2xl font-bold">{novel.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            共 {novel.total_chapters} 章 &middot;{" "}
-            {novel.total_words.toLocaleString()} 字
-          </p>
-        </div>
+    <div className="mx-auto max-w-3xl overflow-auto p-8">
+      {/* Novel info */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">{novel.title}</h1>
+        <p className="text-muted-foreground text-sm">
+          共 {novel.total_chapters} 章 &middot;{" "}
+          {novel.total_words.toLocaleString()} 字
+        </p>
       </div>
 
       {error && (

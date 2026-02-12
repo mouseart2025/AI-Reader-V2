@@ -275,7 +275,7 @@ export default function GraphPage() {
   const hasPath = pathNodes.size > 1
 
   return (
-    <VisualizationLayout activeTab="graph">
+    <VisualizationLayout>
       <div className="relative h-full" ref={containerRef}>
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">

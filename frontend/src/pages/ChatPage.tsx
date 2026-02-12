@@ -87,19 +87,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       {/* Sidebar: conversation list */}
       {sidebarOpen && (
         <div className="w-64 flex-shrink-0 border-r flex flex-col">
-          <div className="flex items-center gap-2 border-b px-3 py-2">
-            <button
-              className="text-muted-foreground text-sm hover:underline"
-              onClick={() => navigate(`/read/${novelId}`)}
-            >
-              &larr; {novel?.title ?? "..."}
-            </button>
-          </div>
-
           <div className="px-3 py-2">
             <Button
               variant="outline"

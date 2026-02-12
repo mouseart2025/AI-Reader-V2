@@ -233,16 +233,28 @@ async def get_timeline_data(
 
 # ── Factions (Organization Network) ──────────────
 
+# Location types that indicate an organization
+_ORG_TYPE_KEYWORDS = ("门", "派", "宗", "帮", "教", "盟", "会", "阁", "堂",
+                       "军", "朝", "国", "族", "殿", "府", "院")
+
+
+def _is_org_type(loc_type: str) -> bool:
+    """Check whether a location type represents an organization."""
+    return any(kw in loc_type for kw in _ORG_TYPE_KEYWORDS)
+
 
 async def get_factions_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
 
+    # org_name -> {name, type}
     org_info: dict[str, dict] = {}
-    org_members: dict[str, dict[str, dict]] = defaultdict(dict)  # org -> {person -> info}
+    # org_name -> {person_name -> {person, role, status}}
+    org_members: dict[str, dict[str, dict]] = defaultdict(dict)
     org_relations: list[dict] = []
 
+    # ── Source 1: org_events (explicit membership changes) ──
     for fact in facts:
         ch = fact.chapter_id
 
@@ -252,11 +264,14 @@ async def get_factions_data(
                 org_info[org_name] = {"name": org_name, "type": oe.org_type}
 
             if oe.member:
-                org_members[org_name][oe.member] = {
-                    "person": oe.member,
-                    "role": oe.role,
-                    "status": oe.action,
-                }
+                existing = org_members[org_name].get(oe.member)
+                # Keep the latest action; prefer explicit role over None
+                if existing is None or oe.role:
+                    org_members[org_name][oe.member] = {
+                        "person": oe.member,
+                        "role": oe.role or (existing["role"] if existing else ""),
+                        "status": oe.action,
+                    }
 
             if oe.org_relation:
                 org_relations.append({
@@ -265,7 +280,44 @@ async def get_factions_data(
                     "type": oe.org_relation.type,
                     "chapter": ch,
                 })
+                # Ensure the related org is also tracked
+                if oe.org_relation.other_org not in org_info:
+                    org_info[oe.org_relation.other_org] = {
+                        "name": oe.org_relation.other_org,
+                        "type": "组织",
+                    }
 
+    # ── Source 2: locations with org-like types ──
+    # Many sects/factions appear as locations (type="门派"/"帮派" etc.)
+    # Characters visiting these locations are associated as members.
+    org_locations: set[str] = set()  # location names that are orgs
+    for fact in facts:
+        for loc in fact.locations:
+            if _is_org_type(loc.type) and loc.name not in org_info:
+                org_info[loc.name] = {"name": loc.name, "type": loc.type}
+            if _is_org_type(loc.type):
+                org_locations.add(loc.name)
+
+    # ── Source 3: characters at org-locations ──
+    for fact in facts:
+        for char in fact.characters:
+            for loc_name in char.locations_in_chapter:
+                if loc_name in org_locations:
+                    if char.name not in org_members[loc_name]:
+                        org_members[loc_name][char.name] = {
+                            "person": char.name,
+                            "role": "",
+                            "status": "出现",
+                        }
+
+    # ── Source 4: new_concepts about org systems ──
+    for fact in facts:
+        for concept in fact.new_concepts:
+            cat = concept.category
+            if _is_org_type(cat) and concept.name not in org_info:
+                org_info[concept.name] = {"name": concept.name, "type": cat}
+
+    # Build output
     orgs = [
         {
             "id": name,
@@ -278,8 +330,8 @@ async def get_factions_data(
     orgs.sort(key=lambda o: -o["member_count"])
 
     members = {
-        org: list(members.values())
-        for org, members in org_members.items()
+        org: list(members_map.values())
+        for org, members_map in org_members.items()
     }
 
     return {"orgs": orgs, "relations": org_relations, "members": members}

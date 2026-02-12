@@ -357,7 +357,7 @@ export default function SettingsPage() {
 
           {/* Version info */}
           <section className="text-center text-[10px] text-muted-foreground pb-8">
-            AI Reader V2 · 本地运行 · 完全隐私
+            AI Reader v{__APP_VERSION__} · 本地运行 · 完全隐私
           </section>
         </div>
       </div>
