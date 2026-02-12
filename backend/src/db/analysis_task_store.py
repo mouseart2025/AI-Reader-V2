@@ -1,6 +1,10 @@
 """CRUD operations for analysis_tasks table."""
 
+import logging
+
 from src.db.sqlite_db import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 async def create_task(
@@ -140,5 +144,32 @@ async def get_latest_task(novel_id: str) -> dict | None:
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
+    finally:
+        await conn.close()
+
+
+async def recover_stale_tasks() -> int:
+    """Mark any 'running' tasks as 'paused' on server startup.
+
+    If the server was restarted (crash, manual restart, etc.), any tasks left
+    in 'running' state have no active asyncio loop driving them. Mark them
+    as 'paused' so the user can resume from where they left off.
+
+    Returns the number of tasks recovered.
+    """
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            UPDATE analysis_tasks
+            SET status = 'paused', updated_at = datetime('now')
+            WHERE status = 'running'
+            """
+        )
+        await conn.commit()
+        count = cursor.rowcount
+        if count > 0:
+            logger.info("Recovered %d stale running task(s) → paused", count)
+        return count
     finally:
         await conn.close()

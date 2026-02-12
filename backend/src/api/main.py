@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.db.sqlite_db import init_db
+from src.db.analysis_task_store import recover_stale_tasks
 from src.api.routes import (
     novels,
     chapters,
@@ -24,6 +25,8 @@ from src.api.websocket import analysis_ws, chat_ws
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    # Recover tasks left in 'running' state from a previous server session
+    await recover_stale_tasks()
     yield
 
 
