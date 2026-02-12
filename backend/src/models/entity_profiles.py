@@ -26,7 +26,7 @@ class AbilityEntry(BaseModel):
 
 
 class RelationStage(BaseModel):
-    chapter: int
+    chapters: list[int]
     relation_type: str
     evidence: str = ""
 
