@@ -380,20 +380,43 @@ export default function GraphPage() {
         )}
 
         {/* Legend */}
-        {orgColorMap.size > 0 && (
-          <div className="absolute top-3 right-3 z-10 rounded-lg border bg-background/90 p-2">
-            <p className="text-muted-foreground mb-1 text-[10px]">组织</p>
-            {Array.from(orgColorMap.entries()).map(([org, color]) => (
-              <div key={org} className="flex items-center gap-1.5 text-xs">
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+          {/* Relationship line colors */}
+          <div className="rounded-lg border bg-background/90 p-2">
+            <p className="text-muted-foreground mb-1 text-[10px]">关系线</p>
+            {[
+              { label: "亲属", color: "#f59e0b", desc: "父母/兄弟/夫妻" },
+              { label: "友好", color: "#10b981", desc: "师徒/同门/盟友" },
+              { label: "敌对", color: "#ef4444", desc: "仇人/对手" },
+              { label: "其他", color: "#6b7280", desc: "一般关系" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5 text-xs">
                 <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
+                  className="inline-block h-0.5 w-4 rounded-full"
+                  style={{ backgroundColor: item.color }}
                 />
-                {org}
+                <span>{item.label}</span>
+                <span className="text-muted-foreground text-[10px]">{item.desc}</span>
               </div>
             ))}
           </div>
-        )}
+
+          {/* Organization node colors */}
+          {orgColorMap.size > 0 && (
+            <div className="rounded-lg border bg-background/90 p-2">
+              <p className="text-muted-foreground mb-1 text-[10px]">组织</p>
+              {Array.from(orgColorMap.entries()).map(([org, color]) => (
+                <div key={org} className="flex items-center gap-1.5 text-xs">
+                  <span
+                    className="inline-block size-2.5 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                  {org}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <ForceGraph2D
           ref={graphRef}
