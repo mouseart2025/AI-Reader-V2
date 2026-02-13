@@ -36,7 +36,7 @@ CANVAS_MIN = 50  # margin (wider to leave room for non-geo zones)
 CANVAS_MAX = CANVAS_SIZE - 50
 
 # Minimum spacing between any two locations (pixels)
-MIN_SPACING = 25
+MIN_SPACING = 50
 
 # Direction margin — how far A must exceed B in the expected axis
 DIRECTION_MARGIN = 50
@@ -60,7 +60,7 @@ _CONF_RANK = {"high": 3, "medium": 2, "low": 1}
 # ── Narrative axis weight ───────────────────────────
 # How strongly the chapter-order progression influences layout.
 # Higher = locations spread more along the narrative travel axis.
-NARRATIVE_AXIS_WEIGHT = 1.5
+NARRATIVE_AXIS_WEIGHT = 0.4
 
 # ── Non-geographic location detection ──────────────
 # Keywords that indicate celestial / underworld / metaphysical locations.
@@ -1126,6 +1126,12 @@ class ConstraintSolver:
         h = self._canvas_max_y - self._canvas_min_y
         cx = self._canvas_cx + (t - 0.5) * w * 0.8 * ax
         cy = self._canvas_cy + (t - 0.5) * h * 0.8 * ay
+
+        # Fix horizontal-axis degeneration: when ay ≈ 0, cy stays at center
+        # for all chapters. Add sinusoidal y offset to spread them vertically.
+        if abs(ay) < 0.1:
+            cy = self._canvas_cy + math.sin(t * math.pi * 3) * h * 0.3
+
         return (cx, cy)
 
     def _place_non_geographic(self, layout: dict[str, tuple[float, float]]) -> None:
@@ -1244,6 +1250,21 @@ class ConstraintSolver:
         # We want narrative energy to be ~20-30% of total constraint energy.
         if n_with_chapter > 0:
             penalty = penalty / n_with_chapter * DIRECTION_MARGIN ** 2 * 20
+
+        # Vertical scatter penalty: when narrative axis is near-horizontal,
+        # y has no energy contribution and all points collapse to similar y.
+        # Add a sinusoidal expected-y term to spread locations vertically.
+        if abs(ay) < 0.1 and n_with_chapter > 0:
+            h = self._canvas_max_y - self._canvas_min_y
+            scatter = 0.0
+            for i, name in enumerate(self.loc_names):
+                ch = self.first_chapter.get(name, 0)
+                if ch <= 0:
+                    continue
+                t = (ch - self._min_chapter) / ch_range
+                expected_y = self._canvas_cy + math.sin(t * math.pi * 3) * h * 0.3
+                scatter += (coords[i, 1] - expected_y) ** 2
+            penalty += scatter / n_with_chapter * 15
 
         return penalty
 

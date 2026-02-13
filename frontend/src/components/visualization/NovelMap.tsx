@@ -166,6 +166,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     onDragEndRef.current = onLocationDragEnd
     const onPortalClickRef = useRef(onPortalClick)
     onPortalClickRef.current = onPortalClick
+    const fitAllCallbackRef = useRef<() => void>(() => {})
 
     // Build layout lookup
     const layoutMapRef = useRef<Map<string, MapLayoutItem>>(new Map())
@@ -207,9 +208,35 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       })
 
       map.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
+        new maplibregl.NavigationControl({ showCompass: true }),
         "top-right",
       )
+
+      // Custom "fit all" control — uses ref to call latest fitToLocations
+      const fitAllBtn = document.createElement("button")
+      fitAllBtn.type = "button"
+      fitAllBtn.title = "查看全貌"
+      fitAllBtn.className = "maplibregl-ctrl-icon"
+      fitAllBtn.style.cssText = "font-size:16px; line-height:29px;"
+      fitAllBtn.textContent = "⌂"
+      fitAllBtn.addEventListener("click", () => fitAllCallbackRef.current())
+
+      class FitAllControl implements maplibregl.IControl {
+        _container?: HTMLDivElement
+
+        onAdd() {
+          this._container = document.createElement("div")
+          this._container.className = "maplibregl-ctrl maplibregl-ctrl-group"
+          this._container.appendChild(fitAllBtn)
+          return this._container
+        }
+
+        onRemove() {
+          this._container?.remove()
+        }
+      }
+
+      map.addControl(new FitAllControl(), "top-right")
 
       map.on("load", () => {
         // ── Z-order: regions → trajectory → locations → portals → labels ──
@@ -748,6 +775,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       map.fitBounds(bounds, { padding: 60, maxZoom: 13 })
     }, [layout])
 
+    fitAllCallbackRef.current = fitToLocations
     useImperativeHandle(ref, () => ({ fitToLocations }), [fitToLocations])
 
     // Auto-fit when layout changes
