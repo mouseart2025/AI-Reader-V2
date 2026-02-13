@@ -1,6 +1,6 @@
 # AI Reader V2
 
-本地部署的智能小说阅读理解系统。利用本地 LLM 将小说文本转化为结构化知识图谱，提供关系图、世界地图、时间线等多维可视化视图，以及基于原文的自然语言问答。
+本地部署的智能小说阅读理解系统。利用本地 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化视图，以及基于原文的自然语言问答。
 
 完全本地运行，无需云端 API，数据不出本机。
 
@@ -9,38 +9,54 @@
 - **书架管理** — 上传 .txt/.md 小说，自动章节切分，重复检测，数据导入/导出
 - **智能阅读** — 实体高亮（人物/地点/物品/组织/概念），点击即查卡片，阅读进度记忆
 - **知识图谱** — 力导向人物关系图，按章节范围探索关系演变
-- **世界地图** — 基于约束求解的地点坐标计算，MapLibre GL JS 交互式渲染，程序化地形生成，人物轨迹动画，战争迷雾
+- **多层级世界地图** — 宏观区域划分（如四大部洲）、多空间层（天界/冥界/洞府副本）、传送门连接、区域内约束求解布局、程序化地形生成、人物轨迹动画、三态战争迷雾、用户可编辑世界结构
 - **时间线** — 多泳道事件时间线，按重要度/类型筛选
 - **势力图** — 组织架构与势力关系网络
 - **百科全书** — 分类浏览所有概念/功法/物品，全文搜索
 - **智能问答** — 流式对话，RAG 检索增强，答案来源溯源，对话历史管理
-- **数据管理** — 全量导出/导入，环境健康检查
+- **数据管理** — 全量导出/导入，分析数据清除，环境健康检查
 
 ## 世界地图技术方案
 
-世界地图功能是本项目的核心亮点之一，实现了从小说文本到交互式地图的全自动流水线：
+世界地图是本项目的核心亮点，实现了从小说文本到多层级交互式地图的全自动流水线：
 
 ```
-小说文本 → LLM 空间关系提取 → 约束求解布局 → 程序化地形生成 → MapLibre GL JS 渲染
+小说文本 → LLM 提取 (空间关系 + 世界观声明)
+         → WorldStructureAgent (信号扫描 + 启发式 + LLM 增量更新)
+         → 区域级约束求解布局 + 层独立布局
+         → 程序化地形生成
+         → MapLibre GL JS 多层渲染
 ```
+
+### V2 架构：多层级世界结构
+
+V2 引入了 WorldStructure 数据模型和渐进式世界观构建代理，解决了三个核心问题：
+
+**问题 1：缺乏宏观世界观理解** — 以西游记为例，开篇即声明"世界分为四大部洲"，V1 无法表达这种宏观结构。V2 通过 WorldStructureAgent 在分析过程中渐进式构建世界观，自动识别区域划分并按方位布局（东胜神洲→东侧，西牛贺洲→西侧）。
+
+**问题 2：缺少"副本"概念** — 天界、冥界、洞府等非平面空间在 V1 中被平铺在一个平面上。V2 引入 MapLayer 模型，支持 overworld/sky/underground/sea/pocket/spirit 六种层类型，每层独立画布布局，通过 Portal（传送门）连接。
+
+**问题 3：约束求解器的局限性** — 把 279 个地点（西游记）全部扔进一个求解器效果有限。V2 先布局宏观区域边界框，再在每个区域内独立求解，显著提升布局质量和求解效率。
 
 ### 技术路线
 
-1. **空间信息提取** — 在章节分析时，LLM 额外提取地点间的 6 类空间关系（方位、距离、包含、相邻、分隔、地形），附带置信度和原文依据
-2. **约束求解布局** — 参考 [PlotMap](https://github.com/AutodeskAILab/PlotMap)（Autodesk AI Research, 2024）的 CMA-ES 方法，使用 `scipy.optimize.differential_evolution` 全局优化，基于能量函数（方位惩罚 + 距离误差 + 包含违反 + 分隔违反 + 反重叠）计算地点 (x, y) 坐标
-3. **程序化地形** — 基于 Voronoi 区域划分 + OpenSimplex 噪声生成地形底图，按地点类型分配生物群落颜色（山地/水域/森林/聚落/荒漠/沼泽/平原）
-4. **浏览器渲染** — [MapLibre GL JS](https://maplibre.org/) 替代 force-graph，伪经纬度坐标映射保留原生缩放/平移，支持地形底图叠加、类型标记、渐进标签、轨迹动画、长按拖拽调整位置
+1. **空间信息提取** — LLM 提取 7 类空间关系（方位、距离、包含、相邻、分隔、地形、夹在中间），以及可选的世界观声明（区域划分、空间层声明、传送门、区域方位）
+2. **世界结构代理** — WorldStructureAgent 每章运行：关键词信号扫描 → 启发式层/区域分配 → 触发条件满足时调用 LLM 增量更新（ADD_REGION / ADD_LAYER / ADD_PORTAL / ASSIGN_LOCATION 等操作）
+3. **小说类型自适应** — 自动检测小说类型（奇幻/武侠/历史/都市），调整信号检测灵敏度：奇幻启用多层检测，都市禁用副本检测，简单结构优雅退化为 V1 模式
+4. **区域级约束求解** — 参考 [PlotMap](https://github.com/AutodeskAILab/PlotMap)（Autodesk AI Research, 2024）的 CMA-ES 方法，使用 `scipy.optimize.differential_evolution`，能量函数包含方位惩罚 + 距离误差 + 包含违反 + 分隔违反 + 夹在中间 + 反重叠 + 叙事轴 + 方位名称提示
+5. **程序化地形** — Voronoi 区域划分 + OpenSimplex 噪声生成地形底图，按地点类型分配生物群落颜色
+6. **浏览器渲染** — [MapLibre GL JS](https://maplibre.org/) 多层 Tab 切换，区域边界半透明填充，传送门标记点击切层，三态战争迷雾（hidden/revealed/active）
+7. **用户编辑** — Override 机制存储用户修正（区域归属/传送门增删），LLM 重分析不覆盖用户编辑
 
 约束不足时（< 3 条空间关系），自动退化为层级圆形布局，确保始终有可用的地图视图。
 
 ### 研究参考
 
-项目目录下的两份技术研究报告为世界地图方案的设计提供了理论基础和技术选型依据：
-
 | 文档 | 说明 |
 |------|------|
-| [`LLM驱动的小说世界地图生成系统_技术研究报告.md`](./LLM驱动的小说世界地图生成系统_技术研究报告.md) | 工程导向的技术方案。重点分析了 PlotMap 约束求解、MapLibre GL JS 渲染、CHGIS 中文历史地名数据库等关键技术，提出了五阶段端到端流水线架构。**本项目的世界地图实现主要基于此文档的技术路线。** |
-| [`自动文学制图学：利用本地大语言模型从叙事文本构建交互式地理空间系统的技术框架研究报告.md`](./自动文学制图学：利用本地大语言模型从叙事文本构建交互式地理空间系统的技术框架研究报告.md) | 学术导向的综合研究（Gemini 撰写）。涵盖力导向图 + 方向约束、RCC-8 定性空间推理、Stable Diffusion ControlNet 地图美化等方案。其中旅行时间→距离换算公式（D = T × V × M_terrain）和小说类型策略表被本项目采纳。 |
+| [`_bmad-output/world-map-v2-architecture.md`](./_bmad-output/world-map-v2-architecture.md) | **V2 架构设计文档**。多层级世界结构数据模型、WorldStructureAgent 信号扫描与 LLM 增量更新、分层布局引擎、前端多层交互设计。 |
+| [`LLM驱动的小说世界地图生成系统_技术研究报告.md`](./LLM驱动的小说世界地图生成系统_技术研究报告.md) | 工程导向的技术方案。PlotMap 约束求解、MapLibre GL JS 渲染、CHGIS 中文历史地名等关键技术分析。**V1 地图实现主要基于此文档。** |
+| [`自动文学制图学：利用本地大语言模型从叙事文本构建交互式地理空间系统的技术框架研究报告.md`](./自动文学制图学：利用本地大语言模型从叙事文本构建交互式地理空间系统的技术框架研究报告.md) | 学术导向的综合研究。旅行时间→距离换算公式和小说类型策略表被本项目采纳。 |
 
 ## 技术栈
 
@@ -102,36 +118,44 @@ AI-Reader-V2/
 │   ├── pyproject.toml
 │   └── src/
 │       ├── api/              # FastAPI 路由 + WebSocket
-│       │   ├── routes/       # REST 端点 (novels, chapters, map, graph, ...)
+│       │   ├── routes/       # REST 端点 (novels, chapters, map, graph, world_structure, ...)
 │       │   └── websocket/    # 分析进度 + 聊天 WebSocket
 │       ├── services/         # 业务逻辑
-│       │   ├── analysis_service.py       # 章节分析编排
-│       │   ├── visualization_service.py  # 图谱/地图/时间线数据聚合
-│       │   ├── map_layout_service.py     # 约束求解 + 地形生成
+│       │   ├── analysis_service.py       # 章节分析编排 (含 WorldStructureAgent 集成)
+│       │   ├── visualization_service.py  # 图谱/地图/时间线数据聚合 (按层获取)
+│       │   ├── map_layout_service.py     # 区域级约束求解 + 层独立布局 + 地形生成
+│       │   ├── world_structure_agent.py  # 世界结构代理 (信号扫描/启发式/LLM 增量更新)
+│       │   ├── location_hint_service.py  # 地点方位名称推断
 │       │   ├── query_service.py          # RAG 问答
 │       │   └── ...
 │       ├── extraction/       # LLM 结构化提取
 │       │   ├── chapter_fact_extractor.py
 │       │   ├── fact_validator.py
-│       │   └── prompts/      # 系统提示词 + few-shot 示例
+│       │   └── prompts/      # 系统提示词 + few-shot 示例 + 世界结构更新模板
 │       ├── db/               # SQLite + ChromaDB 数据层
-│       ├── models/           # Pydantic 数据模型 (ChapterFact 等)
+│       │   ├── world_structure_store.py          # 世界结构持久化
+│       │   ├── world_structure_override_store.py  # 用户编辑 override 存储
+│       │   └── ...
+│       ├── models/           # Pydantic 数据模型
+│       │   ├── chapter_fact.py      # ChapterFact (含 WorldDeclaration)
+│       │   ├── world_structure.py   # WorldStructure / MapLayer / Portal / WorldRegion
+│       │   └── ...
 │       ├── infra/            # 配置 + LLM 客户端
 │       └── utils/
 ├── frontend/
 │   ├── package.json
 │   └── src/
 │       ├── app/              # App 入口 + 路由 + NovelLayout
-│       ├── pages/            # 10 个页面
+│       ├── pages/            # 页面 (MapPage 含层切换 + 世界编辑)
 │       ├── components/
-│       │   ├── visualization/  # NovelMap (MapLibre) + VisualizationLayout
+│       │   ├── visualization/  # NovelMap + MapLayerTabs + WorldStructureEditor
 │       │   ├── entity-cards/   # 实体卡片抽屉
 │       │   ├── chat/           # 聊天组件
 │       │   └── ui/             # shadcn/ui 基础组件
 │       ├── stores/           # Zustand 状态 (chapterRange, entityCard, ...)
 │       ├── api/              # 类型定义 + API 客户端
 │       └── lib/
-├── _bmad-output/             # BMad 架构文档 + Story 规划
+├── _bmad-output/             # BMad 架构文档 + Story 规划 + Sprint 状态
 └── *.md                      # 研究报告文档
 ```
 
@@ -139,13 +163,27 @@ AI-Reader-V2/
 
 所有数据存储在 `~/.ai-reader-v2/` 目录下：
 
-- `data.db` — SQLite 数据库（小说、章节、分析结果、对话、地图布局缓存等）
+- `data.db` — SQLite 数据库（小说、章节、分析结果、对话、世界结构、层布局缓存、用户 override 等）
 - `chroma/` — ChromaDB 向量数据库（语义搜索）
 - `maps/{novel_id}/terrain.png` — 程序化生成的地形底图
 
+## 开发进度
+
+| Epic | 描述 | Stories | 状态 |
+|------|------|---------|------|
+| Epic 1 | 书架与小说上传 | 7 | done |
+| Epic 2 | 小说分析引擎 | 5 | done |
+| Epic 3 | 阅读体验与实体卡片 | 7 | done |
+| Epic 4 | 知识图谱可视化 | 7 | done |
+| Epic 5 | 智能问答 | 5 | done |
+| Epic 6 | 百科与系统设置 | 3 | done |
+| Epic 7 | 世界地图 V2 — 多层级世界结构 | 12 | done |
+
+共计 **7 个 Epic、46 个 Story**，全部完成。
+
 ## 版本
 
-当前版本：**v0.5.0**
+当前版本：**v0.6.0**
 
 ## License
 
