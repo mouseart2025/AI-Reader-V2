@@ -86,7 +86,7 @@ export default function ChatPage() {
     if (role === "user") {
       return <p className="whitespace-pre-wrap">{text}</p>
     }
-    return <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{text}</Markdown>
+    return <div className="prose prose-sm dark:prose-invert max-w-none break-words"><Markdown>{text}</Markdown></div>
   }
 
   return (
@@ -248,7 +248,7 @@ export default function ChatPage() {
                   <span className="text-xs text-primary">AI</span>
                 </div>
                 <div className="rounded-lg px-4 py-2.5 bg-muted">
-                  <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{streamingContent}</Markdown>
+                  <div className="prose prose-sm dark:prose-invert max-w-none break-words"><Markdown>{streamingContent}</Markdown></div>
                   <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
                 </div>
               </div>
