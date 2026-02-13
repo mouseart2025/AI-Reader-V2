@@ -28,14 +28,19 @@ class PatchTaskRequest(BaseModel):
 
 @router.get("/analysis/active")
 async def get_active_analyses():
-    """Return novel IDs that have running or paused analysis tasks."""
+    """Return novel IDs with their active analysis status (running/paused)."""
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT DISTINCT novel_id FROM analysis_tasks WHERE status IN ('running', 'paused')"
+            "SELECT novel_id, status FROM analysis_tasks WHERE status IN ('running', 'paused')"
         )
         rows = await cursor.fetchall()
-        return {"novel_ids": [r[0] for r in rows]}
+        # If multiple tasks per novel, prefer 'running' over 'paused'
+        result: dict[str, str] = {}
+        for novel_id, status in rows:
+            if novel_id not in result or status == "running":
+                result[novel_id] = status
+        return {"items": [{"novel_id": k, "status": v} for k, v in result.items()]}
     finally:
         await conn.close()
 

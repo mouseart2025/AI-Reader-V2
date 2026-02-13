@@ -152,6 +152,14 @@ export default function AnalysisPage() {
         if (latestTask) {
           setTask(latestTask)
           if (latestTask.status === "running" || latestTask.status === "paused") {
+            // Initialize progress from task data before WS connects
+            const total = latestTask.chapter_end - latestTask.chapter_start + 1
+            const done = latestTask.current_chapter - latestTask.chapter_start
+            useAnalysisStore.setState({
+              currentChapter: latestTask.current_chapter,
+              totalChapters: total,
+              progress: total > 0 ? Math.round((done / total) * 100) : 0,
+            })
             connectWs(novelId!)
           }
         }
@@ -220,6 +228,13 @@ export default function AnalysisPage() {
         if (latestTask) {
           setTask(latestTask)
           if (latestTask.status === "running" || latestTask.status === "paused") {
+            const total = latestTask.chapter_end - latestTask.chapter_start + 1
+            const done = latestTask.current_chapter - latestTask.chapter_start
+            useAnalysisStore.setState({
+              currentChapter: latestTask.current_chapter,
+              totalChapters: total,
+              progress: total > 0 ? Math.round((done / total) * 100) : 0,
+            })
             connectWs(novelId!)
           }
         }
