@@ -26,6 +26,20 @@ class PatchTaskRequest(BaseModel):
     status: str  # "paused" | "running" | "cancelled"
 
 
+@router.get("/analysis/active")
+async def get_active_analyses():
+    """Return novel IDs that have running or paused analysis tasks."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT DISTINCT novel_id FROM analysis_tasks WHERE status IN ('running', 'paused')"
+        )
+        rows = await cursor.fetchall()
+        return {"novel_ids": [r[0] for r in rows]}
+    finally:
+        await conn.close()
+
+
 @router.post("/novels/{novel_id}/analyze")
 async def start_analysis(novel_id: str, req: AnalyzeRequest | None = None):
     """Trigger full or range analysis for a novel."""
