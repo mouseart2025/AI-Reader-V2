@@ -205,7 +205,7 @@ export function FloatingChatPanel() {
             >
               {msg.role === "user"
                 ? <p className="whitespace-pre-wrap">{msg.content}</p>
-                : <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{msg.content}</Markdown>
+                : <div className="prose prose-sm dark:prose-invert max-w-none break-words"><Markdown>{msg.content}</Markdown></div>
               }
             </div>
             {msg.role === "assistant" && msg.sources.length > 0 && (
@@ -228,7 +228,7 @@ export function FloatingChatPanel() {
         {streaming && streamingContent && (
           <div className="max-w-[80%] mr-auto">
             <div className="rounded-lg px-3 py-2 bg-muted">
-              <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{streamingContent}</Markdown>
+              <div className="prose prose-sm dark:prose-invert max-w-none break-words"><Markdown>{streamingContent}</Markdown></div>
               <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
             </div>
           </div>
