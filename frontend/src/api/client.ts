@@ -278,7 +278,9 @@ export function clearAnalysisData(
   return apiFetch(`/novels/${novelId}/analysis`, { method: "DELETE" })
 }
 
-export function fetchActiveAnalyses(): Promise<{ novel_ids: string[] }> {
+export function fetchActiveAnalyses(): Promise<{
+  items: { novel_id: string; status: "running" | "paused" }[]
+}> {
   return apiFetch(`/analysis/active`)
 }
 

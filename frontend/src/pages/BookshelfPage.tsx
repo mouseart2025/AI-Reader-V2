@@ -82,13 +82,13 @@ function coverColor(title: string): string {
 
 function NovelCard({
   novel,
-  isAnalyzing,
+  analysisStatus,
   onDelete,
   onClick,
   onNavigate,
 }: {
   novel: Novel
-  isAnalyzing: boolean
+  analysisStatus: "running" | "paused" | null
   onDelete: (novel: Novel) => void
   onClick: (novel: Novel) => void
   onNavigate: (path: string) => void
@@ -103,10 +103,16 @@ function NovelCard({
         <div
           className={`bg-gradient-to-br ${coverColor(novel.title)} relative mb-3 flex h-36 items-center justify-center rounded-lg`}
         >
-          {isAnalyzing && (
+          {analysisStatus === "running" && (
             <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
               <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />
               <span className="text-[10px] font-medium text-white/90">分析中</span>
+            </div>
+          )}
+          {analysisStatus === "paused" && (
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
+              <span className="inline-block size-1.5 rounded-full bg-yellow-400" />
+              <span className="text-[10px] font-medium text-white/90">已暂停</span>
             </div>
           )}
           <div className="px-4 text-center text-white">
@@ -227,7 +233,7 @@ export default function BookshelfPage() {
   const [deleting, setDeleting] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
-  const [activeAnalysisIds, setActiveAnalysisIds] = useState<Set<string>>(new Set())
+  const [activeAnalysisMap, setActiveAnalysisMap] = useState<Map<string, "running" | "paused">>(new Map())
 
   // Check Ollama environment on first load
   useEffect(() => {
@@ -255,10 +261,10 @@ export default function BookshelfPage() {
       setLoading(true)
       const [data, active] = await Promise.all([
         fetchNovels(),
-        fetchActiveAnalyses().catch(() => ({ novel_ids: [] })),
+        fetchActiveAnalyses().catch(() => ({ items: [] })),
       ])
       setNovels(data.novels)
-      setActiveAnalysisIds(new Set(active.novel_ids))
+      setActiveAnalysisMap(new Map(active.items.map((a) => [a.novel_id, a.status])))
     } catch (err) {
       console.error("Failed to load novels:", err)
     } finally {
@@ -396,7 +402,7 @@ export default function BookshelfPage() {
             <NovelCard
               key={novel.id}
               novel={novel}
-              isAnalyzing={activeAnalysisIds.has(novel.id)}
+              analysisStatus={activeAnalysisMap.get(novel.id) ?? null}
               onDelete={setDeleteTarget}
               onClick={handleClick}
               onNavigate={(path) => navigate(path)}
