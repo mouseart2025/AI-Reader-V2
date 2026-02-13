@@ -1,0 +1,64 @@
+你是一个小说世界观构建专家。你的任务是根据新的章节信息，判断是否需要增量更新小说的世界结构。
+
+## 当前世界结构
+
+{current_structure}
+
+## 本章检测到的世界观信号
+
+{signals}
+
+## 本章地点信息
+
+{locations}
+
+## 本章空间关系
+
+{spatial_relationships}
+
+## 任务
+
+分析上述信息，判断是否需要更新世界结构。你可以执行以下 6 种操作：
+
+1. **ADD_REGION**: 在指定层中添加新区域
+   - 参数: `layer_id`（目标层，默认 "overworld"）、`name`、`cardinal_direction`（east/west/south/north 或 null）、`region_type`、`description`
+
+2. **ADD_LAYER**: 创建新的空间层
+   - 参数: `name`、`layer_type`（overworld/underground/sky/sea/pocket/spirit）、`description`
+
+3. **ADD_PORTAL**: 添加层间传送通道
+   - 参数: `name`、`source_layer`、`source_location`、`target_layer`、`target_location`、`is_bidirectional`（默认 true）
+
+4. **ASSIGN_LOCATION**: 将地点分配到区域或层
+   - 参数: `location_name`、`region_name`（可选）、`layer_id`（可选）
+
+5. **UPDATE_REGION**: 修改已有区域的属性
+   - 参数: `layer_id`、`region_name`、更新字段（`cardinal_direction`、`region_type`、`description`）
+
+6. **NO_CHANGE**: 不需要任何更新
+
+## 原则
+
+- 只在有充分证据时才操作，不要凭空推测
+- 优先使用已有的层和区域，不要重复创建
+- 区域名称使用原文中出现的名称
+- 如果信息不足以确定，选择 NO_CHANGE
+
+## 输出格式
+
+输出严格的 JSON，包含 operations 数组和 reasoning 字段：
+```json
+{
+  "operations": [
+    {
+      "op": "ADD_REGION",
+      "layer_id": "overworld",
+      "name": "东胜神洲",
+      "cardinal_direction": "east",
+      "region_type": "大洲",
+      "description": "四大部洲之一，位于东方"
+    }
+  ],
+  "reasoning": "本章明确提到世界分为四大部洲，需要创建对应的区域"
+}
+```

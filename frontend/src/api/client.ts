@@ -13,10 +13,13 @@ import type {
   MapData,
   Novel,
   NovelsListResponse,
+  OverrideType,
   ReSplitRequest,
   SplitModesResponse,
   UploadPreviewResponse,
   UserState,
+  WorldStructureData,
+  WorldStructureOverride,
 } from "./types"
 
 const BASE = "/api"
@@ -167,8 +170,44 @@ export function fetchMapData(
   novelId: string,
   start?: number,
   end?: number,
+  layerId?: string,
 ): Promise<MapData> {
-  return apiFetch<MapData>(`/novels/${novelId}/map${rangeParams(start, end)}`)
+  let params = rangeParams(start, end)
+  if (layerId) {
+    params += (params ? "&" : "?") + `layer_id=${encodeURIComponent(layerId)}`
+  }
+  return apiFetch<MapData>(`/novels/${novelId}/map${params}`)
+}
+
+export function fetchWorldStructure(
+  novelId: string,
+): Promise<WorldStructureData> {
+  return apiFetch<WorldStructureData>(`/novels/${novelId}/world-structure`)
+}
+
+export function fetchWorldStructureOverrides(
+  novelId: string,
+): Promise<{ overrides: WorldStructureOverride[] }> {
+  return apiFetch(`/novels/${novelId}/world-structure/overrides`)
+}
+
+export function saveWorldStructureOverrides(
+  novelId: string,
+  overrides: { override_type: OverrideType; override_key: string; override_json: Record<string, unknown> }[],
+): Promise<WorldStructureData> {
+  return apiFetch<WorldStructureData>(`/novels/${novelId}/world-structure/overrides`, {
+    method: "PUT",
+    body: JSON.stringify({ overrides }),
+  })
+}
+
+export function deleteWorldStructureOverride(
+  novelId: string,
+  overrideId: number,
+): Promise<WorldStructureData> {
+  return apiFetch<WorldStructureData>(`/novels/${novelId}/world-structure/overrides/${overrideId}`, {
+    method: "DELETE",
+  })
 }
 
 export function saveLocationOverride(
@@ -229,6 +268,12 @@ export function getLatestAnalysisTask(
   novelId: string,
 ): Promise<{ task: AnalysisTask | null }> {
   return apiFetch(`/novels/${novelId}/analysis/latest`)
+}
+
+export function clearAnalysisData(
+  novelId: string,
+): Promise<{ ok: boolean; message: string }> {
+  return apiFetch(`/novels/${novelId}/analysis`, { method: "DELETE" })
 }
 
 // ── Chat / Conversations ─────────────────────

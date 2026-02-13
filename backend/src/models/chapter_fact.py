@@ -77,10 +77,17 @@ class ConceptFact(BaseModel):
 class SpatialRelationship(BaseModel):
     source: str
     target: str
-    relation_type: str  # direction/distance/contains/adjacent/separated_by/terrain
+    relation_type: str  # direction/distance/contains/adjacent/separated_by/terrain/in_between
     value: str  # e.g. "north_of", "三天路程（步行）", "河流", "on_coast"
     confidence: str = "medium"  # high/medium/low
     narrative_evidence: str = ""
+
+
+class WorldDeclaration(BaseModel):
+    declaration_type: str  # region_division / layer_exists / portal / region_position
+    content: dict  # type-specific structured content
+    narrative_evidence: str = ""
+    confidence: str = "medium"  # high / medium / low
 
 
 class ChapterFact(BaseModel):
@@ -94,3 +101,4 @@ class ChapterFact(BaseModel):
     org_events: list[OrgEventFact] = []
     events: list[EventFact] = []
     new_concepts: list[ConceptFact] = []
+    world_declarations: list[WorldDeclaration] = []

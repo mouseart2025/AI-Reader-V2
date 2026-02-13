@@ -4,7 +4,9 @@ import json
 import logging
 
 from src.db.chapter_fact_store import get_all_chapter_facts
+from src.db import world_structure_store
 from src.models.chapter_fact import ChapterFact
+from src.models.world_structure import WorldStructure
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,11 @@ class ContextSummaryBuilder:
                 holder = info.get("holder", "未知")
                 lines.append(f"- {name} ({info['type']}) — 持有: {holder}")
             sections.append("\n".join(lines))
+
+        # World structure summary
+        world_section = await self._build_world_structure_section(novel_id)
+        if world_section:
+            sections.append(world_section)
 
         summary = "\n\n".join(sections)
 
@@ -200,3 +207,65 @@ class ContextSummaryBuilder:
                 recent_item_names.add(ie.item_name)
 
         return {name: info for name, info in items.items() if name in recent_item_names}
+
+    async def _build_world_structure_section(self, novel_id: str) -> str:
+        """Load WorldStructure and format as context section. Returns empty if trivial."""
+        try:
+            ws = await world_structure_store.load(novel_id)
+        except Exception:
+            return ""
+        if ws is None:
+            return ""
+        return self._format_world_structure(ws)
+
+    @staticmethod
+    def _format_world_structure(ws: WorldStructure) -> str:
+        """Format WorldStructure as a concise summary (≤ 500 chars).
+
+        Returns empty string if the structure is trivially default (only overworld
+        with no regions, no portals, and minimal location mappings).
+        """
+        has_regions = any(layer.regions for layer in ws.layers)
+        has_extra_layers = len(ws.layers) > 1
+        has_portals = bool(ws.portals)
+
+        if not has_regions and not has_extra_layers and not has_portals:
+            return ""
+
+        lines: list[str] = ["### 已知世界结构"]
+
+        for layer in ws.layers:
+            if layer.regions:
+                region_parts = []
+                for r in layer.regions[:10]:
+                    dir_str = f"({r.cardinal_direction})" if r.cardinal_direction else ""
+                    region_parts.append(f"{r.name}{dir_str}")
+                lines.append(f"- {layer.name}区域: {', '.join(region_parts)}")
+
+        for layer in ws.layers:
+            if layer.layer_id == "overworld":
+                continue
+            # Collect locations assigned to this layer
+            locs = [
+                name for name, lid in ws.location_layer_map.items()
+                if lid == layer.layer_id
+            ]
+            if locs:
+                locs_str = ", ".join(locs[:8])
+                lines.append(f"- {layer.name} ({layer.layer_id}): {locs_str}")
+            elif layer.layer_id not in ("overworld",):
+                lines.append(f"- {layer.name} ({layer.layer_id})")
+
+        if ws.portals:
+            portal_parts = []
+            for p in ws.portals[:5]:
+                portal_parts.append(
+                    f"{p.name} ({p.source_layer} ↔ {p.target_layer})"
+                )
+            lines.append(f"- 传送门: {', '.join(portal_parts)}")
+
+        result = "\n".join(lines)
+        # Cap at 500 chars
+        if len(result) > 500:
+            result = result[:497] + "..."
+        return result

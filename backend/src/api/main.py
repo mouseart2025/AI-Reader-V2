@@ -18,6 +18,7 @@ from src.api.routes import (
     settings,
     encyclopedia,
     export_import,
+    world_structure,
 )
 from src.api.websocket import analysis_ws, chat_ws
 
@@ -53,6 +54,7 @@ app.include_router(analysis.router)
 app.include_router(settings.router)
 app.include_router(encyclopedia.router)
 app.include_router(export_import.router)
+app.include_router(world_structure.router)
 
 # WebSocket routes
 app.include_router(analysis_ws.router)

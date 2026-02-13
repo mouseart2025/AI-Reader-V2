@@ -94,10 +94,42 @@ CREATE TABLE IF NOT EXISTS map_user_overrides (
     PRIMARY KEY (novel_id, location_name)
 );
 
+CREATE TABLE IF NOT EXISTS world_structures (
+    novel_id        TEXT PRIMARY KEY REFERENCES novels(id) ON DELETE CASCADE,
+    structure_json   TEXT NOT NULL,
+    source_chapters  TEXT NOT NULL DEFAULT '[]',
+    created_at       TEXT DEFAULT (datetime('now')),
+    updated_at       TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS layer_layouts (
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    layer_id        TEXT NOT NULL,
+    chapter_hash    TEXT NOT NULL,
+    layout_json     TEXT NOT NULL,
+    layout_mode     TEXT NOT NULL DEFAULT 'hierarchy',
+    terrain_path    TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (novel_id, layer_id, chapter_hash)
+);
+
+CREATE TABLE IF NOT EXISTS world_structure_overrides (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id      TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    override_type TEXT NOT NULL,
+    override_key  TEXT NOT NULL,
+    override_json TEXT NOT NULL,
+    created_at    TEXT DEFAULT (datetime('now')),
+    UNIQUE(novel_id, override_type, override_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ws_overrides_novel ON world_structure_overrides(novel_id);
+
 CREATE INDEX IF NOT EXISTS idx_chapters_novel      ON chapters(novel_id, chapter_num);
 CREATE INDEX IF NOT EXISTS idx_chapter_facts_novel  ON chapter_facts(novel_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conv        ON messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_analysis_novel       ON analysis_tasks(novel_id, status);
+CREATE INDEX IF NOT EXISTS idx_layer_layouts_novel  ON layer_layouts(novel_id);
 """
 
 

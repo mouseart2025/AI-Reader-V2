@@ -3,7 +3,14 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.db import analysis_task_store, novel_store
+from src.db import (
+    analysis_task_store,
+    chapter_fact_store,
+    novel_store,
+    world_structure_override_store,
+    world_structure_store,
+)
+from src.db.sqlite_db import get_connection
 from src.services.analysis_service import get_analysis_service
 
 router = APIRouter(prefix="/api", tags=["analysis"])
@@ -87,3 +94,60 @@ async def get_latest_task(novel_id: str):
     if not task:
         return {"task": None}
     return {"task": task}
+
+
+@router.delete("/novels/{novel_id}/analysis")
+async def clear_analysis_data(novel_id: str):
+    """Clear all analysis data for a novel, resetting it to a fresh state."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    # Check no running task
+    latest = await analysis_task_store.get_latest_task(novel_id)
+    if latest and latest["status"] in ("running", "paused"):
+        raise HTTPException(status_code=409, detail="请先取消正在进行的分析任务")
+
+    # Delete chapter_facts
+    await chapter_fact_store.delete_chapter_facts(novel_id)
+
+    # Reset chapter analysis_status
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "UPDATE chapters SET analysis_status = 'pending', analyzed_at = NULL "
+            "WHERE novel_id = ?",
+            (novel_id,),
+        )
+        # Delete analysis tasks
+        await conn.execute(
+            "DELETE FROM analysis_tasks WHERE novel_id = ?",
+            (novel_id,),
+        )
+        # Delete world structure + overrides
+        await conn.execute(
+            "DELETE FROM world_structures WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.execute(
+            "DELETE FROM world_structure_overrides WHERE novel_id = ?",
+            (novel_id,),
+        )
+        # Delete layout caches
+        await conn.execute(
+            "DELETE FROM map_layouts WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.execute(
+            "DELETE FROM layer_layouts WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.execute(
+            "DELETE FROM map_user_overrides WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+    return {"ok": True, "message": "分析数据已清除"}

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import { fetchMapData, saveLocationOverride } from "@/api/client"
-import type { MapData, MapLocation, TrajectoryPoint } from "@/api/types"
+import type { MapData, MapLayerInfo } from "@/api/types"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
+import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
+import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -16,6 +18,8 @@ const TYPE_LEGEND = [
   { label: "山林洞谷", color: "#84cc16" },
   { label: "宗门派", color: "#8b5cf6" },
   { label: "水域", color: "#06b6d4" },
+  { label: "天界", color: "#f59e0b" },
+  { label: "冥界", color: "#7c3aed" },
   { label: "其他", color: "#6b7280" },
 ]
 
@@ -28,6 +32,14 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
 
+  // Layer state
+  const [layers, setLayers] = useState<MapLayerInfo[]>([])
+  const [activeLayerId, setActiveLayerId] = useState("overworld")
+
+  // World structure editor
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [reloadTrigger, setReloadTrigger] = useState(0)
+
   // Trajectory state
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -35,17 +47,28 @@ export default function MapPage() {
   const playTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const mapHandle = useRef<NovelMapHandle>(null)
 
+  // Active layer type for background color
+  const activeLayerType = useMemo(() => {
+    const layer = layers.find((l) => l.layer_id === activeLayerId)
+    return layer?.layer_type ?? "overworld"
+  }, [layers, activeLayerId])
+
   // Load data
   useEffect(() => {
     if (!novelId) return
     let cancelled = false
     setLoading(true)
 
-    fetchMapData(novelId, chapterStart, chapterEnd)
+    const layerParam =
+      activeLayerId !== "overworld" ? activeLayerId : undefined
+    fetchMapData(novelId, chapterStart, chapterEnd, layerParam)
       .then((data) => {
         if (cancelled) return
         if (data.analyzed_range && data.analyzed_range[0] > 0) {
           setAnalyzedRange(data.analyzed_range[0], data.analyzed_range[1])
+        }
+        if (data.world_structure?.layers) {
+          setLayers(data.world_structure.layers)
         }
         setMapData(data)
       })
@@ -56,23 +79,31 @@ export default function MapPage() {
     return () => {
       cancelled = true
     }
-  }, [novelId, chapterStart, chapterEnd, setAnalyzedRange])
+  }, [novelId, chapterStart, chapterEnd, activeLayerId, setAnalyzedRange, reloadTrigger])
 
   const locations = mapData?.locations ?? []
   const trajectories = mapData?.trajectories ?? {}
   const layout = mapData?.layout ?? []
   const layoutMode = mapData?.layout_mode ?? "hierarchy"
   const terrainUrl = mapData?.terrain_url ?? null
+  const regionBoundaries = mapData?.region_boundaries
+  const portals = mapData?.portals
 
-  // ── Visible locations (fog of war) ────────────────
+  // ── Visible locations (fog of war: active) ────────────────
   const visibleLocationNames = useMemo(() => {
     const set = new Set<string>()
-    // All locations extracted in the current chapter range are visible
     for (const loc of locations) {
       set.add(loc.name)
     }
     return set
   }, [locations])
+
+  // ── Revealed locations (fog of war: previously seen) ──────
+  const revealedLocationNames = useMemo(() => {
+    const names = mapData?.revealed_location_names
+    if (!names || names.length === 0) return undefined
+    return new Set(names)
+  }, [mapData?.revealed_location_names])
 
   // ── Person list sorted by trajectory length ──
   const personList = useMemo(
@@ -110,6 +141,24 @@ export default function MapPage() {
   }, [selectedTrajectory])
 
   const hasTrajectory = selectedTrajectory.length > 0
+
+  // ── Layer tab handler ──
+  const handleLayerChange = useCallback(
+    (layerId: string) => {
+      setActiveLayerId(layerId)
+      setSelectedPerson(null)
+    },
+    [],
+  )
+
+  // ── Portal click → switch layer tab ──
+  const handlePortalClick = useCallback(
+    (targetLayerId: string) => {
+      setActiveLayerId(targetLayerId)
+      setSelectedPerson(null)
+    },
+    [],
+  )
 
   // ── Animation controls ──
   const startPlay = useCallback(() => {
@@ -168,7 +217,15 @@ export default function MapPage() {
 
   return (
     <VisualizationLayout>
-      <div className="flex h-full">
+      <div className="flex h-full flex-col">
+        {/* Layer tabs */}
+        <MapLayerTabs
+          layers={layers}
+          activeLayerId={activeLayerId}
+          onLayerChange={handleLayerChange}
+        />
+
+        <div className="flex flex-1 min-h-0">
         {/* Main: MapLibre map */}
         <div className="relative flex-1">
           {loading && (
@@ -231,13 +288,17 @@ export default function MapPage() {
               locations={locations}
               layout={layout}
               layoutMode={layoutMode}
+              layerType={activeLayerType}
               terrainUrl={terrainUrl}
               visibleLocationNames={visibleLocationNames}
+              revealedLocationNames={revealedLocationNames}
+              regionBoundaries={regionBoundaries}
+              portals={portals}
               trajectoryPoints={visibleTrajectory}
-              fullTrajectory={selectedTrajectory}
               currentLocation={currentLocation}
               onLocationClick={handleLocationClick}
               onLocationDragEnd={handleDragEnd}
+              onPortalClick={handlePortalClick}
             />
           )}
         </div>
@@ -245,7 +306,16 @@ export default function MapPage() {
         {/* Right: Trajectory panel */}
         <div className="w-64 flex-shrink-0 overflow-auto border-l">
           <div className="p-3">
-            <h3 className="text-sm font-medium mb-2">人物轨迹</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium">人物轨迹</h3>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => setEditorOpen(true)}
+              >
+                编辑世界
+              </Button>
+            </div>
 
             {personList.length === 0 && (
               <p className="text-muted-foreground text-xs">暂无轨迹数据</p>
@@ -375,6 +445,15 @@ export default function MapPage() {
         </div>
 
         {novelId && <EntityCardDrawer novelId={novelId} />}
+        {novelId && (
+          <WorldStructureEditor
+            novelId={novelId}
+            open={editorOpen}
+            onClose={() => setEditorOpen(false)}
+            onStructureChanged={() => setReloadTrigger((n) => n + 1)}
+          />
+        )}
+        </div>
       </div>
     </VisualizationLayout>
   )

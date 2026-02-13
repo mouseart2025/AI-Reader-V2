@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
+  clearAnalysisData,
   fetchNovel,
   getLatestAnalysisTask,
   patchAnalysisTask,
@@ -39,6 +40,10 @@ export default function AnalysisPage() {
 
   // Re-analysis confirmation
   const [showReanalyzeConfirm, setShowReanalyzeConfirm] = useState(false)
+
+  // Clear data confirmation
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
   const {
     task,
@@ -186,6 +191,23 @@ export default function AnalysisPage() {
     handleStartAnalysis(true)
   }, [handleStartAnalysis])
 
+  const handleClearData = useCallback(async () => {
+    if (!novelId) return
+    setClearing(true)
+    setError(null)
+    try {
+      await clearAnalysisData(novelId)
+      // Reset all local state
+      setTask(null)
+      resetProgress()
+      setShowClearConfirm(false)
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      setClearing(false)
+    }
+  }, [novelId, setTask, resetProgress])
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -295,9 +317,17 @@ export default function AnalysisPage() {
             <p className="text-muted-foreground text-sm">
               已分析第 {task?.chapter_start} - {task?.chapter_end} 章
             </p>
-            <Button variant="outline" onClick={handleReanalyze}>
-              重新分析
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleReanalyze}>
+                重新分析
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowClearConfirm(true)}
+              >
+                清除所有数据
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -315,6 +345,13 @@ export default function AnalysisPage() {
             <p className="text-muted-foreground mb-4 text-sm">
               已在第 {task?.current_chapter} 章停止。已完成的分析数据已保留。
             </p>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowClearConfirm(true)}
+            >
+              清除所有数据
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -432,6 +469,31 @@ export default function AnalysisPage() {
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={confirmReanalyze}>
               确认重新分析
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear data confirmation dialog */}
+      <AlertDialog
+        open={showClearConfirm}
+        onOpenChange={setShowClearConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清除所有分析数据</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作将删除该小说的所有分析结果，包括：章节提取数据、世界结构、地图布局缓存、用户坐标覆盖、分析任务记录。小说文本本身不会被删除。此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearing}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearData}
+              disabled={clearing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {clearing ? "清除中..." : "确认清除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
