@@ -89,11 +89,18 @@ export interface HealthResponse {
 }
 
 export interface EnvironmentCheck {
-  ollama_running: boolean
-  ollama_url: string
-  required_model: string
-  model_available: boolean
-  available_models: string[]
+  llm_provider: string
+  llm_model: string
+  // Ollama mode fields
+  ollama_running?: boolean
+  ollama_url?: string
+  required_model?: string
+  model_available?: boolean
+  available_models?: string[]
+  // Cloud mode fields
+  llm_base_url?: string
+  api_available?: boolean
+  error?: string
 }
 
 // ── Analysis ──────────────────────────────────
@@ -354,6 +361,30 @@ export type ChatWsIncoming =
   | { type: "sources"; chapters: number[] }
   | { type: "done" }
   | { type: "error"; message: string }
+
+// ── Prescan Dictionary ──────────────────────────
+export type PrescanStatus = "pending" | "running" | "completed" | "failed"
+
+export interface PrescanStatusResponse {
+  status: PrescanStatus
+  entity_count: number
+  created_at: string | null
+}
+
+export interface EntityDictItem {
+  name: string
+  entity_type: string
+  frequency: number
+  confidence: string
+  aliases: string[]
+  source: string
+  sample_context: string | null
+}
+
+export interface EntityDictionaryResponse {
+  data: EntityDictItem[]
+  total: number
+}
 
 // ── Export / Import ──────────────────────────────
 

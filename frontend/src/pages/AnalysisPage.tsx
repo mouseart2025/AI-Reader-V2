@@ -1,19 +1,24 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   clearAnalysisData,
+  fetchEntityDictionary,
   fetchNovel,
+  fetchPrescanStatus,
   getLatestAnalysisTask,
   patchAnalysisTask,
   startAnalysis,
+  triggerPrescan,
 } from "@/api/client"
-import type { Novel } from "@/api/types"
+import type { EntityDictItem, Novel, PrescanStatus } from "@/api/types"
 import { useAnalysisStore } from "@/stores/analysisStore"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +29,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+const TYPE_LABELS: Record<string, string> = {
+  person: "人物", location: "地点", item: "物品",
+  org: "组织", concept: "概念", unknown: "未知",
+}
+const TYPE_BADGE_COLORS: Record<string, string> = {
+  person: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  location: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  item: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  org: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  concept: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  unknown: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+}
 
 export default function AnalysisPage() {
   const { novelId } = useParams<{ novelId: string }>()
@@ -45,6 +63,14 @@ export default function AnalysisPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearing, setClearing] = useState(false)
 
+  // Prescan state
+  const [prescanStatus, setPrescanStatus] = useState<PrescanStatus>("pending")
+  const [prescanEntityCount, setPrescanEntityCount] = useState(0)
+  const [prescanEntities, setPrescanEntities] = useState<EntityDictItem[]>([])
+  const [prescanLoading, setPrescanLoading] = useState(false)
+  const [prescanExpanded, setPrescanExpanded] = useState(false)
+  const prescanPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const {
     task,
     progress,
@@ -64,10 +90,55 @@ export default function AnalysisPage() {
   const isCancelled = task?.status === "cancelled"
   const isActive = isRunning || isPaused
 
+  // Load prescan data (status + entities if completed)
+  const loadPrescanData = useCallback(async (nId: string) => {
+    try {
+      const res = await fetchPrescanStatus(nId)
+      setPrescanStatus(res.status)
+      setPrescanEntityCount(res.entity_count)
+      if (res.status === "completed" && res.entity_count > 0) {
+        const dict = await fetchEntityDictionary(nId, undefined, 50)
+        setPrescanEntities(dict.data)
+      }
+    } catch {
+      // Prescan API may not exist yet — silently ignore
+    }
+  }, [])
+
+  const handleTriggerPrescan = useCallback(async () => {
+    if (!novelId) return
+    setPrescanLoading(true)
+    try {
+      await triggerPrescan(novelId)
+      setPrescanStatus("running")
+      setPrescanEntities([])
+      setPrescanEntityCount(0)
+      setPrescanExpanded(false)
+    } catch (err) {
+      // 409 means already running
+      if (String(err).includes("409")) {
+        setPrescanStatus("running")
+      }
+    } finally {
+      setPrescanLoading(false)
+    }
+  }, [novelId])
+
   // Load novel and latest task
   useEffect(() => {
     if (!novelId) return
     let cancelled = false
+
+    // Reset stale state from previous novel immediately
+    resetProgress()
+    setTask(null)
+    setLoading(true)
+    setError(null)
+    // Reset prescan state for new novel
+    setPrescanStatus("pending")
+    setPrescanEntityCount(0)
+    setPrescanEntities([])
+    setPrescanExpanded(false)
 
     async function load() {
       try {
@@ -84,6 +155,8 @@ export default function AnalysisPage() {
             connectWs(novelId!)
           }
         }
+        // Non-blocking prescan load
+        loadPrescanData(novelId!)
       } catch (err) {
         if (!cancelled) setError(String(err))
       } finally {
@@ -96,7 +169,45 @@ export default function AnalysisPage() {
       cancelled = true
       disconnectWs()
     }
-  }, [novelId, setTask, connectWs, disconnectWs])
+  }, [novelId, setTask, connectWs, disconnectWs, resetProgress, loadPrescanData])
+
+  // Poll prescan status when running
+  useEffect(() => {
+    if (prescanStatus !== "running" || !novelId) {
+      if (prescanPollRef.current) {
+        clearInterval(prescanPollRef.current)
+        prescanPollRef.current = null
+      }
+      return
+    }
+
+    prescanPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetchPrescanStatus(novelId)
+        setPrescanStatus(res.status)
+        setPrescanEntityCount(res.entity_count)
+        if (res.status === "completed" || res.status === "failed") {
+          if (prescanPollRef.current) {
+            clearInterval(prescanPollRef.current)
+            prescanPollRef.current = null
+          }
+          if (res.status === "completed" && res.entity_count > 0) {
+            const dict = await fetchEntityDictionary(novelId, undefined, 50)
+            setPrescanEntities(dict.data)
+          }
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000)
+
+    return () => {
+      if (prescanPollRef.current) {
+        clearInterval(prescanPollRef.current)
+        prescanPollRef.current = null
+      }
+    }
+  }, [prescanStatus, novelId])
 
   // Re-sync task status when page becomes visible (e.g. after laptop wake)
   useEffect(() => {
@@ -237,6 +348,17 @@ export default function AnalysisPage() {
           {novel.total_words.toLocaleString()} 字
         </p>
       </div>
+
+      {/* Prescan card */}
+      <PrescanCard
+        status={prescanStatus}
+        entityCount={prescanEntityCount}
+        entities={prescanEntities}
+        loading={prescanLoading}
+        expanded={prescanExpanded}
+        onToggleExpand={() => setPrescanExpanded((v) => !v)}
+        onTrigger={handleTriggerPrescan}
+      />
 
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -508,5 +630,172 @@ function StatCard({ label, value }: { label: string; value: number }) {
       <div className="text-2xl font-bold">{value.toLocaleString()}</div>
       <div className="text-muted-foreground text-xs">{label}</div>
     </div>
+  )
+}
+
+function PrescanCard({
+  status,
+  entityCount,
+  entities,
+  loading,
+  expanded,
+  onToggleExpand,
+  onTrigger,
+}: {
+  status: PrescanStatus
+  entityCount: number
+  entities: EntityDictItem[]
+  loading: boolean
+  expanded: boolean
+  onToggleExpand: () => void
+  onTrigger: () => void
+}) {
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const e of entities) {
+      counts[e.entity_type] = (counts[e.entity_type] || 0) + 1
+    }
+    return counts
+  }, [entities])
+
+  const visibleEntities = expanded ? entities : entities.slice(0, 5)
+
+  return (
+    <Card className="mb-6">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          {status === "pending" && (
+            <span className="inline-block size-2 rounded-full bg-gray-400" />
+          )}
+          {status === "running" && (
+            <span className="inline-block size-2 animate-pulse rounded-full bg-green-500" />
+          )}
+          {status === "failed" && (
+            <span className="inline-block size-2 rounded-full bg-red-500" />
+          )}
+          {status === "completed" && (
+            <span className="inline-block size-2 rounded-full bg-blue-500" />
+          )}
+          实体预扫描
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Pending */}
+        {status === "pending" && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-sm">等待扫描</span>
+            <Button size="sm" onClick={onTrigger} disabled={loading}>
+              {loading ? "启动中..." : "开始扫描"}
+            </Button>
+          </div>
+        )}
+
+        {/* Running */}
+        {status === "running" && (
+          <div className="flex items-center gap-3">
+            <svg
+              className="size-4 animate-spin text-blue-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12" cy="12" r="10"
+                stroke="currentColor" strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+            <span className="text-muted-foreground text-sm">正在扫描...</span>
+          </div>
+        )}
+
+        {/* Failed */}
+        {status === "failed" && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-red-600 dark:text-red-400">扫描失败</span>
+            <Button size="sm" variant="outline" onClick={onTrigger} disabled={loading}>
+              重试
+            </Button>
+          </div>
+        )}
+
+        {/* Completed */}
+        {status === "completed" && (
+          <div className="space-y-3">
+            {/* Summary: total + type badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">
+                共 {entityCount} 个实体
+              </span>
+              {Object.entries(typeCounts).map(([type, count]) => (
+                <Badge
+                  key={type}
+                  variant="secondary"
+                  className={cn(
+                    "text-xs font-normal",
+                    TYPE_BADGE_COLORS[type] || TYPE_BADGE_COLORS.unknown,
+                  )}
+                >
+                  {TYPE_LABELS[type] || type} {count}
+                </Badge>
+              ))}
+            </div>
+
+            {/* Entity list */}
+            {entities.length > 0 && (
+              <div className={cn("space-y-1", expanded && "max-h-80 overflow-y-auto")}>
+                {visibleEntities.map((e) => (
+                  <div
+                    key={`${e.entity_type}-${e.name}`}
+                    className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "shrink-0 text-xs font-normal",
+                        TYPE_BADGE_COLORS[e.entity_type] || TYPE_BADGE_COLORS.unknown,
+                      )}
+                    >
+                      {TYPE_LABELS[e.entity_type] || e.entity_type}
+                    </Badge>
+                    <span className="font-medium">{e.name}</span>
+                    {e.aliases.length > 0 && (
+                      <span className="text-muted-foreground truncate text-xs">
+                        ({e.aliases.join(", ")})
+                      </span>
+                    )}
+                    <span className="text-muted-foreground ml-auto shrink-0 text-xs">
+                      &times;{e.frequency}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Expand / collapse */}
+            {entities.length > 5 && (
+              <button
+                onClick={onToggleExpand}
+                className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+              >
+                {expanded ? "收起" : `展开全部 (${entities.length})`}
+              </button>
+            )}
+
+            {/* Re-scan button */}
+            <div className="pt-1">
+              <Button size="sm" variant="outline" onClick={onTrigger} disabled={loading}>
+                重新扫描
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

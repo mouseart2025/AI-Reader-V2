@@ -118,7 +118,7 @@ async def get_encyclopedia_entries(
                         "name": name,
                         "type": "item",
                         "category": "item",
-                        "definition": f"{ie.get('item_type', '')} - {ie.get('description', '')[:50]}",
+                        "definition": f"{ie.get('item_type') or ''} - {(ie.get('description') or '')[:50]}",
                         "first_chapter": chapter_id,
                     }
 
@@ -153,7 +153,7 @@ async def get_encyclopedia_entries(
                         "name": name,
                         "type": "concept",
                         "category": cat,
-                        "definition": nc.get("definition", "")[:100],
+                        "definition": (nc.get("definition") or "")[:100],
                         "first_chapter": chapter_id,
                     }
 

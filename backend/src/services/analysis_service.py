@@ -7,7 +7,7 @@ import uuid
 
 from fastapi import WebSocket
 
-from src.db import analysis_task_store, chapter_fact_store
+from src.db import analysis_task_store, chapter_fact_store, entity_dictionary_store
 from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
@@ -79,6 +79,10 @@ class AnalysisService:
         if existing:
             raise ValueError(f"Novel {novel_id} already has an active task: {existing['id']}")
 
+        # Ensure pre-scan is done before analysis (skip on force re-analyze)
+        if not force:
+            await self._ensure_prescan(novel_id)
+
         task_id = str(uuid.uuid4())
         await analysis_task_store.create_task(task_id, novel_id, chapter_start, chapter_end)
         self._task_signals[task_id] = "running"
@@ -137,6 +141,42 @@ class AnalysisService:
         # Immediate DB + broadcast so frontend updates without waiting for the loop
         await analysis_task_store.update_task_status(task_id, "cancelled")
         await manager.broadcast(task["novel_id"], {"type": "task_status", "status": "cancelled"})
+
+    async def _ensure_prescan(self, novel_id: str) -> None:
+        """Ensure pre-scan is done before analysis starts.
+
+        - pending: trigger synchronously
+        - running: wait up to 120s
+        - failed: log warning, continue without dictionary
+        - completed: no-op
+        """
+        status = await entity_dictionary_store.get_prescan_status(novel_id)
+
+        if status == "completed":
+            return
+
+        if status == "pending":
+            try:
+                from src.extraction.entity_pre_scanner import EntityPreScanner
+                scanner = EntityPreScanner()
+                await scanner.scan(novel_id)
+            except Exception:
+                logger.warning("分析启动前预扫描失败，将以无词典模式继续", exc_info=True)
+            return
+
+        if status == "running":
+            # Poll every 5s, up to 120s
+            for _ in range(24):
+                await asyncio.sleep(5)
+                status = await entity_dictionary_store.get_prescan_status(novel_id)
+                if status != "running":
+                    break
+            if status == "running":
+                logger.warning("预扫描超时(120s)，将以无词典模式继续")
+            return
+
+        # status == "failed"
+        logger.warning("预扫描状态为 failed，将以无词典模式继续")
 
     async def _run_loop(
         self,

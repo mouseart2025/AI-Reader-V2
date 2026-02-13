@@ -4,7 +4,8 @@ import json
 import logging
 
 from src.db.chapter_fact_store import get_all_chapter_facts
-from src.db import world_structure_store
+from src.db import entity_dictionary_store, world_structure_store
+from src.infra.config import LLM_PROVIDER
 from src.models.chapter_fact import ChapterFact
 from src.models.world_structure import WorldStructure
 
@@ -12,8 +13,10 @@ logger = logging.getLogger(__name__)
 
 # How many recent chapters to consider for "active" entities
 _ACTIVE_WINDOW = 20
-# Approximate max characters for the summary (rough proxy for ~2000 tokens)
-_MAX_CHARS = 6000
+# Approximate max characters for the summary
+# Ollama (local 8B): ~2000 tokens ≈ 6000 chars (tight context budget)
+# Cloud (256K ctx): ~6000 tokens ≈ 18000 chars (more context = better extraction)
+_MAX_CHARS = 18000 if LLM_PROVIDER == "openai" else 6000
 
 
 class ContextSummaryBuilder:
@@ -65,9 +68,15 @@ class ContextSummaryBuilder:
         # Build summary text
         sections: list[str] = []
 
+        _is_cloud = LLM_PROVIDER == "openai"
+        char_limit = 60 if _is_cloud else 30
+        rel_limit = 40 if _is_cloud else 20
+        loc_limit = 40 if _is_cloud else 20
+        item_limit = 30 if _is_cloud else 15
+
         if characters:
             lines = ["### 已知人物"]
-            for name, info in list(characters.items())[:30]:
+            for name, info in list(characters.items())[:char_limit]:
                 parts = [name]
                 if info.get("aliases"):
                     parts.append(f"(别名: {', '.join(info['aliases'][:3])})")
@@ -78,13 +87,13 @@ class ContextSummaryBuilder:
 
         if relationships:
             lines = ["### 已知关系"]
-            for rel in relationships[:20]:
+            for rel in relationships[:rel_limit]:
                 lines.append(f"- {rel['a']} ↔ {rel['b']}: {rel['type']}")
             sections.append("\n".join(lines))
 
         if locations:
             lines = ["### 已知地点"]
-            for name, info in list(locations.items())[:20]:
+            for name, info in list(locations.items())[:loc_limit]:
                 desc = f"- {name} ({info['type']})"
                 if info.get("parent"):
                     desc += f" ⊂ {info['parent']}"
@@ -93,7 +102,7 @@ class ContextSummaryBuilder:
 
         if items:
             lines = ["### 已知物品"]
-            for name, info in list(items.items())[:15]:
+            for name, info in list(items.items())[:item_limit]:
                 holder = info.get("holder", "未知")
                 lines.append(f"- {name} ({info['type']}) — 持有: {holder}")
             sections.append("\n".join(lines))
@@ -102,6 +111,11 @@ class ContextSummaryBuilder:
         world_section = await self._build_world_structure_section(novel_id)
         if world_section:
             sections.append(world_section)
+
+        # Entity dictionary injection (pre-scan results)
+        dict_section = await self._build_dictionary_section(novel_id)
+        if dict_section:
+            sections.append(dict_section)
 
         summary = "\n\n".join(sections)
 
@@ -217,6 +231,27 @@ class ContextSummaryBuilder:
         if ws is None:
             return ""
         return self._format_world_structure(ws)
+
+    async def _build_dictionary_section(self, novel_id: str) -> str:
+        """Build entity dictionary section from pre-scan results."""
+        try:
+            dictionary = await entity_dictionary_store.get_all(novel_id)
+        except Exception:
+            return ""
+        if not dictionary:
+            return ""
+
+        lines = [
+            "### 本书高频实体参考",
+            "以下实体在全书中高频出现，提取时请特别注意不要遗漏（仅供参考，仍以原文为准）：",
+        ]
+        for entry in dictionary[:100]:  # Top-100
+            line = f"- {entry.name}（{entry.entity_type}，出现{entry.frequency}次）"
+            if entry.aliases:
+                line += f" 别名：{'、'.join(entry.aliases)}"
+            lines.append(line)
+
+        return "\n".join(lines)
 
     @staticmethod
     def _format_world_structure(ws: WorldStructure) -> str:

@@ -373,11 +373,12 @@ async def get_map_data(
                     "is_bidirectional": p.is_bidirectional,
                 })
 
-            # Get regions from the overworld layer
-            overworld_regions = []
+            # Get regions from the active layer (default: overworld)
+            target_layer_id = layer_id or "overworld"
+            active_regions = []
             for layer_obj in ws.layers:
-                if layer_obj.layer_id == "overworld" and layer_obj.regions:
-                    overworld_regions = [
+                if layer_obj.layer_id == target_layer_id and layer_obj.regions:
+                    active_regions = [
                         {
                             "name": r.name,
                             "cardinal_direction": r.cardinal_direction,
@@ -387,8 +388,8 @@ async def get_map_data(
                     ]
                     break
 
-            if overworld_regions:
-                region_layout = _layout_regions(overworld_regions)
+            if active_regions:
+                region_layout = _layout_regions(active_regions)
 
                 # Build region_boundaries for API response
                 for rname, rdata in region_layout.items():

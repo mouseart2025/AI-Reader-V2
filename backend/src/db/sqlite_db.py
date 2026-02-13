@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS novels (
     file_hash       TEXT,
     total_chapters  INTEGER DEFAULT 0,
     total_words     INTEGER DEFAULT 0,
+    prescan_status  TEXT DEFAULT 'pending',
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 );
@@ -125,11 +126,26 @@ CREATE TABLE IF NOT EXISTS world_structure_overrides (
 
 CREATE INDEX IF NOT EXISTS idx_ws_overrides_novel ON world_structure_overrides(novel_id);
 
-CREATE INDEX IF NOT EXISTS idx_chapters_novel      ON chapters(novel_id, chapter_num);
-CREATE INDEX IF NOT EXISTS idx_chapter_facts_novel  ON chapter_facts(novel_id);
-CREATE INDEX IF NOT EXISTS idx_messages_conv        ON messages(conversation_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_analysis_novel       ON analysis_tasks(novel_id, status);
-CREATE INDEX IF NOT EXISTS idx_layer_layouts_novel  ON layer_layouts(novel_id);
+CREATE TABLE IF NOT EXISTS entity_dictionary (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    name            TEXT NOT NULL,
+    entity_type     TEXT,
+    frequency       INTEGER DEFAULT 0,
+    confidence      TEXT DEFAULT 'medium',
+    aliases         TEXT DEFAULT '[]',
+    source          TEXT NOT NULL,
+    sample_context  TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    UNIQUE(novel_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_dict_novel    ON entity_dictionary(novel_id, entity_type);
+CREATE INDEX IF NOT EXISTS idx_chapters_novel       ON chapters(novel_id, chapter_num);
+CREATE INDEX IF NOT EXISTS idx_chapter_facts_novel   ON chapter_facts(novel_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conv         ON messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_analysis_novel        ON analysis_tasks(novel_id, status);
+CREATE INDEX IF NOT EXISTS idx_layer_layouts_novel   ON layer_layouts(novel_id);
 """
 
 
@@ -146,6 +162,13 @@ async def init_db() -> None:
     conn = await get_connection()
     try:
         await conn.executescript(_SCHEMA_SQL)
+        # Migration: add prescan_status to novels for existing databases
+        try:
+            await conn.execute(
+                "ALTER TABLE novels ADD COLUMN prescan_status TEXT DEFAULT 'pending'"
+            )
+        except Exception:
+            pass  # Column already exists
         await conn.commit()
     finally:
         await conn.close()
