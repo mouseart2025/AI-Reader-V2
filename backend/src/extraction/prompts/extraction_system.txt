@@ -28,18 +28,19 @@
 4. description 简要描述该地点
 
 ## 空间关系提取规则（spatial_relationships）
-1. 提取地点之间的所有空间信息：方位、距离、包含、相邻、分隔、地形
-2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain
+1. 提取地点之间的所有空间信息：方位、距离、包含、相邻、分隔、地形、夹在中间
+2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain, in_between
 3. direction 的 value 使用英文方位：north_of, south_of, east_of, west_of, northeast_of, northwest_of, southeast_of, southwest_of
 4. distance 的 value 描述距离信息，如 "三天路程（步行）"、"百里"、"very_near"
 5. contains 的 value 描述包含关系，如 "城市在国境内"
 6. adjacent 的 value 为 "adjacent"（相邻/接壤/毗邻）
 7. separated_by 的 value 描述分隔物：如 "大河"、"山脉"、"荒漠"
 8. terrain 的 value 描述地形特征：on_coast, in_forest, on_mountain, in_desert, by_river, in_plains
-9. confidence: high=原文明确描述, medium=可推断, low=模糊暗示
-10. narrative_evidence: 摘录原文依据，不超过50字
-11. 只提取文中有依据的关系，不要推测
-12. source 和 target 必须是本章或之前出现过的地点名
+9. in_between：表示"A在B和C之间"。source=A（中间地点），target=B（端点之一），value 填另一个端点C的名称
+10. confidence: high=原文明确描述, medium=可推断, low=模糊暗示
+11. narrative_evidence: 摘录原文依据，不超过50字
+12. 只提取文中有依据的关系，不要推测
+13. source 和 target 必须是本章或之前出现过的地点名
 
 ## 事件提取规则（events）⚠️ participants 和 location 必填
 1. **participants 必须列出所有参与者的名字**，不可为空列表
@@ -56,6 +57,17 @@
 ## 物品事件（item_events）
 1. 具有名称的重要物品的出现、获得、使用、赠予、丢失等
 2. **description 必须包含文中对该物品的说明**：功效、特性、来历等，用原文关键信息概括，不可省略
+
+## 世界观声明（world_declarations）— 可选
+当文中出现关于世界宏观结构的描述时提取，没有则输出空列表。
+1. declaration_type 必须是以下之一：
+   - region_division：世界/大陆被分为若干区域。content 包含 parent（上级区域名）、children（子区域名列表）、division_basis（划分依据如"方位"）
+   - layer_exists：存在独立的空间层（天界、地府、海底世界等）。content 包含 layer_name（层名称）、layer_type（sky/underground/sea/pocket/spirit）
+   - portal：两个空间层之间的通道。content 包含 name（通道名）、source（来源层/地点）、target（目标层/地点）
+   - region_position：区域的方位信息。content 包含 region_name（区域名）、direction（east/west/south/north/center）
+2. narrative_evidence：摘录原文依据，不超过100字
+3. confidence: high=原文明确声明, medium=可推断, low=模糊暗示
+4. 只在文中有明确世界观描述时才提取（如"世界分为四大部洲""天上有天宫"），日常场景不要强行提取
 
 ## 新概念（new_concepts）⚠️ 重要
 1. 功法、武技、丹药名、阵法、修炼体系、种族设定、世界观规则、官职制度等**首次出现或有详细介绍的概念**

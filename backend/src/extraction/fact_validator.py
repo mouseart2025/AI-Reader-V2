@@ -9,6 +9,7 @@ from src.models.chapter_fact import (
     ItemEventFact,
     OrgEventFact,
     SpatialRelationship,
+    WorldDeclaration,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ _VALID_ORG_ACTIONS = {"加入", "离开", "晋升", "阵亡", "叛出", "逐出"
 _VALID_EVENT_TYPES = {"战斗", "成长", "社交", "旅行", "其他"}
 _VALID_IMPORTANCE = {"high", "medium", "low"}
 _VALID_SPATIAL_RELATION_TYPES = {
-    "direction", "distance", "contains", "adjacent", "separated_by", "terrain"
+    "direction", "distance", "contains", "adjacent", "separated_by", "terrain",
+    "in_between",
 }
 _VALID_CONFIDENCE = {"high", "medium", "low"}
 
@@ -49,6 +51,7 @@ class FactValidator:
         org_events = self._validate_org_events(fact.org_events)
         events = self._validate_events(fact.events)
         new_concepts = self._validate_concepts(fact.new_concepts)
+        world_declarations = self._validate_world_declarations(fact.world_declarations)
 
         # Post-processing: remove location names incorrectly placed in characters
         characters = self._remove_locations_from_characters(characters, locations)
@@ -76,6 +79,7 @@ class FactValidator:
             org_events=org_events,
             events=events,
             new_concepts=new_concepts,
+            world_declarations=world_declarations,
         )
 
     def _validate_characters(
@@ -371,3 +375,28 @@ class FactValidator:
                     char_names.add(name)
                     logger.debug("Auto-added character from relationship: %s", name)
         return characters
+
+    def _validate_world_declarations(
+        self, declarations: list[WorldDeclaration]
+    ) -> list[WorldDeclaration]:
+        """Validate world declarations: check types, deduplicate."""
+        valid_types = {"region_division", "layer_exists", "portal", "region_position"}
+        valid = []
+        for decl in declarations:
+            if decl.declaration_type not in valid_types:
+                logger.debug(
+                    "Dropping world declaration with invalid type: %s",
+                    decl.declaration_type,
+                )
+                continue
+            if not isinstance(decl.content, dict) or not decl.content:
+                continue
+            confidence = decl.confidence if decl.confidence in _VALID_CONFIDENCE else "medium"
+            evidence = decl.narrative_evidence[:100] if decl.narrative_evidence else ""
+            valid.append(WorldDeclaration(
+                declaration_type=decl.declaration_type,
+                content=decl.content,
+                narrative_evidence=evidence,
+                confidence=confidence,
+            ))
+        return valid

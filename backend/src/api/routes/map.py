@@ -21,6 +21,7 @@ async def get_map(
     novel_id: str,
     chapter_start: int | None = Query(None),
     chapter_end: int | None = Query(None),
+    layer_id: str | None = Query(None),
 ):
     novel = await novel_store.get_novel(novel_id)
     if not novel:
@@ -38,7 +39,7 @@ async def get_map(
             "analyzed_range": [0, 0],
         }
 
-    data = await get_map_data(novel_id, start, end)
+    data = await get_map_data(novel_id, start, end, layer_id=layer_id)
     data["analyzed_range"] = [first, last]
     return data
 

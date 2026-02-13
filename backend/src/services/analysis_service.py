@@ -15,6 +15,7 @@ from src.infra.config import OLLAMA_MODEL
 from src.infra.llm_client import get_llm_client
 from src.services import embedding_service
 from src.services.visualization_service import invalidate_layout_cache
+from src.services.world_structure_agent import WorldStructureAgent
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,13 @@ class AnalysisService:
         total = chapter_end - chapter_start + 1
         stats = {"entities": 0, "relations": 0, "events": 0}
 
+        # Initialize WorldStructureAgent (loads existing or creates default)
+        world_agent = WorldStructureAgent(novel_id)
+        try:
+            await world_agent.load_or_init()
+        except Exception as e:
+            logger.warning("WorldStructureAgent init failed for %s: %s", novel_id, e)
+
         # Broadcast initial state immediately so frontend shows total count
         await manager.broadcast(novel_id, {
             "type": "progress",
@@ -240,6 +248,19 @@ class AnalysisService:
                 # Validate
                 fact = self.validator.validate(fact)
 
+                # Update world structure (never blocks pipeline)
+                world_structure_updated = False
+                try:
+                    await world_agent.process_chapter(
+                        chapter_num, chapter["content"], fact,
+                    )
+                    world_structure_updated = True
+                except Exception as e:
+                    logger.warning(
+                        "World structure agent error for chapter %d: %s",
+                        chapter_num, e,
+                    )
+
                 elapsed_ms = int(time.time() * 1000) - start_ms
 
                 # Store
@@ -282,6 +303,7 @@ class AnalysisService:
                     "type": "chapter_done",
                     "chapter": chapter_num,
                     "status": "completed",
+                    "world_structure_updated": world_structure_updated,
                 })
 
             except ExtractionError as e:

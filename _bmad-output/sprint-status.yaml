@@ -1,0 +1,114 @@
+# generated: 2026-02-13
+# project: AI-Reader-V2
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Mark epic as 'in-progress' when starting work on its first story
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then Dev runs code-review (fresh context, ideally different LLM)
+
+generated: 2026-02-13
+project: AI-Reader-V2
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output
+
+development_status:
+  # ── Epic 1: 书架与小说上传 ──
+  epic-1: done
+  1-1-scaffold-project-skeleton: done
+  1-2-novel-upload-chapter-splitting: done
+  1-3-bookshelf-page: done
+  1-4-upload-preview-confirm: done
+  1-5-duplicate-detection-sorting: done
+  1-6-onboarding-guide: done
+  1-7-chapter-split-adjustment: done
+  epic-1-retrospective: optional
+
+  # ── Epic 2: 小说分析引擎 ──
+  epic-2: done
+  2-1-llm-client-chapterfact-extractor: done
+  2-2-context-summary-builder: done
+  2-3-analysis-task-management-progress: done
+  2-4-analysis-page-frontend: done
+  2-5-range-analysis-reanalysis: done
+  epic-2-retrospective: optional
+
+  # ── Epic 3: 阅读体验与实体卡片 ──
+  epic-3: done
+  3-1-reading-page-basics: done
+  3-2-entity-aggregation-service: done
+  3-3-entity-highlight-rendering: done
+  3-4-person-card-location-card: done
+  3-5-card-navigation-item-org-concept: done
+  3-6-entity-disambiguation-reading-settings: done
+  3-7-chapter-reference-jump-fulltext-search: done
+  epic-3-retrospective: optional
+
+  # ── Epic 4: 知识图谱可视化 ──
+  epic-4: done
+  4-1-visualization-data-api: done
+  4-2-chapter-range-slider-framework: done
+  4-3-character-relationship-graph: done
+  4-4-world-map-hierarchy-spatial: done
+  4-5-timeline: done
+  4-6-faction-graph-view-linkage: done
+  4-7-path-finding-advanced-interaction: done
+  epic-4-retrospective: optional
+
+  # ── Epic 5: 智能问答 ──
+  epic-5: done
+  5-1-qa-pipeline-backend: done
+  5-2-vector-embedding-generation: done
+  5-3-streaming-qa-websocket-floating-panel: done
+  5-4-conversation-management-fullscreen: done
+  5-5-conversation-export: done
+  epic-5-retrospective: optional
+
+  # ── Epic 6: 百科与系统设置 ──
+  epic-6: done
+  6-1-encyclopedia-page: done
+  6-2-settings-page: done
+  6-3-data-import-export: done
+  epic-6-retrospective: optional
+
+  # ── Epic 7: 世界地图 V2 — 多层级世界结构 ──
+  epic-7: done
+  # Phase 1: 世界结构代理 + 数据模型
+  7-1-world-structure-data-model: done
+  7-2-signal-scanning: done
+  7-3-llm-incremental-update: done
+  7-4-pipeline-integration: done
+  7-5-world-structure-api: done
+  # Phase 2: 分层布局引擎
+  7-6-region-layout-engine: done
+  7-7-region-solver-instance-layout: done
+  7-8-map-api-v2: done
+  # Phase 3: 前端多层交互
+  7-9-frontend-tabs: done
+  7-10-regions-portals-fog: done
+  # Phase 4: 增强与迭代
+  7-11-user-edit-world-structure: done
+  7-12-extraction-enhancement: done
+  epic-7-retrospective: optional

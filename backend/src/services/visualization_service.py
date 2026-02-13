@@ -6,15 +6,19 @@ All functions accept chapter_start/chapter_end to filter by range.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections import defaultdict
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
+from src.db import world_structure_store
 from src.services.map_layout_service import (
     ConstraintSolver,
+    _layout_regions,
     compute_chapter_hash,
+    compute_layered_layout,
     generate_terrain,
     layout_to_list,
 )
@@ -48,6 +52,20 @@ async def _load_facts_in_range(
         return facts
     finally:
         await conn.close()
+
+
+async def _get_earlier_location_names(
+    novel_id: str, first_chapter: int, before_chapter: int,
+) -> set[str]:
+    """Get location names from chapters before the given chapter number."""
+    if before_chapter <= first_chapter:
+        return set()
+    facts = await _load_facts_in_range(novel_id, first_chapter, before_chapter - 1)
+    names: set[str] = set()
+    for fact in facts:
+        for loc in fact.locations:
+            names.add(loc.name)
+    return names
 
 
 async def get_analyzed_range(novel_id: str) -> tuple[int, int]:
@@ -140,9 +158,97 @@ async def get_graph_data(
 
 _CONFIDENCE_RANK = {"high": 3, "medium": 2, "low": 1}
 
+# Valid direction enum values expected by the constraint solver
+_VALID_DIRECTION_VALUES = {
+    "north_of", "south_of", "east_of", "west_of",
+    "northeast_of", "northwest_of", "southeast_of", "southwest_of",
+}
+
+# Chinese direction → English enum
+_CHINESE_DIRECTION_MAP = {
+    "北": "north_of", "北方": "north_of", "北边": "north_of", "以北": "north_of",
+    "南": "south_of", "南方": "south_of", "南边": "south_of", "以南": "south_of",
+    "东": "east_of", "东方": "east_of", "东边": "east_of", "以东": "east_of",
+    "西": "west_of", "西方": "west_of", "西边": "west_of", "以西": "west_of",
+    "东北": "northeast_of", "西北": "northwest_of",
+    "东南": "southeast_of", "西南": "southwest_of",
+}
+
+
+def _clean_spatial_constraints(
+    constraints: list[dict],
+    locations: list[dict],
+) -> list[dict]:
+    """Post-process spatial constraints to fix common LLM extraction errors.
+
+    1. Fix inverted contains relationships using hierarchy levels.
+    2. Normalize Chinese direction values to English enum.
+    3. Remove constraints with invalid/unparseable values.
+    """
+    # Build lookup tables
+    loc_level = {loc["name"]: loc.get("level", 0) for loc in locations}
+    loc_parent = {loc["name"]: loc.get("parent") for loc in locations}
+
+    cleaned = []
+    fixed = 0
+    removed = 0
+
+    for c in constraints:
+        rtype = c["relation_type"]
+
+        # ── Fix contains inversions ──
+        if rtype == "contains":
+            src, tgt = c["source"], c["target"]
+            src_level = loc_level.get(src, 0)
+            tgt_level = loc_level.get(tgt, 0)
+
+            # Check if source is actually a child of target (inverted)
+            if loc_parent.get(src) == tgt:
+                # Swap: target should contain source
+                c = {**c, "source": tgt, "target": src}
+                fixed += 1
+            elif loc_parent.get(tgt) == src:
+                pass  # Correct: source contains target
+            elif src_level > tgt_level:
+                # Higher level = deeper in hierarchy = smaller area → likely inverted
+                c = {**c, "source": tgt, "target": src}
+                fixed += 1
+
+            cleaned.append(c)
+            continue
+
+        # ── Normalize direction values ──
+        if rtype == "direction":
+            value = c["value"]
+            if value in _VALID_DIRECTION_VALUES:
+                cleaned.append(c)
+                continue
+            # Try Chinese mapping
+            for zh, en in _CHINESE_DIRECTION_MAP.items():
+                if zh in value:
+                    c = {**c, "value": en}
+                    fixed += 1
+                    cleaned.append(c)
+                    break
+            else:
+                # Unparseable direction value — drop
+                removed += 1
+            continue
+
+        # Other relation types: keep as-is
+        cleaned.append(c)
+
+    if fixed or removed:
+        logger.info(
+            "Constraint cleaning: fixed %d, removed %d, kept %d",
+            fixed, removed, len(cleaned),
+        )
+    return cleaned
+
 
 async def get_map_data(
-    novel_id: str, chapter_start: int, chapter_end: int
+    novel_id: str, chapter_start: int, chapter_end: int,
+    layer_id: str | None = None,
 ) -> dict:
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
 
@@ -227,20 +333,191 @@ async def get_map_data(
 
     spatial_constraints = list(constraint_map.values())
 
+    # Clean up common LLM extraction errors
+    spatial_constraints = _clean_spatial_constraints(spatial_constraints, locations)
+
+    # Build first-chapter-appearance map for narrative axis
+    first_chapter_map: dict[str, int] = {}
+    for name, chs in loc_chapters.items():
+        if chs:
+            first_chapter_map[name] = min(chs)
+
+    # ── Load WorldStructure ──
+    region_boundaries: list[dict] = []
+    location_region_bounds: dict[str, tuple[float, float, float, float]] = {}
+    layer_layouts: dict[str, list[dict]] = {}
+    ws = None
+    ws_summary: dict | None = None
+    portals_response: list[dict] = []
+
+    try:
+        ws = await world_structure_store.load(novel_id)
+        if ws is not None:
+            # Build world_structure summary for API response
+            ws_summary = _build_ws_summary(ws)
+
+            # Build portals response
+            for p in ws.portals:
+                target_layer_name = ""
+                for layer in ws.layers:
+                    if layer.layer_id == p.target_layer:
+                        target_layer_name = layer.name
+                        break
+                portals_response.append({
+                    "name": p.name,
+                    "source_layer": p.source_layer,
+                    "source_location": p.source_location,
+                    "target_layer": p.target_layer,
+                    "target_layer_name": target_layer_name,
+                    "target_location": p.target_location,
+                    "is_bidirectional": p.is_bidirectional,
+                })
+
+            # Get regions from the overworld layer
+            overworld_regions = []
+            for layer_obj in ws.layers:
+                if layer_obj.layer_id == "overworld" and layer_obj.regions:
+                    overworld_regions = [
+                        {
+                            "name": r.name,
+                            "cardinal_direction": r.cardinal_direction,
+                            "region_type": r.region_type,
+                        }
+                        for r in layer_obj.regions
+                    ]
+                    break
+
+            if overworld_regions:
+                region_layout = _layout_regions(overworld_regions)
+
+                # Build region_boundaries for API response
+                for rname, rdata in region_layout.items():
+                    x1, y1, x2, y2 = rdata["bounds"]
+                    region_boundaries.append({
+                        "region_name": rname,
+                        "color": rdata["color"],
+                        "bounds": {"x1": x1, "y1": y1, "x2": x2, "y2": y2},
+                    })
+
+                # Map locations to their region bounds
+                for loc_name, region_name in ws.location_region_map.items():
+                    if region_name in region_layout:
+                        location_region_bounds[loc_name] = region_layout[region_name]["bounds"]
+    except Exception:
+        logger.warning("Failed to load WorldStructure for region layout", exc_info=True)
+
     # ── Layout computation with caching ──
     ch_hash = compute_chapter_hash(chapter_start, chapter_end)
-    layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
-        novel_id, ch_hash, locations, spatial_constraints,
-    )
+    target_layer = layer_id or "overworld"
 
-    return {
+    # Try layer-level cache first
+    cached_layer = await _load_cached_layer_layout(novel_id, target_layer, ch_hash)
+    if cached_layer is not None:
+        layout_data = cached_layer["layout"]
+        layout_mode = cached_layer["layout_mode"]
+        terrain_url = None
+    else:
+        # Compute: either layered or global depending on WorldStructure
+        if ws is not None and len(ws.layers) > 1:
+            try:
+                user_overrides = await _load_user_overrides(novel_id)
+                ws_dict = ws.model_dump()
+                layer_layouts = await asyncio.to_thread(
+                    compute_layered_layout,
+                    ws_dict, locations, spatial_constraints,
+                    user_overrides, first_chapter_map,
+                )
+                # Cache each layer
+                for lid, litems in layer_layouts.items():
+                    await _save_cached_layer_layout(
+                        novel_id, lid, ch_hash, litems, "layered",
+                    )
+            except Exception:
+                logger.warning("Layered layout computation failed", exc_info=True)
+
+            # Get the requested layer's data
+            layout_data = layer_layouts.get(target_layer, [])
+            layout_mode = "layered" if layout_data else "hierarchy"
+            terrain_url = None
+        else:
+            # Global solve (backward compatible path)
+            layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
+                novel_id, ch_hash, locations, spatial_constraints,
+                first_chapter_map,
+                location_region_bounds=location_region_bounds,
+            )
+
+    # ── Revealed location names for fog of war ──
+    revealed_names: list[str] = []
+    try:
+        analyzed_first, _ = await get_analyzed_range(novel_id)
+        if analyzed_first > 0 and chapter_start > analyzed_first:
+            earlier_names = await _get_earlier_location_names(
+                novel_id, analyzed_first, chapter_start,
+            )
+            active_names = {loc["name"] for loc in locations}
+            revealed_names = sorted(earlier_names - active_names)
+    except Exception:
+        logger.warning("Failed to load revealed location names", exc_info=True)
+
+    result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
         "spatial_constraints": spatial_constraints,
         "layout": layout_data,
         "layout_mode": layout_mode,
-        "terrain_url": terrain_url,
+        "terrain_url": terrain_url if not layer_id else None,
+        "region_boundaries": region_boundaries,
+        "portals": portals_response,
+        "revealed_location_names": revealed_names,
     }
+
+    # Include world_structure summary and layer_layouts when no specific layer requested
+    if not layer_id:
+        result["world_structure"] = ws_summary
+        result["layer_layouts"] = layer_layouts
+
+    return result
+
+
+def _build_ws_summary(ws) -> dict:
+    """Build a concise world_structure summary for the API response."""
+    layer_summaries = []
+    for layer in ws.layers:
+        # Count locations assigned to this layer
+        loc_count = sum(
+            1 for lid in ws.location_layer_map.values()
+            if lid == layer.layer_id
+        )
+        layer_summaries.append({
+            "layer_id": layer.layer_id,
+            "name": layer.name,
+            "layer_type": layer.layer_type.value if hasattr(layer.layer_type, "value") else str(layer.layer_type),
+            "location_count": loc_count,
+            "region_count": len(layer.regions),
+        })
+    return {"layers": layer_summaries}
+
+
+async def _load_cached_layer_layout(
+    novel_id: str, layer_id: str, chapter_hash: str,
+) -> dict | None:
+    """Load a cached layer layout from the layer_layouts table."""
+    return await world_structure_store.load_layer_layout(
+        novel_id, layer_id, chapter_hash,
+    )
+
+
+async def _save_cached_layer_layout(
+    novel_id: str, layer_id: str, chapter_hash: str,
+    layout_items: list[dict], layout_mode: str,
+) -> None:
+    """Cache a layer layout to the layer_layouts table."""
+    await world_structure_store.save_layer_layout(
+        novel_id, layer_id, chapter_hash,
+        json.dumps(layout_items, ensure_ascii=False),
+        layout_mode,
+    )
 
 
 async def _load_user_overrides(novel_id: str) -> dict[str, tuple[float, float]]:
@@ -289,6 +566,8 @@ async def invalidate_layout_cache(novel_id: str) -> None:
         await conn.commit()
     finally:
         await conn.close()
+    # Also invalidate layer-level layout cache
+    await world_structure_store.delete_layer_layouts(novel_id)
 
 
 async def _compute_or_load_layout(
@@ -296,6 +575,8 @@ async def _compute_or_load_layout(
     chapter_hash: str,
     locations: list[dict],
     spatial_constraints: list[dict],
+    first_chapter: dict[str, int] | None = None,
+    location_region_bounds: dict[str, tuple[float, float, float, float]] | None = None,
 ) -> tuple[list[dict], str, str | None]:
     """Load cached layout or compute a new one.
 
@@ -323,15 +604,21 @@ async def _compute_or_load_layout(
     # Load user overrides
     user_overrides = await _load_user_overrides(novel_id)
 
-    # Compute layout
-    solver = ConstraintSolver(locations, spatial_constraints, user_overrides)
-    layout_coords, layout_mode = solver.solve()
+    # Compute layout in thread pool to avoid blocking the event loop
+    solver = ConstraintSolver(
+        locations, spatial_constraints, user_overrides,
+        first_chapter=first_chapter,
+        location_region_bounds=location_region_bounds,
+    )
+    layout_coords, layout_mode = await asyncio.to_thread(solver.solve)
     layout_data = layout_to_list(layout_coords, locations)
 
-    # Generate terrain image (only for constraint mode with enough locations)
+    # Generate terrain image in thread pool (only for constraint mode with enough locations)
     terrain_path = None
     if layout_mode == "constraint" and len(layout_coords) >= 3:
-        terrain_path = generate_terrain(locations, layout_coords, novel_id)
+        terrain_path = await asyncio.to_thread(
+            generate_terrain, locations, layout_coords, novel_id
+        )
 
     terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
 

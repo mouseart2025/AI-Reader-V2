@@ -3,6 +3,14 @@
 Uses scipy.optimize.differential_evolution to find (x, y) coordinates for each
 location that satisfy spatial constraints extracted from the novel text.
 Falls back to hierarchical circular layout when constraints are insufficient.
+
+Key features:
+- Narrative-axis energy: spreads locations along the story's travel direction
+  based on their first chapter appearance (e.g., eastward → westward for 西游记).
+- Non-geographic location handling: celestial/underworld locations placed in
+  dedicated zones outside the main geographic map area.
+- Chapter-proximity placement: remaining locations placed near co-chapter
+  neighbors instead of a spiral pattern.
 """
 
 from __future__ import annotations
@@ -24,11 +32,11 @@ logger = logging.getLogger(__name__)
 
 # Canvas coordinate range
 CANVAS_SIZE = 1000
-CANVAS_MIN = 20  # margin
-CANVAS_MAX = CANVAS_SIZE - 20
+CANVAS_MIN = 50  # margin (wider to leave room for non-geo zones)
+CANVAS_MAX = CANVAS_SIZE - 50
 
 # Minimum spacing between any two locations (pixels)
-MIN_SPACING = 30
+MIN_SPACING = 25
 
 # Direction margin — how far A must exceed B in the expected axis
 DIRECTION_MARGIN = 50
@@ -49,6 +57,24 @@ DEFAULT_FAR_DIST = 300
 # Confidence priority for conflict resolution
 _CONF_RANK = {"high": 3, "medium": 2, "low": 1}
 
+# ── Narrative axis weight ───────────────────────────
+# How strongly the chapter-order progression influences layout.
+# Higher = locations spread more along the narrative travel axis.
+NARRATIVE_AXIS_WEIGHT = 1.5
+
+# ── Non-geographic location detection ──────────────
+# Keywords that indicate celestial / underworld / metaphysical locations.
+_CELESTIAL_KEYWORDS = ("天宫", "天庭", "天门", "天界", "三十三天", "大罗天",
+                       "离恨天", "兜率宫", "凌霄殿", "蟠桃园", "瑶池",
+                       "灵霄宝殿", "南天门", "北天门", "东天门", "西天门",
+                       "九天应元府")
+_UNDERWORLD_KEYWORDS = ("地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
+                        "奈何桥", "阎罗殿", "森罗殿", "枉死城")
+
+# Celestial locations placed in top zone, underworld in bottom zone
+_CELESTIAL_Y_RANGE = (CANVAS_MAX - 30, CANVAS_MAX)
+_UNDERWORLD_Y_RANGE = (CANVAS_MIN, CANVAS_MIN + 30)
+
 # ── Direction mapping ───────────────────────────────
 
 _DIRECTION_VECTORS: dict[str, tuple[int, int]] = {
@@ -62,6 +88,403 @@ _DIRECTION_VECTORS: dict[str, tuple[int, int]] = {
     "southeast_of": (1, -1),
     "southwest_of": (-1, -1),
 }
+
+# ── Region layout ─────────────────────────────────
+
+# Direction → bounding box zone (x1, y1, x2, y2) on 1000×1000 canvas.
+# Convention: +x = east (right), +y = north (up).
+DIRECTION_ZONES: dict[str, tuple[float, float, float, float]] = {
+    "east":   (600, 200, 950, 800),
+    "west":   (50, 200, 400, 800),
+    "south":  (200, 50, 800, 350),
+    "north":  (200, 650, 800, 950),
+    "center": (300, 300, 700, 700),
+}
+
+# Pastel palette for region boundary rendering (direction → RGBA-like hex)
+_REGION_COLORS: dict[str, str] = {
+    "east":   "#6699CC",  # steel blue
+    "west":   "#CC9966",  # warm tan
+    "south":  "#CC6666",  # soft red
+    "north":  "#66AA99",  # teal
+    "center": "#9966AA",  # purple
+}
+_REGION_COLOR_FALLBACK = "#999999"
+
+
+def _layout_regions(
+    regions: list[dict],
+    canvas_size: int = CANVAS_SIZE,
+) -> dict[str, dict]:
+    """Compute bounding boxes for world regions based on cardinal direction.
+
+    Args:
+        regions: list of dicts with at least "name" and optional "cardinal_direction".
+        canvas_size: canvas dimension (square).
+
+    Returns:
+        dict mapping region name to {"bounds": (x1, y1, x2, y2), "color": str}.
+    """
+    if not regions:
+        return {}
+
+    # Group regions by direction
+    direction_groups: dict[str, list[str]] = {}
+    for r in regions:
+        direction = r.get("cardinal_direction") or "center"
+        if direction not in DIRECTION_ZONES:
+            direction = "center"
+        direction_groups.setdefault(direction, []).append(r["name"])
+
+    result: dict[str, dict] = {}
+
+    for direction, names in direction_groups.items():
+        zone = DIRECTION_ZONES[direction]
+        x1, y1, x2, y2 = zone
+        n = len(names)
+        color = _REGION_COLORS.get(direction, _REGION_COLOR_FALLBACK)
+
+        if n == 1:
+            result[names[0]] = {"bounds": (x1, y1, x2, y2), "color": color}
+        else:
+            # Subdivide: use the longer axis to split
+            w = x2 - x1
+            h = y2 - y1
+            if w >= h:
+                # Split horizontally (along x)
+                step = w / n
+                for i, name in enumerate(names):
+                    result[name] = {
+                        "bounds": (
+                            round(x1 + i * step, 1),
+                            y1,
+                            round(x1 + (i + 1) * step, 1),
+                            y2,
+                        ),
+                        "color": color,
+                    }
+            else:
+                # Split vertically (along y)
+                step = h / n
+                for i, name in enumerate(names):
+                    result[name] = {
+                        "bounds": (
+                            x1,
+                            round(y1 + i * step, 1),
+                            x2,
+                            round(y1 + (i + 1) * step, 1),
+                        ),
+                        "color": color,
+                    }
+
+    return result
+
+
+# ── Layered layout engine (Story 7.7) ─────────────
+
+
+# Canvas sizes for non-overworld layers
+_LAYER_CANVAS_SIZES: dict[str, int] = {
+    "pocket": 300,
+    "sky": 600,
+    "underground": 600,
+    "sea": 600,
+    "spirit": 400,
+}
+
+
+def _solve_region(
+    region_name: str,
+    region_bounds: tuple[float, float, float, float],
+    locations: list[dict],
+    constraints: list[dict],
+    user_overrides: dict[str, tuple[float, float]] | None = None,
+    first_chapter: dict[str, int] | None = None,
+) -> dict[str, tuple[float, float]]:
+    """Run ConstraintSolver for a single region's locations within its bounding box.
+
+    Returns layout dict: name → (x, y).
+    """
+    if not locations:
+        return {}
+
+    loc_names = {loc["name"] for loc in locations}
+
+    # Filter constraints to only those referencing locations in this region
+    region_constraints = [
+        c for c in constraints
+        if c["source"] in loc_names and c["target"] in loc_names
+    ]
+
+    solver = ConstraintSolver(
+        locations,
+        region_constraints,
+        user_overrides=user_overrides,
+        first_chapter=first_chapter,
+        canvas_bounds=region_bounds,
+    )
+    coords, _ = solver.solve()
+    return coords
+
+
+def _solve_layer(
+    layer_id: str,
+    layer_type: str,
+    locations: list[dict],
+    constraints: list[dict],
+    user_overrides: dict[str, tuple[float, float]] | None = None,
+    first_chapter: dict[str, int] | None = None,
+) -> dict[str, tuple[float, float]]:
+    """Run layout for a non-overworld layer using an independent canvas.
+
+    Returns layout dict: name → (x, y) in the layer's local coordinate system.
+    """
+    if not locations:
+        return {}
+
+    canvas_size = _LAYER_CANVAS_SIZES.get(layer_type, 400)
+    margin = max(10, canvas_size // 20)
+    bounds = (margin, margin, canvas_size - margin, canvas_size - margin)
+
+    loc_names = {loc["name"] for loc in locations}
+    layer_constraints = [
+        c for c in constraints
+        if c["source"] in loc_names and c["target"] in loc_names
+    ]
+
+    solver = ConstraintSolver(
+        locations,
+        layer_constraints,
+        user_overrides=user_overrides,
+        first_chapter=first_chapter,
+        canvas_bounds=bounds,
+    )
+    coords, _ = solver.solve()
+    return coords
+
+
+def _annotate_portals(
+    overworld_layout: dict[str, tuple[float, float]],
+    portals: list[dict],
+) -> list[dict]:
+    """Generate portal marker items positioned at their source_location.
+
+    Each portal item contains: name, x, y, source_layer, target_layer, is_portal=True.
+    If source_location is not in the layout, falls back to nearest laid-out location.
+    """
+    if not portals or not overworld_layout:
+        return []
+
+    markers: list[dict] = []
+    for portal in portals:
+        src_loc = portal.get("source_location", "")
+        if src_loc in overworld_layout:
+            x, y = overworld_layout[src_loc]
+        else:
+            # Fallback: place near the nearest known location
+            if overworld_layout:
+                nearest = min(
+                    overworld_layout.values(),
+                    key=lambda pos: pos[0] ** 2 + pos[1] ** 2,
+                )
+                x, y = nearest[0] + 15, nearest[1] + 15
+            else:
+                continue
+
+        markers.append({
+            "name": portal.get("name", ""),
+            "x": round(x, 1),
+            "y": round(y, 1),
+            "source_layer": portal.get("source_layer", ""),
+            "target_layer": portal.get("target_layer", ""),
+            "is_portal": True,
+        })
+
+    return markers
+
+
+def compute_layered_layout(
+    world_structure: dict,
+    all_locations: list[dict],
+    all_constraints: list[dict],
+    user_overrides: dict[str, tuple[float, float]] | None = None,
+    first_chapter: dict[str, int] | None = None,
+) -> dict[str, list[dict]]:
+    """Compute per-layer layouts using region-aware solving.
+
+    Args:
+        world_structure: WorldStructure.model_dump() dict.
+        all_locations: All location dicts from the map data pipeline.
+        all_constraints: All spatial constraint dicts.
+        user_overrides: User-adjusted coordinates.
+        first_chapter: Location name → first chapter appearance.
+
+    Returns:
+        { layer_id: [{"name", "x", "y", "radius", ...}, ...] }
+        The "overworld" layer also includes portal markers.
+    """
+    layers = world_structure.get("layers", [])
+    portals = world_structure.get("portals", [])
+    location_layer_map = world_structure.get("location_layer_map", {})
+    location_region_map = world_structure.get("location_region_map", {})
+
+    if not layers:
+        return {}
+
+    # Build location lookup
+    loc_by_name: dict[str, dict] = {loc["name"]: loc for loc in all_locations}
+
+    # Partition locations by layer
+    layer_locations: dict[str, list[dict]] = {layer["layer_id"]: [] for layer in layers}
+    unassigned: list[dict] = []
+
+    for loc in all_locations:
+        name = loc["name"]
+        layer_id = location_layer_map.get(name, "overworld")
+        if layer_id in layer_locations:
+            layer_locations[layer_id].append(loc)
+        else:
+            # Instance layers or unknown → create bucket
+            layer_locations.setdefault(layer_id, []).append(loc)
+
+    result: dict[str, list[dict]] = {}
+
+    for layer in layers:
+        layer_id = layer["layer_id"]
+        layer_type = layer.get("layer_type", "pocket")
+        locs = layer_locations.get(layer_id, [])
+
+        if not locs:
+            result[layer_id] = []
+            continue
+
+        if layer_id == "overworld":
+            # ── Overworld: solve per-region then merge ──
+            regions = layer.get("regions", [])
+            if regions:
+                layout_coords = _solve_overworld_by_region(
+                    regions, locs, all_constraints, location_region_map,
+                    user_overrides=user_overrides,
+                    first_chapter=first_chapter,
+                )
+            else:
+                # No regions → global solve
+                solver = ConstraintSolver(
+                    locs, all_constraints,
+                    user_overrides=user_overrides,
+                    first_chapter=first_chapter,
+                )
+                layout_coords, _ = solver.solve()
+
+            layout_list = layout_to_list(layout_coords, locs)
+
+            # Annotate portals
+            portal_dicts = [
+                {
+                    "name": p.get("name", ""),
+                    "source_layer": p.get("source_layer", ""),
+                    "source_location": p.get("source_location", ""),
+                    "target_layer": p.get("target_layer", ""),
+                    "target_location": p.get("target_location", ""),
+                    "is_bidirectional": p.get("is_bidirectional", True),
+                }
+                for p in portals
+            ]
+            portal_markers = _annotate_portals(layout_coords, portal_dicts)
+            layout_list.extend(portal_markers)
+
+            result[layer_id] = layout_list
+        else:
+            # ── Non-overworld layers: independent canvas ──
+            layout_coords = _solve_layer(
+                layer_id, layer_type, locs, all_constraints,
+                user_overrides=user_overrides,
+                first_chapter=first_chapter,
+            )
+            result[layer_id] = layout_to_list(layout_coords, locs)
+
+    # Handle any extra instance layers not in world_structure.layers
+    known_layer_ids = {layer["layer_id"] for layer in layers}
+    for layer_id, locs in layer_locations.items():
+        if layer_id not in known_layer_ids and locs:
+            layout_coords = _solve_layer(
+                layer_id, "pocket", locs, all_constraints,
+                user_overrides=user_overrides,
+                first_chapter=first_chapter,
+            )
+            result[layer_id] = layout_to_list(layout_coords, locs)
+
+    return result
+
+
+def _solve_overworld_by_region(
+    regions: list[dict],
+    locations: list[dict],
+    constraints: list[dict],
+    location_region_map: dict[str, str],
+    user_overrides: dict[str, tuple[float, float]] | None = None,
+    first_chapter: dict[str, int] | None = None,
+) -> dict[str, tuple[float, float]]:
+    """Solve overworld layout by partitioning into regions.
+
+    Locations assigned to a region are solved within that region's bounding box.
+    Unassigned locations go through a global fallback solve.
+    """
+    # Compute region bounding boxes
+    region_dicts = [
+        {
+            "name": r.get("name", ""),
+            "cardinal_direction": r.get("cardinal_direction"),
+        }
+        for r in regions
+    ]
+    region_layout = _layout_regions(region_dicts)
+
+    # Partition locations by region
+    region_locs: dict[str, list[dict]] = {r["name"]: [] for r in region_dicts}
+    unassigned_locs: list[dict] = []
+
+    for loc in locations:
+        region_name = location_region_map.get(loc["name"])
+        if region_name and region_name in region_locs:
+            region_locs[region_name].append(loc)
+        else:
+            unassigned_locs.append(loc)
+
+    # Solve each region independently
+    merged_layout: dict[str, tuple[float, float]] = {}
+
+    for region_name, rlocs in region_locs.items():
+        if not rlocs:
+            continue
+        bounds = region_layout[region_name]["bounds"]
+        coords = _solve_region(
+            region_name, bounds, rlocs, constraints,
+            user_overrides=user_overrides,
+            first_chapter=first_chapter,
+        )
+        merged_layout.update(coords)
+
+    # Solve unassigned locations with the full canvas, but with per-location
+    # region bounds for any that happen to belong to a region
+    if unassigned_locs:
+        loc_region_bounds: dict[str, tuple[float, float, float, float]] = {}
+        for loc in unassigned_locs:
+            rn = location_region_map.get(loc["name"])
+            if rn and rn in region_layout:
+                loc_region_bounds[loc["name"]] = region_layout[rn]["bounds"]
+
+        solver = ConstraintSolver(
+            unassigned_locs, constraints,
+            user_overrides=user_overrides,
+            first_chapter=first_chapter,
+            location_region_bounds=loc_region_bounds,
+        )
+        coords, _ = solver.solve()
+        merged_layout.update(coords)
+
+    return merged_layout
+
 
 # ── Distance parsing ───────────────────────────────
 
@@ -232,6 +655,167 @@ def _are_opposing(c1: dict, c2: dict) -> bool:
 # ── Constraint Solver ──────────────────────────────
 
 
+# Maximum number of locations to send into the constraint solver.
+# Locations beyond this are placed via hierarchy layout relative to solved anchors.
+MAX_SOLVER_LOCATIONS = 100
+
+
+def _is_celestial(name: str) -> bool:
+    """Check if a location name indicates a celestial/heavenly place."""
+    return any(kw in name for kw in _CELESTIAL_KEYWORDS)
+
+
+def _is_underworld(name: str) -> bool:
+    """Check if a location name indicates an underworld place."""
+    return any(kw in name for kw in _UNDERWORLD_KEYWORDS)
+
+
+def _is_non_geographic(name: str) -> bool:
+    """Check if a location is not a physical geographic place."""
+    return _is_celestial(name) or _is_underworld(name)
+
+
+def _detect_narrative_axis(
+    constraints: list[dict],
+    first_chapter: dict[str, int],
+    locations: list[dict] | None = None,
+) -> tuple[float, float]:
+    """Detect the dominant travel direction of the story.
+
+    Strategy:
+    1. Look at large-scale geographic locations (洲/国/域/界) with directional
+       names (东/西/南/北) to find the continental-level travel axis.
+    2. Use the protagonist's trajectory (location visit order) correlated with
+       contains/direction relationships.
+    3. Fall back to direction constraints weighted by chapter separation.
+
+    Returns a unit vector (dx, dy) pointing in the travel direction.
+    """
+    if not first_chapter:
+        return (-1.0, 0.0)
+
+    # ── Strategy 1: Large-scale geographic name analysis ──
+    # Only consider significant locations (level 0-1, or macro types like 洲/国/域)
+    _MACRO_TYPE_KW = ("洲", "国", "域", "界", "大陆", "大海", "海", "部洲")
+
+    loc_lookup: dict[str, dict] = {}
+    if locations:
+        loc_lookup = {loc["name"]: loc for loc in locations}
+
+    def is_macro(name: str) -> bool:
+        """Is this a macro-scale geographic entity?"""
+        info = loc_lookup.get(name, {})
+        loc_type = info.get("type", "")
+        level = info.get("level", 99)
+        if level <= 1:
+            return True
+        if any(kw in loc_type for kw in _MACRO_TYPE_KW):
+            return True
+        if any(kw in name for kw in _MACRO_TYPE_KW):
+            return True
+        return False
+
+    east_chapters: list[int] = []
+    west_chapters: list[int] = []
+
+    for name, ch in first_chapter.items():
+        if _is_non_geographic(name):
+            continue
+        if not is_macro(name):
+            continue
+        if "东" in name:
+            east_chapters.append(ch)
+        if "西" in name:
+            west_chapters.append(ch)
+
+    net_dx, net_dy = 0.0, 0.0
+
+    if east_chapters and west_chapters:
+        logger.info(
+            "Macro east-locations: %s, west-locations: %s",
+            [(n, first_chapter[n]) for n in first_chapter
+             if "东" in n and is_macro(n) and not _is_non_geographic(n)],
+            [(n, first_chapter[n]) for n in first_chapter
+             if "西" in n and is_macro(n) and not _is_non_geographic(n)],
+        )
+
+    # ── Strategy 2: Use contains hierarchy to find starting region ──
+    # If location A contains the earliest-appearing locations, A is the start.
+    # Check if contains constraints link early locations to 东/西 regions.
+    start_region_dir = 0  # +1 = east start, -1 = west start
+    earliest_locs = sorted(
+        [(ch, name) for name, ch in first_chapter.items()
+         if ch > 0 and not _is_non_geographic(name)],
+        key=lambda x: x[0],
+    )[:10]  # top 10 earliest locations
+    earliest_names = {name for _, name in earliest_locs}
+
+    for c in constraints:
+        if c["relation_type"] != "contains":
+            continue
+        parent_name = c["source"]
+        child_name = c["target"]
+        # If a 东-named region contains an early location, east is the start
+        if child_name in earliest_names or parent_name in earliest_names:
+            region = parent_name  # the containing region
+            if "东" in region:
+                start_region_dir += 1
+            elif "西" in region:
+                start_region_dir -= 1
+
+    # Also check parent fields directly
+    for _, name in earliest_locs:
+        info = loc_lookup.get(name, {})
+        parent = info.get("parent", "")
+        if parent and "东" in parent:
+            start_region_dir += 1
+        elif parent and "西" in parent:
+            start_region_dir -= 1
+
+    if start_region_dir > 0:
+        # East is the starting region → journey goes east to west
+        net_dx = -1.0
+        logger.info("Contains hierarchy: east is start region (score=%d) → westward", start_region_dir)
+    elif start_region_dir < 0:
+        net_dx = 1.0
+        logger.info("Contains hierarchy: west is start region (score=%d) → eastward", start_region_dir)
+
+    if abs(net_dx) > 0.01 or abs(net_dy) > 0.01:
+        magnitude = math.sqrt(net_dx ** 2 + net_dy ** 2)
+        return (net_dx / magnitude, net_dy / magnitude)
+
+    # ── Strategy 3: Direction constraints weighted by chapter separation ──
+    for c in constraints:
+        if c["relation_type"] != "direction":
+            continue
+        vec = _DIRECTION_VECTORS.get(c["value"])
+        if vec is None:
+            continue
+
+        src_ch = first_chapter.get(c["source"], 0)
+        tgt_ch = first_chapter.get(c["target"], 0)
+        if src_ch == 0 or tgt_ch == 0:
+            continue
+
+        ch_diff = src_ch - tgt_ch
+        if abs(ch_diff) < 10:
+            continue
+
+        weight = 1.0 if abs(ch_diff) < 20 else 2.0
+        if ch_diff > 0:
+            net_dx += vec[0] * weight
+            net_dy += vec[1] * weight
+        else:
+            net_dx -= vec[0] * weight
+            net_dy -= vec[1] * weight
+
+    if abs(net_dx) > 0.5 or abs(net_dy) > 0.5:
+        magnitude = math.sqrt(net_dx ** 2 + net_dy ** 2)
+        return (net_dx / magnitude, net_dy / magnitude)
+
+    return (-1.0, 0.0)  # default: westward
+
+
 class ConstraintSolver:
     """Compute (x, y) layout for locations using spatial constraints."""
 
@@ -240,28 +824,129 @@ class ConstraintSolver:
         locations: list[dict],
         constraints: list[dict],
         user_overrides: dict[str, tuple[float, float]] | None = None,
+        first_chapter: dict[str, int] | None = None,
+        location_region_bounds: dict[str, tuple[float, float, float, float]] | None = None,
+        canvas_bounds: tuple[float, float, float, float] | None = None,
     ):
-        self.locations = locations
+        self.all_locations = locations
         self.constraints = _detect_and_remove_conflicts(constraints)
         self.user_overrides = user_overrides or {}
+        self.first_chapter = first_chapter or {}
+        # Per-location region bounds: name -> (x1, y1, x2, y2)
+        self._location_region_bounds = location_region_bounds or {}
+        # Custom canvas bounds: (x_min, y_min, x_max, y_max)
+        if canvas_bounds is not None:
+            self._canvas_min_x = canvas_bounds[0]
+            self._canvas_min_y = canvas_bounds[1]
+            self._canvas_max_x = canvas_bounds[2]
+            self._canvas_max_y = canvas_bounds[3]
+        else:
+            self._canvas_min_x = CANVAS_MIN
+            self._canvas_min_y = CANVAS_MIN
+            self._canvas_max_x = CANVAS_MAX
+            self._canvas_max_y = CANVAS_MAX
 
-        # Build name -> index mapping
-        self.loc_names = [loc["name"] for loc in locations]
-        self.loc_index = {name: i for i, name in enumerate(self.loc_names)}
-        self.n = len(self.loc_names)
+        # Convenience canvas helpers
+        self._canvas_cx = (self._canvas_min_x + self._canvas_max_x) / 2
+        self._canvas_cy = (self._canvas_min_y + self._canvas_max_y) / 2
 
-        # Build parent -> children mapping for hierarchy fallback
+        # Detect narrative travel axis (uses original locations before celestial/underworld split)
+        self._narrative_axis = _detect_narrative_axis(
+            self.constraints, self.first_chapter, locations,
+        )
+        logger.info("Narrative axis: (%.2f, %.2f)", *self._narrative_axis)
+
+        # Compute chapter range for normalization
+        chapters = [ch for ch in self.first_chapter.values() if ch > 0]
+        self._min_chapter = min(chapters) if chapters else 1
+        self._max_chapter = max(chapters) if chapters else 1
+
+        # Compute direction hints for locations (weak positional preferences)
+        from src.services.location_hint_service import batch_extract_direction_hints
+        self._direction_hints = batch_extract_direction_hints(locations)
+
+        # Separate non-geographic locations
+        self._celestial: list[dict] = []
+        self._underworld: list[dict] = []
+        geo_locations = []
+        for loc in locations:
+            name = loc["name"]
+            if _is_celestial(name):
+                self._celestial.append(loc)
+            elif _is_underworld(name):
+                self._underworld.append(loc)
+            else:
+                geo_locations.append(loc)
+
+        if self._celestial:
+            logger.info("Separated %d celestial locations", len(self._celestial))
+        if self._underworld:
+            logger.info("Separated %d underworld locations", len(self._underworld))
+
+        self.all_locations = geo_locations  # only geographic for solver
+
+        # Build parent -> children mapping (for all locations including non-geo)
+        self._parent_map: dict[str, str | None] = {}
+        for loc in locations:
+            self._parent_map[loc["name"]] = loc.get("parent")
+
         self.children: dict[str, list[str]] = {}
         self.roots: list[str] = []
-        parent_map: dict[str, str | None] = {}
-        for loc in locations:
-            parent_map[loc["name"]] = loc.get("parent")
-
-        for name, parent in parent_map.items():
-            if parent and parent in self.loc_index:
+        all_names = {loc["name"] for loc in locations}
+        for name, parent in self._parent_map.items():
+            if _is_non_geographic(name):
+                continue
+            if parent and parent in all_names and not _is_non_geographic(parent):
                 self.children.setdefault(parent, []).append(name)
             else:
                 self.roots.append(name)
+
+        # Select locations for the solver: keep the most important ones
+        self._select_solver_locations()
+
+    def _select_solver_locations(self) -> None:
+        """Choose which locations go into the constraint solver vs hierarchy placement."""
+        # Collect names referenced in constraints
+        constrained_names: set[str] = set()
+        for c in self.constraints:
+            constrained_names.add(c["source"])
+            constrained_names.add(c["target"])
+
+        # Score each location: constrained > user-overridden > high-mention > others
+        scored: list[tuple[float, dict]] = []
+        for loc in self.all_locations:
+            name = loc["name"]
+            score = loc.get("mention_count", 0)
+            if name in constrained_names:
+                score += 10000  # always include constrained locations
+            if name in self.user_overrides:
+                score += 5000
+            # Bonus for root/high-level locations (they anchor the layout)
+            level = loc.get("level", 0)
+            if level == 0:
+                score += 100
+            elif level == 1:
+                score += 50
+            scored.append((score, loc))
+
+        scored.sort(key=lambda x: -x[0])
+
+        # Take top N
+        solver_locs = [loc for _, loc in scored[:MAX_SOLVER_LOCATIONS]]
+
+        self.locations = solver_locs
+        self.loc_names = [loc["name"] for loc in solver_locs]
+        self.loc_index = {name: i for i, name in enumerate(self.loc_names)}
+        self.n = len(self.loc_names)
+
+        # Remaining locations to be placed via hierarchy
+        solver_set = set(self.loc_names)
+        self._remaining = [loc for loc in self.all_locations if loc["name"] not in solver_set]
+
+        logger.info(
+            "Selected %d / %d locations for solver (%d constrained, %d remaining)",
+            self.n, len(self.all_locations), len(constrained_names), len(self._remaining),
+        )
 
     def solve(self) -> tuple[dict[str, tuple[float, float]], str]:
         """Solve layout. Returns (name->coords, layout_mode)."""
@@ -270,26 +955,33 @@ class ConstraintSolver:
                 "Insufficient constraints (%d) or locations (%d), using hierarchy layout",
                 len(self.constraints), self.n,
             )
-            return self._hierarchy_layout(), "hierarchy"
+            layout = self._hierarchy_layout()
+            self._place_remaining(layout)
+            return layout, "hierarchy"
 
         logger.info(
             "Solving layout for %d locations with %d constraints",
             self.n, len(self.constraints),
         )
 
-        # Build bounds: each location has (x, y) in [CANVAS_MIN, CANVAS_MAX]
-        # User-overridden locations are fixed (narrow bounds)
+        # Build bounds: each location has (x, y) within canvas or region bounds.
+        # User-overridden locations are fixed (narrow bounds).
+        # Locations in a region are constrained to the region bounding box.
         bounds = []
-        fixed_indices: set[int] = set()
         for name in self.loc_names:
             if name in self.user_overrides:
                 ox, oy = self.user_overrides[name]
                 bounds.extend([(ox - 0.1, ox + 0.1), (oy - 0.1, oy + 0.1)])
-                fixed_indices.add(self.loc_index[name])
+            elif name in self._location_region_bounds:
+                rx1, ry1, rx2, ry2 = self._location_region_bounds[name]
+                bounds.extend([(rx1, rx2), (ry1, ry2)])
             else:
-                bounds.extend([(CANVAS_MIN, CANVAS_MAX), (CANVAS_MIN, CANVAS_MAX)])
+                bounds.extend([
+                    (self._canvas_min_x, self._canvas_max_x),
+                    (self._canvas_min_y, self._canvas_max_y),
+                ])
 
-        # Filter constraints to only those referencing known locations
+        # Filter constraints to only those referencing solver locations
         valid_constraints = [
             c for c in self.constraints
             if c["source"] in self.loc_index and c["target"] in self.loc_index
@@ -297,29 +989,167 @@ class ConstraintSolver:
 
         if len(valid_constraints) < 3:
             logger.info("Only %d valid constraints after filtering, using hierarchy", len(valid_constraints))
-            return self._hierarchy_layout(), "hierarchy"
+            layout = self._hierarchy_layout()
+            self._place_remaining(layout)
+            return layout, "hierarchy"
+
+        # Scale solver budget based on problem size
+        # With 100 locations (200 params), we need enough iterations but not excessive
+        maxiter = max(80, min(300, 5000 // max(self.n, 1)))
+        popsize = max(5, min(12, 400 // max(self.n, 1)))
 
         try:
             result = differential_evolution(
                 self._energy,
                 bounds=bounds,
                 args=(valid_constraints,),
-                maxiter=200,
-                popsize=15,
-                tol=1e-6,
+                maxiter=maxiter,
+                popsize=popsize,
+                tol=1e-4,
                 seed=42,
-                polish=True,
+                polish=False,
             )
             coords = result.x.reshape(-1, 2)
             layout = {
                 name: (float(coords[i, 0]), float(coords[i, 1]))
                 for i, name in enumerate(self.loc_names)
             }
-            logger.info("Constraint solver converged: energy=%.2f", result.fun)
+            logger.info("Constraint solver converged: energy=%.2f, iter=%d", result.fun, result.nit)
+            self._place_remaining(layout)
             return layout, "constraint"
         except Exception:
             logger.exception("Constraint solver failed, falling back to hierarchy")
-            return self._hierarchy_layout(), "hierarchy"
+            layout = self._hierarchy_layout()
+            self._place_remaining(layout)
+            return layout, "hierarchy"
+
+    def _place_remaining(self, layout: dict[str, tuple[float, float]]) -> None:
+        """Place locations not included in the solver using chapter-proximity heuristics.
+
+        Strategy:
+        1. User overrides take priority.
+        2. If parent is in layout: jitter around parent.
+        3. Otherwise: find solved locations from the same or nearby chapters
+           and place near their centroid, offset along the narrative axis.
+        4. Last resort: interpolate position along narrative axis based on chapter number.
+        """
+        # Build chapter->solved_locations lookup for proximity placement
+        chapter_locs: dict[int, list[str]] = {}
+        for name in layout:
+            ch = self.first_chapter.get(name, 0)
+            if ch > 0:
+                chapter_locs.setdefault(ch, []).append(name)
+
+        orphan_idx = 0  # for jittering orphans that share positions
+
+        for loc in self._remaining:
+            name = loc["name"]
+            if name in layout:
+                continue
+            if name in self.user_overrides:
+                layout[name] = self.user_overrides[name]
+                continue
+
+            parent = self._parent_map.get(name)
+            if parent and parent in layout:
+                px, py = layout[parent]
+                children_here = self.children.get(parent, [])
+                idx = children_here.index(name) if name in children_here else 0
+                angle = 2 * math.pi * idx / max(len(children_here), 1)
+                r = 30 + 8 * (loc.get("level", 0))
+                x = max(self._canvas_min_x, min(self._canvas_max_x, px + r * math.cos(angle)))
+                y = max(self._canvas_min_y, min(self._canvas_max_y, py + r * math.sin(angle)))
+                layout[name] = (x, y)
+                continue
+
+            # Chapter-proximity: find solved locations from same or nearby chapters
+            ch = self.first_chapter.get(name, 0)
+            centroid = self._find_chapter_centroid(ch, layout, chapter_locs)
+
+            if centroid is not None:
+                cx, cy = centroid
+                # Jitter to avoid exact overlap
+                jitter_angle = orphan_idx * 2.4  # golden angle
+                jitter_r = 15 + 5 * (orphan_idx % 8)
+                x = cx + jitter_r * math.cos(jitter_angle)
+                y = cy + jitter_r * math.sin(jitter_angle)
+            else:
+                # Last resort: interpolate along narrative axis based on chapter
+                x, y = self._interpolate_on_axis(ch)
+                jitter_angle = orphan_idx * 2.4
+                jitter_r = 10 + 5 * (orphan_idx % 6)
+                x += jitter_r * math.cos(jitter_angle)
+                y += jitter_r * math.sin(jitter_angle)
+
+            layout[name] = (
+                max(self._canvas_min_x, min(self._canvas_max_x, x)),
+                max(self._canvas_min_y, min(self._canvas_max_y, y)),
+            )
+            orphan_idx += 1
+
+        # Place non-geographic locations in dedicated zones
+        self._place_non_geographic(layout)
+
+    def _find_chapter_centroid(
+        self,
+        chapter: int,
+        layout: dict[str, tuple[float, float]],
+        chapter_locs: dict[int, list[str]],
+    ) -> tuple[float, float] | None:
+        """Find the centroid of solved locations from the same or nearby chapters."""
+        if chapter <= 0:
+            return None
+
+        # Search in expanding window: same chapter, then +/-1, +/-2, etc.
+        for window in range(0, 6):
+            nearby = []
+            for ch in range(chapter - window, chapter + window + 1):
+                for loc_name in chapter_locs.get(ch, []):
+                    if loc_name in layout:
+                        nearby.append(layout[loc_name])
+            if nearby:
+                cx = sum(p[0] for p in nearby) / len(nearby)
+                cy = sum(p[1] for p in nearby) / len(nearby)
+                return (cx, cy)
+        return None
+
+    def _interpolate_on_axis(self, chapter: int) -> tuple[float, float]:
+        """Interpolate position along narrative axis based on chapter number."""
+        if self._max_chapter <= self._min_chapter or chapter <= 0:
+            return (self._canvas_cx, self._canvas_cy)
+
+        t = (chapter - self._min_chapter) / (self._max_chapter - self._min_chapter)
+        ax, ay = self._narrative_axis
+
+        # Place along narrative axis line through center
+        w = self._canvas_max_x - self._canvas_min_x
+        h = self._canvas_max_y - self._canvas_min_y
+        cx = self._canvas_cx + (t - 0.5) * w * 0.8 * ax
+        cy = self._canvas_cy + (t - 0.5) * h * 0.8 * ay
+        return (cx, cy)
+
+    def _place_non_geographic(self, layout: dict[str, tuple[float, float]]) -> None:
+        """Place celestial and underworld locations in dedicated zones."""
+        w = self._canvas_max_x - self._canvas_min_x
+        # Celestial: top of map
+        for i, loc in enumerate(self._celestial):
+            name = loc["name"]
+            if name in self.user_overrides:
+                layout[name] = self.user_overrides[name]
+                continue
+            x = self._canvas_min_x + (i + 1) * w / (len(self._celestial) + 1)
+            y = self._canvas_max_y - 15
+            layout[name] = (x, y)
+
+        # Underworld: bottom of map
+        for i, loc in enumerate(self._underworld):
+            name = loc["name"]
+            if name in self.user_overrides:
+                layout[name] = self.user_overrides[name]
+                continue
+            x = self._canvas_min_x + (i + 1) * w / (len(self._underworld) + 1)
+            y = self._canvas_min_y + 15
+            layout[name] = (x, y)
 
     def _energy(self, coords_flat: np.ndarray, constraints: list[dict]) -> float:
         """Energy function to minimize."""
@@ -346,13 +1176,129 @@ class ConstraintSolver:
                 e += self._e_adjacent(coords, si, ti) * weight
             elif rtype == "separated_by":
                 e += self._e_separated(coords, si, ti) * weight
-            elif rtype == "terrain":
-                pass  # terrain doesn't affect positioning
+            elif rtype == "in_between":
+                # source=A (middle), target=B (endpoint1), value=C name (endpoint2)
+                ci = self.loc_index.get(value)
+                if ci is not None:
+                    e += self._e_in_between(coords, si, ti, ci) * weight
 
-        # Anti-overlap penalty
+        # Anti-overlap penalty (vectorized)
         e += self._e_overlap(coords)
 
+        # Narrative axis: encourage locations to spread along the travel direction
+        # proportional to their chapter appearance order
+        e += self._e_narrative_axis(coords) * NARRATIVE_AXIS_WEIGHT
+
+        # Direction hints: weak preference for locations with directional names
+        e += self._e_direction_hints(coords) * 0.3
+
         return e
+
+    def _e_narrative_axis(self, coords: np.ndarray) -> float:
+        """Narrative axis energy: locations should spread along the travel direction
+        based on their first chapter appearance.
+
+        E.g., for a westward journey (-1,0), locations from early chapters should
+        have LOW projection (east/high x gives low -x projection) and locations
+        from late chapters should have HIGH projection (west/low x gives high -x).
+        """
+        if self._max_chapter <= self._min_chapter:
+            return 0.0
+
+        ax, ay = self._narrative_axis
+        ch_range = self._max_chapter - self._min_chapter
+
+        # Compute projection range for the narrative axis direction.
+        corners = [
+            self._canvas_min_x * ax + self._canvas_min_y * ay,
+            self._canvas_min_x * ax + self._canvas_max_y * ay,
+            self._canvas_max_x * ax + self._canvas_min_y * ay,
+            self._canvas_max_x * ax + self._canvas_max_y * ay,
+        ]
+        proj_min = min(corners)
+        proj_max = max(corners)
+        proj_range = proj_max - proj_min
+        if proj_range < 1.0:
+            return 0.0
+
+        # Vectorized: compute all projections at once
+        projections = coords[:, 0] * ax + coords[:, 1] * ay
+        proj_normalized = (projections - proj_min) / proj_range  # [0, 1]
+
+        penalty = 0.0
+        n_with_chapter = 0
+        for i, name in enumerate(self.loc_names):
+            ch = self.first_chapter.get(name, 0)
+            if ch <= 0:
+                continue
+            n_with_chapter += 1
+
+            # Expected normalized position: t=0 for earliest, t=1 for latest
+            t = (ch - self._min_chapter) / ch_range
+
+            diff = proj_normalized[i] - t
+            penalty += diff ** 2
+
+        # Scale to be competitive with constraint energies.
+        # Each constraint violation is ~DIRECTION_MARGIN^2 * weight ≈ 7500.
+        # We want narrative energy to be ~20-30% of total constraint energy.
+        if n_with_chapter > 0:
+            penalty = penalty / n_with_chapter * DIRECTION_MARGIN ** 2 * 20
+
+        return penalty
+
+    def _e_direction_hints(self, coords: np.ndarray) -> float:
+        """Weak energy term: locations with directional names prefer the expected zone.
+
+        E.g., "东海" prefers the east half of the canvas, "西域" prefers the west half.
+        This is a soft hint, not a hard constraint.
+        """
+        if not self._direction_hints:
+            return 0.0
+
+        # Map direction to expected normalized position (0-1)
+        # x: 0=west, 1=east; y: 0=south, 1=north
+        _HINT_TARGETS: dict[str, tuple[float, float]] = {
+            "east": (0.75, 0.5),
+            "west": (0.25, 0.5),
+            "south": (0.5, 0.25),
+            "north": (0.5, 0.75),
+            "center": (0.5, 0.5),
+        }
+
+        w = self._canvas_max_x - self._canvas_min_x
+        h = self._canvas_max_y - self._canvas_min_y
+        if w < 1 or h < 1:
+            return 0.0
+
+        penalty = 0.0
+        count = 0
+        for i, name in enumerate(self.loc_names):
+            hint = self._direction_hints.get(name)
+            if hint is None:
+                continue
+            target = _HINT_TARGETS.get(hint)
+            if target is None:
+                continue
+
+            # Normalize current position
+            nx = (coords[i, 0] - self._canvas_min_x) / w
+            ny = (coords[i, 1] - self._canvas_min_y) / h
+
+            # Only penalize the axis relevant to the hint
+            tx, ty = target
+            if hint in ("east", "west"):
+                penalty += (nx - tx) ** 2
+            elif hint in ("north", "south"):
+                penalty += (ny - ty) ** 2
+            else:
+                penalty += (nx - tx) ** 2 + (ny - ty) ** 2
+            count += 1
+
+        if count > 0:
+            penalty = penalty / count * DIRECTION_MARGIN ** 2 * 5
+
+        return penalty
 
     def _e_direction(
         self, coords: np.ndarray, si: int, ti: int, value: str
@@ -406,20 +1352,28 @@ class ConstraintSolver:
         violation = max(0.0, SEPARATION_DIST - dist)
         return violation ** 2
 
+    def _e_in_between(
+        self, coords: np.ndarray, ai: int, bi: int, ci: int
+    ) -> float:
+        """In-between penalty: A should lie near the midpoint of B and C."""
+        midpoint = (coords[bi] + coords[ci]) / 2.0
+        dist = np.linalg.norm(coords[ai] - midpoint)
+        return (dist / max(ADJACENT_DIST, 1.0)) ** 2 * 50
+
     def _e_overlap(self, coords: np.ndarray) -> float:
-        """Anti-overlap: penalize locations that are too close to each other."""
-        penalty = 0.0
-        for i in range(self.n):
-            for j in range(i + 1, self.n):
-                dist = np.linalg.norm(coords[i] - coords[j])
-                violation = max(0.0, MIN_SPACING - dist)
-                if violation > 0:
-                    penalty += violation ** 2
-        return penalty
+        """Anti-overlap: penalize locations that are too close (vectorized)."""
+        if self.n < 2:
+            return 0.0
+        # Pairwise distances via broadcasting
+        diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]  # (n, n, 2)
+        dist = np.sqrt((diff ** 2).sum(axis=2))  # (n, n)
+        # Upper triangle only (avoid double-counting and self-distance)
+        triu_idx = np.triu_indices(self.n, k=1)
+        violations = np.maximum(0.0, MIN_SPACING - dist[triu_idx])
+        return float(np.sum(violations ** 2))
 
     def _hierarchy_layout(self) -> dict[str, tuple[float, float]]:
         """Fallback: concentric circle layout based on parent-child hierarchy."""
-        center = CANVAS_SIZE / 2
         layout: dict[str, tuple[float, float]] = {}
 
         if not self.loc_names:
@@ -436,24 +1390,26 @@ class ConstraintSolver:
             # No hierarchy at all — place everything in a spiral
             return self._spiral_layout()
 
-        radius = 200
+        w = self._canvas_max_x - self._canvas_min_x
+        h = self._canvas_max_y - self._canvas_min_y
+        radius = min(w, h) * 0.2
         for i, name in enumerate(unplaced_roots):
             angle = 2 * math.pi * i / max(len(unplaced_roots), 1)
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
+            x = self._canvas_cx + radius * math.cos(angle)
+            y = self._canvas_cy + radius * math.sin(angle)
             layout[name] = (x, y)
 
         # Place children around their parents
-        self._place_children(layout, self.roots, child_radius=100)
+        self._place_children(layout, self.roots, child_radius=radius * 0.5)
 
         # Place any remaining unplaced locations
         unplaced = [n for n in self.loc_names if n not in layout]
         if unplaced:
             angle_step = 2 * math.pi / max(len(unplaced), 1)
-            r = 350
+            r = min(w, h) * 0.35
             for i, name in enumerate(unplaced):
                 angle = angle_step * i
-                layout[name] = (center + r * math.cos(angle), center + r * math.sin(angle))
+                layout[name] = (self._canvas_cx + r * math.cos(angle), self._canvas_cy + r * math.sin(angle))
 
         return layout
 
@@ -468,7 +1424,7 @@ class ConstraintSolver:
             children = self.children.get(parent, [])
             if not children:
                 continue
-            px, py = layout.get(parent, (CANVAS_SIZE / 2, CANVAS_SIZE / 2))
+            px, py = layout.get(parent, (self._canvas_cx, self._canvas_cy))
             for i, child in enumerate(children):
                 if child in layout:
                     continue
@@ -476,14 +1432,13 @@ class ConstraintSolver:
                 cx = px + child_radius * math.cos(angle)
                 cy = py + child_radius * math.sin(angle)
                 # Clamp to canvas
-                cx = max(CANVAS_MIN, min(CANVAS_MAX, cx))
-                cy = max(CANVAS_MIN, min(CANVAS_MAX, cy))
+                cx = max(self._canvas_min_x, min(self._canvas_max_x, cx))
+                cy = max(self._canvas_min_y, min(self._canvas_max_y, cy))
                 layout[child] = (cx, cy)
             self._place_children(layout, children, child_radius * 0.6)
 
     def _spiral_layout(self) -> dict[str, tuple[float, float]]:
         """Place all locations in a spiral pattern from center."""
-        center = CANVAS_SIZE / 2
         layout: dict[str, tuple[float, float]] = {}
         for i, name in enumerate(self.loc_names):
             if name in self.user_overrides:
@@ -491,11 +1446,11 @@ class ConstraintSolver:
                 continue
             angle = i * 2.4  # golden angle
             r = 30 + 15 * math.sqrt(i)
-            x = center + r * math.cos(angle)
-            y = center + r * math.sin(angle)
+            x = self._canvas_cx + r * math.cos(angle)
+            y = self._canvas_cy + r * math.sin(angle)
             layout[name] = (
-                max(CANVAS_MIN, min(CANVAS_MAX, x)),
-                max(CANVAS_MIN, min(CANVAS_MAX, y)),
+                max(self._canvas_min_x, min(self._canvas_max_x, x)),
+                max(self._canvas_min_y, min(self._canvas_max_y, y)),
             )
         return layout
 

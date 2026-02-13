@@ -203,6 +203,32 @@ export type EntityProfile = PersonProfile | LocationProfile | ItemProfile | OrgP
 
 // ── Map ──────────────────────────────────────
 
+export type LayerType = "overworld" | "underground" | "sky" | "sea" | "pocket" | "spirit"
+
+export interface MapLayerInfo {
+  layer_id: string
+  name: string
+  layer_type: LayerType
+  location_count: number
+  region_count: number
+}
+
+export interface PortalInfo {
+  name: string
+  source_layer: string
+  source_location: string
+  target_layer: string
+  target_layer_name: string
+  target_location: string
+  is_bidirectional: boolean
+}
+
+export interface RegionBoundary {
+  region_name: string
+  color: string
+  bounds: { x1: number; y1: number; x2: number; y2: number }
+}
+
 export interface MapLocation {
   id: string
   name: string
@@ -216,7 +242,10 @@ export interface MapLayoutItem {
   name: string
   x: number
   y: number
-  radius: number
+  radius?: number
+  is_portal?: boolean
+  source_layer?: string
+  target_layer?: string
 }
 
 export interface SpatialConstraint {
@@ -238,9 +267,60 @@ export interface MapData {
   trajectories: Record<string, TrajectoryPoint[]>
   spatial_constraints: SpatialConstraint[]
   layout: MapLayoutItem[]
-  layout_mode: "constraint" | "hierarchy"
+  layout_mode: "constraint" | "hierarchy" | "layered"
   terrain_url: string | null
   analyzed_range: [number, number]
+  region_boundaries?: RegionBoundary[]
+  portals?: PortalInfo[]
+  revealed_location_names?: string[]
+  world_structure?: { layers: MapLayerInfo[] }
+  layer_layouts?: Record<string, MapLayoutItem[]>
+}
+
+// ── World Structure Overrides ─────────────────
+
+export type OverrideType = "location_region" | "location_layer" | "add_portal" | "delete_portal"
+
+export interface WorldStructureOverride {
+  id: number
+  override_type: OverrideType
+  override_key: string
+  override_json: Record<string, unknown>
+  created_at: string
+}
+
+export interface WorldStructureRegion {
+  name: string
+  cardinal_direction: string | null
+  region_type: string | null
+  parent_region: string | null
+  description: string
+}
+
+export interface WorldStructureLayer {
+  layer_id: string
+  name: string
+  layer_type: LayerType
+  description: string
+  regions: WorldStructureRegion[]
+}
+
+export interface WorldStructurePortal {
+  name: string
+  source_layer: string
+  source_location: string
+  target_layer: string
+  target_location: string
+  is_bidirectional: boolean
+  first_chapter: number | null
+}
+
+export interface WorldStructureData {
+  novel_id: string
+  layers: WorldStructureLayer[]
+  portals: WorldStructurePortal[]
+  location_region_map: Record<string, string>
+  location_layer_map: Record<string, string>
 }
 
 // ── Chat ──────────────────────────────────────

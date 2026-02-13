@@ -130,7 +130,8 @@
         "definition": "七玄门正式弟子，免费习武，每月有一两散银零花钱",
         "related": ["七玄门", "外门弟子"]
       }
-    ]
+    ],
+    "world_declarations": []
   },
   {
     "_comment": "示例2：展示功法/丹药/物品的详细描述提取",
@@ -234,7 +235,8 @@
         "definition": "一门罕见的外门武功，共分九层。前三层与普通武功难度相当；第四层起突然变得极其艰难，修炼者需承受非人的痛苦，许多人因此放弃；但突破第六层到第七层后又变得平坦，仅每月需定期忍受剧痛。练至第九层可身如宝甲、刀枪不入、水火不侵，并能获得巨象之力，力大无穷。因修炼痛苦巨大，此功法几近失传。",
         "related": ["张铁", "墨大夫"]
       }
-    ]
+    ],
+    "world_declarations": []
   },
   {
     "_comment": "示例3：展示空间关系的丰富提取",
@@ -335,6 +337,17 @@
         "location": "天星城"
       }
     ],
-    "new_concepts": []
+    "new_concepts": [],
+    "world_declarations": [
+      {
+        "declaration_type": "region_position",
+        "content": {
+          "region_name": "乱星海",
+          "direction": "east"
+        },
+        "narrative_evidence": "乱星海位于天南修仙界以东",
+        "confidence": "high"
+      }
+    ]
   }
 ]

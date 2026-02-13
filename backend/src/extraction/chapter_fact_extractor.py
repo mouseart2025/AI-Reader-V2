@@ -97,14 +97,15 @@ class ChapterFactExtractor:
             "2. relationships 数组必须包含人物之间的关系，evidence 引用原文\n"
             "3. locations 数组必须包含所有地名\n"
             "4. events 数组中每个事件的 participants 必须列出参与者姓名，location 必须填写地点\n"
-            "5. spatial_relationships 提取地点间的方位、距离、包含、相邻、分隔、地形关系\n"
-            "6. 只提取原文明确出现的内容，禁止编造\n"
+            "5. spatial_relationships 提取地点间的方位、距离、包含、相邻、分隔、地形、夹在中间(in_between)关系\n"
+            "6. world_declarations 仅在文中有世界宏观结构描述时提取（区域划分、空间层、传送通道），没有则输出空列表\n"
+            "7. 只提取原文明确出现的内容，禁止编造\n"
         )
 
         # First attempt
         try:
             return await self._call_and_parse(
-                system, user_prompt, novel_id, chapter_id
+                system, user_prompt, novel_id, chapter_id,
             )
         except (LLMError, ExtractionError, Exception) as first_err:
             logger.warning(
@@ -112,16 +113,24 @@ class ChapterFactExtractor:
                 chapter_id, first_err,
             )
 
-        # Retry with corrective hint
+        # Retry: truncate text more aggressively to reduce LLM workload
+        truncated_text = chapter_text[:6000] if len(chapter_text) > 6000 else chapter_text
         retry_prompt = (
-            f"{user_prompt}\n"
-            "【重要】上一次输出有误。请重新输出严格的 JSON，"
-            "确保 characters/relationships/locations/events 数组都不为空，"
-            "events 中的 participants 和 location 必须填写。"
+            f"{example_text}"
+            f"## 第 {chapter_id} 章\n\n{truncated_text}\n\n"
+            "【关键要求】\n"
+            "1. characters 数组必须包含所有出现的有名字的人物\n"
+            "2. relationships 数组必须包含人物之间的关系，evidence 引用原文\n"
+            "3. locations 数组必须包含所有地名\n"
+            "4. events 数组中每个事件的 participants 必须列出参与者姓名，location 必须填写地点\n"
+            "5. spatial_relationships 提取地点间的方位、距离、包含、相邻、分隔、地形、夹在中间(in_between)关系\n"
+            "6. world_declarations 仅在文中有世界宏观结构描述时提取，没有则输出空列表\n"
+            "7. 只提取原文明确出现的内容，禁止编造\n"
+            "【重要】请输出严格的 JSON，不要输出多余文本。"
         )
         try:
             return await self._call_and_parse(
-                system, retry_prompt, novel_id, chapter_id
+                system, retry_prompt, novel_id, chapter_id,
             )
         except Exception as second_err:
             raise ExtractionError(
@@ -134,6 +143,7 @@ class ChapterFactExtractor:
         prompt: str,
         novel_id: str,
         chapter_id: int,
+        timeout: int = 600,
     ) -> ChapterFact:
         """Call LLM and parse response into ChapterFact."""
         result = await self.llm.generate(
@@ -142,7 +152,7 @@ class ChapterFactExtractor:
             format=self._schema,
             temperature=0.1,
             max_tokens=8192,
-            timeout=300,
+            timeout=timeout,
             num_ctx=16384,
         )
 

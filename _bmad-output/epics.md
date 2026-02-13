@@ -1144,6 +1144,385 @@ So that 我可以迁移数据而不必重新分析。
 
 ---
 
+## Epic 7: 世界地图 V2 — 多层级世界结构
+
+用户可以看到包含宏观区域划分（如四大部洲）、多层空间（天界/冥界/洞府副本）、传送门连接的多层级世界地图，系统通过渐进式世界结构代理在分析过程中自动构建世界观。
+
+**依赖:** Epic 2（需要分析流水线）+ Epic 4 Stories 4.8-4.10（已有世界地图 V1 基础）
+**架构文档:** `_bmad-output/world-map-v2-architecture.md`
+
+### Story 7.1: WorldStructure 数据模型与存储层
+
+As a 系统,
+I want 定义世界结构的数据模型并提供数据库存储,
+So that 世界结构代理有持久化的数据基础。
+
+**Acceptance Criteria:**
+
+**Given** 系统启动
+**When** 数据库初始化
+**Then** 新增 `world_structures` 表和 `layer_layouts` 表
+
+**Given** WorldStructure 模型已定义
+**When** 调用 world_structure_store.save(novel_id, structure)
+**Then** WorldStructure JSON 持久化到数据库
+**And** 调用 load(novel_id) 可恢复完整对象
+
+**技术说明:**
+- 新增 `backend/src/models/world_structure.py`:
+  - `LayerType(Enum)`: overworld, celestial, underworld, underwater, instance, pocket
+  - `WorldRegion(BaseModel)`: name, cardinal_direction, region_type, parent_region, description
+  - `MapLayer(BaseModel)`: layer_id, name, layer_type, description, regions
+  - `Portal(BaseModel)`: name, source_layer, source_location, target_layer, target_location, is_bidirectional, first_chapter
+  - `WorldBuildingSignal(BaseModel)`: signal_type, chapter, raw_text_excerpt, extracted_facts, confidence
+  - `WorldStructure(BaseModel)`: novel_id, layers, portals, location_region_map, location_layer_map
+- 新增 `backend/src/db/world_structure_store.py`: save/load/delete CRUD
+- 在 `sqlite_db.py` `_SCHEMA_SQL` 中添加两张新表
+- 坐标系遵循上北下南左西右东惯例: +x=东(右), +y=北(上)
+
+---
+
+### Story 7.2: WorldStructureAgent 信号扫描与启发式更新
+
+As a 系统,
+I want 在每章分析后扫描世界观构建信号并进行轻量启发式更新,
+So that 系统能自动识别天界/冥界/洞府等空间层和宏观区域划分。
+
+**Acceptance Criteria:**
+
+**Given** 某章 ChapterFact 已提取并验证
+**When** 调用 agent._scan_signals(chapter_num, chapter_text, fact)
+**Then** 返回 WorldBuildingSignal 列表，检测以下信号类型：
+  - `region_division`: 关键词 "分为"/"划为" + 洲/大陆/界/域 等
+  - `layer_transition`: 角色进入天界/地府/海底等非地理空间
+  - `instance_entry`: 角色进入洞府/阵法/秘境等封闭空间
+  - `macro_geography`: 新出现的宏观地点类型（洲/域/界/国）
+**And** 每个信号包含原文摘录（≤200字）
+
+**Given** 信号扫描完成但不触发 LLM
+**When** 调用 agent._apply_heuristic_updates(chapter_num, fact)
+**Then** 基于关键词自动分配地点到层：
+  - 名含 天宫/天庭/天门 等 → celestial 层
+  - 名含 地府/冥界/幽冥 等 → underworld 层
+  - type 含 洞/府/宫 且有明确入口 → instance 层候选
+  - parent 是已知区域 → 分配到该区域
+
+**技术说明:**
+- 新增 `backend/src/services/world_structure_agent.py`
+- `_scan_signals()` 纯本地执行，不调用 LLM
+- `_apply_heuristic_updates()` 更新 WorldStructure 并持久化
+- 信号规则可配置，支持不同小说类型
+
+---
+
+### Story 7.3: WorldStructureAgent LLM 增量更新
+
+As a 系统,
+I want 当检测到高置信度世界观信号时调用 LLM 增量更新世界结构,
+So that 系统能理解"世界分为四大部洲"等宏观世界观声明。
+
+**Acceptance Criteria:**
+
+**Given** 信号扫描检测到高置信度信号
+**When** 满足触发条件（前5章必触发 / region_division 信号 / 首次 layer_transition / 每20章例行更新）
+**Then** 调用 LLM，输入包含：
+  - 当前 WorldStructure JSON
+  - 本章世界观信号原文摘录
+  - 本章提取的 locations 和 spatial_relationships
+**And** LLM 输出增量操作列表：ADD_REGION / ADD_LAYER / ADD_PORTAL / ASSIGN_LOCATION / UPDATE_REGION / NO_CHANGE
+**And** 操作应用到 WorldStructure 并持久化
+
+**Given** LLM 调用失败（超时/JSON解析错误）
+**When** 错误发生
+**Then** 记录日志但不中断分析流水线，WorldStructure 保持上一次成功状态
+
+**Given** 100章小说
+**When** 全书分析完成
+**Then** LLM 世界结构更新调用次数 ≤ 25 次（约增加15-25%开销）
+
+**技术说明:**
+- 新增 LLM prompt 模板: `backend/src/extraction/prompts/world_structure_update.txt`
+- 使用 structured output + schema 约束 LLM 输出格式
+- `_should_trigger_llm()` 实现触发条件判断
+- `_call_llm_for_update()` 调用 LLM 并解析操作
+- `_apply_operations()` 将操作应用到 WorldStructure
+
+---
+
+### Story 7.4: 分析流水线集成与上下文反馈
+
+As a 系统,
+I want 将 WorldStructureAgent 嵌入分析流水线，并将世界结构反馈到提取上下文,
+So that 后续章节的提取能利用已构建的世界知识。
+
+**Acceptance Criteria:**
+
+**Given** 分析流水线运行中
+**When** 每章完成 fact_validator.validate(fact) 后
+**Then** 调用 world_agent.process_chapter(chapter_num, chapter_text, fact)
+**And** 流水线正常继续，agent 错误不阻塞分析
+
+**Given** WorldStructure 包含区域和层信息
+**When** context_summary_builder.build() 被调用
+**Then** 上下文中包含"已知世界结构"摘要段落：
+  - 主世界区域列表（名称+方位）
+  - 已知地图层列表
+  - 已知传送门列表（前10个）
+
+**Given** 用户强制重新分析（force=True）
+**When** 分析开始
+**Then** WorldStructure 在现有基础上增量更新（不清空重建）
+
+**验证标准:** 用西游记前10章测试，Agent 应能识别：
+  - 四大部洲（东胜神洲/西牛贺洲/南赡部洲/北俱芦洲）及其方位
+  - 天界层（天宫/凌霄殿等）
+  - 冥界层（地府/阎罗殿等）
+
+**技术说明:**
+- 修改 `backend/src/services/analysis_service.py` `_run_loop_inner()`
+- 在 validator 之后、store 之前注入 agent 调用
+- 修改 `backend/src/extraction/context_summary_builder.py` 添加世界结构摘要
+- Agent 初始化在 AnalysisService.__init__() 中
+
+---
+
+### Story 7.5: WorldStructure API 端点
+
+As a 前端,
+I want 通过 API 获取小说的世界结构数据,
+So that 地图页面可以渲染多层级地图。
+
+**Acceptance Criteria:**
+
+**Given** 小说已分析且 WorldStructure 已构建
+**When** 调用 `GET /api/novels/{novel_id}/world-structure`
+**Then** 返回完整 WorldStructure：layers, portals, regions, location_region_map, location_layer_map
+
+**Given** 小说未分析或 WorldStructure 为空
+**When** 调用 API
+**Then** 返回默认结构（仅包含 overworld 层，无区域划分）
+
+**技术说明:**
+- 新增 `backend/src/api/routes/world_structure.py`
+- 在 `main.py` 注册路由
+- 返回 WorldStructure 的 JSON 序列化
+
+---
+
+### Story 7.6: 区域级布局引擎
+
+As a 系统,
+I want 基于 WorldStructure 的区域划分在画布上分配区域边界框,
+So that 地点布局有宏观结构而不是平铺在一个平面上。
+
+**Acceptance Criteria:**
+
+**Given** WorldStructure 包含区域划分（如四大部洲）
+**When** 调用区域级布局
+**Then** 每个区域分配到画布对应方位的矩形边界框：
+  - cardinal_direction="east" → 画布右侧
+  - cardinal_direction="west" → 画布左侧
+  - cardinal_direction="south" → 画布下方
+  - cardinal_direction="north" → 画布上方
+**And** 遵循上北下南左西右东惯例
+
+**Given** 多个区域同方位（如多个国家都在"东"）
+**When** 方位冲突
+**Then** 同方位区域在该象限内等分细分
+
+**Given** WorldStructure 为空或仅有 overworld 无区域
+**When** 调用布局
+**Then** 回退到当前全局约束求解布局（兼容 V1）
+
+**技术说明:**
+- 重构 `backend/src/services/map_layout_service.py` 新增 `_layout_regions()` 方法
+- 区域边界框作为后续区域内约束求解的空间约束
+
+---
+
+### Story 7.7: 区域内约束求解与副本独立布局
+
+As a 系统,
+I want 在每个区域边界框内独立运行约束求解器，副本层用独立小画布布局,
+So that 布局质量提升且求解效率更高。
+
+**Acceptance Criteria:**
+
+**Given** 区域边界框已分配
+**When** 对每个区域运行约束求解
+**Then** 仅使用该区域内地点的空间约束
+**And** 地点坐标限制在区域边界框范围内
+**And** 单区域地点数 10-50，参数维度 20-100
+
+**Given** WorldStructure 包含 instance 类型层（如水帘洞）
+**When** 副本层布局
+**Then** 使用独立的 [0, 300] 小画布布局
+**And** 副本内地点使用层内空间关系
+
+**Given** 天界层或冥界层
+**When** 层布局
+**Then** 使用独立画布，背景色/氛围与 overworld 不同
+
+**技术说明:**
+- 在 `map_layout_service.py` 中新增 `_solve_region()` 和 `_solve_layer()`
+- 复用现有 ConstraintSolver，但限制边界范围
+- 传送门位置标注在源层的出发地点附近
+
+---
+
+### Story 7.8: 地图 API V2 与层布局缓存
+
+As a 前端,
+I want 通过 API 按层获取地图布局数据,
+So that 前端可以按需加载各层的地图。
+
+**Acceptance Criteria:**
+
+**Given** 小说有多层世界结构
+**When** 调用 `GET /api/novels/{id}/map?layer_id=overworld&chapter_start=1&chapter_end=100`
+**Then** 返回该层的布局数据：
+  - locations（该层的地点列表）
+  - layout（布局坐标）
+  - layout_mode
+  - terrain_url
+  - region_boundaries（区域边界框列表）
+  - portals（该层的传送门列表）
+
+**Given** 未指定 layer_id
+**When** 调用地图 API
+**Then** 默认返回 overworld 层数据 + world_structure 概要
+
+**Given** 层布局已缓存
+**When** 再次请求相同层和章节范围
+**Then** 从 layer_layouts 表返回缓存数据
+
+**技术说明:**
+- 修改 `backend/src/api/routes/map.py` 添加 layer_id 参数
+- 修改 `backend/src/services/visualization_service.py` 支持按层获取数据
+- 新增 layer_layouts 缓存表（在 Story 7.1 中已创建）
+
+---
+
+### Story 7.9: 前端类型更新与 Tab 切换 UI
+
+As a 用户,
+I want 在地图页面通过 Tab 栏切换不同地图层（主世界/天界/冥界/副本）,
+So that 我可以浏览小说世界的不同空间层。
+
+**Acceptance Criteria:**
+
+**Given** 地图页面加载
+**When** 小说有多层世界结构
+**Then** 地图上方显示 Tab 栏，列出所有已解锁的地图层
+**And** 默认显示 overworld（主世界）层
+**And** 每个 Tab 显示层名称和地点数量
+
+**Given** 用户点击某个 Tab（如"天界"）
+**When** 切换层
+**Then** 地图内容切换到该层的布局数据
+**And** 背景色根据层类型变化：celestial 用深蓝/金色调，underworld 用暗紫色调，instance 用洞穴色调
+
+**Given** 章节范围内某层没有活动（无地点提及）
+**When** Tab 栏渲染
+**Then** 该层 Tab 显示为灰色禁用状态
+
+**技术说明:**
+- 更新 `frontend/src/api/types.ts` 添加 LayeredMapData / MapLayerInfo / PortalInfo / RegionBoundary 类型
+- 更新 `frontend/src/api/client.ts` 添加 fetchMapData layer_id 参数
+- 新增 `frontend/src/components/visualization/MapLayerTabs.tsx`
+- 修改 `frontend/src/pages/MapPage.tsx` 集成 Tab 切换逻辑
+
+---
+
+### Story 7.10: 区域边界、传送门 UI 与增强 Fog of War
+
+As a 用户,
+I want 在主世界地图上看到区域边界划分和传送门入口标记,
+So that 我能直观理解小说世界的宏观结构和空间层级。
+
+**Acceptance Criteria:**
+
+**Given** overworld 层有区域划分
+**When** 地图渲染
+**Then** 区域以半透明填充色 + 虚线边界标识
+**And** 区域名称以大字体低透明度标注在区域中心
+
+**Given** 地图上有传送门位置（如南天门）
+**When** 地图渲染
+**Then** 传送门显示为特殊图标（⊙ 标记）
+**And** 点击传送门弹出 Popup，显示"通往：[目标层名]"和"进入地图"按钮
+**And** 点击"进入地图"切换到目标层的 Tab
+
+**Given** 章节范围滑动
+**When** 某地点尚未在当前范围出现但在之前章节出现过
+**Then** 地点显示为灰色轮廓（已揭示状态），而非完全透明
+**And** 当前范围未出现且之前也未出现的地点完全隐藏
+
+**技术说明:**
+- 修改 `frontend/src/components/visualization/NovelMap.tsx`:
+  - 新增 region-fills / region-borders / region-labels GeoJSON 层
+  - 新增 portals GeoJSON 层（circle + symbol）
+  - Fog of War 增强为三态：hidden(不显示) / revealed(灰色) / active(完整)
+- 传送门点击 → Tab 切换联动
+
+---
+
+### Story 7.11: 用户编辑世界结构
+
+As a 用户,
+I want 手动调整世界结构（区域归属、传送门增删、区域方位）,
+So that 我可以修正 LLM 生成的错误。
+
+**Acceptance Criteria:**
+
+**Given** 地图页面或专用编辑页面
+**When** 用户拖拽地点到另一个区域
+**Then** 更新 location_region_map，存为 user override
+
+**Given** 用户在传送门面板中
+**When** 添加新传送门
+**Then** 指定名称、源层+地点、目标层，保存到 WorldStructure
+
+**Given** 用户编辑了世界结构
+**When** 保存
+**Then** 编辑存为 override，优先于 LLM 生成的结构
+**And** 下次 LLM 更新不覆盖用户 override
+
+**技术说明:**
+- 新增 `PUT /api/novels/{id}/world-structure/overrides` API
+- 新增 `world_structure_overrides` 数据库表
+- 前端新增编辑面板组件
+
+---
+
+### Story 7.12: 提取增强与通用性优化
+
+As a 系统,
+I want 在 ChapterFact 中可选地提取世界观声明，并针对不同类型小说优化,
+So that 世界结构质量更高、方案更通用。
+
+**Acceptance Criteria:**
+
+**Given** extraction prompt 已增强
+**When** LLM 提取 ChapterFact
+**Then** 可选地提取 `world_declarations` 字段（区域划分声明/层声明/传送门声明）
+
+**Given** 不同类型小说
+**When** 世界结构构建
+**Then** 方案优雅处理：
+  - 奇幻/修仙: 多层世界（天界/地下/副本）
+  - 历史/武侠: 主要是地理平面 + 少量副本
+  - 都市: 单层城市地理，无副本
+  - 简单结构: 仅 overworld，无区域划分
+
+**技术说明:**
+- 修改 `backend/src/models/chapter_fact.py` 添加可选 `world_declarations` 字段
+- 修改 extraction prompt 添加世界观声明提取指令
+- 新增 `InBetween` 空间约束类型
+- 地点语义位置提示（东洋大海 → 东方）
+
+---
+
 ## 验证总结
 
 ### FR 覆盖率
@@ -1173,12 +1552,15 @@ Epic 2 (分析引擎) ← 依赖 Epic 1（需要有小说才能分析）
   ├──▶ Epic 3 (阅读卡片) ← 依赖 Epic 2（需要 ChapterFact 数据）
   │
   ├──▶ Epic 4 (可视化) ← 依赖 Epic 2（需要 ChapterFact 数据）
+  │    │
+  │    └──▶ Epic 7 (世界地图V2) ← 依赖 Epic 2（分析流水线）+ Epic 4.8-4.10（地图V1基础）
   │
   ├──▶ Epic 5 (问答) ← 依赖 Epic 2（需要 ChapterFact + 向量数据）
   │
   └──▶ Epic 6 (百科设置) ← 依赖 Epic 2（百科需要分析数据）
 
 Epic 3/4/5/6 之间无互相依赖，可并行开发。
+Epic 7 内部 Story 顺序: 7.1→7.2→7.3→7.4→7.5 (Phase 1) → 7.6→7.7→7.8 (Phase 2) → 7.9→7.10 (Phase 3) → 7.11→7.12 (Phase 4)
 ```
 
 ### Story 无前向依赖检查
