@@ -1,6 +1,8 @@
 """Business logic for novel upload, preview, and import."""
 
+import asyncio
 import hashlib
+import logging
 import re
 import time
 import uuid
@@ -165,6 +167,17 @@ async def confirm_import(
 
     # Remove from cache after successful import
     del _upload_cache[file_hash]
+
+    # Trigger pre-scan in background (non-blocking)
+    async def _run_prescan() -> None:
+        try:
+            from src.extraction.entity_pre_scanner import EntityPreScanner
+            scanner = EntityPreScanner()
+            await scanner.scan(novel_id)
+        except Exception as e:
+            logging.getLogger(__name__).warning("预扫描后台任务失败: %s", e)
+
+    asyncio.create_task(_run_prescan())
 
     # Return the created novel
     novel = await novel_store.get_novel(novel_id)

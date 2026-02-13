@@ -23,14 +23,16 @@ export function VisualizationLayout({ children }: VisualizationLayoutProps) {
     totalChapters,
     setRange,
     setTotalChapters,
+    resetForNovel,
   } = useChapterRangeStore()
 
   useEffect(() => {
     if (!novelId) return
+    resetForNovel(novelId)
     fetchNovel(novelId).then((n) => {
       setTotalChapters(n.total_chapters)
     })
-  }, [novelId, setTotalChapters])
+  }, [novelId, setTotalChapters, resetForNovel])
 
   const rangeMin = analyzedFirst || 1
   const rangeMax = analyzedLast || totalChapters || 1

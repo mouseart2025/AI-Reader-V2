@@ -16,4 +16,5 @@ dependencies = [
     "python-multipart",
     "pillow>=11.3.0",
     "opensimplex>=0.4.5.1",
+    "jieba>=0.42.1",
 ]

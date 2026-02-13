@@ -1,14 +1,20 @@
-"""Async Ollama HTTP API client with structured output support."""
+"""Async LLM client with Ollama and OpenAI-compatible API support."""
+
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import re
 from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 import httpx
 
-from src.infra.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from src.infra.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER, OLLAMA_BASE_URL, OLLAMA_MODEL
+
+if TYPE_CHECKING:
+    from src.infra.openai_client import OpenAICompatibleClient
 
 logger = logging.getLogger(__name__)
 
@@ -186,12 +192,24 @@ class LLMClient:
 
 
 # Module-level singleton
-_client: LLMClient | None = None
+_client: LLMClient | OpenAICompatibleClient | None = None
 
 
-def get_llm_client() -> LLMClient:
-    """Return module-level singleton LLMClient."""
+def get_llm_client() -> LLMClient | OpenAICompatibleClient:
+    """Return module-level singleton LLM client based on LLM_PROVIDER config."""
     global _client
     if _client is None:
-        _client = LLMClient()
+        if LLM_PROVIDER == "openai":
+            if not LLM_API_KEY:
+                raise ValueError("LLM_API_KEY is required when LLM_PROVIDER=openai")
+            if not LLM_BASE_URL:
+                raise ValueError("LLM_BASE_URL is required when LLM_PROVIDER=openai")
+            from src.infra.openai_client import OpenAICompatibleClient
+            _client = OpenAICompatibleClient(
+                base_url=LLM_BASE_URL,
+                api_key=LLM_API_KEY,
+                model=LLM_MODEL or "gpt-4o",
+            )
+        else:
+            _client = LLMClient()
     return _client

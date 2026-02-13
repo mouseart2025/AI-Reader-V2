@@ -53,6 +53,9 @@ class FactValidator:
         new_concepts = self._validate_concepts(fact.new_concepts)
         world_declarations = self._validate_world_declarations(fact.world_declarations)
 
+        # Post-processing: ensure referenced parent locations exist as entries
+        locations = self._ensure_referenced_locations(locations, world_declarations)
+
         # Post-processing: remove location names incorrectly placed in characters
         characters = self._remove_locations_from_characters(characters, locations)
 
@@ -375,6 +378,83 @@ class FactValidator:
                     char_names.add(name)
                     logger.debug("Auto-added character from relationship: %s", name)
         return characters
+
+    def _ensure_referenced_locations(
+        self,
+        locations: list,
+        world_declarations: list[WorldDeclaration],
+    ) -> list:
+        """Auto-create LocationFact entries for parent refs and world_declaration names
+        that don't already exist in the locations list.
+
+        This fixes a common LLM extraction gap: the model references locations like
+        东胜神洲 as a parent field or in region_division children, but doesn't create
+        standalone location entries for them.
+        """
+        from src.models.chapter_fact import LocationFact
+
+        existing_names = {loc.name for loc in locations}
+        to_add: dict[str, LocationFact] = {}  # name -> LocationFact
+
+        # 1. Collect parent references from existing locations
+        for loc in locations:
+            parent = loc.parent
+            if parent and parent.strip() and parent not in existing_names and parent not in to_add:
+                to_add[parent] = LocationFact(
+                    name=parent,
+                    type="区域",
+                    description="",
+                )
+                logger.debug("Auto-adding parent location: %s (referenced by %s)", parent, loc.name)
+
+        # 2. Collect location names from world_declarations
+        for decl in world_declarations:
+            content = decl.content
+            if decl.declaration_type == "region_division":
+                # children are region names
+                for child in content.get("children", []):
+                    child = child.strip()
+                    if child and child not in existing_names and child not in to_add:
+                        to_add[child] = LocationFact(
+                            name=child,
+                            type="区域",
+                            parent=content.get("parent"),
+                            description="",
+                        )
+                        logger.debug("Auto-adding location from region_division: %s", child)
+                # parent of division
+                div_parent = content.get("parent", "")
+                if div_parent and div_parent.strip():
+                    div_parent = div_parent.strip()
+                    if div_parent not in existing_names and div_parent not in to_add:
+                        to_add[div_parent] = LocationFact(
+                            name=div_parent,
+                            type="区域",
+                            description="",
+                        )
+                        logger.debug("Auto-adding location from region_division parent: %s", div_parent)
+            elif decl.declaration_type == "portal":
+                # source_location and target_location
+                for key in ("source_location", "target_location"):
+                    loc_name = content.get(key, "")
+                    if loc_name and loc_name.strip():
+                        loc_name = loc_name.strip()
+                        if loc_name not in existing_names and loc_name not in to_add:
+                            to_add[loc_name] = LocationFact(
+                                name=loc_name,
+                                type="地点",
+                                description="",
+                            )
+                            logger.debug("Auto-adding location from portal: %s", loc_name)
+
+        if to_add:
+            locations = locations + list(to_add.values())
+            logger.info(
+                "Auto-added %d referenced locations: %s",
+                len(to_add),
+                ", ".join(to_add.keys()),
+            )
+        return locations
 
     def _validate_world_declarations(
         self, declarations: list[WorldDeclaration]

@@ -349,5 +349,246 @@
         "confidence": "high"
       }
     ]
+  },
+  {
+    "_comment": "示例4：展示古典小说的世界观声明、种族角色、丰富地点提取",
+    "chapter_id": 1,
+    "novel_id": "classical_example",
+    "characters": [
+      {
+        "name": "石猴",
+        "new_aliases": ["美猴王"],
+        "appearance": "目运两道金光，射冲斗府",
+        "abilities_gained": [],
+        "locations_in_chapter": ["花果山", "水帘洞"]
+      },
+      {
+        "name": "赤尻马猴",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["花果山"]
+      },
+      {
+        "name": "通背猿猴",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["花果山"]
+      },
+      {
+        "name": "玉皇大帝",
+        "new_aliases": ["玉帝"],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["灵霄宝殿"]
+      },
+      {
+        "name": "千里眼",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["南天门"]
+      },
+      {
+        "name": "顺风耳",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["南天门"]
+      }
+    ],
+    "relationships": [
+      {
+        "person_a": "石猴",
+        "person_b": "赤尻马猴",
+        "relation_type": "君臣",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "众猴拜石猴为王，赤尻马猴等为臣"
+      },
+      {
+        "person_a": "石猴",
+        "person_b": "通背猿猴",
+        "relation_type": "君臣",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "众猴拜石猴为王，通背猿猴等为臣"
+      },
+      {
+        "person_a": "玉皇大帝",
+        "person_b": "千里眼",
+        "relation_type": "君臣",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "玉帝差千里眼、顺风耳开南天门观看"
+      },
+      {
+        "person_a": "玉皇大帝",
+        "person_b": "顺风耳",
+        "relation_type": "君臣",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "玉帝差千里眼、顺风耳开南天门观看"
+      }
+    ],
+    "locations": [
+      {
+        "name": "东胜神洲",
+        "type": "大洲",
+        "parent": null,
+        "description": "四大部洲之一，位于东方"
+      },
+      {
+        "name": "西牛贺洲",
+        "type": "大洲",
+        "parent": null,
+        "description": "四大部洲之一，位于西方"
+      },
+      {
+        "name": "南赡部洲",
+        "type": "大洲",
+        "parent": null,
+        "description": "四大部洲之一，位于南方"
+      },
+      {
+        "name": "北俱芦洲",
+        "type": "大洲",
+        "parent": null,
+        "description": "四大部洲之一，位于北方"
+      },
+      {
+        "name": "傲来国",
+        "type": "国家",
+        "parent": "东胜神洲",
+        "description": "海外国土，国近大海"
+      },
+      {
+        "name": "花果山",
+        "type": "山",
+        "parent": "傲来国",
+        "description": "十洲之祖脉，三岛之来龙，海中仙山"
+      },
+      {
+        "name": "水帘洞",
+        "type": "洞府",
+        "parent": "花果山",
+        "description": "花果山瀑布后的天然洞府，铁板桥下有天造地设的家当"
+      },
+      {
+        "name": "灵霄宝殿",
+        "type": "宫殿",
+        "parent": null,
+        "description": "天庭玉帝理政之处"
+      },
+      {
+        "name": "南天门",
+        "type": "城门",
+        "parent": null,
+        "description": "天庭入口之一"
+      }
+    ],
+    "spatial_relationships": [
+      {
+        "source": "花果山",
+        "target": "傲来国",
+        "relation_type": "adjacent",
+        "value": "adjacent",
+        "confidence": "high",
+        "narrative_evidence": "国近大海，海中有一座山，唤为花果山"
+      },
+      {
+        "source": "傲来国",
+        "target": "东胜神洲",
+        "relation_type": "contains",
+        "value": "傲来国在东胜神洲海外",
+        "confidence": "high",
+        "narrative_evidence": "海外有一国土，名曰傲来国"
+      },
+      {
+        "source": "水帘洞",
+        "target": "花果山",
+        "relation_type": "contains",
+        "value": "水帘洞位于花果山瀑布内",
+        "confidence": "high",
+        "narrative_evidence": "花果山上有一水帘洞"
+      }
+    ],
+    "item_events": [],
+    "org_events": [],
+    "events": [
+      {
+        "summary": "仙石迸裂化为石猴，目运金光惊动天庭",
+        "type": "其他",
+        "importance": "high",
+        "participants": ["石猴", "玉皇大帝", "千里眼", "顺风耳"],
+        "location": "花果山"
+      },
+      {
+        "summary": "石猴跳入瀑布发现水帘洞，众猴拜其为美猴王",
+        "type": "社交",
+        "importance": "high",
+        "participants": ["石猴", "赤尻马猴", "通背猿猴"],
+        "location": "水帘洞"
+      }
+    ],
+    "new_concepts": [],
+    "world_declarations": [
+      {
+        "declaration_type": "region_division",
+        "content": {
+          "parent": "世界",
+          "children": ["东胜神洲", "西牛贺洲", "南赡部洲", "北俱芦洲"],
+          "division_basis": "方位"
+        },
+        "narrative_evidence": "世界之间遂分为四大部洲：曰东胜神洲曰西牛贺洲曰南赡部洲曰北俱芦洲",
+        "confidence": "high"
+      },
+      {
+        "declaration_type": "region_position",
+        "content": {
+          "region_name": "东胜神洲",
+          "direction": "east"
+        },
+        "narrative_evidence": "东胜神洲",
+        "confidence": "high"
+      },
+      {
+        "declaration_type": "region_position",
+        "content": {
+          "region_name": "西牛贺洲",
+          "direction": "west"
+        },
+        "narrative_evidence": "西牛贺洲",
+        "confidence": "high"
+      },
+      {
+        "declaration_type": "region_position",
+        "content": {
+          "region_name": "南赡部洲",
+          "direction": "south"
+        },
+        "narrative_evidence": "南赡部洲",
+        "confidence": "high"
+      },
+      {
+        "declaration_type": "region_position",
+        "content": {
+          "region_name": "北俱芦洲",
+          "direction": "north"
+        },
+        "narrative_evidence": "北俱芦洲",
+        "confidence": "high"
+      },
+      {
+        "declaration_type": "layer_exists",
+        "content": {
+          "layer_name": "天庭",
+          "layer_type": "sky"
+        },
+        "narrative_evidence": "玉帝差千里眼、顺风耳开南天门观看",
+        "confidence": "high"
+      }
+    ]
   }
 ]

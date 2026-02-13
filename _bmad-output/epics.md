@@ -1525,6 +1525,126 @@ So that 世界结构质量更高、方案更通用。
 
 ## 验证总结
 
+## Epic 8: 实体预扫描词典
+
+在小说导入后、LLM 逐章分析前，自动对全书文本进行统计扫描和 LLM 分类，生成高频实体词典，注入分析流水线提升提取质量。
+
+**依赖:** Epic 2（需要分析流水线）
+**架构文档:** `_bmad-output/entity-prescan-architecture.md`
+
+### Story 8.1: 数据模型与存储层
+
+As a 系统,
+I want 定义实体预扫描词典的数据模型并提供数据库存储,
+So that 预扫描引擎有持久化的数据基础。
+
+**Acceptance Criteria:**
+
+**Given** 系统启动
+**When** 数据库初始化
+**Then** 新增 `entity_dictionary` 表（novel_id, name, entity_type, frequency, confidence, aliases, source, sample_context）
+**And** `novels` 表新增 `prescan_status` 列
+
+**Given** EntityDictEntry 模型已定义
+**When** 调用 entity_dictionary_store.insert_batch(novel_id, entries)
+**Then** 批量插入词典条目，支持 INSERT OR REPLACE
+
+**技术说明:**
+- 新增 `backend/src/models/entity_dict.py`
+- 新增 `backend/src/db/entity_dictionary_store.py`
+- 修改 `backend/src/db/sqlite_db.py`
+- 修改 `backend/pyproject.toml` 新增 jieba 依赖
+
+---
+
+### Story 8.2: Phase 1 统计扫描引擎
+
+As a 系统,
+I want 对全书文本进行统计扫描提取高频实体候选词,
+So that 后续 LLM 分类和词典注入有准确的候选数据来源。
+
+**Acceptance Criteria:**
+
+**Given** 小说已导入（chapters 表有数据）
+**When** 调用 EntityPreScanner 的 Phase 1
+**Then** 执行 jieba 分词+词频统计、n-gram 统计、对话归属正则、章节标题提取、后缀模式匹配
+**And** 合并去重后输出候选列表
+**And** 100 万字小说扫描 ≤ 15 秒
+
+**技术说明:**
+- 新增 `backend/src/extraction/entity_pre_scanner.py`
+- jieba 使用 `asyncio.to_thread()` 包装
+
+---
+
+### Story 8.3: Phase 2 LLM 分类
+
+As a 系统,
+I want 用 LLM 对候选词进行分类和别名关联,
+So that 词典中的实体类型和别名信息更准确。
+
+**Acceptance Criteria:**
+
+**Given** Phase 1 产出候选列表
+**When** 调用 Phase 2 LLM 分类
+**Then** 取 Top-300 候选 + 上下文，单次 LLM 调用返回分类+别名组+拒绝词
+**And** LLM 失败时降级为仅 Phase 1 结果
+
+**技术说明:**
+- 新增 `backend/src/extraction/prescan_prompts.py`
+- 复用现有 `get_llm_client()` 工厂
+
+---
+
+### Story 8.4: 流水线集成
+
+As a 用户,
+I want 预扫描词典自动集成到分析流水线中,
+So that 每次分析都能利用全书实体参考信息。
+
+**Acceptance Criteria:**
+
+**Given** 小说导入确认后
+**When** confirm_import() 返回
+**Then** 自动后台触发预扫描
+
+**Given** 用户点击"开始分析"
+**When** prescan_status 不是 completed
+**Then** 等待或触发预扫描（超时 120s 后降级）
+
+**Given** ContextSummaryBuilder.build() 被调用
+**When** 词典存在
+**Then** context 末尾注入"本书高频实体参考"段落（Top-100 实体）
+
+**技术说明:**
+- 修改 `novel_service.py`、`analysis_service.py`、`context_summary_builder.py`
+
+---
+
+### Story 8.5: API 路由与注册
+
+As a 开发者/前端,
+I want 通过 REST API 查询预扫描状态和词典内容,
+So that 前端可以展示预扫描进度和词典数据。
+
+**Acceptance Criteria:**
+
+**Given** API 已注册
+**When** 调用 `POST /api/novels/{id}/prescan`
+**Then** 触发预扫描
+
+**When** 调用 `GET /api/novels/{id}/prescan`
+**Then** 返回预扫描状态和词典条目数
+
+**When** 调用 `GET /api/novels/{id}/entity-dictionary`
+**Then** 返回词典内容，支持按类型筛选
+
+**技术说明:**
+- 新增 `backend/src/api/routes/prescan.py`
+- 修改 `backend/src/api/main.py` 注册路由
+
+---
+
 ### FR 覆盖率
 
 | 模块 | FRs | 覆盖 Story |

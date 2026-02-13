@@ -113,55 +113,102 @@ export default function SettingsPage() {
               ) : envCheck ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Ollama 状态</span>
+                    <span className="text-sm">模式</span>
                     <span
                       className={cn(
                         "text-xs px-2 py-0.5 rounded-full",
-                        envCheck.ollama_running
-                          ? "bg-green-50 text-green-600 dark:bg-green-950/30"
-                          : "bg-red-50 text-red-600 dark:bg-red-950/30",
+                        envCheck.llm_provider === "openai"
+                          ? "bg-blue-50 text-blue-600 dark:bg-blue-950/30"
+                          : "bg-gray-50 text-gray-600 dark:bg-gray-950/30",
                       )}
                     >
-                      {envCheck.ollama_running ? "运行中" : "未运行"}
+                      {envCheck.llm_provider === "openai" ? "云端" : "本地"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">API 地址</span>
+                    <span className="text-sm">当前模型</span>
                     <span className="text-xs text-muted-foreground font-mono">
-                      {envCheck.ollama_url}
+                      {envCheck.llm_model}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">所需模型</span>
-                    <span
-                      className={cn(
-                        "text-xs px-2 py-0.5 rounded-full",
-                        envCheck.model_available
-                          ? "bg-green-50 text-green-600 dark:bg-green-950/30"
-                          : "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30",
-                      )}
-                    >
-                      {envCheck.required_model}{" "}
-                      {envCheck.model_available ? "已安装" : "未安装"}
-                    </span>
-                  </div>
-
-                  {envCheck.available_models.length > 0 && (
-                    <div>
-                      <span className="text-sm block mb-1.5">可用模型</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {envCheck.available_models.map((m) => (
-                          <span
-                            key={m}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-                          >
-                            {m}
-                          </span>
-                        ))}
+                  {envCheck.llm_provider === "openai" ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">API 地址</span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {envCheck.llm_base_url}
+                        </span>
                       </div>
-                    </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">API 状态</span>
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-0.5 rounded-full",
+                            envCheck.api_available
+                              ? "bg-green-50 text-green-600 dark:bg-green-950/30"
+                              : "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30",
+                          )}
+                        >
+                          {envCheck.api_available ? "已连接" : "未连接"}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Ollama 状态</span>
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-0.5 rounded-full",
+                            envCheck.ollama_running
+                              ? "bg-green-50 text-green-600 dark:bg-green-950/30"
+                              : "bg-red-50 text-red-600 dark:bg-red-950/30",
+                          )}
+                        >
+                          {envCheck.ollama_running ? "运行中" : "未运行"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">API 地址</span>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {envCheck.ollama_url}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">所需模型</span>
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-0.5 rounded-full",
+                            envCheck.model_available
+                              ? "bg-green-50 text-green-600 dark:bg-green-950/30"
+                              : "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30",
+                          )}
+                        >
+                          {envCheck.required_model}{" "}
+                          {envCheck.model_available ? "已安装" : "未安装"}
+                        </span>
+                      </div>
+
+                      {(envCheck.available_models?.length ?? 0) > 0 && (
+                        <div>
+                          <span className="text-sm block mb-1.5">可用模型</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {envCheck.available_models!.map((m) => (
+                              <span
+                                key={m}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                              >
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div className="pt-2">
@@ -171,7 +218,7 @@ export default function SettingsPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-red-600">无法连接到 Ollama</p>
+                <p className="text-sm text-red-600">无法获取 LLM 状态</p>
               )}
             </div>
           </section>

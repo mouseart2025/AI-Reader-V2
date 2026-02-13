@@ -19,6 +19,7 @@ from src.api.routes import (
     encyclopedia,
     export_import,
     world_structure,
+    prescan,
 )
 from src.api.websocket import analysis_ws, chat_ws
 
@@ -55,6 +56,7 @@ app.include_router(settings.router)
 app.include_router(encyclopedia.router)
 app.include_router(export_import.router)
 app.include_router(world_structure.router)
+app.include_router(prescan.router)
 
 # WebSocket routes
 app.include_router(analysis_ws.router)
@@ -63,4 +65,9 @@ app.include_router(chat_ws.router)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    from src.infra.config import LLM_PROVIDER, get_model_name
+    return {
+        "status": "ok",
+        "llm_provider": LLM_PROVIDER,
+        "llm_model": get_model_name(),
+    }

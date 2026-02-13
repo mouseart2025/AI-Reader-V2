@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   ConfirmImportRequest,
   Conversation,
+  EntityDictionaryResponse,
   EntitySummary,
   EnvironmentCheck,
   ImportPreview,
@@ -14,6 +15,7 @@ import type {
   Novel,
   NovelsListResponse,
   OverrideType,
+  PrescanStatusResponse,
   ReSplitRequest,
   SplitModesResponse,
   UploadPreviewResponse,
@@ -274,6 +276,32 @@ export function clearAnalysisData(
   novelId: string,
 ): Promise<{ ok: boolean; message: string }> {
   return apiFetch(`/novels/${novelId}/analysis`, { method: "DELETE" })
+}
+
+// ── Prescan Dictionary ──────────────────────────
+
+export function fetchPrescanStatus(
+  novelId: string,
+): Promise<PrescanStatusResponse> {
+  return apiFetch<PrescanStatusResponse>(`/novels/${novelId}/prescan`)
+}
+
+export function triggerPrescan(
+  novelId: string,
+): Promise<{ status: string }> {
+  return apiFetch(`/novels/${novelId}/prescan`, { method: "POST" })
+}
+
+export function fetchEntityDictionary(
+  novelId: string,
+  type?: string,
+  limit?: number,
+): Promise<EntityDictionaryResponse> {
+  const parts: string[] = []
+  if (type) parts.push(`type=${encodeURIComponent(type)}`)
+  if (limit != null) parts.push(`limit=${limit}`)
+  const qs = parts.length > 0 ? `?${parts.join("&")}` : ""
+  return apiFetch<EntityDictionaryResponse>(`/novels/${novelId}/entity-dictionary${qs}`)
 }
 
 // ── Chat / Conversations ─────────────────────
