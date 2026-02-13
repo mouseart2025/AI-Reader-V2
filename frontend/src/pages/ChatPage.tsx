@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import Markdown from "react-markdown"
 import { fetchNovel, exportConversationUrl } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { useChatStore } from "@/stores/chatStore"
@@ -81,9 +82,11 @@ export default function ChatPage() {
     [handleSend],
   )
 
-  // Highlight entity names in text (simple version)
-  function renderContent(text: string) {
-    return <p className="whitespace-pre-wrap">{text}</p>
+  function renderContent(text: string, role: "user" | "assistant") {
+    if (role === "user") {
+      return <p className="whitespace-pre-wrap">{text}</p>
+    }
+    return <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{text}</Markdown>
   }
 
   return (
@@ -216,7 +219,7 @@ export default function ChatPage() {
                       : "bg-muted",
                   )}
                 >
-                  {renderContent(msg.content)}
+                  {renderContent(msg.content, msg.role)}
                 </div>
               </div>
 
@@ -245,10 +248,8 @@ export default function ChatPage() {
                   <span className="text-xs text-primary">AI</span>
                 </div>
                 <div className="rounded-lg px-4 py-2.5 bg-muted">
-                  <p className="whitespace-pre-wrap">
-                    {streamingContent}
-                    <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
-                  </p>
+                  <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{streamingContent}</Markdown>
+                  <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
                 </div>
               </div>
             </div>

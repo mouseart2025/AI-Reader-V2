@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import Markdown from "react-markdown"
 import { useChatStore } from "@/stores/chatStore"
 import { cn } from "@/lib/utils"
 
@@ -202,7 +203,10 @@ export function FloatingChatPanel() {
                   : "bg-muted",
               )}
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              {msg.role === "user"
+                ? <p className="whitespace-pre-wrap">{msg.content}</p>
+                : <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{msg.content}</Markdown>
+              }
             </div>
             {msg.role === "assistant" && msg.sources.length > 0 && (
               <div className="mt-1 flex items-center gap-1 flex-wrap">
@@ -224,10 +228,8 @@ export function FloatingChatPanel() {
         {streaming && streamingContent && (
           <div className="max-w-[80%] mr-auto">
             <div className="rounded-lg px-3 py-2 bg-muted">
-              <p className="whitespace-pre-wrap text-sm">
-                {streamingContent}
-                <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
-              </p>
+              <Markdown className="prose prose-sm dark:prose-invert max-w-none break-words">{streamingContent}</Markdown>
+              <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
             </div>
           </div>
         )}
