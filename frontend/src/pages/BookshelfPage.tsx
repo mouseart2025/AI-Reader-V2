@@ -9,7 +9,7 @@ import {
   Upload,
   User,
 } from "lucide-react"
-import { fetchNovels, deleteNovel, checkEnvironment } from "@/api/client"
+import { fetchNovels, deleteNovel, checkEnvironment, fetchActiveAnalyses } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { useNovelStore } from "@/stores/novelStore"
 import { Button } from "@/components/ui/button"
@@ -82,11 +82,13 @@ function coverColor(title: string): string {
 
 function NovelCard({
   novel,
+  isAnalyzing,
   onDelete,
   onClick,
   onNavigate,
 }: {
   novel: Novel
+  isAnalyzing: boolean
   onDelete: (novel: Novel) => void
   onClick: (novel: Novel) => void
   onNavigate: (path: string) => void
@@ -99,8 +101,14 @@ function NovelCard({
       <CardHeader className="pb-0">
         {/* Book Cover */}
         <div
-          className={`bg-gradient-to-br ${coverColor(novel.title)} mb-3 flex h-36 items-center justify-center rounded-lg`}
+          className={`bg-gradient-to-br ${coverColor(novel.title)} relative mb-3 flex h-36 items-center justify-center rounded-lg`}
         >
+          {isAnalyzing && (
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
+              <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />
+              <span className="text-[10px] font-medium text-white/90">分析中</span>
+            </div>
+          )}
           <div className="px-4 text-center text-white">
             <p className="text-lg font-bold leading-tight drop-shadow">
               {novel.title}
@@ -219,6 +227,7 @@ export default function BookshelfPage() {
   const [deleting, setDeleting] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
+  const [activeAnalysisIds, setActiveAnalysisIds] = useState<Set<string>>(new Set())
 
   // Check Ollama environment on first load
   useEffect(() => {
@@ -244,8 +253,12 @@ export default function BookshelfPage() {
   const loadNovels = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await fetchNovels()
+      const [data, active] = await Promise.all([
+        fetchNovels(),
+        fetchActiveAnalyses().catch(() => ({ novel_ids: [] })),
+      ])
       setNovels(data.novels)
+      setActiveAnalysisIds(new Set(active.novel_ids))
     } catch (err) {
       console.error("Failed to load novels:", err)
     } finally {
@@ -383,6 +396,7 @@ export default function BookshelfPage() {
             <NovelCard
               key={novel.id}
               novel={novel}
+              isAnalyzing={activeAnalysisIds.has(novel.id)}
               onDelete={setDeleteTarget}
               onClick={handleClick}
               onNavigate={(path) => navigate(path)}

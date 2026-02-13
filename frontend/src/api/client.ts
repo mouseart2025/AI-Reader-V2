@@ -278,6 +278,10 @@ export function clearAnalysisData(
   return apiFetch(`/novels/${novelId}/analysis`, { method: "DELETE" })
 }
 
+export function fetchActiveAnalyses(): Promise<{ novel_ids: string[] }> {
+  return apiFetch(`/analysis/active`)
+}
+
 // ── Prescan Dictionary ──────────────────────────
 
 export function fetchPrescanStatus(
