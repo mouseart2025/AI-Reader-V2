@@ -71,7 +71,7 @@ class ContextSummaryBuilder:
         _is_cloud = LLM_PROVIDER == "openai"
         char_limit = 60 if _is_cloud else 30
         rel_limit = 40 if _is_cloud else 20
-        loc_limit = 40 if _is_cloud else 20
+        loc_limit = 80 if _is_cloud else 30
         item_limit = 30 if _is_cloud else 15
 
         if characters:
@@ -92,7 +92,10 @@ class ContextSummaryBuilder:
             sections.append("\n".join(lines))
 
         if locations:
-            lines = ["### 已知地点"]
+            lines = [
+                "### 已知地点",
+                '（如果本章出现"小城""那座山""此地"等泛称，且上下文明确指代以下某个地名，请直接使用该地名，不要将泛称作为独立地点提取）',
+            ]
             for name, info in list(locations.items())[:loc_limit]:
                 desc = f"- {name} ({info['type']})"
                 if info.get("parent"):
@@ -178,24 +181,29 @@ class ContextSummaryBuilder:
     def _aggregate_locations(
         self, all_facts: list[ChapterFact], recent_facts: list[ChapterFact]
     ) -> dict[str, dict]:
-        """Aggregate location info."""
+        """Aggregate ALL known locations with mention counts.
+
+        Unlike characters/items which are filtered to the recent window,
+        locations use the full history to enable coreference resolution
+        (e.g., "小城" in chapter 50 → "青牛镇" from chapter 3).
+        Sorted by mention count descending so the most important locations
+        appear first within the token budget.
+        """
         locs: dict[str, dict] = {}
+        mention_counts: dict[str, int] = {}
         for fact in all_facts:
             for loc in fact.locations:
+                mention_counts[loc.name] = mention_counts.get(loc.name, 0) + 1
                 if loc.name not in locs:
                     locs[loc.name] = {"type": loc.type, "parent": loc.parent}
                 elif loc.parent and not locs[loc.name].get("parent"):
                     locs[loc.name]["parent"] = loc.parent
 
-        # Filter to recently mentioned locations
-        recent_loc_names = set()
-        for fact in recent_facts:
-            for loc in fact.locations:
-                recent_loc_names.add(loc.name)
-            for ch in fact.characters:
-                recent_loc_names.update(ch.locations_in_chapter)
-
-        return {name: info for name, info in locs.items() if name in recent_loc_names}
+        # Sort by mention count descending
+        sorted_locs = dict(
+            sorted(locs.items(), key=lambda x: mention_counts.get(x[0], 0), reverse=True)
+        )
+        return sorted_locs
 
     def _aggregate_items(
         self, all_facts: list[ChapterFact], recent_facts: list[ChapterFact]

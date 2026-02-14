@@ -72,7 +72,7 @@ _MIN_PROLOGUE_CHARS = 100  # Minimum chars to keep a prologue
 
 # Volume/part markers — detected as secondary markers within chapter content
 _VOLUME_PATTERN = re.compile(
-    r"^\s*第[零〇一二两三四五六七八九十百千万\d]+[卷部集][\s：:]*(.*)$",
+    r"^\s*(?:#{1,3}\s+)?第[零〇一二两三四五六七八九十百千万\d]+[卷部集][\s：:]*(.*)$",
     re.MULTILINE,
 )
 
@@ -104,7 +104,10 @@ def split_chapters(text: str, mode: str | None = None, custom_regex: str | None 
             ]
         matches = list(pattern.finditer(text))
         if len(matches) >= 2:
-            return _split_by_matches(text, "custom", matches)
+            chapters = _split_by_matches(text, "custom", matches)
+            _assign_volumes(text, chapters)
+            _detect_volume_resets(chapters)
+            return chapters
         return [
             ChapterInfo(
                 chapter_num=1, title="全文",
@@ -118,7 +121,10 @@ def split_chapters(text: str, mode: str | None = None, custom_regex: str | None 
             if mode_name == mode:
                 matches = list(pattern.finditer(text))
                 if len(matches) >= 2:
-                    return _split_by_matches(text, mode_name, matches)
+                    chapters = _split_by_matches(text, mode_name, matches)
+                    _assign_volumes(text, chapters)
+                    _detect_volume_resets(chapters)
+                    return chapters
                 return [
                     ChapterInfo(
                         chapter_num=1, title="全文",
@@ -151,6 +157,7 @@ def split_chapters(text: str, mode: str | None = None, custom_regex: str | None 
 
     chapters = _split_by_matches(text, best_mode, best_matches)
     _assign_volumes(text, chapters)
+    _detect_volume_resets(chapters)
     return chapters
 
 
@@ -260,3 +267,40 @@ def _assign_volumes(text: str, chapters: list[ChapterInfo]) -> None:
         if cleaned != ch.content:
             ch.content = cleaned
             ch.word_count = len(cleaned)
+
+
+# Pattern for extracting chapter numbers from titles (e.g., "第一章", "第3回")
+_CH_NUM_PATTERN = re.compile(r"第([零〇一二两三四五六七八九十百千万\d]+)[章回节]")
+
+
+def _detect_volume_resets(chapters: list[ChapterInfo]) -> None:
+    """Infer volume boundaries when chapter numbers reset.
+
+    Only runs when _assign_volumes() found no volume markers.
+    Detects repeated chapter labels (e.g., two "第一章") as volume boundaries.
+    """
+    if not chapters:
+        return
+    # Skip if any chapter already has volume info
+    if any(ch.volume_num is not None for ch in chapters):
+        return
+
+    seen_labels: set[str] = set()
+    vol_num = 1
+
+    for ch in chapters:
+        m = _CH_NUM_PATTERN.search(ch.title)
+        if not m:
+            continue
+        ch_label = m.group(0)  # e.g., "第一章"
+        if ch_label in seen_labels:
+            # Chapter number repeated → new volume starts
+            vol_num += 1
+            seen_labels.clear()
+        seen_labels.add(ch_label)
+        ch.volume_num = vol_num
+
+    # Only keep volume info if we actually found multiple volumes
+    if vol_num <= 1:
+        for ch in chapters:
+            ch.volume_num = None

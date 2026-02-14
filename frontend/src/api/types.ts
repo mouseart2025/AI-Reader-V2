@@ -221,6 +221,7 @@ export interface MapLayerInfo {
   layer_type: LayerType
   location_count: number
   region_count: number
+  merged?: boolean
 }
 
 export interface PortalInfo {
@@ -289,7 +290,19 @@ export interface MapData {
   world_structure?: { layers: MapLayerInfo[] }
   layer_layouts?: Record<string, MapLayoutItem[]>
   spatial_scale?: string
-  canvas_size?: number
+  canvas_size?: { width: number; height: number }
+  geography_context?: GeographyChapter[]
+}
+
+export interface GeographyEntry {
+  type: "location" | "spatial"
+  name: string
+  text: string
+}
+
+export interface GeographyChapter {
+  chapter: number
+  entries: GeographyEntry[]
 }
 
 // ── World Structure Overrides ─────────────────

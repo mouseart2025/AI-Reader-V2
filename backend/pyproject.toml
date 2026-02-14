@@ -1,6 +1,6 @@
 [project]
 name = "ai-reader-v2-backend"
-version = "0.10.0"
+version = "0.11.0"
 description = "AI Reader V2 Backend - Novel analysis with local LLM"
 readme = "README.md"
 requires-python = ">=3.9"

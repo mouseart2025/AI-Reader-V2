@@ -7,9 +7,11 @@ import { useEntityCardStore } from "@/stores/entityCardStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
 import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
+import { GeographyPanel } from "@/components/visualization/GeographyPanel"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
+import { Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ICON_LEGEND: { icon: string; label: string }[] = [
@@ -53,6 +55,9 @@ export default function MapPage() {
 
   // Legend state
   const [legendOpen, setLegendOpen] = useState(false)
+
+  // Geography panel
+  const [showGeoPanel, setShowGeoPanel] = useState(false)
 
   // Trajectory state
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
@@ -337,6 +342,12 @@ export default function MapPage() {
               onPortalClick={handlePortalClick}
             />
           )}
+
+          <GeographyPanel
+            context={mapData?.geography_context ?? []}
+            visible={showGeoPanel}
+            onClose={() => setShowGeoPanel(false)}
+          />
         </div>
 
         {/* Right: Trajectory panel */}
@@ -344,13 +355,23 @@ export default function MapPage() {
           <div className="p-3">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">人物轨迹</h3>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => setEditorOpen(true)}
-              >
-                编辑世界
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant={showGeoPanel ? "default" : "outline"}
+                  size="xs"
+                  onClick={() => setShowGeoPanel((v) => !v)}
+                >
+                  <Globe className="h-3 w-3 mr-1" />
+                  地理
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => setEditorOpen(true)}
+                >
+                  编辑世界
+                </Button>
+              </div>
             </div>
 
             {personList.length === 0 && (

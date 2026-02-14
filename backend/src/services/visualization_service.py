@@ -15,7 +15,8 @@ from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
 from src.db import world_structure_store
 from src.services.map_layout_service import (
-    CANVAS_SIZE,
+    CANVAS_HEIGHT,
+    CANVAS_WIDTH,
     SPATIAL_SCALE_CANVAS,
     ConstraintSolver,
     _layout_regions,
@@ -415,6 +416,32 @@ async def get_map_data(
                     "is_bidirectional": p.is_bidirectional,
                 })
 
+            # Auto-generate portal entries for merged layers (≤1 location)
+            _existing_portal_targets = {p["target_layer"] for p in portals_response}
+            for layer_info in ws_summary["layers"]:
+                if not layer_info.get("merged"):
+                    continue
+                if layer_info["layer_id"] in _existing_portal_targets:
+                    continue  # already has a portal
+                if layer_info["location_count"] < 1:
+                    continue
+                # Find the single location in this layer
+                loc_name = next(
+                    (name for name, lid in ws.location_layer_map.items()
+                     if lid == layer_info["layer_id"]),
+                    None,
+                )
+                if loc_name:
+                    portals_response.append({
+                        "name": f"进入{layer_info['name']}",
+                        "source_layer": "overworld",
+                        "source_location": loc_name,
+                        "target_layer": layer_info["layer_id"],
+                        "target_layer_name": layer_info["name"],
+                        "target_location": loc_name,
+                        "is_bidirectional": True,
+                    })
+
             # Get regions from the active layer (default: overworld)
             target_layer_id = layer_id or "overworld"
             active_regions = []
@@ -432,11 +459,13 @@ async def get_map_data(
 
             if active_regions:
                 # Dynamic canvas size for region layout
-                _ws_cs = SPATIAL_SCALE_CANVAS.get(ws.spatial_scale or "", CANVAS_SIZE)
-                region_layout = _layout_regions(active_regions, canvas_size=_ws_cs)
+                _ws_cw, _ws_ch = SPATIAL_SCALE_CANVAS.get(
+                    ws.spatial_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+                )
+                region_layout = _layout_regions(active_regions, canvas_width=_ws_cw, canvas_height=_ws_ch)
 
                 # Generate Voronoi polygon boundaries
-                voronoi_result = generate_voronoi_boundaries(region_layout, canvas_size=_ws_cs)
+                voronoi_result = generate_voronoi_boundaries(region_layout, canvas_width=_ws_cw, canvas_height=_ws_ch)
 
                 # Build region_boundaries for API response (polygon + center)
                 for rname, rdata in voronoi_result.items():
@@ -456,8 +485,10 @@ async def get_map_data(
 
     # ── Layout computation with caching ──
     _ws_scale_for_hash = ws.spatial_scale if ws else None
-    _canvas_for_hash = SPATIAL_SCALE_CANVAS.get(_ws_scale_for_hash or "", CANVAS_SIZE)
-    ch_hash = compute_chapter_hash(chapter_start, chapter_end, _canvas_for_hash)
+    _cw_hash, _ch_hash = SPATIAL_SCALE_CANVAS.get(
+        _ws_scale_for_hash or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+    )
+    ch_hash = compute_chapter_hash(chapter_start, chapter_end, _cw_hash, _ch_hash)
     target_layer = layer_id or "overworld"
 
     # Try layer-level cache first
@@ -511,9 +542,32 @@ async def get_map_data(
     except Exception:
         logger.warning("Failed to load revealed location names", exc_info=True)
 
+    # ── Geography context: location descriptions + spatial evidence ──
+    geo_context: list[dict] = []
+    for fact in facts:
+        entries: list[dict] = []
+        for loc in fact.locations:
+            if loc.description:
+                entries.append({
+                    "type": "location",
+                    "name": loc.name,
+                    "text": loc.description,
+                })
+        for sr in fact.spatial_relationships:
+            if sr.narrative_evidence:
+                entries.append({
+                    "type": "spatial",
+                    "name": f"{sr.source} → {sr.target}",
+                    "text": sr.narrative_evidence,
+                })
+        if entries:
+            geo_context.append({"chapter": fact.chapter_id, "entries": entries})
+
     # Compute canvas_size for API response
     _ws_scale = ws.spatial_scale if ws else None
-    _canvas_size = SPATIAL_SCALE_CANVAS.get(_ws_scale or "", CANVAS_SIZE) if ws else CANVAS_SIZE
+    _resp_cw, _resp_ch = SPATIAL_SCALE_CANVAS.get(
+        _ws_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+    ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
 
     result: dict = {
         "locations": locations,
@@ -526,7 +580,8 @@ async def get_map_data(
         "portals": portals_response,
         "revealed_location_names": revealed_names,
         "spatial_scale": _ws_scale,
-        "canvas_size": _canvas_size,
+        "canvas_size": {"width": _resp_cw, "height": _resp_ch},
+        "geography_context": geo_context,
     }
 
     # Include world_structure summary and layer_layouts when no specific layer requested
@@ -546,12 +601,18 @@ def _build_ws_summary(ws) -> dict:
             1 for lid in ws.location_layer_map.values()
             if lid == layer.layer_id
         )
+        # Merge layers with ≤1 location into the main world (except overworld)
+        merged = (
+            layer.layer_id != "overworld"
+            and loc_count <= 1
+        )
         layer_summaries.append({
             "layer_id": layer.layer_id,
             "name": layer.name,
             "layer_type": layer.layer_type.value if hasattr(layer.layer_type, "value") else str(layer.layer_type),
             "location_count": loc_count,
             "region_count": len(layer.regions),
+            "merged": merged,
         })
     return {"layers": layer_summaries}
 

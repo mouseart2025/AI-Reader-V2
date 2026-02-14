@@ -63,7 +63,7 @@ AI-Reader-V2/
 │       │   ├── ui/                 # shadcn/ui base components
 │       │   ├── shared/             # Reusable components (UploadDialog, etc.)
 │       │   ├── entity-cards/       # Entity card drawer system
-│       │   ├── visualization/      # Graph, map, timeline components
+│       │   ├── visualization/      # Graph, map, timeline, geography panel components
 │       │   └── chat/               # Chat UI components
 │       ├── stores/                 # Zustand stores (7 stores)
 │       ├── api/                    # REST client + types
@@ -91,6 +91,16 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 ### Entity Alias Resolution
 
 `AliasResolver` (`alias_resolver.py`) — builds `alias → canonical_name` mapping using Union-Find to merge overlapping alias groups. Primary source: `entity_dictionary.aliases` (pre-scan). Fallback: `ChapterFact.characters[].new_aliases` (per-chapter extraction). Canonical = highest frequency in each group. The mapping is consumed by `entity_aggregator` (merge entity lists/profiles across aliases), `visualization_service` (merge graph/faction nodes), and the entities API (resolve alias queries). Frontend receives `alias_map` from the entities endpoint to highlight all aliases and resolve clicks to canonical names.
+
+**Unsafe alias filtering**: `_is_unsafe_alias()` prevents contextual terms (kinship: 大哥/妈妈, generic: 老人/少年, titles: 堂主/长老, possessive phrases with 的, length > 8) from being used as Union-Find keys — these create false bridges merging unrelated character groups.
+
+### Fact Validation — Morphological Filtering
+
+`FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with 10 structural rules based on Chinese place name morphology (专名+通名 structure) instead of exhaustive blocklists. Person validation uses `_is_generic_person()` to filter pure titles and generic references. See `_bmad-output/spatial-entity-quality-research.md` for the research basis.
+
+### Context Summary Builder — Coreference Resolution
+
+`ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations (sorted by mention frequency, not just recent window) with an explicit coreference instruction, enabling the LLM to resolve anaphoric references like "小城" → "青牛镇" instead of extracting them as separate locations.
 
 ### Two Databases Only
 
