@@ -137,7 +137,7 @@ export function saveUserState(
 export function fetchEntities(
   novelId: string,
   type?: string,
-): Promise<{ entities: EntitySummary[] }> {
+): Promise<{ entities: EntitySummary[]; alias_map: Record<string, string> }> {
   const params = type ? `?type=${type}` : ""
   return apiFetch(`/novels/${novelId}/entities${params}`)
 }

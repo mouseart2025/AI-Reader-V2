@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react"
 import { fetchEntityProfile } from "@/api/client"
 import type { EntityProfile, EntityType } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
+import { useReadingStore } from "@/stores/readingStore"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { PersonCard } from "./PersonCard"
@@ -28,18 +29,20 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     closeConceptPopup,
   } = useEntityCardStore()
 
+  const aliasMap = useReadingStore((s) => s.aliasMap)
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1]
 
-  // Fetch profile when breadcrumbs change
+  // Fetch profile when breadcrumbs change (resolve alias to canonical name)
   useEffect(() => {
     if (!open || !currentCrumb) return
     let cancelled = false
 
     async function load() {
       try {
+        const resolvedName = aliasMap[currentCrumb.name] ?? currentCrumb.name
         const data = await fetchEntityProfile(
           novelId,
-          currentCrumb.name,
+          resolvedName,
           currentCrumb.type,
         )
         if (!cancelled) {
@@ -54,7 +57,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => {
       cancelled = true
     }
-  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, setProfile, setLoading])
+  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, setProfile, setLoading])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {

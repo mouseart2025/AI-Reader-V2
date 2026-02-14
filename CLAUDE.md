@@ -45,7 +45,7 @@ AI-Reader-V2/
 │       │   ├── main.py             # FastAPI app entry, CORS, lifespan
 │       │   ├── routes/             # REST endpoints (15 routers)
 │       │   └── websocket/          # WS handlers (analysis progress, chat streaming)
-│       ├── services/               # Business logic (11 services)
+│       ├── services/               # Business logic (12 services)
 │       ├── extraction/             # LLM fact extraction + entity pre-scan pipeline
 │       │   ├── entity_pre_scanner.py  # jieba stats + LLM classification
 │       │   └── prompts/            # System prompt + few-shot examples
@@ -87,6 +87,10 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 ### Analysis Pipeline
 
 `AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU).
+
+### Entity Alias Resolution
+
+`AliasResolver` (`alias_resolver.py`) — builds `alias → canonical_name` mapping using Union-Find to merge overlapping alias groups. Primary source: `entity_dictionary.aliases` (pre-scan). Fallback: `ChapterFact.characters[].new_aliases` (per-chapter extraction). Canonical = highest frequency in each group. The mapping is consumed by `entity_aggregator` (merge entity lists/profiles across aliases), `visualization_service` (merge graph/faction nodes), and the entities API (resolve alias queries). Frontend receives `alias_map` from the entities endpoint to highlight all aliases and resolve clicks to canonical names.
 
 ### Two Databases Only
 

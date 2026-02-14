@@ -16,6 +16,7 @@ interface GraphNode {
   type: string
   chapter_count: number
   org: string
+  aliases?: string[]
   x?: number
   y?: number
 }
@@ -423,9 +424,10 @@ export default function GraphPage() {
           graphData={graphData}
           width={dimensions.width}
           height={dimensions.height}
-          nodeLabel={(node: GraphNode) =>
-            `${node.name} (${node.chapter_count}章${node.org ? ` · ${node.org}` : ""})`
-          }
+          nodeLabel={(node: GraphNode) => {
+            const aliasStr = node.aliases?.length ? ` (${node.aliases.join("/")})` : ""
+            return `${node.name}${aliasStr} — ${node.chapter_count}章${node.org ? ` · ${node.org}` : ""}`
+          }}
           nodeVal={(node: GraphNode) => Math.max(2, Math.sqrt(node.chapter_count) * 2)}
           nodeColor={(node: GraphNode) => {
             // Path highlight takes priority
