@@ -233,7 +233,8 @@ export interface PortalInfo {
 export interface RegionBoundary {
   region_name: string
   color: string
-  bounds: { x1: number; y1: number; x2: number; y2: number }
+  polygon: [number, number][]
+  center: [number, number]
 }
 
 export interface MapLocation {
@@ -243,6 +244,8 @@ export interface MapLocation {
   parent: string | null
   level: number
   mention_count: number
+  tier?: string    // "world" | "continent" | "kingdom" | "region" | "city" | "site" | "building"
+  icon?: string    // "city" | "mountain" | "cave" | "temple" | "generic" | ...
 }
 
 export interface MapLayoutItem {
@@ -282,6 +285,8 @@ export interface MapData {
   revealed_location_names?: string[]
   world_structure?: { layers: MapLayerInfo[] }
   layer_layouts?: Record<string, MapLayoutItem[]>
+  spatial_scale?: string
+  canvas_size?: number
 }
 
 // ── World Structure Overrides ─────────────────

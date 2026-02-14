@@ -22,8 +22,12 @@ from src.infra.config import LLM_PROVIDER
 from src.infra.llm_client import LLMClient, get_llm_client
 from src.models.chapter_fact import ChapterFact
 from src.services.location_hint_service import extract_direction_hint
+from collections import Counter
+
 from src.models.world_structure import (
     LayerType,
+    LocationIcon,
+    LocationTier,
     MapLayer,
     Portal,
     WorldBuildingSignal,
@@ -124,7 +128,9 @@ _LLM_OUTPUT_SCHEMA: dict = {
                         "type": "string",
                         "enum": [
                             "ADD_REGION", "ADD_LAYER", "ADD_PORTAL",
-                            "ASSIGN_LOCATION", "UPDATE_REGION", "NO_CHANGE",
+                            "ASSIGN_LOCATION", "UPDATE_REGION",
+                            "SET_TIER", "SET_ICON",
+                            "NO_CHANGE",
                         ],
                     },
                     "layer_id": {"type": "string"},
@@ -140,6 +146,8 @@ _LLM_OUTPUT_SCHEMA: dict = {
                     "is_bidirectional": {"type": "boolean"},
                     "location_name": {"type": "string"},
                     "region_name": {"type": "string"},
+                    "tier": {"type": "string"},
+                    "icon": {"type": "string"},
                 },
                 "required": ["op"],
             },
@@ -199,6 +207,16 @@ class WorldStructureAgent:
             # Genre detection on early chapters
             if chapter_num <= 10 and self.structure is not None:
                 self._detect_genre(chapter_text, fact)
+
+            # Spatial scale detection after first 5 chapters
+            if (
+                chapter_num == 5
+                and self.structure is not None
+                and self.structure.spatial_scale is None
+            ):
+                scale = self._detect_spatial_scale()
+                self.structure.spatial_scale = scale
+                logger.info("Spatial scale detected: %s", scale)
 
             signals = self._scan_signals(chapter_num, chapter_text, fact)
             if signals:
@@ -485,6 +503,10 @@ class WorldStructureAgent:
                     self._op_assign_location(op)
                 elif op_type == "UPDATE_REGION":
                     self._op_update_region(op)
+                elif op_type == "SET_TIER":
+                    self._op_set_tier(op)
+                elif op_type == "SET_ICON":
+                    self._op_set_icon(op)
                 elif op_type == "NO_CHANGE":
                     pass
                 else:
@@ -609,6 +631,20 @@ class WorldStructureAgent:
                 if "description" in op and op["description"]:
                     region.description = op["description"]
                 return
+
+    def _op_set_tier(self, op: dict) -> None:
+        assert self.structure is not None
+        name = op.get("location_name", "")
+        tier = op.get("tier", "")
+        if name and tier and tier in {t.value for t in LocationTier}:
+            self.structure.location_tiers[name] = tier
+
+    def _op_set_icon(self, op: dict) -> None:
+        assert self.structure is not None
+        name = op.get("location_name", "")
+        icon = op.get("icon", "")
+        if name and icon and icon in {i.value for i in LocationIcon}:
+            self.structure.location_icons[name] = icon
 
     # ── Signal scanning ──────────────────────────────────────────
 
@@ -809,6 +845,126 @@ class WorldStructureAgent:
             # Skip if user has an override for this location's region
             if ("location_region", name) not in self._overridden_keys:
                 self._assign_region(name, loc_type, loc.parent)
+
+            # ── Tier classification (only if not already set) ──
+            if name not in self.structure.location_tiers:
+                parent = loc.parent
+                level = 0
+                if parent and parent in self.structure.location_layer_map:
+                    level = 1  # has a parent → at least level 1
+                tier = self._classify_tier(name, loc_type, parent, level)
+                self.structure.location_tiers[name] = tier
+
+            # ── Icon classification (only if not already set) ──
+            if name not in self.structure.location_icons:
+                icon = self._classify_icon(name, loc_type)
+                self.structure.location_icons[name] = icon
+
+    @staticmethod
+    def _classify_tier(name: str, loc_type: str, parent: str | None, level: int = 0) -> str:
+        """Classify a location into a spatial tier based on name/type heuristics."""
+        # world
+        if any(kw in name for kw in ("三界", "天下")) or "世界" in loc_type:
+            return LocationTier.world.value
+        # continent
+        if any(kw in name for kw in ("洲", "大陆", "大海")) or any(
+            kw in loc_type for kw in ("洲", "域", "界")
+        ):
+            return LocationTier.continent.value
+        # kingdom
+        if any(kw in loc_type for kw in ("国", "王国")) or "国" in name:
+            return LocationTier.kingdom.value
+        # building (check before region fallback to avoid misclassification)
+        if any(kw in loc_type for kw in ("殿", "堂", "阁", "楼", "房", "室", "厅")):
+            return LocationTier.building.value
+        # site
+        if any(kw in loc_type for kw in ("洞", "穴", "桥", "渡", "关", "隘", "泉", "潭", "崖")):
+            return LocationTier.site.value
+        if level >= 2:
+            return LocationTier.site.value
+        # region — mountains, seas, sects
+        if any(kw in loc_type for kw in ("山", "海", "域", "林", "宗", "门", "派")):
+            return LocationTier.region.value
+        # city
+        if any(kw in loc_type for kw in ("城", "镇", "都", "村", "寨", "庄", "寺", "庙", "观", "庵")):
+            return LocationTier.city.value
+        # region fallback: level-0 locations that aren't kingdoms/continents
+        if level == 0 and parent is None and loc_type and not any(
+            kw in loc_type for kw in ("城", "镇", "都", "村")
+        ):
+            return LocationTier.region.value
+        # default
+        return LocationTier.city.value
+
+    @staticmethod
+    def _classify_icon(name: str, loc_type: str) -> str:
+        """Classify a location's icon type based on name/type heuristics."""
+        combined = name + loc_type
+        # cities / settlements
+        if any(kw in loc_type for kw in ("城", "镇", "都")):
+            return LocationIcon.city.value
+        if any(kw in loc_type for kw in ("村", "寨", "庄")):
+            return LocationIcon.village.value
+        if any(kw in combined for kw in ("营", "帐")):
+            return LocationIcon.camp.value
+        # nature
+        if any(kw in combined for kw in ("山", "峰", "岭", "崖")):
+            return LocationIcon.mountain.value
+        if any(kw in combined for kw in ("林", "森")):
+            return LocationIcon.forest.value
+        if any(kw in combined for kw in ("海", "河", "湖", "泉", "潭")):
+            return LocationIcon.water.value
+        if any(kw in combined for kw in ("沙", "漠", "荒")):
+            return LocationIcon.desert.value
+        # structures
+        if any(kw in combined for kw in ("寺", "庙", "观", "庵")):
+            return LocationIcon.temple.value
+        if any(kw in combined for kw in ("宫", "殿", "府")):
+            return LocationIcon.palace.value
+        if any(kw in combined for kw in ("洞", "穴")):
+            return LocationIcon.cave.value
+        if any(kw in combined for kw in ("塔", "阁", "楼")):
+            return LocationIcon.tower.value
+        if any(kw in combined for kw in ("关", "隘")):
+            return LocationIcon.gate.value
+        if any(kw in combined for kw in ("传送", "入口")):
+            return LocationIcon.portal.value
+        if any(kw in combined for kw in ("废", "墟", "遗迹")):
+            return LocationIcon.ruins.value
+        return LocationIcon.generic.value
+
+    def _detect_spatial_scale(self) -> str:
+        """Infer spatial scale from genre + location type distribution."""
+        assert self.structure is not None
+        genre = self.structure.novel_genre_hint
+        if genre == "urban":
+            return "urban"
+
+        # Check known tier distribution
+        tier_counts = Counter(self.structure.location_tiers.values())
+        has_continent = tier_counts.get("continent", 0) > 0
+        has_kingdom = tier_counts.get("kingdom", 0) > 0
+
+        # Check for multi-layer (celestial / underworld)
+        non_overworld = [l for l in self.structure.layers if l.layer_id != "overworld"]
+        has_celestial = any(l.layer_type == LayerType.sky for l in non_overworld)
+
+        if has_celestial and has_continent:
+            return "cosmic"
+        if has_continent:
+            return "continental"
+        if has_kingdom:
+            return "national"
+
+        # Genre-based fallback
+        if genre == "fantasy":
+            return "cosmic"
+        if genre == "wuxia":
+            return "national"
+        if genre == "historical":
+            return "national"
+
+        return "continental"  # safe default
 
     def _detect_layer(self, name: str, loc_type: str) -> str | None:
         """Return layer_id if the location matches celestial/underworld keywords."""
