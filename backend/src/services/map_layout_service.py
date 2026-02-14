@@ -32,18 +32,21 @@ from src.infra.config import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-# Canvas coordinate range
-CANVAS_SIZE = 1000
-CANVAS_MIN = 50  # margin (wider to leave room for non-geo zones)
-CANVAS_MAX = CANVAS_SIZE - 50
+# Canvas coordinate range (16:9 aspect ratio)
+CANVAS_WIDTH = 1600
+CANVAS_HEIGHT = 900
+CANVAS_MIN_X = 50
+CANVAS_MAX_X = CANVAS_WIDTH - 50
+CANVAS_MIN_Y = 50
+CANVAS_MAX_Y = CANVAS_HEIGHT - 50
 
-# Spatial scale → canvas size mapping
-SPATIAL_SCALE_CANVAS: dict[str, int] = {
-    "cosmic": 5000,
-    "continental": 3000,
-    "national": 2000,
-    "urban": 1000,
-    "local": 500,
+# Spatial scale → canvas size mapping (width, height) — 16:9 ratio
+SPATIAL_SCALE_CANVAS: dict[str, tuple[int, int]] = {
+    "cosmic": (8000, 4500),
+    "continental": (4800, 2700),
+    "national": (3200, 1800),
+    "urban": (1600, 900),
+    "local": (800, 450),
 }
 
 # Minimum spacing between any two locations (pixels)
@@ -78,8 +81,8 @@ _UNDERWORLD_KEYWORDS = ("地府", "冥界", "幽冥", "阴司", "阴曹", "黄�
                         "奈何桥", "阎罗殿", "森罗殿", "枉死城")
 
 # Celestial locations placed in top zone, underworld in bottom zone
-_CELESTIAL_Y_RANGE = (CANVAS_MAX - 30, CANVAS_MAX)
-_UNDERWORLD_Y_RANGE = (CANVAS_MIN, CANVAS_MIN + 30)
+_CELESTIAL_Y_RANGE = (CANVAS_MAX_Y - 30, CANVAS_MAX_Y)
+_UNDERWORLD_Y_RANGE = (CANVAS_MIN_Y, CANVAS_MIN_Y + 30)
 
 # ── Direction mapping ───────────────────────────────
 
@@ -97,14 +100,14 @@ _DIRECTION_VECTORS: dict[str, tuple[int, int]] = {
 
 # ── Region layout ─────────────────────────────────
 
-# Direction → bounding box zone (x1, y1, x2, y2) on 1000×1000 canvas.
+# Direction → bounding box zone (x1, y1, x2, y2) on 1600×900 canvas.
 # Convention: +x = east (right), +y = north (up).
 DIRECTION_ZONES: dict[str, tuple[float, float, float, float]] = {
-    "east":   (600, 200, 950, 800),
-    "west":   (50, 200, 400, 800),
-    "south":  (200, 50, 800, 350),
-    "north":  (200, 650, 800, 950),
-    "center": (300, 300, 700, 700),
+    "east":   (960, 180, 1550, 720),
+    "west":   (50, 180, 640, 720),
+    "south":  (320, 50, 1280, 315),
+    "north":  (320, 585, 1280, 850),
+    "center": (480, 270, 1120, 630),
 }
 
 # Pastel palette for region boundary rendering (direction → RGBA-like hex)
@@ -120,7 +123,8 @@ _REGION_COLOR_FALLBACK = "#999999"
 
 def _compute_region_seeds(
     regions: list[dict],
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> list[tuple[float, float]]:
     """Compute Voronoi seed points for regions based on cardinal direction hints.
 
@@ -137,8 +141,10 @@ def _compute_region_seeds(
         "center": (0.50, 0.50),
     }
 
-    margin = canvas_size * 0.08
-    usable = canvas_size - 2 * margin
+    margin_x = canvas_width * 0.08
+    margin_y = canvas_height * 0.08
+    usable_w = canvas_width - 2 * margin_x
+    usable_h = canvas_height - 2 * margin_y
 
     # Group indices by direction
     dir_groups: dict[str, list[int]] = {}
@@ -154,7 +160,7 @@ def _compute_region_seeds(
         bx, by = _DIR_BASE[direction]
         n = len(indices)
         if n == 1:
-            seeds[indices[0]] = (margin + bx * usable, margin + by * usable)
+            seeds[indices[0]] = (margin_x + bx * usable_w, margin_y + by * usable_h)
         else:
             # Spread seeds in a small arc around the base point
             spread = 0.18  # arc radius in normalized coords
@@ -165,14 +171,15 @@ def _compute_region_seeds(
                 # Clamp to [0.05, 0.95] normalized
                 ox = max(0.05, min(0.95, ox))
                 oy = max(0.05, min(0.95, oy))
-                seeds[idx] = (margin + ox * usable, margin + oy * usable)
+                seeds[idx] = (margin_x + ox * usable_w, margin_y + oy * usable_h)
 
     return seeds
 
 
 def _lloyd_relax(
     seeds: list[tuple[float, float]],
-    canvas_size: int,
+    canvas_width: int,
+    canvas_height: int,
     iterations: int = 2,
 ) -> list[tuple[float, float]]:
     """Apply Lloyd relaxation to make Voronoi cells more uniform.
@@ -183,16 +190,17 @@ def _lloyd_relax(
         return seeds
 
     pts = np.array(seeds, dtype=np.float64)
-    cs = float(canvas_size)
+    cw = float(canvas_width)
+    ch = float(canvas_height)
 
     for _ in range(iterations):
         # Mirror points across boundaries for bounded Voronoi
         mirrored = np.vstack([
             pts,
             np.column_stack([-pts[:, 0], pts[:, 1]]),
-            np.column_stack([2 * cs - pts[:, 0], pts[:, 1]]),
+            np.column_stack([2 * cw - pts[:, 0], pts[:, 1]]),
             np.column_stack([pts[:, 0], -pts[:, 1]]),
-            np.column_stack([pts[:, 0], 2 * cs - pts[:, 1]]),
+            np.column_stack([pts[:, 0], 2 * ch - pts[:, 1]]),
         ])
         vor = Voronoi(mirrored)
 
@@ -204,20 +212,25 @@ def _lloyd_relax(
                 continue
             verts = np.array([vor.vertices[vi] for vi in region])
             # Clip vertices to canvas
-            verts = np.clip(verts, 0, cs)
+            verts[:, 0] = np.clip(verts[:, 0], 0, cw)
+            verts[:, 1] = np.clip(verts[:, 1], 0, ch)
             # Compute centroid
             new_pts[i] = verts.mean(axis=0)
 
         # Clamp to canvas with margin
-        margin = cs * 0.05
-        pts = np.clip(new_pts, margin, cs - margin)
+        margin_x = cw * 0.05
+        margin_y = ch * 0.05
+        new_pts[:, 0] = np.clip(new_pts[:, 0], margin_x, cw - margin_x)
+        new_pts[:, 1] = np.clip(new_pts[:, 1], margin_y, ch - margin_y)
+        pts = new_pts
 
     return [(float(pts[i, 0]), float(pts[i, 1])) for i in range(len(seeds))]
 
 
 def _layout_regions(
     regions: list[dict],
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> dict[str, dict]:
     """Compute bounding boxes for world regions using Voronoi tessellation.
 
@@ -227,7 +240,8 @@ def _layout_regions(
 
     Args:
         regions: list of dicts with at least "name" and optional "cardinal_direction".
-        canvas_size: canvas dimension (square).
+        canvas_width: canvas width.
+        canvas_height: canvas height.
 
     Returns:
         dict mapping region name to {"bounds": (x1, y1, x2, y2), "color": str}.
@@ -236,11 +250,13 @@ def _layout_regions(
         return {}
 
     # Compute seed points and relax
-    seeds = _compute_region_seeds(regions, canvas_size)
-    seeds = _lloyd_relax(seeds, canvas_size, iterations=2)
+    seeds = _compute_region_seeds(regions, canvas_width, canvas_height)
+    seeds = _lloyd_relax(seeds, canvas_width, canvas_height, iterations=2)
 
-    cs = float(canvas_size)
-    margin = canvas_size * 0.05
+    cw = float(canvas_width)
+    ch = float(canvas_height)
+    margin_x = canvas_width * 0.05
+    margin_y = canvas_height * 0.05
 
     if len(regions) == 1:
         # Single region → full canvas
@@ -248,7 +264,7 @@ def _layout_regions(
         color = _REGION_COLORS.get(direction, _REGION_COLOR_FALLBACK)
         return {
             regions[0]["name"]: {
-                "bounds": (margin, margin, cs - margin, cs - margin),
+                "bounds": (margin_x, margin_y, cw - margin_x, ch - margin_y),
                 "color": color,
             }
         }
@@ -259,9 +275,9 @@ def _layout_regions(
     mirrored = np.vstack([
         pts,
         np.column_stack([-pts[:, 0], pts[:, 1]]),
-        np.column_stack([2 * cs - pts[:, 0], pts[:, 1]]),
+        np.column_stack([2 * cw - pts[:, 0], pts[:, 1]]),
         np.column_stack([pts[:, 0], -pts[:, 1]]),
-        np.column_stack([pts[:, 0], 2 * cs - pts[:, 1]]),
+        np.column_stack([pts[:, 0], 2 * ch - pts[:, 1]]),
     ])
     vor = Voronoi(mirrored)
 
@@ -276,13 +292,14 @@ def _layout_regions(
         if not region or -1 in region:
             # Fallback: box around seed
             sx, sy = seeds[i]
-            half = cs * 0.15
+            half_w = cw * 0.15
+            half_h = ch * 0.15
             result[r["name"]] = {
                 "bounds": (
-                    max(margin, sx - half),
-                    max(margin, sy - half),
-                    min(cs - margin, sx + half),
-                    min(cs - margin, sy + half),
+                    max(margin_x, sx - half_w),
+                    max(margin_y, sy - half_h),
+                    min(cw - margin_x, sx + half_w),
+                    min(ch - margin_y, sy + half_h),
                 ),
                 "color": color,
             }
@@ -290,18 +307,20 @@ def _layout_regions(
 
         verts = np.array([vor.vertices[vi] for vi in region])
         # Clip to canvas
-        verts = np.clip(verts, 0, cs)
+        verts[:, 0] = np.clip(verts[:, 0], 0, cw)
+        verts[:, 1] = np.clip(verts[:, 1], 0, ch)
         x1, y1 = float(verts[:, 0].min()), float(verts[:, 1].min())
         x2, y2 = float(verts[:, 0].max()), float(verts[:, 1].max())
 
         # Ensure minimum size
-        min_size = cs * 0.08
-        if x2 - x1 < min_size:
+        min_size_x = cw * 0.08
+        min_size_y = ch * 0.08
+        if x2 - x1 < min_size_x:
             cx = (x1 + x2) / 2
-            x1, x2 = cx - min_size / 2, cx + min_size / 2
-        if y2 - y1 < min_size:
+            x1, x2 = cx - min_size_x / 2, cx + min_size_x / 2
+        if y2 - y1 < min_size_y:
             cy = (y1 + y2) / 2
-            y1, y2 = cy - min_size / 2, cy + min_size / 2
+            y1, y2 = cy - min_size_y / 2, cy + min_size_y / 2
 
         result[r["name"]] = {
             "bounds": (round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)),
@@ -316,9 +335,10 @@ def _layout_regions(
 
 def _clip_polygon_to_canvas(
     polygon: list[tuple[float, float]],
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> list[tuple[float, float]]:
-    """Clip a polygon to the [0, canvas_size] rectangle using Sutherland-Hodgman."""
+    """Clip a polygon to the [0, canvas_width] x [0, canvas_height] rectangle using Sutherland-Hodgman."""
 
     def _inside(p: tuple[float, float], edge_start: tuple[float, float], edge_end: tuple[float, float]) -> bool:
         return (edge_end[0] - edge_start[0]) * (p[1] - edge_start[1]) - \
@@ -338,20 +358,14 @@ def _clip_polygon_to_canvas(
         t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
         return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
-    # Clip edges: left, bottom, right, top (counter-clockwise winding)
-    cs = float(canvas_size)
-    clip_edges = [
-        ((0.0, 0.0), (0.0, cs)),    # left
-        ((0.0, 0.0), (cs, 0.0)),    # bottom (reversed for CCW)
-        ((cs, 0.0), (cs, cs)),      # right
-        ((0.0, cs), (cs, cs)),      # top
-    ]
+    cw = float(canvas_width)
+    ch = float(canvas_height)
     # Proper CCW clip rectangle edges
     clip_edges = [
-        ((0.0, 0.0), (cs, 0.0)),    # bottom: left→right
-        ((cs, 0.0), (cs, cs)),      # right: bottom→top
-        ((cs, cs), (0.0, cs)),      # top: right→left
-        ((0.0, cs), (0.0, 0.0)),    # left: top→bottom
+        ((0.0, 0.0), (cw, 0.0)),    # bottom: left→right
+        ((cw, 0.0), (cw, ch)),      # right: bottom→top
+        ((cw, ch), (0.0, ch)),      # top: right→left
+        ((0.0, ch), (0.0, 0.0)),    # left: top→bottom
     ]
 
     output = list(polygon)
@@ -377,7 +391,8 @@ def _clip_polygon_to_canvas(
 
 def _distort_polygon_edges(
     polygon: list[tuple[float, float]],
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
     num_segments: int = 16,
     seed: int = 0,
 ) -> list[tuple[float, float]]:
@@ -396,7 +411,7 @@ def _distort_polygon_edges(
     if len(polygon) < 3:
         return polygon
 
-    amplitude = canvas_size * 0.01
+    amplitude = min(canvas_width, canvas_height) * 0.01
     noise_gen = OpenSimplex(seed=seed)
 
     result: list[tuple[float, float]] = []
@@ -460,13 +475,15 @@ def _distort_polygon_edges(
 
 def generate_voronoi_boundaries(
     region_layout: dict[str, dict],
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> dict[str, dict]:
     """Generate Voronoi polygon boundaries from region layout centers.
 
     Args:
         region_layout: Output of _layout_regions(), mapping name → {"bounds", "color"}.
-        canvas_size: Canvas dimension (square).
+        canvas_width: Canvas width.
+        canvas_height: Canvas height.
 
     Returns:
         dict mapping region name → {"polygon": [(x,y),...], "center": (cx,cy), "color": str}.
@@ -499,15 +516,16 @@ def generate_voronoi_boundaries(
 
     # Build Voronoi with mirror points to ensure edge regions are closed
     points = list(centers)
-    cs = float(canvas_size)
+    cw = float(canvas_width)
+    ch = float(canvas_height)
     n_orig = len(points)
 
     # Add 4 mirror points per seed, reflected across canvas boundaries
     for cx, cy in centers:
         points.append((-cx, cy))             # mirror across left edge
-        points.append((2 * cs - cx, cy))     # mirror across right edge
+        points.append((2 * cw - cx, cy))     # mirror across right edge
         points.append((cx, -cy))             # mirror across bottom edge
-        points.append((cx, 2 * cs - cy))     # mirror across top edge
+        points.append((cx, 2 * ch - cy))     # mirror across top edge
 
     point_arr = np.array(points, dtype=np.float64)
     vor = Voronoi(point_arr)
@@ -533,7 +551,7 @@ def generate_voronoi_boundaries(
                  for vi in region]
 
         # Clip to canvas
-        clipped = _clip_polygon_to_canvas(verts, canvas_size)
+        clipped = _clip_polygon_to_canvas(verts, canvas_width, canvas_height)
         if len(clipped) < 3:
             # Degenerate — fallback to rectangle
             rd = region_layout[name]
@@ -545,7 +563,8 @@ def generate_voronoi_boundaries(
         # an edge produce identical distortions with no gaps.
         clipped = _distort_polygon_edges(
             clipped,
-            canvas_size=canvas_size,
+            canvas_width=canvas_width,
+            canvas_height=canvas_height,
             seed=42,
         )
 
@@ -564,13 +583,13 @@ def generate_voronoi_boundaries(
 # ── Layered layout engine (Story 7.7) ─────────────
 
 
-# Canvas sizes for non-overworld layers
-_LAYER_CANVAS_SIZES: dict[str, int] = {
-    "pocket": 300,
-    "sky": 600,
-    "underground": 600,
-    "sea": 600,
-    "spirit": 400,
+# Canvas sizes for non-overworld layers (width, height) — 16:9 ratio
+_LAYER_CANVAS_SIZES: dict[str, tuple[int, int]] = {
+    "pocket": (480, 270),
+    "sky": (960, 540),
+    "underground": (960, 540),
+    "sea": (960, 540),
+    "spirit": (640, 360),
 }
 
 
@@ -623,9 +642,9 @@ def _solve_layer(
     if not locations:
         return {}
 
-    canvas_size = _LAYER_CANVAS_SIZES.get(layer_type, 400)
-    margin = max(10, canvas_size // 20)
-    bounds = (margin, margin, canvas_size - margin, canvas_size - margin)
+    layer_cw, layer_ch = _LAYER_CANVAS_SIZES.get(layer_type, (640, 360))
+    margin = max(10, min(layer_cw, layer_ch) // 20)
+    bounds = (margin, margin, layer_cw - margin, layer_ch - margin)
 
     loc_names = {loc["name"] for loc in locations}
     layer_constraints = [
@@ -712,9 +731,12 @@ def compute_layered_layout(
     location_region_map = world_structure.get("location_region_map", {})
 
     # Dynamic canvas size for overworld based on spatial scale
-    canvas_size = SPATIAL_SCALE_CANVAS.get(spatial_scale or "", CANVAS_SIZE)
-    canvas_margin = max(50, canvas_size // 20)
-    overworld_bounds = (canvas_margin, canvas_margin, canvas_size - canvas_margin, canvas_size - canvas_margin)
+    canvas_w, canvas_h = SPATIAL_SCALE_CANVAS.get(
+        spatial_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+    )
+    margin_x = max(50, canvas_w // 20)
+    margin_y = max(50, canvas_h // 20)
+    overworld_bounds = (margin_x, margin_y, canvas_w - margin_x, canvas_h - margin_y)
 
     if not layers:
         return {}
@@ -754,7 +776,8 @@ def compute_layered_layout(
                     regions, locs, all_constraints, location_region_map,
                     user_overrides=user_overrides,
                     first_chapter=first_chapter,
-                    canvas_size=canvas_size,
+                    canvas_width=canvas_w,
+                    canvas_height=canvas_h,
                 )
             else:
                 # No regions → global solve
@@ -814,7 +837,8 @@ def _solve_overworld_by_region(
     location_region_map: dict[str, str],
     user_overrides: dict[str, tuple[float, float]] | None = None,
     first_chapter: dict[str, int] | None = None,
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> dict[str, tuple[float, float]]:
     """Solve overworld layout by partitioning into regions.
 
@@ -829,7 +853,7 @@ def _solve_overworld_by_region(
         }
         for r in regions
     ]
-    region_layout = _layout_regions(region_dicts, canvas_size=canvas_size)
+    region_layout = _layout_regions(region_dicts, canvas_width=canvas_width, canvas_height=canvas_height)
 
     # Partition locations by region
     region_locs: dict[str, list[dict]] = {r["name"]: [] for r in region_dicts}
@@ -865,8 +889,9 @@ def _solve_overworld_by_region(
             if rn and rn in region_layout:
                 loc_region_bounds[loc["name"]] = region_layout[rn]["bounds"]
 
-        margin = max(50, canvas_size // 20)
-        fallback_bounds = (margin, margin, canvas_size - margin, canvas_size - margin)
+        margin_x = max(50, canvas_width // 20)
+        margin_y = max(50, canvas_height // 20)
+        fallback_bounds = (margin_x, margin_y, canvas_width - margin_x, canvas_height - margin_y)
         solver = ConstraintSolver(
             unassigned_locs, constraints,
             user_overrides=user_overrides,
@@ -1235,10 +1260,10 @@ class ConstraintSolver:
             self._canvas_max_x = canvas_bounds[2]
             self._canvas_max_y = canvas_bounds[3]
         else:
-            self._canvas_min_x = CANVAS_MIN
-            self._canvas_min_y = CANVAS_MIN
-            self._canvas_max_x = CANVAS_MAX
-            self._canvas_max_y = CANVAS_MAX
+            self._canvas_min_x = CANVAS_MIN_X
+            self._canvas_min_y = CANVAS_MIN_Y
+            self._canvas_max_x = CANVAS_MAX_X
+            self._canvas_max_y = CANVAS_MAX_Y
 
         # Convenience canvas helpers
         self._canvas_cx = (self._canvas_min_x + self._canvas_max_x) / 2
@@ -1898,11 +1923,13 @@ def generate_terrain(
     layout: dict[str, tuple[float, float]],
     novel_id: str,
     size: int = 1024,
-    canvas_size: int = CANVAS_SIZE,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> str | None:
     """Generate a terrain PNG based on Voronoi regions + simplex noise.
 
     Uses fully vectorized numpy operations for performance.
+    The output image aspect ratio matches the canvas (16:9).
     Returns the file path or None on failure.
     """
     try:
@@ -1915,8 +1942,18 @@ def generate_terrain(
     if len(layout) < 2:
         return None
 
-    # Scale layout coordinates from [0, canvas_size] canvas to [0, size] image
-    scale = size / canvas_size
+    # Compute image dimensions preserving canvas aspect ratio
+    aspect = canvas_width / max(canvas_height, 1)
+    if aspect >= 1:
+        img_w = size
+        img_h = max(1, int(size / aspect))
+    else:
+        img_h = size
+        img_w = max(1, int(size * aspect))
+
+    # Scale layout coordinates from canvas to image
+    scale_x = img_w / canvas_width
+    scale_y = img_h / canvas_height
     points = []
     biome_colors = []
 
@@ -1926,8 +1963,8 @@ def generate_terrain(
             continue
         x, y = layout[name]
         # Flip y: canvas y=0 is bottom, image y=0 is top
-        px = x * scale
-        py = (canvas_size - y) * scale
+        px = x * scale_x
+        py = (canvas_height - y) * scale_y
         points.append([px, py])
         biome_colors.append(_biome_for_type(loc.get("type", "")))
 
@@ -1941,77 +1978,83 @@ def generate_terrain(
     noise_gen = OpenSimplex(seed=hash(novel_id) % (2**31))
 
     # Create coordinate grids
-    ys, xs = np.mgrid[0:size, 0:size].astype(np.float64)
+    ys, xs = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
 
     # Add simplex noise displacement for natural Voronoi boundaries
     # Process in rows for noise2 (opensimplex doesn't have vectorized 2D)
     noise_scale = 0.005
-    displacement = np.zeros((size, size), dtype=np.float64)
-    for row in range(0, size, 4):  # sample every 4th row, interpolate
-        for col in range(0, size, 4):
+    displacement = np.zeros((img_h, img_w), dtype=np.float64)
+    for row in range(0, img_h, 4):  # sample every 4th row, interpolate
+        for col in range(0, img_w, 4):
             displacement[row, col] = noise_gen.noise2(col * noise_scale, row * noise_scale)
 
     # Bilinear upsample the sparse noise grid
     from scipy.ndimage import zoom
     sparse = displacement[::4, ::4]
-    displacement = zoom(sparse, 4, order=1)[:size, :size]
+    zoom_y = img_h / max(sparse.shape[0], 1)
+    zoom_x = img_w / max(sparse.shape[1], 1)
+    displacement = zoom(sparse, (zoom_y, zoom_x), order=1)[:img_h, :img_w]
 
     xs_displaced = xs + displacement * 40
     ys_displaced = ys + displacement * 40
 
     # Find nearest point for each pixel (vectorized)
-    # Process in row-blocks to manage memory (~size * n_points per block)
+    # Process in row-blocks to manage memory (~img_w * n_points per block)
     block_size = 128
-    nearest = np.zeros((size, size), dtype=np.int32)
+    nearest = np.zeros((img_h, img_w), dtype=np.int32)
 
-    for row_start in range(0, size, block_size):
-        row_end = min(row_start + block_size, size)
-        bx = xs_displaced[row_start:row_end]  # (block, size)
+    for row_start in range(0, img_h, block_size):
+        row_end = min(row_start + block_size, img_h)
+        bx = xs_displaced[row_start:row_end]  # (block, img_w)
         by = ys_displaced[row_start:row_end]
 
-        # Compute distances to each point: (block, size, n_points)
+        # Compute distances to each point: (block, img_w, n_points)
         dx = bx[:, :, np.newaxis] - point_arr[:, 0]  # broadcast
         dy = by[:, :, np.newaxis] - point_arr[:, 1]
         dist_sq = dx ** 2 + dy ** 2
         nearest[row_start:row_end] = np.argmin(dist_sq, axis=2)
 
     # Build RGB image from nearest indices
-    rgb = biome_arr[nearest]  # (size, size, 3)
+    rgb = biome_arr[nearest]  # (img_h, img_w, 3)
 
     # Add multi-octave color variation noise for visual depth
-    detail_noise = np.zeros((size, size), dtype=np.float64)
+    detail_noise = np.zeros((img_h, img_w), dtype=np.float64)
     octaves = [(0.01, 0.5), (0.03, 0.3), (0.08, 0.2)]  # (frequency, weight)
     step = 2
     for freq, weight in octaves:
-        layer = np.zeros((size, size), dtype=np.float64)
-        for row in range(0, size, step):
-            for col in range(0, size, step):
+        layer = np.zeros((img_h, img_w), dtype=np.float64)
+        for row in range(0, img_h, step):
+            for col in range(0, img_w, step):
                 layer[row, col] = noise_gen.noise2(col * freq, row * freq)
         sparse_layer = layer[::step, ::step]
-        layer = zoom(sparse_layer, step, order=1)[:size, :size]
+        zy = img_h / max(sparse_layer.shape[0], 1)
+        zx = img_w / max(sparse_layer.shape[1], 1)
+        layer = zoom(sparse_layer, (zy, zx), order=1)[:img_h, :img_w]
         detail_noise += layer * weight
 
     variation = (detail_noise * 40).astype(np.int16)  # ±20 amplitude
     rgb = np.clip(rgb.astype(np.int16) + variation[:, :, np.newaxis], 0, 255)
 
     # Paper grain overlay: high-frequency noise for parchment texture
-    paper_noise = np.zeros((size, size), dtype=np.float64)
+    paper_noise = np.zeros((img_h, img_w), dtype=np.float64)
     paper_step = 4
-    for row in range(0, size, paper_step):
-        for col in range(0, size, paper_step):
+    for row in range(0, img_h, paper_step):
+        for col in range(0, img_w, paper_step):
             paper_noise[row, col] = noise_gen.noise2(col * 0.15, row * 0.15)
     sparse_paper = paper_noise[::paper_step, ::paper_step]
-    paper_noise = zoom(sparse_paper, paper_step, order=1)[:size, :size]
+    pzy = img_h / max(sparse_paper.shape[0], 1)
+    pzx = img_w / max(sparse_paper.shape[1], 1)
+    paper_noise = zoom(sparse_paper, (pzy, pzx), order=1)[:img_h, :img_w]
     paper_variation = (paper_noise * 16).astype(np.int16)  # ±8 amplitude
     rgb = np.clip(rgb + paper_variation[:, :, np.newaxis], 0, 255)
 
     # Boundary darkening: darken pixels near region boundaries.
     # Skip darkening when cells are tiny (many points clustered together),
     # which would otherwise produce ugly dense stripes.
-    min_cell_dist = size * 0.03  # minimum cell size for darkening to apply
-    darken = np.ones((size, size), dtype=np.float64)
-    for row_start in range(0, size, block_size):
-        row_end = min(row_start + block_size, size)
+    min_cell_dist = min(img_w, img_h) * 0.03  # minimum cell size for darkening to apply
+    darken = np.ones((img_h, img_w), dtype=np.float64)
+    for row_start in range(0, img_h, block_size):
+        row_end = min(row_start + block_size, img_h)
         bx = xs_displaced[row_start:row_end]
         by = ys_displaced[row_start:row_end]
         dx = bx[:, :, np.newaxis] - point_arr[:, 0]
@@ -2041,7 +2084,7 @@ def generate_terrain(
     maps_dir.mkdir(parents=True, exist_ok=True)
     out_path = maps_dir / "terrain.png"
     img.save(str(out_path), "PNG")
-    logger.info("Terrain image saved: %s (%dx%d)", out_path, size, size)
+    logger.info("Terrain image saved: %s (%dx%d)", out_path, img_w, img_h)
     return str(out_path)
 
 
@@ -2049,13 +2092,14 @@ def generate_terrain(
 
 
 # Bump this when solver algorithm changes to invalidate layout cache
-_LAYOUT_VERSION = 6
+_LAYOUT_VERSION = 7
 
 def compute_chapter_hash(
-    chapter_start: int, chapter_end: int, canvas_size: int = CANVAS_SIZE,
+    chapter_start: int, chapter_end: int,
+    canvas_width: int = CANVAS_WIDTH, canvas_height: int = CANVAS_HEIGHT,
 ) -> str:
     """Deterministic hash for a chapter range + canvas size + layout version."""
-    key = f"{chapter_start}-{chapter_end}-cs{canvas_size}-v{_LAYOUT_VERSION}"
+    key = f"{chapter_start}-{chapter_end}-cw{canvas_width}-ch{canvas_height}-v{_LAYOUT_VERSION}"
     return hashlib.md5(key.encode()).hexdigest()[:16]
 
 

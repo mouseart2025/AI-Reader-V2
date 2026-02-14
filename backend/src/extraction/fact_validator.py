@@ -1,4 +1,8 @@
-"""Lightweight post-validation and cleaning for ChapterFact."""
+"""Lightweight post-validation and cleaning for ChapterFact.
+
+Location filtering uses a 3-layer approach based on Chinese place name morphology
+(专名 + 通名 structure). See _bmad-output/spatial-entity-quality-research.md.
+"""
 
 import logging
 
@@ -26,6 +30,152 @@ _VALID_CONFIDENCE = {"high", "medium", "low"}
 
 _NAME_MIN_LEN = 1
 _NAME_MAX_LEN = 20
+
+# ── Location morphological validation ─────────────────────────────────
+# Chinese place names follow 专名(specific) + 通名(generic suffix) pattern.
+# E.g., 花果山 = 花果(specific) + 山(generic). Without a specific part, it's not a name.
+
+# Generic suffix characters (通名) — types of geographic features
+_GEO_GENERIC_SUFFIXES = frozenset(
+    "山峰岭崖谷坡"  # mountain
+    "河江湖海溪泉潭洋"  # water
+    "林森丛"  # forest
+    "城楼殿宫庙寺塔洞关门桥台阁堂院府庄园"  # built structures
+    "村镇县省国邦州"  # administrative
+    "界域洲宗派教"  # fantasy
+    "原地坪滩沙漠岛"  # terrain
+    "路街道"  # roads
+    "屋房舍"  # buildings
+)
+
+# Positional suffixes — when appended to a generic word, form relative positions
+_POSITIONAL_SUFFIXES = frozenset(
+    "上下里内外中前后边旁畔口头脚顶"
+)
+
+# Generic modifiers — adjectives/demonstratives that don't form a specific name
+_GENERIC_MODIFIERS = frozenset({
+    "小", "大", "老", "新", "旧", "那", "这", "某", "一个", "一座", "一片",
+    "一条", "一处", "那个", "这个", "那座", "这座",
+})
+
+# Abstract/conceptual spatial terms — never physical locations
+_CONCEPTUAL_GEO_WORDS = frozenset({
+    "江湖", "天下", "世界", "人间", "凡间", "尘世", "世间",
+    "世俗界", "修仙界", "仙界", "魔界",
+})
+
+# Vehicle/object words that are not locations
+_VEHICLE_WORDS = frozenset({
+    "小舟", "大船", "船只", "马车", "轿子", "飞剑", "法宝",
+    "车厢", "船舱", "轿内",
+})
+
+# Hardcoded fallback blocklist — catches common cases the rules might miss
+_FALLBACK_GEO_BLOCKLIST = frozenset({
+    "外面", "里面", "前方", "后方", "旁边", "附近", "远处", "近处",
+    "对面", "身边", "身旁", "眼前", "面前", "脚下", "头顶", "上方", "下方",
+    "半山腰", "水面", "地面", "天空", "空中",
+    "家里", "家中", "家门",
+    "这边", "那边", "这里", "那里", "此地", "此处", "彼处",
+})
+
+# ── Person generic references ─────────────────────────────────────────
+
+# Generic person references that should never be extracted as character names
+_GENERIC_PERSON_WORDS = frozenset({
+    "众人", "其他人", "旁人", "来人", "对方", "大家", "所有人",
+    "那人", "此人", "其人", "何人", "某人", "外人", "路人",
+    "他们", "她们", "我们", "诸位", "各位", "在场众人",
+})
+
+# Pure title words — when used alone (no surname prefix), not a valid character name
+_PURE_TITLE_WORDS = frozenset({
+    "堂主", "长老", "弟子", "护法", "掌门", "帮主", "教主",
+    "师父", "师兄", "师弟", "师姐", "师妹",
+    "大哥", "二哥", "三哥", "大姐", "二姐",
+    "官差", "侍卫", "仆人", "丫鬟", "小厮",
+})
+
+
+def _is_generic_location(name: str) -> str | None:
+    """Check if a location name is generic/invalid using morphological rules.
+
+    Returns a reason string if the name should be filtered, or None if it should be kept.
+    """
+    n = len(name)
+
+    # Rule 1: Single-char generic suffix alone (山, 河, 城, ...)
+    if n == 1 and name in _GEO_GENERIC_SUFFIXES:
+        return "single-char generic suffix"
+
+    # Rule 2: Abstract/conceptual spatial terms
+    if name in _CONCEPTUAL_GEO_WORDS:
+        return "conceptual geo word"
+
+    # Rule 3: Vehicle/object words
+    if name in _VEHICLE_WORDS:
+        return "vehicle/object"
+
+    # Rule 4: Hardcoded fallback blocklist
+    if name in _FALLBACK_GEO_BLOCKLIST:
+        return "fallback blocklist"
+
+    # Rule 5: Contains 的 → descriptive phrase ("自己的地界", "最高的屋子")
+    if "的" in name:
+        return "descriptive phrase (contains 的)"
+
+    # Rule 6: Too long → likely a descriptive phrase, not a name
+    if n > 7:
+        return "too long for a place name"
+
+    # Rule 7: Relative position pattern — [generic word(s)] + [positional suffix]
+    # E.g., 山上, 村外, 城中, 门口, 场外, 洞口
+    if n >= 2 and name[-1] in _POSITIONAL_SUFFIXES:
+        prefix = name[:-1]
+        # Check if prefix is purely generic (all chars are generic suffixes or common words)
+        if all(c in _GEO_GENERIC_SUFFIXES or c in "场水地天" for c in prefix):
+            return f"relative position ({prefix}+{name[-1]})"
+
+    # Rule 8: Generic modifier + generic suffix — no specific name part
+    # E.g., 小城, 大山, 一个村子, 小路, 石屋
+    if n >= 2:
+        for mod in _GENERIC_MODIFIERS:
+            if name.startswith(mod):
+                rest = name[len(mod):]
+                # Rest is purely generic chars (or generic + 子/儿 diminutive)
+                rest_clean = rest.rstrip("子儿")
+                if rest_clean and all(c in _GEO_GENERIC_SUFFIXES for c in rest_clean):
+                    return f"generic modifier + suffix ({mod}+{rest})"
+                break  # Only check first matching modifier
+
+    # Rule 9: 2-char with both chars being generic — e.g., 村落, 山林, 水面
+    # These lack a specific name part
+    if n == 2:
+        if name[0] in _GEO_GENERIC_SUFFIXES | frozenset("水天地场石土") and name[1] in _GEO_GENERIC_SUFFIXES | frozenset("面子落处口边旁"):
+            return f"two-char generic compound"
+
+    # Rule 10: Starts with demonstrative/direction + 边/里/面/处
+    # E.g., "七玄门这边" would be caught if LLM extracts it
+    if n >= 3 and name[-1] in "边里面处" and name[-2] in "这那":
+        return "demonstrative + directional"
+
+    return None
+
+
+def _is_generic_person(name: str) -> str | None:
+    """Check if a person name is generic/invalid.
+
+    Returns a reason string if filtered, or None if kept.
+    """
+    if name in _GENERIC_PERSON_WORDS:
+        return "generic person reference"
+
+    # Pure title without surname: "堂主", "长老" alone (not "岳堂主", "张长老")
+    if name in _PURE_TITLE_WORDS:
+        return "pure title without surname"
+
+    return None
 
 
 def _clamp_name(name: str) -> str:
@@ -94,6 +244,11 @@ class FactValidator:
             name = _clamp_name(ch.name)
             if len(name) < _NAME_MIN_LEN:
                 continue
+            # Drop generic person references and pure titles
+            reason = _is_generic_person(name)
+            if reason:
+                logger.debug("Dropping person '%s': %s", name, reason)
+                continue
             if name in seen:
                 # Merge: combine aliases and locations
                 existing = seen[name]
@@ -139,7 +294,11 @@ class FactValidator:
         return valid
 
     def _validate_locations(self, locs, characters=None):
-        """Validate locations. Remove hallucinated 'character+suffix' locations."""
+        """Validate locations using morphological rules + hallucination detection.
+
+        Uses _is_generic_location() for structural pattern matching (replaces
+        hardcoded blocklists) and character-name + suffix detection for hallucinations.
+        """
         # Build character name set for hallucination detection
         char_names: set[str] = set()
         if characters:
@@ -160,6 +319,11 @@ class FactValidator:
             if name in seen_names:
                 continue
             seen_names.add(name)
+            # Morphological validation (replaces blocklist approach)
+            reason = _is_generic_location(name)
+            if reason:
+                logger.debug("Dropping location '%s': %s", name, reason)
+                continue
             # Drop hallucinated "character_name + suffix" locations
             if char_names:
                 is_hallucinated = False
@@ -356,7 +520,7 @@ class FactValidator:
         for ev in events:
             for p in ev.participants:
                 p = p.strip()
-                if p and p not in char_names and len(p) >= _NAME_MIN_LEN:
+                if p and p not in char_names and len(p) >= _NAME_MIN_LEN and not _is_generic_person(p):
                     characters.append(CharacterFact(name=p))
                     char_names.add(p)
                     logger.debug("Auto-added character from event participant: %s", p)
@@ -373,7 +537,7 @@ class FactValidator:
         for rel in relationships:
             for name in (rel.person_a, rel.person_b):
                 name = name.strip()
-                if name and name not in char_names and len(name) >= _NAME_MIN_LEN:
+                if name and name not in char_names and len(name) >= _NAME_MIN_LEN and not _is_generic_person(name):
                     characters.append(CharacterFact(name=name))
                     char_names.add(name)
                     logger.debug("Auto-added character from relationship: %s", name)

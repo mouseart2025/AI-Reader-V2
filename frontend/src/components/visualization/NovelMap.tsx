@@ -20,13 +20,13 @@ import type {
 // ── Canvas coordinate system ────────────────────────
 // Map canvas coordinates to a geographic extent centered at (10°E, 5°N)
 // near the equator for minimal Mercator distortion.
-const DEFAULT_CANVAS_SIZE = 1000
+const DEFAULT_CANVAS = { width: 1600, height: 900 }
 const CENTER_LNG = 10
 const CENTER_LAT = 5
 
-function getExtentDeg(canvasSize: number): number {
-  if (canvasSize >= 3000) return 6.0
-  if (canvasSize >= 2000) return 4.0
+function getExtentDeg(canvasMax: number): number {
+  if (canvasMax >= 3000) return 6.0
+  if (canvasMax >= 2000) return 4.0
   return 2.0
 }
 
@@ -43,13 +43,15 @@ function getDefaultZoom(spatialScale?: string): number {
   return SCALE_DEFAULT_ZOOM[spatialScale ?? ""] ?? 9
 }
 
-function makeLngLatMapper(canvasSize: number) {
-  const extentDeg = getExtentDeg(canvasSize)
-  const scale = extentDeg / canvasSize
+function makeLngLatMapper(canvasWidth: number, canvasHeight: number) {
+  const maxDim = Math.max(canvasWidth, canvasHeight)
+  const extentDeg = getExtentDeg(maxDim)
+  const scaleX = extentDeg / maxDim
+  const scaleY = extentDeg / maxDim
   return function toLngLat(x: number, y: number): [number, number] {
     return [
-      CENTER_LNG + (x - canvasSize / 2) * scale,
-      CENTER_LAT + (y - canvasSize / 2) * scale,
+      CENTER_LNG + (x - canvasWidth / 2) * scaleX,
+      CENTER_LAT + (y - canvasHeight / 2) * scaleY,
     ]
   }
 }
@@ -127,7 +129,7 @@ function locationColor(type: string, name?: string): string {
 // ── Layer background colors ─────────────────────────
 
 const LAYER_BG_COLORS: Record<LayerType, string> = {
-  overworld: "#f0ead6",
+  overworld: "#eee5d0",
   sky: "#0f172a",
   underground: "#1a0a2e",
   sea: "#0a2540",
@@ -208,7 +210,7 @@ export interface NovelMapProps {
   portals?: PortalInfo[]
   trajectoryPoints?: TrajectoryPoint[]
   currentLocation?: string | null
-  canvasSize?: number
+  canvasSize?: { width: number; height: number }
   spatialScale?: string
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
@@ -280,8 +282,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     }, [layout])
 
     // Compute dynamic toLngLat based on canvasSize prop
-    const canvasSize = canvasSizeProp ?? DEFAULT_CANVAS_SIZE
-    const toLngLat = makeLngLatMapper(canvasSize)
+    const canvasW = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
+    const canvasH = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
+    const toLngLat = makeLngLatMapper(canvasW, canvasH)
     const toLngLatRef = useRef(toLngLat)
     toLngLatRef.current = toLngLat
 
@@ -289,9 +292,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     useEffect(() => {
       if (!containerRef.current) return
 
-      const cs = canvasSizeProp ?? DEFAULT_CANVAS_SIZE
-      const localToLngLat = makeLngLatMapper(cs)
-      const center = localToLngLat(cs / 2, cs / 2)
+      const cw = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
+      const ch = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
+      const localToLngLat = makeLngLatMapper(cw, ch)
+      const center = localToLngLat(cw / 2, ch / 2)
       const bgColor = getMapBgColor(layoutMode, layerType)
       const darkBg = isDarkBackground(layoutMode, layerType)
 
@@ -409,10 +413,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             "line-color": ["get", "color"],
             "line-opacity": [
               "interpolate", ["linear"], ["zoom"],
-              6, 0.25,
-              11, 0.08,
+              6, 0.30,
+              11, 0.10,
             ],
-            "line-width": 1,
+            "line-width": 1.5,
+            "line-dasharray": [4, 3],
           },
         })
 
@@ -706,11 +711,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const map = mapRef.current
       if (!map || !mapReady || !terrainUrl) return
 
-      const cs = canvasSizeProp ?? DEFAULT_CANVAS_SIZE
-      const localToLngLat = makeLngLatMapper(cs)
-      const topLeft = localToLngLat(0, cs)
-      const topRight = localToLngLat(cs, cs)
-      const bottomRight = localToLngLat(cs, 0)
+      const cw = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
+      const ch = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
+      const localToLngLat = makeLngLatMapper(cw, ch)
+      const topLeft = localToLngLat(0, ch)
+      const topRight = localToLngLat(cw, ch)
+      const bottomRight = localToLngLat(cw, 0)
       const bottomLeft = localToLngLat(0, 0)
 
       if (map.getSource("terrain-img")) {
@@ -1038,6 +1044,39 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [mapReady])
 
-    return <div ref={containerRef} className="h-full w-full" />
+    const isDarkBg = isDarkBackground(layoutMode, layerType)
+
+    return (
+      <div className="relative h-full w-full">
+        <div ref={containerRef} className="h-full w-full" />
+        {/* Parchment vignette — only on light overworld background */}
+        {!isDarkBg && (
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 50%, rgba(120,90,50,0.18) 100%)",
+            }}
+          />
+        )}
+        {/* Subtle noise texture overlay for paper grain feel */}
+        {!isDarkBg && (
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            style={{ opacity: 0.04 }}
+          >
+            <filter id="parchment-noise">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.65"
+                numOctaves="4"
+                stitchTiles="stitch"
+              />
+            </filter>
+            <rect width="100%" height="100%" filter="url(#parchment-noise)" />
+          </svg>
+        )}
+      </div>
+    )
   },
 )
