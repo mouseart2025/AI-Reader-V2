@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 const NAV_TABS = [
   { key: "analysis", label: "分析", path: "/analysis" },
   { key: "read", label: "阅读", path: "/read" },
-  { key: "graph", label: "图谱", path: "/graph" },
+  { key: "graph", label: "关系图", path: "/graph" },
   { key: "map", label: "地图", path: "/map" },
   { key: "timeline", label: "时间线", path: "/timeline" },
   { key: "encyclopedia", label: "百科", path: "/encyclopedia" },

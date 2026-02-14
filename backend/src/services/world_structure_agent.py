@@ -177,6 +177,7 @@ class WorldStructureAgent:
         self._prompt_template: str | None = None
         self._llm_call_count: int = 0
         self._overridden_keys: set[tuple[str, str]] = set()
+        self._parent_votes: dict[str, Counter] = {}  # child → Counter({parent: count})
 
     async def load_or_init(self) -> None:
         """Load existing WorldStructure from DB, or create default."""
@@ -192,6 +193,8 @@ class WorldStructureAgent:
         self._overridden_keys = await world_structure_override_store.get_overridden_keys(
             self.novel_id,
         )
+        # Rebuild parent votes from existing facts (for pause/resume)
+        self._parent_votes = await self._rebuild_parent_votes()
 
     async def process_chapter(
         self,
@@ -231,6 +234,10 @@ class WorldStructureAgent:
             # LLM incremental update when trigger conditions are met
             if self._should_trigger_llm(chapter_num, signals, fact):
                 await self._run_llm_update(chapter_num, signals, fact)
+
+            # Resolve authoritative parents from accumulated votes
+            if self._parent_votes:
+                self.structure.location_parents = self._resolve_parents()
 
             await world_structure_store.save(self.novel_id, self.structure)
         except Exception:
@@ -870,6 +877,16 @@ class WorldStructureAgent:
                 icon = self._classify_icon(name, loc_type)
                 self.structure.location_icons[name] = icon
 
+            # ── Parent vote accumulation ──
+            if loc.parent and loc.name != loc.parent:
+                self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
+
+        # Accumulate contains relationships as parent votes
+        for sr in fact.spatial_relationships:
+            if sr.relation_type == "contains" and sr.source != sr.target:
+                weight = {"high": 3, "medium": 2, "low": 1}.get(sr.confidence, 1)
+                self._parent_votes.setdefault(sr.target, Counter())[sr.source] += weight
+
     @staticmethod
     def _classify_tier(name: str, loc_type: str, parent: str | None, level: int = 0) -> str:
         """Classify a location into a spatial tier based on name/type heuristics."""
@@ -1057,6 +1074,89 @@ class WorldStructureAgent:
             if layer.layer_id == layer_id:
                 return layer
         return None
+
+    # ── Parent vote resolution ────────────────────────
+
+    async def _rebuild_parent_votes(self) -> dict[str, Counter]:
+        """Rebuild parent votes from all existing chapter facts (for pause/resume)."""
+        from src.db.sqlite_db import get_connection
+        import json as _json
+
+        votes: dict[str, Counter] = {}
+        conn = await get_connection()
+        try:
+            cursor = await conn.execute(
+                "SELECT fact_json FROM chapter_facts WHERE novel_id = ? ORDER BY chapter_id",
+                (self.novel_id,),
+            )
+            rows = await cursor.fetchall()
+        finally:
+            await conn.close()
+
+        for row in rows:
+            data = _json.loads(row["fact_json"])
+            for loc in data.get("locations", []):
+                parent = loc.get("parent")
+                name = loc.get("name", "")
+                if parent and name and name != parent:
+                    votes.setdefault(name, Counter())[parent] += 1
+            for sr in data.get("spatial_relationships", []):
+                if sr.get("relation_type") == "contains" and sr.get("source") != sr.get("target"):
+                    weight = {"high": 3, "medium": 2, "low": 1}.get(sr.get("confidence", "low"), 1)
+                    target = sr.get("target", "")
+                    source = sr.get("source", "")
+                    if target and source:
+                        votes.setdefault(target, Counter())[source] += weight
+
+        return votes
+
+    def _resolve_parents(self) -> dict[str, str]:
+        """Resolve authoritative parents from accumulated votes.
+
+        Algorithm:
+        1. For each child, pick the parent with the most votes.
+        2. Normalize parent names through alias_map (if structure has one).
+        3. Detect and break cycles (remove weakest link).
+        4. Skip entries overridden by user.
+        """
+        raw: dict[str, str] = {}
+        for child, votes in self._parent_votes.items():
+            if not votes:
+                continue
+            winner, _count = votes.most_common(1)[0]
+            if winner and winner != child:
+                raw[child] = winner
+
+        # Skip user-overridden entries
+        result: dict[str, str] = {}
+        for child, parent in raw.items():
+            if ("location_parent", child) not in self._overridden_keys:
+                result[child] = parent
+
+        # Cycle detection: for each node, walk the parent chain.
+        # If we revisit a node, there's a cycle — break at the weakest link.
+        for start in list(result):
+            visited: set[str] = set()
+            node = start
+            while node in result and node not in visited:
+                visited.add(node)
+                node = result[node]
+            if node in visited:
+                # Found a cycle — find the weakest edge in the cycle
+                cycle_edges: list[tuple[str, str, int]] = []
+                cur = node
+                while True:
+                    parent = result[cur]
+                    count = self._parent_votes.get(cur, Counter()).get(parent, 0)
+                    cycle_edges.append((cur, parent, count))
+                    cur = parent
+                    if cur == node:
+                        break
+                # Remove the edge with the lowest vote count
+                weakest = min(cycle_edges, key=lambda e: e[2])
+                del result[weakest[0]]
+
+        return result
 
     # ── Helpers ───────────────────────────────────────────────────
 

@@ -307,7 +307,7 @@ export interface GeographyChapter {
 
 // ── World Structure Overrides ─────────────────
 
-export type OverrideType = "location_region" | "location_layer" | "add_portal" | "delete_portal"
+export type OverrideType = "location_region" | "location_layer" | "add_portal" | "delete_portal" | "location_parent"
 
 export interface WorldStructureOverride {
   id: number

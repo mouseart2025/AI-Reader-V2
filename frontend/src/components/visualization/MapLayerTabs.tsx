@@ -35,7 +35,7 @@ export function MapLayerTabs({
   if (mainLayers.length <= 1 && mergedLayers.length === 0) return null
 
   return (
-    <div className="flex gap-1 px-3 py-1.5 border-b bg-background/95 overflow-x-auto items-center">
+    <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b bg-background/95 items-center relative">
       {mainLayers.map((layer) => {
         const isActive = layer.layer_id === activeLayerId
         const isUnlocked =

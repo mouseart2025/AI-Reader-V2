@@ -37,9 +37,14 @@ const ORG_COLORS = [
 
 // Relation type to color category
 function edgeColor(type: string): string {
-  const t = type.toLowerCase()
-  if (t.includes("亲") || t.includes("父") || t.includes("母") || t.includes("兄") || t.includes("姐") || t.includes("夫") || t.includes("妻")) return "#f59e0b"
+  const t = type
+  // Intimate — check before family (夫/妻 was previously in family)
+  if (t.includes("夫") || t.includes("妻") || t.includes("恋") || t.includes("情侣") || t.includes("情人") || t.includes("爱人") || t.includes("宠")) return "#ec4899"
+  // Family/blood
+  if (t.includes("亲") || t.includes("父") || t.includes("母") || t.includes("兄") || t.includes("姐") || t.includes("弟") || t.includes("妹") || t.includes("叔") || t.includes("侄")) return "#f59e0b"
+  // Friendly/alliance
   if (t.includes("友") || t.includes("盟") || t.includes("同门") || t.includes("师")) return "#10b981"
+  // Hostile
   if (t.includes("敌") || t.includes("仇") || t.includes("对手")) return "#ef4444"
   return "#6b7280"
 }
@@ -158,24 +163,40 @@ export default function GraphPage() {
     return map
   }, [nodes])
 
-  // Filter nodes
-  const filteredNodes = useMemo(
-    () => nodes.filter((n) => n.chapter_count >= minChapters),
-    [nodes, minChapters],
-  )
-  const filteredNodeIds = useMemo(
-    () => new Set(filteredNodes.map((n) => n.id)),
-    [filteredNodes],
-  )
-  const filteredEdges = useMemo(
-    () =>
-      edges.filter((e) => {
+  // Filter nodes: chapter threshold + must have at least 1 edge (remove isolated dots)
+  const { filteredNodes, filteredEdges, filteredNodeIds, degreeMap } = useMemo(() => {
+    const chapterFiltered = nodes.filter((n) => n.chapter_count >= minChapters)
+    const chapterIds = new Set(chapterFiltered.map((n) => n.id))
+    const validEdges = edges.filter((e) => {
+      const src = typeof e.source === "string" ? e.source : e.source.id
+      const tgt = typeof e.target === "string" ? e.target : e.target.id
+      return chapterIds.has(src) && chapterIds.has(tgt)
+    })
+
+    // Compute degree for each node
+    const deg = new Map<string, number>()
+    for (const e of validEdges) {
+      const src = typeof e.source === "string" ? e.source : e.source.id
+      const tgt = typeof e.target === "string" ? e.target : e.target.id
+      deg.set(src, (deg.get(src) || 0) + 1)
+      deg.set(tgt, (deg.get(tgt) || 0) + 1)
+    }
+
+    // Remove degree-0 nodes (they have no edges and just clutter the viewport)
+    const connected = chapterFiltered.filter((n) => (deg.get(n.id) || 0) > 0)
+    const connectedIds = new Set(connected.map((n) => n.id))
+
+    return {
+      filteredNodes: connected,
+      filteredEdges: validEdges.filter((e) => {
         const src = typeof e.source === "string" ? e.source : e.source.id
         const tgt = typeof e.target === "string" ? e.target : e.target.id
-        return filteredNodeIds.has(src) && filteredNodeIds.has(tgt)
+        return connectedIds.has(src) && connectedIds.has(tgt)
       }),
-    [edges, filteredNodeIds],
-  )
+      filteredNodeIds: connectedIds,
+      degreeMap: deg,
+    }
+  }, [nodes, edges, minChapters])
 
   // Highlight connected nodes on hover
   const connectedNodes = useMemo(() => {
@@ -249,6 +270,50 @@ export default function GraphPage() {
     [filteredNodes, filteredEdges],
   )
 
+  // Customize D3 forces: degree-proportional charge + radial containment
+  useEffect(() => {
+    const fg = graphRef.current
+    if (!fg || filteredNodes.length === 0) return
+
+    // Charge: high-degree nodes repel strongly, low-degree nodes weakly
+    const charge = fg.d3Force("charge")
+    if (charge && typeof charge.strength === "function") {
+      charge.strength((node: GraphNode) => {
+        const deg = degreeMap.get(node.id) || 0
+        return deg <= 1 ? -8 : -Math.min(30, 8 + deg * 3)
+      })
+    }
+
+    // Add soft radial containment — pulls nodes beyond threshold back toward center
+    const containRadius = Math.max(150, Math.sqrt(filteredNodes.length) * 30)
+    const containStrength = 0.08
+    interface SimNode { x?: number; y?: number; vx?: number; vy?: number }
+    let simNodes: SimNode[] = []
+    const containment = Object.assign(
+      (alpha: number) => {
+        for (const node of simNodes) {
+          const x = node.x || 0
+          const y = node.y || 0
+          const dist = Math.sqrt(x * x + y * y)
+          if (dist > containRadius) {
+            const k = ((dist - containRadius) / dist) * containStrength * alpha
+            node.vx = (node.vx || 0) - x * k
+            node.vy = (node.vy || 0) - y * k
+          }
+        }
+      },
+      { initialize: (nodes: SimNode[]) => { simNodes = nodes } },
+    )
+    fg.d3Force("containment", containment as never)
+
+    fg.d3ReheatSimulation()
+  }, [graphData, degreeMap, filteredNodes.length])
+
+  // Auto zoom-to-fit after layout stabilizes
+  const handleEngineStop = useCallback(() => {
+    graphRef.current?.zoomToFit(400, 60)
+  }, [])
+
   const handleNodeClick = useCallback(
     (node: GraphNode, event: MouseEvent) => {
       // Shift+click for path finding
@@ -314,7 +379,7 @@ export default function GraphPage() {
                 />
               </div>
               <p className="text-muted-foreground text-[10px]">
-                显示 {filteredNodes.length} / {nodes.length} 人物,{" "}
+                显示 {filteredNodes.length} / {nodes.length} 人物（隐藏无关系的孤立节点）,{" "}
                 {filteredEdges.length} 条关系
               </p>
             </div>
@@ -386,7 +451,8 @@ export default function GraphPage() {
           <div className="rounded-lg border bg-background/90 p-2">
             <p className="text-muted-foreground mb-1 text-[10px]">关系线</p>
             {[
-              { label: "亲属", color: "#f59e0b", desc: "父母/兄弟/夫妻" },
+              { label: "亲密", color: "#ec4899", desc: "夫妻/恋人/宠物" },
+              { label: "亲属", color: "#f59e0b", desc: "父母/兄弟/叔侄" },
               { label: "友好", color: "#10b981", desc: "师徒/同门/盟友" },
               { label: "敌对", color: "#ef4444", desc: "仇人/对手" },
               { label: "其他", color: "#6b7280", desc: "一般关系" },
@@ -521,6 +587,7 @@ export default function GraphPage() {
           cooldownTicks={100}
           d3AlphaDecay={0.02}
           d3VelocityDecay={0.3}
+          onEngineStop={handleEngineStop}
         />
 
         {novelId && <EntityCardDrawer novelId={novelId} />}

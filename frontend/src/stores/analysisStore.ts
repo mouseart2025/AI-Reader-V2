@@ -191,11 +191,10 @@ async function _pollTaskStatus(
   get: () => AnalysisState,
 ) {
   try {
-    const { task } = await getLatestAnalysisTask(novelId)
+    const { task, stats: latestStats } = await getLatestAnalysisTask(novelId)
     if (task) {
       set({ task })
       // Update progress from task's current_chapter
-      const prev = get()
       if (task.status === "running" || task.status === "paused") {
         const total = task.chapter_end - task.chapter_start + 1
         const done = task.current_chapter - task.chapter_start + 1
@@ -203,9 +202,10 @@ async function _pollTaskStatus(
           currentChapter: task.current_chapter,
           totalChapters: total,
           progress: Math.round((done / total) * 100),
+          ...(latestStats ? { stats: latestStats } : {}),
         })
       } else if (task.status === "completed") {
-        set({ progress: 100 })
+        set({ progress: 100, ...(latestStats ? { stats: latestStats } : {}) })
       }
     }
   } catch {

@@ -156,6 +156,14 @@ def _apply_overrides(ws: WorldStructure, overrides: list[dict]) -> WorldStructur
             # override_key = portal name to delete
             ws.portals = [p for p in ws.portals if p.name != ov_key]
 
+        elif ov_type == "location_parent":
+            # override_key = location name, override_json = {"parent": "..."}
+            new_parent = ov_data.get("parent", "")
+            if new_parent:
+                ws.location_parents[ov_key] = new_parent
+            elif ov_key in ws.location_parents:
+                del ws.location_parents[ov_key]
+
         else:
             logger.warning("Unknown override type: %s", ov_type)
 

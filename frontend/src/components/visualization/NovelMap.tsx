@@ -3,11 +3,15 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react"
-import maplibregl from "maplibre-gl"
-import "maplibre-gl/dist/maplibre-gl.css"
+import * as d3Selection from "d3-selection"
+import * as d3Zoom from "d3-zoom"
+import * as d3Drag from "d3-drag"
+import * as d3Shape from "d3-shape"
+import "d3-transition"
 import type {
   LayerType,
   MapLayoutItem,
@@ -16,70 +20,42 @@ import type {
   RegionBoundary,
   TrajectoryPoint,
 } from "@/api/types"
+import { generateTerritories } from "@/lib/territoryGenerator"
+import { distortPolygonEdges, type Point } from "@/lib/edgeDistortion"
 
-// ── Canvas coordinate system ────────────────────────
-// Map canvas coordinates to a geographic extent centered at (10°E, 5°N)
-// near the equator for minimal Mercator distortion.
+// ── Canvas defaults ────────────────────────────────
 const DEFAULT_CANVAS = { width: 1600, height: 900 }
-const CENTER_LNG = 10
-const CENTER_LAT = 5
 
-function getExtentDeg(canvasMax: number): number {
-  if (canvasMax >= 3000) return 6.0
-  if (canvasMax >= 2000) return 4.0
-  return 2.0
+// ── Tier zoom mapping (D3 scale thresholds) ────────
+const TIER_MIN_SCALE: Record<string, number> = {
+  continent: 0.3,
+  kingdom: 0.5,
+  region: 0.8,
+  city: 1.2,
+  site: 2.0,
+  building: 3.0,
 }
 
-// Default initial zoom per spatial scale
-const SCALE_DEFAULT_ZOOM: Record<string, number> = {
-  cosmic: 5,
-  continental: 6,
-  national: 7,
-  urban: 9,
-  local: 11,
-}
-
-function getDefaultZoom(spatialScale?: string): number {
-  return SCALE_DEFAULT_ZOOM[spatialScale ?? ""] ?? 9
-}
-
-function makeLngLatMapper(canvasWidth: number, canvasHeight: number) {
-  const maxDim = Math.max(canvasWidth, canvasHeight)
-  const extentDeg = getExtentDeg(maxDim)
-  const scaleX = extentDeg / maxDim
-  const scaleY = extentDeg / maxDim
-  return function toLngLat(x: number, y: number): [number, number] {
-    return [
-      CENTER_LNG + (x - canvasWidth / 2) * scaleX,
-      CENTER_LAT + (y - canvasHeight / 2) * scaleY,
-    ]
-  }
-}
-
-// ── Tier zoom mapping ─────────────────────────────────
-const TIER_MIN_ZOOM: Record<string, number> = {
-  world: 6,
-  continent: 6,
-  kingdom: 7,
-  region: 8,
-  city: 9,
+const TIER_TEXT_SIZE: Record<string, number> = {
+  continent: 22,
+  kingdom: 18,
+  region: 14,
+  city: 12,
   site: 10,
-  building: 11,
+  building: 9,
 }
 
-const TIER_TEXT_SIZE: Record<string, [number, number, number, number]> = {
-  // [minZoom, minSize, maxZoom, maxSize] for interpolation
-  continent: [6, 16, 12, 22],
-  kingdom:   [7, 14, 12, 18],
-  region:    [8, 12, 13, 16],
-  city:      [9, 10, 14, 14],
-  site:      [10, 9, 14, 12],
-  building:  [11, 8, 14, 10],
+const TIER_ICON_SIZE: Record<string, number> = {
+  continent: 32,
+  kingdom: 28,
+  region: 24,
+  city: 20,
+  site: 16,
+  building: 14,
 }
 
 const TIERS = ["continent", "kingdom", "region", "city", "site", "building"] as const
 
-// Chinese labels for tier names (used in zoom indicator)
 const TIER_LABELS: Record<string, string> = {
   continent: "大洲",
   kingdom: "国",
@@ -89,37 +65,32 @@ const TIER_LABELS: Record<string, string> = {
   building: "建筑",
 }
 
-function getVisibleTiers(zoom: number): string {
-  const visible = TIERS.filter((t) => zoom >= (TIER_MIN_ZOOM[t] ?? 99))
+function getVisibleTiers(scale: number): string {
+  const visible = TIERS.filter((t) => scale >= (TIER_MIN_SCALE[t] ?? 99))
   if (visible.length === 0) return ""
   return visible.map((t) => TIER_LABELS[t] ?? t).join("/")
 }
 
-// ── Type colors ─────────────────────────────────────
-
-// Detect celestial/underworld from location name
-const CELESTIAL_KW = ["天宫", "天庭", "天门", "天界", "三十三天", "大罗天", "离恨天",
-  "兜率宫", "凌霄殿", "蟠桃园", "瑶池", "灵霄宝殿", "九天应元府"]
-const UNDERWORLD_KW = ["地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
-  "奈何桥", "阎罗殿", "森罗殿", "枉死城"]
+// ── Type colors ─────────────────────────────────
+const CELESTIAL_KW = [
+  "天宫", "天庭", "天门", "天界", "三十三天", "大罗天", "离恨天",
+  "兜率宫", "凌霄殿", "蟠桃园", "瑶池", "灵霄宝殿", "九天应元府",
+]
+const UNDERWORLD_KW = [
+  "地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
+  "奈何桥", "阎罗殿", "森罗殿", "枉死城",
+]
 
 function locationColor(type: string, name?: string): string {
-  // Check name-based celestial/underworld first
   if (name) {
     if (CELESTIAL_KW.some((kw) => name.includes(kw))) return "#f59e0b"
     if (UNDERWORLD_KW.some((kw) => name.includes(kw))) return "#7c3aed"
   }
-
   const t = type.toLowerCase()
   if (t.includes("国") || t.includes("域") || t.includes("界")) return "#3b82f6"
   if (t.includes("城") || t.includes("镇") || t.includes("都") || t.includes("村"))
     return "#10b981"
-  if (
-    t.includes("山") ||
-    t.includes("洞") ||
-    t.includes("谷") ||
-    t.includes("林")
-  )
+  if (t.includes("山") || t.includes("洞") || t.includes("谷") || t.includes("林"))
     return "#84cc16"
   if (t.includes("宗") || t.includes("派") || t.includes("门")) return "#8b5cf6"
   if (t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
@@ -127,7 +98,6 @@ function locationColor(type: string, name?: string): string {
 }
 
 // ── Layer background colors ─────────────────────────
-
 const LAYER_BG_COLORS: Record<LayerType, string> = {
   overworld: "#eee5d0",
   sky: "#0f172a",
@@ -146,8 +116,7 @@ function isDarkBackground(layoutMode: string, layerType?: string): boolean {
   return layoutMode === "hierarchy" || (layerType != null && layerType !== "overworld")
 }
 
-// ── Portal colors by target layer type ──────────────
-
+// ── Portal colors ──────────────────────────────────
 const PORTAL_COLORS: Record<string, string> = {
   sky: "#f59e0b",
   underground: "#7c3aed",
@@ -157,8 +126,7 @@ const PORTAL_COLORS: Record<string, string> = {
   overworld: "#3b82f6",
 }
 
-// ── Map icon names ──────────────────────────────────
-
+// ── Icon names ──────────────────────────────────────
 const ICON_NAMES = [
   "capital", "city", "town", "village", "camp",
   "mountain", "forest", "water", "desert", "island",
@@ -166,38 +134,7 @@ const ICON_NAMES = [
   "portal", "ruins", "sacred", "generic",
 ] as const
 
-// Icon size interpolation per tier
-const TIER_ICON_SIZE: Record<string, [number, number, number, number]> = {
-  // [minZoom, minSize, maxZoom, maxSize]
-  continent: [6, 0.6, 12, 1.2],
-  kingdom:   [7, 0.5, 12, 1.0],
-  region:    [8, 0.4, 13, 0.9],
-  city:      [9, 0.35, 14, 0.8],
-  site:      [10, 0.3, 14, 0.7],
-  building:  [11, 0.25, 14, 0.6],
-}
-
-async function loadMapIcons(map: maplibregl.Map) {
-  for (const name of ICON_NAMES) {
-    const resp = await fetch(`/map-icons/${name}.svg`)
-    const svgText = await resp.text()
-    const img = new Image(48, 48)
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-      img.onerror = () => resolve() // graceful fallback
-    })
-    const canvas = document.createElement("canvas")
-    canvas.width = canvas.height = 48
-    const ctx = canvas.getContext("2d")!
-    ctx.drawImage(img, 0, 0, 48, 48)
-    const data = ctx.getImageData(0, 0, 48, 48)
-    map.addImage(`icon-${name}`, { width: 48, height: 48, data: data.data }, { sdf: true })
-  }
-}
-
 // ── Props ───────────────────────────────────────────
-
 export interface NovelMapProps {
   locations: MapLocation[]
   layout: MapLayoutItem[]
@@ -221,22 +158,20 @@ export interface NovelMapHandle {
   fitToLocations: () => void
 }
 
-// ── Layer / source IDs ──────────────────────────────
-const SRC_REGIONS = "regions-src"
-const SRC_REGION_LABELS = "region-labels-src"
-const LYR_REGION_FILLS = "region-fills"
-const LYR_REGION_BORDERS = "region-borders"
-const LYR_REGION_LABELS = "region-labels"
-const SRC_LOCATIONS = "locations-src"
-const SRC_OVERVIEW_DOTS = "overview-dots-src"
-const LYR_OVERVIEW_DOTS = "overview-dots-layer"
-const SRC_TRAJECTORY = "trajectory-line"
-const LYR_TRAJECTORY_LINE = "trajectory-line-layer"
-const SRC_TRAJ_POINTS = "trajectory-points"
-const LYR_TRAJ_POINTS = "trajectory-points-layer"
-const SRC_PORTALS = "portals-src"
-const LYR_PORTALS = "portals-layer"
+// ── Popup state ─────────────────────────────────────
+interface PopupState {
+  x: number
+  y: number
+  content: "location" | "portal"
+  name: string
+  locType?: string
+  parent?: string
+  mentionCount?: number
+  targetLayer?: string
+  targetLayerName?: string
+}
 
+// ── Component ───────────────────────────────────────
 export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
   function NovelMap(
     {
@@ -252,7 +187,6 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       trajectoryPoints,
       currentLocation,
       canvasSize: canvasSizeProp,
-      spatialScale,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
@@ -260,549 +194,421 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     ref,
   ) {
     const containerRef = useRef<HTMLDivElement>(null)
-    const mapRef = useRef<maplibregl.Map | null>(null)
-    const popupRef = useRef<maplibregl.Popup | null>(null)
+    const svgRef = useRef<SVGSVGElement | null>(null)
+    const zoomRef = useRef<d3Zoom.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
+    const transformRef = useRef<d3Zoom.ZoomTransform>(d3Zoom.zoomIdentity)
+    const [currentScale, setCurrentScale] = useState(1)
     const [mapReady, setMapReady] = useState(false)
+    const [popup, setPopup] = useState<PopupState | null>(null)
+    const [iconDefs, setIconDefs] = useState<Map<string, string>>(new Map())
 
-    // Stable refs for callbacks used inside map event handlers
+    // Stable refs for callbacks
     const onClickRef = useRef(onLocationClick)
     onClickRef.current = onLocationClick
     const onDragEndRef = useRef(onLocationDragEnd)
     onDragEndRef.current = onLocationDragEnd
     const onPortalClickRef = useRef(onPortalClick)
     onPortalClickRef.current = onPortalClick
-    const fitAllCallbackRef = useRef<() => void>(() => {})
 
-    // Build layout lookup
-    const layoutMapRef = useRef<Map<string, MapLayoutItem>>(new Map())
-    useEffect(() => {
-      const m = new Map<string, MapLayoutItem>()
-      for (const item of layout) m.set(item.name, item)
-      layoutMapRef.current = m
-    }, [layout])
-
-    // Compute dynamic toLngLat based on canvasSize prop
     const canvasW = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
     const canvasH = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
-    const toLngLat = makeLngLatMapper(canvasW, canvasH)
-    const toLngLatRef = useRef(toLngLat)
-    toLngLatRef.current = toLngLat
+    const darkBg = isDarkBackground(layoutMode, layerType)
+    const bgColor = getMapBgColor(layoutMode, layerType)
 
-    // ── Initialize map ──────────────────────────────
+    // Build layout lookup
+    const layoutMap = useMemo(() => {
+      const m = new Map<string, MapLayoutItem>()
+      for (const item of layout) m.set(item.name, item)
+      return m
+    }, [layout])
+
+    // Build location lookup
+    const locMap = useMemo(() => {
+      const m = new Map<string, MapLocation>()
+      for (const loc of locations) m.set(loc.name, loc)
+      return m
+    }, [locations])
+
+    // Territory generation
+    const territories = useMemo(
+      () => generateTerritories(locations, layout, { width: canvasW, height: canvasH }),
+      [locations, layout, canvasW, canvasH],
+    )
+
+    // ── Load SVG icons ──────────────────────────────
+    useEffect(() => {
+      let cancelled = false
+      const defs = new Map<string, string>()
+
+      Promise.all(
+        ICON_NAMES.map(async (name) => {
+          try {
+            const resp = await fetch(`/map-icons/${name}.svg`)
+            const text = await resp.text()
+            // Extract inner SVG content
+            const match = text.match(/<svg[^>]*>([\s\S]*)<\/svg>/i)
+            if (match) {
+              defs.set(name, match[1])
+            }
+          } catch {
+            // graceful fallback
+          }
+        }),
+      ).then(() => {
+        if (!cancelled) setIconDefs(defs)
+      })
+
+      return () => { cancelled = true }
+    }, [])
+
+    // ── Initialize SVG + d3-zoom ────────────────────
     useEffect(() => {
       if (!containerRef.current) return
 
-      const cw = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
-      const ch = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
-      const localToLngLat = makeLngLatMapper(cw, ch)
-      const center = localToLngLat(cw / 2, ch / 2)
-      const bgColor = getMapBgColor(layoutMode, layerType)
-      const darkBg = isDarkBackground(layoutMode, layerType)
+      // Create SVG element
+      const container = d3Selection.select(containerRef.current)
+      container.selectAll("svg").remove()
 
-      const defaultZoom = getDefaultZoom(spatialScale)
-      const map = new maplibregl.Map({
-        container: containerRef.current,
-        style: {
-          version: 8,
-          sources: {},
-          layers: [
-            {
-              id: "background",
-              type: "background",
-              paint: {
-                "background-color": bgColor,
-              },
-            },
-          ],
-        },
-        center,
-        zoom: defaultZoom,
-        minZoom: Math.max(4, defaultZoom - 3),
-        maxZoom: 16,
-        renderWorldCopies: false,
-        attributionControl: false,
-      })
+      const svg = container
+        .append("svg")
+        .attr("class", "h-full w-full")
+        .style("cursor", "grab")
+        .style("user-select", "none")
 
-      map.addControl(
-        new maplibregl.NavigationControl({ showCompass: true }),
-        "top-right",
-      )
+      svgRef.current = svg.node()!
 
-      // Custom "fit all" control — uses ref to call latest fitToLocations
-      const fitAllBtn = document.createElement("button")
-      fitAllBtn.type = "button"
-      fitAllBtn.title = "查看全貌"
-      fitAllBtn.className = "maplibregl-ctrl-icon"
-      fitAllBtn.style.cssText = "font-size:16px; line-height:29px;"
-      fitAllBtn.textContent = "⌂"
-      fitAllBtn.addEventListener("click", () => fitAllCallbackRef.current())
+      // Defs for filters
+      const defs = svg.append("defs")
 
-      class FitAllControl implements maplibregl.IControl {
-        _container?: HTMLDivElement
+      // Parchment noise filter
+      const parchmentFilter = defs.append("filter").attr("id", "parchment-noise")
+      parchmentFilter
+        .append("feTurbulence")
+        .attr("type", "fractalNoise")
+        .attr("baseFrequency", "0.65")
+        .attr("numOctaves", "4")
+        .attr("stitchTiles", "stitch")
+      parchmentFilter
+        .append("feColorMatrix")
+        .attr("type", "saturate")
+        .attr("values", "0")
+      parchmentFilter
+        .append("feBlend")
+        .attr("in", "SourceGraphic")
+        .attr("mode", "multiply")
 
-        onAdd() {
-          this._container = document.createElement("div")
-          this._container.className = "maplibregl-ctrl maplibregl-ctrl-group"
-          this._container.appendChild(fitAllBtn)
-          return this._container
-        }
+      // Hand-drawn line filter (subtle roughness)
+      const handDrawnFilter = defs.append("filter").attr("id", "hand-drawn")
+      handDrawnFilter
+        .append("feTurbulence")
+        .attr("type", "turbulence")
+        .attr("baseFrequency", "0.02")
+        .attr("numOctaves", "3")
+        .attr("result", "noise")
+      handDrawnFilter
+        .append("feDisplacementMap")
+        .attr("in", "SourceGraphic")
+        .attr("in2", "noise")
+        .attr("scale", "2")
+        .attr("xChannelSelector", "R")
+        .attr("yChannelSelector", "G")
 
-        onRemove() {
-          this._container?.remove()
-        }
+      // Viewport group (transformed by zoom)
+      const viewport = svg.append("g").attr("id", "viewport")
+
+      // Background
+      viewport
+        .append("rect")
+        .attr("id", "bg")
+        .attr("width", canvasW)
+        .attr("height", canvasH)
+        .attr("fill", bgColor)
+
+      // Parchment texture overlay (only for light backgrounds)
+      if (!darkBg) {
+        viewport
+          .append("rect")
+          .attr("id", "bg-texture")
+          .attr("width", canvasW)
+          .attr("height", canvasH)
+          .attr("filter", "url(#parchment-noise)")
+          .attr("opacity", 0.04)
+          .attr("fill", "#8b7355")
       }
 
-      map.addControl(new FitAllControl(), "top-right")
+      // Terrain image placeholder
+      viewport.append("g").attr("id", "terrain")
 
-      // Zoom level indicator (bottom-left)
-      const zoomIndicator = document.createElement("div")
-      zoomIndicator.style.cssText =
-        "font-size:11px; color:rgba(120,120,120,0.8); padding:4px 8px; white-space:nowrap; pointer-events:none;"
+      // Layer groups (Z-order)
+      viewport.append("g").attr("id", "regions")
+      viewport.append("g").attr("id", "region-labels")
+      viewport.append("g").attr("id", "territories")
+      viewport.append("g").attr("id", "territory-labels")
+      viewport.append("g").attr("id", "trajectory")
+      viewport.append("g").attr("id", "overview-dots")
 
-      function updateZoomIndicator() {
-        const z = Math.round(map.getZoom() * 10) / 10
-        const tiers = getVisibleTiers(z)
-        zoomIndicator.textContent = tiers ? `${tiers}` : ""
+      for (const tier of TIERS) {
+        viewport.append("g").attr("id", `locations-${tier}`).attr("class", `tier-${tier}`)
       }
-      updateZoomIndicator()
-      map.on("zoom", updateZoomIndicator)
 
-      class ZoomIndicatorControl implements maplibregl.IControl {
-        _container?: HTMLDivElement
-        onAdd() {
-          this._container = document.createElement("div")
-          this._container.className = "maplibregl-ctrl"
-          this._container.appendChild(zoomIndicator)
-          return this._container
-        }
-        onRemove() {
-          this._container?.remove()
-        }
-      }
-      map.addControl(new ZoomIndicatorControl(), "bottom-left")
+      viewport.append("g").attr("id", "portals")
 
-      map.on("load", async () => {
-        // ── Load SVG icons as SDF images ──
-        await loadMapIcons(map)
-
-        // ── Z-order: regions → trajectory → locations (per-tier) → portals ──
-
-        // 1. Region boundaries (Voronoi polygons)
-        map.addSource(SRC_REGIONS, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: LYR_REGION_FILLS,
-          type: "fill",
-          source: SRC_REGIONS,
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": [
-              "interpolate", ["linear"], ["zoom"],
-              6, 0.12,
-              10, 0.04,
-            ],
-          },
-        })
-        map.addLayer({
-          id: LYR_REGION_BORDERS,
-          type: "line",
-          source: SRC_REGIONS,
-          paint: {
-            "line-color": ["get", "color"],
-            "line-opacity": [
-              "interpolate", ["linear"], ["zoom"],
-              6, 0.30,
-              11, 0.10,
-            ],
-            "line-width": 1.5,
-            "line-dasharray": [4, 3],
-          },
+      // Setup d3-zoom
+      const zoom = d3Zoom
+        .zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.2, 10])
+        .on("zoom", (event: d3Zoom.D3ZoomEvent<SVGSVGElement, unknown>) => {
+          viewport.attr("transform", event.transform.toString())
+          transformRef.current = event.transform
+          setCurrentScale(event.transform.k)
         })
 
-        // Region labels (points at centers)
-        map.addSource(SRC_REGION_LABELS, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: LYR_REGION_LABELS,
-          type: "symbol",
-          source: SRC_REGION_LABELS,
-          maxzoom: 10,
-          layout: {
-            "text-field": ["get", "name"],
-            "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
-            "text-size": 18,
-            "text-allow-overlap": true,
-          },
-          paint: {
-            "text-color": ["get", "color"],
-            "text-opacity": 0.4,
-            "text-halo-color": darkBg ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)",
-            "text-halo-width": 1,
-          },
-        })
+      svg.call(zoom)
+      svg.on("dblclick.zoom", null) // disable double-click zoom
+      zoomRef.current = zoom
 
-        // 2. Trajectory line
-        map.addSource(SRC_TRAJECTORY, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: LYR_TRAJECTORY_LINE,
-          type: "line",
-          source: SRC_TRAJECTORY,
-          paint: {
-            "line-color": "#f59e0b",
-            "line-width": 3,
-            "line-opacity": 0.85,
-          },
-          layout: { "line-cap": "round", "line-join": "round" },
-        })
-
-        // 3. Trajectory points
-        map.addSource(SRC_TRAJ_POINTS, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: LYR_TRAJ_POINTS,
-          type: "circle",
-          source: SRC_TRAJ_POINTS,
-          paint: {
-            "circle-radius": 5,
-            "circle-color": "#d97706",
-            "circle-stroke-color": "#fff",
-            "circle-stroke-width": 1.5,
-          },
-        })
-
-        // 4. Overview dots — always visible colored circles for ALL locations
-        // Enables exploration at low zoom where per-tier symbol layers are hidden.
-        // Active locations: type color, full opacity; revealed: gray; hidden: faint type color.
-        map.addSource(SRC_OVERVIEW_DOTS, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: LYR_OVERVIEW_DOTS,
-          type: "circle",
-          source: SRC_OVERVIEW_DOTS,
-          paint: {
-            "circle-radius": [
-              "interpolate", ["linear"], ["zoom"],
-              5, 2.5,
-              8, 3.5,
-              11, 4,
-              14, 5,
-            ],
-            "circle-color": ["get", "color"],
-            "circle-opacity": ["get", "opacity"],
-            "circle-stroke-color": ["get", "strokeColor"],
-            "circle-stroke-width": [
-              "case",
-              ["get", "hasStroke"],
-              1.5,
-              0,
-            ],
-          },
-        })
-
-        // 5. Location source (shared across per-tier symbol layers)
-        map.addSource(SRC_LOCATIONS, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-
-        // 5a. Per-tier symbol layers (icon + label combined)
-        for (const tier of TIERS) {
-          const minZoom = TIER_MIN_ZOOM[tier] ?? 9
-          const textSizes = TIER_TEXT_SIZE[tier] ?? [9, 10, 14, 14]
-          const iconSizes = TIER_ICON_SIZE[tier] ?? [9, 0.35, 14, 0.8]
-
-          map.addLayer({
-            id: `loc-${tier}`,
-            type: "symbol",
-            source: SRC_LOCATIONS,
-            filter: ["==", ["get", "tier"], tier],
-            minzoom: minZoom,
-            layout: {
-              "icon-image": ["concat", "icon-", ["get", "icon"]],
-              "icon-size": [
-                "interpolate", ["linear"], ["zoom"],
-                iconSizes[0], iconSizes[1],
-                iconSizes[2], iconSizes[3],
-              ],
-              "icon-allow-overlap": tier === "continent" || tier === "kingdom",
-              "text-field": ["get", "name"],
-              "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
-              "text-size": [
-                "interpolate", ["linear"], ["zoom"],
-                textSizes[0], textSizes[1],
-                textSizes[2], textSizes[3],
-              ],
-              "text-offset": [0, 1.5],
-              "text-anchor": "top",
-              "text-optional": tier !== "continent",
-              "text-allow-overlap": false,
-            },
-            paint: {
-              "icon-color": ["get", "color"],
-              "icon-opacity": ["get", "opacity"],
-              "text-color": [
-                "case",
-                ["get", "isRevealed"],
-                "#9ca3af",
-                [">=", ["get", "mentionCount"], 3],
-                darkBg ? "#e5e7eb" : "#374151",
-                "#9ca3af",
-              ],
-              "text-halo-color": darkBg ? "rgba(0,0,0,0.6)" : "#ffffff",
-              "text-halo-width": 1.5,
-              "text-opacity": ["get", "opacity"],
-            },
-          })
-        }
-
-        // 6. Portal markers
-        map.addSource(SRC_PORTALS, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: LYR_PORTALS,
-          type: "symbol",
-          source: SRC_PORTALS,
-          layout: {
-            "text-field": "\u2299",
-            "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
-            "text-size": 20,
-            "text-allow-overlap": true,
-          },
-          paint: {
-            "text-color": ["get", "color"],
-            "text-halo-color": darkBg ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)",
-            "text-halo-width": 2,
-          },
-        })
-
-        // ── Click handler for location symbol layers (all per-tier) ──
-        const symbolLayerIds = TIERS.map((t) => `loc-${t}`)
-
-        function handleLocationClick(e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) {
-          if (!e.features?.[0]) return
-          const props = e.features[0].properties
-          if (!props) return
-          const name = props.name as string
-          const lnglat = (e.features[0].geometry as GeoJSON.Point)
-            .coordinates as [number, number]
-
-          if (popupRef.current) popupRef.current.remove()
-
-          const popup = new maplibregl.Popup({ offset: 12, closeButton: true })
-            .setLngLat(lnglat)
-            .setHTML(
-              `<div style="font-size:13px; max-width:200px;">
-                <div style="font-weight:600; margin-bottom:4px;">${props.name}</div>
-                <div style="color:#666; font-size:11px; margin-bottom:4px;">
-                  ${props.locType}${props.parent ? ` · ${props.parent}` : ""}
-                </div>
-                <div style="font-size:11px; color:#888; margin-bottom:6px;">
-                  出现 ${props.mentionCount} 章
-                </div>
-                <button class="popup-card-btn" style="
-                  font-size:11px; color:#3b82f6; background:none; border:none;
-                  cursor:pointer; padding:0; text-decoration:underline;
-                ">查看卡片</button>
-              </div>`,
-            )
-            .addTo(map)
-
-          popupRef.current = popup
-
-          setTimeout(() => {
-            const btn = popup
-              .getElement()
-              ?.querySelector(".popup-card-btn")
-            if (btn) {
-              btn.addEventListener("click", () => {
-                onClickRef.current?.(name)
-                popup.remove()
-              })
-            }
-          }, 0)
-        }
-
-        for (const layerId of symbolLayerIds) {
-          map.on("click", layerId, handleLocationClick)
-          map.on("mouseenter", layerId, () => {
-            map.getCanvas().style.cursor = "pointer"
-          })
-          map.on("mouseleave", layerId, () => {
-            map.getCanvas().style.cursor = ""
-          })
-        }
-
-        // ── Click handler for portal markers ──
-        map.on("click", LYR_PORTALS, (e) => {
-          if (!e.features?.[0]) return
-          const props = e.features[0].properties
-          if (!props) return
-          const lnglat = (e.features[0].geometry as GeoJSON.Point)
-            .coordinates as [number, number]
-
-          if (popupRef.current) popupRef.current.remove()
-
-          const popup = new maplibregl.Popup({ offset: 12, closeButton: true })
-            .setLngLat(lnglat)
-            .setHTML(
-              `<div style="font-size:13px; max-width:220px;">
-                <div style="font-weight:600; margin-bottom:4px;">${props.name}</div>
-                <div style="color:#666; font-size:11px; margin-bottom:6px;">
-                  通往: ${props.targetLayerName}
-                </div>
-                <button class="portal-enter-btn" style="
-                  font-size:11px; color:#3b82f6; background:none; border:none;
-                  cursor:pointer; padding:0; text-decoration:underline;
-                  margin-right:8px;
-                ">进入地图</button>
-              </div>`,
-            )
-            .addTo(map)
-
-          popupRef.current = popup
-
-          setTimeout(() => {
-            const enterBtn = popup.getElement()?.querySelector(".portal-enter-btn")
-            if (enterBtn) {
-              enterBtn.addEventListener("click", () => {
-                onPortalClickRef.current?.(props.targetLayer as string)
-                popup.remove()
-              })
-            }
-          }, 0)
-        })
-
-        // Cursor style on hover for portals
-        map.on("mouseenter", LYR_PORTALS, () => {
-          map.getCanvas().style.cursor = "pointer"
-        })
-        map.on("mouseleave", LYR_PORTALS, () => {
-          map.getCanvas().style.cursor = ""
-        })
-
-        setMapReady(true)
-      })
-
-      mapRef.current = map
+      setMapReady(true)
 
       return () => {
-        if (popupRef.current) popupRef.current.remove()
-        map.remove()
-        mapRef.current = null
+        container.selectAll("svg").remove()
+        svgRef.current = null
+        zoomRef.current = null
         setMapReady(false)
+        setPopup(null)
       }
-    }, [layoutMode, layerType, canvasSizeProp, spatialScale])
+    }, [canvasW, canvasH, layoutMode, layerType, bgColor, darkBg])
 
-    // ── Load terrain image ──────────────────────────
+    // ── Terrain image ────────────────────────────────
     useEffect(() => {
-      const map = mapRef.current
-      if (!map || !mapReady || !terrainUrl) return
+      if (!svgRef.current || !mapReady) return
+      const terrainG = d3Selection.select(svgRef.current).select("#terrain")
+      terrainG.selectAll("*").remove()
 
-      const cw = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
-      const ch = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
-      const localToLngLat = makeLngLatMapper(cw, ch)
-      const topLeft = localToLngLat(0, ch)
-      const topRight = localToLngLat(cw, ch)
-      const bottomRight = localToLngLat(cw, 0)
-      const bottomLeft = localToLngLat(0, 0)
-
-      if (map.getSource("terrain-img")) {
-        map.removeLayer("terrain-layer")
-        map.removeSource("terrain-img")
+      if (terrainUrl) {
+        terrainG
+          .append("image")
+          .attr("href", terrainUrl)
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", canvasW)
+          .attr("height", canvasH)
+          .attr("opacity", 0.8)
+          .attr("preserveAspectRatio", "none")
       }
+    }, [mapReady, terrainUrl, canvasW, canvasH])
 
-      map.addSource("terrain-img", {
-        type: "image",
-        url: terrainUrl,
-        coordinates: [topLeft, topRight, bottomRight, bottomLeft],
-      })
-
-      // Insert terrain below region layers
-      map.addLayer(
-        {
-          id: "terrain-layer",
-          type: "raster",
-          source: "terrain-img",
-          paint: { "raster-opacity": 0.8 },
-        },
-        LYR_REGION_FILLS,
-      )
-    }, [mapReady, terrainUrl, canvasSizeProp])
-
-    // ── Update region GeoJSON ────────────────────────
+    // ── Render regions ───────────────────────────────
     useEffect(() => {
-      const map = mapRef.current
-      if (!map || !mapReady) return
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const regionsG = svg.select("#regions")
+      const labelsG = svg.select("#region-labels")
+      regionsG.selectAll("*").remove()
+      labelsG.selectAll("*").remove()
 
-      const ll = toLngLatRef.current
+      if (!regionBoundaries || regionBoundaries.length === 0) return
 
-      // Polygon features for fills + borders
-      const polyFeatures: GeoJSON.Feature[] = []
-      // Point features for labels at centroids
-      const labelFeatures: GeoJSON.Feature[] = []
+      for (const rb of regionBoundaries) {
+        // Distort for hand-drawn look
+        const distorted = distortPolygonEdges(
+          rb.polygon,
+          canvasW,
+          canvasH,
+          12,
+          42,
+        )
+        const pathData = polygonToPath(distorted)
 
-      if (regionBoundaries && regionBoundaries.length > 0) {
-        for (const rb of regionBoundaries) {
-          // Voronoi polygon vertices
-          const coords = rb.polygon.map(([x, y]) => ll(x, y))
-          coords.push(coords[0]) // close the ring
-          polyFeatures.push({
-            type: "Feature",
-            geometry: {
-              type: "Polygon",
-              coordinates: [coords],
-            },
-            properties: { name: rb.region_name, color: rb.color },
-          })
-          // Label at center
-          labelFeatures.push({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: ll(rb.center[0], rb.center[1]) },
-            properties: { name: rb.region_name, color: rb.color },
-          })
-        }
+        // Fill
+        regionsG
+          .append("path")
+          .attr("d", pathData)
+          .attr("fill", rb.color)
+          .attr("fill-opacity", 0.08)
+          .attr("stroke", rb.color)
+          .attr("stroke-opacity", 0.25)
+          .attr("stroke-width", 1.5)
+          .attr("stroke-dasharray", "6,4")
+
+        // Label at center
+        labelsG
+          .append("text")
+          .attr("x", rb.center[0])
+          .attr("y", rb.center[1])
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "central")
+          .attr("fill", rb.color)
+          .attr("opacity", 0.4)
+          .attr("font-size", "18px")
+          .attr("font-weight", "300")
+          .style("pointer-events", "none")
+          .text(rb.region_name)
       }
+    }, [mapReady, regionBoundaries, canvasW, canvasH])
 
-      const regSrc = map.getSource(SRC_REGIONS) as maplibregl.GeoJSONSource
-      if (regSrc) {
-        regSrc.setData({ type: "FeatureCollection", features: polyFeatures })
-      }
-      const lblSrc = map.getSource(SRC_REGION_LABELS) as maplibregl.GeoJSONSource
-      if (lblSrc) {
-        lblSrc.setData({ type: "FeatureCollection", features: labelFeatures })
-      }
-    }, [mapReady, regionBoundaries])
-
-    // ── Update location GeoJSON ─────────────────────
+    // ── Render territories ───────────────────────────
     useEffect(() => {
-      const map = mapRef.current
-      if (!map || !mapReady) return
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const terrG = svg.select("#territories")
+      const terrLabelsG = svg.select("#territory-labels")
+      terrG.selectAll("*").remove()
+      terrLabelsG.selectAll("*").remove()
 
-      const ll = toLngLatRef.current
-      const locMap = new Map(locations.map((l) => [l.name, l]))
+      if (territories.length === 0) return
+
+      for (const terr of territories) {
+        const distorted = distortPolygonEdges(
+          terr.polygon,
+          canvasW,
+          canvasH,
+          16,
+          7,
+        )
+        const pathData = polygonToPath(distorted)
+
+        terrG
+          .append("path")
+          .attr("d", pathData)
+          .attr("fill", terr.color)
+          .attr("fill-opacity", 0.06 + terr.level * 0.02)
+          .attr("stroke", terr.color)
+          .attr("stroke-opacity", 0.3)
+          .attr("stroke-width", Math.max(1, 2 - terr.level * 0.5))
+          .attr("stroke-dasharray", "8,4")
+
+        // Label at centroid
+        const centroid = polygonCentroid(terr.polygon)
+        terrLabelsG
+          .append("text")
+          .attr("x", centroid[0])
+          .attr("y", centroid[1])
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "central")
+          .attr("fill", terr.color)
+          .attr("opacity", 0.3)
+          .attr("font-size", `${Math.max(12, 16 - terr.level * 2)}px`)
+          .attr("font-weight", "300")
+          .style("pointer-events", "none")
+          .text(terr.name)
+      }
+    }, [mapReady, territories, canvasW, canvasH])
+
+    // ── Render trajectory ────────────────────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const trajG = svg.select("#trajectory")
+      trajG.selectAll("*").remove()
+
+      if (!trajectoryPoints || trajectoryPoints.length === 0) return
+
+      const coords: Point[] = []
+      for (const pt of trajectoryPoints) {
+        const item = layoutMap.get(pt.location)
+        if (item) coords.push([item.x, item.y])
+      }
+
+      if (coords.length < 2) return
+
+      // Draw line
+      const lineGen = d3Shape
+        .line<Point>()
+        .x((d) => d[0])
+        .y((d) => d[1])
+        .curve(d3Shape.curveCardinal.tension(0.5))
+
+      trajG
+        .append("path")
+        .attr("d", lineGen(coords)!)
+        .attr("fill", "none")
+        .attr("stroke", "#f59e0b")
+        .attr("stroke-width", 3)
+        .attr("stroke-opacity", 0.85)
+        .attr("stroke-linecap", "round")
+        .attr("stroke-linejoin", "round")
+
+      // Draw points
+      for (const coord of coords) {
+        trajG
+          .append("circle")
+          .attr("cx", coord[0])
+          .attr("cy", coord[1])
+          .attr("r", 5)
+          .attr("fill", "#d97706")
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 1.5)
+      }
+    }, [mapReady, trajectoryPoints, layoutMap])
+
+    // ── Render overview dots ─────────────────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const dotsG = svg.select("#overview-dots")
+      dotsG.selectAll("*").remove()
+
       const revealed = revealedLocationNames ?? new Set<string>()
-
-      // Filter out portal markers from location circles
       const locationItems = layout.filter((item) => !item.is_portal)
-
-      const features: GeoJSON.Feature[] = []
-      const dotFeatures: GeoJSON.Feature[] = []
 
       for (const item of locationItems) {
         const loc = locMap.get(item.name)
+        const isActive = visibleLocationNames.has(item.name)
+        const isRevealed = !isActive && revealed.has(item.name)
+        const isCurrent = currentLocation === item.name
+
+        const typeColor = locationColor(loc?.type ?? "", item.name)
+        let color: string
+        let opacity: number
+
+        if (isCurrent) {
+          color = "#f59e0b"
+          opacity = 1
+        } else if (isActive) {
+          color = typeColor
+          opacity = 0.8
+        } else if (isRevealed) {
+          color = "#9ca3af"
+          opacity = 0.3
+        } else {
+          color = typeColor
+          opacity = 0.2
+        }
+
+        const dot = dotsG
+          .append("circle")
+          .attr("cx", item.x)
+          .attr("cy", item.y)
+          .attr("r", 3)
+          .attr("fill", color)
+          .attr("opacity", opacity)
+
+        if (isCurrent) {
+          dot
+            .attr("stroke", "#92400e")
+            .attr("stroke-width", 1.5)
+        }
+      }
+    }, [mapReady, layout, locMap, visibleLocationNames, revealedLocationNames, currentLocation])
+
+    // ── Render location icons + labels ───────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady || iconDefs.size === 0) return
+      const svg = d3Selection.select(svgRef.current)
+      const revealed = revealedLocationNames ?? new Set<string>()
+      const locationItems = layout.filter((item) => !item.is_portal)
+
+      // Clear all tier groups
+      for (const tier of TIERS) {
+        svg.select(`#locations-${tier}`).selectAll("*").remove()
+      }
+
+      for (const item of locationItems) {
+        const loc = locMap.get(item.name)
+        const tier = (loc?.tier ?? "city") as typeof TIERS[number]
+        const tierG = svg.select(`#locations-${tier}`)
+        if (tierG.empty()) continue
+
         const isActive = visibleLocationNames.has(item.name)
         const isRevealed = !isActive && revealed.has(item.name)
         const isCurrent = currentLocation === item.name
@@ -824,190 +630,288 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           opacity = 0.2
         }
 
-        // Overview dot for ALL locations (visible at all zoom levels)
-        const typeColor = locationColor(loc?.type ?? "", item.name)
-        let dotOpacity: number
-        let dotStrokeColor = "transparent"
-        let hasStroke = false
-        if (isCurrent) {
-          dotOpacity = 1
-          dotStrokeColor = "#92400e"
-          hasStroke = true
-        } else if (isActive) {
-          dotOpacity = 0.8
-        } else if (isRevealed) {
-          dotOpacity = 0.3
-        } else {
-          dotOpacity = 0.2
+        const iconName = loc?.icon ?? "generic"
+        const iconSize = TIER_ICON_SIZE[tier] ?? 20
+
+        // Location group
+        const locG = tierG
+          .append("g")
+          .attr("class", "location-item")
+          .attr("data-name", item.name)
+          .attr("data-tier", tier)
+          .style("cursor", "pointer")
+
+        // Icon — render as inner SVG group
+        const iconContent = iconDefs.get(iconName)
+        if (iconContent) {
+          const iconG = locG
+            .append("g")
+            .attr(
+              "transform",
+              `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
+            )
+            .attr("fill", color)
+            .attr("opacity", opacity)
+          iconG.html(iconContent)
         }
 
-        dotFeatures.push({
-          type: "Feature" as const,
-          geometry: {
-            type: "Point" as const,
-            coordinates: ll(item.x, item.y),
-          },
-          properties: {
-            color: isCurrent ? "#f59e0b" : isRevealed ? "#9ca3af" : typeColor,
-            opacity: dotOpacity,
-            strokeColor: dotStrokeColor,
-            hasStroke,
-          },
-        })
+        // Label
+        const textColor = isRevealed
+          ? "#9ca3af"
+          : mention >= 3
+            ? darkBg ? "#e5e7eb" : "#374151"
+            : "#9ca3af"
+        const fontSize = TIER_TEXT_SIZE[tier] ?? 12
 
-        features.push({
-          type: "Feature" as const,
-          geometry: {
-            type: "Point" as const,
-            coordinates: ll(item.x, item.y),
-          },
-          properties: {
+        locG
+          .append("text")
+          .attr("x", item.x)
+          .attr("y", item.y + iconSize / 2 + fontSize * 0.9)
+          .attr("text-anchor", "middle")
+          .attr("font-size", `${fontSize}px`)
+          .attr("fill", textColor)
+          .attr("opacity", opacity)
+          .attr("stroke", darkBg ? "rgba(0,0,0,0.6)" : "#ffffff")
+          .attr("stroke-width", 1.5)
+          .attr("paint-order", "stroke")
+          .style("pointer-events", "none")
+          .text(item.name)
+
+        // Click handler
+        locG.on("click", (event: MouseEvent) => {
+          event.stopPropagation()
+          setPopup({
+            x: item.x,
+            y: item.y,
+            content: "location",
             name: item.name,
             locType: loc?.type ?? "",
             parent: loc?.parent ?? "",
             mentionCount: mention,
-            tier: loc?.tier ?? "city",
-            icon: loc?.icon ?? "generic",
-            radius: isCurrent
-              ? 8
-              : isRevealed
-                ? 3
-                : Math.max(4, Math.min(10, 3 + mention * 0.5)),
-            color,
-            opacity,
-            isCurrent,
-            isRevealed,
-          },
+          })
         })
       }
 
-      const src = map.getSource(SRC_LOCATIONS) as maplibregl.GeoJSONSource
-      if (src) {
-        src.setData({ type: "FeatureCollection", features })
-      }
-      const dotSrc = map.getSource(SRC_OVERVIEW_DOTS) as maplibregl.GeoJSONSource
-      if (dotSrc) {
-        dotSrc.setData({ type: "FeatureCollection", features: dotFeatures })
-      }
-    }, [mapReady, layout, locations, visibleLocationNames, revealedLocationNames, currentLocation])
+      // Setup drag on location groups
+      setupDrag(svg)
+    }, [
+      mapReady, layout, locMap, locations, iconDefs,
+      visibleLocationNames, revealedLocationNames, currentLocation, darkBg,
+    ])
 
-    // ── Update portal GeoJSON ────────────────────────
+    // ── Setup drag behavior ──────────────────────────
+    const setupDrag = useCallback(
+      (svg: d3Selection.Selection<SVGSVGElement, unknown, null, undefined>) => {
+        const locationItems = svg.selectAll<SVGGElement, unknown>(".location-item")
+
+        const drag = d3Drag
+          .drag<SVGGElement, unknown>()
+          .on("start", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
+            // Prevent zoom during drag
+            event.sourceEvent.stopPropagation()
+            d3Selection.select(this).raise().style("cursor", "grabbing")
+          })
+          .on("drag", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
+            const name = d3Selection.select(this).attr("data-name")
+            if (!name) return
+            const tier = d3Selection.select(this).attr("data-tier") as string
+            const iconSize = TIER_ICON_SIZE[tier] ?? 20
+            const fontSize = TIER_TEXT_SIZE[tier] ?? 12
+            const iconName = locMap.get(name)?.icon ?? "generic"
+
+            // Convert screen dx/dy to canvas coords by dividing by current scale
+            const t = transformRef.current
+            const canvasX = (event.sourceEvent.offsetX - t.x) / t.k
+            const canvasY = (event.sourceEvent.offsetY - t.y) / t.k
+
+            // Update icon position
+            const g = d3Selection.select(this)
+            const iconG = g.select("g")
+            if (!iconG.empty() && iconDefs.has(iconName)) {
+              iconG.attr(
+                "transform",
+                `translate(${canvasX - iconSize / 2}, ${canvasY - iconSize / 2}) scale(${iconSize / 48})`,
+              )
+            }
+
+            // Update text position
+            g.select("text")
+              .attr("x", canvasX)
+              .attr("y", canvasY + iconSize / 2 + fontSize * 0.9)
+          })
+          .on("end", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
+            d3Selection.select(this).style("cursor", "pointer")
+            const name = d3Selection.select(this).attr("data-name")
+            if (!name) return
+
+            const t = transformRef.current
+            const canvasX = (event.sourceEvent.offsetX - t.x) / t.k
+            const canvasY = (event.sourceEvent.offsetY - t.y) / t.k
+
+            onDragEndRef.current?.(name, canvasX, canvasY)
+          })
+
+        locationItems.call(drag)
+      },
+      [locMap, iconDefs],
+    )
+
+    // ── Render portals ───────────────────────────────
     useEffect(() => {
-      const map = mapRef.current
-      if (!map || !mapReady) return
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const portalsG = svg.select("#portals")
+      portalsG.selectAll("*").remove()
 
-      const ll = toLngLatRef.current
-      const portalFeatures: GeoJSON.Feature[] = []
-
-      // Build portal features from layout items with is_portal flag
+      // Portal items from layout
       const portalItems = layout.filter((item) => item.is_portal)
-      for (const item of portalItems) {
-        // Look up portal metadata from the portals prop
-        const info = portals?.find((p) => p.name === item.name)
-        const targetLayer = info?.target_layer ?? item.target_layer ?? ""
-        // Determine layer type for color
-        const color = PORTAL_COLORS[targetLayer] ?? PORTAL_COLORS.overworld
+      const portalInfoMap = new Map<string, PortalInfo>()
+      if (portals) {
+        for (const p of portals) portalInfoMap.set(p.name, p)
+      }
 
-        portalFeatures.push({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: ll(item.x, item.y) },
-          properties: {
-            name: item.name,
-            targetLayer,
-            targetLayerName: info?.target_layer_name ?? targetLayer,
-            color,
-          },
+      const allPortals: {
+        name: string
+        x: number
+        y: number
+        targetLayer: string
+        targetLayerName: string
+        color: string
+      }[] = []
+
+      for (const item of portalItems) {
+        const info = portalInfoMap.get(item.name)
+        const targetLayer = info?.target_layer ?? item.target_layer ?? ""
+        const color = PORTAL_COLORS[targetLayer] ?? PORTAL_COLORS.overworld
+        allPortals.push({
+          name: item.name,
+          x: item.x,
+          y: item.y,
+          targetLayer,
+          targetLayerName: info?.target_layer_name ?? targetLayer,
+          color,
         })
       }
 
-      // Also add portals from the portals prop that aren't in layout
-      // (use source_location position as fallback)
+      // Also add portals from props not in layout
       if (portals) {
-        const layoutPortalNames = new Set(portalItems.map((p) => p.name))
+        const layoutNames = new Set(portalItems.map((p) => p.name))
         for (const p of portals) {
-          if (layoutPortalNames.has(p.name)) continue
-          const srcItem = layoutMapRef.current.get(p.source_location)
+          if (layoutNames.has(p.name)) continue
+          const srcItem = layoutMap.get(p.source_location)
           if (!srcItem) continue
           const color = PORTAL_COLORS[p.target_layer] ?? PORTAL_COLORS.overworld
-          portalFeatures.push({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: ll(srcItem.x, srcItem.y) },
-            properties: {
-              name: p.name,
-              targetLayer: p.target_layer,
-              targetLayerName: p.target_layer_name,
-              color,
-            },
+          allPortals.push({
+            name: p.name,
+            x: srcItem.x,
+            y: srcItem.y,
+            targetLayer: p.target_layer,
+            targetLayerName: p.target_layer_name,
+            color,
           })
         }
       }
 
-      const src = map.getSource(SRC_PORTALS) as maplibregl.GeoJSONSource
-      if (src) {
-        src.setData({ type: "FeatureCollection", features: portalFeatures })
-      }
-    }, [mapReady, layout, portals])
+      for (const portal of allPortals) {
+        const portalG = portalsG
+          .append("g")
+          .style("cursor", "pointer")
 
-    // ── Update trajectory GeoJSON ───────────────────
-    useEffect(() => {
-      const map = mapRef.current
-      if (!map || !mapReady) return
+        portalG
+          .append("text")
+          .attr("x", portal.x)
+          .attr("y", portal.y)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "central")
+          .attr("font-size", "20px")
+          .attr("fill", portal.color)
+          .attr("stroke", darkBg ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)")
+          .attr("stroke-width", 2)
+          .attr("paint-order", "stroke")
+          .text("⊙")
 
-      const ll = toLngLatRef.current
-      const coords: [number, number][] = []
-      const pointFeatures: GeoJSON.Feature[] = []
-
-      if (trajectoryPoints && trajectoryPoints.length > 0) {
-        for (const pt of trajectoryPoints) {
-          const item = layoutMapRef.current.get(pt.location)
-          if (!item) continue
-          const lnglat = ll(item.x, item.y)
-          coords.push(lnglat)
-          pointFeatures.push({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: lnglat },
-            properties: { chapter: pt.chapter, location: pt.location },
+        portalG.on("click", (event: MouseEvent) => {
+          event.stopPropagation()
+          setPopup({
+            x: portal.x,
+            y: portal.y,
+            content: "portal",
+            name: portal.name,
+            targetLayer: portal.targetLayer,
+            targetLayerName: portal.targetLayerName,
           })
-        }
-      }
-
-      const lineSrc = map.getSource(SRC_TRAJECTORY) as maplibregl.GeoJSONSource
-      if (lineSrc) {
-        lineSrc.setData({
-          type: "FeatureCollection",
-          features:
-            coords.length >= 2
-              ? [
-                  {
-                    type: "Feature",
-                    geometry: { type: "LineString", coordinates: coords },
-                    properties: {},
-                  },
-                ]
-              : [],
         })
       }
+    }, [mapReady, layout, portals, layoutMap, darkBg])
 
-      const ptsSrc = map.getSource(SRC_TRAJ_POINTS) as maplibregl.GeoJSONSource
-      if (ptsSrc) {
-        ptsSrc.setData({ type: "FeatureCollection", features: pointFeatures })
+    // ── Zoom-based tier visibility ───────────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+
+      for (const tier of TIERS) {
+        const minScale = TIER_MIN_SCALE[tier] ?? 1.2
+        svg
+          .select(`#locations-${tier}`)
+          .style("display", currentScale >= minScale ? "" : "none")
       }
-    }, [mapReady, trajectoryPoints])
 
-    // ── Fit to locations ────────────────────────────
+      // Territory labels fade at high zoom
+      svg
+        .select("#territory-labels")
+        .style("opacity", currentScale < 2 ? 1 : 0.3)
+      svg
+        .select("#region-labels")
+        .style("opacity", currentScale < 1.5 ? 1 : 0.3)
+
+      // Overview dots fade at high zoom
+      svg
+        .select("#overview-dots")
+        .style("opacity", currentScale > 1.5 ? 0.3 : 1)
+    }, [mapReady, currentScale])
+
+    // ── Fit to locations ─────────────────────────────
     const fitToLocations = useCallback(() => {
-      const map = mapRef.current
-      if (!map || layout.length === 0) return
+      if (!svgRef.current || !zoomRef.current || layout.length === 0) return
 
-      const ll = toLngLatRef.current
-      const bounds = new maplibregl.LngLatBounds()
+      const svg = d3Selection.select(svgRef.current)
+      const svgNode = svgRef.current
+      const svgWidth = svgNode.clientWidth || svgNode.getBoundingClientRect().width
+      const svgHeight = svgNode.clientHeight || svgNode.getBoundingClientRect().height
+
+      if (svgWidth === 0 || svgHeight === 0) return
+
+      // Compute bounding box of all layout items
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
       for (const item of layout) {
-        bounds.extend(ll(item.x, item.y))
+        if (item.x < minX) minX = item.x
+        if (item.y < minY) minY = item.y
+        if (item.x > maxX) maxX = item.x
+        if (item.y > maxY) maxY = item.y
       }
-      map.fitBounds(bounds, { padding: 60, maxZoom: 13 })
+
+      const padding = 60
+      const bboxW = maxX - minX || 100
+      const bboxH = maxY - minY || 100
+      const scale = Math.min(
+        (svgWidth - padding * 2) / bboxW,
+        (svgHeight - padding * 2) / bboxH,
+        5, // max zoom
+      )
+      const cx = (minX + maxX) / 2
+      const cy = (minY + maxY) / 2
+
+      const transform = d3Zoom.zoomIdentity
+        .translate(svgWidth / 2, svgHeight / 2)
+        .scale(scale)
+        .translate(-cx, -cy)
+
+      svg
+        .transition()
+        .duration(500)
+        .call(zoomRef.current.transform, transform)
     }, [layout])
 
-    fitAllCallbackRef.current = fitToLocations
     useImperativeHandle(ref, () => ({ fitToLocations }), [fitToLocations])
 
     // Auto-fit when layout changes
@@ -1018,39 +922,63 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, layout, fitToLocations])
 
-    // ── Keyboard shortcuts ──────────────────────────
+    // ── Keyboard shortcuts ───────────────────────────
     useEffect(() => {
-      const map = mapRef.current
-      if (!map || !mapReady) return
+      if (!svgRef.current || !mapReady) return
 
       function handleKeyDown(e: KeyboardEvent) {
-        // Ignore when typing in inputs
         const tag = (e.target as HTMLElement)?.tagName
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
 
         if (e.key === "Home") {
           e.preventDefault()
-          fitAllCallbackRef.current()
-        } else if (e.key === "=" || e.key === "+") {
+          fitToLocations()
+        } else if ((e.key === "=" || e.key === "+") && svgRef.current && zoomRef.current) {
           e.preventDefault()
-          map!.zoomIn()
-        } else if (e.key === "-") {
+          d3Selection
+            .select(svgRef.current)
+            .transition()
+            .duration(200)
+            .call(zoomRef.current.scaleBy, 1.3)
+        } else if (e.key === "-" && svgRef.current && zoomRef.current) {
           e.preventDefault()
-          map!.zoomOut()
+          d3Selection
+            .select(svgRef.current)
+            .transition()
+            .duration(200)
+            .call(zoomRef.current.scaleBy, 0.77)
         }
       }
 
       window.addEventListener("keydown", handleKeyDown)
       return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [mapReady, fitToLocations])
+
+    // ── Close popup on SVG click ─────────────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      svg.on("click.popup", () => setPopup(null))
+      return () => { svg.on("click.popup", null) }
     }, [mapReady])
 
-    const isDarkBg = isDarkBackground(layoutMode, layerType)
+    // ── Popup screen position ────────────────────────
+    const popupScreenPos = useMemo(() => {
+      if (!popup) return null
+      const t = transformRef.current
+      return {
+        x: popup.x * t.k + t.x,
+        y: popup.y * t.k + t.y,
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [popup, currentScale])
 
     return (
       <div className="relative h-full w-full">
         <div ref={containerRef} className="h-full w-full" />
+
         {/* Parchment vignette — only on light overworld background */}
-        {!isDarkBg && (
+        {!darkBg && (
           <div
             className="pointer-events-none absolute inset-0"
             style={{
@@ -1059,24 +987,141 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             }}
           />
         )}
-        {/* Subtle noise texture overlay for paper grain feel */}
-        {!isDarkBg && (
-          <svg
-            className="pointer-events-none absolute inset-0 h-full w-full"
-            style={{ opacity: 0.04 }}
+
+        {/* Zoom indicator (bottom-left) */}
+        <div
+          className="pointer-events-none absolute bottom-2 left-2 text-[11px] px-2 py-1"
+          style={{ color: "rgba(120,120,120,0.8)" }}
+        >
+          {getVisibleTiers(currentScale)}
+        </div>
+
+        {/* Toolbar (top-right) */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1 z-10">
+          <button
+            type="button"
+            title="查看全貌"
+            className="rounded border bg-background/90 px-2 py-1 text-sm shadow hover:bg-background"
+            onClick={fitToLocations}
           >
-            <filter id="parchment-noise">
-              <feTurbulence
-                type="fractalNoise"
-                baseFrequency="0.65"
-                numOctaves="4"
-                stitchTiles="stitch"
-              />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#parchment-noise)" />
-          </svg>
+            ⌂
+          </button>
+          <button
+            type="button"
+            title="放大"
+            className="rounded border bg-background/90 px-2 py-1 text-sm shadow hover:bg-background"
+            onClick={() => {
+              if (svgRef.current && zoomRef.current) {
+                d3Selection
+                  .select(svgRef.current)
+                  .transition()
+                  .duration(200)
+                  .call(zoomRef.current.scaleBy, 1.5)
+              }
+            }}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            title="缩小"
+            className="rounded border bg-background/90 px-2 py-1 text-sm shadow hover:bg-background"
+            onClick={() => {
+              if (svgRef.current && zoomRef.current) {
+                d3Selection
+                  .select(svgRef.current)
+                  .transition()
+                  .duration(200)
+                  .call(zoomRef.current.scaleBy, 0.67)
+              }
+            }}
+          >
+            −
+          </button>
+        </div>
+
+        {/* Popup overlay */}
+        {popup && popupScreenPos && (
+          <div
+            className="absolute z-20 rounded-lg border bg-background shadow-lg p-3"
+            style={{
+              left: popupScreenPos.x + 12,
+              top: popupScreenPos.y - 10,
+              maxWidth: 220,
+              fontSize: 13,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {popup.content === "location" ? (
+              <>
+                <div className="font-semibold mb-1">{popup.name}</div>
+                <div className="text-muted-foreground text-[11px] mb-1">
+                  {popup.locType}
+                  {popup.parent ? ` · ${popup.parent}` : ""}
+                </div>
+                <div className="text-muted-foreground text-[11px] mb-1.5">
+                  出现 {popup.mentionCount} 章
+                </div>
+                <button
+                  className="text-[11px] text-blue-500 underline"
+                  onClick={() => {
+                    onClickRef.current?.(popup.name)
+                    setPopup(null)
+                  }}
+                >
+                  查看卡片
+                </button>
+                <button
+                  className="text-[11px] text-muted-foreground ml-3"
+                  onClick={() => setPopup(null)}
+                >
+                  关闭
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold mb-1">{popup.name}</div>
+                <div className="text-muted-foreground text-[11px] mb-1.5">
+                  通往: {popup.targetLayerName}
+                </div>
+                <button
+                  className="text-[11px] text-blue-500 underline"
+                  onClick={() => {
+                    onPortalClickRef.current?.(popup.targetLayer!)
+                    setPopup(null)
+                  }}
+                >
+                  进入地图
+                </button>
+                <button
+                  className="text-[11px] text-muted-foreground ml-3"
+                  onClick={() => setPopup(null)}
+                >
+                  关闭
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
     )
   },
 )
+
+// ── Helpers ──────────────────────────────────────
+
+function polygonToPath(pts: Point[]): string {
+  if (pts.length === 0) return ""
+  return "M " + pts.map(([x, y]) => `${x},${y}`).join(" L ") + " Z"
+}
+
+function polygonCentroid(pts: Point[]): Point {
+  let cx = 0
+  let cy = 0
+  for (const [x, y] of pts) {
+    cx += x
+    cy += y
+  }
+  const n = pts.length || 1
+  return [cx / n, cy / n]
+}

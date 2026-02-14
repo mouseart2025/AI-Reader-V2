@@ -100,6 +100,7 @@ class WorldStructure(BaseModel):
     location_tiers: dict[str, str] = {}    # name → tier value
     location_icons: dict[str, str] = {}    # name → icon value
     spatial_scale: str | None = None        # SpatialScale value or None
+    location_parents: dict[str, str] = {}  # authoritative parent: location_name → parent_name
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:

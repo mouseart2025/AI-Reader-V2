@@ -102,6 +102,12 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 `ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations (sorted by mention frequency, not just recent window) with an explicit coreference instruction, enabling the LLM to resolve anaphoric references like "小城" → "青牛镇" instead of extracting them as separate locations.
 
+### Location Parent Voting — Authoritative Hierarchy
+
+`WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent` (+1 per mention) and `spatial_relationships[relation_type=="contains"]` (weighted by confidence: high=3, medium=2, low=1). The winner for each child is stored in `WorldStructure.location_parents` (a `dict[str, str]`). Cycle detection (DFS) breaks the weakest link. User overrides (`location_parent` type) take precedence.
+
+Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` uses it for hierarchy sort. This replaces the old "first-to-arrive wins" strategy that caused duplicate location placements on the map.
+
 ### Two Databases Only
 
 - **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides (13 tables)
