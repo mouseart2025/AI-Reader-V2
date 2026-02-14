@@ -24,6 +24,8 @@ interface EncEntry {
   category: string
   definition: string
   first_chapter: number
+  parent?: string | null
+  depth?: number
 }
 
 interface ConceptDetail {
@@ -63,9 +65,15 @@ export default function EncyclopediaPage() {
   const [loading, setLoading] = useState(true)
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<"name" | "chapter">("name")
+  const [sortBy, setSortBy] = useState<"name" | "chapter" | "hierarchy">("name")
   const [search, setSearch] = useState("")
   const [conceptDetail, setConceptDetail] = useState<ConceptDetail | null>(null)
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+
+  // Reset hierarchy sort when leaving location category
+  useEffect(() => {
+    if (activeCategory !== "location" && sortBy === "hierarchy") setSortBy("name")
+  }, [activeCategory, sortBy])
 
   // Load novel info and stats
   useEffect(() => {
@@ -90,6 +98,93 @@ export default function EncyclopediaPage() {
     const q = search.toLowerCase()
     return entries.filter((e) => e.name.toLowerCase().includes(q))
   }, [entries, search])
+
+  // Build tree entries for hierarchy view
+  interface TreeEntry extends EncEntry {
+    depth: number
+    hasChildren: boolean
+    isExpanded: boolean
+  }
+
+  const treeEntries = useMemo((): TreeEntry[] => {
+    if (sortBy !== "hierarchy" || search.trim()) return []
+
+    const locations = filteredEntries.filter((e) => e.type === "location")
+    const nameSet = new Set(locations.map((e) => e.name))
+    const entryMap = new Map(locations.map((e) => [e.name, e]))
+
+    // Build children map
+    const childrenMap = new Map<string, string[]>()
+    for (const e of locations) {
+      if (e.parent && nameSet.has(e.parent)) {
+        const children = childrenMap.get(e.parent) ?? []
+        children.push(e.name)
+        childrenMap.set(e.parent, children)
+      }
+    }
+
+    // Sort children alphabetically
+    for (const [, children] of childrenMap) {
+      children.sort()
+    }
+
+    // Identify roots
+    const roots = locations
+      .filter((e) => !e.parent || !nameSet.has(e.parent))
+      .map((e) => e.name)
+      .sort()
+
+    // DFS with expand/collapse
+    const result: TreeEntry[] = []
+    const visited = new Set<string>()
+
+    const dfs = (name: string, depth: number) => {
+      if (visited.has(name)) return
+      visited.add(name)
+      const entry = entryMap.get(name)
+      if (!entry) return
+      const children = childrenMap.get(name) ?? []
+      const isExpanded = expandedNodes.has(name)
+      result.push({
+        ...entry,
+        depth: entry.depth ?? depth,
+        hasChildren: children.length > 0,
+        isExpanded,
+      })
+      if (isExpanded) {
+        for (const child of children) {
+          dfs(child, (entry.depth ?? depth) + 1)
+        }
+      }
+    }
+
+    for (const root of roots) {
+      dfs(root, 0)
+    }
+
+    // Add unvisited locations
+    for (const e of locations) {
+      if (!visited.has(e.name)) {
+        result.push({
+          ...e,
+          depth: e.depth ?? 0,
+          hasChildren: false,
+          isExpanded: false,
+        })
+      }
+    }
+
+    return result
+  }, [filteredEntries, sortBy, expandedNodes, search])
+
+  const toggleExpand = useCallback((name: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }, [])
 
   const handleEntryClick = useCallback(
     (entry: EncEntry) => {
@@ -183,6 +278,15 @@ export default function EncyclopediaPage() {
             >
               章节
             </Button>
+            {activeCategory === "location" && (
+              <Button
+                variant={sortBy === "hierarchy" ? "default" : "outline"}
+                size="xs"
+                onClick={() => setSortBy("hierarchy")}
+              >
+                层级
+              </Button>
+            )}
             <div className="flex-1" />
             <span className="text-xs text-muted-foreground">
               {filteredEntries.length} 条目
@@ -196,6 +300,44 @@ export default function EncyclopediaPage() {
           ) : filteredEntries.length === 0 ? (
             <div className="flex items-center justify-center h-40">
               <p className="text-muted-foreground text-sm">暂无数据</p>
+            </div>
+          ) : sortBy === "hierarchy" && !search.trim() && treeEntries.length > 0 ? (
+            <div className="divide-y">
+              {treeEntries.map((entry) => (
+                <div
+                  key={`${entry.name}-tree`}
+                  className="flex items-center gap-2 py-2 pr-4 hover:bg-muted/30 cursor-pointer transition-colors"
+                  style={{ paddingLeft: `${entry.depth * 20 + 16}px` }}
+                  onClick={() => handleEntryClick(entry)}
+                >
+                  {entry.hasChildren ? (
+                    <button
+                      className="w-4 text-xs text-muted-foreground hover:text-foreground flex-shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleExpand(entry.name)
+                      }}
+                    >
+                      {entry.isExpanded ? "\u25BC" : "\u25B6"}
+                    </button>
+                  ) : (
+                    <span className="w-4 flex-shrink-0" />
+                  )}
+                  <span
+                    className="inline-block size-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: TYPE_COLORS.location }}
+                  />
+                  <span className="text-sm font-medium truncate">{entry.name}</span>
+                  {entry.definition && (
+                    <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                      {entry.definition}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-auto">
+                    Ch.{entry.first_chapter}
+                  </span>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="divide-y">

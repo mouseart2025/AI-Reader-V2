@@ -205,6 +205,18 @@ class AnalysisService:
         total = chapter_end - chapter_start + 1
         stats = {"entities": 0, "relations": 0, "events": 0}
 
+        # Pre-compute stats from existing chapter facts so resumed analysis
+        # shows cumulative counts (not zeros) for already-completed chapters.
+        if not force:
+            existing_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+            for ef in existing_facts:
+                ch_id = ef.get("chapter_id", 0)
+                if chapter_start <= ch_id <= chapter_end:
+                    fact_data = ef.get("fact", {})
+                    stats["entities"] += len(fact_data.get("characters", [])) + len(fact_data.get("locations", []))
+                    stats["relations"] += len(fact_data.get("relationships", []))
+                    stats["events"] += len(fact_data.get("events", []))
+
         # Initialize WorldStructureAgent (loads existing or creates default)
         world_agent = WorldStructureAgent(novel_id)
         try:

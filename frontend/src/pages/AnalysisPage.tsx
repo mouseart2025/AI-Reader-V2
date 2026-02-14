@@ -142,7 +142,7 @@ export default function AnalysisPage() {
 
     async function load() {
       try {
-        const [n, { task: latestTask }] = await Promise.all([
+        const [n, { task: latestTask, stats: latestStats }] = await Promise.all([
           fetchNovel(novelId!),
           getLatestAnalysisTask(novelId!),
         ])
@@ -152,15 +152,25 @@ export default function AnalysisPage() {
         if (latestTask) {
           setTask(latestTask)
           if (latestTask.status === "running" || latestTask.status === "paused") {
-            // Initialize progress from task data before WS connects
+            // Initialize progress + stats from REST before WS connects
             const total = latestTask.chapter_end - latestTask.chapter_start + 1
             const done = latestTask.current_chapter - latestTask.chapter_start
             useAnalysisStore.setState({
               currentChapter: latestTask.current_chapter,
               totalChapters: total,
               progress: total > 0 ? Math.round((done / total) * 100) : 0,
+              ...(latestStats ? { stats: latestStats } : {}),
             })
             connectWs(novelId!)
+          } else if (latestTask.status === "completed" && latestStats) {
+            // Show final stats for completed tasks
+            const total = latestTask.chapter_end - latestTask.chapter_start + 1
+            useAnalysisStore.setState({
+              currentChapter: latestTask.chapter_end,
+              totalChapters: total,
+              progress: 100,
+              stats: latestStats,
+            })
           }
         }
         // Non-blocking prescan load
@@ -224,7 +234,7 @@ export default function AnalysisPage() {
     function handleVisibilityChange() {
       if (document.visibilityState !== "visible") return
       // Re-fetch task status and reconnect WS if needed
-      getLatestAnalysisTask(novelId!).then(({ task: latestTask }) => {
+      getLatestAnalysisTask(novelId!).then(({ task: latestTask, stats: latestStats }) => {
         if (latestTask) {
           setTask(latestTask)
           if (latestTask.status === "running" || latestTask.status === "paused") {
@@ -234,6 +244,7 @@ export default function AnalysisPage() {
               currentChapter: latestTask.current_chapter,
               totalChapters: total,
               progress: total > 0 ? Math.round((done / total) * 100) : 0,
+              ...(latestStats ? { stats: latestStats } : {}),
             })
             connectWs(novelId!)
           }
@@ -354,7 +365,7 @@ export default function AnalysisPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl overflow-auto p-8">
+    <div className="mx-auto max-w-3xl overflow-auto p-8 h-full">
       {/* Novel info */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold">{novel.title}</h1>

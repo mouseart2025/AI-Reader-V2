@@ -1,4 +1,5 @@
 import type {
+  AnalysisStats,
   AnalysisTask,
   AnalyzeRequest,
   Chapter,
@@ -279,7 +280,7 @@ export function getAnalysisTask(taskId: string): Promise<AnalysisTask> {
 
 export function getLatestAnalysisTask(
   novelId: string,
-): Promise<{ task: AnalysisTask | null }> {
+): Promise<{ task: AnalysisTask | null; stats: AnalysisStats | null }> {
   return apiFetch(`/novels/${novelId}/analysis/latest`)
 }
 
@@ -367,7 +368,7 @@ export function fetchEncyclopediaEntries(
   novelId: string,
   category?: string,
   sort?: string,
-): Promise<{ entries: { name: string; type: string; category: string; definition: string; first_chapter: number }[] }> {
+): Promise<{ entries: { name: string; type: string; category: string; definition: string; first_chapter: number; parent?: string | null; depth?: number }[] }> {
   const params: string[] = []
   if (category) params.push(`category=${category}`)
   if (sort) params.push(`sort=${sort}`)

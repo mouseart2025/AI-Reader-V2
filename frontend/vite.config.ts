@@ -22,7 +22,7 @@ export default defineConfig({
         manualChunks: {
           "vendor-react": ["react", "react-dom", "react-router-dom"],
           "vendor-graph": ["react-force-graph-2d"],
-          "vendor-maplibre": ["maplibre-gl"],
+          "vendor-d3": ["d3-selection", "d3-zoom", "d3-delaunay", "d3-drag", "d3-shape", "d3-transition"],
           "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-select", "@radix-ui/react-alert-dialog", "@radix-ui/react-progress", "@radix-ui/react-scroll-area"],
         },
       },

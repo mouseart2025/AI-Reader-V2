@@ -106,6 +106,7 @@ async def get_encyclopedia_entries(
                         "category": "location",
                         "definition": loc.get("description", "") or loc.get("type", ""),
                         "first_chapter": chapter_id,
+                        "parent": loc.get("parent"),
                     }
 
         if category is None or category == "item":
@@ -159,11 +160,73 @@ async def get_encyclopedia_entries(
 
     result = list(entries.values())
 
-    if sort_by == "chapter":
+    if sort_by == "hierarchy" and (category is None or category == "location"):
+        # Override parents with authoritative WorldStructure data
+        from src.db import world_structure_store
+        ws = await world_structure_store.load(novel_id)
+        if ws and ws.location_parents:
+            for entry in result:
+                if entry.get("type") == "location":
+                    auth_parent = ws.location_parents.get(entry["name"])
+                    if auth_parent:
+                        entry["parent"] = auth_parent
+        result = _sort_by_hierarchy(result)
+    elif sort_by == "chapter":
         result.sort(key=lambda e: e["first_chapter"])
     else:
         result.sort(key=lambda e: e["name"])
 
+    return result
+
+
+def _sort_by_hierarchy(entries: list[dict]) -> list[dict]:
+    """Sort entries by DFS tree order. Location entries get depth; others appended at end."""
+    locations = [e for e in entries if e.get("type") == "location"]
+    others = [e for e in entries if e.get("type") != "location"]
+
+    # Build parent→children map
+    name_set = {e["name"] for e in locations}
+    children_map: dict[str, list[str]] = {}
+    for e in locations:
+        parent = e.get("parent")
+        if parent and parent in name_set:
+            children_map.setdefault(parent, []).append(e["name"])
+
+    entry_map = {e["name"]: e for e in locations}
+
+    # Identify roots: locations with no parent or parent not in the list
+    roots = [
+        e["name"] for e in locations
+        if not e.get("parent") or e["parent"] not in name_set
+    ]
+    roots.sort(key=lambda n: entry_map[n]["name"])
+
+    # DFS traversal
+    result: list[dict] = []
+    visited: set[str] = set()
+
+    def dfs(name: str, depth: int) -> None:
+        if name in visited:
+            return
+        visited.add(name)
+        entry = entry_map[name].copy()
+        entry["depth"] = depth
+        result.append(entry)
+        for child in sorted(children_map.get(name, []), key=lambda n: entry_map[n]["name"]):
+            dfs(child, depth + 1)
+
+    for root in roots:
+        dfs(root, 0)
+
+    # Add any locations not visited (disconnected from tree)
+    for e in locations:
+        if e["name"] not in visited:
+            entry = e.copy()
+            entry["depth"] = 0
+            result.append(entry)
+
+    # Append non-location entries at the end
+    result.extend(others)
     return result
 
 

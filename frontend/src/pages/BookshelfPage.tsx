@@ -163,7 +163,7 @@ function NovelCard({
         <div className="flex w-full gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {[
             { label: "分析", path: `/analysis/${novel.id}` },
-            { label: "图谱", path: `/graph/${novel.id}` },
+            { label: "关系图", path: `/graph/${novel.id}` },
             { label: "百科", path: `/encyclopedia/${novel.id}` },
             { label: "问答", path: `/chat/${novel.id}` },
           ].map((link) => (

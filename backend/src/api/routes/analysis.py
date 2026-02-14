@@ -108,11 +108,26 @@ async def get_task(task_id: str):
 
 @router.get("/novels/{novel_id}/analysis/latest")
 async def get_latest_task(novel_id: str):
-    """Get the most recent analysis task for a novel."""
+    """Get the most recent analysis task for a novel, with cumulative stats."""
     task = await analysis_task_store.get_latest_task(novel_id)
     if not task:
-        return {"task": None}
-    return {"task": task}
+        return {"task": None, "stats": None}
+
+    # Compute cumulative stats from existing chapter facts
+    stats = {"entities": 0, "relations": 0, "events": 0}
+    if task["status"] in ("running", "paused", "completed"):
+        all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+        ch_start = task.get("chapter_start", 1)
+        ch_end = task.get("chapter_end", 999999)
+        for ef in all_facts:
+            ch_id = ef.get("chapter_id", 0)
+            if ch_start <= ch_id <= ch_end:
+                fact = ef.get("fact", {})
+                stats["entities"] += len(fact.get("characters", [])) + len(fact.get("locations", []))
+                stats["relations"] += len(fact.get("relationships", []))
+                stats["events"] += len(fact.get("events", []))
+
+    return {"task": task, "stats": stats}
 
 
 @router.delete("/novels/{novel_id}/analysis")

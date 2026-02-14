@@ -396,6 +396,20 @@ async def get_map_data(
                     icon = WorldStructureAgent._classify_icon(name, loc_type)
                 loc["icon"] = icon
 
+            # Override parents with authoritative voted parents
+            if ws.location_parents:
+                for loc in locations:
+                    authoritative = ws.location_parents.get(loc["name"])
+                    if authoritative:
+                        loc["parent"] = authoritative
+                # Recalculate hierarchy levels with updated parents
+                # Rebuild loc_info parents first
+                for loc in locations:
+                    if loc["name"] in loc_info:
+                        loc_info[loc["name"]]["parent"] = loc["parent"]
+                for loc in locations:
+                    loc["level"] = get_level(loc["name"])
+
             # Build world_structure summary for API response
             ws_summary = _build_ws_summary(ws)
 

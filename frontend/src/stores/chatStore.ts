@@ -47,6 +47,14 @@ interface ChatState {
   _addMessage: (msg: ChatMessage) => void
 }
 
+// Module-level state for reconnection (not in Zustand to avoid renders)
+let _sessionId: string | null = null
+let _reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let _reconnectAttempt = 0
+const _MAX_RECONNECT = 5
+// Pending message to send after reconnection
+let _pendingPayload: string | null = null
+
 export const useChatStore = create<ChatState>((set, get) => ({
   panelOpen: false,
   panelHeight: 400,
@@ -108,13 +116,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const existing = get().ws
     if (existing && existing.readyState <= 1) return
 
+    // Clear any pending reconnect timer
+    if (_reconnectTimer) {
+      clearTimeout(_reconnectTimer)
+      _reconnectTimer = null
+    }
+
+    _sessionId = sessionId
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
     const host = window.location.host
     const ws = new WebSocket(`${protocol}//${host}/ws/chat/${sessionId}`)
 
-    ws.onopen = () => set({ wsConnected: true })
-    ws.onclose = () => set({ wsConnected: false, ws: null })
-    ws.onerror = () => set({ wsConnected: false })
+    ws.onopen = () => {
+      set({ wsConnected: true })
+      _reconnectAttempt = 0
+
+      // Send any pending message that was queued during reconnection
+      if (_pendingPayload) {
+        const payload = _pendingPayload
+        _pendingPayload = null
+        ws.send(payload)
+        set({ streaming: true, streamingContent: "", streamingSources: [] })
+      }
+    }
+
+    ws.onclose = () => {
+      set({ wsConnected: false, ws: null })
+
+      // Auto-reconnect if we have a session ID and haven't been intentionally disconnected
+      if (_sessionId && _reconnectAttempt < _MAX_RECONNECT) {
+        const delay = Math.min(1000 * 2 ** _reconnectAttempt, 16000)
+        _reconnectAttempt++
+        _reconnectTimer = setTimeout(() => {
+          if (_sessionId) {
+            get().connectWs(_sessionId)
+          }
+        }, delay)
+      }
+    }
+
+    ws.onerror = () => {
+      set({ wsConnected: false })
+    }
 
     ws.onmessage = (event) => {
       try {
@@ -170,6 +214,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   disconnectWs: () => {
+    // Clear reconnect state to prevent auto-reconnect
+    _sessionId = null
+    _pendingPayload = null
+    if (_reconnectTimer) {
+      clearTimeout(_reconnectTimer)
+      _reconnectTimer = null
+    }
+    _reconnectAttempt = 0
+
     const ws = get().ws
     if (ws) ws.close()
     set({ ws: null, wsConnected: false })
@@ -188,21 +241,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       created_at: new Date().toISOString(),
     }
 
+    const payload = JSON.stringify({
+      novel_id: novelId,
+      question,
+      conversation_id: activeConversationId,
+    })
+
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      // Show user message + error feedback instead of silently dropping
-      const errMsg: ChatMessage = {
-        id: Date.now() + 1,
-        conversation_id: activeConversationId ?? "",
-        role: "assistant",
-        content: "[连接断开] 无法发送消息，正在尝试重新连接...",
-        sources: [],
-        created_at: new Date().toISOString(),
-      }
+      // Queue the message and reconnect — it will be sent on open
+      _pendingPayload = payload
       set((s) => ({
-        messages: [...s.messages, userMsg, errMsg],
+        messages: [...s.messages, userMsg],
+        streaming: true,
+        streamingContent: "",
+        streamingSources: [],
       }))
-      // Attempt to reconnect
-      get().connectWs(`fullpage-${novelId}`)
+      // Force reconnect
+      _reconnectAttempt = 0
+      get().connectWs(_sessionId || `fullpage-${novelId}`)
       return
     }
 
@@ -213,13 +269,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamingSources: [],
     }))
 
-    ws.send(
-      JSON.stringify({
-        novel_id: novelId,
-        question,
-        conversation_id: activeConversationId,
-      }),
-    )
+    ws.send(payload)
   },
 
   _appendStreamToken: (token) =>

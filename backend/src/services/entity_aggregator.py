@@ -321,6 +321,23 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
                     LocationEvent(chapter=ch, summary=ev.summary, type=ev.type)
                 )
 
+    # Override parent and children with authoritative WorldStructure data
+    try:
+        from src.db import world_structure_store
+        ws = await world_structure_store.load(novel_id)
+        if ws and ws.location_parents:
+            authoritative = ws.location_parents.get(location_name)
+            if authoritative:
+                parent = authoritative
+            # Collect children: all entries whose authoritative parent is this location
+            ws_children = {
+                child for child, p in ws.location_parents.items()
+                if p == location_name
+            }
+            children_set = children_set | ws_children
+    except Exception:
+        pass  # WorldStructure not available, use fact-based data
+
     resident_threshold = 3
     visitors = [
         LocationVisitor(

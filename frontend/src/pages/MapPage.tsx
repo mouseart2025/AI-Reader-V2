@@ -254,7 +254,7 @@ export default function MapPage() {
         />
 
         <div className="flex flex-1 min-h-0">
-        {/* Main: MapLibre map */}
+        {/* Main: D3+SVG map */}
         <div className="relative flex-1">
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
