@@ -11,6 +11,7 @@ from pathlib import Path
 
 from src.api.schemas.novels import ChapterPreviewItem, UploadPreviewResponse
 from src.db import novel_store
+from src.utils.chapter_classifier import classify_chapters
 from src.utils.chapter_splitter import AVAILABLE_MODES, ChapterInfo, split_chapters
 from src.utils.text_processor import decode_text
 
@@ -102,15 +103,23 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
     existing = await novel_store.find_by_hash(file_hash)
     duplicate_novel_id = existing["id"] if existing else None
 
+    # Classify chapters for non-content detection
+    suspects = classify_chapters(chapters)
+
     # Build preview
     chapter_previews = [
         ChapterPreviewItem(
             chapter_num=ch.chapter_num,
             title=ch.title,
             word_count=ch.word_count,
+            is_suspect=suspects[i],
         )
-        for ch in chapters
+        for i, ch in enumerate(chapters)
     ]
+
+    suspect_count = sum(suspects)
+    if suspect_count > 0:
+        warnings.append(f"检测到 {suspect_count} 个疑似非正文章节（建议排除）")
 
     preview = UploadPreviewResponse(
         title=title,
@@ -135,11 +144,16 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
 
 
 async def confirm_import(
-    file_hash: str, title: str, author: str | None
+    file_hash: str,
+    title: str,
+    author: str | None,
+    excluded_chapters: list[int] | None = None,
 ) -> dict:
     """Confirm import of a previously uploaded file.
 
     Retrieves cached chapter data by file_hash and writes to DB.
+    Chapters whose chapter_num is in *excluded_chapters* are marked
+    as excluded (is_excluded=1) in the DB.
     Returns the created novel record.
     """
     _evict_expired()
@@ -154,6 +168,8 @@ async def confirm_import(
     total_chapters = len(chapters)
     total_words = sum(ch.word_count for ch in chapters)
 
+    excluded_set = set(excluded_chapters) if excluded_chapters else None
+
     # Persist to DB
     await novel_store.insert_novel(
         novel_id=novel_id,
@@ -163,7 +179,7 @@ async def confirm_import(
         total_chapters=total_chapters,
         total_words=total_words,
     )
-    await novel_store.insert_chapters(novel_id, chapters)
+    await novel_store.insert_chapters(novel_id, chapters, excluded_nums=excluded_set)
 
     # Remove from cache after successful import
     del _upload_cache[file_hash]
@@ -220,15 +236,23 @@ async def re_split(
         if ch.word_count > _LARGE_CHAPTER_WORDS:
             warnings.append(f"章节 '{ch.title}' 字数为 {ch.word_count}，超过 5 万字")
 
+    # Classify chapters for non-content detection
+    suspects = classify_chapters(chapters)
+
     # Build updated preview
     chapter_previews = [
         ChapterPreviewItem(
             chapter_num=ch.chapter_num,
             title=ch.title,
             word_count=ch.word_count,
+            is_suspect=suspects[i],
         )
-        for ch in chapters
+        for i, ch in enumerate(chapters)
     ]
+
+    suspect_count = sum(suspects)
+    if suspect_count > 0:
+        warnings.append(f"检测到 {suspect_count} 个疑似非正文章节（建议排除）")
 
     preview = UploadPreviewResponse(
         title=cached.preview.title,

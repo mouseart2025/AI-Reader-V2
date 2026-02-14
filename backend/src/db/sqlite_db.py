@@ -169,6 +169,13 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Column already exists
+        # Migration: add is_excluded to chapters for chapter exclusion feature
+        try:
+            await conn.execute(
+                "ALTER TABLE chapters ADD COLUMN is_excluded INTEGER DEFAULT 0"
+            )
+        except Exception:
+            pass  # Column already exists
         await conn.commit()
     finally:
         await conn.close()

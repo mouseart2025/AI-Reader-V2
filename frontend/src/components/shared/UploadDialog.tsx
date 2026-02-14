@@ -77,6 +77,9 @@ export function UploadDialog({
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
 
+  // Chapter exclusion state (chapter_nums to exclude)
+  const [excludedNums, setExcludedNums] = useState<Set<number>>(new Set())
+
   // Split adjustment state
   const [splitOpen, setSplitOpen] = useState(false)
   const [splitModes, setSplitModes] = useState<string[]>([])
@@ -91,6 +94,7 @@ export function UploadDialog({
     setExistingNovel(null)
     setTitle("")
     setAuthor("")
+    setExcludedNums(new Set())
     setSplitOpen(false)
     setSplitModes([])
     setSelectedMode("auto")
@@ -123,6 +127,10 @@ export function UploadDialog({
       setPreview(data)
       setTitle(data.title)
       setAuthor(data.author ?? "")
+      // Initialize exclusion set from auto-detected suspects
+      setExcludedNums(new Set(
+        data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
+      ))
 
       // If duplicate detected, fetch existing novel details for comparison
       if (data.duplicate_novel_id) {
@@ -151,6 +159,7 @@ export function UploadDialog({
         file_hash: preview.file_hash,
         title: title.trim() || preview.title,
         author: author.trim() || null,
+        excluded_chapters: excludedNums.size > 0 ? [...excludedNums] : undefined,
       })
       onImported()
       handleOpenChange(false)
@@ -170,6 +179,7 @@ export function UploadDialog({
         file_hash: preview.file_hash,
         title: title.trim() || preview.title,
         author: author.trim() || null,
+        excluded_chapters: excludedNums.size > 0 ? [...excludedNums] : undefined,
       })
       onImported()
       handleOpenChange(false)
@@ -209,6 +219,9 @@ export function UploadDialog({
         custom_regex: regex,
       })
       setPreview(data)
+      setExcludedNums(new Set(
+        data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
+      ))
     } catch (err) {
       setError(err instanceof Error ? err.message : "重新切分失败")
     } finally {
@@ -463,11 +476,46 @@ export function UploadDialog({
               )}
             </div>
 
+            {/* Exclusion summary */}
+            {excludedNums.size > 0 && (
+              <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {excludedNums.size} 个章节将被排除（不参与分析）
+                </span>
+                <button
+                  type="button"
+                  className="ml-auto text-amber-600 underline hover:no-underline dark:text-amber-400"
+                  onClick={() => setExcludedNums(new Set())}
+                >
+                  全部取消
+                </button>
+              </div>
+            )}
+
             {/* Chapter list */}
             <div className="max-h-64 overflow-y-auto rounded-md border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 sticky top-0">
                   <tr>
+                    <th className="w-8 px-2 py-2 text-center font-medium">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 rounded"
+                        title="全选/取消排除"
+                        checked={excludedNums.size > 0 && excludedNums.size === preview.chapters.length}
+                        ref={(el) => {
+                          if (el) el.indeterminate = excludedNums.size > 0 && excludedNums.size < preview.chapters.length
+                        }}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setExcludedNums(new Set(preview.chapters.map((ch) => ch.chapter_num)))
+                          } else {
+                            setExcludedNums(new Set())
+                          }
+                        }}
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left font-medium">#</th>
                     <th className="px-3 py-2 text-left font-medium">
                       章节标题
@@ -476,17 +524,48 @@ export function UploadDialog({
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.chapters.map((ch) => (
-                    <tr key={ch.chapter_num} className="border-t">
-                      <td className="text-muted-foreground px-3 py-1.5">
-                        {ch.chapter_num}
-                      </td>
-                      <td className="px-3 py-1.5">{ch.title}</td>
-                      <td className="text-muted-foreground px-3 py-1.5 text-right">
-                        {formatWordCount(ch.word_count)}
-                      </td>
-                    </tr>
-                  ))}
+                  {preview.chapters.map((ch) => {
+                    const isExcluded = excludedNums.has(ch.chapter_num)
+                    return (
+                      <tr
+                        key={ch.chapter_num}
+                        className={`border-t ${isExcluded ? "bg-amber-50/60 dark:bg-amber-950/30" : ""}`}
+                      >
+                        <td className="px-2 py-1.5 text-center">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded"
+                            checked={isExcluded}
+                            onChange={() => {
+                              setExcludedNums((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(ch.chapter_num)) {
+                                  next.delete(ch.chapter_num)
+                                } else {
+                                  next.add(ch.chapter_num)
+                                }
+                                return next
+                              })
+                            }}
+                          />
+                        </td>
+                        <td className={`px-3 py-1.5 ${isExcluded ? "text-muted-foreground line-through" : "text-muted-foreground"}`}>
+                          {ch.chapter_num}
+                        </td>
+                        <td className={`px-3 py-1.5 ${isExcluded ? "text-muted-foreground line-through" : ""}`}>
+                          {ch.title}
+                          {ch.is_suspect && !isExcluded && (
+                            <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
+                              (疑似非正文)
+                            </span>
+                          )}
+                        </td>
+                        <td className={`px-3 py-1.5 text-right ${isExcluded ? "text-muted-foreground line-through" : "text-muted-foreground"}`}>
+                          {formatWordCount(ch.word_count)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

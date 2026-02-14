@@ -111,6 +111,17 @@ export function fetchChapterContent(
   return apiFetch(`/novels/${novelId}/chapters/${chapterNum}`)
 }
 
+export function excludeChapters(
+  novelId: string,
+  chapterNums: number[],
+  excluded: boolean,
+): Promise<{ chapters: Chapter[] }> {
+  return apiFetch(`/novels/${novelId}/chapters/exclude`, {
+    method: "PATCH",
+    body: JSON.stringify({ chapter_nums: chapterNums, excluded }),
+  })
+}
+
 export function fetchChapterEntities(
   novelId: string,
   chapterNum: number,

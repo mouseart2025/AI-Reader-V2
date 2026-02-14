@@ -10,7 +10,7 @@ async def list_chapters(novel_id: str) -> list[dict]:
         cursor = await conn.execute(
             """
             SELECT id, novel_id, chapter_num, volume_num, volume_title,
-                   title, word_count, analysis_status, analyzed_at
+                   title, word_count, analysis_status, analyzed_at, is_excluded
             FROM chapters
             WHERE novel_id = ?
             ORDER BY chapter_num
@@ -30,7 +30,7 @@ async def get_chapter_content(novel_id: str, chapter_num: int) -> dict | None:
         cursor = await conn.execute(
             """
             SELECT id, novel_id, chapter_num, volume_num, volume_title,
-                   title, content, word_count, analysis_status, analyzed_at
+                   title, content, word_count, analysis_status, analyzed_at, is_excluded
             FROM chapters
             WHERE novel_id = ? AND chapter_num = ?
             """,
@@ -200,5 +200,67 @@ async def save_user_state(
             (novel_id, last_chapter, scroll_position, chapter_range),
         )
         await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def set_chapters_excluded(
+    novel_id: str,
+    chapter_nums: list[int],
+    excluded: bool,
+) -> None:
+    """Batch set is_excluded for specified chapters.
+
+    When restoring (excluded=False), also resets analysis_status to 'pending'
+    so the chapters can be re-analyzed.
+    """
+    if not chapter_nums:
+        return
+    conn = await get_connection()
+    try:
+        placeholders = ",".join("?" for _ in chapter_nums)
+        if excluded:
+            await conn.execute(
+                f"""
+                UPDATE chapters SET is_excluded = 1
+                WHERE novel_id = ? AND chapter_num IN ({placeholders})
+                """,
+                [novel_id, *chapter_nums],
+            )
+        else:
+            await conn.execute(
+                f"""
+                UPDATE chapters SET is_excluded = 0, analysis_status = 'pending', analyzed_at = NULL
+                WHERE novel_id = ? AND chapter_num IN ({placeholders})
+                """,
+                [novel_id, *chapter_nums],
+            )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def delete_chapter_facts(
+    novel_id: str,
+    chapter_nums: list[int],
+) -> int:
+    """Delete chapter_facts for specified chapters. Returns number deleted."""
+    if not chapter_nums:
+        return 0
+    conn = await get_connection()
+    try:
+        placeholders = ",".join("?" for _ in chapter_nums)
+        cursor = await conn.execute(
+            f"""
+            DELETE FROM chapter_facts
+            WHERE novel_id = ? AND chapter_id IN (
+                SELECT id FROM chapters
+                WHERE novel_id = ? AND chapter_num IN ({placeholders})
+            )
+            """,
+            [novel_id, novel_id, *chapter_nums],
+        )
+        await conn.commit()
+        return cursor.rowcount
     finally:
         await conn.close()
