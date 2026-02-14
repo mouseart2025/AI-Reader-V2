@@ -37,6 +37,17 @@
 
 6. **NO_CHANGE**: 不需要任何更新
 
+7. **SET_TIER**: 设置地点的空间层级
+   - 参数: `location_name`、`tier`（world/continent/kingdom/region/city/site/building）
+   - 规则: 洲/大陆/界→continent, 国→kingdom, 山脉/海域→region, 城镇→city, 洞口/桥→site, 殿堂→building
+
+8. **SET_ICON**: 设置地点的图标类型
+   - 参数: `location_name`、`icon`（capital/city/town/village/mountain/forest/water/temple/palace/cave/tower/gate/portal/generic 等）
+   - 规则: 根据地点描述和名称关键词判断
+
+## 额外要求
+对于本章出现的每个地点，如果你认为规则分类可能不准确，请用 SET_TIER 和 SET_ICON 给出你的判断。
+
 ## 原则
 
 - 只在有充分证据时才操作，不要凭空推测

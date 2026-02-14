@@ -35,6 +35,15 @@ CANVAS_SIZE = 1000
 CANVAS_MIN = 50  # margin (wider to leave room for non-geo zones)
 CANVAS_MAX = CANVAS_SIZE - 50
 
+# Spatial scale → canvas size mapping
+SPATIAL_SCALE_CANVAS: dict[str, int] = {
+    "cosmic": 5000,
+    "continental": 3000,
+    "national": 2000,
+    "urban": 1000,
+    "local": 500,
+}
+
 # Minimum spacing between any two locations (pixels)
 MIN_SPACING = 50
 
@@ -128,6 +137,9 @@ def _layout_regions(
     if not regions:
         return {}
 
+    # Scale factor: DIRECTION_ZONES are defined for a 1000×1000 canvas
+    scale = canvas_size / 1000.0
+
     # Group regions by direction
     direction_groups: dict[str, list[str]] = {}
     for r in regions:
@@ -140,7 +152,7 @@ def _layout_regions(
 
     for direction, names in direction_groups.items():
         zone = DIRECTION_ZONES[direction]
-        x1, y1, x2, y2 = zone
+        x1, y1, x2, y2 = zone[0] * scale, zone[1] * scale, zone[2] * scale, zone[3] * scale
         n = len(names)
         color = _REGION_COLORS.get(direction, _REGION_COLOR_FALLBACK)
 
@@ -176,6 +188,164 @@ def _layout_regions(
                         ),
                         "color": color,
                     }
+
+    return result
+
+
+# ── Voronoi boundary generation ──────────────────
+
+
+def _clip_polygon_to_canvas(
+    polygon: list[tuple[float, float]],
+    canvas_size: int = CANVAS_SIZE,
+) -> list[tuple[float, float]]:
+    """Clip a polygon to the [0, canvas_size] rectangle using Sutherland-Hodgman."""
+
+    def _inside(p: tuple[float, float], edge_start: tuple[float, float], edge_end: tuple[float, float]) -> bool:
+        return (edge_end[0] - edge_start[0]) * (p[1] - edge_start[1]) - \
+               (edge_end[1] - edge_start[1]) * (p[0] - edge_start[0]) >= 0
+
+    def _intersect(
+        p1: tuple[float, float], p2: tuple[float, float],
+        e1: tuple[float, float], e2: tuple[float, float],
+    ) -> tuple[float, float]:
+        x1, y1 = p1
+        x2, y2 = p2
+        x3, y3 = e1
+        x4, y4 = e2
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if abs(denom) < 1e-10:
+            return p2
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+    # Clip edges: left, bottom, right, top (counter-clockwise winding)
+    cs = float(canvas_size)
+    clip_edges = [
+        ((0.0, 0.0), (0.0, cs)),    # left
+        ((0.0, 0.0), (cs, 0.0)),    # bottom (reversed for CCW)
+        ((cs, 0.0), (cs, cs)),      # right
+        ((0.0, cs), (cs, cs)),      # top
+    ]
+    # Proper CCW clip rectangle edges
+    clip_edges = [
+        ((0.0, 0.0), (cs, 0.0)),    # bottom: left→right
+        ((cs, 0.0), (cs, cs)),      # right: bottom→top
+        ((cs, cs), (0.0, cs)),      # top: right→left
+        ((0.0, cs), (0.0, 0.0)),    # left: top→bottom
+    ]
+
+    output = list(polygon)
+    for e_start, e_end in clip_edges:
+        if not output:
+            break
+        inp = output
+        output = []
+        for i in range(len(inp)):
+            current = inp[i]
+            prev = inp[i - 1]
+            curr_in = _inside(current, e_start, e_end)
+            prev_in = _inside(prev, e_start, e_end)
+            if curr_in:
+                if not prev_in:
+                    output.append(_intersect(prev, current, e_start, e_end))
+                output.append(current)
+            elif prev_in:
+                output.append(_intersect(prev, current, e_start, e_end))
+
+    return output
+
+
+def generate_voronoi_boundaries(
+    region_layout: dict[str, dict],
+    canvas_size: int = CANVAS_SIZE,
+) -> dict[str, dict]:
+    """Generate Voronoi polygon boundaries from region layout centers.
+
+    Args:
+        region_layout: Output of _layout_regions(), mapping name → {"bounds", "color"}.
+        canvas_size: Canvas dimension (square).
+
+    Returns:
+        dict mapping region name → {"polygon": [(x,y),...], "center": (cx,cy), "color": str}.
+    """
+    if not region_layout:
+        return {}
+
+    names = list(region_layout.keys())
+    centers: list[tuple[float, float]] = []
+    colors: list[str] = []
+
+    for name in names:
+        rd = region_layout[name]
+        x1, y1, x2, y2 = rd["bounds"]
+        centers.append(((x1 + x2) / 2, (y1 + y2) / 2))
+        colors.append(rd["color"])
+
+    # Fallback for < 2 regions: convert bounds to rectangle polygon
+    if len(names) < 2:
+        result: dict[str, dict] = {}
+        for i, name in enumerate(names):
+            rd = region_layout[name]
+            x1, y1, x2, y2 = rd["bounds"]
+            result[name] = {
+                "polygon": [(x1, y1), (x2, y1), (x2, y2), (x1, y2)],
+                "center": centers[i],
+                "color": colors[i],
+            }
+        return result
+
+    # Build Voronoi with mirror points to ensure edge regions are closed
+    points = list(centers)
+    cs = float(canvas_size)
+    n_orig = len(points)
+
+    # Add 4 mirror points per seed, reflected across canvas boundaries
+    for cx, cy in centers:
+        points.append((-cx, cy))             # mirror across left edge
+        points.append((2 * cs - cx, cy))     # mirror across right edge
+        points.append((cx, -cy))             # mirror across bottom edge
+        points.append((cx, 2 * cs - cy))     # mirror across top edge
+
+    point_arr = np.array(points, dtype=np.float64)
+    vor = Voronoi(point_arr)
+
+    result = {}
+    for i, name in enumerate(names):
+        region_idx = vor.point_region[i]
+        region = vor.regions[region_idx]
+
+        if not region or -1 in region:
+            # Open region — fallback to rectangle
+            rd = region_layout[name]
+            x1, y1, x2, y2 = rd["bounds"]
+            result[name] = {
+                "polygon": [(x1, y1), (x2, y1), (x2, y2), (x1, y2)],
+                "center": centers[i],
+                "color": colors[i],
+            }
+            continue
+
+        # Extract Voronoi cell vertices
+        verts = [(float(vor.vertices[vi][0]), float(vor.vertices[vi][1]))
+                 for vi in region]
+
+        # Clip to canvas
+        clipped = _clip_polygon_to_canvas(verts, canvas_size)
+        if len(clipped) < 3:
+            # Degenerate — fallback to rectangle
+            rd = region_layout[name]
+            x1, y1, x2, y2 = rd["bounds"]
+            clipped = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+
+        # Round coordinates
+        clipped = [(round(x, 1), round(y, 1)) for x, y in clipped]
+
+        result[name] = {
+            "polygon": clipped,
+            "center": (round(centers[i][0], 1), round(centers[i][1], 1)),
+            "color": colors[i],
+        }
 
     return result
 
@@ -309,6 +479,7 @@ def compute_layered_layout(
     all_constraints: list[dict],
     user_overrides: dict[str, tuple[float, float]] | None = None,
     first_chapter: dict[str, int] | None = None,
+    spatial_scale: str | None = None,
 ) -> dict[str, list[dict]]:
     """Compute per-layer layouts using region-aware solving.
 
@@ -318,6 +489,7 @@ def compute_layered_layout(
         all_constraints: All spatial constraint dicts.
         user_overrides: User-adjusted coordinates.
         first_chapter: Location name → first chapter appearance.
+        spatial_scale: SpatialScale value for dynamic canvas sizing.
 
     Returns:
         { layer_id: [{"name", "x", "y", "radius", ...}, ...] }
@@ -327,6 +499,11 @@ def compute_layered_layout(
     portals = world_structure.get("portals", [])
     location_layer_map = world_structure.get("location_layer_map", {})
     location_region_map = world_structure.get("location_region_map", {})
+
+    # Dynamic canvas size for overworld based on spatial scale
+    canvas_size = SPATIAL_SCALE_CANVAS.get(spatial_scale or "", CANVAS_SIZE)
+    canvas_margin = max(50, canvas_size // 20)
+    overworld_bounds = (canvas_margin, canvas_margin, canvas_size - canvas_margin, canvas_size - canvas_margin)
 
     if not layers:
         return {}
@@ -366,6 +543,7 @@ def compute_layered_layout(
                     regions, locs, all_constraints, location_region_map,
                     user_overrides=user_overrides,
                     first_chapter=first_chapter,
+                    canvas_size=canvas_size,
                 )
             else:
                 # No regions → global solve
@@ -373,6 +551,7 @@ def compute_layered_layout(
                     locs, all_constraints,
                     user_overrides=user_overrides,
                     first_chapter=first_chapter,
+                    canvas_bounds=overworld_bounds,
                 )
                 layout_coords, _ = solver.solve()
 
@@ -424,6 +603,7 @@ def _solve_overworld_by_region(
     location_region_map: dict[str, str],
     user_overrides: dict[str, tuple[float, float]] | None = None,
     first_chapter: dict[str, int] | None = None,
+    canvas_size: int = CANVAS_SIZE,
 ) -> dict[str, tuple[float, float]]:
     """Solve overworld layout by partitioning into regions.
 
@@ -438,7 +618,7 @@ def _solve_overworld_by_region(
         }
         for r in regions
     ]
-    region_layout = _layout_regions(region_dicts)
+    region_layout = _layout_regions(region_dicts, canvas_size=canvas_size)
 
     # Partition locations by region
     region_locs: dict[str, list[dict]] = {r["name"]: [] for r in region_dicts}
@@ -474,11 +654,14 @@ def _solve_overworld_by_region(
             if rn and rn in region_layout:
                 loc_region_bounds[loc["name"]] = region_layout[rn]["bounds"]
 
+        margin = max(50, canvas_size // 20)
+        fallback_bounds = (margin, margin, canvas_size - margin, canvas_size - margin)
         solver = ConstraintSolver(
             unassigned_locs, constraints,
             user_overrides=user_overrides,
             first_chapter=first_chapter,
             location_region_bounds=loc_region_bounds,
+            canvas_bounds=fallback_bounds,
         )
         coords, _ = solver.solve()
         merged_layout.update(coords)
@@ -850,6 +1033,10 @@ class ConstraintSolver:
         self._canvas_cx = (self._canvas_min_x + self._canvas_max_x) / 2
         self._canvas_cy = (self._canvas_min_y + self._canvas_max_y) / 2
 
+        # Dynamic min spacing proportional to canvas size
+        canvas_w = self._canvas_max_x - self._canvas_min_x
+        self._min_spacing = max(MIN_SPACING, canvas_w * 0.02)
+
         # Detect narrative travel axis (uses original locations before celestial/underworld split)
         self._narrative_axis = _detect_narrative_axis(
             self.constraints, self.first_chapter, locations,
@@ -1075,7 +1262,7 @@ class ConstraintSolver:
                 y = cy + jitter_r * math.sin(jitter_angle)
             else:
                 # Last resort: interpolate along narrative axis based on chapter
-                x, y = self._interpolate_on_axis(ch)
+                x, y = self._interpolate_on_axis(ch, name)
                 jitter_angle = orphan_idx * 2.4
                 jitter_r = 10 + 5 * (orphan_idx % 6)
                 x += jitter_r * math.cos(jitter_angle)
@@ -1113,8 +1300,11 @@ class ConstraintSolver:
                 return (cx, cy)
         return None
 
-    def _interpolate_on_axis(self, chapter: int) -> tuple[float, float]:
-        """Interpolate position along narrative axis based on chapter number."""
+    def _interpolate_on_axis(self, chapter: int, name: str = "") -> tuple[float, float]:
+        """Interpolate position along narrative axis based on chapter number.
+
+        Includes a hash-based perpendicular offset to avoid axis-aligned placement.
+        """
         if self._max_chapter <= self._min_chapter or chapter <= 0:
             return (self._canvas_cx, self._canvas_cy)
 
@@ -1127,10 +1317,13 @@ class ConstraintSolver:
         cx = self._canvas_cx + (t - 0.5) * w * 0.8 * ax
         cy = self._canvas_cy + (t - 0.5) * h * 0.8 * ay
 
-        # Fix horizontal-axis degeneration: when ay ≈ 0, cy stays at center
-        # for all chapters. Add sinusoidal y offset to spread them vertically.
-        if abs(ay) < 0.1:
-            cy = self._canvas_cy + math.sin(t * math.pi * 3) * h * 0.3
+        # Add hash-based perpendicular offset to scatter across both axes
+        if name:
+            hv = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0  # [0, 1)
+            perp_offset = (hv - 0.5) * 0.6  # [-0.3, 0.3]
+            # Perpendicular direction: (-ay, ax)
+            cx += perp_offset * w * (-ay)
+            cy += perp_offset * h * ax
 
         return (cx, cy)
 
@@ -1195,6 +1388,9 @@ class ConstraintSolver:
         # proportional to their chapter appearance order
         e += self._e_narrative_axis(coords) * NARRATIVE_AXIS_WEIGHT
 
+        # Cross-axis scatter: spread locations perpendicular to narrative axis
+        e += self._e_cross_axis_scatter(coords) * 0.3
+
         # Direction hints: weak preference for locations with directional names
         e += self._e_direction_hints(coords) * 0.3
 
@@ -1251,20 +1447,55 @@ class ConstraintSolver:
         if n_with_chapter > 0:
             penalty = penalty / n_with_chapter * DIRECTION_MARGIN ** 2 * 20
 
-        # Vertical scatter penalty: when narrative axis is near-horizontal,
-        # y has no energy contribution and all points collapse to similar y.
-        # Add a sinusoidal expected-y term to spread locations vertically.
-        if abs(ay) < 0.1 and n_with_chapter > 0:
-            h = self._canvas_max_y - self._canvas_min_y
-            scatter = 0.0
-            for i, name in enumerate(self.loc_names):
-                ch = self.first_chapter.get(name, 0)
-                if ch <= 0:
-                    continue
-                t = (ch - self._min_chapter) / ch_range
-                expected_y = self._canvas_cy + math.sin(t * math.pi * 3) * h * 0.3
-                scatter += (coords[i, 1] - expected_y) ** 2
-            penalty += scatter / n_with_chapter * 15
+        return penalty
+
+    def _e_cross_axis_scatter(self, coords: np.ndarray) -> float:
+        """Scatter locations perpendicular to the narrative axis.
+
+        Without this, locations collapse to a band along the narrative axis
+        because the perpendicular direction has no energy contribution.
+        Uses a hash of each location name to compute a deterministic
+        pseudo-random expected perpendicular position, creating natural spread.
+        """
+        ax, ay = self._narrative_axis
+        # Perpendicular direction
+        px, py = -ay, ax
+        perp_magnitude = math.sqrt(px * px + py * py)
+        if perp_magnitude < 0.01:
+            return 0.0
+
+        # Compute perpendicular range on canvas
+        corners_perp = [
+            self._canvas_min_x * px + self._canvas_min_y * py,
+            self._canvas_min_x * px + self._canvas_max_y * py,
+            self._canvas_max_x * px + self._canvas_min_y * py,
+            self._canvas_max_x * px + self._canvas_max_y * py,
+        ]
+        perp_min = min(corners_perp)
+        perp_max = max(corners_perp)
+        perp_range = perp_max - perp_min
+        if perp_range < 1.0:
+            return 0.0
+        perp_center = (perp_min + perp_max) / 2
+
+        # Perpendicular projections
+        perp_proj = coords[:, 0] * px + coords[:, 1] * py
+
+        penalty = 0.0
+        count = 0
+        for i, name in enumerate(self.loc_names):
+            # Skip locations with explicit direction hints to avoid conflict
+            if name in self._direction_hints:
+                continue
+            # Hash-based pseudo-random expected position [-0.4, 0.4] of range
+            h = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0  # [0, 1)
+            expected_perp = perp_center + (h - 0.5) * perp_range * 0.7
+            diff = perp_proj[i] - expected_perp
+            penalty += diff ** 2
+            count += 1
+
+        if count > 0:
+            penalty = penalty / count * DIRECTION_MARGIN ** 2 * 15
 
         return penalty
 
@@ -1390,7 +1621,7 @@ class ConstraintSolver:
         dist = np.sqrt((diff ** 2).sum(axis=2))  # (n, n)
         # Upper triangle only (avoid double-counting and self-distance)
         triu_idx = np.triu_indices(self.n, k=1)
-        violations = np.maximum(0.0, MIN_SPACING - dist[triu_idx])
+        violations = np.maximum(0.0, self._min_spacing - dist[triu_idx])
         return float(np.sum(violations ** 2))
 
     def _hierarchy_layout(self) -> dict[str, tuple[float, float]]:
@@ -1503,6 +1734,7 @@ def generate_terrain(
     layout: dict[str, tuple[float, float]],
     novel_id: str,
     size: int = 1024,
+    canvas_size: int = CANVAS_SIZE,
 ) -> str | None:
     """Generate a terrain PNG based on Voronoi regions + simplex noise.
 
@@ -1519,8 +1751,8 @@ def generate_terrain(
     if len(layout) < 2:
         return None
 
-    # Scale layout coordinates from [0, 1000] canvas to [0, size] image
-    scale = size / CANVAS_SIZE
+    # Scale layout coordinates from [0, canvas_size] canvas to [0, size] image
+    scale = size / canvas_size
     points = []
     biome_colors = []
 
@@ -1531,7 +1763,7 @@ def generate_terrain(
         x, y = layout[name]
         # Flip y: canvas y=0 is bottom, image y=0 is top
         px = x * scale
-        py = (CANVAS_SIZE - y) * scale
+        py = (canvas_size - y) * scale
         points.append([px, py])
         biome_colors.append(_biome_for_type(loc.get("type", "")))
 
@@ -1606,9 +1838,15 @@ def generate_terrain(
 # ── Layout caching helpers ─────────────────────────
 
 
-def compute_chapter_hash(chapter_start: int, chapter_end: int) -> str:
-    """Deterministic hash for a chapter range."""
-    return hashlib.md5(f"{chapter_start}-{chapter_end}".encode()).hexdigest()[:16]
+# Bump this when solver algorithm changes to invalidate layout cache
+_LAYOUT_VERSION = 2
+
+def compute_chapter_hash(
+    chapter_start: int, chapter_end: int, canvas_size: int = CANVAS_SIZE,
+) -> str:
+    """Deterministic hash for a chapter range + canvas size + layout version."""
+    key = f"{chapter_start}-{chapter_end}-cs{canvas_size}-v{_LAYOUT_VERSION}"
+    return hashlib.md5(key.encode()).hexdigest()[:16]
 
 
 def layout_to_list(

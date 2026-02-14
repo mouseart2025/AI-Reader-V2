@@ -12,15 +12,26 @@ import { WorldStructureEditor } from "@/components/visualization/WorldStructureE
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-const TYPE_LEGEND = [
-  { label: "界/域/国", color: "#3b82f6" },
-  { label: "城镇", color: "#10b981" },
-  { label: "山林洞谷", color: "#84cc16" },
-  { label: "宗门派", color: "#8b5cf6" },
-  { label: "水域", color: "#06b6d4" },
-  { label: "天界", color: "#f59e0b" },
-  { label: "冥界", color: "#7c3aed" },
-  { label: "其他", color: "#6b7280" },
+const ICON_LEGEND: { icon: string; label: string }[] = [
+  { icon: "capital", label: "都城" },
+  { icon: "city", label: "城市" },
+  { icon: "town", label: "城镇" },
+  { icon: "village", label: "村庄" },
+  { icon: "camp", label: "营地" },
+  { icon: "mountain", label: "山脉" },
+  { icon: "forest", label: "森林" },
+  { icon: "water", label: "水域" },
+  { icon: "desert", label: "沙漠" },
+  { icon: "island", label: "岛屿" },
+  { icon: "temple", label: "寺庙" },
+  { icon: "palace", label: "宫殿" },
+  { icon: "cave", label: "洞穴" },
+  { icon: "tower", label: "塔楼" },
+  { icon: "gate", label: "关隘" },
+  { icon: "portal", label: "传送门" },
+  { icon: "ruins", label: "废墟" },
+  { icon: "sacred", label: "圣地" },
+  { icon: "generic", label: "其他" },
 ]
 
 export default function MapPage() {
@@ -39,6 +50,9 @@ export default function MapPage() {
   // World structure editor
   const [editorOpen, setEditorOpen] = useState(false)
   const [reloadTrigger, setReloadTrigger] = useState(0)
+
+  // Legend state
+  const [legendOpen, setLegendOpen] = useState(false)
 
   // Trajectory state
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
@@ -104,6 +118,15 @@ export default function MapPage() {
     if (!names || names.length === 0) return undefined
     return new Set(names)
   }, [mapData?.revealed_location_names])
+
+  // ── Icons used in current data (for legend) ──
+  const usedIcons = useMemo(() => {
+    const icons = new Set<string>()
+    for (const loc of locations) {
+      icons.add(loc.icon ?? "generic")
+    }
+    return icons
+  }, [locations])
 
   // ── Person list sorted by trajectory length ──
   const personList = useMemo(
@@ -248,17 +271,28 @@ export default function MapPage() {
           )}
 
           {/* Legend */}
-          <div className="absolute bottom-3 left-3 z-10 rounded-lg border bg-background/90 p-2">
-            <p className="text-muted-foreground mb-1 text-[10px]">地点类型</p>
-            {TYPE_LEGEND.map((item) => (
-              <div key={item.label} className="flex items-center gap-1.5 text-xs">
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                {item.label}
+          <div className="absolute bottom-10 left-3 z-10 rounded-lg border bg-background/90 p-2">
+            <button
+              onClick={() => setLegendOpen((v) => !v)}
+              className="text-muted-foreground flex items-center gap-1 text-[10px] hover:text-foreground"
+            >
+              图例 {legendOpen ? "▾" : "▸"}
+            </button>
+            {legendOpen && (
+              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {ICON_LEGEND.filter((item) => usedIcons.has(item.icon)).map((item) => (
+                  <div key={item.icon} className="flex items-center gap-1.5 text-xs">
+                    <img
+                      src={`/map-icons/${item.icon}.svg`}
+                      alt={item.label}
+                      className="size-3.5 opacity-60"
+                      style={{ filter: "invert(0.4)" }}
+                    />
+                    {item.label}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
           {/* Toast */}
@@ -296,6 +330,8 @@ export default function MapPage() {
               portals={portals}
               trajectoryPoints={visibleTrajectory}
               currentLocation={currentLocation}
+              canvasSize={mapData?.canvas_size}
+              spatialScale={mapData?.spatial_scale}
               onLocationClick={handleLocationClick}
               onLocationDragEnd={handleDragEnd}
               onPortalClick={handlePortalClick}

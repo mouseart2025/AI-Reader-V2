@@ -18,19 +18,79 @@ import type {
 } from "@/api/types"
 
 // ── Canvas coordinate system ────────────────────────
-// Map [0, 1000] canvas coordinates to a 2° × 2° geographic extent
-// centered at (10°E, 5°N) — near the equator for minimal Mercator distortion.
-const CANVAS_SIZE = 1000
-const EXTENT_DEG = 2.0
-const SCALE = EXTENT_DEG / CANVAS_SIZE
+// Map canvas coordinates to a geographic extent centered at (10°E, 5°N)
+// near the equator for minimal Mercator distortion.
+const DEFAULT_CANVAS_SIZE = 1000
 const CENTER_LNG = 10
 const CENTER_LAT = 5
 
-function toLngLat(x: number, y: number): [number, number] {
-  return [
-    CENTER_LNG + (x - CANVAS_SIZE / 2) * SCALE,
-    CENTER_LAT + (y - CANVAS_SIZE / 2) * SCALE,
-  ]
+function getExtentDeg(canvasSize: number): number {
+  if (canvasSize >= 3000) return 6.0
+  if (canvasSize >= 2000) return 4.0
+  return 2.0
+}
+
+// Default initial zoom per spatial scale
+const SCALE_DEFAULT_ZOOM: Record<string, number> = {
+  cosmic: 5,
+  continental: 6,
+  national: 7,
+  urban: 9,
+  local: 11,
+}
+
+function getDefaultZoom(spatialScale?: string): number {
+  return SCALE_DEFAULT_ZOOM[spatialScale ?? ""] ?? 9
+}
+
+function makeLngLatMapper(canvasSize: number) {
+  const extentDeg = getExtentDeg(canvasSize)
+  const scale = extentDeg / canvasSize
+  return function toLngLat(x: number, y: number): [number, number] {
+    return [
+      CENTER_LNG + (x - canvasSize / 2) * scale,
+      CENTER_LAT + (y - canvasSize / 2) * scale,
+    ]
+  }
+}
+
+// ── Tier zoom mapping ─────────────────────────────────
+const TIER_MIN_ZOOM: Record<string, number> = {
+  world: 6,
+  continent: 6,
+  kingdom: 7,
+  region: 8,
+  city: 9,
+  site: 10,
+  building: 11,
+}
+
+const TIER_TEXT_SIZE: Record<string, [number, number, number, number]> = {
+  // [minZoom, minSize, maxZoom, maxSize] for interpolation
+  continent: [6, 16, 12, 22],
+  kingdom:   [7, 14, 12, 18],
+  region:    [8, 12, 13, 16],
+  city:      [9, 10, 14, 14],
+  site:      [10, 9, 14, 12],
+  building:  [11, 8, 14, 10],
+}
+
+const TIERS = ["continent", "kingdom", "region", "city", "site", "building"] as const
+
+// Chinese labels for tier names (used in zoom indicator)
+const TIER_LABELS: Record<string, string> = {
+  continent: "大洲",
+  kingdom: "国",
+  region: "区域",
+  city: "城镇",
+  site: "地点",
+  building: "建筑",
+}
+
+function getVisibleTiers(zoom: number): string {
+  const visible = TIERS.filter((t) => zoom >= (TIER_MIN_ZOOM[t] ?? 99))
+  if (visible.length === 0) return ""
+  return visible.map((t) => TIER_LABELS[t] ?? t).join("/")
 }
 
 // ── Type colors ─────────────────────────────────────
@@ -95,6 +155,45 @@ const PORTAL_COLORS: Record<string, string> = {
   overworld: "#3b82f6",
 }
 
+// ── Map icon names ──────────────────────────────────
+
+const ICON_NAMES = [
+  "capital", "city", "town", "village", "camp",
+  "mountain", "forest", "water", "desert", "island",
+  "temple", "palace", "cave", "tower", "gate",
+  "portal", "ruins", "sacred", "generic",
+] as const
+
+// Icon size interpolation per tier
+const TIER_ICON_SIZE: Record<string, [number, number, number, number]> = {
+  // [minZoom, minSize, maxZoom, maxSize]
+  continent: [6, 0.6, 12, 1.2],
+  kingdom:   [7, 0.5, 12, 1.0],
+  region:    [8, 0.4, 13, 0.9],
+  city:      [9, 0.35, 14, 0.8],
+  site:      [10, 0.3, 14, 0.7],
+  building:  [11, 0.25, 14, 0.6],
+}
+
+async function loadMapIcons(map: maplibregl.Map) {
+  for (const name of ICON_NAMES) {
+    const resp = await fetch(`/map-icons/${name}.svg`)
+    const svgText = await resp.text()
+    const img = new Image(48, 48)
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+      img.onerror = () => resolve() // graceful fallback
+    })
+    const canvas = document.createElement("canvas")
+    canvas.width = canvas.height = 48
+    const ctx = canvas.getContext("2d")!
+    ctx.drawImage(img, 0, 0, 48, 48)
+    const data = ctx.getImageData(0, 0, 48, 48)
+    map.addImage(`icon-${name}`, { width: 48, height: 48, data: data.data }, { sdf: true })
+  }
+}
+
 // ── Props ───────────────────────────────────────────
 
 export interface NovelMapProps {
@@ -109,6 +208,8 @@ export interface NovelMapProps {
   portals?: PortalInfo[]
   trajectoryPoints?: TrajectoryPoint[]
   currentLocation?: string | null
+  canvasSize?: number
+  spatialScale?: string
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
   onPortalClick?: (targetLayerId: string) => void
@@ -125,8 +226,6 @@ const LYR_REGION_FILLS = "region-fills"
 const LYR_REGION_BORDERS = "region-borders"
 const LYR_REGION_LABELS = "region-labels"
 const SRC_LOCATIONS = "locations-src"
-const LYR_CIRCLES = "locations-circles"
-const LYR_LABELS = "locations-labels"
 const SRC_TRAJECTORY = "trajectory-line"
 const LYR_TRAJECTORY_LINE = "trajectory-line-layer"
 const SRC_TRAJ_POINTS = "trajectory-points"
@@ -148,6 +247,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       portals,
       trajectoryPoints,
       currentLocation,
+      canvasSize: canvasSizeProp,
+      spatialScale,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
@@ -176,14 +277,23 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       layoutMapRef.current = m
     }, [layout])
 
+    // Compute dynamic toLngLat based on canvasSize prop
+    const canvasSize = canvasSizeProp ?? DEFAULT_CANVAS_SIZE
+    const toLngLat = makeLngLatMapper(canvasSize)
+    const toLngLatRef = useRef(toLngLat)
+    toLngLatRef.current = toLngLat
+
     // ── Initialize map ──────────────────────────────
     useEffect(() => {
       if (!containerRef.current) return
 
-      const center = toLngLat(CANVAS_SIZE / 2, CANVAS_SIZE / 2)
+      const cs = canvasSizeProp ?? DEFAULT_CANVAS_SIZE
+      const localToLngLat = makeLngLatMapper(cs)
+      const center = localToLngLat(cs / 2, cs / 2)
       const bgColor = getMapBgColor(layoutMode, layerType)
       const darkBg = isDarkBackground(layoutMode, layerType)
 
+      const defaultZoom = getDefaultZoom(spatialScale)
       const map = new maplibregl.Map({
         container: containerRef.current,
         style: {
@@ -200,8 +310,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           ],
         },
         center,
-        zoom: 9,
-        minZoom: 6,
+        zoom: defaultZoom,
+        minZoom: Math.max(4, defaultZoom - 3),
         maxZoom: 16,
         renderWorldCopies: false,
         attributionControl: false,
@@ -238,10 +348,40 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       map.addControl(new FitAllControl(), "top-right")
 
-      map.on("load", () => {
-        // ── Z-order: regions → trajectory → locations → portals → labels ──
+      // Zoom level indicator (bottom-left)
+      const zoomIndicator = document.createElement("div")
+      zoomIndicator.style.cssText =
+        "font-size:11px; color:rgba(120,120,120,0.8); padding:4px 8px; white-space:nowrap; pointer-events:none;"
 
-        // 1. Region boundaries (polygons)
+      function updateZoomIndicator() {
+        const z = Math.round(map.getZoom() * 10) / 10
+        const tiers = getVisibleTiers(z)
+        zoomIndicator.textContent = tiers ? `${tiers}` : ""
+      }
+      updateZoomIndicator()
+      map.on("zoom", updateZoomIndicator)
+
+      class ZoomIndicatorControl implements maplibregl.IControl {
+        _container?: HTMLDivElement
+        onAdd() {
+          this._container = document.createElement("div")
+          this._container.className = "maplibregl-ctrl"
+          this._container.appendChild(zoomIndicator)
+          return this._container
+        }
+        onRemove() {
+          this._container?.remove()
+        }
+      }
+      map.addControl(new ZoomIndicatorControl(), "bottom-left")
+
+      map.on("load", async () => {
+        // ── Load SVG icons as SDF images ──
+        await loadMapIcons(map)
+
+        // ── Z-order: regions → trajectory → locations (per-tier) → portals ──
+
+        // 1. Region boundaries (Voronoi polygons)
         map.addSource(SRC_REGIONS, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -252,7 +392,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           source: SRC_REGIONS,
           paint: {
             "fill-color": ["get", "color"],
-            "fill-opacity": 0.08,
+            "fill-opacity": [
+              "interpolate", ["linear"], ["zoom"],
+              6, 0.12,
+              10, 0.04,
+            ],
           },
         })
         map.addLayer({
@@ -261,13 +405,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           source: SRC_REGIONS,
           paint: {
             "line-color": ["get", "color"],
-            "line-opacity": 0.3,
-            "line-width": 2,
-            "line-dasharray": [4, 4],
+            "line-opacity": [
+              "interpolate", ["linear"], ["zoom"],
+              6, 0.25,
+              11, 0.08,
+            ],
+            "line-width": 1,
           },
         })
 
-        // Region labels (points at centroids)
+        // Region labels (points at centers)
         map.addSource(SRC_REGION_LABELS, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -276,6 +423,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           id: LYR_REGION_LABELS,
           type: "symbol",
           source: SRC_REGION_LABELS,
+          maxzoom: 10,
           layout: {
             "text-field": ["get", "name"],
             "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
@@ -324,35 +472,61 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           },
         })
 
-        // 4. Location circles
+        // 4. Location source (shared across per-tier symbol layers)
         map.addSource(SRC_LOCATIONS, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
         })
-        map.addLayer({
-          id: LYR_CIRCLES,
-          type: "circle",
-          source: SRC_LOCATIONS,
-          paint: {
-            "circle-radius": ["get", "radius"],
-            "circle-color": ["get", "color"],
-            "circle-opacity": ["get", "opacity"],
-            "circle-stroke-color": [
-              "case",
-              ["get", "isCurrent"],
-              "#d97706",
-              ["get", "isRevealed"],
-              "rgba(150,150,150,0.5)",
-              "rgba(255,255,255,0.9)",
-            ],
-            "circle-stroke-width": [
-              "case",
-              ["get", "isCurrent"],
-              3,
-              1.5,
-            ],
-          },
-        })
+
+        // 4a. Per-tier symbol layers (icon + label combined)
+        for (const tier of TIERS) {
+          const minZoom = TIER_MIN_ZOOM[tier] ?? 9
+          const textSizes = TIER_TEXT_SIZE[tier] ?? [9, 10, 14, 14]
+          const iconSizes = TIER_ICON_SIZE[tier] ?? [9, 0.35, 14, 0.8]
+
+          map.addLayer({
+            id: `loc-${tier}`,
+            type: "symbol",
+            source: SRC_LOCATIONS,
+            filter: ["==", ["get", "tier"], tier],
+            minzoom: minZoom,
+            layout: {
+              "icon-image": ["concat", "icon-", ["get", "icon"]],
+              "icon-size": [
+                "interpolate", ["linear"], ["zoom"],
+                iconSizes[0], iconSizes[1],
+                iconSizes[2], iconSizes[3],
+              ],
+              "icon-allow-overlap": tier === "continent" || tier === "kingdom",
+              "text-field": ["get", "name"],
+              "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+              "text-size": [
+                "interpolate", ["linear"], ["zoom"],
+                textSizes[0], textSizes[1],
+                textSizes[2], textSizes[3],
+              ],
+              "text-offset": [0, 1.5],
+              "text-anchor": "top",
+              "text-optional": tier !== "continent",
+              "text-allow-overlap": false,
+            },
+            paint: {
+              "icon-color": ["get", "color"],
+              "icon-opacity": ["get", "opacity"],
+              "text-color": [
+                "case",
+                ["get", "isRevealed"],
+                "#9ca3af",
+                [">=", ["get", "mentionCount"], 3],
+                darkBg ? "#e5e7eb" : "#374151",
+                "#9ca3af",
+              ],
+              "text-halo-color": darkBg ? "rgba(0,0,0,0.6)" : "#ffffff",
+              "text-halo-width": 1.5,
+              "text-opacity": ["get", "opacity"],
+            },
+          })
+        }
 
         // 5. Portal markers
         map.addSource(SRC_PORTALS, {
@@ -376,37 +550,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           },
         })
 
-        // 6. Location labels
-        map.addLayer({
-          id: LYR_LABELS,
-          type: "symbol",
-          source: SRC_LOCATIONS,
-          layout: {
-            "text-field": ["get", "name"],
-            "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
-            "text-size": 12,
-            "text-offset": [0, 1.2],
-            "text-anchor": "top",
-            "text-allow-overlap": false,
-            "text-optional": true,
-          },
-          paint: {
-            "text-color": [
-              "case",
-              ["get", "isRevealed"],
-              "#9ca3af",
-              [">=", ["get", "mentionCount"], 3],
-              darkBg ? "#e5e7eb" : "#374151",
-              "#9ca3af",
-            ],
-            "text-halo-color": darkBg ? "rgba(0,0,0,0.6)" : "#ffffff",
-            "text-halo-width": 1.5,
-            "text-opacity": ["get", "opacity"],
-          },
-        })
+        // ── Click handler for location symbol layers (all per-tier) ──
+        const symbolLayerIds = TIERS.map((t) => `loc-${t}`)
 
-        // ── Click handler for location circles ──
-        map.on("click", LYR_CIRCLES, (e) => {
+        function handleLocationClick(e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) {
           if (!e.features?.[0]) return
           const props = e.features[0].properties
           if (!props) return
@@ -448,7 +595,17 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               })
             }
           }, 0)
-        })
+        }
+
+        for (const layerId of symbolLayerIds) {
+          map.on("click", layerId, handleLocationClick)
+          map.on("mouseenter", layerId, () => {
+            map.getCanvas().style.cursor = "pointer"
+          })
+          map.on("mouseleave", layerId, () => {
+            map.getCanvas().style.cursor = ""
+          })
+        }
 
         // ── Click handler for portal markers ──
         map.on("click", LYR_PORTALS, (e) => {
@@ -490,13 +647,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           }, 0)
         })
 
-        // Cursor style on hover
-        map.on("mouseenter", LYR_CIRCLES, () => {
-          map.getCanvas().style.cursor = "pointer"
-        })
-        map.on("mouseleave", LYR_CIRCLES, () => {
-          map.getCanvas().style.cursor = ""
-        })
+        // Cursor style on hover for portals
         map.on("mouseenter", LYR_PORTALS, () => {
           map.getCanvas().style.cursor = "pointer"
         })
@@ -515,17 +666,19 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         mapRef.current = null
         setMapReady(false)
       }
-    }, [layoutMode, layerType])
+    }, [layoutMode, layerType, canvasSizeProp, spatialScale])
 
     // ── Load terrain image ──────────────────────────
     useEffect(() => {
       const map = mapRef.current
       if (!map || !mapReady || !terrainUrl) return
 
-      const topLeft = toLngLat(0, CANVAS_SIZE)
-      const topRight = toLngLat(CANVAS_SIZE, CANVAS_SIZE)
-      const bottomRight = toLngLat(CANVAS_SIZE, 0)
-      const bottomLeft = toLngLat(0, 0)
+      const cs = canvasSizeProp ?? DEFAULT_CANVAS_SIZE
+      const localToLngLat = makeLngLatMapper(cs)
+      const topLeft = localToLngLat(0, cs)
+      const topRight = localToLngLat(cs, cs)
+      const bottomRight = localToLngLat(cs, 0)
+      const bottomLeft = localToLngLat(0, 0)
 
       if (map.getSource("terrain-img")) {
         map.removeLayer("terrain-layer")
@@ -548,12 +701,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         },
         LYR_REGION_FILLS,
       )
-    }, [mapReady, terrainUrl])
+    }, [mapReady, terrainUrl, canvasSizeProp])
 
     // ── Update region GeoJSON ────────────────────────
     useEffect(() => {
       const map = mapRef.current
       if (!map || !mapReady) return
+
+      const ll = toLngLatRef.current
 
       // Polygon features for fills + borders
       const polyFeatures: GeoJSON.Feature[] = []
@@ -562,27 +717,21 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (regionBoundaries && regionBoundaries.length > 0) {
         for (const rb of regionBoundaries) {
-          const { x1, y1, x2, y2 } = rb.bounds
+          // Voronoi polygon vertices
+          const coords = rb.polygon.map(([x, y]) => ll(x, y))
+          coords.push(coords[0]) // close the ring
           polyFeatures.push({
             type: "Feature",
             geometry: {
               type: "Polygon",
-              coordinates: [[
-                toLngLat(x1, y1),
-                toLngLat(x2, y1),
-                toLngLat(x2, y2),
-                toLngLat(x1, y2),
-                toLngLat(x1, y1),
-              ]],
+              coordinates: [coords],
             },
             properties: { name: rb.region_name, color: rb.color },
           })
-          // Label at centroid
-          const cx = (x1 + x2) / 2
-          const cy = (y1 + y2) / 2
+          // Label at center
           labelFeatures.push({
             type: "Feature",
-            geometry: { type: "Point", coordinates: toLngLat(cx, cy) },
+            geometry: { type: "Point", coordinates: ll(rb.center[0], rb.center[1]) },
             properties: { name: rb.region_name, color: rb.color },
           })
         }
@@ -603,6 +752,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const map = mapRef.current
       if (!map || !mapReady) return
 
+      const ll = toLngLatRef.current
       const locMap = new Map(locations.map((l) => [l.name, l]))
       const revealed = revealedLocationNames ?? new Set<string>()
 
@@ -636,13 +786,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           type: "Feature" as const,
           geometry: {
             type: "Point" as const,
-            coordinates: toLngLat(item.x, item.y),
+            coordinates: ll(item.x, item.y),
           },
           properties: {
             name: item.name,
             locType: loc?.type ?? "",
             parent: loc?.parent ?? "",
             mentionCount: mention,
+            tier: loc?.tier ?? "city",
+            icon: loc?.icon ?? "generic",
             radius: isCurrent
               ? 8
               : isRevealed
@@ -667,6 +819,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const map = mapRef.current
       if (!map || !mapReady) return
 
+      const ll = toLngLatRef.current
       const portalFeatures: GeoJSON.Feature[] = []
 
       // Build portal features from layout items with is_portal flag
@@ -680,7 +833,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
         portalFeatures.push({
           type: "Feature",
-          geometry: { type: "Point", coordinates: toLngLat(item.x, item.y) },
+          geometry: { type: "Point", coordinates: ll(item.x, item.y) },
           properties: {
             name: item.name,
             targetLayer,
@@ -701,7 +854,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           const color = PORTAL_COLORS[p.target_layer] ?? PORTAL_COLORS.overworld
           portalFeatures.push({
             type: "Feature",
-            geometry: { type: "Point", coordinates: toLngLat(srcItem.x, srcItem.y) },
+            geometry: { type: "Point", coordinates: ll(srcItem.x, srcItem.y) },
             properties: {
               name: p.name,
               targetLayer: p.target_layer,
@@ -723,6 +876,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const map = mapRef.current
       if (!map || !mapReady) return
 
+      const ll = toLngLatRef.current
       const coords: [number, number][] = []
       const pointFeatures: GeoJSON.Feature[] = []
 
@@ -730,7 +884,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         for (const pt of trajectoryPoints) {
           const item = layoutMapRef.current.get(pt.location)
           if (!item) continue
-          const lnglat = toLngLat(item.x, item.y)
+          const lnglat = ll(item.x, item.y)
           coords.push(lnglat)
           pointFeatures.push({
             type: "Feature",
@@ -768,9 +922,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const map = mapRef.current
       if (!map || layout.length === 0) return
 
+      const ll = toLngLatRef.current
       const bounds = new maplibregl.LngLatBounds()
       for (const item of layout) {
-        bounds.extend(toLngLat(item.x, item.y))
+        bounds.extend(ll(item.x, item.y))
       }
       map.fitBounds(bounds, { padding: 60, maxZoom: 13 })
     }, [layout])
@@ -785,6 +940,32 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         return () => clearTimeout(t)
       }
     }, [mapReady, layout, fitToLocations])
+
+    // ── Keyboard shortcuts ──────────────────────────
+    useEffect(() => {
+      const map = mapRef.current
+      if (!map || !mapReady) return
+
+      function handleKeyDown(e: KeyboardEvent) {
+        // Ignore when typing in inputs
+        const tag = (e.target as HTMLElement)?.tagName
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+
+        if (e.key === "Home") {
+          e.preventDefault()
+          fitAllCallbackRef.current()
+        } else if (e.key === "=" || e.key === "+") {
+          e.preventDefault()
+          map!.zoomIn()
+        } else if (e.key === "-") {
+          e.preventDefault()
+          map!.zoomOut()
+        }
+      }
+
+      window.addEventListener("keydown", handleKeyDown)
+      return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [mapReady])
 
     return <div ref={containerRef} className="h-full w-full" />
   },

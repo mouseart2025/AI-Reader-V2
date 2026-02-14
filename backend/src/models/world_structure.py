@@ -16,6 +16,46 @@ class LayerType(str, Enum):
     spirit = "spirit"
 
 
+class LocationTier(str, Enum):
+    world = "world"           # 整个世界 — 仅容器，不显示为点
+    continent = "continent"   # 大洲/大陆/界/域 — zoom 6+
+    kingdom = "kingdom"       # 国/大区域 — zoom 7+
+    region = "region"         # 郡/山脉/海域 — zoom 8+
+    city = "city"             # 城/镇/村/寺庙/门派 — zoom 9+
+    site = "site"             # 具体地点（客栈、桥、洞口）— zoom 10+
+    building = "building"     # 建筑内部/房间 — zoom 11+
+
+
+class LocationIcon(str, Enum):
+    capital = "capital"
+    city = "city"
+    town = "town"
+    village = "village"
+    camp = "camp"
+    mountain = "mountain"
+    forest = "forest"
+    water = "water"
+    desert = "desert"
+    island = "island"
+    temple = "temple"
+    palace = "palace"
+    cave = "cave"
+    tower = "tower"
+    gate = "gate"
+    portal = "portal"
+    ruins = "ruins"
+    sacred = "sacred"
+    generic = "generic"
+
+
+class SpatialScale(str, Enum):
+    cosmic = "cosmic"            # 多界（仙侠/玄幻）
+    continental = "continental"  # 大陆级（西游记）
+    national = "national"        # 国家级（红楼梦）
+    urban = "urban"              # 城市级
+    local = "local"              # 局部
+
+
 class WorldRegion(BaseModel):
     name: str
     cardinal_direction: str | None = None
@@ -57,6 +97,9 @@ class WorldStructure(BaseModel):
     location_region_map: dict[str, str] = {}
     location_layer_map: dict[str, str] = {}
     novel_genre_hint: str | None = None  # fantasy/wuxia/historical/urban/unknown
+    location_tiers: dict[str, str] = {}    # name → tier value
+    location_icons: dict[str, str] = {}    # name → icon value
+    spatial_scale: str | None = None        # SpatialScale value or None
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:
