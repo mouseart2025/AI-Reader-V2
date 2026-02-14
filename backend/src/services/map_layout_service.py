@@ -1051,7 +1051,7 @@ def _are_opposing(c1: dict, c2: dict) -> bool:
 
 # Maximum number of locations to send into the constraint solver.
 # Locations beyond this are placed via hierarchy layout relative to solved anchors.
-MAX_SOLVER_LOCATIONS = 100
+MAX_SOLVER_LOCATIONS = 40
 
 
 def _is_celestial(name: str) -> bool:
@@ -1296,6 +1296,12 @@ class ConstraintSolver:
         # Select locations for the solver: keep the most important ones
         self._select_solver_locations()
 
+        # Pre-compute chapter array for vectorized energy functions
+        self._chapter_arr = np.array(
+            [self.first_chapter.get(n, 0) for n in self.loc_names],
+            dtype=np.float64,
+        )
+
     def _select_solver_locations(self) -> None:
         """Choose which locations go into the constraint solver vs hierarchy placement."""
         # Collect names referenced in constraints
@@ -1386,9 +1392,9 @@ class ConstraintSolver:
             return layout, "hierarchy"
 
         # Scale solver budget based on problem size
-        # With 100 locations (200 params), we need enough iterations but not excessive
-        maxiter = max(80, min(300, 5000 // max(self.n, 1)))
-        popsize = max(5, min(12, 400 // max(self.n, 1)))
+        # With 40 locations (80 params), keep budget tight for responsiveness
+        maxiter = max(50, min(200, 2000 // max(self.n, 1)))
+        popsize = max(4, min(8, 200 // max(self.n, 1)))
 
         try:
             result = differential_evolution(
@@ -1607,7 +1613,7 @@ class ConstraintSolver:
         return float(np.sum(violations ** 2)) * DIRECTION_MARGIN ** 2 * 2
 
     def _e_narrative_order(self, coords: np.ndarray) -> float:
-        """Weak narrative order energy: tie-breaker using Euclidean distance.
+        """Weak narrative order energy: tie-breaker using Euclidean distance (vectorized).
 
         - Locations appearing in nearby chapters (gap < 5) but placed far apart
           get a light penalty.
@@ -1627,33 +1633,35 @@ class ConstraintSolver:
         if canvas_diag < 1.0:
             return 0.0
 
-        penalty = 0.0
-        count = 0
-        for i in range(self.n):
-            ch_i = self.first_chapter.get(self.loc_names[i], 0)
-            if ch_i <= 0:
-                continue
-            for j in range(i + 1, self.n):
-                ch_j = self.first_chapter.get(self.loc_names[j], 0)
-                if ch_j <= 0:
-                    continue
-                ch_gap = abs(ch_i - ch_j)
-                dist = float(np.linalg.norm(coords[i] - coords[j]))
-                norm_dist = dist / canvas_diag  # [0, 1]
+        # Vectorized pairwise computation
+        ch = self._chapter_arr  # pre-computed in __init__
+        triu_i, triu_j = np.triu_indices(self.n, k=1)
 
-                if ch_gap < 5 and norm_dist > 0.5:
-                    # Nearby chapters but far apart
-                    penalty += (norm_dist - 0.5) ** 2
-                    count += 1
-                elif ch_gap > half_range and norm_dist < 0.1:
-                    # Distant chapters but very close
-                    penalty += (0.1 - norm_dist) ** 2
-                    count += 1
+        # Filter pairs where both have valid chapters
+        valid = (ch[triu_i] > 0) & (ch[triu_j] > 0)
+        if not np.any(valid):
+            return 0.0
 
-        if count > 0:
-            penalty = penalty / count * DIRECTION_MARGIN ** 2 * 5
+        vi, vj = triu_i[valid], triu_j[valid]
+        ch_gaps = np.abs(ch[vi] - ch[vj])
 
-        return penalty
+        diff = coords[vi] - coords[vj]
+        dists = np.sqrt((diff ** 2).sum(axis=1))
+        norm_dists = dists / canvas_diag
+
+        # Nearby chapters but far apart
+        near_mask = (ch_gaps < 5) & (norm_dists > 0.5)
+        penalty_near = np.sum((norm_dists[near_mask] - 0.5) ** 2)
+
+        # Distant chapters but very close
+        far_mask = (ch_gaps > half_range) & (norm_dists < 0.1)
+        penalty_far = np.sum((0.1 - norm_dists[far_mask]) ** 2)
+
+        count = int(np.sum(near_mask) + np.sum(far_mask))
+        if count == 0:
+            return 0.0
+
+        return float(penalty_near + penalty_far) / count * DIRECTION_MARGIN ** 2 * 5
 
     def _e_direction_hints(self, coords: np.ndarray) -> float:
         """Weak energy term: locations with directional names prefer the expected zone.
