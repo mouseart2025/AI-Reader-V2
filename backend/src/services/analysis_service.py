@@ -249,6 +249,20 @@ class AnalysisService:
                 })
                 continue
 
+            # Skip excluded chapters (user decision — always skip, even with force)
+            if chapter.get("is_excluded"):
+                logger.debug("Skipping excluded chapter %d", chapter_num)
+                await analysis_task_store.update_task_progress(task_id, chapter_num)
+                done_count = chapter_num - chapter_start + 1
+                await manager.broadcast(novel_id, {
+                    "type": "progress",
+                    "chapter": chapter_num,
+                    "total": total,
+                    "done": done_count,
+                    "stats": stats,
+                })
+                continue
+
             # Skip already-completed chapters unless force=True
             if not force and chapter["analysis_status"] == "completed":
                 logger.debug("Skipping already-completed chapter %d", chapter_num)

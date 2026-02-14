@@ -116,7 +116,7 @@ async def get_chapter_content(novel_id: str, chapter_num: int) -> dict | None:
     try:
         cursor = await conn.execute(
             """
-            SELECT id, chapter_num, title, content, word_count, analysis_status
+            SELECT id, chapter_num, title, content, word_count, analysis_status, is_excluded
             FROM chapters
             WHERE novel_id = ? AND chapter_num = ?
             """,

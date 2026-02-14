@@ -1,9 +1,13 @@
 """Chapter reading and user state endpoints."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from src.db import chapter_store, novel_store
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/novels/{novel_id}", tags=["chapters"])
 
@@ -47,6 +51,38 @@ async def search_chapters(
 
     results = await chapter_store.search_chapters(novel_id, q)
     return {"results": results, "total": len(results)}
+
+
+class ChapterExcludeRequest(BaseModel):
+    chapter_nums: list[int]
+    excluded: bool  # True=排除, False=恢复
+
+
+@router.patch("/chapters/exclude")
+async def exclude_chapters(novel_id: str, req: ChapterExcludeRequest):
+    """Batch exclude or restore chapters.
+
+    When excluding: sets is_excluded=1 and deletes associated chapter_facts.
+    When restoring: sets is_excluded=0 and resets analysis_status to 'pending'.
+    """
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    if not req.chapter_nums:
+        raise HTTPException(status_code=400, detail="章节列表不能为空")
+
+    await chapter_store.set_chapters_excluded(novel_id, req.chapter_nums, req.excluded)
+
+    if req.excluded:
+        deleted = await chapter_store.delete_chapter_facts(novel_id, req.chapter_nums)
+        logger.info(
+            "Excluded chapters %s for novel %s, deleted %d facts",
+            req.chapter_nums, novel_id, deleted,
+        )
+
+    chapters = await chapter_store.list_chapters(novel_id)
+    return {"chapters": chapters}
 
 
 class UserStateRequest(BaseModel):

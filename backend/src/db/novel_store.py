@@ -26,13 +26,17 @@ async def insert_novel(
         await conn.close()
 
 
-async def insert_chapters(novel_id: str, chapters: list[ChapterInfo]) -> None:
+async def insert_chapters(
+    novel_id: str,
+    chapters: list[ChapterInfo],
+    excluded_nums: set[int] | None = None,
+) -> None:
     conn = await get_connection()
     try:
         await conn.executemany(
             """
-            INSERT INTO chapters (novel_id, chapter_num, volume_num, volume_title, title, content, word_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO chapters (novel_id, chapter_num, volume_num, volume_title, title, content, word_count, is_excluded)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -43,6 +47,7 @@ async def insert_chapters(novel_id: str, chapters: list[ChapterInfo]) -> None:
                     ch.title,
                     ch.content,
                     ch.word_count,
+                    1 if excluded_nums and ch.chapter_num in excluded_nums else 0,
                 )
                 for ch in chapters
             ],

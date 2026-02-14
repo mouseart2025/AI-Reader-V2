@@ -77,6 +77,7 @@ async def confirm_import(req: ConfirmImportRequest):
             file_hash=req.file_hash,
             title=req.title,
             author=req.author,
+            excluded_chapters=req.excluded_chapters or None,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

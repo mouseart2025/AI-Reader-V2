@@ -21,6 +21,7 @@ export interface Chapter {
   word_count: number
   analysis_status: string
   analyzed_at: string | null
+  is_excluded?: number
 }
 
 export interface ChapterContent extends Chapter {
@@ -55,6 +56,7 @@ export interface ChapterPreview {
   chapter_num: number
   title: string
   word_count: number
+  is_suspect?: boolean
 }
 
 export interface UploadPreviewResponse {
@@ -72,6 +74,7 @@ export interface ConfirmImportRequest {
   file_hash: string
   title: string
   author?: string | null
+  excluded_chapters?: number[]
 }
 
 export interface ReSplitRequest {

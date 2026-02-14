@@ -7,6 +7,7 @@ class ChapterPreviewItem(BaseModel):
     chapter_num: int
     title: str
     word_count: int
+    is_suspect: bool = False
 
 
 class UploadPreviewResponse(BaseModel):
@@ -24,6 +25,7 @@ class ConfirmImportRequest(BaseModel):
     file_hash: str
     title: str
     author: str | None = None
+    excluded_chapters: list[int] = []
 
 
 class ReSplitRequest(BaseModel):
