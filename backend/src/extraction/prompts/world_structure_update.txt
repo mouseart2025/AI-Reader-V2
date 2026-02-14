@@ -64,12 +64,17 @@
     {{
       "op": "ADD_REGION",
       "layer_id": "overworld",
-      "name": "东胜神洲",
-      "cardinal_direction": "east",
-      "region_type": "大洲",
-      "description": "四大部洲之一，位于东方"
+      "name": "北方高原",
+      "cardinal_direction": "north",
+      "region_type": "地理区域",
+      "description": "位于北部的高原地带"
+    }},
+    {{
+      "op": "ASSIGN_LOCATION",
+      "location_name": "青石城",
+      "region_name": "北方高原"
     }}
   ],
-  "reasoning": "本章明确提到世界分为四大部洲，需要创建对应的区域"
+  "reasoning": "本章描述了世界北部存在一片高原区域，青石城位于其中"
 }}
 ```

@@ -5,12 +5,14 @@ location that satisfy spatial constraints extracted from the novel text.
 Falls back to hierarchical circular layout when constraints are insufficient.
 
 Key features:
-- Narrative-axis energy: spreads locations along the story's travel direction
-  based on their first chapter appearance (e.g., eastward → westward for 西游记).
+- Voronoi region layout: regions are tessellated using Lloyd-relaxed Voronoi
+  cells based on cardinal direction seed points.
+- Uniform spread energy: repulsion term prevents clustering while allowing
+  2D distribution within regions.
 - Non-geographic location handling: celestial/underworld locations placed in
   dedicated zones outside the main geographic map area.
 - Chapter-proximity placement: remaining locations placed near co-chapter
-  neighbors instead of a spiral pattern.
+  neighbors with isotropic circular scatter.
 """
 
 from __future__ import annotations
@@ -66,11 +68,6 @@ DEFAULT_FAR_DIST = 300
 # Confidence priority for conflict resolution
 _CONF_RANK = {"high": 3, "medium": 2, "low": 1}
 
-# ── Narrative axis weight ───────────────────────────
-# How strongly the chapter-order progression influences layout.
-# Higher = locations spread more along the narrative travel axis.
-NARRATIVE_AXIS_WEIGHT = 0.4
-
 # ── Non-geographic location detection ──────────────
 # Keywords that indicate celestial / underworld / metaphysical locations.
 _CELESTIAL_KEYWORDS = ("天宫", "天庭", "天门", "天界", "三十三天", "大罗天",
@@ -121,11 +118,112 @@ _REGION_COLORS: dict[str, str] = {
 _REGION_COLOR_FALLBACK = "#999999"
 
 
+def _compute_region_seeds(
+    regions: list[dict],
+    canvas_size: int = CANVAS_SIZE,
+) -> list[tuple[float, float]]:
+    """Compute Voronoi seed points for regions based on cardinal direction hints.
+
+    Each region gets a seed point biased towards its cardinal_direction.
+    Multiple regions sharing the same direction are spread within that sector.
+
+    Returns list of (x, y) seed points in the same order as *regions*.
+    """
+    _DIR_BASE: dict[str, tuple[float, float]] = {
+        "east":   (0.75, 0.50),
+        "west":   (0.25, 0.50),
+        "north":  (0.50, 0.75),
+        "south":  (0.50, 0.25),
+        "center": (0.50, 0.50),
+    }
+
+    margin = canvas_size * 0.08
+    usable = canvas_size - 2 * margin
+
+    # Group indices by direction
+    dir_groups: dict[str, list[int]] = {}
+    for i, r in enumerate(regions):
+        d = r.get("cardinal_direction") or "center"
+        if d not in _DIR_BASE:
+            d = "center"
+        dir_groups.setdefault(d, []).append(i)
+
+    seeds: list[tuple[float, float]] = [(0.0, 0.0)] * len(regions)
+
+    for direction, indices in dir_groups.items():
+        bx, by = _DIR_BASE[direction]
+        n = len(indices)
+        if n == 1:
+            seeds[indices[0]] = (margin + bx * usable, margin + by * usable)
+        else:
+            # Spread seeds in a small arc around the base point
+            spread = 0.18  # arc radius in normalized coords
+            for k, idx in enumerate(indices):
+                angle = 2 * math.pi * k / n
+                ox = bx + spread * math.cos(angle)
+                oy = by + spread * math.sin(angle)
+                # Clamp to [0.05, 0.95] normalized
+                ox = max(0.05, min(0.95, ox))
+                oy = max(0.05, min(0.95, oy))
+                seeds[idx] = (margin + ox * usable, margin + oy * usable)
+
+    return seeds
+
+
+def _lloyd_relax(
+    seeds: list[tuple[float, float]],
+    canvas_size: int,
+    iterations: int = 2,
+) -> list[tuple[float, float]]:
+    """Apply Lloyd relaxation to make Voronoi cells more uniform.
+
+    Moves each seed towards the centroid of its Voronoi cell, clipped to canvas.
+    """
+    if len(seeds) < 2:
+        return seeds
+
+    pts = np.array(seeds, dtype=np.float64)
+    cs = float(canvas_size)
+
+    for _ in range(iterations):
+        # Mirror points across boundaries for bounded Voronoi
+        mirrored = np.vstack([
+            pts,
+            np.column_stack([-pts[:, 0], pts[:, 1]]),
+            np.column_stack([2 * cs - pts[:, 0], pts[:, 1]]),
+            np.column_stack([pts[:, 0], -pts[:, 1]]),
+            np.column_stack([pts[:, 0], 2 * cs - pts[:, 1]]),
+        ])
+        vor = Voronoi(mirrored)
+
+        new_pts = pts.copy()
+        for i in range(len(pts)):
+            region_idx = vor.point_region[i]
+            region = vor.regions[region_idx]
+            if not region or -1 in region:
+                continue
+            verts = np.array([vor.vertices[vi] for vi in region])
+            # Clip vertices to canvas
+            verts = np.clip(verts, 0, cs)
+            # Compute centroid
+            new_pts[i] = verts.mean(axis=0)
+
+        # Clamp to canvas with margin
+        margin = cs * 0.05
+        pts = np.clip(new_pts, margin, cs - margin)
+
+    return [(float(pts[i, 0]), float(pts[i, 1])) for i in range(len(seeds))]
+
+
 def _layout_regions(
     regions: list[dict],
     canvas_size: int = CANVAS_SIZE,
 ) -> dict[str, dict]:
-    """Compute bounding boxes for world regions based on cardinal direction.
+    """Compute bounding boxes for world regions using Voronoi tessellation.
+
+    Seeds are placed based on cardinal_direction hints, then Lloyd-relaxed
+    for more uniform cell areas.  Each region's bounds come from its
+    Voronoi cell's bounding box.
 
     Args:
         regions: list of dicts with at least "name" and optional "cardinal_direction".
@@ -137,57 +235,78 @@ def _layout_regions(
     if not regions:
         return {}
 
-    # Scale factor: DIRECTION_ZONES are defined for a 1000×1000 canvas
-    scale = canvas_size / 1000.0
+    # Compute seed points and relax
+    seeds = _compute_region_seeds(regions, canvas_size)
+    seeds = _lloyd_relax(seeds, canvas_size, iterations=2)
 
-    # Group regions by direction
-    direction_groups: dict[str, list[str]] = {}
-    for r in regions:
-        direction = r.get("cardinal_direction") or "center"
-        if direction not in DIRECTION_ZONES:
-            direction = "center"
-        direction_groups.setdefault(direction, []).append(r["name"])
+    cs = float(canvas_size)
+    margin = canvas_size * 0.05
+
+    if len(regions) == 1:
+        # Single region → full canvas
+        direction = regions[0].get("cardinal_direction") or "center"
+        color = _REGION_COLORS.get(direction, _REGION_COLOR_FALLBACK)
+        return {
+            regions[0]["name"]: {
+                "bounds": (margin, margin, cs - margin, cs - margin),
+                "color": color,
+            }
+        }
+
+    # Build Voronoi with mirror points
+    pts = np.array(seeds, dtype=np.float64)
+    n_orig = len(pts)
+    mirrored = np.vstack([
+        pts,
+        np.column_stack([-pts[:, 0], pts[:, 1]]),
+        np.column_stack([2 * cs - pts[:, 0], pts[:, 1]]),
+        np.column_stack([pts[:, 0], -pts[:, 1]]),
+        np.column_stack([pts[:, 0], 2 * cs - pts[:, 1]]),
+    ])
+    vor = Voronoi(mirrored)
 
     result: dict[str, dict] = {}
-
-    for direction, names in direction_groups.items():
-        zone = DIRECTION_ZONES[direction]
-        x1, y1, x2, y2 = zone[0] * scale, zone[1] * scale, zone[2] * scale, zone[3] * scale
-        n = len(names)
+    for i, r in enumerate(regions):
+        direction = r.get("cardinal_direction") or "center"
         color = _REGION_COLORS.get(direction, _REGION_COLOR_FALLBACK)
 
-        if n == 1:
-            result[names[0]] = {"bounds": (x1, y1, x2, y2), "color": color}
-        else:
-            # Subdivide: use the longer axis to split
-            w = x2 - x1
-            h = y2 - y1
-            if w >= h:
-                # Split horizontally (along x)
-                step = w / n
-                for i, name in enumerate(names):
-                    result[name] = {
-                        "bounds": (
-                            round(x1 + i * step, 1),
-                            y1,
-                            round(x1 + (i + 1) * step, 1),
-                            y2,
-                        ),
-                        "color": color,
-                    }
-            else:
-                # Split vertically (along y)
-                step = h / n
-                for i, name in enumerate(names):
-                    result[name] = {
-                        "bounds": (
-                            x1,
-                            round(y1 + i * step, 1),
-                            x2,
-                            round(y1 + (i + 1) * step, 1),
-                        ),
-                        "color": color,
-                    }
+        region_idx = vor.point_region[i]
+        region = vor.regions[region_idx]
+
+        if not region or -1 in region:
+            # Fallback: box around seed
+            sx, sy = seeds[i]
+            half = cs * 0.15
+            result[r["name"]] = {
+                "bounds": (
+                    max(margin, sx - half),
+                    max(margin, sy - half),
+                    min(cs - margin, sx + half),
+                    min(cs - margin, sy + half),
+                ),
+                "color": color,
+            }
+            continue
+
+        verts = np.array([vor.vertices[vi] for vi in region])
+        # Clip to canvas
+        verts = np.clip(verts, 0, cs)
+        x1, y1 = float(verts[:, 0].min()), float(verts[:, 1].min())
+        x2, y2 = float(verts[:, 0].max()), float(verts[:, 1].max())
+
+        # Ensure minimum size
+        min_size = cs * 0.08
+        if x2 - x1 < min_size:
+            cx = (x1 + x2) / 2
+            x1, x2 = cx - min_size / 2, cx + min_size / 2
+        if y2 - y1 < min_size:
+            cy = (y1 + y2) / 2
+            y1, y2 = cy - min_size / 2, cy + min_size / 2
+
+        result[r["name"]] = {
+            "bounds": (round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)),
+            "color": color,
+        }
 
     return result
 
@@ -254,6 +373,89 @@ def _clip_polygon_to_canvas(
                 output.append(_intersect(prev, current, e_start, e_end))
 
     return output
+
+
+def _distort_polygon_edges(
+    polygon: list[tuple[float, float]],
+    canvas_size: int = CANVAS_SIZE,
+    num_segments: int = 16,
+    seed: int = 0,
+) -> list[tuple[float, float]]:
+    """Apply simplex noise distortion to polygon edges for a hand-drawn look.
+
+    Each edge is subdivided into `num_segments` segments.  Intermediate points
+    are displaced perpendicular to the edge by an amount controlled by simplex
+    noise.  The displacement tapers to zero at vertices via sin(t*pi) so that
+    adjacent polygons sharing an edge produce identical distortions (no gaps).
+
+    The noise anchor is derived from the canonical (lexicographically sorted)
+    edge midpoint, ensuring two polygons that share an edge get the same curve.
+    """
+    from opensimplex import OpenSimplex
+
+    if len(polygon) < 3:
+        return polygon
+
+    amplitude = canvas_size * 0.01
+    noise_gen = OpenSimplex(seed=seed)
+
+    result: list[tuple[float, float]] = []
+    n = len(polygon)
+
+    for i in range(n):
+        p0 = polygon[i]
+        p1 = polygon[(i + 1) % n]
+
+        # Canonical edge key: sort endpoints lexicographically so both
+        # adjacent polygons use the same noise anchor for this edge.
+        canonical = (p0[0], p0[1]) <= (p1[0], p1[1])
+        anchor_x = (p0[0] + p1[0]) / 2
+        anchor_y = (p0[1] + p1[1]) / 2
+        # Direction sign: compensates for the perpendicular vector flipping
+        # when the edge is traversed in non-canonical order.
+        direction = 1.0 if canonical else -1.0
+
+        # Edge direction and perpendicular
+        ex = p1[0] - p0[0]
+        ey = p1[1] - p0[1]
+        edge_len = math.sqrt(ex * ex + ey * ey)
+        if edge_len < 1e-6:
+            result.append(p0)
+            continue
+        # Unit perpendicular (rotated 90 degrees CCW)
+        nx = -ey / edge_len
+        ny = ex / edge_len
+
+        # Add the start vertex (no displacement)
+        result.append(p0)
+
+        # Subdivide and displace intermediate points
+        for seg in range(1, num_segments):
+            t = seg / num_segments
+            # Linear interpolation along edge
+            ix = p0[0] + t * ex
+            iy = p0[1] + t * ey
+
+            # sin(t*pi) envelope: zero at endpoints, max at midpoint
+            envelope = math.sin(t * math.pi)
+
+            # Use canonical t for noise sampling so both polygons sharing
+            # this edge sample the same noise values at each physical point.
+            # When traversing in non-canonical direction, t maps to (1-t).
+            canonical_t = t if canonical else (1.0 - t)
+
+            # Noise input: use anchor + canonical parameter for deterministic curve
+            noise_val = noise_gen.noise2(
+                anchor_x * 0.05 + canonical_t * 3.0,
+                anchor_y * 0.05,
+            )
+            # direction compensates for perpendicular flip in non-canonical
+            # traversal, so the physical displacement is identical.
+            displacement = noise_val * amplitude * envelope * direction
+
+            result.append((ix + nx * displacement, iy + ny * displacement))
+
+    return result
 
 
 def generate_voronoi_boundaries(
@@ -337,6 +539,15 @@ def generate_voronoi_boundaries(
             rd = region_layout[name]
             x1, y1, x2, y2 = rd["bounds"]
             clipped = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+
+        # Distort edges for hand-drawn look.
+        # Use a fixed seed (not per-region) so adjacent polygons sharing
+        # an edge produce identical distortions with no gaps.
+        clipped = _distort_polygon_edges(
+            clipped,
+            canvas_size=canvas_size,
+            seed=42,
+        )
 
         # Round coordinates
         clipped = [(round(x, 1), round(y, 1)) for x, y in clipped]
@@ -1037,12 +1248,6 @@ class ConstraintSolver:
         canvas_w = self._canvas_max_x - self._canvas_min_x
         self._min_spacing = max(MIN_SPACING, canvas_w * 0.02)
 
-        # Detect narrative travel axis (uses original locations before celestial/underworld split)
-        self._narrative_axis = _detect_narrative_axis(
-            self.constraints, self.first_chapter, locations,
-        )
-        logger.info("Narrative axis: (%.2f, %.2f)", *self._narrative_axis)
-
         # Compute chapter range for normalization
         chapters = [ch for ch in self.first_chapter.values() if ch > 0]
         self._min_chapter = min(chapters) if chapters else 1
@@ -1217,8 +1422,8 @@ class ConstraintSolver:
         1. User overrides take priority.
         2. If parent is in layout: jitter around parent.
         3. Otherwise: find solved locations from the same or nearby chapters
-           and place near their centroid, offset along the narrative axis.
-        4. Last resort: interpolate position along narrative axis based on chapter number.
+           and place near their centroid with isotropic circular scatter.
+        4. Last resort: random position within canvas bounds using name hash.
         """
         # Build chapter->solved_locations lookup for proximity placement
         chapter_locs: dict[int, list[str]] = {}
@@ -1226,6 +1431,11 @@ class ConstraintSolver:
             ch = self.first_chapter.get(name, 0)
             if ch > 0:
                 chapter_locs.setdefault(ch, []).append(name)
+
+        # Scale jitter radius with canvas size
+        canvas_w = self._canvas_max_x - self._canvas_min_x
+        canvas_h = self._canvas_max_y - self._canvas_min_y
+        base_jitter = max(30, min(canvas_w, canvas_h) * 0.04)
 
         orphan_idx = 0  # for jittering orphans that share positions
 
@@ -1243,7 +1453,7 @@ class ConstraintSolver:
                 children_here = self.children.get(parent, [])
                 idx = children_here.index(name) if name in children_here else 0
                 angle = 2 * math.pi * idx / max(len(children_here), 1)
-                r = 30 + 8 * (loc.get("level", 0))
+                r = base_jitter * 0.8 + 8 * (loc.get("level", 0))
                 x = max(self._canvas_min_x, min(self._canvas_max_x, px + r * math.cos(angle)))
                 y = max(self._canvas_min_y, min(self._canvas_max_y, py + r * math.sin(angle)))
                 layout[name] = (x, y)
@@ -1255,16 +1465,20 @@ class ConstraintSolver:
 
             if centroid is not None:
                 cx, cy = centroid
-                # Jitter to avoid exact overlap
-                jitter_angle = orphan_idx * 2.4  # golden angle
-                jitter_r = 15 + 5 * (orphan_idx % 8)
+                # Isotropic circular scatter: golden angle + varying radius
+                jitter_angle = orphan_idx * 2.4  # golden angle ≈ 137.5°
+                jitter_r = base_jitter + base_jitter * 0.3 * (orphan_idx % 8)
                 x = cx + jitter_r * math.cos(jitter_angle)
                 y = cy + jitter_r * math.sin(jitter_angle)
             else:
-                # Last resort: interpolate along narrative axis based on chapter
-                x, y = self._interpolate_on_axis(ch, name)
+                # Last resort: hash-based position within canvas bounds
+                hv = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0
+                hv2 = (hash(name + "_y") & 0x7FFFFFFF) % 10000 / 10000.0
+                x = self._canvas_min_x + canvas_w * 0.1 + hv * canvas_w * 0.8
+                y = self._canvas_min_y + canvas_h * 0.1 + hv2 * canvas_h * 0.8
+                # Small golden-angle jitter to avoid exact overlap with other hash-placed
                 jitter_angle = orphan_idx * 2.4
-                jitter_r = 10 + 5 * (orphan_idx % 6)
+                jitter_r = base_jitter * 0.3
                 x += jitter_r * math.cos(jitter_angle)
                 y += jitter_r * math.sin(jitter_angle)
 
@@ -1299,33 +1513,6 @@ class ConstraintSolver:
                 cy = sum(p[1] for p in nearby) / len(nearby)
                 return (cx, cy)
         return None
-
-    def _interpolate_on_axis(self, chapter: int, name: str = "") -> tuple[float, float]:
-        """Interpolate position along narrative axis based on chapter number.
-
-        Includes a hash-based perpendicular offset to avoid axis-aligned placement.
-        """
-        if self._max_chapter <= self._min_chapter or chapter <= 0:
-            return (self._canvas_cx, self._canvas_cy)
-
-        t = (chapter - self._min_chapter) / (self._max_chapter - self._min_chapter)
-        ax, ay = self._narrative_axis
-
-        # Place along narrative axis line through center
-        w = self._canvas_max_x - self._canvas_min_x
-        h = self._canvas_max_y - self._canvas_min_y
-        cx = self._canvas_cx + (t - 0.5) * w * 0.8 * ax
-        cy = self._canvas_cy + (t - 0.5) * h * 0.8 * ay
-
-        # Add hash-based perpendicular offset to scatter across both axes
-        if name:
-            hv = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0  # [0, 1)
-            perp_offset = (hv - 0.5) * 0.6  # [-0.3, 0.3]
-            # Perpendicular direction: (-ay, ax)
-            cx += perp_offset * w * (-ay)
-            cy += perp_offset * h * ax
-
-        return (cx, cy)
 
     def _place_non_geographic(self, layout: dict[str, tuple[float, float]]) -> None:
         """Place celestial and underworld locations in dedicated zones."""
@@ -1384,118 +1571,87 @@ class ConstraintSolver:
         # Anti-overlap penalty (vectorized)
         e += self._e_overlap(coords)
 
-        # Narrative axis: encourage locations to spread along the travel direction
-        # proportional to their chapter appearance order
-        e += self._e_narrative_axis(coords) * NARRATIVE_AXIS_WEIGHT
+        # Uniform spread: repulsion to prevent clustering
+        e += self._e_uniform_spread(coords) * 0.5
 
-        # Cross-axis scatter: spread locations perpendicular to narrative axis
-        e += self._e_cross_axis_scatter(coords) * 0.3
+        # Narrative order: weak tie-breaker for chapter proximity
+        e += self._e_narrative_order(coords) * 0.1
 
         # Direction hints: weak preference for locations with directional names
         e += self._e_direction_hints(coords) * 0.3
 
         return e
 
-    def _e_narrative_axis(self, coords: np.ndarray) -> float:
-        """Narrative axis energy: locations should spread along the travel direction
-        based on their first chapter appearance.
+    def _e_uniform_spread(self, coords: np.ndarray) -> float:
+        """Uniform spread repulsion: penalize locations closer than the ideal spacing.
 
-        E.g., for a westward journey (-1,0), locations from early chapters should
-        have LOW projection (east/high x gives low -x projection) and locations
-        from late chapters should have HIGH projection (west/low x gives high -x).
+        Computes an ideal spacing from the canvas area and number of locations,
+        then applies a smooth quadratic penalty for pairs closer than that.
+        Longer range and smoother falloff than _e_overlap.
         """
-        if self._max_chapter <= self._min_chapter:
+        if self.n < 2:
             return 0.0
 
-        ax, ay = self._narrative_axis
+        area = (self._canvas_max_x - self._canvas_min_x) * (self._canvas_max_y - self._canvas_min_y)
+        ideal = math.sqrt(area / max(self.n, 1)) * 0.8
+
+        # Pairwise distances
+        diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+        dist = np.sqrt((diff ** 2).sum(axis=2))
+
+        triu_idx = np.triu_indices(self.n, k=1)
+        pairwise = dist[triu_idx]
+
+        # Smooth repulsion: (1 - d/ideal)^2 when d < ideal
+        violations = np.maximum(0.0, 1.0 - pairwise / ideal)
+        return float(np.sum(violations ** 2)) * DIRECTION_MARGIN ** 2 * 2
+
+    def _e_narrative_order(self, coords: np.ndarray) -> float:
+        """Weak narrative order energy: tie-breaker using Euclidean distance.
+
+        - Locations appearing in nearby chapters (gap < 5) but placed far apart
+          get a light penalty.
+        - Locations appearing in distant chapters (gap > total/2) but placed
+          very close together get a light penalty.
+        """
+        if self._max_chapter <= self._min_chapter or self.n < 2:
+            return 0.0
+
         ch_range = self._max_chapter - self._min_chapter
+        half_range = ch_range / 2
 
-        # Compute projection range for the narrative axis direction.
-        corners = [
-            self._canvas_min_x * ax + self._canvas_min_y * ay,
-            self._canvas_min_x * ax + self._canvas_max_y * ay,
-            self._canvas_max_x * ax + self._canvas_min_y * ay,
-            self._canvas_max_x * ax + self._canvas_max_y * ay,
-        ]
-        proj_min = min(corners)
-        proj_max = max(corners)
-        proj_range = proj_max - proj_min
-        if proj_range < 1.0:
+        canvas_diag = math.sqrt(
+            (self._canvas_max_x - self._canvas_min_x) ** 2
+            + (self._canvas_max_y - self._canvas_min_y) ** 2
+        )
+        if canvas_diag < 1.0:
             return 0.0
-
-        # Vectorized: compute all projections at once
-        projections = coords[:, 0] * ax + coords[:, 1] * ay
-        proj_normalized = (projections - proj_min) / proj_range  # [0, 1]
-
-        penalty = 0.0
-        n_with_chapter = 0
-        for i, name in enumerate(self.loc_names):
-            ch = self.first_chapter.get(name, 0)
-            if ch <= 0:
-                continue
-            n_with_chapter += 1
-
-            # Expected normalized position: t=0 for earliest, t=1 for latest
-            t = (ch - self._min_chapter) / ch_range
-
-            diff = proj_normalized[i] - t
-            penalty += diff ** 2
-
-        # Scale to be competitive with constraint energies.
-        # Each constraint violation is ~DIRECTION_MARGIN^2 * weight ≈ 7500.
-        # We want narrative energy to be ~20-30% of total constraint energy.
-        if n_with_chapter > 0:
-            penalty = penalty / n_with_chapter * DIRECTION_MARGIN ** 2 * 20
-
-        return penalty
-
-    def _e_cross_axis_scatter(self, coords: np.ndarray) -> float:
-        """Scatter locations perpendicular to the narrative axis.
-
-        Without this, locations collapse to a band along the narrative axis
-        because the perpendicular direction has no energy contribution.
-        Uses a hash of each location name to compute a deterministic
-        pseudo-random expected perpendicular position, creating natural spread.
-        """
-        ax, ay = self._narrative_axis
-        # Perpendicular direction
-        px, py = -ay, ax
-        perp_magnitude = math.sqrt(px * px + py * py)
-        if perp_magnitude < 0.01:
-            return 0.0
-
-        # Compute perpendicular range on canvas
-        corners_perp = [
-            self._canvas_min_x * px + self._canvas_min_y * py,
-            self._canvas_min_x * px + self._canvas_max_y * py,
-            self._canvas_max_x * px + self._canvas_min_y * py,
-            self._canvas_max_x * px + self._canvas_max_y * py,
-        ]
-        perp_min = min(corners_perp)
-        perp_max = max(corners_perp)
-        perp_range = perp_max - perp_min
-        if perp_range < 1.0:
-            return 0.0
-        perp_center = (perp_min + perp_max) / 2
-
-        # Perpendicular projections
-        perp_proj = coords[:, 0] * px + coords[:, 1] * py
 
         penalty = 0.0
         count = 0
-        for i, name in enumerate(self.loc_names):
-            # Skip locations with explicit direction hints to avoid conflict
-            if name in self._direction_hints:
+        for i in range(self.n):
+            ch_i = self.first_chapter.get(self.loc_names[i], 0)
+            if ch_i <= 0:
                 continue
-            # Hash-based pseudo-random expected position [-0.4, 0.4] of range
-            h = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0  # [0, 1)
-            expected_perp = perp_center + (h - 0.5) * perp_range * 0.7
-            diff = perp_proj[i] - expected_perp
-            penalty += diff ** 2
-            count += 1
+            for j in range(i + 1, self.n):
+                ch_j = self.first_chapter.get(self.loc_names[j], 0)
+                if ch_j <= 0:
+                    continue
+                ch_gap = abs(ch_i - ch_j)
+                dist = float(np.linalg.norm(coords[i] - coords[j]))
+                norm_dist = dist / canvas_diag  # [0, 1]
+
+                if ch_gap < 5 and norm_dist > 0.5:
+                    # Nearby chapters but far apart
+                    penalty += (norm_dist - 0.5) ** 2
+                    count += 1
+                elif ch_gap > half_range and norm_dist < 0.1:
+                    # Distant chapters but very close
+                    penalty += (0.1 - norm_dist) ** 2
+                    count += 1
 
         if count > 0:
-            penalty = penalty / count * DIRECTION_MARGIN ** 2 * 15
+            penalty = penalty / count * DIRECTION_MARGIN ** 2 * 5
 
         return penalty
 
@@ -1711,14 +1867,14 @@ class ConstraintSolver:
 
 # Biome colors based on location type keywords
 _BIOME_COLORS: list[tuple[list[str], tuple[int, int, int]]] = [
-    (["山", "峰", "岭", "崖", "岩"], (139, 119, 101)),    # brown mountain
-    (["河", "湖", "海", "泉", "潭", "溪", "池"], (70, 130, 180)),  # steel blue water
-    (["林", "森", "丛", "木"], (34, 139, 34)),              # forest green
-    (["城", "镇", "村", "坊", "集"], (222, 208, 169)),      # sandy settlement
-    (["沙", "漠", "荒"], (210, 180, 140)),                   # tan desert
-    (["沼", "泽"], (85, 107, 47)),                           # dark olive swamp
+    (["山", "峰", "岭", "崖", "岩"], (160, 140, 120)),    # warm stone brown
+    (["河", "湖", "海", "泉", "潭", "溪", "池"], (140, 165, 175)),  # pale blue-gray water
+    (["林", "森", "丛", "木"], (120, 145, 110)),            # dark olive green
+    (["城", "镇", "村", "坊", "集"], (195, 180, 155)),      # pale parchment
+    (["沙", "漠", "荒"], (185, 168, 140)),                   # dust sand
+    (["沼", "泽"], (110, 125, 100)),                         # dark moss green
 ]
-_DEFAULT_BIOME = (144, 194, 144)  # light green plains
+_DEFAULT_BIOME = (170, 180, 150)  # pale grey-green plains
 
 
 def _biome_for_type(loc_type: str) -> tuple[int, int, int]:
@@ -1814,16 +1970,62 @@ def generate_terrain(
     # Build RGB image from nearest indices
     rgb = biome_arr[nearest]  # (size, size, 3)
 
-    # Add color variation noise
+    # Add multi-octave color variation noise for visual depth
     detail_noise = np.zeros((size, size), dtype=np.float64)
-    for row in range(0, size, 2):
-        for col in range(0, size, 2):
-            detail_noise[row, col] = noise_gen.noise2(col * 0.02, row * 0.02)
-    sparse_detail = detail_noise[::2, ::2]
-    detail_noise = zoom(sparse_detail, 2, order=1)[:size, :size]
+    octaves = [(0.01, 0.5), (0.03, 0.3), (0.08, 0.2)]  # (frequency, weight)
+    step = 2
+    for freq, weight in octaves:
+        layer = np.zeros((size, size), dtype=np.float64)
+        for row in range(0, size, step):
+            for col in range(0, size, step):
+                layer[row, col] = noise_gen.noise2(col * freq, row * freq)
+        sparse_layer = layer[::step, ::step]
+        layer = zoom(sparse_layer, step, order=1)[:size, :size]
+        detail_noise += layer * weight
 
-    variation = (detail_noise * 15).astype(np.int16)
-    rgb = np.clip(rgb.astype(np.int16) + variation[:, :, np.newaxis], 0, 255).astype(np.uint8)
+    variation = (detail_noise * 40).astype(np.int16)  # ±20 amplitude
+    rgb = np.clip(rgb.astype(np.int16) + variation[:, :, np.newaxis], 0, 255)
+
+    # Paper grain overlay: high-frequency noise for parchment texture
+    paper_noise = np.zeros((size, size), dtype=np.float64)
+    paper_step = 4
+    for row in range(0, size, paper_step):
+        for col in range(0, size, paper_step):
+            paper_noise[row, col] = noise_gen.noise2(col * 0.15, row * 0.15)
+    sparse_paper = paper_noise[::paper_step, ::paper_step]
+    paper_noise = zoom(sparse_paper, paper_step, order=1)[:size, :size]
+    paper_variation = (paper_noise * 16).astype(np.int16)  # ±8 amplitude
+    rgb = np.clip(rgb + paper_variation[:, :, np.newaxis], 0, 255)
+
+    # Boundary darkening: darken pixels near region boundaries.
+    # Skip darkening when cells are tiny (many points clustered together),
+    # which would otherwise produce ugly dense stripes.
+    min_cell_dist = size * 0.03  # minimum cell size for darkening to apply
+    darken = np.ones((size, size), dtype=np.float64)
+    for row_start in range(0, size, block_size):
+        row_end = min(row_start + block_size, size)
+        bx = xs_displaced[row_start:row_end]
+        by = ys_displaced[row_start:row_end]
+        dx = bx[:, :, np.newaxis] - point_arr[:, 0]
+        dy = by[:, :, np.newaxis] - point_arr[:, 1]
+        dist_sq = dx ** 2 + dy ** 2
+        # Partition to find two smallest distances
+        part = np.partition(dist_sq, 1, axis=2)
+        d1 = np.sqrt(part[:, :, 0])
+        d2 = np.sqrt(part[:, :, 1])
+        # Ratio: 1.0 at boundary (d1≈d2), 0.0 deep inside a region
+        ratio = np.where(d2 > 0, d1 / d2, 0.0)
+        # Map ratio to darkening factor: closer to 1.0 = more darkening (up to 25%)
+        # Only apply when d2 is large enough (cell is big enough for visible border)
+        edge_factor = np.clip((ratio - 0.75) / 0.25, 0.0, 1.0)
+        # Suppress darkening for tiny cells (clustered points)
+        cell_mask = np.where(d2 > min_cell_dist, 1.0, 0.0)
+        darken[row_start:row_end] = 1.0 - edge_factor * cell_mask * 0.25
+    rgb = (rgb * darken[:, :, np.newaxis]).astype(np.int16)
+
+    # Global parchment tint: blend 15% warm cream color
+    cream = np.array([235, 220, 195], dtype=np.int16)
+    rgb = np.clip((rgb * 85 + cream * 15) // 100, 0, 255).astype(np.uint8)
 
     # Save
     img = Image.fromarray(rgb, "RGB")
@@ -1839,7 +2041,7 @@ def generate_terrain(
 
 
 # Bump this when solver algorithm changes to invalidate layout cache
-_LAYOUT_VERSION = 2
+_LAYOUT_VERSION = 6
 
 def compute_chapter_hash(
     chapter_start: int, chapter_end: int, canvas_size: int = CANVAS_SIZE,

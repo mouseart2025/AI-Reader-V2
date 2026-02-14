@@ -383,6 +383,16 @@ class WorldStructureAgent:
             spatial_relationships=spatial_text,
         )
 
+        # Inject genre-aware guidance to prevent hallucinating inappropriate regions
+        genre = self.structure.novel_genre_hint or "unknown"
+        if genre in ("urban", "historical"):
+            prompt += (
+                "\n\n**重要: 本小说为现实题材，不要创建奇幻/神话类的区域"
+                "（如仙界、魔域等）。区域应基于现实地理（省份、城市、地区等）。**"
+            )
+        elif genre == "fantasy":
+            prompt += "\n\n**本小说为奇幻题材，区域可以包含虚构的大陆、界域等。**"
+
         system = "你是一个小说世界观构建专家。请严格按照 JSON 格式输出。"
 
         _is_cloud = LLM_PROVIDER == "openai"
