@@ -60,19 +60,18 @@ class _UnionFind:
 async def build_alias_map(novel_id: str) -> dict[str, str]:
     """Build alias -> canonical_name mapping.
 
-    Source priority:
+    Merges alias information from BOTH sources:
     1. entity_dictionary (pre-scan LLM generated alias groups)
-    2. ChapterFact.characters[].new_aliases (per-chapter extraction fallback)
+    2. ChapterFact.characters[].new_aliases (per-chapter extraction)
 
+    Both sources are combined via Union-Find to produce comprehensive groups.
     Canonical name rule: the name with highest frequency in the group.
     Returns {alias: canonical, ...}. The canonical name does NOT map to itself.
     """
     if novel_id in _alias_cache:
         return _alias_cache[novel_id]
 
-    alias_map = await _build_from_dictionary(novel_id)
-    if not alias_map:
-        alias_map = await _build_from_chapter_facts(novel_id)
+    alias_map = await _build_merged(novel_id)
 
     _alias_cache[novel_id] = alias_map
     if alias_map:
@@ -80,31 +79,48 @@ async def build_alias_map(novel_id: str) -> dict[str, str]:
     return alias_map
 
 
-async def _build_from_dictionary(novel_id: str) -> dict[str, str]:
-    """Build alias map from entity_dictionary table."""
+async def _build_merged(novel_id: str) -> dict[str, str]:
+    """Build alias map by merging entity_dictionary AND chapter_facts sources."""
     conn = await get_connection()
     try:
+        # Source 1: entity_dictionary
         cursor = await conn.execute(
             """
-            SELECT name, frequency, aliases
+            SELECT name, frequency, aliases, entity_type
             FROM entity_dictionary
             WHERE novel_id = ?
             ORDER BY frequency DESC
             """,
             (novel_id,),
         )
-        rows = await cursor.fetchall()
+        dict_rows = await cursor.fetchall()
+
+        # Source 2: chapter_facts
+        cursor = await conn.execute(
+            """
+            SELECT cf.fact_json
+            FROM chapter_facts cf
+            WHERE cf.novel_id = ?
+            """,
+            (novel_id,),
+        )
+        fact_rows = await cursor.fetchall()
     finally:
         await conn.close()
 
-    if not rows:
+    if not dict_rows and not fact_rows:
         return {}
 
     uf = _UnionFind()
-    # name -> frequency for canonical selection
-    freq: dict[str, int] = {}
+    freq: dict[str, int] = defaultdict(int)
 
-    for row in rows:
+    # ── Ingest entity_dictionary ──
+    # Only use entries with a real entity_type (skip 'unknown' noise like "行者笑", "者道")
+    for row in dict_rows:
+        entity_type = row["entity_type"] or "unknown"
+        if entity_type == "unknown":
+            continue
+
         name = row["name"]
         frequency = row["frequency"] or 0
         aliases_raw = row["aliases"]
@@ -115,38 +131,13 @@ async def _build_from_dictionary(novel_id: str) -> dict[str, str]:
 
         for alias in aliases:
             if alias and alias != name:
-                freq.setdefault(alias, 0)
+                freq[alias] = max(freq.get(alias, 0), 0)
                 uf.union(name, alias)
 
-    return _groups_to_map(uf, freq)
-
-
-async def _build_from_chapter_facts(novel_id: str) -> dict[str, str]:
-    """Fallback: build alias map from ChapterFact.characters[].new_aliases."""
-    conn = await get_connection()
-    try:
-        cursor = await conn.execute(
-            """
-            SELECT cf.fact_json
-            FROM chapter_facts cf
-            WHERE cf.novel_id = ?
-            """,
-            (novel_id,),
-        )
-        rows = await cursor.fetchall()
-    finally:
-        await conn.close()
-
-    if not rows:
-        return {}
-
-    uf = _UnionFind()
-    freq: dict[str, int] = defaultdict(int)
-
-    for row in rows:
+    # ── Ingest chapter_facts new_aliases ──
+    for row in fact_rows:
         data = json.loads(row["fact_json"])
-        characters = data.get("characters", [])
-        for char in characters:
+        for char in data.get("characters", []):
             name = char.get("name", "")
             if not name:
                 continue
