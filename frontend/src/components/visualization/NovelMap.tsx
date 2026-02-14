@@ -226,6 +226,8 @@ const LYR_REGION_FILLS = "region-fills"
 const LYR_REGION_BORDERS = "region-borders"
 const LYR_REGION_LABELS = "region-labels"
 const SRC_LOCATIONS = "locations-src"
+const SRC_HIDDEN_DOTS = "hidden-dots-src"
+const LYR_HIDDEN_DOTS = "hidden-dots-layer"
 const SRC_TRAJECTORY = "trajectory-line"
 const LYR_TRAJECTORY_LINE = "trajectory-line-layer"
 const SRC_TRAJ_POINTS = "trajectory-points"
@@ -472,13 +474,35 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           },
         })
 
-        // 4. Location source (shared across per-tier symbol layers)
+        // 4. Hidden location dots — always visible small circles for undiscovered locations
+        map.addSource(SRC_HIDDEN_DOTS, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        })
+        map.addLayer({
+          id: LYR_HIDDEN_DOTS,
+          type: "circle",
+          source: SRC_HIDDEN_DOTS,
+          paint: {
+            "circle-radius": [
+              "interpolate", ["linear"], ["zoom"],
+              6, 2,
+              10, 3,
+              14, 4,
+            ],
+            "circle-color": ["get", "color"],
+            "circle-opacity": 0.3,
+            "circle-stroke-width": 0,
+          },
+        })
+
+        // 5. Location source (shared across per-tier symbol layers)
         map.addSource(SRC_LOCATIONS, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
         })
 
-        // 4a. Per-tier symbol layers (icon + label combined)
+        // 5a. Per-tier symbol layers (icon + label combined)
         for (const tier of TIERS) {
           const minZoom = TIER_MIN_ZOOM[tier] ?? 9
           const textSizes = TIER_TEXT_SIZE[tier] ?? [9, 10, 14, 14]
@@ -528,7 +552,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           })
         }
 
-        // 5. Portal markers
+        // 6. Portal markers
         map.addSource(SRC_PORTALS, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -759,12 +783,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // Filter out portal markers from location circles
       const locationItems = layout.filter((item) => !item.is_portal)
 
-      const features: GeoJSON.Feature[] = locationItems.map((item) => {
+      const features: GeoJSON.Feature[] = []
+      const hiddenDotFeatures: GeoJSON.Feature[] = []
+
+      for (const item of locationItems) {
         const loc = locMap.get(item.name)
         const isActive = visibleLocationNames.has(item.name)
         const isRevealed = !isActive && revealed.has(item.name)
         const isCurrent = currentLocation === item.name
         const mention = loc?.mention_count ?? 0
+        const isHidden = !isActive && !isRevealed
 
         let color: string
         let opacity: number
@@ -782,7 +810,21 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           opacity = 0.2
         }
 
-        return {
+        // Hidden locations: add to separate dot layer (always visible, no name)
+        if (isHidden) {
+          hiddenDotFeatures.push({
+            type: "Feature" as const,
+            geometry: {
+              type: "Point" as const,
+              coordinates: ll(item.x, item.y),
+            },
+            properties: {
+              color: locationColor(loc?.type ?? "", item.name),
+            },
+          })
+        }
+
+        features.push({
           type: "Feature" as const,
           geometry: {
             type: "Point" as const,
@@ -805,12 +847,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             isCurrent,
             isRevealed,
           },
-        }
-      })
+        })
+      }
 
       const src = map.getSource(SRC_LOCATIONS) as maplibregl.GeoJSONSource
       if (src) {
         src.setData({ type: "FeatureCollection", features })
+      }
+      const hiddenSrc = map.getSource(SRC_HIDDEN_DOTS) as maplibregl.GeoJSONSource
+      if (hiddenSrc) {
+        hiddenSrc.setData({ type: "FeatureCollection", features: hiddenDotFeatures })
       }
     }, [mapReady, layout, locations, visibleLocationNames, revealedLocationNames, currentLocation])
 
