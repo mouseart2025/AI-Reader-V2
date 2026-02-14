@@ -325,12 +325,14 @@ export default function ReadingPage() {
     currentChapter,
     currentChapterNum,
     entities,
+    aliasMap,
     sidebarOpen,
     tocSearch,
     setChapters,
     setCurrentChapter,
     setCurrentChapterNum,
     setEntities,
+    setAliasMap,
     toggleSidebar,
     setSidebarOpen,
     setTocSearch,
@@ -347,9 +349,10 @@ export default function ReadingPage() {
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
-      openEntityCard(name, type as EntityType)
+      const canonical = aliasMap[name] ?? name
+      openEntityCard(canonical, type as EntityType)
     },
-    [openEntityCard],
+    [openEntityCard, aliasMap],
   )
 
   // Load novel, chapters, and user state on mount
@@ -359,7 +362,7 @@ export default function ReadingPage() {
 
     async function load() {
       try {
-        const [n, { chapters: chs }, userState, { entities: allEnts }] = await Promise.all([
+        const [n, { chapters: chs }, userState, { entities: allEnts, alias_map: aliasData }] = await Promise.all([
           fetchNovel(novelId!),
           fetchChapters(novelId!),
           fetchUserState(novelId!),
@@ -372,8 +375,21 @@ export default function ReadingPage() {
         setNovel(n)
         setChapters(chs)
 
+        // Store alias map for click resolution
+        setAliasMap(aliasData ?? {})
+
         // Set all entities for highlighting (name + type from every analyzed chapter)
-        setEntities(allEnts.map((e) => ({ name: e.name, type: e.type })))
+        // Also include aliases so they get highlighted with the same color as their canonical entity
+        const entityList = allEnts.map((e) => ({ name: e.name, type: e.type as ChapterEntity["type"] }))
+        if (aliasData) {
+          for (const [alias, canonical] of Object.entries(aliasData)) {
+            const ent = allEnts.find((e) => e.name === canonical)
+            if (ent) {
+              entityList.push({ name: alias, type: ent.type as ChapterEntity["type"] })
+            }
+          }
+        }
+        setEntities(entityList)
 
         // Restore reading position
         const startChapter = userState.last_chapter ?? 1

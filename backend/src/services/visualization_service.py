@@ -15,13 +15,18 @@ from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
 from src.db import world_structure_store
 from src.services.map_layout_service import (
+    CANVAS_SIZE,
+    SPATIAL_SCALE_CANVAS,
     ConstraintSolver,
     _layout_regions,
     compute_chapter_hash,
     compute_layered_layout,
     generate_terrain,
+    generate_voronoi_boundaries,
     layout_to_list,
 )
+from src.services.alias_resolver import build_alias_map
+from src.services.world_structure_agent import WorldStructureAgent
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +101,13 @@ async def get_graph_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
+    alias_map = await build_alias_map(novel_id)
 
     # Collect person nodes
     person_chapters: dict[str, set[int]] = defaultdict(set)
     person_org: dict[str, str] = {}
+    # Track all aliases seen per canonical name
+    person_aliases: dict[str, set[str]] = defaultdict(set)
 
     # Collect edges (person_a, person_b) -> relation info
     edge_map: dict[tuple[str, str], dict] = {}
@@ -108,15 +116,24 @@ async def get_graph_data(
         ch = fact.chapter_id
 
         for char in fact.characters:
-            person_chapters[char.name].add(ch)
+            canonical = alias_map.get(char.name, char.name)
+            person_chapters[canonical].add(ch)
+            if char.name != canonical:
+                person_aliases[canonical].add(char.name)
 
         # Track org membership
         for oe in fact.org_events:
             if oe.member and oe.action in ("加入", "晋升"):
-                person_org[oe.member] = oe.org_name
+                member = alias_map.get(oe.member, oe.member)
+                org = alias_map.get(oe.org_name, oe.org_name)
+                person_org[member] = org
 
         for rel in fact.relationships:
-            key = tuple(sorted([rel.person_a, rel.person_b]))
+            a = alias_map.get(rel.person_a, rel.person_a)
+            b = alias_map.get(rel.person_b, rel.person_b)
+            if a == b:
+                continue  # skip self-relations caused by alias
+            key = tuple(sorted([a, b]))
             if key not in edge_map:
                 edge_map[key] = {
                     "source": key[0],
@@ -134,6 +151,7 @@ async def get_graph_data(
             "type": "person",
             "chapter_count": len(chs),
             "org": person_org.get(name, ""),
+            "aliases": sorted(person_aliases.get(name, set())),
         }
         for name, chs in person_chapters.items()
     ]
@@ -307,6 +325,11 @@ async def get_map_data(
             return 0
         return 1 + get_level(info["parent"], visited)
 
+    # Pre-load tier/icon maps from WorldStructure (loaded later, but we need a ref)
+    # We'll populate these after ws is loaded; for now default to empty
+    _tier_map: dict[str, str] = {}
+    _icon_map: dict[str, str] = {}
+
     locations = [
         {
             "id": name,
@@ -315,6 +338,8 @@ async def get_map_data(
             "parent": info["parent"],
             "level": get_level(name),
             "mention_count": len(loc_chapters.get(name, set())),
+            "tier": "city",     # placeholder, updated after ws load
+            "icon": "generic",  # placeholder, updated after ws load
         }
         for name, info in loc_info.items()
     ]
@@ -353,6 +378,23 @@ async def get_map_data(
     try:
         ws = await world_structure_store.load(novel_id)
         if ws is not None:
+            # Update location tier/icon from WorldStructure (with heuristic fallback)
+            _tier_map = ws.location_tiers if ws else {}
+            _icon_map = ws.location_icons if ws else {}
+            for loc in locations:
+                name = loc["name"]
+                loc_type = loc.get("type", "")
+                parent = loc.get("parent")
+                level = loc.get("level", 0)
+                tier = _tier_map.get(name, "")
+                if not tier:
+                    tier = WorldStructureAgent._classify_tier(name, loc_type, parent, level)
+                loc["tier"] = tier
+                icon = _icon_map.get(name, "")
+                if not icon or icon == "generic":
+                    icon = WorldStructureAgent._classify_icon(name, loc_type)
+                loc["icon"] = icon
+
             # Build world_structure summary for API response
             ws_summary = _build_ws_summary(ws)
 
@@ -389,18 +431,23 @@ async def get_map_data(
                     break
 
             if active_regions:
-                region_layout = _layout_regions(active_regions)
+                # Dynamic canvas size for region layout
+                _ws_cs = SPATIAL_SCALE_CANVAS.get(ws.spatial_scale or "", CANVAS_SIZE)
+                region_layout = _layout_regions(active_regions, canvas_size=_ws_cs)
 
-                # Build region_boundaries for API response
-                for rname, rdata in region_layout.items():
-                    x1, y1, x2, y2 = rdata["bounds"]
+                # Generate Voronoi polygon boundaries
+                voronoi_result = generate_voronoi_boundaries(region_layout, canvas_size=_ws_cs)
+
+                # Build region_boundaries for API response (polygon + center)
+                for rname, rdata in voronoi_result.items():
                     region_boundaries.append({
                         "region_name": rname,
                         "color": rdata["color"],
-                        "bounds": {"x1": x1, "y1": y1, "x2": x2, "y2": y2},
+                        "polygon": [list(p) for p in rdata["polygon"]],
+                        "center": list(rdata["center"]),
                     })
 
-                # Map locations to their region bounds
+                # Map locations to their region bounds (still use rectangular bounds for solver)
                 for loc_name, region_name in ws.location_region_map.items():
                     if region_name in region_layout:
                         location_region_bounds[loc_name] = region_layout[region_name]["bounds"]
@@ -408,7 +455,9 @@ async def get_map_data(
         logger.warning("Failed to load WorldStructure for region layout", exc_info=True)
 
     # ── Layout computation with caching ──
-    ch_hash = compute_chapter_hash(chapter_start, chapter_end)
+    _ws_scale_for_hash = ws.spatial_scale if ws else None
+    _canvas_for_hash = SPATIAL_SCALE_CANVAS.get(_ws_scale_for_hash or "", CANVAS_SIZE)
+    ch_hash = compute_chapter_hash(chapter_start, chapter_end, _canvas_for_hash)
     target_layer = layer_id or "overworld"
 
     # Try layer-level cache first
@@ -427,6 +476,7 @@ async def get_map_data(
                     compute_layered_layout,
                     ws_dict, locations, spatial_constraints,
                     user_overrides, first_chapter_map,
+                    spatial_scale=ws.spatial_scale,
                 )
                 # Cache each layer
                 for lid, litems in layer_layouts.items():
@@ -461,6 +511,10 @@ async def get_map_data(
     except Exception:
         logger.warning("Failed to load revealed location names", exc_info=True)
 
+    # Compute canvas_size for API response
+    _ws_scale = ws.spatial_scale if ws else None
+    _canvas_size = SPATIAL_SCALE_CANVAS.get(_ws_scale or "", CANVAS_SIZE) if ws else CANVAS_SIZE
+
     result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
@@ -471,6 +525,8 @@ async def get_map_data(
         "region_boundaries": region_boundaries,
         "portals": portals_response,
         "revealed_location_names": revealed_names,
+        "spatial_scale": _ws_scale,
+        "canvas_size": _canvas_size,
     }
 
     # Include world_structure summary and layer_layouts when no specific layer requested
@@ -689,6 +745,7 @@ async def get_factions_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
+    alias_map = await build_alias_map(novel_id)
 
     # org_name -> {name, type}
     org_info: dict[str, dict] = {}
@@ -701,53 +758,58 @@ async def get_factions_data(
         ch = fact.chapter_id
 
         for oe in fact.org_events:
-            org_name = oe.org_name
+            org_name = alias_map.get(oe.org_name, oe.org_name)
             if org_name not in org_info:
                 org_info[org_name] = {"name": org_name, "type": oe.org_type}
 
             if oe.member:
-                existing = org_members[org_name].get(oe.member)
+                member = alias_map.get(oe.member, oe.member)
+                existing = org_members[org_name].get(member)
                 # Keep the latest action; prefer explicit role over None
                 if existing is None or oe.role:
-                    org_members[org_name][oe.member] = {
-                        "person": oe.member,
+                    org_members[org_name][member] = {
+                        "person": member,
                         "role": oe.role or (existing["role"] if existing else ""),
                         "status": oe.action,
                     }
 
             if oe.org_relation:
+                other = alias_map.get(oe.org_relation.other_org, oe.org_relation.other_org)
                 org_relations.append({
                     "source": org_name,
-                    "target": oe.org_relation.other_org,
+                    "target": other,
                     "type": oe.org_relation.type,
                     "chapter": ch,
                 })
                 # Ensure the related org is also tracked
-                if oe.org_relation.other_org not in org_info:
-                    org_info[oe.org_relation.other_org] = {
-                        "name": oe.org_relation.other_org,
+                if other not in org_info:
+                    org_info[other] = {
+                        "name": other,
                         "type": "组织",
                     }
 
     # ── Source 2: locations with org-like types ──
     # Many sects/factions appear as locations (type="门派"/"帮派" etc.)
     # Characters visiting these locations are associated as members.
-    org_locations: set[str] = set()  # location names that are orgs
+    org_locations: set[str] = set()  # canonical location names that are orgs
     for fact in facts:
         for loc in fact.locations:
-            if _is_org_type(loc.type) and loc.name not in org_info:
-                org_info[loc.name] = {"name": loc.name, "type": loc.type}
+            loc_canonical = alias_map.get(loc.name, loc.name)
+            if _is_org_type(loc.type) and loc_canonical not in org_info:
+                org_info[loc_canonical] = {"name": loc_canonical, "type": loc.type}
             if _is_org_type(loc.type):
-                org_locations.add(loc.name)
+                org_locations.add(loc_canonical)
 
     # ── Source 3: characters at org-locations ──
     for fact in facts:
         for char in fact.characters:
+            char_canonical = alias_map.get(char.name, char.name)
             for loc_name in char.locations_in_chapter:
-                if loc_name in org_locations:
-                    if char.name not in org_members[loc_name]:
-                        org_members[loc_name][char.name] = {
-                            "person": char.name,
+                loc_canonical = alias_map.get(loc_name, loc_name)
+                if loc_canonical in org_locations:
+                    if char_canonical not in org_members[loc_canonical]:
+                        org_members[loc_canonical][char_canonical] = {
+                            "person": char_canonical,
                             "role": "",
                             "status": "出现",
                         }
