@@ -226,8 +226,8 @@ const LYR_REGION_FILLS = "region-fills"
 const LYR_REGION_BORDERS = "region-borders"
 const LYR_REGION_LABELS = "region-labels"
 const SRC_LOCATIONS = "locations-src"
-const SRC_HIDDEN_DOTS = "hidden-dots-src"
-const LYR_HIDDEN_DOTS = "hidden-dots-layer"
+const SRC_OVERVIEW_DOTS = "overview-dots-src"
+const LYR_OVERVIEW_DOTS = "overview-dots-layer"
 const SRC_TRAJECTORY = "trajectory-line"
 const LYR_TRAJECTORY_LINE = "trajectory-line-layer"
 const SRC_TRAJ_POINTS = "trajectory-points"
@@ -474,25 +474,34 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           },
         })
 
-        // 4. Hidden location dots — always visible small circles for undiscovered locations
-        map.addSource(SRC_HIDDEN_DOTS, {
+        // 4. Overview dots — always visible colored circles for ALL locations
+        // Enables exploration at low zoom where per-tier symbol layers are hidden.
+        // Active locations: type color, full opacity; revealed: gray; hidden: faint type color.
+        map.addSource(SRC_OVERVIEW_DOTS, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
         })
         map.addLayer({
-          id: LYR_HIDDEN_DOTS,
+          id: LYR_OVERVIEW_DOTS,
           type: "circle",
-          source: SRC_HIDDEN_DOTS,
+          source: SRC_OVERVIEW_DOTS,
           paint: {
             "circle-radius": [
               "interpolate", ["linear"], ["zoom"],
-              6, 2,
-              10, 3,
-              14, 4,
+              5, 2.5,
+              8, 3.5,
+              11, 4,
+              14, 5,
             ],
             "circle-color": ["get", "color"],
-            "circle-opacity": 0.3,
-            "circle-stroke-width": 0,
+            "circle-opacity": ["get", "opacity"],
+            "circle-stroke-color": ["get", "strokeColor"],
+            "circle-stroke-width": [
+              "case",
+              ["get", "hasStroke"],
+              1.5,
+              0,
+            ],
           },
         })
 
@@ -784,7 +793,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const locationItems = layout.filter((item) => !item.is_portal)
 
       const features: GeoJSON.Feature[] = []
-      const hiddenDotFeatures: GeoJSON.Feature[] = []
+      const dotFeatures: GeoJSON.Feature[] = []
 
       for (const item of locationItems) {
         const loc = locMap.get(item.name)
@@ -792,7 +801,6 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const isRevealed = !isActive && revealed.has(item.name)
         const isCurrent = currentLocation === item.name
         const mention = loc?.mention_count ?? 0
-        const isHidden = !isActive && !isRevealed
 
         let color: string
         let opacity: number
@@ -810,19 +818,36 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           opacity = 0.2
         }
 
-        // Hidden locations: add to separate dot layer (always visible, no name)
-        if (isHidden) {
-          hiddenDotFeatures.push({
-            type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: ll(item.x, item.y),
-            },
-            properties: {
-              color: locationColor(loc?.type ?? "", item.name),
-            },
-          })
+        // Overview dot for ALL locations (visible at all zoom levels)
+        const typeColor = locationColor(loc?.type ?? "", item.name)
+        let dotOpacity: number
+        let dotStrokeColor = "transparent"
+        let hasStroke = false
+        if (isCurrent) {
+          dotOpacity = 1
+          dotStrokeColor = "#92400e"
+          hasStroke = true
+        } else if (isActive) {
+          dotOpacity = 0.8
+        } else if (isRevealed) {
+          dotOpacity = 0.3
+        } else {
+          dotOpacity = 0.2
         }
+
+        dotFeatures.push({
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: ll(item.x, item.y),
+          },
+          properties: {
+            color: isCurrent ? "#f59e0b" : isRevealed ? "#9ca3af" : typeColor,
+            opacity: dotOpacity,
+            strokeColor: dotStrokeColor,
+            hasStroke,
+          },
+        })
 
         features.push({
           type: "Feature" as const,
@@ -854,9 +879,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       if (src) {
         src.setData({ type: "FeatureCollection", features })
       }
-      const hiddenSrc = map.getSource(SRC_HIDDEN_DOTS) as maplibregl.GeoJSONSource
-      if (hiddenSrc) {
-        hiddenSrc.setData({ type: "FeatureCollection", features: hiddenDotFeatures })
+      const dotSrc = map.getSource(SRC_OVERVIEW_DOTS) as maplibregl.GeoJSONSource
+      if (dotSrc) {
+        dotSrc.setData({ type: "FeatureCollection", features: dotFeatures })
       }
     }, [mapReady, layout, locations, visibleLocationNames, revealedLocationNames, currentLocation])
 
