@@ -101,6 +101,7 @@ class WorldStructure(BaseModel):
     location_icons: dict[str, str] = {}    # name → icon value
     spatial_scale: str | None = None        # SpatialScale value or None
     location_parents: dict[str, str] = {}  # authoritative parent: location_name → parent_name
+    type_hierarchy: dict[str, str] = {}   # learned type hierarchy: child_type → parent_type
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:

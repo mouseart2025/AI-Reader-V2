@@ -45,7 +45,7 @@ AI-Reader-V2/
 │       │   ├── main.py             # FastAPI app entry, CORS, lifespan
 │       │   ├── routes/             # REST endpoints (15 routers)
 │       │   └── websocket/          # WS handlers (analysis progress, chat streaming)
-│       ├── services/               # Business logic (12 services)
+│       ├── services/               # Business logic (13 services)
 │       ├── extraction/             # LLM fact extraction + entity pre-scan pipeline
 │       │   ├── entity_pre_scanner.py  # jieba stats + LLM classification
 │       │   └── prompts/            # System prompt + few-shot examples
@@ -90,9 +90,9 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 ### Entity Alias Resolution
 
-`AliasResolver` (`alias_resolver.py`) — builds `alias → canonical_name` mapping using Union-Find to merge overlapping alias groups. Primary source: `entity_dictionary.aliases` (pre-scan). Fallback: `ChapterFact.characters[].new_aliases` (per-chapter extraction). Canonical = highest frequency in each group. The mapping is consumed by `entity_aggregator` (merge entity lists/profiles across aliases), `visualization_service` (merge graph/faction nodes), and the entities API (resolve alias queries). Frontend receives `alias_map` from the entities endpoint to highlight all aliases and resolve clicks to canonical names.
+`AliasResolver` (`alias_resolver.py`) — builds `alias → canonical_name` mapping using Union-Find to merge overlapping alias groups. Merges BOTH sources: `entity_dictionary.aliases` (pre-scan) and `ChapterFact.characters[].new_aliases` (per-chapter extraction). Canonical name selection uses `_pick_canonical()`: among candidates with frequency >= 50% of max, picks the shortest name (formal Chinese names are typically 2-3 chars, shorter than nicknames). The mapping is consumed by `entity_aggregator`, `visualization_service`, and the entities API.
 
-**Unsafe alias filtering**: `_is_unsafe_alias()` prevents contextual terms (kinship: 大哥/妈妈, generic: 老人/少年, titles: 堂主/长老, possessive phrases with 的, length > 8) from being used as Union-Find keys — these create false bridges merging unrelated character groups.
+**Three-tier alias safety filtering**: `_alias_safety_level()` returns 0 (hard-block), 1 (soft-block), or 2 (safe). Level 0: kinship terms (大哥/妈妈), possessive phrases (的), trailing kinship suffixes. Level 1: generic person refs (老人/少年/妖精/那怪), pure titles (堂主/长老), length > 8, collective markers (众/群/们). Level 2: safe to use as Union-Find keys. **Passthrough logic**: when an entity_dictionary name or ChapterFact character name is unsafe, it is NOT registered as a UF node (preventing bridge pollution), but its safe aliases are still unioned among themselves (preserving legitimate groups). This prevents generic terms like "妖精"/"那怪" from bridging unrelated character groups (e.g., merging 孙悟空 with 猪八戒 through shared "妖精" references).
 
 ### Fact Validation — Morphological Filtering
 
@@ -107,6 +107,18 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 `WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent` (+1 per mention) and `spatial_relationships[relation_type=="contains"]` (weighted by confidence: high=3, medium=2, low=1). The winner for each child is stored in `WorldStructure.location_parents` (a `dict[str, str]`). Cycle detection (DFS) breaks the weakest link. User overrides (`location_parent` type) take precedence.
 
 Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` uses it for hierarchy sort. This replaces the old "first-to-arrive wins" strategy that caused duplicate location placements on the map.
+
+### Relation Normalization and Classification
+
+`relation_utils.py` — shared module consumed by `entity_aggregator` and `visualization_service`. `normalize_relation_type()` maps LLM-generated relation type variants to canonical forms (e.g., "师生"→"师徒", "情侣"→"恋人", "仇人"→"敌对") via exact-match then substring-match. `classify_relation_category()` assigns each normalized type to one of 6 categories: family, intimate, hierarchical, social, hostile, other. Used for PersonCard relation grouping and graph edge coloring.
+
+### Entity Aggregation — Relations
+
+`entity_aggregator.py` — when building `PersonProfile.relations`, relation types are normalized before stage merging. Each `RelationStage` collects multiple `evidences` (deduplicated) instead of keeping only the longest one. Each `RelationChain` gets a `category` assignment. `RelationStage.evidence` (str) is preserved as a Pydantic `computed_field` for backward compatibility.
+
+### Graph Edge Aggregation
+
+`visualization_service.py` — graph edges use `Counter`-based type frequency tracking instead of "latest chapter wins". Each edge outputs `relation_type` (most frequent normalized type) and `all_types` (all types sorted by frequency). Edge colors in the frontend match on exact normalized types with keyword fallback. Hierarchical relations (师徒/主仆/君臣) get a distinct purple color.
 
 ### Two Databases Only
 

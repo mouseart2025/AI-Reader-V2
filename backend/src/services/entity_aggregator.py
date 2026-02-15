@@ -14,6 +14,7 @@ from typing import Any
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
 from src.services.alias_resolver import build_alias_map
+from src.services.relation_utils import classify_relation_category, normalize_relation_type
 from src.models.entity_profiles import (
     AliasEntry,
     AppearanceEntry,
@@ -209,25 +210,30 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                     )
                 )
 
-    # Merge consecutive same-type relation stages:
-    # [(ch3,"师徒"), (ch5,"师徒"), (ch8,"弟子"), (ch9,"师徒")]
+    # Merge consecutive same-type relation stages (after normalization):
+    # [(ch3,"师生"), (ch5,"师徒"), (ch8,"弟子"), (ch9,"师徒")]
     # → [RelationStage(chapters=[3,5], type="师徒"), RS(chapters=[8], type="弟子"), RS(chapters=[9], type="师徒")]
     relation_chains: list[RelationChain] = []
     for other, raw_stages in _raw_relations.items():
         merged: list[RelationStage] = []
         for ch, rtype, evidence in raw_stages:
-            if merged and merged[-1].relation_type == rtype:
+            normalized = normalize_relation_type(rtype)
+            if merged and merged[-1].relation_type == normalized:
                 merged[-1].chapters.append(ch)
-                # Keep the longest evidence
-                if len(evidence) > len(merged[-1].evidence):
-                    merged[-1].evidence = evidence
+                if evidence and evidence not in merged[-1].evidences:
+                    merged[-1].evidences.append(evidence)
             else:
                 merged.append(RelationStage(
                     chapters=[ch],
-                    relation_type=rtype,
-                    evidence=evidence,
+                    relation_type=normalized,
+                    evidences=[evidence] if evidence else [],
                 ))
-        relation_chains.append(RelationChain(other_person=other, stages=merged))
+        # Classify by latest stage type
+        latest_type = merged[-1].relation_type if merged else ""
+        category = classify_relation_category(latest_type)
+        relation_chains.append(RelationChain(
+            other_person=other, stages=merged, category=category,
+        ))
 
     # Merge duplicate appearances: group by description, collect chapters
     _appearance_map: dict[str, list[int]] = {}

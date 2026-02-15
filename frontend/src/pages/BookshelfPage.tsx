@@ -244,7 +244,11 @@ export default function BookshelfPage() {
     }
     checkEnvironment()
       .then((env) => {
-        setSetupNeeded(!env.ollama_running || !env.model_available)
+        if (env.llm_provider === "openai") {
+          setSetupNeeded(false) // Cloud mode — no local setup needed
+        } else {
+          setSetupNeeded(!env.ollama_running || !env.model_available)
+        }
       })
       .catch(() => {
         setSetupNeeded(false) // Backend unreachable, skip setup guide

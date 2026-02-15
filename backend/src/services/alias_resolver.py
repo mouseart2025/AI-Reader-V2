@@ -98,6 +98,16 @@ _GENERIC_PERSON_ALIASES = frozenset({
     # Collective/vague
     "众人", "其他人", "旁人", "大家", "孩子", "孩子们", "娃娃",
     "老干部", "妇女主任",
+    # Fantasy/wuxia/xianxia contextual generics — refer to different entities per chapter
+    "妖精", "妖怪", "妖魔", "妖王", "妖邪", "妖仙", "妖",
+    "那怪", "泼怪", "泼物", "泼猴", "怪物", "老妖",
+    "大王", "洞主", "小妖", "众妖", "众怪", "群怪",
+    "女婿", "上仙", "大仙", "仙长", "真人", "道人",
+    "孽畜", "畜生",
+    # Pronouns / deictics — can refer to anyone
+    "那厮", "那泼怪", "那泼物", "我们", "我等", "他们", "她们",
+    # Collective kinship — refer to groups, not individuals
+    "儿孙", "子侄",
 })
 
 _TITLE_PREFIXES = frozenset({
@@ -106,47 +116,44 @@ _TITLE_PREFIXES = frozenset({
 })
 
 
-def _is_unsafe_alias(alias: str) -> bool:
-    """Check if an alias is unsafe to use as a Union-Find key.
-
-    Unsafe aliases are contextual terms that can refer to different entities
-    in different chapters. Using them in Union-Find creates false bridges.
-    """
+def _alias_safety_level(alias: str) -> int:
+    """Return alias safety level: 0=hard-block, 1=soft-block(suspicious), 2=safe."""
     if not alias or len(alias) < 1:
-        return True
+        return 0
 
-    # Kinship terms — always contextual
+    # Level 0: absolute block — kinship terms, 的 phrases, trailing kinship suffixes
     if alias in _KINSHIP_TERMS:
-        return True
-
-    # Generic person references
-    if alias in _GENERIC_PERSON_ALIASES:
-        return True
-
-    # Pure title words
-    if alias in _TITLE_PREFIXES:
-        return True
-
-    # Contains 的 — possessive/descriptive (e.g., "孙少平的母亲", "地主家的儿媳妇")
+        return 0
     if "的" in alias:
-        return True
-
-    # Too long (>8 chars) — likely a description, not a name
-    if len(alias) > 8:
-        return True
-
-    # Ends with kinship suffix — "X他妈", "X她爸", "X他姐"
+        return 0
     if len(alias) >= 3:
         tail2 = alias[-2:]
         if tail2 in {"他妈", "她妈", "他爸", "她爸", "他姐", "她姐",
                       "他哥", "她哥", "他弟", "她弟", "他奶", "她奶",
-                      "妈妈", "爸爸"}:
-            return True
-        # "X夫妇", "X两口", "X老婆"
-        if tail2 in {"夫妇", "两口", "老婆"}:
-            return True
+                      "妈妈", "爸爸", "夫妇", "两口", "老婆"}:
+            return 0
 
-    return False
+    # Level 1: suspicious — generic person refs, pure titles, overly long, collectives
+    if alias in _GENERIC_PERSON_ALIASES:
+        return 1
+    if alias in _TITLE_PREFIXES:
+        return 1
+    if len(alias) > 8:
+        return 1
+    # Collective markers — "众猴", "群妖", "孩儿们", "小的们"
+    if alias[0] in "众群各" or alias.endswith("们"):
+        return 1
+
+    # Level 2: safe
+    return 2
+
+
+def _is_unsafe_alias(alias: str) -> bool:
+    """Check if an alias is unsafe to use as a Union-Find key.
+
+    Backward-compatible wrapper around _alias_safety_level().
+    """
+    return _alias_safety_level(alias) < 2
 
 
 # ── Core function ─────────────────────────────────
@@ -221,13 +228,28 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         aliases_raw = row["aliases"]
         aliases: list[str] = json.loads(aliases_raw) if aliases_raw else []
 
+        # If name is a generic/contextual term (妖精, 那怪, etc.):
+        # DON'T register it as a UF node (prevents bridge), BUT still
+        # union safe aliases with each other (preserves legitimate groups).
+        name_unsafe = _is_unsafe_alias(name)
+        if name_unsafe:
+            logger.debug("Dict entry unsafe name (passthrough aliases): %s", name)
+            safe_aliases = [a for a in aliases if a and a != name and not _is_unsafe_alias(a)]
+            for i in range(1, len(safe_aliases)):
+                freq.setdefault(safe_aliases[i], 0)
+                uf.union(safe_aliases[0], safe_aliases[i])
+            if safe_aliases:
+                freq.setdefault(safe_aliases[0], 0)
+            continue
+
         freq[name] = max(freq.get(name, 0), frequency)
         uf.find(name)  # ensure registered
 
         for alias in aliases:
             if alias and alias != name:
-                if _is_unsafe_alias(alias):
-                    logger.debug("Skipping unsafe alias from dict: %s → %s", name, alias)
+                level = _alias_safety_level(alias)
+                if level < 2:
+                    logger.debug("Alias blocked (L%d) from dict: %s → %s", level, name, alias)
                     continue
                 freq[alias] = max(freq.get(alias, 0), 0)
                 uf.union(name, alias)
@@ -239,22 +261,52 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
             name = char.get("name", "")
             if not name:
                 continue
-            # Skip characters whose name is itself an unsafe alias
-            # (they should not participate in alias linking at all)
+
+            # If name is an unsafe generic (妖精, 那怪, etc.):
+            # DON'T register it, but union safe aliases among themselves.
             if _is_unsafe_alias(name):
+                safe_aliases = [
+                    a for a in char.get("new_aliases", [])
+                    if a and a != name and not _is_unsafe_alias(a)
+                ]
+                for i in range(1, len(safe_aliases)):
+                    freq.setdefault(safe_aliases[i], 0)
+                    uf.union(safe_aliases[0], safe_aliases[i])
+                if safe_aliases:
+                    freq.setdefault(safe_aliases[0], 0)
                 continue
+
             freq[name] += 1
             uf.find(name)
 
             for alias in char.get("new_aliases", []):
                 if alias and alias != name:
-                    if _is_unsafe_alias(alias):
-                        logger.debug("Skipping unsafe alias from fact: %s → %s", name, alias)
+                    level = _alias_safety_level(alias)
+                    if level < 2:
+                        logger.debug("Alias blocked (L%d) from fact: %s → %s", level, name, alias)
                         continue
                     freq.setdefault(alias, 0)
                     uf.union(name, alias)
 
     return _groups_to_map(uf, freq)
+
+
+def _pick_canonical(members: list[str], freq: dict[str, int]) -> str:
+    """Pick the best canonical name from an alias group.
+
+    Strategy: among candidates with frequency >= 50% of the max, pick the
+    shortest name. Rationale: formal Chinese names are typically 2-3 chars,
+    shorter than nicknames/titles.
+    """
+    max_freq = max((freq.get(m, 0) for m in members), default=0)
+    if max_freq == 0:
+        return min(members, key=len)
+    threshold = max_freq * 0.5
+    candidates = [m for m in members if freq.get(m, 0) >= threshold]
+    if not candidates:
+        candidates = members
+    # Among frequency-qualified candidates, pick shortest (ties broken by highest freq)
+    return min(candidates, key=lambda m: (len(m), -freq.get(m, 0)))
 
 
 def _groups_to_map(uf: _UnionFind, freq: dict[str, int]) -> dict[str, str]:
@@ -264,8 +316,7 @@ def _groups_to_map(uf: _UnionFind, freq: dict[str, int]) -> dict[str, str]:
     for _root, members in uf.groups().items():
         if len(members) <= 1:
             continue
-        # Pick canonical = highest frequency in group
-        canonical = max(members, key=lambda m: freq.get(m, 0))
+        canonical = _pick_canonical(members, freq)
         for member in members:
             if member != canonical:
                 alias_map[member] = canonical

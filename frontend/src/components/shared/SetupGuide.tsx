@@ -34,6 +34,11 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
     try {
       const data = await checkEnvironment()
       setEnv(data)
+      // Cloud mode: no local setup needed
+      if (data.llm_provider === "openai") {
+        onReady()
+        return
+      }
       if (data.ollama_running && data.model_available) {
         onReady()
       }
