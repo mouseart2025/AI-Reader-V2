@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { fetchNovel } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { FloatingChatPanel } from "@/components/chat/FloatingChatPanel"
+import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { Button } from "@/components/ui/button"
 
 const NAV_TABS = [
@@ -64,6 +65,8 @@ export function NovelLayout() {
             </Button>
           ))}
         </nav>
+
+        <ThemeToggle />
 
         <span className="text-[10px] text-muted-foreground/50 tabular-nums">
           v{__APP_VERSION__}

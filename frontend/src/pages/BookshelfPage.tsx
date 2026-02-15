@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SetupGuide } from "@/components/shared/SetupGuide"
+import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { UploadDialog } from "@/components/shared/UploadDialog"
 
 type SortKey = "recent" | "title" | "chapters"
@@ -349,6 +350,7 @@ export default function BookshelfPage() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
             设置
           </Button>
