@@ -300,8 +300,14 @@ class AnalysisService:
             start_ms = int(time.time() * 1000)
 
             try:
-                # Build context summary
-                context = await self.context_builder.build(novel_id, chapter_num)
+                # Build context summary (inject location hierarchy if available)
+                _loc_parents = (
+                    world_agent.structure.location_parents
+                    if world_agent.structure else None
+                )
+                context = await self.context_builder.build(
+                    novel_id, chapter_num, location_parents=_loc_parents,
+                )
 
                 # Extract facts
                 fact = await self.extractor.extract(

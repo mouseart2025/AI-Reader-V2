@@ -22,8 +22,19 @@ _MAX_CHARS = 18000 if LLM_PROVIDER == "openai" else 6000
 class ContextSummaryBuilder:
     """Aggregate preceding ChapterFacts into a concise text summary."""
 
-    async def build(self, novel_id: str, chapter_num: int) -> str:
+    async def build(
+        self,
+        novel_id: str,
+        chapter_num: int,
+        location_parents: dict[str, str] | None = None,
+    ) -> str:
         """Build context summary for the given chapter.
+
+        Args:
+            novel_id: The novel ID.
+            chapter_num: Current chapter number (1-indexed).
+            location_parents: Authoritative parent map from WorldStructure
+                (location_name → parent_name). Used to build hierarchy chains.
 
         Returns empty string for chapter 1 (no preceding data).
         """
@@ -91,6 +102,13 @@ class ContextSummaryBuilder:
                 lines.append(f"- {rel['a']} ↔ {rel['b']}: {rel['type']}")
             sections.append("\n".join(lines))
 
+        # Hierarchy chains (before location list for context)
+        hierarchy_section = self._format_hierarchy_chains(
+            locations, location_parents,
+        )
+        if hierarchy_section:
+            sections.append(hierarchy_section)
+
         if locations:
             lines = [
                 "### 已知地点",
@@ -98,8 +116,13 @@ class ContextSummaryBuilder:
             ]
             for name, info in list(locations.items())[:loc_limit]:
                 desc = f"- {name} ({info['type']})"
-                if info.get("parent"):
-                    desc += f" ⊂ {info['parent']}"
+                # Use authoritative parent from location_parents if available
+                parent = (
+                    location_parents.get(name) if location_parents
+                    else info.get("parent")
+                ) or info.get("parent")
+                if parent:
+                    desc += f" ⊂ {parent}"
                 lines.append(desc)
             sections.append("\n".join(lines))
 
@@ -229,6 +252,73 @@ class ContextSummaryBuilder:
                 recent_item_names.add(ie.item_name)
 
         return {name: info for name, info in items.items() if name in recent_item_names}
+
+    @staticmethod
+    def _format_hierarchy_chains(
+        locations: dict[str, dict],
+        location_parents: dict[str, str] | None,
+    ) -> str:
+        """Build hierarchy chain text from authoritative location_parents.
+
+        Returns a section like:
+            ### 已知地点层级
+            陕西 (省) > 铜州 (市) > 双水县 (县) > 石圪节公社 (公社) > 双水村 (村庄)
+            双水村 (村庄) > 金家湾 (自然村)
+        """
+        if not location_parents:
+            return ""
+
+        # Build children map: parent → list of children
+        children_map: dict[str, list[str]] = {}
+        for child, parent in location_parents.items():
+            children_map.setdefault(parent, []).append(child)
+
+        # Find roots: nodes that are parents but not children
+        all_children = set(location_parents.keys())
+        all_parents = set(location_parents.values())
+        roots = all_parents - all_children
+
+        # Build chains from each root via DFS
+        chains: list[list[str]] = []
+
+        def _build_chain(node: str, current_chain: list[str]) -> None:
+            current_chain.append(node)
+            kids = children_map.get(node, [])
+            if not kids:
+                # Leaf — record chain if length >= 2
+                if len(current_chain) >= 2:
+                    chains.append(list(current_chain))
+            else:
+                for kid in kids:
+                    _build_chain(kid, current_chain)
+            current_chain.pop()
+
+        for root in roots:
+            _build_chain(root, [])
+
+        if not chains:
+            return ""
+
+        # Sort by chain length descending, take top-N
+        chains.sort(key=len, reverse=True)
+        max_chains = 8
+
+        lines = ["### 已知地点层级"]
+        seen_chains: set[str] = set()
+        for chain in chains[:max_chains]:
+            parts = []
+            for name in chain:
+                loc_type = locations.get(name, {}).get("type", "")
+                if loc_type:
+                    parts.append(f"{name} ({loc_type})")
+                else:
+                    parts.append(name)
+            chain_str = " > ".join(parts)
+            if chain_str not in seen_chains:
+                seen_chains.add(chain_str)
+                lines.append(chain_str)
+
+        return "\n".join(lines) if len(lines) > 1 else ""
 
     async def _build_world_structure_section(self, novel_id: str) -> str:
         """Load WorldStructure and format as context section. Returns empty if trivial."""

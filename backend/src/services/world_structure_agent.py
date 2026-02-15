@@ -103,7 +103,80 @@ _GENRE_KEYWORDS: dict[str, list[str]] = {
         "公司", "学校", "大学", "手机", "电脑", "网络", "办公室",
         "警察", "医院", "地铁", "出租车", "餐厅",
     ],
+    "realistic": [
+        "省", "市", "县", "公社", "大队", "生产队",
+        "工人", "农民", "知青", "干部", "书记",
+        "粮食", "工资", "收入", "劳动", "生产",
+        "高考", "中学", "小学", "文化大革命",
+        "火车", "汽车", "拖拉机", "煤矿", "窑洞",
+    ],
 }
+
+# ── Tier classification keyword maps ──────────────────────────
+
+# Tier order for comparison (smaller number = bigger / higher level)
+TIER_ORDER: dict[str, int] = {
+    "world": 0, "continent": 1, "kingdom": 2, "region": 3,
+    "city": 4, "site": 5, "building": 6,
+}
+_TIER_NAMES = list(TIER_ORDER.keys())
+
+# Administrative system (realistic + historical)
+_ADMIN_TIER_MAP: dict[str, str] = {
+    # continent level
+    "省": "continent", "自治区": "continent", "直辖市": "continent",
+    # kingdom level
+    "市": "kingdom", "州": "kingdom", "地区": "kingdom",
+    "府": "kingdom", "道": "kingdom", "路": "kingdom",
+    # region level
+    "县": "region", "区": "region", "郡": "region",
+    # city level
+    "镇": "city", "乡": "city", "公社": "city",
+    "集镇": "city", "街道": "city",
+    # site level
+    "村": "site", "庄": "site", "屯": "site", "寨": "site",
+    "大队": "site", "生产队": "site", "自然村": "site",
+}
+
+# Fantasy system
+_FANTASY_TIER_MAP: dict[str, str] = {
+    "洲": "continent", "大陆": "continent", "界": "continent", "域": "continent",
+    "大海": "continent",
+    "国": "kingdom", "王国": "kingdom", "帝国": "kingdom",
+    "城": "city", "城市": "city", "都": "city", "镇": "city",
+    "宗": "region", "门": "region", "派": "region",
+    "山": "region", "海": "region", "林": "region",
+    "岛": "region", "谷": "region",
+}
+
+# Facility system (universal)
+_FACILITY_TIER_MAP: dict[str, str] = {
+    "学校": "building", "医院": "building", "工厂": "building",
+    "车站": "building", "饭店": "building", "旅馆": "building",
+    "公司": "building", "机关": "building", "银行": "building",
+    "殿": "building", "堂": "building", "阁": "building",
+    "楼": "building", "房": "building", "室": "building", "厅": "building",
+    "宿舍": "building",
+    "操场": "site", "广场": "site", "院子": "site",
+    "饭场": "site", "窑洞": "site",
+}
+
+# Name suffix → tier (fallback when loc_type is unclear)
+# Ordered by longest match first to avoid partial matches
+_NAME_SUFFIX_TIER: list[tuple[str, str]] = [
+    ("自治区", "continent"),
+    ("省", "continent"),
+    ("地区", "kingdom"),
+    ("县城", "city"),  # "县城" = county seat, functions as a city/town
+    ("市", "kingdom"),
+    ("州", "kingdom"),
+    ("县", "region"),
+    ("公社", "city"),
+    ("镇", "city"),
+    ("乡", "city"),
+    ("村", "site"),
+    ("庄", "site"),
+]
 
 # Minimum score to assign a genre (otherwise "unknown")
 _GENRE_MIN_SCORE = 5
@@ -129,7 +202,7 @@ _LLM_OUTPUT_SCHEMA: dict = {
                         "enum": [
                             "ADD_REGION", "ADD_LAYER", "ADD_PORTAL",
                             "ASSIGN_LOCATION", "UPDATE_REGION",
-                            "SET_TIER", "SET_ICON",
+                            "SET_TIER", "SET_ICON", "SET_PARENT",
                             "NO_CHANGE",
                         ],
                     },
@@ -148,6 +221,7 @@ _LLM_OUTPUT_SCHEMA: dict = {
                     "region_name": {"type": "string"},
                     "tier": {"type": "string"},
                     "icon": {"type": "string"},
+                    "parent": {"type": "string"},
                 },
                 "required": ["op"],
             },
@@ -288,8 +362,8 @@ class WorldStructureAgent:
         """Check if instance/pocket layer detection is enabled for this genre."""
         assert self.structure is not None
         genre = self.structure.novel_genre_hint
-        # Urban novels: disable instance detection
-        if genre == "urban":
+        # Urban/realistic novels: disable instance detection
+        if genre in ("urban", "realistic"):
             return False
         return True
 
@@ -392,13 +466,29 @@ class WorldStructureAgent:
 
         # Inject genre-aware guidance to prevent hallucinating inappropriate regions
         genre = self.structure.novel_genre_hint or "unknown"
-        if genre in ("urban", "historical"):
+        if genre in ("urban", "historical", "realistic"):
             prompt += (
                 "\n\n**重要: 本小说为现实题材，不要创建奇幻/神话类的区域"
                 "（如仙界、魔域等）。区域应基于现实地理（省份、城市、地区等）。**"
             )
         elif genre == "fantasy":
             prompt += "\n\n**本小说为奇幻题材，区域可以包含虚构的大陆、界域等。**"
+
+        # Inject suspicious hierarchy relationships for LLM correction
+        suspicious: list[str] = []
+        for child, parent in self.structure.location_parents.items():
+            child_tier = self.structure.location_tiers.get(child)
+            parent_tier = self.structure.location_tiers.get(parent)
+            if child_tier and parent_tier:
+                if TIER_ORDER.get(parent_tier, 3) > TIER_ORDER.get(child_tier, 3):
+                    suspicious.append(
+                        f"{child}({child_tier}) ⊂ {parent}({parent_tier}) — 可能反转"
+                    )
+        if suspicious:
+            prompt += (
+                "\n\n⚠️ 以下层级关系可能有误，请用 SET_PARENT 修正：\n"
+                + "\n".join(suspicious[:10])
+            )
 
         system = "你是一个小说世界观构建专家。请严格按照 JSON 格式输出。"
 
@@ -524,6 +614,8 @@ class WorldStructureAgent:
                     self._op_set_tier(op)
                 elif op_type == "SET_ICON":
                     self._op_set_icon(op)
+                elif op_type == "SET_PARENT":
+                    self._op_set_parent(op)
                 elif op_type == "NO_CHANGE":
                     pass
                 else:
@@ -662,6 +754,13 @@ class WorldStructureAgent:
         icon = op.get("icon", "")
         if name and icon and icon in {i.value for i in LocationIcon}:
             self.structure.location_icons[name] = icon
+
+    def _op_set_parent(self, op: dict) -> None:
+        assert self.structure is not None
+        loc_name = op.get("location_name", "")
+        parent_name = op.get("parent", "")
+        if loc_name and parent_name and ("location_parent", loc_name) not in self._overridden_keys:
+            self.structure.location_parents[loc_name] = parent_name
 
     # ── Signal scanning ──────────────────────────────────────────
 
@@ -887,53 +986,192 @@ class WorldStructureAgent:
                 weight = {"high": 3, "medium": 2, "low": 1}.get(sr.confidence, 1)
                 self._parent_votes.setdefault(sr.target, Counter())[sr.source] += weight
 
-    @staticmethod
-    def _classify_tier(name: str, loc_type: str, parent: str | None, level: int = 0) -> str:
-        """Classify a location into a spatial tier based on name/type heuristics."""
-        # world
+        # ── Name containment parent inference ──
+        # If "石圪节公社" and "石圪节" both exist, the longer one is likely
+        # the administrative parent of the shorter one (or they're the same).
+        # Give implicit votes so hierarchy forms even without explicit parent.
+        all_known = set(self.structure.location_tiers.keys())
+        for loc in fact.locations:
+            name = loc.name
+            for other in all_known:
+                if name == other:
+                    continue
+                # Longer name starts with shorter: longer is likely child
+                # e.g., "石圪节公社" starts with "石圪节" but is actually the
+                # PARENT (公社 > 镇/集镇). Use admin suffix to decide direction.
+                if len(name) > len(other) and name.startswith(other):
+                    # name is longer, e.g. "石圪节公社" starts with "石圪节"
+                    suffix = name[len(other):]
+                    if suffix in _ADMIN_TIER_MAP:
+                        # suffix is admin term → longer name is admin parent
+                        # "石圪节公社" is parent of "石圪节"
+                        self._parent_votes.setdefault(other, Counter())[name] += 1
+                    else:
+                        # suffix is descriptive → longer name is child
+                        # "黄原汽车站" is child of "黄原"
+                        self._parent_votes.setdefault(name, Counter())[other] += 1
+
+        # ── Learn type hierarchy from parent-child type pairs ──
+        self._learn_type_hierarchy(fact)
+
+    def _learn_type_hierarchy(self, fact: ChapterFact) -> None:
+        """Learn type hierarchy from parent-child pairs in the current chapter.
+
+        If location A (type=村) has parent B (type=镇), infer that "村" < "镇".
+        Stored in WorldStructure.type_hierarchy for use by _classify_tier().
+        """
+        assert self.structure is not None
+
+        # Vague types that shouldn't participate in type hierarchy learning
+        _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
+
+        # Build a name → type lookup from this chapter's locations
+        loc_type_map: dict[str, str] = {}
+        for loc in fact.locations:
+            if loc.type and loc.type not in _VAGUE_TYPES:
+                loc_type_map[loc.name] = loc.type
+
+        for loc in fact.locations:
+            if loc.parent and loc.type and loc.type not in _VAGUE_TYPES:
+                parent_type = loc_type_map.get(loc.parent)
+                if not parent_type:
+                    continue
+                if parent_type and parent_type != loc.type:
+                    self.structure.type_hierarchy[loc.type] = parent_type
+
+    def _classify_tier(
+        self, name: str, loc_type: str, parent: str | None, level: int = 0,
+    ) -> str:
+        """Classify a location into a spatial tier using multi-signal fusion.
+
+        Layer 0: World-level special cases.
+        Layer 1: Name suffix matching (highest priority — name is reliable).
+        Layer 2: Explicit type keyword matching (genre-ordered maps, skip vague types).
+        Layer 3: Learned type hierarchy (from WorldStructure.type_hierarchy).
+        Layer 4: Legacy heuristics (level-based fallback).
+        Layer 5: Parent tier constraint (child cannot be >= parent).
+        """
+        assert self.structure is not None
+
+        # Vague types that LLM uses as catch-all — treat as uninformative
+        _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
+        effective_type = "" if loc_type in _VAGUE_TYPES else loc_type
+
+        # ── Layer 0: world-level special cases ──
         if any(kw in name for kw in ("三界", "天下")) or "世界" in loc_type:
             return LocationTier.world.value
-        # continent
-        if any(kw in name for kw in ("洲", "大陆", "大海")) or any(
-            kw in loc_type for kw in ("洲", "域", "界")
-        ):
-            return LocationTier.continent.value
-        # kingdom
-        if any(kw in loc_type for kw in ("国", "王国")) or "国" in name:
-            return LocationTier.kingdom.value
-        # building (check before region fallback to avoid misclassification)
-        if any(kw in loc_type for kw in ("殿", "堂", "阁", "楼", "房", "室", "厅")):
-            return LocationTier.building.value
-        # site
-        if any(kw in loc_type for kw in ("洞", "穴", "桥", "渡", "关", "隘", "泉", "潭", "崖")):
-            return LocationTier.site.value
-        if level >= 2:
-            return LocationTier.site.value
-        # region — mountains, seas, sects
-        if any(kw in loc_type for kw in ("山", "海", "域", "林", "宗", "门", "派")):
-            return LocationTier.region.value
-        # city
-        if any(kw in loc_type for kw in ("城", "镇", "都", "村", "寨", "庄", "寺", "庙", "观", "庵")):
-            return LocationTier.city.value
-        # region fallback: level-0 locations that aren't kingdoms/continents
-        if level == 0 and parent is None and loc_type and not any(
-            kw in loc_type for kw in ("城", "镇", "都", "村")
-        ):
-            return LocationTier.region.value
-        # default
-        return LocationTier.city.value
+
+        # ── Layer 1: name suffix matching (name is more reliable than LLM type) ──
+        raw_tier: str | None = None
+        for suffix, tier in _NAME_SUFFIX_TIER:
+            if name.endswith(suffix):
+                raw_tier = tier
+                break
+
+        # ── Layer 2: explicit type keyword matching ──
+        if raw_tier is None and effective_type:
+            # Choose map priority order based on genre
+            genre = self.structure.novel_genre_hint
+            if genre in ("realistic", "urban", "historical"):
+                tier_maps = [_ADMIN_TIER_MAP, _FACILITY_TIER_MAP, _FANTASY_TIER_MAP]
+            else:
+                tier_maps = [_FANTASY_TIER_MAP, _FACILITY_TIER_MAP, _ADMIN_TIER_MAP]
+
+            for tier_map in tier_maps:
+                # Try longest-match first to avoid "市" matching inside "城市"
+                for kw in sorted(tier_map.keys(), key=len, reverse=True):
+                    if kw in effective_type:
+                        raw_tier = tier_map[kw]
+                        break
+                if raw_tier:
+                    break
+
+        # ── Layer 3: learned type hierarchy ──
+        if raw_tier is None and effective_type and hasattr(self.structure, "type_hierarchy"):
+            th = self.structure.type_hierarchy
+            if effective_type in th:
+                parent_type = th[effective_type]
+                parent_type_tier = self._type_to_tier(parent_type)
+                if parent_type_tier:
+                    raw_tier = self._tier_one_below(parent_type_tier)
+
+        # ── Layer 4: legacy heuristics ──
+        if raw_tier is None:
+            # "国" in name (kingdom)
+            if "国" in name:
+                raw_tier = LocationTier.kingdom.value
+            # site-level features
+            elif any(kw in effective_type for kw in ("洞", "穴", "桥", "渡", "关", "隘", "泉", "潭", "崖")):
+                raw_tier = LocationTier.site.value
+            elif level >= 2:
+                raw_tier = LocationTier.site.value
+            # region fallback for top-level locations with informative type
+            elif level == 0 and parent is None and effective_type and not any(
+                kw in effective_type for kw in ("城", "镇", "都", "村")
+            ):
+                raw_tier = LocationTier.region.value
+            else:
+                raw_tier = LocationTier.city.value
+
+        # ── Layer 5: parent tier constraint ──
+        if parent and raw_tier:
+            parent_tier = self.structure.location_tiers.get(parent)
+            if parent_tier:
+                parent_rank = TIER_ORDER.get(parent_tier, 3)
+                child_rank = TIER_ORDER.get(raw_tier, 4)
+                if child_rank <= parent_rank:
+                    # Child should not be bigger than or equal to parent — push down
+                    raw_tier = _TIER_NAMES[min(parent_rank + 1, len(_TIER_NAMES) - 1)]
+
+        return raw_tier
+
+    @staticmethod
+    def _type_to_tier(loc_type: str) -> str | None:
+        """Look up a location type in all tier maps and return its tier."""
+        for tier_map in [_ADMIN_TIER_MAP, _FANTASY_TIER_MAP, _FACILITY_TIER_MAP]:
+            for kw in sorted(tier_map.keys(), key=len, reverse=True):
+                if kw in loc_type:
+                    return tier_map[kw]
+        return None
+
+    @staticmethod
+    def _tier_one_below(tier: str) -> str:
+        """Return the tier one level below the given tier."""
+        rank = TIER_ORDER.get(tier, 3)
+        return _TIER_NAMES[min(rank + 1, len(_TIER_NAMES) - 1)]
 
     @staticmethod
     def _classify_icon(name: str, loc_type: str) -> str:
         """Classify a location's icon type based on name/type heuristics."""
-        combined = name + loc_type
-        # cities / settlements
-        if any(kw in loc_type for kw in ("城", "镇", "都")):
+        # Use name + loc_type for matching, but also check name suffixes
+        # when loc_type is vague (区域, 地点, etc.)
+        _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
+        effective_type = "" if loc_type in _VAGUE_TYPES else loc_type
+        combined = name + effective_type
+
+        # Name suffix hints (check first — name is reliable)
+        if name.endswith(("省", "自治区")) or any(kw in effective_type for kw in ("省", "自治区", "直辖市")):
             return LocationIcon.city.value
-        if any(kw in loc_type for kw in ("村", "寨", "庄")):
+        if name.endswith(("市", "州")) or any(kw in effective_type for kw in ("市", "州", "地区", "府", "道")):
+            return LocationIcon.city.value
+        if name.endswith(("县", "县城")) or any(kw in effective_type for kw in ("县", "区", "郡")):
+            return LocationIcon.city.value
+        # cities / settlements
+        if any(kw in effective_type for kw in ("城", "镇", "都", "公社", "集镇", "街道", "乡")):
+            return LocationIcon.city.value
+        if name.endswith(("公社", "城")):
+            return LocationIcon.city.value
+        if any(kw in effective_type for kw in ("村", "寨", "庄", "屯", "大队", "生产队", "自然村")):
+            return LocationIcon.village.value
+        if name.endswith(("村", "庄")):
             return LocationIcon.village.value
         if any(kw in combined for kw in ("营", "帐")):
             return LocationIcon.camp.value
+        # institutions / facilities
+        if any(kw in effective_type for kw in ("学校", "医院", "工厂", "公司", "机关")):
+            return LocationIcon.temple.value  # temple icon for institutional buildings
+        if any(kw in effective_type for kw in ("车站", "码头", "渡口")):
+            return LocationIcon.gate.value
         # nature
         if any(kw in combined for kw in ("山", "峰", "岭", "崖")):
             return LocationIcon.mountain.value
@@ -948,7 +1186,7 @@ class WorldStructureAgent:
             return LocationIcon.temple.value
         if any(kw in combined for kw in ("宫", "殿", "府")):
             return LocationIcon.palace.value
-        if any(kw in combined for kw in ("洞", "穴")):
+        if any(kw in combined for kw in ("洞", "穴", "窑洞")):
             return LocationIcon.cave.value
         if any(kw in combined for kw in ("塔", "阁", "楼")):
             return LocationIcon.tower.value
@@ -966,6 +1204,8 @@ class WorldStructureAgent:
         genre = self.structure.novel_genre_hint
         if genre == "urban":
             return "urban"
+        if genre == "realistic":
+            return "national"  # realistic fiction is at least national scale
 
         # Check known tier distribution
         tier_counts = Counter(self.structure.location_tiers.values())
@@ -1115,10 +1355,13 @@ class WorldStructureAgent:
 
         Algorithm:
         1. For each child, pick the parent with the most votes.
-        2. Normalize parent names through alias_map (if structure has one).
-        3. Detect and break cycles (remove weakest link).
-        4. Skip entries overridden by user.
+        2. Apply name containment heuristic (fix reversed pairs).
+        3. Apply direction validation (parent tier must be <= child tier).
+        4. Detect and break cycles (remove weakest link).
+        5. Skip entries overridden by user.
         """
+        assert self.structure is not None
+
         raw: dict[str, str] = {}
         for child, votes in self._parent_votes.items():
             if not votes:
@@ -1127,9 +1370,38 @@ class WorldStructureAgent:
             if winner and winner != child:
                 raw[child] = winner
 
+        # ── Name containment heuristic ──
+        raw = self._apply_name_containment_heuristic(raw)
+
+        # ── Direction validation: parent tier must be <= child tier ──
+        validated: dict[str, str] = {}
+        for child, parent in raw.items():
+            child_tier = self.structure.location_tiers.get(child, "city")
+            parent_tier = self.structure.location_tiers.get(parent, "city")
+            child_rank = TIER_ORDER.get(child_tier, 4)
+            parent_rank = TIER_ORDER.get(parent_tier, 4)
+
+            if parent_rank <= child_rank:
+                # Normal: parent is bigger or same level
+                validated[child] = parent
+            else:
+                # Reversed! Parent is smaller than child.
+                # Check if parent also has child as a voted parent
+                reverse_votes = self._parent_votes.get(parent, Counter())
+                if child in reverse_votes:
+                    # Bidirectional votes — use tier to determine correct direction
+                    validated[parent] = child  # Flip: bigger one becomes parent
+                else:
+                    # Unidirectional but reversed — LLM likely got it wrong, correct it
+                    validated[parent] = child
+                logger.debug(
+                    "Parent direction fix: %s(%s) ⊂ %s(%s) → reversed",
+                    child, child_tier, parent, parent_tier,
+                )
+
         # Skip user-overridden entries
         result: dict[str, str] = {}
-        for child, parent in raw.items():
+        for child, parent in validated.items():
             if ("location_parent", child) not in self._overridden_keys:
                 result[child] = parent
 
@@ -1156,6 +1428,27 @@ class WorldStructureAgent:
                 weakest = min(cycle_edges, key=lambda e: e[2])
                 del result[weakest[0]]
 
+        return result
+
+    @staticmethod
+    def _apply_name_containment_heuristic(raw: dict[str, str]) -> dict[str, str]:
+        """Fix reversed parent relationships based on name containment.
+
+        If child_name starts with parent_name (e.g., "黄原汽车站" startswith "黄原"),
+        the relationship is correct (child ⊂ parent).
+        If parent_name starts with child_name (e.g., "黄原" is child of "黄原汽车站"),
+        the relationship is reversed and needs to be flipped.
+        """
+        result: dict[str, str] = {}
+        for child, parent in raw.items():
+            if len(child) > len(parent) and child.startswith(parent):
+                # "黄原汽车站" startswith "黄原" → child⊂parent is correct
+                result[child] = parent
+            elif len(parent) > len(child) and parent.startswith(child):
+                # "黄原" is marked as child of "黄原汽车站" → reversed!
+                result[parent] = child
+            else:
+                result[child] = parent
         return result
 
     # ── Helpers ───────────────────────────────────────────────────

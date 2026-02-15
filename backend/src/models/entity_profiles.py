@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 
 # ── Person ────────────────────────────────────────
@@ -28,12 +28,19 @@ class AbilityEntry(BaseModel):
 class RelationStage(BaseModel):
     chapters: list[int]
     relation_type: str
-    evidence: str = ""
+    evidences: list[str] = []
+
+    @computed_field
+    @property
+    def evidence(self) -> str:
+        """Backward compatible: return first evidence. Included in model_dump()."""
+        return self.evidences[0] if self.evidences else ""
 
 
 class RelationChain(BaseModel):
     other_person: str
     stages: list[RelationStage] = []
+    category: str = ""  # family/intimate/social/hostile/hierarchical/other
 
 
 class ItemAssociation(BaseModel):

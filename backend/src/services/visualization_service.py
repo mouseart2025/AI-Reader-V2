@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
@@ -27,6 +27,7 @@ from src.services.map_layout_service import (
     layout_to_list,
 )
 from src.services.alias_resolver import build_alias_map
+from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
 
 logger = logging.getLogger(__name__)
@@ -139,11 +140,12 @@ async def get_graph_data(
                 edge_map[key] = {
                     "source": key[0],
                     "target": key[1],
-                    "relation_type": rel.relation_type,
+                    "type_counts": Counter(),
                     "chapters": set(),
                 }
             edge_map[key]["chapters"].add(ch)
-            edge_map[key]["relation_type"] = rel.relation_type  # latest
+            normalized = normalize_relation_type(rel.relation_type)
+            edge_map[key]["type_counts"][normalized] += 1
 
     nodes = [
         {
@@ -162,7 +164,8 @@ async def get_graph_data(
         {
             "source": e["source"],
             "target": e["target"],
-            "relation_type": e["relation_type"],
+            "relation_type": e["type_counts"].most_common(1)[0][0],
+            "all_types": [t for t, _ in e["type_counts"].most_common()],
             "weight": len(e["chapters"]),
             "chapters": sorted(e["chapters"]),
         }

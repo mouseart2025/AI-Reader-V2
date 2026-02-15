@@ -590,5 +590,126 @@
         "confidence": "high"
       }
     ]
+  },
+  {
+    "_comment": "示例5：现实题材 — 展示行政层级、机构归属、正确的 parent 方向",
+    "chapter_id": 1,
+    "novel_id": "example_realistic",
+    "characters": [
+      {
+        "name": "孙少平",
+        "new_aliases": [],
+        "appearance": "高个子，瘦削，穿着破烂的衣服",
+        "abilities_gained": [],
+        "locations_in_chapter": ["县立高中", "原西县"]
+      },
+      {
+        "name": "田润叶",
+        "new_aliases": ["润叶"],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["县立高中"]
+      },
+      {
+        "name": "孙少安",
+        "new_aliases": [],
+        "appearance": null,
+        "abilities_gained": [],
+        "locations_in_chapter": ["双水村"]
+      }
+    ],
+    "relationships": [
+      {
+        "person_a": "孙少平",
+        "person_b": "孙少安",
+        "relation_type": "兄弟",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "少平的哥哥少安在双水村务农"
+      },
+      {
+        "person_a": "孙少平",
+        "person_b": "田润叶",
+        "relation_type": "同学",
+        "is_new": true,
+        "previous_type": null,
+        "evidence": "润叶和少平在县立高中读书"
+      }
+    ],
+    "locations": [
+      {
+        "name": "陕西",
+        "type": "省",
+        "parent": null,
+        "description": "西北省份"
+      },
+      {
+        "name": "黄原地区",
+        "type": "地区",
+        "parent": "陕西",
+        "description": "黄土高原腹地的行政地区"
+      },
+      {
+        "name": "原西县",
+        "type": "县",
+        "parent": "黄原地区",
+        "description": "贫困山区县"
+      },
+      {
+        "name": "石圪节公社",
+        "type": "公社",
+        "parent": "原西县",
+        "description": "下辖多个生产大队"
+      },
+      {
+        "name": "双水村",
+        "type": "村庄",
+        "parent": "石圪节公社",
+        "description": "金家湾和田家圪崂两个自然村组成"
+      },
+      {
+        "name": "县立高中",
+        "type": "学校",
+        "parent": "原西县",
+        "description": "原西县城里的高中"
+      },
+      {
+        "name": "金家湾",
+        "type": "自然村",
+        "parent": "双水村",
+        "description": "双水村下属的一个生产队"
+      }
+    ],
+    "spatial_relationships": [
+      {
+        "source": "石圪节公社",
+        "target": "双水村",
+        "relation_type": "contains",
+        "value": "双水村属于石圪节公社管辖",
+        "confidence": "high",
+        "narrative_evidence": "石圪节公社双水村"
+      },
+      {
+        "source": "原西县",
+        "target": "石圪节公社",
+        "relation_type": "contains",
+        "value": "石圪节公社隶属原西县",
+        "confidence": "high",
+        "narrative_evidence": "原西县石圪节公社"
+      }
+    ],
+    "item_events": [],
+    "org_events": [],
+    "events": [
+      {
+        "summary": "孙少平在县立高中食堂排队领饭，因贫困只能吃最差的黑面馍",
+        "type": "社交",
+        "importance": "medium",
+        "participants": ["孙少平"],
+        "location": "县立高中"
+      }
+    ],
+    "new_concepts": [],
+    "world_declarations": []
   }
 ]

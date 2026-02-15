@@ -8,7 +8,6 @@ import { VisualizationLayout } from "@/components/visualization/VisualizationLay
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
 
 interface GraphNode {
   id: string
@@ -25,6 +24,7 @@ interface GraphEdge {
   source: string | GraphNode
   target: string | GraphNode
   relation_type: string
+  all_types?: string[]
   weight: number
   chapters: number[]
 }
@@ -35,17 +35,31 @@ const ORG_COLORS = [
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ]
 
-// Relation type to color category
+// Exact-match sets for normalized relation types
+const _INTIMATE_TYPES = new Set(["夫妻", "恋人"])
+const _FAMILY_TYPES = new Set([
+  "父子", "父女", "母子", "母女", "兄弟", "兄妹", "姐弟", "姐妹",
+  "叔侄", "祖孙", "婆媳", "表亲", "堂亲",
+])
+const _SOCIAL_TYPES = new Set([
+  "朋友", "同门", "同学", "同事", "搭档", "盟友", "邻居", "同僚",
+])
+const _HIERARCHICAL_TYPES = new Set(["师徒", "主仆", "君臣", "上下级"])
+
 function edgeColor(type: string): string {
+  // Exact match for normalized types
+  if (_INTIMATE_TYPES.has(type)) return "#ec4899"
+  if (_FAMILY_TYPES.has(type)) return "#f59e0b"
+  if (_SOCIAL_TYPES.has(type)) return "#10b981"
+  if (type === "敌对") return "#ef4444"
+  if (_HIERARCHICAL_TYPES.has(type)) return "#8b5cf6"
+  // Keyword fallback for non-normalized types
   const t = type
-  // Intimate — check before family (夫/妻 was previously in family)
-  if (t.includes("夫") || t.includes("妻") || t.includes("恋") || t.includes("情侣") || t.includes("情人") || t.includes("爱人") || t.includes("宠")) return "#ec4899"
-  // Family/blood
-  if (t.includes("亲") || t.includes("父") || t.includes("母") || t.includes("兄") || t.includes("姐") || t.includes("弟") || t.includes("妹") || t.includes("叔") || t.includes("侄")) return "#f59e0b"
-  // Friendly/alliance
-  if (t.includes("友") || t.includes("盟") || t.includes("同门") || t.includes("师")) return "#10b981"
-  // Hostile
-  if (t.includes("敌") || t.includes("仇") || t.includes("对手")) return "#ef4444"
+  if (t.includes("夫") || t.includes("妻") || t.includes("恋") || t.includes("情")) return "#ec4899"
+  if (t.includes("父") || t.includes("母") || t.includes("兄") || t.includes("姐") || t.includes("弟") || t.includes("妹")) return "#f59e0b"
+  if (t.includes("友") || t.includes("盟") || t.includes("同门")) return "#10b981"
+  if (t.includes("敌") || t.includes("仇")) return "#ef4444"
+  if (t.includes("师") || t.includes("主") || t.includes("君") || t.includes("臣")) return "#8b5cf6"
   return "#6b7280"
 }
 
@@ -451,9 +465,10 @@ export default function GraphPage() {
           <div className="rounded-lg border bg-background/90 p-2">
             <p className="text-muted-foreground mb-1 text-[10px]">关系线</p>
             {[
-              { label: "亲密", color: "#ec4899", desc: "夫妻/恋人/宠物" },
+              { label: "亲密", color: "#ec4899", desc: "夫妻/恋人" },
               { label: "亲属", color: "#f59e0b", desc: "父母/兄弟/叔侄" },
-              { label: "友好", color: "#10b981", desc: "师徒/同门/盟友" },
+              { label: "师承", color: "#8b5cf6", desc: "师徒/主仆/君臣" },
+              { label: "友好", color: "#10b981", desc: "朋友/同门/盟友" },
               { label: "敌对", color: "#ef4444", desc: "仇人/对手" },
               { label: "其他", color: "#6b7280", desc: "一般关系" },
             ].map((item) => (
@@ -580,7 +595,12 @@ export default function GraphPage() {
             if (hasPath && pathEdges.has(edgeKey(edge))) return 3
             return Math.max(0.5, Math.min(edge.weight, 5))
           }}
-          linkLabel={(edge: GraphEdge) => edge.relation_type}
+          linkLabel={(edge: GraphEdge) => {
+            if (edge.all_types && edge.all_types.length > 1) {
+              return `${edge.relation_type} (${edge.all_types.join("/")})`
+            }
+            return edge.relation_type
+          }}
           linkDirectionalParticles={0}
           onNodeClick={handleNodeClick}
           onNodeHover={(node: GraphNode | null) => setHoverNode(node?.id ?? null)}

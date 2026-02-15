@@ -6,6 +6,17 @@ interface PersonCardProps {
   onEntityClick: (name: string, type: string) => void
 }
 
+// Category labels and ordering
+const CATEGORY_LABELS: Record<string, string> = {
+  family: "血亲关系",
+  intimate: "亲密关系",
+  hierarchical: "师承/主从",
+  social: "社交关系",
+  hostile: "敌对关系",
+  other: "其他关系",
+}
+const CATEGORY_ORDER = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
+
 export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
   const { aliases, appearances, abilities, relations, items, experiences, stats } = profile
 
@@ -62,35 +73,64 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
         })}
       </CardSection>
 
-      {/* C. Relations — stages with consecutive same-type merged */}
-      <CardSection title="人物关系" defaultLimit={10}>
-        {relations.map((rel) => {
-          const latest = rel.stages[rel.stages.length - 1]
-          return (
-            <div key={rel.other_person} className="text-sm">
-              <EntityLink
-                name={rel.other_person}
-                type="person"
-                onClick={onEntityClick}
-              />
-              <span className="text-muted-foreground mx-1">—</span>
-              <span>{latest?.relation_type ?? "未知"}</span>
-              {rel.stages.length > 1 && (
-                <span className="text-muted-foreground ml-1 text-xs">
-                  ({rel.stages.map((s) => {
-                    // Support both old ({chapter}) and new ({chapters}) format
-                    const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
-                    if (chs.length === 0) return s.relation_type
-                    const tag = chs.length === 1
-                      ? `Ch.${chs[0]}`
-                      : `Ch.${chs[0]}–${chs[chs.length - 1]}`
-                    return `${s.relation_type}(${tag})`
-                  }).join(" → ")})
-                </span>
-              )}
-            </div>
-          )
-        })}
+      {/* C. Relations — grouped by category */}
+      <CardSection title="人物关系" defaultLimit={15}>
+        {CATEGORY_ORDER
+          .filter(cat => relations.some(r => (r.category || "other") === cat))
+          .flatMap(cat => [
+            <div key={`cat-${cat}`} className="text-muted-foreground mt-2 text-xs font-medium first:mt-0">
+              {CATEGORY_LABELS[cat] ?? cat}
+            </div>,
+            ...relations
+              .filter(r => (r.category || "other") === cat)
+              .map(rel => {
+                const latest = rel.stages[rel.stages.length - 1]
+                const totalEvidences = rel.stages.reduce(
+                  (n, s) => n + (s.evidences?.length ?? (s.evidence ? 1 : 0)), 0,
+                )
+                return (
+                  <div key={rel.other_person} className="text-sm pl-2">
+                    <EntityLink
+                      name={rel.other_person}
+                      type="person"
+                      onClick={onEntityClick}
+                    />
+                    <span className="text-muted-foreground mx-1">—</span>
+                    <span>{latest?.relation_type ?? "未知"}</span>
+                    {rel.stages.length > 1 && (
+                      <span className="text-muted-foreground ml-1 text-xs">
+                        ({rel.stages.map((s) => {
+                          const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
+                          if (chs.length === 0) return s.relation_type
+                          const tag = chs.length === 1
+                            ? `Ch.${chs[0]}`
+                            : `Ch.${chs[0]}–${chs[chs.length - 1]}`
+                          return `${s.relation_type}(${tag})`
+                        }).join(" → ")})
+                      </span>
+                    )}
+                    {totalEvidences > 0 && (
+                      <details className="mt-0.5">
+                        <summary className="text-muted-foreground text-[10px] cursor-pointer">
+                          查看证据 ({totalEvidences})
+                        </summary>
+                        <div className="pl-2 mt-1 space-y-0.5">
+                          {rel.stages.flatMap((s, si) =>
+                            (s.evidences?.length ? s.evidences : s.evidence ? [s.evidence] : [])
+                              .map((ev, ei) => (
+                                <div key={`${si}-${ei}`} className="text-[11px] text-muted-foreground">
+                                  「{ev}」
+                                  <span className="ml-1 opacity-60">Ch.{s.chapters[0]}</span>
+                                </div>
+                              ))
+                          )}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                )
+              }),
+          ])}
       </CardSection>
 
       {/* D. Abilities */}

@@ -172,7 +172,13 @@ export interface PersonProfile {
   abilities: { chapter: number; dimension: string; name: string; description: string }[]
   relations: {
     other_person: string
-    stages: { chapters: number[]; relation_type: string; evidence: string }[]
+    stages: {
+      chapters: number[]
+      relation_type: string
+      evidences: string[]
+      evidence: string
+    }[]
+    category: string
   }[]
   items: { chapter: number; item_name: string; item_type: string; action: string; description: string }[]
   experiences: { chapter: number; summary: string; type: string; location: string | null }[]
