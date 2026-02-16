@@ -1,4 +1,7 @@
-"""Text encoding detection utilities."""
+"""Text encoding detection and preprocessing utilities."""
+
+# UTF-8 BOM (Byte Order Mark)
+_UTF8_BOM = b"\xef\xbb\xbf"
 
 
 def detect_encoding(raw: bytes) -> str:
@@ -34,7 +37,14 @@ def detect_encoding(raw: bytes) -> str:
 
 
 def decode_text(raw: bytes) -> str:
-    """Decode raw bytes to string using detected encoding."""
+    """Decode raw bytes to string using detected encoding.
+
+    Automatically strips UTF-8 BOM if present.
+    """
+    # Strip UTF-8 BOM before decoding
+    if raw.startswith(_UTF8_BOM):
+        raw = raw[3:]
+
     encoding = detect_encoding(raw)
 
     if encoding == "utf-8":

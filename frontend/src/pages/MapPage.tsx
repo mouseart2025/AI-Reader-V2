@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
-import { fetchMapData, saveLocationOverride } from "@/api/client"
+import { fetchMapData, saveLocationOverride, rebuildHierarchy } from "@/api/client"
 import type { MapData, MapLayerInfo } from "@/api/types"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
@@ -11,7 +11,7 @@ import { GeographyPanel } from "@/components/visualization/GeographyPanel"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
-import { Globe } from "lucide-react"
+import { Globe, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const ICON_LEGEND: { icon: string; label: string }[] = [
@@ -58,6 +58,9 @@ export default function MapPage() {
 
   // Geography panel
   const [showGeoPanel, setShowGeoPanel] = useState(false)
+
+  // Rebuild hierarchy
+  const [rebuilding, setRebuilding] = useState(false)
 
   // Trajectory state
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
@@ -363,6 +366,28 @@ export default function MapPage() {
                 >
                   <Globe className="h-3 w-3 mr-1" />
                   地理
+                </Button>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  disabled={rebuilding}
+                  onClick={() => {
+                    if (!novelId || rebuilding) return
+                    setRebuilding(true)
+                    rebuildHierarchy(novelId)
+                      .then((res) => {
+                        setToast(`层级重建完成: ${res.root_count} 个根节点`)
+                        setReloadTrigger((n) => n + 1)
+                      })
+                      .catch(() => setToast("层级重建失败"))
+                      .finally(() => {
+                        setRebuilding(false)
+                        setTimeout(() => setToast(null), 4000)
+                      })
+                  }}
+                >
+                  <RefreshCw className={cn("h-3 w-3 mr-1", rebuilding && "animate-spin")} />
+                  {rebuilding ? "重建中..." : "重建层级"}
                 </Button>
                 <Button
                   variant="outline"

@@ -90,7 +90,12 @@ class ContextSummaryBuilder:
             for name, info in list(characters.items())[:char_limit]:
                 parts = [name]
                 if info.get("aliases"):
-                    parts.append(f"(别名: {', '.join(info['aliases'][:3])})")
+                    # Limit to 3 short aliases; longer ones are often errors
+                    short_aliases = [
+                        a for a in info["aliases"] if len(a) <= 5
+                    ][:3]
+                    if short_aliases:
+                        parts.append(f"(别名: {', '.join(short_aliases)})")
                 if info.get("abilities"):
                     parts.append(f"[{', '.join(info['abilities'][:3])}]")
                 lines.append("- " + " ".join(parts))
@@ -331,7 +336,13 @@ class ContextSummaryBuilder:
         return self._format_world_structure(ws)
 
     async def _build_dictionary_section(self, novel_id: str) -> str:
-        """Build entity dictionary section from pre-scan results."""
+        """Build entity dictionary section from pre-scan results.
+
+        Pre-scan aliases (jieba + LLM classification) are tentative and can
+        contain errors (e.g., different characters grouped together).  We limit
+        injected aliases to at most 2 short ones and add a disclaimer so the
+        extraction LLM treats them as hints rather than ground truth.
+        """
         try:
             dictionary = await entity_dictionary_store.get_all(novel_id)
         except Exception:
@@ -342,11 +353,15 @@ class ContextSummaryBuilder:
         lines = [
             "### 本书高频实体参考",
             "以下实体在全书中高频出现，提取时请特别注意不要遗漏（仅供参考，仍以原文为准）：",
+            "⚠️ 下方「可能别名」仅为预扫描猜测，必须在本章原文中找到明确依据才能作为 new_aliases 输出。不同的人绝不能互为别名。",
         ]
         for entry in dictionary[:100]:  # Top-100
             line = f"- {entry.name}（{entry.entity_type}，出现{entry.frequency}次）"
             if entry.aliases:
-                line += f" 别名：{'、'.join(entry.aliases)}"
+                # Only inject short, likely-correct aliases (≤4 chars, max 2)
+                safe = [a for a in entry.aliases if len(a) <= 4][:2]
+                if safe:
+                    line += f" 可能别名：{'、'.join(safe)}（需文本确认）"
             lines.append(line)
 
         return "\n".join(lines)

@@ -1,0 +1,796 @@
+"""Post-processing module to consolidate location hierarchy.
+
+Runs after WorldStructureAgent._resolve_parents() to reduce root nodes
+to single digits by:
+1. Parsing compound location names (山东济州 → 山东 > 济州)
+2. Adopting sub-locations via suffix patterns (东京城外 → child of 东京)
+3. Bridging known prefectures to their provinces via Chinese geo knowledge
+4. Fixing inverted province relationships
+5. Connecting provinces to an uber-root (天下)
+6. Adopting remaining roots (mountains, rivers, foreign states)
+
+This module is designed for Chinese novels across all periods (Song/Ming/Qing/modern).
+For fantasy novels with non-Chinese geography, it gracefully degrades to using
+only the existing region system from WorldStructure.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections import Counter
+
+logger = logging.getLogger(__name__)
+
+# ── Province prefixes found in compound location names ──
+# e.g., "山东济州" = "山东" + "济州", "江西信州" = "江西" + "信州"
+_PROVINCE_PREFIXES: set[str] = {
+    "山东", "山西", "河北", "河南", "河东",
+    "江西", "江南", "江北",
+    "浙西", "浙东", "两浙",
+    "淮西", "淮东",
+    "陕西", "关西",
+    "湖南", "湖北",
+    "广东", "广西",
+    "福建", "四川",
+    "北地",
+}
+
+# ── Location name suffixes that indicate sub-locations ──
+# e.g., "东京城外" = "东京" + "城外" → parent should be "东京"
+_LOCATION_SUFFIXES: tuple[str, ...] = (
+    # City periphery
+    "城外", "城里", "城内", "城中", "城下", "城边",
+    # Administrative area
+    "地面", "地界", "境内", "境界", "界上", "界",
+    "管下", "管内",
+    # Proximity
+    "附近", "一带", "周边",
+    # Direction
+    "以东", "以西", "以南", "以北",
+    "东门外", "西门外", "南门外", "北门外",
+    "门外", "门内",
+    # Sub-area patterns
+    "城东", "城西", "城南", "城北",
+    "上东边",
+)
+
+# Suffixes that make a location name a child of its base
+# e.g., "苏州城" = variant name for "苏州", "孟州城" = 孟州's city
+_VARIANT_SUFFIXES: tuple[str, ...] = (
+    "城", "城池",
+)
+
+# ── Classical Chinese prefecture → province mapping ──
+# Covers Song/Ming/Qing era names commonly found in Chinese literature.
+_PREFECTURE_TO_PROVINCE: dict[str, str] = {
+    # ── 山东 ──
+    "济州": "山东", "兖州": "山东", "郓州": "山东", "青州": "山东",
+    "登州": "山东", "莱州": "山东", "密州": "山东", "沂州": "山东",
+    "淄州": "山东", "潍州": "山东", "济南": "山东", "济南府": "山东",
+    "东平府": "山东", "东平": "山东", "泰安州": "山东", "泰安": "山东",
+    "曹州": "山东", "单州": "山东", "濮州": "山东", "滕州": "山东",
+    "东昌": "山东", "东昌府": "山东", "高唐州": "山东", "高唐": "山东",
+    "昭德": "山东", "昭德州": "山东", "凌州": "山东",
+    "沂水县": "山东", "郓城县": "山东", "寿张县": "山东",
+    "曾头市": "山东", "寇州": "山东",  # Water Margin specific
+    "阳谷县": "山东", "阳谷": "山东",
+    "石碣村": "山东",  # Water Margin, near 梁山泊
+    "还道村": "山东",  # Water Margin, near 梁山泊
+    # ── 河北 ──
+    "沧州": "河北", "大名府": "河北", "大名": "河北",
+    "北京": "河北",  # 北京 = 大名府 in Song dynasty
+    "真定府": "河北", "真定": "河北", "相州": "河北",
+    "磁州": "河北", "洺州": "河北", "开州": "河北",
+    "棣州": "河北", "清州": "河北", "蓟州": "河北",
+    "檀州": "河北", "恩州": "河北", "霸州": "河北",
+    # ── 京畿 (开封 area) ──
+    "开封府": "京畿", "开封": "京畿", "东京": "京畿",
+    "汴京": "京畿", "汴梁": "京畿", "陈州": "京畿",
+    "颍昌府": "京畿", "许州": "京畿", "祥符县": "京畿",
+    "陈桥驿": "京畿", "京师": "京畿",
+    # ── 河东 (山西) ──
+    "太原府": "河东", "太原": "河东",
+    "威胜": "河东", "壶关": "河东", "盖州": "河东",
+    "襄垣": "河东", "沁源": "河东",
+    "代州": "河东", "雁门县": "河东", "雁门": "河东",
+    # ── 河南 ──
+    "孟州": "河南", "陕州": "河南", "宛州": "河南",
+    # ── 江南 ──
+    "江宁府": "江南", "建康府": "江南", "建康": "江南",
+    "宣州": "江南", "歙州": "江南",
+    "江州": "江南", "洪州": "江南", "信州": "江南",
+    "金陵": "江南", "金陵建康府": "江南",
+    "南丰府": "江南",
+    # ── 两浙 ──
+    "杭州": "两浙", "苏州": "两浙", "湖州": "两浙",
+    "越州": "两浙", "明州": "两浙", "台州": "两浙",
+    "温州": "两浙", "临安": "两浙", "临安府": "两浙",
+    "润州": "两浙", "秀州": "两浙", "睦州": "两浙",
+    # ── 淮南 ──
+    "扬州": "淮南", "楚州": "淮南", "淮安": "淮南",
+    "泰州": "淮南", "庐州": "淮南", "安庆": "淮南",
+    "无为军": "淮南", "汝宁州": "淮南", "泗州": "淮南",
+    "揭阳镇": "淮南",  # Water Margin, near 江州 area
+    # ── 荆湖 ──
+    "荆南": "荆湖", "江陵": "荆湖", "江陵府": "荆湖",
+    "鄂州": "荆湖", "潭州": "荆湖", "荆门镇": "荆湖",
+    "江阴": "两浙", "宜兴": "两浙",
+    # ── 关西 (陕西) ──
+    "渭州": "关西", "延安府": "关西", "延安": "关西",
+    "华州": "关西", "同州": "关西", "凤翔府": "关西",
+    "瓦官寺": "关西", "瓦官之寺": "关西",  # Water Margin ch3, near 渭州
+    # ── 蜀 ──
+    "成都": "蜀", "成都府": "蜀", "达州": "蜀",
+    # ── 辽东/北方 ──
+    "幽州": "河北", "燕京": "河北",
+}
+
+# ── Notable mountains → province mapping ──
+_MOUNTAINS_TO_PROVINCE: dict[str, str] = {
+    "五台山": "河东",
+    "翠屏山": "河北",  # 蓟州 area
+    "华山": "关西", "西岳华山": "关西",
+    "泰山": "山东",
+    "北邙山": "河南",
+    "二龙山": "山东",  # Water Margin
+    "独龙冈": "山东",  # 郓州 area
+    "梁山": "山东", "梁山泊": "山东",
+    "乌龙岭": "两浙",  # 杭州 area in Water Margin
+    "桃花山": "山东",  # Water Margin (near 青州)
+    "黄门山": "山东",  # Water Margin
+    "饮马川": "山东",  # Water Margin
+    "白虎山": "山东",  # Water Margin
+    "登云山": "山东",  # Water Margin
+    "沂岭": "山东",  # 沂州 area
+    "景阳冈": "山东",  # 阳谷县 area
+    "铜山": "河南",  # Water Margin
+    "伊阙山": "河南",  # 洛阳南
+    "蜈蚣岭": "山东",  # Water Margin
+    "大禹山": "河北",  # near 大名府
+    "槐树坡": "山东",  # Water Margin
+    "房山": "河北",
+    "桃源岭": "两浙",  # Water Margin, near 杭州
+    "南土冈": "山东",  # Water Margin, near 郓城
+}
+
+# ── Notable rivers → province mapping ──
+_RIVERS_TO_PROVINCE: dict[str, str] = {
+    "黄河": "京畿",
+    "扬子江": "江南", "扬子大江": "江南",
+    "浔阳江": "江南",
+    "渭河": "关西",
+    "潞水": "河东",
+}
+
+# ── Province-level nodes that should be connected to the uber-root ──
+_PROVINCES: set[str] = {
+    "山东", "河北", "京畿", "河东", "河南", "山西",
+    "江南", "两浙", "淮南", "荆湖", "关西", "蜀",
+    "福建", "广东", "广西", "湖南", "湖北", "陕西",
+    "江西", "淮东", "淮西", "浙西", "浙东", "江北",
+    "北地",
+}
+
+# Tier assignments for provinces and uber-root
+_PROVINCE_TIER = "continent"
+_ROOT_TIER = "world"
+
+
+def _parse_compound_name(name: str) -> tuple[str, str] | None:
+    """Try to split a compound location name into (province, local_name).
+
+    Examples:
+        "山东济州" → ("山东", "济州")
+        "江西信州" → ("江西", "信州")
+        "山东济州郓城县" → ("山东", "济州郓城县")
+
+    Returns None if not a compound name.
+    """
+    for prefix in sorted(_PROVINCE_PREFIXES, key=len, reverse=True):
+        if name.startswith(prefix) and len(name) > len(prefix):
+            suffix = name[len(prefix):]
+            # Avoid splitting names where the suffix is just a direction/suffix word
+            if suffix in ("路上", "一带", "方面", "地方"):
+                continue
+            return (prefix, suffix)
+    return None
+
+
+def _parse_location_suffix(name: str, known_locations: set[str]) -> tuple[str, str] | None:
+    """Try to split a location name into (base_location, suffix).
+
+    Only succeeds if the base_location is a known location name.
+
+    Examples:
+        "东京城外" → ("东京", "城外") if "东京" is known
+        "济州城下" → ("济州", "城下") if "济州" is known
+
+    Returns None if no match.
+    """
+    for suffix in sorted(_LOCATION_SUFFIXES, key=len, reverse=True):
+        if name.endswith(suffix) and len(name) > len(suffix):
+            base = name[:-len(suffix)]
+            if base in known_locations:
+                return (base, suffix)
+    return None
+
+
+def _parse_variant_name(name: str, known_locations: set[str]) -> str | None:
+    """Check if a name is a variant of a known location (e.g., 苏州城 → 苏州).
+
+    Returns the base location name if it's a variant, None otherwise.
+    """
+    for suffix in _VARIANT_SUFFIXES:
+        if name.endswith(suffix) and len(name) > len(suffix):
+            base = name[:-len(suffix)]
+            if base in known_locations:
+                return base
+    return None
+
+
+def _would_create_cycle(
+    child: str, parent: str, location_parents: dict[str, str],
+) -> bool:
+    """Check if adding child→parent would create a cycle."""
+    if child == parent:
+        return True
+    # Walk up from parent to see if we reach child
+    visited: set[str] = {child}
+    node = parent
+    while node in location_parents:
+        if node in visited:
+            return True
+        visited.add(node)
+        node = location_parents[node]
+    return node in visited
+
+
+def _safe_set_parent(
+    child: str,
+    parent: str,
+    location_parents: dict[str, str],
+    reason: str = "",
+) -> bool:
+    """Set parent with cycle prevention. Returns True if successful."""
+    if child == parent:
+        return False
+    if _would_create_cycle(child, parent, location_parents):
+        logger.debug(
+            "Cycle prevented: %s → %s (%s)", child, parent, reason,
+        )
+        return False
+    location_parents[child] = parent
+    return True
+
+
+def _get_roots(location_parents: dict[str, str]) -> set[str]:
+    """Get all root nodes (parents that are not themselves children)."""
+    children = set(location_parents.keys())
+    parents = set(location_parents.values())
+    return parents - children
+
+
+# ── Sub-location name patterns ──
+# Names ending with these suffixes are highly likely to be sub-locations
+# and should never be root nodes parenting proper geographic locations.
+_SUB_LOCATION_ENDINGS: tuple[str, ...] = (
+    # Positional suffixes — "X门外", "X门内", "X前", "X后"
+    "门外", "门内", "门前", "门后", "门头",
+    "前", "后面", "旁边", "上面", "下面",
+    # Interior/exterior
+    "里", "里面", "内", "外", "外面",
+    "中", "中间",
+    # Building parts
+    "上", "下", "边", "头",
+    # Compound building/room patterns
+    "房内", "房里", "房中", "房前", "房后",
+    "厅上", "厅内", "厅里", "厅中",
+    "堂内", "堂里", "堂中", "堂上",
+    "阁儿里", "阁儿内", "阁内",
+    "墙下", "墙外", "墙边",
+    "树下", "树林",
+)
+
+# Names containing these patterns are very likely sub-locations
+_SUB_LOCATION_PATTERNS: tuple[str, ...] = (
+    "粪窖", "打麦场", "葡萄架", "化人场", "牢城营",
+)
+
+
+def _is_sub_location_name(name: str) -> bool:
+    """Check if a location name looks like a sub-location based on name patterns.
+
+    Sub-locations are building parts, relative positions, interior rooms, etc.
+    that should never be roots of a geographic hierarchy.
+    """
+    # Very short names are often sub-locations
+    if len(name) <= 2 and name not in _PROVINCES:
+        return True
+
+    # Check ending patterns
+    for suffix in sorted(_SUB_LOCATION_ENDINGS, key=len, reverse=True):
+        if name.endswith(suffix) and len(name) > len(suffix):
+            return True
+
+    # Check containing patterns
+    for pat in _SUB_LOCATION_PATTERNS:
+        if pat in name:
+            return True
+
+    return False
+
+
+def _is_geographic_name(name: str) -> bool:
+    """Check if a location name looks like a proper geographic entity.
+
+    Proper geographic names typically end with administrative or natural
+    geographic suffixes (州, 府, 县, 山, 岭, 江, etc.).
+    """
+    _GEO_SUFFIXES = (
+        "州", "府", "县", "郡", "路", "京",
+        "城", "镇", "村", "庄", "寨", "营", "驿", "关", "隘",
+        "山", "岭", "峰", "岗", "冈",
+        "江", "河", "湖", "海", "泊", "溪", "港",
+        "寺", "庙", "观", "庵", "祠",
+        "国",
+    )
+    for suffix in _GEO_SUFFIXES:
+        if name.endswith(suffix) and len(name) >= 2:
+            return True
+    return False
+
+
+def consolidate_hierarchy(
+    location_parents: dict[str, str],
+    location_tiers: dict[str, str],
+    novel_genre_hint: str | None = None,
+    parent_votes: dict[str, Counter] | None = None,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Consolidate location hierarchy to reduce roots to single digits.
+
+    Args:
+        location_parents: Current child → parent mapping (modified in place and returned).
+        location_tiers: Current location → tier mapping (modified in place and returned).
+        novel_genre_hint: Genre of the novel (historical/wuxia/fantasy/etc.).
+        parent_votes: Vote counters for diagnostics (optional, read-only).
+
+    Returns:
+        Updated (location_parents, location_tiers) tuple.
+    """
+    genre = novel_genre_hint or "unknown"
+
+    # Skip consolidation for genres where Chinese geography doesn't apply
+    if genre in ("fantasy", "urban"):
+        logger.debug("Skipping Chinese geo consolidation for genre=%s", genre)
+        return location_parents, location_tiers
+
+    all_known = set(location_tiers.keys())
+    changes_made = 0
+
+    # Import TIER_ORDER once
+    from src.services.world_structure_agent import TIER_ORDER
+
+    # ── Step 1: Fix province tiers first ──
+    # This must happen before other steps so tier comparisons work correctly
+    for prov in _PROVINCES:
+        if prov in location_tiers:
+            location_tiers[prov] = _PROVINCE_TIER
+
+    # ── Step 2: Fix inverted province relationships ──
+    # If a province (山东) is a CHILD of something smaller, fix it
+    for prov in list(_PROVINCES):
+        if prov not in location_parents:
+            continue
+        current_parent = location_parents[prov]
+        # Province should only be child of uber-root or another province
+        if current_parent not in _PROVINCES and current_parent != "天下":
+            parent_tier = location_tiers.get(current_parent, "city")
+            parent_rank = TIER_ORDER.get(parent_tier, 4)
+            # If parent is smaller than continent, the relationship is inverted
+            if parent_rank > TIER_ORDER.get(_PROVINCE_TIER, 1):
+                wrong_parent = current_parent
+                del location_parents[prov]
+                # Make the wrong parent a child of this province instead
+                if wrong_parent not in location_parents:
+                    _safe_set_parent(
+                        wrong_parent, prov, location_parents,
+                        f"province inversion fix: {prov} was child of {wrong_parent}",
+                    )
+                changes_made += 1
+                logger.debug(
+                    "Province inversion fix: %s was child of %s → reversed",
+                    prov, wrong_parent,
+                )
+
+    # ── Step 2b: Fix tier inversions in the full hierarchy ──
+    # If a parent has a smaller tier (higher rank number) than its child,
+    # the relationship is likely inverted by the LLM.
+    # Example: "大尉府" (building) → child "东京" (city) → reversed!
+    #
+    # IMPORTANT: Collect all fixes first, then apply in batch to avoid
+    # race conditions where one fix undoes another during iteration.
+    inversion_fixes: list[tuple[str, str]] = []  # (child, parent) pairs to reverse
+    for child, parent in list(location_parents.items()):
+        if parent in _PROVINCES or parent == "天下":
+            continue
+        child_tier = location_tiers.get(child, "city")
+        parent_tier = location_tiers.get(parent, "city")
+        child_rank = TIER_ORDER.get(child_tier, 4)
+        parent_rank = TIER_ORDER.get(parent_tier, 4)
+
+        should_fix = False
+
+        if parent_rank > child_rank:
+            # Parent tier is more specific than child — always inverted
+            should_fix = True
+        elif parent_rank == child_rank and _is_sub_location_name(parent) and _is_geographic_name(child):
+            # Same tier but parent looks like a sub-location, child is geographic
+            should_fix = True
+
+        if should_fix:
+            inversion_fixes.append((child, parent))
+
+    # Apply fixes: for each inverted pair, free the child and make parent child of child
+    inversions_fixed = 0
+    for child, parent in inversion_fixes:
+        # Verify the relationship still exists (may have been modified by earlier fix)
+        if location_parents.get(child) != parent:
+            continue
+        del location_parents[child]
+        if _safe_set_parent(parent, child, location_parents,
+                            f"tier-inversion: {parent} was parent of {child}"):
+            inversions_fixed += 1
+            changes_made += 1
+        else:
+            changes_made += 1
+
+    if inversions_fixed:
+        logger.info("Fixed %d tier inversions", inversions_fixed)
+
+    # ── Step 2c: Rescue remaining noise roots ──
+    # Some roots are clearly sub-locations (粪窖边, 后门, etc.) that shouldn't
+    # be roots. If they have geographic children, reverse the relationship.
+    roots = _get_roots(location_parents)
+    for root in list(roots):
+        if root == "天下" or root in _PROVINCES:
+            continue
+        if not _is_sub_location_name(root):
+            continue
+
+        # Find direct children of this root
+        direct_children = [c for c, p in location_parents.items() if p == root]
+        if not direct_children:
+            continue
+
+        # Find the best child to become the new parent
+        # Prefer children with geographic names and higher tiers
+        best_child = None
+        best_rank = 999
+        for c in direct_children:
+            c_tier = location_tiers.get(c, "city")
+            c_rank = TIER_ORDER.get(c_tier, 4)
+            if _is_geographic_name(c) and c_rank < best_rank:
+                best_child = c
+                best_rank = c_rank
+            elif best_child is None and c_rank < best_rank:
+                best_child = c
+                best_rank = c_rank
+
+        if best_child is not None:
+            # Move all children except best_child to be children of best_child
+            for c in direct_children:
+                if c == best_child:
+                    continue
+                location_parents[c] = best_child
+            # Remove best_child→root and make root→best_child
+            del location_parents[best_child]
+            if _safe_set_parent(root, best_child, location_parents,
+                                f"noise-root-rescue: {root} → child of {best_child}"):
+                changes_made += 1
+            else:
+                # Just orphan the root — it's noise
+                pass
+
+    # ── Step 3: Parse compound names ──
+    # "山东济州" → create 山东 > 山东济州 hierarchy
+    for name in list(all_known):
+        parsed = _parse_compound_name(name)
+        if parsed is None:
+            continue
+        province, local_part = parsed
+
+        # Ensure province exists in tiers
+        if province not in location_tiers:
+            location_tiers[province] = _PROVINCE_TIER
+            all_known.add(province)
+
+        # Connect compound name to province
+        if name not in location_parents:
+            if _safe_set_parent(name, province, location_parents, "compound"):
+                changes_made += 1
+
+        # If the local_part also exists standalone, connect it too
+        if local_part in all_known and local_part not in location_parents:
+            if _safe_set_parent(local_part, province, location_parents, "compound-local"):
+                changes_made += 1
+
+    # ── Step 4: Parse location suffixes ──
+    # "东京城外" → parent = "东京", "济州城下" → parent = "济州"
+    for name in list(all_known):
+        if name in location_parents:
+            continue
+        parsed = _parse_location_suffix(name, all_known)
+        if parsed is not None:
+            base, _ = parsed
+            if _safe_set_parent(name, base, location_parents, "suffix"):
+                changes_made += 1
+
+    # ── Step 4b: Parse variant names ──
+    # "苏州城" → parent = "苏州", "孟州城" → parent = "孟州"
+    for name in list(all_known):
+        if name in location_parents:
+            continue
+        base = _parse_variant_name(name, all_known)
+        if base is not None:
+            if _safe_set_parent(name, base, location_parents, "variant"):
+                changes_made += 1
+
+    # ── Step 5: Bridge roots to provinces via geo table ──
+    roots = _get_roots(location_parents)
+
+    for root in list(roots):
+        if root in _PROVINCES or root == "天下":
+            continue
+
+        # Try multiple lookup strategies
+        province = None
+
+        # 5a: Exact match in prefecture table
+        province = _PREFECTURE_TO_PROVINCE.get(root)
+
+        # 5b: Mountain/river tables
+        if province is None:
+            province = _MOUNTAINS_TO_PROVINCE.get(root)
+        if province is None:
+            province = _RIVERS_TO_PROVINCE.get(root)
+
+        # 5c: Strip common suffixes for fuzzy match
+        if province is None and len(root) >= 3:
+            for suffix in ("府", "州", "县", "城"):
+                if root.endswith(suffix):
+                    base = root[:-1]
+                    for alt_suffix in ("", "州", "府"):
+                        alt = base + alt_suffix if alt_suffix else base
+                        province = _PREFECTURE_TO_PROVINCE.get(alt)
+                        if province:
+                            break
+                    if not province:
+                        province = _MOUNTAINS_TO_PROVINCE.get(base)
+                if province:
+                    break
+
+        # 5d: Try compound name parsing on the root
+        if province is None:
+            parsed = _parse_compound_name(root)
+            if parsed:
+                province = parsed[0]  # province prefix
+
+        if province:
+            if province not in location_tiers:
+                location_tiers[province] = _PROVINCE_TIER
+                all_known.add(province)
+            if _safe_set_parent(root, province, location_parents, "geo-bridge"):
+                changes_made += 1
+
+    # ── Step 6: Connect provinces to uber-root ──
+    uber_root = "天下"
+    if uber_root not in location_tiers:
+        location_tiers[uber_root] = _ROOT_TIER
+        all_known.add(uber_root)
+    else:
+        location_tiers[uber_root] = _ROOT_TIER
+
+    roots = _get_roots(location_parents)
+    provinces_connected = 0
+    for root in list(roots):
+        if root == uber_root:
+            continue
+        if root in _PROVINCES:
+            location_parents[root] = uber_root
+            provinces_connected += 1
+            changes_made += 1
+
+    # ── Step 7: Connect foreign states and remaining 国-suffix to uber-root ──
+    roots = _get_roots(location_parents)
+    for root in list(roots):
+        if root == uber_root:
+            continue
+        if root.endswith("国"):
+            location_parents[root] = uber_root
+            if root not in location_tiers or location_tiers[root] not in ("world", "continent"):
+                location_tiers[root] = "kingdom"
+            changes_made += 1
+
+    # ── Step 8: Prefix matching — connect roots starting with known prefectures ──
+    # "青州地面" starts with "青州" → connect to 山东
+    # "济州梁山泊边" starts with "济州" → connect to 山东
+    # "扬州城外" starts with "扬州" → connect to 两浙
+    roots = _get_roots(location_parents)
+    # Build sorted lookup (longest match first to avoid partial matches)
+    _all_geo_keys = sorted(
+        list(_PREFECTURE_TO_PROVINCE.keys())
+        + list(_MOUNTAINS_TO_PROVINCE.keys())
+        + list(_RIVERS_TO_PROVINCE.keys()),
+        key=len, reverse=True,
+    )
+    for root in list(roots):
+        if root == uber_root or root in _PROVINCES:
+            continue
+        for geo_key in _all_geo_keys:
+            if root.startswith(geo_key) and len(root) > len(geo_key):
+                province = (
+                    _PREFECTURE_TO_PROVINCE.get(geo_key)
+                    or _MOUNTAINS_TO_PROVINCE.get(geo_key)
+                    or _RIVERS_TO_PROVINCE.get(geo_key)
+                )
+                if province:
+                    if province not in location_tiers:
+                        location_tiers[province] = _PROVINCE_TIER
+                    if _safe_set_parent(root, province, location_parents, f"prefix-match:{geo_key}"):
+                        changes_made += 1
+                        break
+
+    # ── Step 9: Second pass — try to connect remaining roots ──
+    roots = _get_roots(location_parents)
+    for root in list(roots):
+        if root == uber_root:
+            continue
+
+        # Try geo table again (some roots changed in previous steps)
+        province = _PREFECTURE_TO_PROVINCE.get(root)
+        if province is None:
+            province = _MOUNTAINS_TO_PROVINCE.get(root)
+        if province is None:
+            province = _RIVERS_TO_PROVINCE.get(root)
+
+        if province and province in location_parents:
+            if _safe_set_parent(root, province, location_parents, "second-pass"):
+                changes_made += 1
+                continue
+
+        # Try suffix parsing against all current locations (not just all_known)
+        current_all = set(location_parents.keys()) | set(location_parents.values())
+        parsed = _parse_location_suffix(root, current_all)
+        if parsed is not None:
+            base, _ = parsed
+            if _safe_set_parent(root, base, location_parents, "second-pass-suffix"):
+                changes_made += 1
+                continue
+
+        base = _parse_variant_name(root, current_all)
+        if base is not None:
+            if _safe_set_parent(root, base, location_parents, "second-pass-variant"):
+                changes_made += 1
+
+    # ── Step 9b: Ensure known geographic locations are under correct provinces ──
+    # This is the MOST IMPORTANT fix: after all tier inversion fixes and geo bridging,
+    # check that locations in _PREFECTURE_TO_PROVINCE / _MOUNTAINS / _RIVERS are
+    # actually under their correct province. If not (e.g., 东京 is still under 大尉府),
+    # reparent them.
+    all_geo_lookups = {
+        **_PREFECTURE_TO_PROVINCE,
+        **_MOUNTAINS_TO_PROVINCE,
+        **_RIVERS_TO_PROVINCE,
+    }
+    geo_rescues = 0
+    for loc_name, expected_province in all_geo_lookups.items():
+        if loc_name not in location_parents and loc_name not in all_known:
+            continue  # Location doesn't exist in this novel
+        if loc_name not in location_parents:
+            # Location exists but has no parent — connect to province
+            if expected_province not in location_tiers:
+                location_tiers[expected_province] = _PROVINCE_TIER
+            if _safe_set_parent(loc_name, expected_province, location_parents, "geo-rescue-orphan"):
+                geo_rescues += 1
+                changes_made += 1
+            continue
+
+        # Check if location is already correctly placed (under its province somewhere)
+        current = loc_name
+        visited = {current}
+        is_under_correct = False
+        while current in location_parents:
+            current = location_parents[current]
+            if current in visited:
+                break
+            visited.add(current)
+            if current == expected_province:
+                is_under_correct = True
+                break
+
+        if is_under_correct:
+            continue  # Already correctly placed
+
+        # Location is NOT under its expected province. Reparent it.
+        # First, save current parent and children so we can reconnect them
+        old_parent = location_parents[loc_name]
+
+        # Ensure province exists
+        if expected_province not in location_tiers:
+            location_tiers[expected_province] = _PROVINCE_TIER
+        if expected_province not in location_parents:
+            # Province not yet connected to uber_root
+            _safe_set_parent(expected_province, uber_root, location_parents, "geo-rescue-province")
+
+        # Reparent: remove from old parent, connect to province
+        del location_parents[loc_name]
+        if _safe_set_parent(loc_name, expected_province, location_parents, f"geo-rescue:{loc_name}→{expected_province}"):
+            geo_rescues += 1
+            changes_made += 1
+            # Reconnect old_parent and its remaining children to this location.
+            # The old_parent was likely a sub-location of loc_name
+            # (e.g., 大尉府 was in 东京, 梁中书府 was in 北京).
+            if old_parent != uber_root and old_parent not in _PROVINCES:
+                # Move old_parent's remaining children to loc_name
+                old_parent_children = [c for c, p in location_parents.items() if p == old_parent]
+                for orphan in old_parent_children:
+                    if orphan != loc_name:
+                        location_parents[orphan] = loc_name
+                # Make old_parent a child of loc_name
+                _safe_set_parent(old_parent, loc_name, location_parents, f"geo-rescue-adopt:{old_parent}→{loc_name}")
+        else:
+            # Can't reparent (cycle), restore old
+            location_parents[loc_name] = old_parent
+
+    if geo_rescues:
+        logger.info("Geo-rescued %d locations to correct provinces", geo_rescues)
+
+    # ── Step 10: Connect remaining geographic roots to uber-root ──
+    # Any root with a proper geographic name that couldn't be mapped to a
+    # province gets connected directly to 天下 rather than being an orphan root.
+    roots = _get_roots(location_parents)
+    for root in list(roots):
+        if root == uber_root:
+            continue
+        if _is_geographic_name(root) and not _is_sub_location_name(root):
+            if _safe_set_parent(root, uber_root, location_parents, "geo-to-root"):
+                changes_made += 1
+
+    # ── Step 11: Handle remaining non-geographic roots ──
+    # Only connect roots that have meaningful subtrees (5+ descendants) to 天下.
+    # Noise sub-locations with small subtrees are left as separate trees —
+    # they'll appear as unparented micro-clusters on the map, which is
+    # preferable to cluttering 天下's direct children.
+    roots = _get_roots(location_parents)
+    for root in list(roots):
+        if root == uber_root or root in _PROVINCES:
+            continue
+        # Count descendants
+        desc_count = 0
+        queue = [root]
+        while queue:
+            node = queue.pop()
+            for c, p in location_parents.items():
+                if p == node:
+                    desc_count += 1
+                    queue.append(c)
+                    if desc_count > 5:
+                        break
+            if desc_count > 5:
+                break
+        # Only connect roots with substantial subtrees to 天下
+        if desc_count >= 5:
+            if _safe_set_parent(root, uber_root, location_parents, "large-subtree-to-root"):
+                changes_made += 1
+
+    # ── Final stats ──
+    final_roots = _get_roots(location_parents)
+    logger.info(
+        "Hierarchy consolidation: %d changes, %d provinces connected, "
+        "%d final roots (of %d before)",
+        changes_made, provinces_connected, len(final_roots), 148,
+    )
+    if len(final_roots) <= 20:
+        logger.info("Final roots: %s", sorted(final_roots))
+
+    return location_parents, location_tiers

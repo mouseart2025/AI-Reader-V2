@@ -6,6 +6,7 @@ import type {
   ChapterContent,
   ChapterEntity,
   ChatMessage,
+  CleanAndReSplitRequest,
   ConfirmImportRequest,
   Conversation,
   EntityDictionaryResponse,
@@ -81,6 +82,13 @@ export function fetchSplitModes(): Promise<SplitModesResponse> {
 
 export function reSplitChapters(req: ReSplitRequest): Promise<UploadPreviewResponse> {
   return apiFetch<UploadPreviewResponse>("/novels/re-split", {
+    method: "POST",
+    body: JSON.stringify(req),
+  })
+}
+
+export function cleanAndResplit(req: CleanAndReSplitRequest): Promise<UploadPreviewResponse> {
+  return apiFetch<UploadPreviewResponse>("/novels/clean-and-resplit", {
     method: "POST",
     body: JSON.stringify(req),
   })
@@ -221,6 +229,20 @@ export function deleteWorldStructureOverride(
 ): Promise<WorldStructureData> {
   return apiFetch<WorldStructureData>(`/novels/${novelId}/world-structure/overrides/${overrideId}`, {
     method: "DELETE",
+  })
+}
+
+export function rebuildHierarchy(
+  novelId: string,
+): Promise<{
+  status: string
+  old_parent_count: number
+  new_parent_count: number
+  root_count: number
+  roots: string[]
+}> {
+  return apiFetch(`/novels/${novelId}/world-structure/rebuild-hierarchy`, {
+    method: "POST",
   })
 }
 

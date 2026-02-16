@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile
 
 from src.api.schemas.novels import (
+    CleanAndReSplitRequest,
     ConfirmImportRequest,
     NovelListItem,
     NovelResponse,
@@ -63,6 +64,19 @@ async def re_split_chapters(req: ReSplitRequest):
             file_hash=req.file_hash,
             mode=req.mode,
             custom_regex=req.custom_regex,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return preview
+
+
+@router.post("/clean-and-resplit", response_model=UploadPreviewResponse)
+async def clean_and_resplit(req: CleanAndReSplitRequest):
+    """Clean text noise and re-split chapters."""
+    try:
+        preview = await novel_service.clean_and_resplit(
+            file_hash=req.file_hash,
+            clean_mode=req.clean_mode,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

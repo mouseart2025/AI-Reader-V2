@@ -350,7 +350,7 @@ async def get_map_data(
     locations.sort(key=lambda l: (-l["mention_count"], l["name"]))
 
     # Deduplicate trajectories
-    for person in trajectories:
+    for person in list(trajectories.keys()):
         seen = set()
         unique = []
         for entry in trajectories[person]:
@@ -359,6 +359,14 @@ async def get_map_data(
                 seen.add(key)
                 unique.append(entry)
         trajectories[person] = unique
+
+    # Limit trajectories: only keep characters with meaningful movement (≥2 unique locations)
+    # This prevents sending thousands of single-location entries that bloat the response
+    trajectories = {
+        person: entries
+        for person, entries in trajectories.items()
+        if len({e["location"] for e in entries}) >= 2
+    }
 
     spatial_constraints = list(constraint_map.values())
 
@@ -475,6 +483,22 @@ async def get_map_data(
                     break
 
             if active_regions:
+                # Cap regions for display: if too many, keep top N by location count
+                MAX_DISPLAY_REGIONS = 30
+                if len(active_regions) > MAX_DISPLAY_REGIONS:
+                    # Count locations per region
+                    region_loc_counts: dict[str, int] = {}
+                    for loc_name_r, region_name_r in ws.location_region_map.items():
+                        region_loc_counts[region_name_r] = region_loc_counts.get(region_name_r, 0) + 1
+                    active_regions.sort(
+                        key=lambda r: region_loc_counts.get(r["name"], 0), reverse=True,
+                    )
+                    logger.info(
+                        "Capping display regions from %d to %d",
+                        len(active_regions), MAX_DISPLAY_REGIONS,
+                    )
+                    active_regions = active_regions[:MAX_DISPLAY_REGIONS]
+
                 # Dynamic canvas size for region layout
                 _ws_cw, _ws_ch = SPATIAL_SCALE_CANVAS.get(
                     ws.spatial_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
