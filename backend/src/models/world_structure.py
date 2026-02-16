@@ -102,6 +102,7 @@ class WorldStructure(BaseModel):
     spatial_scale: str | None = None        # SpatialScale value or None
     location_parents: dict[str, str] = {}  # authoritative parent: location_name → parent_name
     type_hierarchy: dict[str, str] = {}   # learned type hierarchy: child_type → parent_type
+    geo_type: str | None = None           # "realistic" / "mixed" / "fantasy" — detected by GeoResolver
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:

@@ -418,7 +418,7 @@ export function UploadDialog({
 
         {/* Stage: Preview */}
         {(stage === "preview" || stage === "confirming") && preview && (
-          <div className="space-y-4">
+          <div className="max-h-[calc(80vh-10rem)] space-y-4 overflow-y-auto pr-1">
             {/* Editable metadata */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -657,7 +657,7 @@ export function UploadDialog({
             )}
 
             {/* Chapter list */}
-            <div className="max-h-64 overflow-y-auto rounded-md border">
+            <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-md border">
               <table className="w-full table-fixed text-sm">
                 <colgroup>
                   <col className="w-8" />

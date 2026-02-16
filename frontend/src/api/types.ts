@@ -315,7 +315,7 @@ export interface MapData {
   trajectories: Record<string, TrajectoryPoint[]>
   spatial_constraints: SpatialConstraint[]
   layout: MapLayoutItem[]
-  layout_mode: "constraint" | "hierarchy" | "layered"
+  layout_mode: "constraint" | "hierarchy" | "layered" | "geographic"
   terrain_url: string | null
   analyzed_range: [number, number]
   region_boundaries?: RegionBoundary[]

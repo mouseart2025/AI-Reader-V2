@@ -2164,7 +2164,7 @@ def generate_terrain(
 
 
 # Bump this when solver algorithm changes to invalidate layout cache
-_LAYOUT_VERSION = 8
+_LAYOUT_VERSION = 9
 
 def compute_chapter_hash(
     chapter_start: int, chapter_end: int,
@@ -2196,4 +2196,101 @@ def layout_to_list(
             "y": round(y, 1),
             "radius": radius,
         })
+    return result
+
+
+def place_unresolved_near_neighbors(
+    unresolved_names: list[str],
+    resolved_layout: list[dict],
+    locations: list[dict],
+    parent_map: dict[str, str | None],
+    canvas_w: int,
+    canvas_h: int,
+) -> list[dict]:
+    """Place unresolved location names near their resolved neighbors.
+
+    Strategy:
+      1. If the unresolved name has a parent that IS resolved, scatter around it.
+      2. Otherwise, if any sibling (same parent) is resolved, scatter around the
+         sibling's centroid.
+      3. Last resort: place near the centroid of all resolved locations.
+
+    Returns layout items for the unresolved names (same format as layout_to_list).
+    """
+    if not unresolved_names or not resolved_layout:
+        return []
+
+    # Build resolved coord lookup
+    resolved_coords: dict[str, tuple[float, float]] = {
+        item["name"]: (item["x"], item["y"]) for item in resolved_layout
+    }
+
+    # Build children-of-parent lookup from resolved locations
+    parent_children: dict[str, list[str]] = {}
+    for name, parent in parent_map.items():
+        if parent and parent in resolved_coords:
+            parent_children.setdefault(parent, []).append(name)
+
+    # Compute global centroid as last-resort anchor
+    all_xs = [c[0] for c in resolved_coords.values()]
+    all_ys = [c[1] for c in resolved_coords.values()]
+    global_cx = sum(all_xs) / len(all_xs)
+    global_cy = sum(all_ys) / len(all_ys)
+
+    # Location lookup for radius calculation
+    loc_by_name = {loc["name"]: loc for loc in locations}
+
+    # Scale jitter with canvas
+    base_jitter = max(30, min(canvas_w, canvas_h) * 0.04)
+
+    result: list[dict] = []
+    orphan_idx = 0
+
+    for name in unresolved_names:
+        if name in resolved_coords:
+            continue  # already placed
+
+        anchor: tuple[float, float] | None = None
+
+        # Strategy 1: parent is resolved
+        parent = parent_map.get(name)
+        if parent and parent in resolved_coords:
+            anchor = resolved_coords[parent]
+        else:
+            # Strategy 2: find resolved sibling (share same parent)
+            if parent:
+                siblings = [
+                    n for n in parent_children.get(parent, [])
+                    if n in resolved_coords
+                ]
+                if siblings:
+                    sx = sum(resolved_coords[s][0] for s in siblings) / len(siblings)
+                    sy = sum(resolved_coords[s][1] for s in siblings) / len(siblings)
+                    anchor = (sx, sy)
+
+        if anchor is None:
+            anchor = (global_cx, global_cy)
+
+        # Golden-angle circular scatter around anchor
+        ax, ay = anchor
+        jitter_angle = orphan_idx * 2.4  # golden angle ≈ 137.5°
+        jitter_r = base_jitter + base_jitter * 0.3 * (orphan_idx % 8)
+        x = ax + jitter_r * math.cos(jitter_angle)
+        y = ay + jitter_r * math.sin(jitter_angle)
+        x = max(50, min(canvas_w - 50, x))
+        y = max(50, min(canvas_h - 50, y))
+
+        loc = loc_by_name.get(name, {})
+        mention = loc.get("mention_count", 1)
+        level = loc.get("level", 0)
+        radius = max(15, min(60, 10 + mention * 2 + (3 - level) * 5))
+
+        result.append({
+            "name": name,
+            "x": round(x, 1),
+            "y": round(y, 1),
+            "radius": radius,
+        })
+        orphan_idx += 1
+
     return result

@@ -45,7 +45,7 @@ AI-Reader-V2/
 │       │   ├── main.py             # FastAPI app entry, CORS, lifespan
 │       │   ├── routes/             # REST endpoints (15 routers)
 │       │   └── websocket/          # WS handlers (analysis progress, chat streaming)
-│       ├── services/               # Business logic (13 services)
+│       ├── services/               # Business logic (14 services)
 │       ├── extraction/             # LLM fact extraction + entity pre-scan pipeline
 │       │   ├── entity_pre_scanner.py  # jieba stats + LLM classification
 │       │   └── prompts/            # System prompt + few-shot examples
@@ -119,6 +119,21 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 ### Graph Edge Aggregation
 
 `visualization_service.py` — graph edges use `Counter`-based type frequency tracking instead of "latest chapter wins". Each edge outputs `relation_type` (most frequent normalized type) and `all_types` (all types sorted by frequency). Edge colors in the frontend match on exact normalized types with keyword fallback. Hierarchical relations (师徒/主仆/君臣) get a distinct purple color.
+
+### GeoResolver — Real-World Coordinate Matching
+
+`GeoResolver` (`geo_resolver.py`) — matches novel location names to real-world GeoNames coordinates for realistic geographic map layouts. Supports multiple datasets via `GeoDatasetConfig` registry:
+
+- **`cn`**: GeoNames CN.zip — comprehensive Chinese locations (~140K entries), used for historical/wuxia novels
+- **`world`**: GeoNames cities15000.zip — global cities with pop > 15000 (~25K entries), used for international novels
+
+**Auto-detection pipeline** (`auto_resolve()`): `detect_geo_scope()` determines dataset based on genre_hint + location name CJK ratio → loads appropriate dataset → `detect_geo_type()` computes match rate → returns `"realistic"` (≥50%), `"mixed"` (≥25%), or `"fantasy"` (<25%). **Fallback logic**: if CN dataset matches poorly (e.g., translated foreign place names like 伦敦/巴黎), automatically retries with world dataset.
+
+**Name resolution** uses 3-level matching: exact match → Chinese suffix stripping (城/府/州/县/镇/村/山/河/湖 etc.) → disambiguation by population + admin feature codes.
+
+**Integration**: `visualization_service.get_map_data()` calls `auto_resolve()` before existing ConstraintSolver path. If geo_type is realistic/mixed, resolved coordinates are projected via Mercator to canvas, unresolved names scattered near neighbors via `place_unresolved_near_neighbors()`. Result cached as `layout_mode="geographic"`.
+
+`WorldStructure.geo_type` caches the detection result to avoid redundant computation.
 
 ### Two Databases Only
 
