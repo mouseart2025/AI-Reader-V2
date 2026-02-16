@@ -112,3 +112,21 @@ development_status:
   7-11-user-edit-world-structure: done
   7-12-extraction-enhancement: done
   epic-7-retrospective: optional
+
+  # ── Epic 15: 导入可靠性 + 文本卫生 + 基准测试 ──
+  epic-15: done
+  # Milestone 1: 章节切分永不失败
+  15-1-benchmark-import-script: done
+  15-3-preprocessing-enhancement: done
+  15-4-chapter-en-mode: done
+  15-5-heuristic-title-mode: done
+  15-6-fixed-size-fallback: done
+  15-7-split-diagnosis: done
+  15-8-frontend-diagnosis-display: done
+  # Milestone 2: 文本卫生检测与清理
+  15-10-noise-detection-engine: done
+  15-11-clean-function: done
+  15-12-import-flow-integration: done
+  15-13-frontend-hygiene-report: done
+  15-14-benchmark-hygiene-columns: done
+  epic-15-retrospective: optional

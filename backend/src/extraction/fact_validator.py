@@ -71,13 +71,59 @@ _VEHICLE_WORDS = frozenset({
     "车厢", "船舱", "轿内",
 })
 
+# Generic facility/building names — shared across many chapters, not specific places
+_GENERIC_FACILITY_NAMES = frozenset({
+    # Lodging
+    "酒店", "客店", "客栈", "旅店", "饭店", "酒楼", "酒馆", "酒肆",
+    "茶坊", "茶馆", "茶楼", "茶肆", "茶铺",
+    # Commerce
+    "店铺", "铺子", "当铺", "药铺", "药店", "米铺", "布店",
+    "集市", "市场", "市集", "庙会",
+    # Government/official
+    "衙门", "公堂", "大堂", "牢房", "牢城", "监牢", "死牢",
+    "法场", "刑场", "校场",
+    # Religious
+    "寺庙", "道观", "庵堂", "祠堂",
+    # Functional rooms — interior spaces, not named locations
+    "后堂", "前厅", "正厅", "大厅", "中堂", "花厅",
+    "书房", "卧房", "卧室", "厨房", "柴房", "仓库",
+    "内室", "内房", "内堂", "后房", "后院", "前院",
+    "偏厅", "偏房", "厢房", "耳房",
+    "马厩", "马棚", "草料场",
+    # Generic structures
+    "山寨", "营寨", "大寨", "寨子",
+    "码头", "渡口", "津渡",
+    "驿站", "驿馆",
+})
+
 # Hardcoded fallback blocklist — catches common cases the rules might miss
 _FALLBACK_GEO_BLOCKLIST = frozenset({
     "外面", "里面", "前方", "后方", "旁边", "附近", "远处", "近处",
     "对面", "身边", "身旁", "眼前", "面前", "脚下", "头顶", "上方", "下方",
     "半山腰", "水面", "地面", "天空", "空中",
-    "家里", "家中", "家门",
+    "家里", "家中", "家门", "家内",
     "这边", "那边", "这里", "那里", "此地", "此处", "彼处",
+    # Relative positions with building parts
+    "厅上", "厅前", "厅下", "堂上", "堂前", "堂下",
+    "门前", "门外", "门口", "门内", "门下",
+    "阶下", "阶前", "廊下", "檐下", "墙外", "墙内",
+    "屏风后", "帘后", "帘内",
+    "桥头", "桥上", "桥下", "路口", "路上", "路旁", "路边",
+    "岸上", "岸边", "水边", "河边", "湖边", "溪边",
+    "山上", "山下", "山前", "山后", "山中", "山脚", "山脚下",
+    "林中", "林内", "树下", "树林", "草丛",
+    "城内", "城外", "城中", "城上", "城下", "城头",
+    "村口", "村外", "村中", "村里", "镇上",
+    "庄上", "庄前", "庄后", "庄内", "庄外",
+    "寨内", "寨外", "寨前", "寨中",
+    "店中", "店内", "店外", "店里",
+    "房中", "房内", "房里", "屋里", "屋内", "屋中",
+    "楼上", "楼下", "楼中",
+    "院中", "院内", "院外", "院子",
+    "园中", "园内",
+    "船上", "船头", "船中",
+    "马上", "车上",
+    "战场", "阵前", "阵中", "阵后",
 })
 
 # ── Person generic references ─────────────────────────────────────────
@@ -87,14 +133,29 @@ _GENERIC_PERSON_WORDS = frozenset({
     "众人", "其他人", "旁人", "来人", "对方", "大家", "所有人",
     "那人", "此人", "其人", "何人", "某人", "外人", "路人",
     "他们", "她们", "我们", "诸位", "各位", "在场众人",
+    # Classical Chinese generics — refer to different people per chapter
+    "妇人", "女子", "汉子", "大汉", "壮汉", "好汉",
+    "老儿", "老者", "老翁", "少女", "丫头",
+    "军士", "军汉", "兵丁", "喽啰", "小喽啰",
+    "差人", "差役", "官差", "公差", "衙役",
+    "和尚", "僧人", "道士", "先生", "秀才",
+    "店家", "店主", "小二", "店小二", "酒保",
+    "庄客", "农夫", "猎户", "渔夫", "樵夫",
+    "使者", "信使", "探子", "细作",
+    "客人", "客官", "过客", "行人",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
 _PURE_TITLE_WORDS = frozenset({
     "堂主", "长老", "弟子", "护法", "掌门", "帮主", "教主",
-    "师父", "师兄", "师弟", "师姐", "师妹",
+    "师父", "师兄", "师弟", "师姐", "师妹", "师傅",
     "大哥", "二哥", "三哥", "大姐", "二姐",
-    "官差", "侍卫", "仆人", "丫鬟", "小厮",
+    "侍卫", "仆人", "丫鬟", "小厮",
+    # Official ranks used as address
+    "太尉", "知府", "知县", "提辖", "都监", "教头", "都头",
+    "将军", "元帅", "丞相", "太师",
+    "头领", "寨主", "大王", "员外",
+    "恩相", "大人", "老爷", "相公",
 })
 
 
@@ -117,7 +178,11 @@ def _is_generic_location(name: str) -> str | None:
     if name in _VEHICLE_WORDS:
         return "vehicle/object"
 
-    # Rule 4: Hardcoded fallback blocklist
+    # Rule 4: Generic facility/building names (酒店, 客店, 后堂, 书房, ...)
+    if name in _GENERIC_FACILITY_NAMES:
+        return "generic facility name"
+
+    # Rule 4b: Hardcoded fallback blocklist
     if name in _FALLBACK_GEO_BLOCKLIST:
         return "fallback blocklist"
 
@@ -150,15 +215,48 @@ def _is_generic_location(name: str) -> str | None:
                 break  # Only check first matching modifier
 
     # Rule 9: 2-char with both chars being generic — e.g., 村落, 山林, 水面
-    # These lack a specific name part
+    # These lack a specific name part. BUT exclude X+州/城/镇/县/国 combos
+    # because they are often real place names (江州, 海州, 青州, 沧州, etc.)
     if n == 2:
-        if name[0] in _GEO_GENERIC_SUFFIXES | frozenset("水天地场石土") and name[1] in _GEO_GENERIC_SUFFIXES | frozenset("面子落处口边旁"):
-            return f"two-char generic compound"
+        # Don't filter X+administrative_suffix — these are typically real place names
+        if name[1] not in "州城镇县国省郡府":
+            if name[0] in _GEO_GENERIC_SUFFIXES | frozenset("水天地场石土") and name[1] in _GEO_GENERIC_SUFFIXES | frozenset("面子落处口边旁"):
+                return "two-char generic compound"
 
     # Rule 10: Starts with demonstrative/direction + 边/里/面/处
     # E.g., "七玄门这边" would be caught if LLM extracts it
     if n >= 3 and name[-1] in "边里面处" and name[-2] in "这那":
         return "demonstrative + directional"
+
+    # Rule 11: Ends with 家里/家中/那里/这里 — person + location suffix
+    # E.g., "王婆家里", "武大家中", "林冲那里"
+    for suf in ("家里", "家中", "那里", "这里", "府上", "住处", "门前", "屋里"):
+        if n > len(suf) and name.endswith(suf):
+            return f"person + location suffix ({suf})"
+
+    # Rule 12: Single char that is a building part (not geo feature)
+    # 厅/堂/楼/阁/殿 alone are not specific place names
+    if n == 1 and name in "厅堂楼阁殿亭阶廊柜":
+        return "single-char building part"
+
+    # Rule 13: 2-char ending with 里/中/内/外/上/下 where first char is a facility word
+    # E.g., 店里, 牢中, 庙内, 帐中
+    if n == 2 and name[1] in "里中内外上下" and name[0] in "店牢庙帐棚洞窑库坑井":
+        return "facility + positional"
+
+    # Rule 14: Compound positional phrase — generic area/structure + 里/中/内/外/上/下
+    # E.g., 后花园中, 冈子下, 前门外, 书案边, 草堂上
+    # Pattern: 3-4 char name ending with positional suffix where the base is a generic term
+    if n >= 3 and name[-1] in "里中内外上下前后边旁处":
+        base = name[:-1]
+        _GENERIC_BASES = frozenset({
+            "后花园", "前花园", "后院子", "前院子", "大门", "后门", "前门", "侧门",
+            "冈子", "山坡", "岭上", "坡下", "崖下", "岸边", "河畔",
+            "书案", "桌案", "床头", "窗前", "屏风", "帐帘", "阶梯",
+            "墙角", "墙根", "门槛", "门洞", "门扇", "院墙",
+        })
+        if base in _GENERIC_BASES:
+            return f"compound positional ({base}+{name[-1]})"
 
     return None
 
@@ -270,7 +368,67 @@ class FactValidator:
                 )
             else:
                 seen[name] = ch.model_copy(update={"name": name})
+
+        # Second pass: clean new_aliases against the full character set
+        # This catches LLM errors where one character's name is wrongly
+        # listed as another character's alias (e.g., 李俊 in 李逵's aliases)
+        all_names = set(seen.keys())
+        for name, ch in seen.items():
+            cleaned = self._clean_aliases(ch.new_aliases, name, all_names)
+            if len(cleaned) != len(ch.new_aliases):
+                seen[name] = ch.model_copy(update={"new_aliases": cleaned})
+
         return list(seen.values())
+
+    def _clean_aliases(
+        self,
+        aliases: list[str],
+        owner_name: str,
+        all_char_names: set[str],
+    ) -> list[str]:
+        """Clean new_aliases by removing three classes of erroneous aliases.
+
+        1. Alias is another independent character in this chapter
+        2. Alias is too long (>6 chars) — likely a descriptive phrase
+        3. Alias contains another character's full name (e.g., "水军头领李俊")
+        """
+        cleaned = []
+        for alias in aliases:
+            if not alias:
+                continue
+            # Rule 1: alias is itself an independent character in this chapter
+            if alias in all_char_names and alias != owner_name:
+                logger.debug(
+                    "Alias conflict: '%s' is independent char, removing from %s",
+                    alias, owner_name,
+                )
+                continue
+            # Rule 2: alias too long — descriptive phrases, not names
+            if len(alias) > 6:
+                logger.debug(
+                    "Alias too long (%d): '%s' for %s",
+                    len(alias), alias, owner_name,
+                )
+                continue
+            # Rule 3: alias contains another character's full name
+            contaminated = False
+            for other in all_char_names:
+                if (
+                    other != owner_name
+                    and len(other) >= 2
+                    and other in alias
+                    and alias != other
+                ):
+                    logger.debug(
+                        "Alias contains other char: '%s' contains '%s', removing from %s",
+                        alias, other, owner_name,
+                    )
+                    contaminated = True
+                    break
+            if contaminated:
+                continue
+            cleaned.append(alias)
+        return cleaned
 
     def _validate_relationships(self, rels, characters):
         """Validate relationships; keep only those referencing known characters."""

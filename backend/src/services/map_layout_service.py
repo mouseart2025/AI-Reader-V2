@@ -593,6 +593,43 @@ _LAYER_CANVAS_SIZES: dict[str, tuple[int, int]] = {
 }
 
 
+def _distribute_in_bounds(
+    locations: list[dict],
+    bounds: tuple[float, float, float, float],
+    user_overrides: dict[str, tuple[float, float]] | None = None,
+) -> dict[str, tuple[float, float]]:
+    """Place a small number of locations evenly within bounds without a solver.
+
+    For 1 location: center. For 2-3: spread along the diagonal.
+    User overrides take priority.
+    """
+    x1, y1, x2, y2 = bounds
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+    overrides = user_overrides or {}
+    result: dict[str, tuple[float, float]] = {}
+
+    for i, loc in enumerate(locations):
+        name = loc["name"]
+        if name in overrides:
+            result[name] = overrides[name]
+            continue
+        n = len(locations)
+        if n == 1:
+            result[name] = (cx, cy)
+        else:
+            t = i / (n - 1)  # 0.0 → 1.0
+            margin = min((x2 - x1), (y2 - y1)) * 0.15
+            result[name] = (
+                x1 + margin + t * (x2 - x1 - 2 * margin),
+                y1 + margin + t * (y2 - y1 - 2 * margin),
+            )
+    return result
+
+
+# Maximum number of regions to solve individually; beyond this, merge the rest
+MAX_SOLVER_REGIONS = 30
+
+
 def _solve_region(
     region_name: str,
     region_bounds: tuple[float, float, float, float],
@@ -607,6 +644,10 @@ def _solve_region(
     """
     if not locations:
         return {}
+
+    # Fast path: few locations → distribute without solver overhead
+    if len(locations) <= 3:
+        return _distribute_in_bounds(locations, region_bounds, user_overrides)
 
     loc_names = {loc["name"] for loc in locations}
 
@@ -866,34 +907,35 @@ def _solve_overworld_by_region(
         else:
             unassigned_locs.append(loc)
 
-    # Solve each region independently
+    # Count non-empty regions
+    non_empty = {rn: locs for rn, locs in region_locs.items() if locs}
+    non_empty_count = len(non_empty)
+
     merged_layout: dict[str, tuple[float, float]] = {}
+    margin_x = max(50, canvas_width // 20)
+    margin_y = max(50, canvas_height // 20)
+    fallback_bounds = (margin_x, margin_y, canvas_width - margin_x, canvas_height - margin_y)
 
-    for region_name, rlocs in region_locs.items():
-        if not rlocs:
-            continue
-        bounds = region_layout[region_name]["bounds"]
-        coords = _solve_region(
-            region_name, bounds, rlocs, constraints,
-            user_overrides=user_overrides,
-            first_chapter=first_chapter,
-        )
-        merged_layout.update(coords)
-
-    # Solve unassigned locations with the full canvas, but with per-location
-    # region bounds for any that happen to belong to a region
-    if unassigned_locs:
+    if non_empty_count > MAX_SOLVER_REGIONS:
+        # ── Many regions: use a SINGLE global solver with per-location region bounds ──
+        # This avoids creating hundreds of ConstraintSolver instances (each with
+        # scipy differential_evolution overhead).
+        all_locs = locations  # all locations go into one solver
         loc_region_bounds: dict[str, tuple[float, float, float, float]] = {}
-        for loc in unassigned_locs:
+        for loc in all_locs:
             rn = location_region_map.get(loc["name"])
             if rn and rn in region_layout:
                 loc_region_bounds[loc["name"]] = region_layout[rn]["bounds"]
 
-        margin_x = max(50, canvas_width // 20)
-        margin_y = max(50, canvas_height // 20)
-        fallback_bounds = (margin_x, margin_y, canvas_width - margin_x, canvas_height - margin_y)
+        logger.info(
+            "Using global solver for %d locations across %d regions "
+            "(exceeds MAX_SOLVER_REGIONS=%d); %d have region bounds",
+            len(all_locs), non_empty_count, MAX_SOLVER_REGIONS,
+            len(loc_region_bounds),
+        )
+
         solver = ConstraintSolver(
-            unassigned_locs, constraints,
+            all_locs, constraints,
             user_overrides=user_overrides,
             first_chapter=first_chapter,
             location_region_bounds=loc_region_bounds,
@@ -901,6 +943,36 @@ def _solve_overworld_by_region(
         )
         coords, _ = solver.solve()
         merged_layout.update(coords)
+    else:
+        # ── Few regions: solve per-region for better quality ──
+        for region_name, rlocs in region_locs.items():
+            if not rlocs:
+                continue
+            bounds = region_layout[region_name]["bounds"]
+            coords = _solve_region(
+                region_name, bounds, rlocs, constraints,
+                user_overrides=user_overrides,
+                first_chapter=first_chapter,
+            )
+            merged_layout.update(coords)
+
+        # Solve unassigned locations with the full canvas
+        if unassigned_locs:
+            loc_region_bounds_ua: dict[str, tuple[float, float, float, float]] = {}
+            for loc in unassigned_locs:
+                rn = location_region_map.get(loc["name"])
+                if rn and rn in region_layout:
+                    loc_region_bounds_ua[loc["name"]] = region_layout[rn]["bounds"]
+
+            solver = ConstraintSolver(
+                unassigned_locs, constraints,
+                user_overrides=user_overrides,
+                first_chapter=first_chapter,
+                location_region_bounds=loc_region_bounds_ua,
+                canvas_bounds=fallback_bounds,
+            )
+            coords, _ = solver.solve()
+            merged_layout.update(coords)
 
     return merged_layout
 

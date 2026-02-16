@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { fetchNovel, fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail } from "@/api/client"
+import { fetchNovel, fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, rebuildHierarchy } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
@@ -69,6 +69,8 @@ export default function EncyclopediaPage() {
   const [search, setSearch] = useState("")
   const [conceptDetail, setConceptDetail] = useState<ConceptDetail | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  const [rebuilding, setRebuilding] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   // Reset hierarchy sort when leaving location category
   useEffect(() => {
@@ -287,7 +289,37 @@ export default function EncyclopediaPage() {
                 层级
               </Button>
             )}
+            {activeCategory === "location" && sortBy === "hierarchy" && (
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={rebuilding}
+                onClick={() => {
+                  if (!novelId || rebuilding) return
+                  setRebuilding(true)
+                  rebuildHierarchy(novelId)
+                    .then((res) => {
+                      setToast(`层级重建完成: ${res.root_count} 个根节点`)
+                      // Reload entries to reflect new hierarchy
+                      setLoading(true)
+                      fetchEncyclopediaEntries(novelId, "location", "hierarchy")
+                        .then((data) => setEntries(data.entries))
+                        .finally(() => setLoading(false))
+                    })
+                    .catch(() => setToast("层级重建失败"))
+                    .finally(() => {
+                      setRebuilding(false)
+                      setTimeout(() => setToast(null), 4000)
+                    })
+                }}
+              >
+                {rebuilding ? "重建中..." : "重建层级"}
+              </Button>
+            )}
             <div className="flex-1" />
+            {toast && (
+              <span className="text-xs text-green-600">{toast}</span>
+            )}
             <span className="text-xs text-muted-foreground">
               {filteredEntries.length} 条目
             </span>

@@ -15,8 +15,13 @@
 7. 同一人有多个称呼时，最正式的名字作为 name，其他作为 new_aliases
 8. **注意区分**：如果两个称呼在文中指代不同的人（如"老猴"和"通背猿猴"可能是不同角色），应分别提取
 9. **别名规则**：绰号、乳名、道号、法号、官职称呼都算别名。注意"X叫作Y""X被称为Y""又名X"等模式
-10. appearance：本章对该人物的外貌描写原文（如有）
-11. locations_in_chapter：该人物出现的地点名列表
+10. **别名禁止规则**⚠️：
+    - **别名不能是另一个独立角色**：如果 A 和 B 都是有各自行为、对话的独立角色，B 不能作为 A 的别名。例如李逵和李俊是不同的人，即使同姓"李"
+    - **别名必须有文本依据**：只有文中明确表明 X 和 Y 是同一人（如"X 又名 Y""X 即 Y"或叙述中交替使用指代同一人）时才能标为别名。不要仅因为两个名字出现在同一段就认为是别名
+    - **泛称/通称不是别名**：如"好汉""兄弟""娘子""太尉""大人""头领"等可指代多人的通用称呼不应作为任何人的别名
+    - **梦境/幻觉/回忆中的角色是独立的**：角色在梦境、幻觉中遇到的仙童、神将等仍是独立角色，不是做梦者的别名
+11. appearance：本章对该人物的外貌描写原文（如有）
+12. locations_in_chapter：该人物出现的地点名列表
 
 ## 关系提取规则（relationships）⚠️ 不可为空
 1. **任何两个人物在本章有互动或文中提及关系，都必须提取**
@@ -56,7 +61,7 @@
 2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain, in_between
 3. direction 的 value 使用英文方位：north_of, south_of, east_of, west_of, northeast_of, northwest_of, southeast_of, southwest_of
 4. distance 的 value 描述距离信息，如 "三天路程（步行）"、"百里"、"very_near"
-5. contains 的 value 描述包含关系，如 "城市在国境内"
+5. contains: **source 包含 target**（source 是更大的地理实体，target 在 source 内部）。正确示例: source="东京" target="开封府"（东京包含开封府）。错误示例: source="开封府" target="东京"（❌ 小地方不能包含大地方）。判断方法: 如果 A 在 B 里面，则 source=B, target=A
 6. adjacent 的 value 为 "adjacent"（相邻/接壤/毗邻）
 7. separated_by 的 value 描述分隔物：如 "大河"、"山脉"、"荒漠"
 8. terrain 的 value 描述地形特征：on_coast, in_forest, on_mountain, in_desert, by_river, in_plains

@@ -59,6 +59,25 @@ export interface ChapterPreview {
   is_suspect?: boolean
 }
 
+export interface SplitDiagnosis {
+  tag: string
+  message: string
+  suggestion?: string
+}
+
+export interface SuspectLine {
+  line_num: number
+  content: string
+  category: string
+  confidence: number
+}
+
+export interface HygieneReport {
+  total_suspect_lines: number
+  by_category: Record<string, number>
+  samples: SuspectLine[]
+}
+
 export interface UploadPreviewResponse {
   title: string
   author: string | null
@@ -68,6 +87,9 @@ export interface UploadPreviewResponse {
   chapters: ChapterPreview[]
   warnings: string[]
   duplicate_novel_id: string | null
+  diagnosis?: SplitDiagnosis | null
+  hygiene_report?: HygieneReport | null
+  matched_mode?: string | null
 }
 
 export interface ConfirmImportRequest {
@@ -81,6 +103,11 @@ export interface ReSplitRequest {
   file_hash: string
   mode?: string | null
   custom_regex?: string | null
+}
+
+export interface CleanAndReSplitRequest {
+  file_hash: string
+  clean_mode?: string
 }
 
 export interface SplitModesResponse {

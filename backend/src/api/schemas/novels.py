@@ -10,6 +10,28 @@ class ChapterPreviewItem(BaseModel):
     is_suspect: bool = False
 
 
+class SplitDiagnosis(BaseModel):
+    """Structured diagnosis of how the chapter split went."""
+    tag: str  # OK, NO_HEADING_MATCH, SINGLE_HUGE_CHAPTER, etc.
+    message: str  # User-facing Chinese description
+    suggestion: str = ""  # Recommended action
+
+
+class SuspectLine(BaseModel):
+    """A single line flagged as noise."""
+    line_num: int
+    content: str
+    category: str  # url, promo, template, decoration, repeated
+    confidence: float
+
+
+class HygieneReport(BaseModel):
+    """Report on text noise/hygiene issues."""
+    total_suspect_lines: int
+    by_category: dict[str, int]
+    samples: list[SuspectLine]
+
+
 class UploadPreviewResponse(BaseModel):
     title: str
     author: str | None
@@ -19,6 +41,9 @@ class UploadPreviewResponse(BaseModel):
     chapters: list[ChapterPreviewItem]
     warnings: list[str]
     duplicate_novel_id: str | None
+    diagnosis: SplitDiagnosis | None = None
+    hygiene_report: HygieneReport | None = None
+    matched_mode: str | None = None
 
 
 class ConfirmImportRequest(BaseModel):
@@ -32,6 +57,11 @@ class ReSplitRequest(BaseModel):
     file_hash: str
     mode: str | None = None
     custom_regex: str | None = None
+
+
+class CleanAndReSplitRequest(BaseModel):
+    file_hash: str
+    clean_mode: str = "conservative"  # "conservative" or "aggressive"
 
 
 class NovelResponse(BaseModel):

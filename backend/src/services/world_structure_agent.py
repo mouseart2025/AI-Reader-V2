@@ -18,10 +18,12 @@ import re
 from pathlib import Path
 
 from src.db import world_structure_override_store, world_structure_store
+from src.extraction.fact_validator import _is_generic_location
 from src.infra.config import LLM_PROVIDER
 from src.infra.llm_client import LLMClient, get_llm_client
 from src.models.chapter_fact import ChapterFact
 from src.services.location_hint_service import extract_direction_hint
+from src.services.hierarchy_consolidator import consolidate_hierarchy
 from collections import Counter
 
 from src.models.world_structure import (
@@ -87,17 +89,25 @@ _EXCERPT_HALF = 100
 
 _GENRE_KEYWORDS: dict[str, list[str]] = {
     "fantasy": [
+        # Cultivation-specific terms (avoid single-char keywords that cause false positives)
         "修炼", "修仙", "灵气", "法宝", "丹药", "阵法", "飞升", "渡劫",
-        "妖", "仙", "魔", "天宫", "天庭", "龙宫", "地府", "结丹", "元婴",
-        "灵根", "功法", "法术", "御剑", "遁光", "神通", "洞府", "仙人",
+        "结丹", "元婴", "灵根", "功法", "法术", "御剑", "遁光", "神通",
+        "灵石", "仙门", "仙宗", "仙界", "魔界", "妖界", "魔族", "妖族",
+        "妖兽", "妖核", "魔力", "灵力", "仙人", "洞府",
+        "天宫", "天庭", "龙宫", "地府",
     ],
     "wuxia": [
         "江湖", "门派", "武功", "内力", "武林", "侠", "剑法", "掌法",
         "轻功", "暗器", "镖局", "帮", "盟", "掌门", "弟子", "比武",
+        "好汉", "头领", "落草", "绿林", "拳脚", "英雄好汉",
+        "强盗", "响马", "草寇", "山贼",
     ],
     "historical": [
         "朝廷", "皇帝", "太监", "丞相", "将军", "知府", "知县",
         "年号", "国号", "殿下", "陛下", "圣旨", "科举",
+        "太尉", "节度使", "制使", "提辖", "都头", "教头",
+        "官府", "衙门", "差人", "公人", "押司", "殿帅",
+        "府尹", "县令", "刺史", "巡抚", "总兵",
     ],
     "urban": [
         "公司", "学校", "大学", "手机", "电脑", "网络", "办公室",
@@ -167,6 +177,7 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("自治区", "continent"),
     ("省", "continent"),
     ("地区", "kingdom"),
+    ("府", "kingdom"),  # 开封府, 大名府, etc.
     ("县城", "city"),  # "县城" = county seat, functions as a city/town
     ("市", "kingdom"),
     ("州", "kingdom"),
@@ -312,6 +323,16 @@ class WorldStructureAgent:
             # Resolve authoritative parents from accumulated votes
             if self._parent_votes:
                 self.structure.location_parents = self._resolve_parents()
+
+            # Consolidate hierarchy: reduce roots to single digits
+            self.structure.location_parents, self.structure.location_tiers = (
+                consolidate_hierarchy(
+                    self.structure.location_parents,
+                    self.structure.location_tiers,
+                    novel_genre_hint=self.structure.novel_genre_hint,
+                    parent_votes=self._parent_votes,
+                )
+            )
 
             await world_structure_store.save(self.novel_id, self.structure)
         except Exception:
@@ -977,14 +998,52 @@ class WorldStructureAgent:
                 self.structure.location_icons[name] = icon
 
             # ── Parent vote accumulation ──
+            # Skip generic locations — they pollute hierarchy with noise
             if loc.parent and loc.name != loc.parent:
-                self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
+                if not _is_generic_location(loc.name) and not _is_generic_location(loc.parent):
+                    self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
 
         # Accumulate contains relationships as parent votes
+        # Contains direction validation: LLM frequently inverts the direction,
+        # writing "A contains B" when meaning "A is inside B".
+        # We validate using tier comparison and apply defensive weight reduction.
         for sr in fact.spatial_relationships:
             if sr.relation_type == "contains" and sr.source != sr.target:
-                weight = {"high": 3, "medium": 2, "low": 1}.get(sr.confidence, 1)
-                self._parent_votes.setdefault(sr.target, Counter())[sr.source] += weight
+                source, target = sr.source, sr.target
+                # Skip generic locations
+                if _is_generic_location(source) or _is_generic_location(target):
+                    continue
+                # Defensive weight: reduced from {3,2,1} to {2,1,1}
+                # because contains direction is unreliable from LLM
+                weight = {"high": 2, "medium": 1, "low": 1}.get(sr.confidence, 1)
+                # Tier-based direction validation
+                source_tier = self.structure.location_tiers.get(source, "city")
+                target_tier = self.structure.location_tiers.get(target, "city")
+                source_rank = TIER_ORDER.get(source_tier, 4)
+                target_rank = TIER_ORDER.get(target_tier, 4)
+                if source_rank > target_rank:
+                    # source is smaller than target → LLM inverted direction, flip
+                    source, target = target, source
+                    logger.debug(
+                        "Contains direction fix: %s(%s) ⊄ %s(%s) → flipped",
+                        sr.source, source_tier, sr.target, target_tier,
+                    )
+                elif source_rank == target_rank:
+                    # Same tier — can't determine direction reliably
+                    # Use name containment heuristic
+                    if target.startswith(source) and len(target) > len(source):
+                        # target starts with source: target is sub-location of source
+                        # e.g., source=东京, target=东京城外 → direction correct
+                        pass
+                    elif source.startswith(target) and len(source) > len(target):
+                        # source starts with target: source is sub-location of target
+                        # e.g., source=东京城外, target=东京 → flip
+                        source, target = target, source
+                    else:
+                        # No heuristic can help — reduce weight to 1 (same as parent vote)
+                        weight = 1
+                # source is container (parent), target is contained (child)
+                self._parent_votes.setdefault(target, Counter())[source] += weight
 
         # ── Name containment parent inference ──
         # If "石圪节公社" and "石圪节" both exist, the longer one is likely
@@ -993,8 +1052,10 @@ class WorldStructureAgent:
         all_known = set(self.structure.location_tiers.keys())
         for loc in fact.locations:
             name = loc.name
+            if _is_generic_location(name):
+                continue
             for other in all_known:
-                if name == other:
+                if name == other or _is_generic_location(other):
                     continue
                 # Longer name starts with shorter: longer is likely child
                 # e.g., "石圪节公社" starts with "石圪节" but is actually the
@@ -1072,7 +1133,7 @@ class WorldStructureAgent:
         if raw_tier is None and effective_type:
             # Choose map priority order based on genre
             genre = self.structure.novel_genre_hint
-            if genre in ("realistic", "urban", "historical"):
+            if genre in ("realistic", "urban", "historical", "wuxia"):
                 tier_maps = [_ADMIN_TIER_MAP, _FACILITY_TIER_MAP, _FANTASY_TIER_MAP]
             else:
                 tier_maps = [_FANTASY_TIER_MAP, _FACILITY_TIER_MAP, _ADMIN_TIER_MAP]
@@ -1206,6 +1267,8 @@ class WorldStructureAgent:
             return "urban"
         if genre == "realistic":
             return "national"  # realistic fiction is at least national scale
+        if genre in ("wuxia", "historical"):
+            return "national"  # wuxia/historical is always national scale
 
         # Check known tier distribution
         tier_counts = Counter(self.structure.location_tiers.values())
@@ -1226,9 +1289,7 @@ class WorldStructureAgent:
         # Genre-based fallback
         if genre == "fantasy":
             return "cosmic"
-        if genre == "wuxia":
-            return "national"
-        if genre == "historical":
+        if genre in ("wuxia", "historical"):
             return "national"
 
         return "continental"  # safe default
@@ -1318,7 +1379,7 @@ class WorldStructureAgent:
     # ── Parent vote resolution ────────────────────────
 
     async def _rebuild_parent_votes(self) -> dict[str, Counter]:
-        """Rebuild parent votes from all existing chapter facts (for pause/resume)."""
+        """Rebuild parent votes from all existing chapter facts (for pause/resume/rebuild)."""
         from src.db.sqlite_db import get_connection
         import json as _json
 
@@ -1333,20 +1394,40 @@ class WorldStructureAgent:
         finally:
             await conn.close()
 
+        tiers = self.structure.location_tiers if self.structure else {}
+
         for row in rows:
             data = _json.loads(row["fact_json"])
             for loc in data.get("locations", []):
                 parent = loc.get("parent")
                 name = loc.get("name", "")
                 if parent and name and name != parent:
-                    votes.setdefault(name, Counter())[parent] += 1
+                    if not _is_generic_location(name) and not _is_generic_location(parent):
+                        votes.setdefault(name, Counter())[parent] += 1
             for sr in data.get("spatial_relationships", []):
                 if sr.get("relation_type") == "contains" and sr.get("source") != sr.get("target"):
-                    weight = {"high": 3, "medium": 2, "low": 1}.get(sr.get("confidence", "low"), 1)
-                    target = sr.get("target", "")
                     source = sr.get("source", "")
-                    if target and source:
-                        votes.setdefault(target, Counter())[source] += weight
+                    target = sr.get("target", "")
+                    if not source or not target:
+                        continue
+                    if _is_generic_location(source) or _is_generic_location(target):
+                        continue
+                    # Defensive weight reduction for contains relationships
+                    weight = {"high": 2, "medium": 1, "low": 1}.get(sr.get("confidence", "low"), 1)
+                    # Tier-based direction validation
+                    source_tier = tiers.get(source, "city")
+                    target_tier = tiers.get(target, "city")
+                    source_rank = TIER_ORDER.get(source_tier, 4)
+                    target_rank = TIER_ORDER.get(target_tier, 4)
+                    if source_rank > target_rank:
+                        source, target = target, source
+                    elif source_rank == target_rank:
+                        # Name containment heuristic
+                        if source.startswith(target) and len(source) > len(target):
+                            source, target = target, source
+                        elif not (target.startswith(source) and len(target) > len(source)):
+                            weight = 1  # Can't determine direction, reduce weight
+                    votes.setdefault(target, Counter())[source] += weight
 
         return votes
 
