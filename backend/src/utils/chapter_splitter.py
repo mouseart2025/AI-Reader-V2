@@ -1,4 +1,4 @@
-"""Chapter splitting engine with 8 pattern modes + heuristic + fixed-size fallback."""
+"""Chapter splitting engine with pattern modes + heuristic + fixed-size fallback."""
 
 import re
 from dataclasses import dataclass, field
@@ -50,7 +50,15 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             re.MULTILINE,
         ),
     ),
-    # Mode 3: 1. / 001 / 1、
+    # Mode 3: 一、/ 二、/ 十二、/ 一百二十三、 (Chinese numeral + 顿号)
+    (
+        "cn_numbered",
+        re.compile(
+            r"^\s*([一二三四五六七八九十百千万零〇]+)、[^\S\n]*(.*)$",
+            re.MULTILINE,
+        ),
+    ),
+    # Mode 4: 1. / 001 / 1、
     (
         "numbered",
         re.compile(
@@ -287,7 +295,7 @@ def _extract_title(mode: str, match: re.Match) -> str:
     if mode == "separator":
         return f"第{match.start()}段"  # Separators have no title
 
-    if mode == "numbered":
+    if mode in ("numbered", "cn_numbered"):
         # Group 2 is the title text after the number
         return match.group(2).strip() if match.group(2) else match.group(0).strip()
 
