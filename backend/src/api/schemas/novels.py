@@ -8,6 +8,7 @@ class ChapterPreviewItem(BaseModel):
     title: str
     word_count: int
     is_suspect: bool = False
+    content_preview: str = ""
 
 
 class SplitDiagnosis(BaseModel):
