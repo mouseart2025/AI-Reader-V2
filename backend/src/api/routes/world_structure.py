@@ -100,7 +100,7 @@ async def save_overrides(novel_id: str, body: OverridesBatch):
     if not novel:
         raise HTTPException(status_code=404, detail="小说不存在")
 
-    valid_types = {"location_region", "location_layer", "add_portal", "delete_portal"}
+    valid_types = {"location_region", "location_layer", "location_parent", "location_tier", "add_portal", "delete_portal"}
     for item in body.overrides:
         if item.override_type not in valid_types:
             raise HTTPException(
