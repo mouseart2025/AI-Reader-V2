@@ -721,12 +721,19 @@ export function UploadDialog({
                         <td className={`px-3 py-1.5 ${isExcluded ? "text-muted-foreground line-through" : "text-muted-foreground"}`}>
                           {ch.chapter_num}
                         </td>
-                        <td className={`px-3 py-1.5 truncate ${isExcluded ? "text-muted-foreground line-through" : ""}`} title={ch.title}>
-                          {ch.title}
-                          {ch.is_suspect && !isExcluded && (
-                            <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
-                              (疑似非正文)
-                            </span>
+                        <td className={`px-3 py-1.5 ${isExcluded ? "text-muted-foreground line-through" : ""}`}>
+                          <div className="truncate" title={ch.title}>
+                            {ch.title}
+                            {ch.is_suspect && !isExcluded && (
+                              <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                (疑似非正文)
+                              </span>
+                            )}
+                          </div>
+                          {ch.content_preview && (
+                            <div className="truncate text-xs text-muted-foreground/70" title={ch.content_preview}>
+                              {ch.content_preview}
+                            </div>
                           )}
                         </td>
                         <td className={`px-3 py-1.5 text-right ${isExcluded ? "text-muted-foreground line-through" : "text-muted-foreground"}`}>

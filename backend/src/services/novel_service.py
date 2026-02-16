@@ -141,13 +141,14 @@ def _build_preview(
     # Classify chapters for non-content detection
     suspects = classify_chapters(chapters)
 
-    # Build chapter previews
+    # Build chapter previews (with first ~100 chars of content)
     chapter_previews = [
         ChapterPreviewItem(
             chapter_num=ch.chapter_num,
             title=ch.title,
             word_count=ch.word_count,
             is_suspect=suspects[i],
+            content_preview=ch.content[:100].replace("\n", " ").strip(),
         )
         for i, ch in enumerate(chapters)
     ]

@@ -57,6 +57,7 @@ export interface ChapterPreview {
   title: string
   word_count: number
   is_suspect?: boolean
+  content_preview?: string
 }
 
 export interface SplitDiagnosis {
