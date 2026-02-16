@@ -58,8 +58,12 @@ function highlightText(
 ) {
   if (entities.length === 0) return text
 
+  // Filter out single-character entities (common nouns like 书/饭/茶)
+  const filtered = entities.filter((e) => e.name.length >= 2)
+  if (filtered.length === 0) return text
+
   // Sort by name length desc so longer names match first
-  const sorted = [...entities].sort((a, b) => b.name.length - a.name.length)
+  const sorted = [...filtered].sort((a, b) => b.name.length - a.name.length)
 
   // Build regex pattern escaping special chars
   const pattern = sorted

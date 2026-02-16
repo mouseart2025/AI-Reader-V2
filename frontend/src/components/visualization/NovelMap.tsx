@@ -36,6 +36,47 @@ const TIER_MIN_SCALE: Record<string, number> = {
   building: 3.0,
 }
 
+// ── Tier priority weights (higher = more important) ──
+const TIER_WEIGHT: Record<string, number> = {
+  continent: 6,
+  kingdom: 5,
+  region: 4,
+  city: 3,
+  site: 2,
+  building: 1,
+}
+
+// ── Label collision detection (AABB) ─────────────────
+interface LabelRect {
+  x: number; y: number; w: number; h: number
+  name: string; priority: number
+}
+
+function computeLabelCollisions(rects: LabelRect[]): Set<string> {
+  // Sort by priority descending — higher priority labels claim space first
+  const sorted = [...rects].sort((a, b) => b.priority - a.priority)
+  const visible = new Set<string>()
+  const placed: LabelRect[] = []
+
+  for (const r of sorted) {
+    let overlaps = false
+    for (const p of placed) {
+      if (
+        r.x < p.x + p.w && r.x + r.w > p.x &&
+        r.y < p.y + p.h && r.y + r.h > p.y
+      ) {
+        overlaps = true
+        break
+      }
+    }
+    if (!overlaps) {
+      visible.add(r.name)
+      placed.push(r)
+    }
+  }
+  return visible
+}
+
 const TIER_TEXT_SIZE: Record<string, number> = {
   continent: 22,
   kingdom: 18,
@@ -149,6 +190,7 @@ export interface NovelMapProps {
   currentLocation?: string | null
   canvasSize?: { width: number; height: number }
   spatialScale?: string
+  focusLocation?: string | null
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
   onPortalClick?: (targetLayerId: string) => void
@@ -187,6 +229,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       trajectoryPoints,
       currentLocation,
       canvasSize: canvasSizeProp,
+      focusLocation,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
@@ -352,6 +395,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
 
       viewport.append("g").attr("id", "portals")
+      viewport.append("g").attr("id", "focus-overlay")
 
       // Setup d3-zoom
       const zoom = d3Zoom
@@ -378,26 +422,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [canvasW, canvasH, layoutMode, layerType, bgColor, darkBg])
 
-    // ── Terrain image ────────────────────────────────
-    useEffect(() => {
-      if (!svgRef.current || !mapReady) return
-      const terrainG = d3Selection.select(svgRef.current).select("#terrain")
-      terrainG.selectAll("*").remove()
+    // ── Terrain image (disabled: Voronoi boundary darkening conflicts with
+    //    territory/region layers, causing visual clutter) ──────────────
+    // Pure SVG parchment texture (bg + bg-texture) provides a cleaner base.
 
-      if (terrainUrl) {
-        terrainG
-          .append("image")
-          .attr("href", terrainUrl)
-          .attr("x", 0)
-          .attr("y", 0)
-          .attr("width", canvasW)
-          .attr("height", canvasH)
-          .attr("opacity", 0.8)
-          .attr("preserveAspectRatio", "none")
-      }
-    }, [mapReady, terrainUrl, canvasW, canvasH])
-
-    // ── Render regions ───────────────────────────────
+    // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
@@ -409,42 +438,22 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       if (!regionBoundaries || regionBoundaries.length === 0) return
 
       for (const rb of regionBoundaries) {
-        // Distort for hand-drawn look
-        const distorted = distortPolygonEdges(
-          rb.polygon,
-          canvasW,
-          canvasH,
-          12,
-          42,
-        )
-        const pathData = polygonToPath(distorted)
-
-        // Fill
-        regionsG
-          .append("path")
-          .attr("d", pathData)
-          .attr("fill", rb.color)
-          .attr("fill-opacity", 0.08)
-          .attr("stroke", rb.color)
-          .attr("stroke-opacity", 0.25)
-          .attr("stroke-width", 1.5)
-          .attr("stroke-dasharray", "6,4")
-
-        // Label at center
+        // Text-only label at region center (no polygon border)
         labelsG
           .append("text")
           .attr("x", rb.center[0])
           .attr("y", rb.center[1])
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "central")
-          .attr("fill", rb.color)
-          .attr("opacity", 0.4)
-          .attr("font-size", "18px")
+          .attr("fill", darkBg ? "#ffffff" : "#8b7355")
+          .attr("opacity", 0.25)
+          .attr("font-size", "26px")
           .attr("font-weight", "300")
+          .attr("letter-spacing", "6px")
           .style("pointer-events", "none")
           .text(rb.region_name)
       }
-    }, [mapReady, regionBoundaries, canvasW, canvasH])
+    }, [mapReady, regionBoundaries, canvasW, canvasH, darkBg])
 
     // ── Render territories ───────────────────────────
     useEffect(() => {
@@ -457,7 +466,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (territories.length === 0) return
 
+      // For dense maps (many territories), reduce visual noise:
+      // only show top-level territories and fade boundaries
+      const isDense = territories.length > 15
+      const maxLevel = isDense ? 0 : 2
+
       for (const terr of territories) {
+        if (terr.level > maxLevel) continue
+
         const distorted = distortPolygonEdges(
           terr.polygon,
           canvasW,
@@ -467,32 +483,45 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         )
         const pathData = polygonToPath(distorted)
 
+        // Warm parchment-friendly stroke color
+        const strokeColor = darkBg ? terr.color : "#8b7355"
+        const fillColor = darkBg ? terr.color : "#c4a97d"
+
+        // Reduce opacity for dense maps
+        const strokeOp = isDense
+          ? (terr.level === 0 ? 0.15 : 0.08)
+          : (terr.level === 0 ? 0.35 : 0.2)
+
         terrG
           .append("path")
           .attr("d", pathData)
-          .attr("fill", terr.color)
-          .attr("fill-opacity", 0.06 + terr.level * 0.02)
-          .attr("stroke", terr.color)
-          .attr("stroke-opacity", 0.3)
-          .attr("stroke-width", Math.max(1, 2 - terr.level * 0.5))
-          .attr("stroke-dasharray", "8,4")
+          .attr("fill", fillColor)
+          .attr("fill-opacity", terr.level === 0 ? 0.06 : 0.04)
+          .attr("stroke", strokeColor)
+          .attr("stroke-opacity", strokeOp)
+          .attr("stroke-width", Math.max(0.8, 2.5 - terr.level * 0.7))
+          .attr("stroke-dasharray", terr.level === 0 ? "10,5" : "6,4")
 
         // Label at centroid
         const centroid = polygonCentroid(terr.polygon)
+        const labelOp = isDense
+          ? (terr.level === 0 ? 0.2 : 0.1)
+          : (terr.level === 0 ? 0.4 : 0.25)
+
         terrLabelsG
           .append("text")
           .attr("x", centroid[0])
           .attr("y", centroid[1])
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "central")
-          .attr("fill", terr.color)
-          .attr("opacity", 0.3)
-          .attr("font-size", `${Math.max(12, 16 - terr.level * 2)}px`)
+          .attr("fill", darkBg ? terr.color : "#6b5c4a")
+          .attr("opacity", labelOp)
+          .attr("font-size", `${Math.max(11, 16 - terr.level * 2)}px`)
           .attr("font-weight", "300")
           .style("pointer-events", "none")
           .text(terr.name)
       }
-    }, [mapReady, territories, canvasW, canvasH])
+    }, [mapReady, territories, canvasW, canvasH, darkBg])
 
     // ── Render trajectory ────────────────────────────
     useEffect(() => {
@@ -591,7 +620,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, layout, locMap, visibleLocationNames, revealedLocationNames, currentLocation])
 
-    // ── Render location icons + labels ───────────────
+    // ── Render location icons + labels (counter-scaled) ──
     useEffect(() => {
       if (!svgRef.current || !mapReady || iconDefs.size === 0) return
       const svg = d3Selection.select(svgRef.current)
@@ -633,19 +662,23 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const iconName = loc?.icon ?? "generic"
         const iconSize = TIER_ICON_SIZE[tier] ?? 20
 
-        // Location group
+        // Location group — counter-scaled at position
+        // The group translates to the location point; icon/label use local coords
         const locG = tierG
           .append("g")
           .attr("class", "location-item")
           .attr("data-name", item.name)
           .attr("data-tier", tier)
+          .attr("data-x", item.x)
+          .attr("data-y", item.y)
           .style("cursor", "pointer")
 
-        // Icon — render as inner SVG group
+        // Icon — render as inner SVG group (local coords centered at origin)
         const iconContent = iconDefs.get(iconName)
         if (iconContent) {
           const iconG = locG
             .append("g")
+            .attr("class", "loc-icon")
             .attr(
               "transform",
               `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
@@ -655,7 +688,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           iconG.html(iconContent)
         }
 
-        // Label
+        // Label (hidden by default — collision detection will show visible ones)
         const textColor = isRevealed
           ? "#9ca3af"
           : mention >= 3
@@ -665,6 +698,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
         locG
           .append("text")
+          .attr("class", "loc-label")
           .attr("x", item.x)
           .attr("y", item.y + iconSize / 2 + fontSize * 0.9)
           .attr("text-anchor", "middle")
@@ -712,9 +746,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             d3Selection.select(this).raise().style("cursor", "grabbing")
           })
           .on("drag", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
-            const name = d3Selection.select(this).attr("data-name")
+            const g = d3Selection.select(this)
+            const name = g.attr("data-name")
             if (!name) return
-            const tier = d3Selection.select(this).attr("data-tier") as string
+            const tier = g.attr("data-tier") as string
             const iconSize = TIER_ICON_SIZE[tier] ?? 20
             const fontSize = TIER_TEXT_SIZE[tier] ?? 12
             const iconName = locMap.get(name)?.icon ?? "generic"
@@ -724,9 +759,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             const canvasX = (event.sourceEvent.offsetX - t.x) / t.k
             const canvasY = (event.sourceEvent.offsetY - t.y) / t.k
 
+            // Update data attributes for counter-scale
+            g.attr("data-x", canvasX).attr("data-y", canvasY)
+            g.attr("transform",
+              `translate(${canvasX},${canvasY}) scale(${1 / t.k}) translate(${-canvasX},${-canvasY})`)
+
             // Update icon position
-            const g = d3Selection.select(this)
-            const iconG = g.select("g")
+            const iconG = g.select(".loc-icon")
             if (!iconG.empty() && iconDefs.has(iconName)) {
               iconG.attr(
                 "transform",
@@ -735,7 +774,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             }
 
             // Update text position
-            g.select("text")
+            g.select(".loc-label")
               .attr("x", canvasX)
               .attr("y", canvasY + iconSize / 2 + fontSize * 0.9)
           })
@@ -844,31 +883,90 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, layout, portals, layoutMap, darkBg])
 
-    // ── Zoom-based tier visibility ───────────────────
+    // ── Zoom-based visibility + counter-scale + collision detection ──
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
+      const k = currentScale
 
+      // Tier visibility
       for (const tier of TIERS) {
         const minScale = TIER_MIN_SCALE[tier] ?? 1.2
         svg
           .select(`#locations-${tier}`)
-          .style("display", currentScale >= minScale ? "" : "none")
+          .style("display", k >= minScale ? "" : "none")
       }
+
+      // Counter-scale: keep icons + labels at constant screen size
+      svg.selectAll<SVGGElement, unknown>(".location-item").each(function () {
+        const g = d3Selection.select(this)
+        const x = parseFloat(g.attr("data-x"))
+        const y = parseFloat(g.attr("data-y"))
+        if (isNaN(x) || isNaN(y)) return
+        // Translate to position, scale by 1/k, translate back
+        g.attr("transform", `translate(${x},${y}) scale(${1 / k}) translate(${-x},${-y})`)
+      })
+
+      // Collision detection — build screen-space label rects
+      const labelRects: LabelRect[] = []
+      svg.selectAll<SVGGElement, unknown>(".location-item").each(function () {
+        const g = d3Selection.select(this)
+        // Check if this tier is visible
+        const tier = g.attr("data-tier") ?? "city"
+        const minScale = TIER_MIN_SCALE[tier] ?? 1.2
+        if (k < minScale) return
+
+        const name = g.attr("data-name") ?? ""
+        const x = parseFloat(g.attr("data-x"))
+        const y = parseFloat(g.attr("data-y"))
+        if (isNaN(x) || isNaN(y)) return
+
+        const loc = locMap.get(name)
+        const mention = loc?.mention_count ?? 0
+        const tierW = TIER_WEIGHT[tier] ?? 1
+        const fontSize = TIER_TEXT_SIZE[tier] ?? 12
+        const iconSize = TIER_ICON_SIZE[tier] ?? 20
+
+        // Estimate label width in screen pixels (Chinese chars ~= fontSize each)
+        const labelW = name.length * fontSize + 4
+        const labelH = fontSize + 4
+        // Label position in screen-space (counter-scaled, so fontSize stays constant)
+        const labelY = y + (iconSize / 2 + fontSize * 0.9) / k
+        const screenX = x * k
+        const screenY = labelY * k
+
+        labelRects.push({
+          x: screenX - labelW / 2,
+          y: screenY - labelH / 2,
+          w: labelW,
+          h: labelH,
+          name,
+          priority: tierW * 1000 + mention,
+        })
+      })
+
+      const visibleLabels = computeLabelCollisions(labelRects)
+
+      // Apply visibility to labels
+      svg.selectAll<SVGGElement, unknown>(".location-item").each(function () {
+        const g = d3Selection.select(this)
+        const name = g.attr("data-name") ?? ""
+        g.select(".loc-label").style("display", visibleLabels.has(name) ? "" : "none")
+      })
 
       // Territory labels fade at high zoom
       svg
         .select("#territory-labels")
-        .style("opacity", currentScale < 2 ? 1 : 0.3)
+        .style("opacity", k < 2 ? 1 : 0.3)
       svg
         .select("#region-labels")
-        .style("opacity", currentScale < 1.5 ? 1 : 0.3)
+        .style("opacity", k < 1.5 ? 1 : 0.3)
 
       // Overview dots fade at high zoom
       svg
         .select("#overview-dots")
-        .style("opacity", currentScale > 1.5 ? 0.3 : 1)
-    }, [mapReady, currentScale])
+        .style("opacity", k > 1.5 ? 0.3 : 1)
+    }, [mapReady, currentScale, locMap])
 
     // ── Fit to locations ─────────────────────────────
     const fitToLocations = useCallback(() => {
@@ -921,6 +1019,79 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         return () => clearTimeout(t)
       }
     }, [mapReady, layout, fitToLocations])
+
+    // ── Focus location: pan + zoom + persistent highlight ──
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const focusG = svg.select<SVGGElement>("#focus-overlay")
+      focusG.selectAll("*").remove()
+
+      if (!focusLocation || !zoomRef.current) return
+      const item = layout.find((l) => l.name === focusLocation)
+      if (!item) return
+
+      const svgEl = svgRef.current
+      const svgWidth = svgEl.clientWidth || 800
+      const svgHeight = svgEl.clientHeight || 600
+
+      // Zoom to focus location with comfortable scale
+      const focusScale = Math.max(transformRef.current.k, 2.5)
+      const transform = d3Zoom.zoomIdentity
+        .translate(svgWidth / 2, svgHeight / 2)
+        .scale(focusScale)
+        .translate(-item.x, -item.y)
+
+      svg
+        .transition()
+        .duration(600)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .call(zoomRef.current.transform as any, transform)
+
+      // Counter-scaled focus group: constant screen size regardless of zoom
+      const k = transformRef.current.k || focusScale
+      const focusItem = focusG
+        .append("g")
+        .attr("transform", `translate(${item.x},${item.y}) scale(${1 / k}) translate(${-item.x},${-item.y})`)
+
+      // Persistent highlight ring (stays until focus clears)
+      const ringR = 22
+      focusItem
+        .append("circle")
+        .attr("cx", item.x)
+        .attr("cy", item.y)
+        .attr("r", ringR)
+        .attr("fill", "rgba(245, 158, 11, 0.12)")
+        .attr("stroke", "#f59e0b")
+        .attr("stroke-width", 2.5)
+        .attr("stroke-dasharray", "6,3")
+
+      // Persistent label above the location
+      focusItem
+        .append("text")
+        .attr("x", item.x)
+        .attr("y", item.y - ringR - 6)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 14)
+        .attr("font-weight", "bold")
+        .attr("fill", "#f59e0b")
+        .attr("stroke", darkBg ? "rgba(0,0,0,0.7)" : "#ffffff")
+        .attr("stroke-width", 3)
+        .attr("paint-order", "stroke")
+        .text(focusLocation)
+    }, [focusLocation, layout, mapReady, darkBg])
+
+    // Update focus overlay counter-scale when zoom changes
+    useEffect(() => {
+      if (!svgRef.current || !mapReady || !focusLocation) return
+      const svg = d3Selection.select(svgRef.current)
+      const focusG = svg.select<SVGGElement>("#focus-overlay")
+      const item = layout.find((l) => l.name === focusLocation)
+      if (!item) return
+      const k = currentScale
+      focusG.select("g")
+        .attr("transform", `translate(${item.x},${item.y}) scale(${1 / k}) translate(${-item.x},${-item.y})`)
+    }, [currentScale, focusLocation, layout, mapReady])
 
     // ── Keyboard shortcuts ───────────────────────────
     useEffect(() => {

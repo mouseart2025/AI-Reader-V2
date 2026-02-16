@@ -2164,7 +2164,7 @@ def generate_terrain(
 
 
 # Bump this when solver algorithm changes to invalidate layout cache
-_LAYOUT_VERSION = 9
+_LAYOUT_VERSION = 10
 
 def compute_chapter_hash(
     chapter_start: int, chapter_end: int,

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
-import { fetchMapData, saveLocationOverride, rebuildHierarchy } from "@/api/client"
+import { fetchMapData, saveLocationOverride, saveGeoLocationOverride, rebuildHierarchy } from "@/api/client"
 import type { MapData, MapLayerInfo } from "@/api/types"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
+import { GeoMap } from "@/components/visualization/GeoMap"
 import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
 import { GeographyPanel } from "@/components/visualization/GeographyPanel"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
@@ -58,6 +59,12 @@ export default function MapPage() {
 
   // Geography panel
   const [showGeoPanel, setShowGeoPanel] = useState(false)
+
+  // Focus location (click-to-navigate: fly to + highlight)
+  const [focusLocation, setFocusLocation] = useState<string | null>(null)
+
+  // Editing location (drag-to-reposition on GeoMap)
+  const [editingLocation, setEditingLocation] = useState<string | null>(null)
 
   // Rebuild hierarchy
   const [rebuilding, setRebuilding] = useState(false)
@@ -235,6 +242,45 @@ export default function MapPage() {
     [openEntityCard],
   )
 
+  // Navigate map to a location (fly to + highlight, no entity card)
+  const handleGeoLocationClick = useCallback(
+    (name: string) => {
+      setFocusLocation((prev) => (prev === name ? null : name))
+    },
+    [],
+  )
+
+  // Enter edit mode for a location (crosshair + drag)
+  const handleEditLocation = useCallback((name: string) => {
+    setEditingLocation(name)
+    setFocusLocation(null)
+  }, [])
+
+  // Handle drag end: save new lat/lng and exit edit mode
+  const handleEditDragEnd = useCallback(
+    (name: string, lat: number, lng: number) => {
+      if (!novelId) return
+      saveGeoLocationOverride(novelId, name, lat, lng).then(() => {
+        setToast(`「${name}」位置已更新`)
+        setTimeout(() => setToast(null), 3000)
+        // Update local geo_coords immediately for visual feedback
+        setMapData((prev) => {
+          if (!prev?.geo_coords) return prev
+          return {
+            ...prev,
+            geo_coords: { ...prev.geo_coords, [name]: { lat, lng } },
+          }
+        })
+      })
+      setEditingLocation(null)
+    },
+    [novelId],
+  )
+
+  const handleEditCancel = useCallback(() => {
+    setEditingLocation(null)
+  }, [])
+
   const handleDragEnd = useCallback(
     (name: string, x: number, y: number) => {
       if (!novelId) return
@@ -278,8 +324,8 @@ export default function MapPage() {
             </div>
           )}
 
-          {/* Legend */}
-          <div className="absolute bottom-10 left-3 z-10 rounded-lg border bg-background/90 p-2">
+          {/* Legend (hide in geographic mode — icons are fantasy-specific) */}
+          {layoutMode !== "geographic" && <div className="absolute bottom-10 left-3 z-10 rounded-lg border bg-background/90 p-2">
             <button
               onClick={() => setLegendOpen((v) => !v)}
               className="text-muted-foreground flex items-center gap-1 text-[10px] hover:text-foreground"
@@ -301,7 +347,7 @@ export default function MapPage() {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Toast */}
           {toast && (
@@ -325,39 +371,56 @@ export default function MapPage() {
           )}
 
           {!loading && locations.length > 0 && (
-            <NovelMap
-              ref={mapHandle}
-              locations={locations}
-              layout={layout}
-              layoutMode={layoutMode}
-              layerType={activeLayerType}
-              terrainUrl={terrainUrl}
-              visibleLocationNames={visibleLocationNames}
-              revealedLocationNames={revealedLocationNames}
-              regionBoundaries={regionBoundaries}
-              portals={portals}
-              trajectoryPoints={visibleTrajectory}
-              currentLocation={currentLocation}
-              canvasSize={mapData?.canvas_size}
-              spatialScale={mapData?.spatial_scale}
-              onLocationClick={handleLocationClick}
-              onLocationDragEnd={handleDragEnd}
-              onPortalClick={handlePortalClick}
-            />
+            layoutMode === "geographic" && mapData?.geo_coords && activeLayerId === "overworld" ? (
+              <GeoMap
+                locations={locations}
+                geoCoords={mapData.geo_coords}
+                trajectoryPoints={visibleTrajectory}
+                currentLocation={currentLocation}
+                focusLocation={focusLocation}
+                editingLocation={editingLocation}
+                onLocationClick={handleLocationClick}
+                onEditLocation={handleEditLocation}
+                onEditDragEnd={handleEditDragEnd}
+                onEditCancel={handleEditCancel}
+              />
+            ) : (
+              <NovelMap
+                ref={mapHandle}
+                locations={locations}
+                layout={layout}
+                layoutMode={layoutMode}
+                layerType={activeLayerType}
+                terrainUrl={terrainUrl}
+                visibleLocationNames={visibleLocationNames}
+                revealedLocationNames={revealedLocationNames}
+                regionBoundaries={regionBoundaries}
+                portals={portals}
+                trajectoryPoints={visibleTrajectory}
+                currentLocation={currentLocation}
+                canvasSize={mapData?.canvas_size}
+                spatialScale={mapData?.spatial_scale}
+                focusLocation={focusLocation}
+                onLocationClick={handleLocationClick}
+                onLocationDragEnd={handleDragEnd}
+                onPortalClick={handlePortalClick}
+              />
+            )
           )}
 
           <GeographyPanel
             context={mapData?.geography_context ?? []}
             visible={showGeoPanel}
             onClose={() => setShowGeoPanel(false)}
+            onLocationClick={handleGeoLocationClick}
           />
         </div>
 
         {/* Right: Trajectory panel */}
         <div className="w-64 flex-shrink-0 overflow-auto border-l">
           <div className="p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">人物轨迹</h3>
+            <div className="flex flex-wrap items-center gap-1 mb-2">
+              <h3 className="text-sm font-medium whitespace-nowrap mr-auto">人物轨迹</h3>
               <div className="flex gap-1">
                 <Button
                   variant={showGeoPanel ? "default" : "outline"}
@@ -507,9 +570,10 @@ export default function MapPage() {
                               "text-xs hover:underline cursor-pointer",
                               isCurrent && "font-bold text-amber-600",
                             )}
-                            onClick={() =>
+                            onClick={() => {
+                              handleGeoLocationClick(point.location)
                               openEntityCard(point.location, "location")
-                            }
+                            }}
                           >
                             {point.location}
                           </span>

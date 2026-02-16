@@ -176,6 +176,16 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Column already exists
+        # Migration: add lat/lng to map_user_overrides for geographic coordinate overrides
+        try:
+            await conn.execute(
+                "ALTER TABLE map_user_overrides ADD COLUMN lat REAL"
+            )
+            await conn.execute(
+                "ALTER TABLE map_user_overrides ADD COLUMN lng REAL"
+            )
+        except Exception:
+            pass  # Columns already exist
         await conn.commit()
     finally:
         await conn.close()

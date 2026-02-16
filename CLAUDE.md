@@ -12,7 +12,7 @@ AI Reader V2 is a Chinese novel analysis platform. Users upload TXT novels, the 
 | UI | Tailwind CSS 4 + shadcn/ui + Radix UI + Lucide icons |
 | State | Zustand 5 (7 stores) |
 | Routing | React Router 7 (lazy-loaded pages) |
-| Visualization | react-force-graph-2d (graph/factions) |
+| Visualization | react-force-graph-2d (graph/factions), react-leaflet + Leaflet (geographic map) |
 | Backend | Python 3.9+ + FastAPI (async) |
 | Database | SQLite (aiosqlite) — single file at `~/.ai-reader-v2/data.db` |
 | Vector DB | ChromaDB + BAAI/bge-base-zh-v1.5 embeddings |
@@ -127,13 +127,46 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 - **`cn`**: GeoNames CN.zip — comprehensive Chinese locations (~140K entries), used for historical/wuxia novels
 - **`world`**: GeoNames cities15000.zip — global cities with pop > 15000 (~25K entries), used for international novels
 
-**Auto-detection pipeline** (`auto_resolve()`): `detect_geo_scope()` determines dataset based on genre_hint + location name CJK ratio → loads appropriate dataset → `detect_geo_type()` computes match rate → returns `"realistic"` (≥50%), `"mixed"` (≥25%), or `"fantasy"` (<25%). **Fallback logic**: if CN dataset matches poorly (e.g., translated foreign place names like 伦敦/巴黎), automatically retries with world dataset.
+**Auto-detection pipeline** (`auto_resolve()`): `detect_geo_scope()` determines dataset based on genre_hint + location name CJK ratio → loads appropriate dataset → `detect_geo_type()` uses quality-weighted notable matching → returns `"realistic"` (≥20%), `"mixed"` (≥5%), or `"fantasy"` (<5%). **Fallback logic**: if CN dataset matches poorly (e.g., translated foreign place names like 伦敦/巴黎), automatically retries with world dataset.
 
-**Name resolution** uses 3-level matching: exact match → Chinese suffix stripping (城/府/州/县/镇/村/山/河/湖 etc.) → disambiguation by population + admin feature codes.
+**Quality-weighted detection** (`_count_notable_matches()`): Only counts matches to places with population ≥ 5000 or county-level+ administrative codes (`_NOTABLE_FEATURE_CODES`: ADM1-3, PPLA-PPLA3, PPLC). Curated supplement entries always count as notable. Exact match only (no suffix stripping) for detection. This prevents false positives from tiny villages (pop=0) that share names with common Chinese words — e.g., 红楼梦's 上房/后门/角门/稻香村 all match real villages in GeoNames CN, but none are notable enough to count toward detection.
 
-**Integration**: `visualization_service.get_map_data()` calls `auto_resolve()` before existing ConstraintSolver path. If geo_type is realistic/mixed, resolved coordinates are projected via Mercator to canvas, unresolved names scattered near neighbors via `place_unresolved_near_neighbors()`. Result cached as `layout_mode="geographic"`.
+**Name resolution** uses 3-level matching: exact match → Chinese suffix stripping (城/府/州/县/镇/村/山/河/湖 etc.) → disambiguation by population + admin feature codes. Two-pass parent-proximity validation discards suffix-stripped matches >1000km from parent.
+
+**Integration**: `visualization_service.get_map_data()` calls `auto_resolve()` before existing ConstraintSolver path. If geo_type is realistic/mixed, raw lat/lng coordinates are returned as `geo_coords` for the Leaflet frontend, plus Mercator-projected canvas coordinates as fallback. Unresolved names scattered near neighbors via `place_unresolved_near_neighbors()`. Result cached as `layout_mode="geographic"`.
 
 `WorldStructure.geo_type` caches the detection result to avoid redundant computation.
+
+### GeoMap — Leaflet Real-World Map
+
+`GeoMap.tsx` — React-Leaflet component for geographic layout mode. Renders location markers on a real-world tile map (CartoDB Positron). Features:
+
+- **CircleMarker** with size scaled by mention_count, color by location type
+- **Trajectory polylines** showing character travel routes
+- **Click-to-navigate**: Geography panel clicks fly to + highlight the location (persistent tooltip)
+- **Drag-to-reposition**: Edit mode with crosshair DivIcon marker for manual lat/lng adjustment, saved to `map_user_overrides` (lat/lng columns)
+- **Auto fitBounds** to all markers on load
+
+`MapPage.tsx` switches between `GeoMap` (layout_mode="geographic") and `NovelMap` (all other modes).
+
+### Graph Readability — Dense Network Optimization
+
+`GraphPage.tsx` — relationship graph with readability features for complex novels (400+ characters):
+
+- **Edge weight filtering**: `minEdgeWeight` slider with backend-computed `suggested_min_edge_weight` (auto-raises for >500 edges)
+- **Smart auto-defaults**: `minChapters` auto-set to 3 for >200 nodes, 2 for >100 nodes
+- **Label-inside-circle**: Large nodes render names centered inside (white text + dark stroke) when circle diameter > text width at current zoom; smaller nodes keep below-node labels with background pill
+- **Force spacing**: Charge strength and link distance scale with graph density (stronger repulsion for dense graphs)
+- **Collision detection**: Label rects tracked per frame, only non-overlapping labels rendered
+- **Dashed weak edges**: `linkLineDash` for weight ≤ 1
+
+### Entity Quality — Single-Character Filtering
+
+Three-layer defense against common single-character nouns extracted as entities (书/饭/茶/龙):
+
+1. **FactValidator** (`fact_validator.py`): `_NAME_MIN_LEN_OTHER = 2` for items/concepts/orgs/locations (persons keep min=1 for valid single-char names like 薛)
+2. **entity_aggregator**: Single-char person names kept only if a multi-char person name starting with that character exists (surname cross-reference)
+3. **ReadingPage**: Frontend safety net `entities.filter(e => e.name.length >= 2)`
 
 ### Two Databases Only
 

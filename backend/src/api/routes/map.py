@@ -45,8 +45,10 @@ async def get_map(
 
 
 class OverrideRequest(BaseModel):
-    x: float
-    y: float
+    x: float = 0.0
+    y: float = 0.0
+    lat: float | None = None
+    lng: float | None = None
 
 
 @router.put("/layout/{location_name}")
@@ -59,7 +61,8 @@ async def update_location_override(
     if not novel:
         raise HTTPException(status_code=404, detail="小说不存在")
 
-    await save_user_override(novel_id, location_name, body.x, body.y)
+    await save_user_override(novel_id, location_name, body.x, body.y,
+                             lat=body.lat, lng=body.lng)
     return {"status": "ok", "message": "位置已保存"}
 
 
