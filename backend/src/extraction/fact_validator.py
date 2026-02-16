@@ -28,7 +28,8 @@ _VALID_SPATIAL_RELATION_TYPES = {
 }
 _VALID_CONFIDENCE = {"high", "medium", "low"}
 
-_NAME_MIN_LEN = 1
+_NAME_MIN_LEN = 1       # persons: keep single-char (handled by aggregator)
+_NAME_MIN_LEN_OTHER = 2  # items, concepts, orgs: require ≥2 chars
 _NAME_MAX_LEN = 20
 
 # ── Location morphological validation ─────────────────────────────────
@@ -471,7 +472,7 @@ class FactValidator:
         seen_names: set[str] = set()
         for loc in locs:
             name = _clamp_name(loc.name)
-            if len(name) < _NAME_MIN_LEN:
+            if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
             # Deduplicate locations
             if name in seen_names:
@@ -550,7 +551,7 @@ class FactValidator:
         valid = []
         for item in items:
             name = _clamp_name(item.item_name)
-            if len(name) < _NAME_MIN_LEN:
+            if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
             action = item.action
             if action not in _VALID_ITEM_ACTIONS:
@@ -566,7 +567,7 @@ class FactValidator:
         valid = []
         for org in orgs:
             name = _clamp_name(org.org_name)
-            if len(name) < _NAME_MIN_LEN:
+            if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
             action = org.action
             if action not in _VALID_ORG_ACTIONS:
@@ -600,7 +601,7 @@ class FactValidator:
         valid = []
         for c in concepts:
             name = _clamp_name(c.name)
-            if len(name) < _NAME_MIN_LEN:
+            if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
             valid.append(c.model_copy(update={"name": name}))
         return valid

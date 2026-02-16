@@ -326,6 +326,7 @@ export interface MapData {
   spatial_scale?: string
   canvas_size?: { width: number; height: number }
   geography_context?: GeographyChapter[]
+  geo_coords?: Record<string, { lat: number; lng: number }>
 }
 
 export interface GeographyEntry {

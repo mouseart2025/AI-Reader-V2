@@ -6,9 +6,10 @@ interface GeographyPanelProps {
   context: GeographyChapter[]
   visible: boolean
   onClose: () => void
+  onLocationClick?: (name: string) => void
 }
 
-export function GeographyPanel({ context, visible, onClose }: GeographyPanelProps) {
+export function GeographyPanel({ context, visible, onClose, onLocationClick }: GeographyPanelProps) {
   const [search, setSearch] = useState("")
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
 
@@ -98,7 +99,12 @@ export function GeographyPanel({ context, visible, onClose }: GeographyPanelProp
                         )}
                       </span>
                       <div>
-                        <span className="font-medium">{entry.name}</span>
+                        <span
+                          className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
+                          onClick={() => onLocationClick?.(entry.name)}
+                        >
+                          {entry.name}
+                        </span>
                         <span className="text-muted-foreground ml-1">
                           {entry.text}
                         </span>

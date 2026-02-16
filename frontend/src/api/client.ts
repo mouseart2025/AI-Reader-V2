@@ -258,6 +258,18 @@ export function saveLocationOverride(
   })
 }
 
+export function saveGeoLocationOverride(
+  novelId: string,
+  locationName: string,
+  lat: number,
+  lng: number,
+): Promise<{ status: string; message: string }> {
+  return apiFetch(`/novels/${novelId}/map/layout/${encodeURIComponent(locationName)}`, {
+    method: "PUT",
+    body: JSON.stringify({ x: 0, y: 0, lat, lng }),
+  })
+}
+
 export function fetchTimelineData(
   novelId: string,
   start?: number,

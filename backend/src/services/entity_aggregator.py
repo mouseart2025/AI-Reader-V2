@@ -543,15 +543,28 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
         for nc in fact.new_concepts:
             entity_map[(nc.name, "concept")].add(ch)
 
-    entities = [
-        EntitySummary(
-            name=name,
-            type=etype,
-            chapter_count=len(chapters),
-            first_chapter=min(chapters) if chapters else 0,
+    # ── Filter single-character entities ──
+    # Non-person: always drop single-char (common nouns like 书/饭/茶)
+    # Person: only keep if a longer entity shares it as surname prefix
+    person_names = {name for (name, etype) in entity_map if etype == "person"}
+    multi_char_persons = {name for name in person_names if len(name) >= 2}
+
+    entities = []
+    for (name, etype), chapters in entity_map.items():
+        if len(name) < 2:
+            if etype != "person":
+                continue  # drop single-char non-person
+            # Person: check if any multi-char person shares this surname prefix
+            if not any(p.startswith(name) for p in multi_char_persons):
+                continue  # no matching full-name entity → drop
+        entities.append(
+            EntitySummary(
+                name=name,
+                type=etype,
+                chapter_count=len(chapters),
+                first_chapter=min(chapters) if chapters else 0,
+            )
         )
-        for (name, etype), chapters in entity_map.items()
-    ]
 
     # Sort by chapter count descending, then alphabetically
     entities.sort(key=lambda e: (-e.chapter_count, e.name))

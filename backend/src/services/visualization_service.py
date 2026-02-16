@@ -174,7 +174,20 @@ async def get_graph_data(
         for e in edge_map.values()
     ]
 
-    return {"nodes": nodes, "edges": edges}
+    # Compute a suggested min_edge_weight for large graphs
+    max_weight = max((e["weight"] for e in edges), default=1)
+    suggested_min_edge = 1
+    if len(edges) > 500:
+        suggested_min_edge = 2
+    if len(edges) > 2000:
+        suggested_min_edge = max(3, max_weight // 10)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "max_edge_weight": max_weight,
+        "suggested_min_edge_weight": suggested_min_edge,
+    }
 
 
 # ── Map (Location Hierarchy + Trajectories) ──────
@@ -534,32 +547,73 @@ async def get_map_data(
     ch_hash = compute_chapter_hash(chapter_start, chapter_end, _cw_hash, _ch_hash)
     target_layer = layer_id or "overworld"
 
+    # Raw geo coordinates for Leaflet frontend (populated by geographic branch)
+    geo_coords_raw: dict[str, dict[str, float]] | None = None
+
     # Try layer-level cache first
     cached_layer = await _load_cached_layer_layout(novel_id, target_layer, ch_hash)
+    # Invalidate stale cache: if world_structure says geographic but cache says otherwise
+    if (
+        cached_layer is not None
+        and target_layer == "overworld"
+        and ws and ws.geo_type in ("realistic", "mixed")
+        and cached_layer["layout_mode"] != "geographic"
+    ):
+        logger.info("Invalidating stale overworld cache (geo_type=%s but cached as %s)",
+                     ws.geo_type, cached_layer["layout_mode"])
+        cached_layer = None
     if cached_layer is not None:
         layout_data = cached_layer["layout"]
         layout_mode = cached_layer["layout_mode"]
         terrain_url = None
+        # Restore geo_coords for cached geographic layouts (coords are not in cache)
+        if layout_mode == "geographic" and target_layer == "overworld" and ws:
+            try:
+                all_names = [loc["name"] for loc in locations]
+                loc_parent_map = {
+                    loc["name"]: loc.get("parent")
+                    for loc in locations
+                }
+                _scope, _gtype, _resolver, resolved = await geo_auto_resolve(
+                    ws.novel_genre_hint, all_names, all_names, loc_parent_map,
+                )
+                if resolved:
+                    geo_coords_raw = {
+                        name: {"lat": coord[0], "lng": coord[1]}
+                        for name, coord in resolved.items()
+                    }
+            except Exception:
+                logger.warning("Failed to restore geo_coords from cache", exc_info=True)
     else:
         # ── Geographic layout: real-world coordinates via GeoNames ──
+        # Only attempt for overworld layer (sub-layers are fictional internal spaces)
         geo_resolved = False
-        if ws:
+        if ws and target_layer == "overworld":
             try:
                 all_names = [loc["name"] for loc in locations]
                 major_names = [
                     loc["name"] for loc in locations
                     if loc.get("level", 0) <= 3
                 ]
+                loc_parent_map = {
+                    loc["name"]: loc.get("parent")
+                    for loc in locations
+                }
                 geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
-                    ws.novel_genre_hint, all_names, major_names,
+                    ws.novel_genre_hint, all_names, major_names, loc_parent_map,
                 )
 
                 # Cache geo_type on WorldStructure
                 if ws.geo_type != geo_type:
                     ws.geo_type = geo_type
-                    await world_structure_store.save(ws)
+                    await world_structure_store.save(novel_id, ws)
 
                 if resolver and resolved and geo_type in ("realistic", "mixed"):
+                    # Store raw lat/lng for Leaflet frontend
+                    geo_coords_raw = {
+                        name: {"lat": coord[0], "lng": coord[1]}
+                        for name, coord in resolved.items()
+                    }
                     layout_data = resolver.project_to_canvas(
                         resolved, locations, _cw_hash, _ch_hash,
                     )
@@ -682,6 +736,12 @@ async def get_map_data(
         "canvas_size": {"width": _resp_cw, "height": _resp_ch},
         "geography_context": geo_context,
     }
+    if geo_coords_raw:
+        # Apply user lat/lng overrides on top of auto-resolved coordinates
+        geo_overrides = await _load_geo_overrides(novel_id)
+        for loc_name, (lat, lng) in geo_overrides.items():
+            geo_coords_raw[loc_name] = {"lat": lat, "lng": lng}
+        result["geo_coords"] = geo_coords_raw
 
     # Include world_structure summary and layer_layouts when no specific layer requested
     if not layer_id:
@@ -752,23 +812,41 @@ async def _load_user_overrides(novel_id: str) -> dict[str, tuple[float, float]]:
 
 
 async def save_user_override(
-    novel_id: str, location_name: str, x: float, y: float
+    novel_id: str, location_name: str, x: float, y: float,
+    *, lat: float | None = None, lng: float | None = None,
 ) -> None:
     """Save or update a user coordinate override and invalidate layout cache."""
     conn = await get_connection()
     try:
         await conn.execute(
-            """INSERT INTO map_user_overrides (novel_id, location_name, x, y, updated_at)
-               VALUES (?, ?, ?, ?, datetime('now'))
+            """INSERT INTO map_user_overrides (novel_id, location_name, x, y, lat, lng, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
                ON CONFLICT (novel_id, location_name)
-               DO UPDATE SET x=excluded.x, y=excluded.y, updated_at=datetime('now')""",
-            (novel_id, location_name, x, y),
+               DO UPDATE SET x=excluded.x, y=excluded.y,
+                             lat=excluded.lat, lng=excluded.lng,
+                             updated_at=datetime('now')""",
+            (novel_id, location_name, x, y, lat, lng),
         )
         # Invalidate all cached layouts for this novel
         await conn.execute(
             "DELETE FROM map_layouts WHERE novel_id = ?", (novel_id,),
         )
         await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def _load_geo_overrides(novel_id: str) -> dict[str, tuple[float, float]]:
+    """Load user-adjusted geographic (lat/lng) overrides for a novel."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT location_name, lat, lng FROM map_user_overrides "
+            "WHERE novel_id = ? AND lat IS NOT NULL AND lng IS NOT NULL",
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        return {row["location_name"]: (row["lat"], row["lng"]) for row in rows}
     finally:
         await conn.close()
 
