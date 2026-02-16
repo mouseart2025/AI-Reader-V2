@@ -25,8 +25,10 @@ from src.services.map_layout_service import (
     generate_terrain,
     generate_voronoi_boundaries,
     layout_to_list,
+    place_unresolved_near_neighbors,
 )
 from src.services.alias_resolver import build_alias_map
+from src.services.geo_resolver import auto_resolve as geo_auto_resolve
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
 
@@ -539,36 +541,92 @@ async def get_map_data(
         layout_mode = cached_layer["layout_mode"]
         terrain_url = None
     else:
-        # Compute: either layered or global depending on WorldStructure
-        if ws is not None and len(ws.layers) > 1:
+        # ── Geographic layout: real-world coordinates via GeoNames ──
+        geo_resolved = False
+        if ws:
             try:
-                user_overrides = await _load_user_overrides(novel_id)
-                ws_dict = ws.model_dump()
-                layer_layouts = await asyncio.to_thread(
-                    compute_layered_layout,
-                    ws_dict, locations, spatial_constraints,
-                    user_overrides, first_chapter_map,
-                    spatial_scale=ws.spatial_scale,
+                all_names = [loc["name"] for loc in locations]
+                major_names = [
+                    loc["name"] for loc in locations
+                    if loc.get("level", 0) <= 3
+                ]
+                geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
+                    ws.novel_genre_hint, all_names, major_names,
                 )
-                # Cache each layer
-                for lid, litems in layer_layouts.items():
+
+                # Cache geo_type on WorldStructure
+                if ws.geo_type != geo_type:
+                    ws.geo_type = geo_type
+                    await world_structure_store.save(ws)
+
+                if resolver and resolved and geo_type in ("realistic", "mixed"):
+                    layout_data = resolver.project_to_canvas(
+                        resolved, locations, _cw_hash, _ch_hash,
+                    )
+
+                    # Place unresolved names near their resolved neighbors
+                    resolved_names = set(resolved.keys())
+                    unresolved_names = [
+                        loc["name"] for loc in locations
+                        if loc["name"] not in resolved_names
+                    ]
+                    if unresolved_names:
+                        parent_map = {
+                            loc["name"]: loc.get("parent")
+                            for loc in locations
+                        }
+                        extra = place_unresolved_near_neighbors(
+                            unresolved_names, layout_data, locations,
+                            parent_map, _cw_hash, _ch_hash,
+                        )
+                        layout_data.extend(extra)
+
+                    layout_mode = "geographic"
+                    terrain_url = None
+                    geo_resolved = True
+
+                    # Cache the geographic layout
                     await _save_cached_layer_layout(
-                        novel_id, lid, ch_hash, litems, "layered",
+                        novel_id, target_layer, ch_hash,
+                        layout_data, "geographic",
                     )
             except Exception:
-                logger.warning("Layered layout computation failed", exc_info=True)
+                logger.warning(
+                    "Geographic layout failed, falling back to solver",
+                    exc_info=True,
+                )
 
-            # Get the requested layer's data
-            layout_data = layer_layouts.get(target_layer, [])
-            layout_mode = "layered" if layout_data else "hierarchy"
-            terrain_url = None
-        else:
-            # Global solve (backward compatible path)
-            layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
-                novel_id, ch_hash, locations, spatial_constraints,
-                first_chapter_map,
-                location_region_bounds=location_region_bounds,
-            )
+        # ── Existing layout paths (layered / constraint solver) ──
+        if not geo_resolved:
+            if ws is not None and len(ws.layers) > 1:
+                try:
+                    user_overrides = await _load_user_overrides(novel_id)
+                    ws_dict = ws.model_dump()
+                    layer_layouts = await asyncio.to_thread(
+                        compute_layered_layout,
+                        ws_dict, locations, spatial_constraints,
+                        user_overrides, first_chapter_map,
+                        spatial_scale=ws.spatial_scale,
+                    )
+                    # Cache each layer
+                    for lid, litems in layer_layouts.items():
+                        await _save_cached_layer_layout(
+                            novel_id, lid, ch_hash, litems, "layered",
+                        )
+                except Exception:
+                    logger.warning("Layered layout computation failed", exc_info=True)
+
+                # Get the requested layer's data
+                layout_data = layer_layouts.get(target_layer, [])
+                layout_mode = "layered" if layout_data else "hierarchy"
+                terrain_url = None
+            else:
+                # Global solve (backward compatible path)
+                layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
+                    novel_id, ch_hash, locations, spatial_constraints,
+                    first_chapter_map,
+                    location_region_bounds=location_region_bounds,
+                )
 
     # ── Revealed location names for fog of war ──
     revealed_names: list[str] = []
