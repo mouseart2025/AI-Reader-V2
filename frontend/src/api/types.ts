@@ -340,7 +340,7 @@ export interface GeographyChapter {
 
 // ── World Structure Overrides ─────────────────
 
-export type OverrideType = "location_region" | "location_layer" | "add_portal" | "delete_portal" | "location_parent"
+export type OverrideType = "location_region" | "location_layer" | "location_parent" | "location_tier" | "add_portal" | "delete_portal"
 
 export interface WorldStructureOverride {
   id: number
@@ -382,6 +382,11 @@ export interface WorldStructureData {
   portals: WorldStructurePortal[]
   location_region_map: Record<string, string>
   location_layer_map: Record<string, string>
+  location_parents: Record<string, string>
+  location_tiers: Record<string, string>
+  location_icons: Record<string, string>
+  novel_genre_hint: string | null
+  spatial_scale: string | null
 }
 
 // ── Chat ──────────────────────────────────────

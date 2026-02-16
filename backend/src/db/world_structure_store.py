@@ -164,6 +164,12 @@ def _apply_overrides(ws: WorldStructure, overrides: list[dict]) -> WorldStructur
             elif ov_key in ws.location_parents:
                 del ws.location_parents[ov_key]
 
+        elif ov_type == "location_tier":
+            # override_key = location name, override_json = {"tier": "..."}
+            new_tier = ov_data.get("tier", "")
+            if new_tier:
+                ws.location_tiers[ov_key] = new_tier
+
         else:
             logger.warning("Unknown override type: %s", ov_type)
 
