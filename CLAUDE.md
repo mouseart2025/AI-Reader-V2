@@ -58,10 +58,10 @@ AI-Reader-V2/
 │   ├── vite.config.ts              # Vite + Tailwind + proxy config
 │   └── src/
 │       ├── app/                    # App entry, router, layout
-│       ├── pages/                  # 10 page components
+│       ├── pages/                  # Page components (12 routed)
 │       ├── components/
 │       │   ├── ui/                 # shadcn/ui base components
-│       │   ├── shared/             # Reusable components (UploadDialog, etc.)
+│       │   ├── shared/             # Reusable components (UploadDialog, ScenePanel, etc.)
 │       │   ├── entity-cards/       # Entity card drawer system
 │       │   ├── visualization/      # Graph, map, timeline, geography panel components
 │       │   └── chat/               # Chat UI components
@@ -167,6 +167,10 @@ Three-layer defense against common single-character nouns extracted as entities 
 1. **FactValidator** (`fact_validator.py`): `_NAME_MIN_LEN_OTHER = 2` for items/concepts/orgs/locations (persons keep min=1 for valid single-char names like 薛)
 2. **entity_aggregator**: Single-char person names kept only if a multi-char person name starting with that character exists (surname cross-reference)
 3. **ReadingPage**: Frontend safety net `entities.filter(e => e.name.length >= 2)`
+
+### Scene Panel — Reading Page Integration
+
+Scene/screenplay functionality is integrated into ReadingPage as a right-side panel (`ScenePanel.tsx`), not a standalone page. The toolbar "剧本" toggle button opens/closes the panel. When open: scenes are fetched via `fetchChapterScenes()`, the text switches from whole-block to paragraph-level rendering with colored left borders (`border-l-3 + SCENE_BORDER_COLORS[sceneIdx]`) marking scene boundaries, and the active scene's paragraphs get `bg-accent/30` highlighting. Clicking a SceneCard scrolls the text to the corresponding paragraph. Shared components (`SceneCard`, `SCENE_BORDER_COLORS`, `TONE_STYLES`, `EVENT_TYPE_STYLES`) are exported from `components/shared/ScenePanel.tsx`.
 
 ### Two Databases Only
 

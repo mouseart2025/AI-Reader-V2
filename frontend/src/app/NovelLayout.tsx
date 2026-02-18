@@ -3,8 +3,10 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { fetchNovel } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { FloatingChatPanel } from "@/components/chat/FloatingChatPanel"
+import { GuidedTourBubble } from "@/components/shared/GuidedTourBubble"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { Button } from "@/components/ui/button"
+import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 
 const NAV_TABS = [
   { key: "analysis", label: "分析", path: "/analysis" },
@@ -14,7 +16,16 @@ const NAV_TABS = [
   { key: "timeline", label: "时间线", path: "/timeline" },
   { key: "encyclopedia", label: "百科", path: "/encyclopedia" },
   { key: "chat", label: "问答", path: "/chat" },
+  { key: "conflicts", label: "冲突", path: "/conflicts" },
+  { key: "export", label: "导出", path: "/export" },
 ] as const
+
+// Map tour steps 1-3 to nav tab keys
+const TOUR_TAB_MAP: Record<number, string> = {
+  1: "graph",
+  2: "map",
+  3: "chat",
+}
 
 /**
  * Layout wrapper for all novel-scoped pages.
@@ -24,6 +35,7 @@ export function NovelLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [novel, setNovel] = useState<Novel | null>(null)
+  const { currentStep, dismissed, nextStep, dismiss } = useTourStore()
 
   // Extract novelId from the URL: /read/abc123 → abc123
   const segments = location.pathname.split("/").filter(Boolean)
@@ -36,6 +48,11 @@ export function NovelLayout() {
     if (!novelId) return
     fetchNovel(novelId).then(setNovel).catch(() => {})
   }, [novelId])
+
+  // Show tour bubble on a specific tab?
+  const tourTabKey = novel?.is_sample && !dismissed && currentStep >= 1 && currentStep <= 3
+    ? TOUR_TAB_MAP[currentStep]
+    : null
 
   // Don't render the nav bar if novelId is missing (shouldn't happen in practice)
   if (!novelId) return <Outlet />
@@ -55,14 +72,25 @@ export function NovelLayout() {
 
         <nav className="flex gap-0.5">
           {NAV_TABS.map((tab) => (
-            <Button
-              key={tab.key}
-              variant={activeKey === tab.key ? "default" : "ghost"}
-              size="xs"
-              onClick={() => navigate(`${tab.path}/${novelId}`)}
-            >
-              {tab.label}
-            </Button>
+            <div key={tab.key} className="relative">
+              <Button
+                variant={activeKey === tab.key ? "default" : "ghost"}
+                size="xs"
+                onClick={() => navigate(`${tab.path}/${novelId}`)}
+              >
+                {tab.label}
+              </Button>
+              {tourTabKey === tab.key && (
+                <GuidedTourBubble
+                  step={currentStep}
+                  totalSteps={TOTAL_TOUR_STEPS}
+                  message={TOUR_STEPS[currentStep].message}
+                  onNext={nextStep}
+                  onDismiss={dismiss}
+                  position="bottom"
+                />
+              )}
+            </div>
           ))}
         </nav>
 

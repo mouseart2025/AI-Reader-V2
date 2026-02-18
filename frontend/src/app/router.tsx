@@ -11,6 +11,8 @@ const FactionsPage = lazy(() => import("@/pages/FactionsPage"))
 const ChatPage = lazy(() => import("@/pages/ChatPage"))
 const EncyclopediaPage = lazy(() => import("@/pages/EncyclopediaPage"))
 const AnalysisPage = lazy(() => import("@/pages/AnalysisPage"))
+const ConflictsPage = lazy(() => import("@/pages/ConflictsPage"))
+const ExportPage = lazy(() => import("@/pages/ExportPage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
@@ -40,6 +42,8 @@ export const router = createBrowserRouter([
       { path: "/factions/:novelId", element: <SuspenseWrapper><FactionsPage /></SuspenseWrapper> },
       { path: "/encyclopedia/:novelId", element: <SuspenseWrapper><EncyclopediaPage /></SuspenseWrapper> },
       { path: "/chat/:novelId", element: <SuspenseWrapper><ChatPage /></SuspenseWrapper> },
+      { path: "/conflicts/:novelId", element: <SuspenseWrapper><ConflictsPage /></SuspenseWrapper> },
+      { path: "/export/:novelId", element: <SuspenseWrapper><ExportPage /></SuspenseWrapper> },
     ],
   },
   { path: "/settings", element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },

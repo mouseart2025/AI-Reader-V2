@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   fetchChapterContent,
+  fetchChapterScenes,
   fetchChapters,
   fetchEntities,
   fetchNovel,
@@ -10,7 +11,7 @@ import {
   searchChapters,
   type SearchResult,
 } from "@/api/client"
-import type { Chapter, ChapterEntity, EntityType, Novel } from "@/api/types"
+import type { Chapter, ChapterEntity, EntityType, Novel, Scene } from "@/api/types"
 import { useReadingStore } from "@/stores/readingStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import {
@@ -21,9 +22,13 @@ import {
   type LineHeight,
 } from "@/stores/readingSettingsStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
+import { ScenePanel, SCENE_BORDER_COLORS } from "@/components/shared/ScenePanel"
+import { GuidedTourBubble } from "@/components/shared/GuidedTourBubble"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { highlightText } from "@/lib/entityHighlight"
+import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 
 // ── Analysis status icon ─────────────────────────
 
@@ -37,61 +42,6 @@ function StatusDot({ status }: { status: string }) {
           ? "bg-red-500"
           : "bg-gray-300 dark:bg-gray-600"
   return <span className={cn("inline-block size-2 shrink-0 rounded-full", color)} />
-}
-
-// ── Entity highlighting colors ───────────────────
-
-const ENTITY_COLORS: Record<string, string> = {
-  person: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40",
-  location: "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40",
-  item: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40",
-  org: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40",
-  concept: "text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50",
-}
-
-// ── Highlight chapter text with entities ─────────
-
-function highlightText(
-  text: string,
-  entities: ChapterEntity[],
-  onEntityClick?: (name: string, type: string) => void,
-) {
-  if (entities.length === 0) return text
-
-  // Filter out single-character entities (common nouns like 书/饭/茶)
-  const filtered = entities.filter((e) => e.name.length >= 2)
-  if (filtered.length === 0) return text
-
-  // Sort by name length desc so longer names match first
-  const sorted = [...filtered].sort((a, b) => b.name.length - a.name.length)
-
-  // Build regex pattern escaping special chars
-  const pattern = sorted
-    .map((e) => e.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|")
-  const regex = new RegExp(`(${pattern})`, "g")
-  const entityMap = new Map(sorted.map((e) => [e.name, e.type]))
-
-  const parts = text.split(regex)
-  return parts.map((part, i) => {
-    const type = entityMap.get(part)
-    if (type) {
-      return (
-        <span
-          key={i}
-          className={cn(
-            "cursor-pointer rounded-sm px-0.5 transition-colors hover:opacity-80",
-            ENTITY_COLORS[type] ?? "",
-          )}
-          title={`${part} (${type})`}
-          onClick={() => onEntityClick?.(part, type)}
-        >
-          {part}
-        </span>
-      )
-    }
-    return part
-  })
 }
 
 // ── Volume/Chapter grouping ──────────────────────
@@ -314,6 +264,25 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
   )
 }
 
+// ── Tour bubble for reading page (Step 1) ────────
+
+function ReadingTourBubble({ isSample, hasContent }: { isSample: boolean; hasContent: boolean }) {
+  const { currentStep, dismissed, nextStep, dismiss } = useTourStore()
+  if (!isSample || currentStep !== 0 || dismissed || !hasContent) return null
+  return (
+    <div className="relative mb-4">
+      <GuidedTourBubble
+        step={0}
+        totalSteps={TOTAL_TOUR_STEPS}
+        message={TOUR_STEPS[0].message}
+        onNext={nextStep}
+        onDismiss={dismiss}
+        position="bottom"
+      />
+    </div>
+  )
+}
+
 // ── Main ReadingPage ─────────────────────────────
 
 export default function ReadingPage() {
@@ -350,6 +319,12 @@ export default function ReadingPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
+
+  // Scene panel state
+  const [scenePanelOpen, setScenePanelOpen] = useState(false)
+  const [scenes, setScenes] = useState<Scene[]>([])
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0)
+  const [scenesLoading, setScenesLoading] = useState(false)
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
@@ -433,6 +408,53 @@ export default function ReadingPage() {
       reset()
     }
   }, [reset])
+
+  // Load scenes when panel is opened or chapter changes
+  useEffect(() => {
+    if (!novelId || !scenePanelOpen || !currentChapterNum) return
+    let cancelled = false
+    setScenesLoading(true)
+    fetchChapterScenes(novelId, currentChapterNum)
+      .then((resp) => {
+        if (!cancelled) {
+          setScenes(resp.scenes)
+          setActiveSceneIndex(0)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setScenes([])
+      })
+      .finally(() => {
+        if (!cancelled) setScenesLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [novelId, scenePanelOpen, currentChapterNum])
+
+  // Build paragraph -> scene index map
+  const paraSceneMap = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const scene of scenes) {
+      if (!scene.paragraph_range) continue
+      for (let p = scene.paragraph_range[0]; p <= scene.paragraph_range[1]; p++) {
+        map.set(p, scene.index)
+      }
+    }
+    return map
+  }, [scenes])
+
+  // Split content into paragraphs (for scene-marked rendering)
+  const paragraphs = useMemo(() => {
+    if (!currentChapter?.content) return []
+    return currentChapter.content.split("\n").filter((p) => p.trim())
+  }, [currentChapter])
+
+  // Scroll to scene paragraph
+  const scrollToScene = useCallback((scene: Scene, index: number) => {
+    setActiveSceneIndex(index)
+    if (!scene.paragraph_range || !contentRef.current) return
+    const paraEl = contentRef.current.querySelector(`[data-para="${scene.paragraph_range[0]}"]`)
+    if (paraEl) paraEl.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [])
 
   // Save reading position on chapter change and periodically
   const savePosition = useCallback(() => {
@@ -586,6 +608,16 @@ export default function ReadingPage() {
           </div>
 
           <Button
+            variant={scenePanelOpen ? "default" : "ghost"}
+            size="xs"
+            onClick={() => setScenePanelOpen(!scenePanelOpen)}
+            title={scenePanelOpen ? "收起剧本面板" : "展开剧本面板"}
+          >
+            <ClapperboardIcon className="mr-1 size-3.5" />
+            剧本
+          </Button>
+
+          <Button
             variant="ghost"
             size="icon-xs"
             onClick={() => {
@@ -679,14 +711,47 @@ export default function ReadingPage() {
         {/* Chapter content */}
         <div ref={contentRef} className="flex-1 overflow-y-auto">
           <article className="mx-auto max-w-3xl px-8 py-8">
+            {/* Guided tour bubble — Step 1: entity highlight */}
+            <ReadingTourBubble isSample={!!novel?.is_sample} hasContent={!!currentChapter} />
             {currentChapter && (
               <>
                 <h2 className="mb-6 text-center text-xl font-bold">
                   {currentChapter.title}
                 </h2>
-                <div className={cn("whitespace-pre-wrap", FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
-                  {highlightText(currentChapter.content, entities, handleEntityClick)}
-                </div>
+                {scenePanelOpen && scenes.length > 0 ? (
+                  /* Paragraph-level rendering with scene border markers */
+                  <div className={cn(FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
+                    {scenesLoading ? (
+                      <p className="text-sm text-muted-foreground">加载场景...</p>
+                    ) : (
+                      paragraphs.map((p, i) => {
+                        const sceneIdx = paraSceneMap.get(i)
+                        const isActive = sceneIdx === activeSceneIndex
+                        const borderColor = sceneIdx != null
+                          ? SCENE_BORDER_COLORS[sceneIdx % SCENE_BORDER_COLORS.length]
+                          : ""
+                        return (
+                          <p
+                            key={i}
+                            data-para={i}
+                            className={cn(
+                              "mb-2 leading-relaxed transition-colors",
+                              sceneIdx != null && `border-l-3 pl-3 ${borderColor}`,
+                              isActive && "bg-accent/30 rounded-r",
+                            )}
+                          >
+                            {highlightText(p, entities, handleEntityClick)}
+                          </p>
+                        )
+                      })
+                    )}
+                  </div>
+                ) : (
+                  /* Normal whole-block rendering */
+                  <div className={cn("whitespace-pre-wrap", FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
+                    {highlightText(currentChapter.content, entities, handleEntityClick)}
+                  </div>
+                )}
               </>
             )}
 
@@ -712,6 +777,16 @@ export default function ReadingPage() {
           </article>
         </div>
       </div>
+
+      {/* Scene Panel (right sidebar) */}
+      {scenePanelOpen && (
+        <ScenePanel
+          scenes={scenes}
+          activeSceneIndex={activeSceneIndex}
+          onSceneClick={scrollToScene}
+          onClose={() => setScenePanelOpen(false)}
+        />
+      )}
 
       {/* Entity Card Drawer */}
       {novelId && <EntityCardDrawer novelId={novelId} />}
@@ -810,6 +885,26 @@ function SearchIcon({ className }: { className?: string }) {
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+
+function ClapperboardIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z" />
+      <path d="m6.2 5.3 3.1 3.9" />
+      <path d="m12.4 3.4 3.1 4" />
+      <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
     </svg>
   )
 }
