@@ -268,6 +268,9 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("馆", "building"),
     ("铺", "building"),
     ("店", "building"),
+    ("家", "building"),
+    ("宅", "building"),
+    ("舍", "building"),
 ]
 
 
@@ -1143,6 +1146,29 @@ class WorldStructureAgent:
                 # source is container (parent), target is contained (child)
                 self._parent_votes.setdefault(target, Counter())[source] += weight
 
+        # ── Adjacent / Direction / In-between → parent propagation votes ──
+        # These non-contains spatial relationships indicate spatial proximity.
+        # If A is adjacent/direction to B and B already has a parent candidate C,
+        # propagate a weak vote A→C (weight=1). This allows locations near each
+        # other to inherit hierarchy from their neighbors.
+        for sr in fact.spatial_relationships:
+            if sr.relation_type not in ("adjacent", "direction", "in_between"):
+                continue
+            source, target = sr.source, sr.target
+            if source == target:
+                continue
+            if _is_generic_location(source) or _is_generic_location(target):
+                continue
+            # Bidirectional propagation: if either has a parent, share with the other
+            for from_loc, to_loc in [(source, target), (target, source)]:
+                from_votes = self._parent_votes.get(from_loc)
+                if not from_votes:
+                    continue
+                best_parent, best_count = from_votes.most_common(1)[0]
+                if best_parent and best_parent != to_loc and best_count >= 2:
+                    # Weak vote — must not exceed direct parent declaration weight
+                    self._parent_votes.setdefault(to_loc, Counter())[best_parent] += 1
+
         # ── Name containment parent inference ──
         # If "石圪节公社" and "石圪节" both exist, the longer one is likely
         # the administrative parent of the shorter one (or they're the same).
@@ -1268,7 +1294,9 @@ class WorldStructureAgent:
             elif level == 0 and parent is None and effective_type and not any(
                 kw in effective_type for kw in ("城", "镇", "都", "村")
             ):
-                raw_tier = LocationTier.region.value
+                # Orphan nodes with unrecognized type: default to site instead of
+                # region to prevent inflating high-tier counts under 天下.
+                raw_tier = LocationTier.site.value
             else:
                 raw_tier = LocationTier.city.value
 
@@ -1493,6 +1521,47 @@ class WorldStructureAgent:
                 len(votes),
             )
 
+    def propagate_sibling_parents(self, sibling_groups: list[list[str]]) -> None:
+        """Propagate parent votes within sibling groups identified by SceneTransitionAnalyzer.
+
+        If sibling group {A, B, C} and B has parent=X in votes, give A→X and C→X
+        votes (weight=2). Only propagates when the parent is not a group member
+        itself (to avoid circular references).
+        """
+        propagated = 0
+        for group in sibling_groups:
+            if len(group) < 2:
+                continue
+            group_set = set(group)
+            # Collect all parent candidates from group members' votes
+            group_parents: Counter = Counter()
+            for member in group:
+                member_votes = self._parent_votes.get(member)
+                if not member_votes:
+                    continue
+                for parent, count in member_votes.items():
+                    if parent not in group_set:
+                        group_parents[parent] += count
+
+            if not group_parents:
+                continue
+
+            # Propagate top parent to all members that lack a vote for it
+            best_parent = group_parents.most_common(1)[0][0]
+            for member in group:
+                if member == best_parent:
+                    continue
+                existing = self._parent_votes.get(member, Counter()).get(best_parent, 0)
+                if existing == 0:
+                    self._parent_votes.setdefault(member, Counter())[best_parent] += 2
+                    propagated += 1
+
+        if propagated:
+            logger.info(
+                "Sibling parent propagation: %d groups, %d votes propagated",
+                len(sibling_groups), propagated,
+            )
+
     # ── Parent vote resolution ────────────────────────
 
     async def _rebuild_parent_votes(self) -> dict[str, Counter]:
@@ -1527,6 +1596,9 @@ class WorldStructureAgent:
 
         tiers = self.structure.location_tiers if self.structure else {}
 
+        # Collect spatial neighbor pairs for post-loop propagation (A.1)
+        spatial_neighbors: list[tuple[str, str]] = []
+
         for row in rows:
             data = _json.loads(row["fact_json"])
             for loc in data.get("locations", []):
@@ -1536,37 +1608,72 @@ class WorldStructureAgent:
                     if not _is_generic_location(name) and not _is_generic_location(parent):
                         votes.setdefault(name, Counter())[parent] += 1
             for sr in data.get("spatial_relationships", []):
-                if sr.get("relation_type") == "contains" and sr.get("source") != sr.get("target"):
-                    source = sr.get("source", "")
-                    target = sr.get("target", "")
-                    if not source or not target:
-                        continue
-                    if _is_generic_location(source) or _is_generic_location(target):
-                        continue
-                    # Defensive weight reduction for contains relationships
-                    weight = {"high": 2, "medium": 1, "low": 1}.get(sr.get("confidence", "low"), 1)
-                    # Direction validation: suffix rank (primary) > tier order (fallback)
-                    source_suf = _get_suffix_rank(source)
-                    target_suf = _get_suffix_rank(target)
-                    if source_suf is not None and target_suf is not None:
-                        if source_suf > target_suf:
+                rel_type = sr.get("relation_type", "")
+                source = sr.get("source", "")
+                target = sr.get("target", "")
+                if not source or not target or source == target:
+                    continue
+                if _is_generic_location(source) or _is_generic_location(target):
+                    continue
+
+                # Collect adjacent/direction/in_between pairs for propagation
+                if rel_type in ("adjacent", "direction", "in_between"):
+                    spatial_neighbors.append((source, target))
+                    continue
+
+                if rel_type != "contains":
+                    continue
+                # Defensive weight reduction for contains relationships
+                weight = {"high": 2, "medium": 1, "low": 1}.get(sr.get("confidence", "low"), 1)
+                # Direction validation: suffix rank (primary) > tier order (fallback)
+                source_suf = _get_suffix_rank(source)
+                target_suf = _get_suffix_rank(target)
+                if source_suf is not None and target_suf is not None:
+                    if source_suf > target_suf:
+                        source, target = target, source
+                    elif source_suf == target_suf:
+                        weight = 1
+                else:
+                    # Fallback: tier-based direction validation
+                    source_tier = tiers.get(source, "city")
+                    target_tier = tiers.get(target, "city")
+                    source_rank = TIER_ORDER.get(source_tier, 4)
+                    target_rank = TIER_ORDER.get(target_tier, 4)
+                    if source_rank > target_rank:
+                        source, target = target, source
+                    elif source_rank == target_rank:
+                        if source.startswith(target) and len(source) > len(target):
                             source, target = target, source
-                        elif source_suf == target_suf:
+                        elif not (target.startswith(source) and len(target) > len(source)):
                             weight = 1
-                    else:
-                        # Fallback: tier-based direction validation
-                        source_tier = tiers.get(source, "city")
-                        target_tier = tiers.get(target, "city")
-                        source_rank = TIER_ORDER.get(source_tier, 4)
-                        target_rank = TIER_ORDER.get(target_tier, 4)
-                        if source_rank > target_rank:
-                            source, target = target, source
-                        elif source_rank == target_rank:
-                            if source.startswith(target) and len(source) > len(target):
-                                source, target = target, source
-                            elif not (target.startswith(source) and len(target) > len(source)):
-                                weight = 1
-                    votes.setdefault(target, Counter())[source] += weight
+                votes.setdefault(target, Counter())[source] += weight
+
+        # ── Spatial neighbor propagation (adjacent/direction/in_between) ──
+        # If A is adjacent/near B and B has a confident parent C, propagate A→C.
+        # Up to 2 rounds to allow transitive propagation (A→B→C chain).
+        if spatial_neighbors:
+            total_propagated = 0
+            for _round in range(2):
+                propagated = 0
+                for a, b in spatial_neighbors:
+                    for from_loc, to_loc in [(a, b), (b, a)]:
+                        from_votes = votes.get(from_loc)
+                        if not from_votes:
+                            continue
+                        best_parent, best_count = from_votes.most_common(1)[0]
+                        if best_parent and best_parent != to_loc and best_count >= 2:
+                            existing = votes.get(to_loc, Counter()).get(best_parent, 0)
+                            if existing == 0:
+                                votes.setdefault(to_loc, Counter())[best_parent] += 1
+                                propagated += 1
+                total_propagated += propagated
+                if propagated == 0:
+                    break
+            if total_propagated:
+                logger.info(
+                    "Spatial neighbor propagation: %d pairs, %d votes propagated",
+                    len(spatial_neighbors), total_propagated,
+                )
 
         return votes
 
