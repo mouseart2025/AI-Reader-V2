@@ -359,73 +359,113 @@ def consolidate_hierarchy(
     """
     genre = novel_genre_hint or "unknown"
 
-    # Skip consolidation for genres where Chinese geography doesn't apply
-    if genre in ("fantasy", "urban"):
-        logger.debug("Skipping Chinese geo consolidation for genre=%s", genre)
-        return location_parents, location_tiers
-
     all_known = set(location_tiers.keys())
     changes_made = 0
 
-    # Import TIER_ORDER once
-    from src.services.world_structure_agent import TIER_ORDER
+    # ── Step 0: Break any pre-existing cycles ──
+    # Cycles can persist from earlier versions or edge cases in _resolve_parents.
+    # Walk each parent chain; if we revisit a node, break the weakest edge.
+    checked: set[str] = set()
+    cycles_broken = 0
+    for start in list(location_parents):
+        if start in checked:
+            continue
+        visited: list[str] = []
+        visited_set: set[str] = set()
+        node = start
+        while node in location_parents and node not in visited_set:
+            visited.append(node)
+            visited_set.add(node)
+            node = location_parents[node]
+        checked.update(visited_set)
+        if node in visited_set:
+            # Found a cycle — collect edges in the cycle and remove the weakest
+            cycle_edges: list[tuple[str, str, int]] = []
+            cur = node
+            while True:
+                parent = location_parents[cur]
+                vote_count = (
+                    parent_votes.get(cur, Counter()).get(parent, 0)
+                    if parent_votes
+                    else 0
+                )
+                cycle_edges.append((cur, parent, vote_count))
+                cur = parent
+                if cur == node:
+                    break
+            weakest = min(cycle_edges, key=lambda e: e[2])
+            del location_parents[weakest[0]]
+            cycles_broken += 1
+    if cycles_broken:
+        logger.info("Broke %d pre-existing cycle(s) in location_parents", cycles_broken)
 
-    # ── Step 1: Fix province tiers first ──
-    # This must happen before other steps so tier comparisons work correctly
-    for prov in _PROVINCES:
-        if prov in location_tiers:
-            location_tiers[prov] = _PROVINCE_TIER
+    # Snapshot input parents for oscillation damping at the end
+    input_parents = dict(location_parents)
+
+    # Import TIER_ORDER and _get_suffix_rank once
+    from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
+
+    # ── Genre-specific: Chinese geography steps (Steps 1-2) ──
+    # Province tier fixes and province inversion fixes only apply to
+    # genres where Chinese geography is relevant.
+    skip_chinese_geo = genre in ("fantasy", "urban")
+
+    if not skip_chinese_geo:
+        # ── Step 1: Fix province tiers first ──
+        for prov in _PROVINCES:
+            if prov in location_tiers:
+                location_tiers[prov] = _PROVINCE_TIER
 
     # ── Step 2: Fix inverted province relationships ──
-    # If a province (山东) is a CHILD of something smaller, fix it
-    for prov in list(_PROVINCES):
-        if prov not in location_parents:
-            continue
-        current_parent = location_parents[prov]
-        # Province should only be child of uber-root or another province
-        if current_parent not in _PROVINCES and current_parent != "天下":
-            parent_tier = location_tiers.get(current_parent, "city")
-            parent_rank = TIER_ORDER.get(parent_tier, 4)
-            # If parent is smaller than continent, the relationship is inverted
-            if parent_rank > TIER_ORDER.get(_PROVINCE_TIER, 1):
-                wrong_parent = current_parent
-                del location_parents[prov]
-                # Make the wrong parent a child of this province instead
-                if wrong_parent not in location_parents:
-                    _safe_set_parent(
-                        wrong_parent, prov, location_parents,
-                        f"province inversion fix: {prov} was child of {wrong_parent}",
-                    )
-                changes_made += 1
-                logger.debug(
-                    "Province inversion fix: %s was child of %s → reversed",
-                    prov, wrong_parent,
-                )
+    # (Only for Chinese-geography genres)
+    if not skip_chinese_geo:
+        for prov in list(_PROVINCES):
+            if prov not in location_parents:
+                continue
+            current_parent = location_parents[prov]
+            if current_parent not in _PROVINCES and current_parent != "天下":
+                parent_tier = location_tiers.get(current_parent, "city")
+                parent_rank = TIER_ORDER.get(parent_tier, 4)
+                if parent_rank > TIER_ORDER.get(_PROVINCE_TIER, 1):
+                    wrong_parent = current_parent
+                    del location_parents[prov]
+                    if wrong_parent not in location_parents:
+                        _safe_set_parent(
+                            wrong_parent, prov, location_parents,
+                            f"province inversion fix: {prov} was child of {wrong_parent}",
+                        )
+                    changes_made += 1
 
-    # ── Step 2b: Fix tier inversions in the full hierarchy ──
-    # If a parent has a smaller tier (higher rank number) than its child,
-    # the relationship is likely inverted by the LLM.
+    # ── Step 2b: Fix tier inversions in the full hierarchy (ALL genres) ──
+    # Buildings parenting cities, rooms parenting regions — wrong in ANY genre.
+    # Uses suffix rank (primary) and tier order (fallback) for direction detection.
     # Example: "大尉府" (building) → child "东京" (city) → reversed!
     #
     # IMPORTANT: Collect all fixes first, then apply in batch to avoid
     # race conditions where one fix undoes another during iteration.
     inversion_fixes: list[tuple[str, str]] = []  # (child, parent) pairs to reverse
     for child, parent in list(location_parents.items()):
-        if parent in _PROVINCES or parent == "天下":
+        if not skip_chinese_geo and (parent in _PROVINCES or parent == "天下"):
             continue
-        child_tier = location_tiers.get(child, "city")
-        parent_tier = location_tiers.get(parent, "city")
-        child_rank = TIER_ORDER.get(child_tier, 4)
-        parent_rank = TIER_ORDER.get(parent_tier, 4)
 
         should_fix = False
 
-        if parent_rank > child_rank:
-            # Parent tier is more specific than child — always inverted
-            should_fix = True
-        elif parent_rank == child_rank and _is_sub_location_name(parent) and _is_geographic_name(child):
-            # Same tier but parent looks like a sub-location, child is geographic
-            should_fix = True
+        # Primary: suffix rank (name morphology is more reliable than LLM tiers)
+        child_suf = _get_suffix_rank(child)
+        parent_suf = _get_suffix_rank(parent)
+        if child_suf is not None and parent_suf is not None:
+            if parent_suf > child_suf:
+                should_fix = True
+        else:
+            # Fallback: tier-based detection
+            child_tier = location_tiers.get(child, "city")
+            parent_tier = location_tiers.get(parent, "city")
+            child_rank = TIER_ORDER.get(child_tier, 4)
+            parent_rank = TIER_ORDER.get(parent_tier, 4)
+            if parent_rank > child_rank:
+                should_fix = True
+            elif parent_rank == child_rank and _is_sub_location_name(parent) and _is_geographic_name(child):
+                should_fix = True
 
         if should_fix:
             inversion_fixes.append((child, parent))
@@ -490,6 +530,49 @@ def consolidate_hierarchy(
             else:
                 # Just orphan the root — it's noise
                 pass
+
+    # ── Oscillation damping ──
+    # Detect direction flips: if A→B in input became B→A after consolidation,
+    # and suffix rank doesn't clearly justify the flip, revert it.
+    # This prevents infinite oscillation for ambiguous pairs (e.g., 后宫↔宫廷).
+    damped = 0
+    for child, parent in list(location_parents.items()):
+        # Check if this is a flip of an input relationship
+        if input_parents.get(parent) == child:
+            # Input had parent→child (parent was child of child)
+            # Now we have child→parent — this is a direction flip
+            child_suf = _get_suffix_rank(child)
+            parent_suf = _get_suffix_rank(parent)
+            # Only keep the flip if suffix rank clearly justifies it
+            if child_suf is not None and parent_suf is not None and parent_suf < child_suf:
+                continue  # Flip is justified: parent is bigger by suffix rank
+            # Check tier as secondary signal
+            child_tier = location_tiers.get(child, "city")
+            parent_tier = location_tiers.get(parent, "city")
+            child_rank = TIER_ORDER.get(child_tier, 4)
+            parent_rank = TIER_ORDER.get(parent_tier, 4)
+            if parent_rank < child_rank:
+                continue  # Flip is justified: parent has clearly bigger tier
+            # Not clearly justified — revert to input direction
+            del location_parents[child]
+            if _safe_set_parent(parent, child, location_parents, "oscillation-damp"):
+                damped += 1
+            else:
+                # Can't revert (cycle) — just remove the relationship
+                damped += 1
+    if damped:
+        logger.info("Oscillation damping: reverted %d ambiguous flips", damped)
+
+    # ── Steps 3-11: Chinese geography-specific consolidation ──
+    # Only applies to genres where Chinese geography is relevant.
+    if skip_chinese_geo:
+        final_roots = _get_roots(location_parents)
+        logger.info(
+            "Hierarchy consolidation (genre=%s): %d generic fixes, "
+            "%d final roots, skipped Chinese geo steps",
+            genre, changes_made, len(final_roots),
+        )
+        return location_parents, location_tiers
 
     # ── Step 3: Parse compound names ──
     # "山东济州" → create 山东 > 山东济州 hierarchy

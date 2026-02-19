@@ -11,8 +11,36 @@ from src.models.world_structure import Portal, WorldStructure
 logger = logging.getLogger(__name__)
 
 
+def _break_cycles(location_parents: dict[str, str]) -> int:
+    """Break any cycles in location_parents in-place. Returns count of broken cycles."""
+    checked: set[str] = set()
+    broken = 0
+    for start in list(location_parents):
+        if start in checked:
+            continue
+        visited_set: set[str] = set()
+        node = start
+        while node in location_parents and node not in visited_set:
+            visited_set.add(node)
+            node = location_parents[node]
+        checked.update(visited_set)
+        if node in visited_set:
+            # Cycle detected — break the edge FROM node
+            del location_parents[node]
+            broken += 1
+    return broken
+
+
 async def save(novel_id: str, structure: WorldStructure) -> None:
     """Insert or update a world structure for a novel."""
+    # Safety net: break any cycles before persisting
+    broken = _break_cycles(structure.location_parents)
+    if broken:
+        logger.warning(
+            "Broke %d cycle(s) in location_parents before saving novel %s",
+            broken, novel_id,
+        )
+
     conn = await get_connection()
     try:
         await conn.execute(

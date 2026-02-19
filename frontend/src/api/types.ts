@@ -444,6 +444,30 @@ export interface WorldStructureOverride {
   created_at: string
 }
 
+export interface HierarchyChange {
+  location: string
+  old_parent: string | null
+  new_parent: string | null
+  change_type: "added" | "changed" | "removed"
+  auto_select: boolean
+  reason: string
+}
+
+export interface HierarchyRebuildResult {
+  changes: HierarchyChange[]
+  location_tiers: Record<string, string>
+  summary: {
+    added: number
+    changed: number
+    removed: number
+    total: number
+    old_root_count: number
+    new_root_count: number
+    scene_analysis_used: boolean
+    llm_review_used: boolean
+  }
+}
+
 export interface WorldStructureRegion {
   name: string
   cardinal_direction: string | null

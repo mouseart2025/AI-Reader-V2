@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { fetchNovel, fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, rebuildHierarchy } from "@/api/client"
-import type { Novel } from "@/api/types"
+import { fetchNovel, fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
+import type { Novel, HierarchyChange, HierarchyRebuildResult } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 
@@ -71,7 +72,11 @@ export default function EncyclopediaPage() {
   const [conceptDetail, setConceptDetail] = useState<ConceptDetail | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [rebuilding, setRebuilding] = useState(false)
+  const [rebuildProgress, setRebuildProgress] = useState("")
   const [toast, setToast] = useState<string | null>(null)
+  const [rebuildResult, setRebuildResult] = useState<HierarchyRebuildResult | null>(null)
+  const [selectedChanges, setSelectedChanges] = useState<Set<number>>(new Set())
+  const [applying, setApplying] = useState(false)
 
   // Reset hierarchy sort when leaving location category
   useEffect(() => {
@@ -302,19 +307,24 @@ export default function EncyclopediaPage() {
                 onClick={() => {
                   if (!novelId || rebuilding) return
                   setRebuilding(true)
-                  rebuildHierarchy(novelId)
+                  setRebuildProgress("正在初始化...")
+                  rebuildHierarchy(novelId, setRebuildProgress)
                     .then((res) => {
-                      setToast(`层级重建完成: ${res.root_count} 个根节点`)
-                      // Reload entries to reflect new hierarchy
-                      setLoading(true)
-                      fetchEncyclopediaEntries(novelId, "location", "hierarchy")
-                        .then((data) => setEntries(data.entries))
-                        .finally(() => setLoading(false))
+                      if (res.changes.length === 0) {
+                        setToast("层级无变化")
+                        setTimeout(() => setToast(null), 4000)
+                      } else {
+                        setRebuildResult(res)
+                        setSelectedChanges(new Set(res.changes.map((c, i) => c.auto_select ? i : -1).filter(i => i >= 0)))
+                      }
                     })
-                    .catch(() => setToast("层级重建失败"))
+                    .catch(() => {
+                      setToast("层级重建失败")
+                      setTimeout(() => setToast(null), 4000)
+                    })
                     .finally(() => {
                       setRebuilding(false)
-                      setTimeout(() => setToast(null), 4000)
+                      setRebuildProgress("")
                     })
                 }}
               >
@@ -322,6 +332,9 @@ export default function EncyclopediaPage() {
               </Button>
             )}
             <div className="flex-1" />
+            {rebuilding && rebuildProgress && (
+              <span className="text-xs text-blue-600 animate-pulse">{rebuildProgress}</span>
+            )}
             {toast && (
               <span className="text-xs text-green-600">{toast}</span>
             )}
@@ -520,6 +533,131 @@ export default function EncyclopediaPage() {
       </div>
 
       {novelId && <EntityCardDrawer novelId={novelId} />}
+
+      {/* Hierarchy changes preview Dialog */}
+      <Dialog open={rebuildResult !== null} onOpenChange={(open) => { if (!open) setRebuildResult(null) }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>层级变更预览</DialogTitle>
+            {rebuildResult && (
+              <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                <span className="text-green-600">+{rebuildResult.summary.added} 新增</span>
+                <span className="text-yellow-600">~{rebuildResult.summary.changed} 变更</span>
+                <span className="text-red-600">-{rebuildResult.summary.removed} 移除</span>
+                <span className="mx-1">|</span>
+                <span>根节点 {rebuildResult.summary.old_root_count} → {rebuildResult.summary.new_root_count}</span>
+                {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">场景分析</span>}
+                {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">LLM审查</span>}
+              </div>
+            )}
+          </DialogHeader>
+
+          {rebuildResult && (
+            <div className="flex-1 overflow-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/50 sticky top-0">
+                  <tr>
+                    <th className="w-8 px-2 py-1.5 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedChanges.size === rebuildResult.changes.length}
+                        ref={(el) => { if (el) el.indeterminate = selectedChanges.size > 0 && selectedChanges.size < rebuildResult.changes.length }}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedChanges(new Set(rebuildResult.changes.map((_, i) => i)))
+                          } else {
+                            setSelectedChanges(new Set())
+                          }
+                        }}
+                      />
+                    </th>
+                    <th className="px-2 py-1.5 text-left">地点</th>
+                    <th className="px-2 py-1.5 text-left">原父级</th>
+                    <th className="w-6 px-1 py-1.5" />
+                    <th className="px-2 py-1.5 text-left">新父级</th>
+                    <th className="w-16 px-2 py-1.5 text-left">类型</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rebuildResult.changes.map((change, idx) => (
+                    <tr key={change.location} className={cn("hover:bg-muted/30", !change.auto_select && "opacity-60")}>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedChanges.has(idx)}
+                          onChange={(e) => {
+                            setSelectedChanges((prev) => {
+                              const next = new Set(prev)
+                              if (e.target.checked) next.add(idx)
+                              else next.delete(idx)
+                              return next
+                            })
+                          }}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 font-medium">
+                        {change.location}
+                        {change.reason && <span className="block text-[10px] text-muted-foreground font-normal">{change.reason}</span>}
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{change.old_parent ?? "—"}</td>
+                      <td className="px-1 py-1.5 text-muted-foreground text-center">→</td>
+                      <td className="px-2 py-1.5">{change.new_parent ?? "—"}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[10px]",
+                          change.change_type === "added" && "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+                          change.change_type === "changed" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+                          change.change_type === "removed" && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+                        )}>
+                          {change.change_type === "added" ? "新增" : change.change_type === "changed" ? "变更" : "移除"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <DialogFooter className="flex-row items-center gap-2 sm:flex-row">
+            <span className="text-xs text-muted-foreground flex-1">
+              已选 {selectedChanges.size} / {rebuildResult?.changes.length ?? 0} 项
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setRebuildResult(null)}>
+              取消
+            </Button>
+            <Button
+              size="sm"
+              disabled={applying || selectedChanges.size === 0}
+              onClick={() => {
+                if (!novelId || !rebuildResult || applying) return
+                setApplying(true)
+                const selected = rebuildResult.changes
+                  .filter((_, i) => selectedChanges.has(i))
+                  .map((c) => ({ location: c.location, new_parent: c.new_parent }))
+                applyHierarchyChanges(novelId, selected, rebuildResult.location_tiers)
+                  .then((res) => {
+                    setRebuildResult(null)
+                    setToast(`层级已更新: ${res.root_count} 个根节点`)
+                    setTimeout(() => setToast(null), 4000)
+                    // Reload entries to reflect new hierarchy
+                    setLoading(true)
+                    fetchEncyclopediaEntries(novelId, "location", "hierarchy")
+                      .then((data) => setEntries(data.entries))
+                      .finally(() => setLoading(false))
+                  })
+                  .catch(() => {
+                    setToast("应用变更失败")
+                    setTimeout(() => setToast(null), 4000)
+                  })
+                  .finally(() => setApplying(false))
+              }}
+            >
+              {applying ? "应用中..." : `应用 ${selectedChanges.size} 项变更`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import type {
   EntityDictionaryResponse,
   EntitySummary,
   EnvironmentCheck,
+  HierarchyRebuildResult,
   ImportPreview,
   MapData,
   Novel,
@@ -389,6 +390,53 @@ export function deleteWorldStructureOverride(
 
 export function rebuildHierarchy(
   novelId: string,
+  onProgress?: (message: string) => void,
+): Promise<HierarchyRebuildResult> {
+  return new Promise((resolve, reject) => {
+    fetch(`${BASE}/novels/${novelId}/world-structure/rebuild-hierarchy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+        const reader = res.body?.getReader()
+        if (!reader) throw new Error("No response body")
+        const decoder = new TextDecoder()
+        let buffer = ""
+        let result: HierarchyRebuildResult | null = null
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop() ?? ""
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.stage === "done") {
+                result = data.result
+              } else if (data.stage === "error") {
+                reject(new Error(data.message))
+                return
+              } else if (onProgress && data.message) {
+                onProgress(data.message)
+              }
+            } catch { /* skip parse errors */ }
+          }
+        }
+        if (result) resolve(result)
+        else reject(new Error("未收到重建结果"))
+      })
+      .catch(reject)
+  })
+}
+
+export function applyHierarchyChanges(
+  novelId: string,
+  changes: { location: string; new_parent: string | null }[],
+  locationTiers?: Record<string, string>,
 ): Promise<{
   status: string
   old_parent_count: number
@@ -396,8 +444,9 @@ export function rebuildHierarchy(
   root_count: number
   roots: string[]
 }> {
-  return apiFetch(`/novels/${novelId}/world-structure/rebuild-hierarchy`, {
+  return apiFetch(`/novels/${novelId}/world-structure/apply-hierarchy-changes`, {
     method: "POST",
+    body: JSON.stringify({ changes, location_tiers: locationTiers }),
   })
 }
 

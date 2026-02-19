@@ -358,13 +358,34 @@ function LocationTreeTab({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [initialized, setInitialized] = useState(false)
 
-  // Build tree structure
-  const { roots, childrenMap, allNames } = useMemo(() => {
-    const parents = ws.location_parents ?? {}
+  // Build tree structure (with cycle detection)
+  const { roots, childrenMap, allNames, safeParents } = useMemo(() => {
+    const rawParents = ws.location_parents ?? {}
     const tiers = ws.location_tiers ?? {}
+
+    // Copy parents and break any cycles so the tree is acyclic
+    const parents: Record<string, string> = { ...rawParents }
+    const checked = new Set<string>()
+    for (const start of Object.keys(parents)) {
+      if (checked.has(start)) continue
+      const visited = new Set<string>()
+      let node: string | undefined = start
+      while (node && parents[node] && !visited.has(node)) {
+        visited.add(node)
+        node = parents[node]
+      }
+      if (node && visited.has(node)) {
+        // Cycle detected — break the edge FROM node to its parent
+        delete parents[node]
+      }
+      for (const v of visited) checked.add(v)
+    }
+
     const allNames = new Set([
       ...Object.keys(parents),
       ...Object.values(parents),
+      ...Object.keys(rawParents),
+      ...Object.values(rawParents),
       ...Object.keys(tiers),
     ])
 
@@ -379,7 +400,7 @@ function LocationTreeTab({
     const childSet = new Set(Object.keys(parents))
     const roots = [...allNames].filter((n) => !childSet.has(n)).sort()
 
-    return { roots, childrenMap, allNames }
+    return { roots, childrenMap, allNames, safeParents: parents }
   }, [ws])
 
   // Default expand: roots + first level
@@ -399,21 +420,22 @@ function LocationTreeTab({
     const q = search.toLowerCase()
     const matched = new Set<string>()
     const ancestors = new Set<string>()
-    const parents = ws.location_parents ?? {}
 
     for (const name of allNames) {
       if (name.toLowerCase().includes(q)) {
         matched.add(name)
-        // Walk up to root
+        // Walk up to root (using cycle-safe parents)
         let cur = name
-        while (parents[cur]) {
-          ancestors.add(parents[cur])
-          cur = parents[cur]
+        const walked = new Set<string>()
+        while (safeParents[cur] && !walked.has(cur)) {
+          walked.add(cur)
+          ancestors.add(safeParents[cur])
+          cur = safeParents[cur]
         }
       }
     }
     return { matched, ancestors }
-  }, [search, allNames, ws.location_parents])
+  }, [search, allNames, safeParents])
 
   // Flatten visible tree nodes
   const treeNodes = useMemo(() => {
@@ -461,21 +483,10 @@ function LocationTreeTab({
 
     for (const root of roots) dfs(root, 0)
 
-    // Add orphans (in allNames but not visited)
+    // Add orphans (in allNames but not visited) — DFS their subtrees too
     for (const name of allNames) {
       if (!visited.has(name)) {
-        const matchesSearch = isSearching ? searchMatchedNodes!.matched.has(name) : true
-        if (!matchesSearch) continue
-        result.push({
-          name,
-          depth: 0,
-          tier: tiers[name] ?? "",
-          childCount: 0,
-          hasChildren: false,
-          isExpanded: false,
-          isOverridden: overriddenKeys.has(`location_parent:${name}`),
-          matchesSearch: isSearching ? searchMatchedNodes!.matched.has(name) : false,
-        })
+        dfs(name, 0)
       }
     }
 

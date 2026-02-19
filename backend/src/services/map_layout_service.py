@@ -1555,8 +1555,13 @@ class ConstraintSolver:
                 px, py = layout[parent]
                 children_here = self.children.get(parent, [])
                 idx = children_here.index(name) if name in children_here else 0
-                angle = 2 * math.pi * idx / max(len(children_here), 1)
-                r = base_jitter * 0.8 + 8 * (loc.get("level", 0))
+                n_children = max(len(children_here), 1)
+                # Sunflower seed distribution: golden angle + varying radius
+                # fills the circular area organically instead of a ring perimeter
+                golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+                frac = (idx + 0.5) / n_children  # 0..1
+                r = base_jitter * (0.3 + 0.7 * math.sqrt(frac)) + 8 * loc.get("level", 0)
+                angle = idx * golden_angle
                 x = max(self._canvas_min_x, min(self._canvas_max_x, px + r * math.cos(angle)))
                 y = max(self._canvas_min_y, min(self._canvas_max_y, py + r * math.sin(angle)))
                 layout[name] = (x, y)
@@ -1897,7 +1902,7 @@ class ConstraintSolver:
             if name in self.loc_index:
                 layout[name] = (x, y)
 
-        # Place roots in a circle around center
+        # Place roots using sunflower seed distribution
         unplaced_roots = [r for r in self.roots if r not in layout]
         if not unplaced_roots and not layout:
             # No hierarchy at all — place everything in a spiral
@@ -1906,10 +1911,14 @@ class ConstraintSolver:
         w = self._canvas_max_x - self._canvas_min_x
         h = self._canvas_max_y - self._canvas_min_y
         radius = min(w, h) * 0.2
+        golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+        n_roots = max(len(unplaced_roots), 1)
         for i, name in enumerate(unplaced_roots):
-            angle = 2 * math.pi * i / max(len(unplaced_roots), 1)
-            x = self._canvas_cx + radius * math.cos(angle)
-            y = self._canvas_cy + radius * math.sin(angle)
+            frac = (i + 0.5) / n_roots
+            r = radius * (0.3 + 0.7 * math.sqrt(frac))
+            angle = i * golden_angle
+            x = self._canvas_cx + r * math.cos(angle)
+            y = self._canvas_cy + r * math.sin(angle)
             layout[name] = (x, y)
 
         # Place children around their parents
@@ -1918,11 +1927,13 @@ class ConstraintSolver:
         # Place any remaining unplaced locations
         unplaced = [n for n in self.loc_names if n not in layout]
         if unplaced:
-            angle_step = 2 * math.pi / max(len(unplaced), 1)
             r = min(w, h) * 0.35
+            n_unplaced = max(len(unplaced), 1)
             for i, name in enumerate(unplaced):
-                angle = angle_step * i
-                layout[name] = (self._canvas_cx + r * math.cos(angle), self._canvas_cy + r * math.sin(angle))
+                frac = (i + 0.5) / n_unplaced
+                ri = r * (0.3 + 0.7 * math.sqrt(frac))
+                angle = i * golden_angle
+                layout[name] = (self._canvas_cx + ri * math.cos(angle), self._canvas_cy + ri * math.sin(angle))
 
         return layout
 
@@ -1933,17 +1944,22 @@ class ConstraintSolver:
         child_radius: float,
     ) -> None:
         """Recursively place children around their parent positions."""
+        golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
         for parent in parents:
             children = self.children.get(parent, [])
             if not children:
                 continue
             px, py = layout.get(parent, (self._canvas_cx, self._canvas_cy))
+            n = len(children)
             for i, child in enumerate(children):
                 if child in layout:
                     continue
-                angle = 2 * math.pi * i / len(children)
-                cx = px + child_radius * math.cos(angle)
-                cy = py + child_radius * math.sin(angle)
+                # Sunflower seed distribution: fills circle area organically
+                frac = (i + 0.5) / n
+                r = child_radius * (0.3 + 0.7 * math.sqrt(frac))
+                angle = i * golden_angle
+                cx = px + r * math.cos(angle)
+                cy = py + r * math.sin(angle)
                 # Clamp to canvas
                 cx = max(self._canvas_min_x, min(self._canvas_max_x, cx))
                 cy = max(self._canvas_min_y, min(self._canvas_max_y, cy))
