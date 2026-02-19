@@ -166,14 +166,17 @@ export default function EncyclopediaPage() {
       dfs(root, 0)
     }
 
-    // Add unvisited locations
+    // Add truly disconnected locations (not children of collapsed parents)
     for (const e of locations) {
       if (!visited.has(e.name)) {
+        // If parent is in the list, this node is hidden under a collapsed parent — skip
+        if (e.parent && nameSet.has(e.parent)) continue
+        const children = childrenMap.get(e.name) ?? []
         result.push({
           ...e,
           depth: e.depth ?? 0,
-          hasChildren: false,
-          isExpanded: false,
+          hasChildren: children.length > 0,
+          isExpanded: expandedNodes.has(e.name),
         })
       }
     }
