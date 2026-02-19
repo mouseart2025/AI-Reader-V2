@@ -1,0 +1,93 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python (uv)
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: rust-x86_64-pc-windows-msvc-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      # ── Frontend ────────────────────────────
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      # ── Backend sidecar ─────────────────────
+      - name: Install backend deps + PyInstaller
+        run: |
+          cd backend
+          uv sync
+          uv pip install pyinstaller
+
+      - name: Build sidecar
+        shell: pwsh
+        run: .\scripts\build-sidecar.ps1
+
+      # ── Sign sidecar (EV cert via signtool) ─
+      - name: Sign sidecar binary
+        if: env.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = "$env:RUNNER_TEMP\certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          $binary = "src-tauri\binaries\ai-reader-backend-x86_64-pc-windows-msvc.exe"
+          & signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+            /fd sha256 /tr http://timestamp.digicert.com /td sha256 $binary
+          Remove-Item $certPath
+
+      # ── Tauri build ─────────────────────────
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: src-tauri
+          args: --target x86_64-pc-windows-msvc
+
+      # ── Upload artifact ─────────────────────
+      - name: Upload NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-reader-v2-x86_64-pc-windows-msvc
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          retention-days: 30

@@ -945,24 +945,65 @@ async def get_timeline_data(
 
     events: list[dict] = []
     swimlanes: dict[str, list[int]] = defaultdict(list)
+    seen_characters: set[str] = set()
 
     event_id = 0
+
+    def _add(summary: str, etype: str, importance: str,
+             participants: list[str], location: str | None, ch: int) -> None:
+        nonlocal event_id
+        is_major = len(participants) >= 3
+        if is_major and importance == "medium":
+            importance = "high"
+        events.append({
+            "id": event_id,
+            "chapter": ch,
+            "summary": summary,
+            "type": etype,
+            "importance": importance,
+            "participants": participants,
+            "location": location,
+            "is_major": is_major,
+        })
+        for p in participants:
+            swimlanes[p].append(event_id)
+        event_id += 1
+
     for fact in facts:
         ch = fact.chapter_id
 
+        # ── Original events (战斗/成长/社交/旅行/其他) ──
         for ev in fact.events:
-            events.append({
-                "id": event_id,
-                "chapter": ch,
-                "summary": ev.summary,
-                "type": ev.type,
-                "importance": ev.importance,
-                "participants": ev.participants,
-                "location": ev.location,
-            })
-            for p in ev.participants:
-                swimlanes[p].append(event_id)
-            event_id += 1
+            _add(ev.summary, ev.type, ev.importance,
+                 ev.participants, ev.location, ch)
+
+        # ── Derived: 角色登场 (character first appearance) ──
+        for char in fact.characters:
+            if char.name not in seen_characters:
+                seen_characters.add(char.name)
+                loc = char.locations_in_chapter[0] if char.locations_in_chapter else None
+                _add(f"{char.name} 首次登场", "角色登场", "medium",
+                     [char.name], loc, ch)
+
+        # ── Derived: 物品交接 (item events) ──
+        for ie in fact.item_events:
+            participants = [ie.actor]
+            if ie.recipient:
+                participants.append(ie.recipient)
+            summary = f"{ie.actor} {ie.action} {ie.item_name}"
+            if ie.recipient:
+                summary += f" → {ie.recipient}"
+            _add(summary, "物品交接", "medium", participants, None, ch)
+
+        # ── Derived: 组织变动 (org events) ──
+        for oe in fact.org_events:
+            participants = []
+            if oe.member:
+                participants.append(oe.member)
+            summary = f"{oe.member or '?'} {oe.action} {oe.org_name}"
+            if oe.role:
+                summary += f" ({oe.role})"
+            _add(summary, "组织变动", "medium", participants, None, ch)
 
     return {"events": events, "swimlanes": dict(swimlanes)}
 

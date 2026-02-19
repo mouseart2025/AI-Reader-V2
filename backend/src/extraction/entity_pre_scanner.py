@@ -566,7 +566,7 @@ class EntityPreScanner:
         system_prompt, user_prompt = build_classification_prompt(candidates)
 
         llm = get_llm_client()
-        result = await llm.generate(
+        result, _usage = await llm.generate(
             system=system_prompt,
             prompt=user_prompt,
             format={"type": "object"},

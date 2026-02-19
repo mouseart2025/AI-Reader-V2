@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   clearAnalysisData,
+  fetchCostEstimate,
   fetchEntityDictionary,
   fetchNovel,
   fetchPrescanStatus,
@@ -10,7 +11,8 @@ import {
   startAnalysis,
   triggerPrescan,
 } from "@/api/client"
-import type { EntityDictItem, Novel, PrescanStatus } from "@/api/types"
+import type { CostEstimate, EntityDictItem, Novel, PrescanStatus } from "@/api/types"
+import { CostPreviewDialog } from "@/components/shared/CostPreviewDialog"
 import { useAnalysisStore } from "@/stores/analysisStore"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -43,6 +45,12 @@ const TYPE_BADGE_COLORS: Record<string, string> = {
   unknown: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
 }
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+  return String(n)
+}
+
 export default function AnalysisPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
@@ -56,12 +64,24 @@ export default function AnalysisPage() {
   const [rangeEnd, setRangeEnd] = useState(1)
   const [showRangeMode, setShowRangeMode] = useState(false)
 
+  // Cost preview dialog (cloud mode)
+  const [showCostPreview, setShowCostPreview] = useState(false)
+  const [costEstimate, setCostEstimate] = useState<CostEstimate | null>(null)
+  const [costLoading, setCostLoading] = useState(false)
+  const [pendingForce, setPendingForce] = useState(false)
+
   // Re-analysis confirmation
   const [showReanalyzeConfirm, setShowReanalyzeConfirm] = useState(false)
 
   // Clear data confirmation
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearing, setClearing] = useState(false)
+
+  // Budget alert state
+  const [budgetToast, setBudgetToast] = useState<string | null>(null)
+  const [showBudgetExceeded, setShowBudgetExceeded] = useState(false)
+  const budgetWarning80Ref = useRef(false)
+  const budgetWarning100Ref = useRef(false)
 
   // Prescan state
   const [prescanStatus, setPrescanStatus] = useState<PrescanStatus>("pending")
@@ -77,6 +97,8 @@ export default function AnalysisPage() {
     currentChapter,
     totalChapters,
     stats,
+    costStats,
+    stageLabel,
     failedChapters,
     setTask,
     resetProgress,
@@ -89,6 +111,29 @@ export default function AnalysisPage() {
   const isCompleted = task?.status === "completed"
   const isCancelled = task?.status === "cancelled"
   const isActive = isRunning || isPaused
+
+  // Budget threshold checks during analysis
+  useEffect(() => {
+    if (!costStats?.is_cloud || costStats.monthly_budget_cny <= 0) return
+    const pct = costStats.monthly_used_cny / costStats.monthly_budget_cny
+    if (pct >= 1 && !budgetWarning100Ref.current) {
+      budgetWarning100Ref.current = true
+      setShowBudgetExceeded(true)
+    } else if (pct >= 0.8 && !budgetWarning80Ref.current) {
+      budgetWarning80Ref.current = true
+      const remaining = costStats.monthly_budget_cny - costStats.monthly_used_cny
+      setBudgetToast(`本月云端预算已用 ${Math.round(pct * 100)}%，剩余 ¥${Math.max(0, remaining).toFixed(2)}`)
+      setTimeout(() => setBudgetToast(null), 5000)
+    }
+  }, [costStats])
+
+  // Reset budget warning refs when starting new analysis
+  useEffect(() => {
+    if (isRunning) {
+      budgetWarning80Ref.current = false
+      budgetWarning100Ref.current = false
+    }
+  }, [isRunning])
 
   // Load prescan data (status + entities if completed)
   const loadPrescanData = useCallback(async (nId: string) => {
@@ -256,7 +301,7 @@ export default function AnalysisPage() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [novelId, setTask, connectWs])
 
-  const handleStartAnalysis = useCallback(
+  const doStartAnalysis = useCallback(
     async (force = false) => {
       if (!novelId || !novel) return
       setStarting(true)
@@ -286,6 +331,40 @@ export default function AnalysisPage() {
     },
     [novelId, novel, showRangeMode, rangeStart, rangeEnd, setTask, connectWs, resetProgress],
   )
+
+  const handleStartAnalysis = useCallback(
+    async (force = false) => {
+      if (!novelId || !novel) return
+      // Cloud mode: show cost preview first
+      setPendingForce(force)
+      setCostLoading(true)
+      setCostEstimate(null)
+      try {
+        const est = await fetchCostEstimate(
+          novelId,
+          showRangeMode ? rangeStart : undefined,
+          showRangeMode ? rangeEnd : undefined,
+        )
+        if (est.is_cloud) {
+          setCostEstimate(est)
+          setShowCostPreview(true)
+          return
+        }
+      } catch {
+        // If estimate fails, proceed anyway (local mode or network issue)
+      } finally {
+        setCostLoading(false)
+      }
+      // Local mode: start directly
+      doStartAnalysis(force)
+    },
+    [novelId, novel, showRangeMode, rangeStart, rangeEnd, doStartAnalysis],
+  )
+
+  const handleCostConfirm = useCallback(() => {
+    setShowCostPreview(false)
+    doStartAnalysis(pendingForce)
+  }, [pendingForce, doStartAnalysis])
 
   const handlePause = useCallback(async () => {
     if (!task) return
@@ -403,7 +482,16 @@ export default function AnalysisPage() {
               {isPaused && (
                 <span className="inline-block size-2 rounded-full bg-yellow-500" />
               )}
-              {isRunning ? "正在分析..." : "已暂停"}
+              {isRunning ? (
+                <>
+                  正在分析...
+                  {stageLabel && (
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      {stageLabel}
+                    </span>
+                  )}
+                </>
+              ) : "已暂停"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -422,6 +510,40 @@ export default function AnalysisPage() {
               <StatCard label="关系" value={stats.relations} />
               <StatCard label="事件" value={stats.events} />
             </div>
+
+            {costStats?.is_cloud && (
+              <div className="rounded-md border p-3 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">已用 Token</span>
+                  <span className="font-mono text-xs">
+                    {formatTokens(costStats.total_input_tokens)} 入 / {formatTokens(costStats.total_output_tokens)} 出
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">已花费</span>
+                  <span>
+                    ¥{costStats.total_cost_cny}
+                    <span className="text-muted-foreground text-xs ml-1">(${costStats.total_cost_usd})</span>
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">预估剩余</span>
+                  <span>
+                    ¥{costStats.estimated_remaining_cny}
+                    <span className="text-muted-foreground text-xs ml-1">(${costStats.estimated_remaining_usd})</span>
+                  </span>
+                </div>
+                <div className="flex justify-between border-t pt-1.5 font-medium">
+                  <span>预估总计</span>
+                  <span>
+                    ¥{(costStats.total_cost_cny + costStats.estimated_remaining_cny).toFixed(2)}
+                    <span className="text-muted-foreground text-xs ml-1">
+                      (${(costStats.total_cost_usd + costStats.estimated_remaining_usd).toFixed(4)})
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2">
               {isRunning && (
@@ -465,6 +587,18 @@ export default function AnalysisPage() {
             <p className="text-muted-foreground text-sm">
               已分析第 {task?.chapter_start} - {task?.chapter_end} 章
             </p>
+            {costStats?.is_cloud && costStats.total_cost_usd > 0 && (
+              <div className="rounded-md border p-3 text-sm flex justify-between">
+                <span className="text-muted-foreground">本次分析费用</span>
+                <span className="font-medium">
+                  ¥{costStats.total_cost_cny}
+                  <span className="text-muted-foreground text-xs ml-1">(${costStats.total_cost_usd})</span>
+                  <span className="text-muted-foreground text-xs ml-2">
+                    {formatTokens(costStats.total_input_tokens + costStats.total_output_tokens)} tokens
+                  </span>
+                </span>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleReanalyze}>
                 重新分析
@@ -646,6 +780,42 @@ export default function AnalysisPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Cost preview dialog (cloud mode) */}
+      <CostPreviewDialog
+        open={showCostPreview}
+        onOpenChange={setShowCostPreview}
+        estimate={costEstimate}
+        loading={costLoading}
+        onConfirm={handleCostConfirm}
+      />
+
+      {/* Budget exceeded dialog (100%) */}
+      <AlertDialog open={showBudgetExceeded} onOpenChange={setShowBudgetExceeded}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>已达月度预算上限</AlertDialogTitle>
+            <AlertDialogDescription>
+              本月云端 LLM 消费已达预算上限 ¥{costStats?.monthly_budget_cny?.toFixed(0)}。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => { setShowBudgetExceeded(false); handlePause() }}>
+              暂停分析
+            </Button>
+            <Button variant="outline" onClick={() => setShowBudgetExceeded(false)}>
+              继续分析
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Budget toast (80%) */}
+      {budgetToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-50 dark:bg-yellow-950/80 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800 rounded-lg px-4 py-2 text-sm shadow-lg">
+          {budgetToast}
+        </div>
+      )}
     </div>
   )
 }

@@ -12,6 +12,10 @@ async def insert_chapter_fact(
     fact: ChapterFact,
     llm_model: str,
     extraction_ms: int,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    cost_usd: float = 0.0,
+    cost_cny: float = 0.0,
 ) -> None:
     """Insert or replace a chapter fact record."""
     conn = await get_connection()
@@ -19,8 +23,9 @@ async def insert_chapter_fact(
         await conn.execute(
             """
             INSERT OR REPLACE INTO chapter_facts
-                (novel_id, chapter_id, fact_json, llm_model, extraction_ms)
-            VALUES (?, ?, ?, ?, ?)
+                (novel_id, chapter_id, fact_json, llm_model, extraction_ms,
+                 input_tokens, output_tokens, cost_usd, cost_cny)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 novel_id,
@@ -28,6 +33,10 @@ async def insert_chapter_fact(
                 fact.model_dump_json(ensure_ascii=False),
                 llm_model,
                 extraction_ms,
+                input_tokens,
+                output_tokens,
+                cost_usd,
+                cost_cny,
             ),
         )
         await conn.commit()
@@ -41,7 +50,8 @@ async def get_chapter_fact(novel_id: str, chapter_id: int) -> dict | None:
     try:
         cursor = await conn.execute(
             """
-            SELECT fact_json, llm_model, extracted_at, extraction_ms
+            SELECT fact_json, llm_model, extracted_at, extraction_ms,
+                   input_tokens, output_tokens, cost_usd, cost_cny
             FROM chapter_facts
             WHERE novel_id = ? AND chapter_id = ?
             """,
@@ -55,6 +65,10 @@ async def get_chapter_fact(novel_id: str, chapter_id: int) -> dict | None:
             "llm_model": row["llm_model"],
             "extracted_at": row["extracted_at"],
             "extraction_ms": row["extraction_ms"],
+            "input_tokens": row["input_tokens"] or 0,
+            "output_tokens": row["output_tokens"] or 0,
+            "cost_usd": row["cost_usd"] or 0.0,
+            "cost_cny": row["cost_cny"] or 0.0,
         }
     finally:
         await conn.close()
@@ -66,7 +80,8 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
     try:
         cursor = await conn.execute(
             """
-            SELECT chapter_id, fact_json, llm_model, extracted_at, extraction_ms
+            SELECT chapter_id, fact_json, llm_model, extracted_at, extraction_ms,
+                   input_tokens, output_tokens, cost_usd, cost_cny
             FROM chapter_facts
             WHERE novel_id = ?
             ORDER BY chapter_id
@@ -81,9 +96,82 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
                 "llm_model": row["llm_model"],
                 "extracted_at": row["extracted_at"],
                 "extraction_ms": row["extraction_ms"],
+                "input_tokens": row["input_tokens"] or 0,
+                "output_tokens": row["output_tokens"] or 0,
+                "cost_usd": row["cost_usd"] or 0.0,
+                "cost_cny": row["cost_cny"] or 0.0,
             }
             for row in rows
         ]
+    finally:
+        await conn.close()
+
+
+async def update_scenes(
+    novel_id: str, chapter_id: int, scenes: list[dict]
+) -> None:
+    """Store LLM-extracted scenes for a chapter."""
+    conn = await get_connection()
+    try:
+        scenes_text = json.dumps(scenes, ensure_ascii=False)
+        await conn.execute(
+            """
+            UPDATE chapter_facts SET scenes_json = ?
+            WHERE novel_id = ? AND chapter_id = ?
+            """,
+            (scenes_text, novel_id, chapter_id),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def get_chapter_scenes(novel_id: str, chapter_id: int) -> list[dict] | None:
+    """Retrieve LLM-extracted scenes for a chapter. Returns list or None."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            SELECT scenes_json FROM chapter_facts
+            WHERE novel_id = ? AND chapter_id = ?
+            """,
+            (novel_id, chapter_id),
+        )
+        row = await cursor.fetchone()
+        if row is None or row["scenes_json"] is None:
+            return None
+        return json.loads(row["scenes_json"])
+    finally:
+        await conn.close()
+
+
+async def get_all_scenes(novel_id: str) -> list[dict]:
+    """Retrieve all scenes across all chapters for a novel.
+
+    Returns a flat list of scene dicts, each augmented with ``chapter``
+    (the chapter_id).  Only chapters that have non-null ``scenes_json``
+    are included.  The list is ordered by chapter_id, then by the scene's
+    original index within the chapter.
+    """
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            SELECT chapter_id, scenes_json FROM chapter_facts
+            WHERE novel_id = ? AND scenes_json IS NOT NULL
+            ORDER BY chapter_id
+            """,
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        result: list[dict] = []
+        for row in rows:
+            scenes = json.loads(row["scenes_json"])
+            for idx, scene in enumerate(scenes):
+                scene["chapter"] = row["chapter_id"]
+                scene.setdefault("index", idx)
+                result.append(scene)
+        return result
     finally:
         await conn.close()
 

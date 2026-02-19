@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import httpx
@@ -17,6 +18,16 @@ if TYPE_CHECKING:
     from src.infra.openai_client import OpenAICompatibleClient
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LlmUsage:
+    """Token usage from an LLM call."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
 
 # Global semaphore to serialize Ollama calls (single GPU processes one request at a time).
 # Without this, concurrent novel analyses cause timeout cascades.
@@ -84,8 +95,11 @@ class LLMClient:
         max_tokens: int = 4096,
         timeout: int = 120,
         num_ctx: int | None = None,
-    ) -> str | dict:
-        """Call Ollama chat API. Returns dict when format is given, str otherwise."""
+    ) -> tuple[str | dict, LlmUsage]:
+        """Call Ollama chat API. Returns (content, usage) tuple.
+
+        Content is dict when format is given, str otherwise.
+        """
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
@@ -134,13 +148,22 @@ class LLMClient:
         if not content:
             raise LLMError("Empty response from Ollama")
 
+        # Parse token usage from Ollama response
+        prompt_tokens = data.get("prompt_eval_count", 0)
+        completion_tokens = data.get("eval_count", 0)
+        usage = LlmUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        )
+
         if format is not None:
             try:
-                return json.loads(content)
+                return json.loads(content), usage
             except json.JSONDecodeError:
-                return _extract_json(content)
+                return _extract_json(content), usage
 
-        return content
+        return content, usage
 
     async def generate_stream(
         self,

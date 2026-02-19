@@ -64,7 +64,7 @@ async def list_novels() -> list[dict]:
             """
             SELECT
                 n.id, n.title, n.author, n.total_chapters, n.total_words,
-                n.created_at, n.updated_at,
+                n.created_at, n.updated_at, n.is_sample,
                 COALESCE(
                     CAST(SUM(CASE WHEN c.analysis_status = 'completed' THEN 1 ELSE 0 END) AS REAL)
                     / NULLIF(COUNT(c.id), 0),
@@ -92,7 +92,7 @@ async def get_novel(novel_id: str) -> dict | None:
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT id, title, author, file_hash, total_chapters, total_words, created_at, updated_at FROM novels WHERE id = ?",
+            "SELECT id, title, author, file_hash, total_chapters, total_words, is_sample, created_at, updated_at FROM novels WHERE id = ?",
             (novel_id,),
         )
         row = await cursor.fetchone()

@@ -160,14 +160,22 @@ export function SceneCard({
 export function ScenePanel({
   scenes,
   activeSceneIndex,
+  analysisStatus,
+  loading,
   onSceneClick,
   onClose,
+  onGoAnalysis,
 }: {
   scenes: Scene[]
   activeSceneIndex: number
+  analysisStatus?: string
+  loading?: boolean
   onSceneClick: (scene: Scene, index: number) => void
   onClose: () => void
+  onGoAnalysis?: () => void
 }) {
+  const isAnalyzed = analysisStatus === "completed"
+
   return (
     <div className="flex h-full w-72 shrink-0 flex-col border-l">
       {/* Header */}
@@ -178,28 +186,69 @@ export function ScenePanel({
         </Button>
       </div>
 
-      {/* Scene count */}
-      <div className="border-b px-3 py-1.5">
-        <span className="text-xs text-muted-foreground">{scenes.length} 个场景</span>
-      </div>
+      {/* Not analyzed prompt */}
+      {!isAnalyzed && !loading ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+          <div className="rounded-full bg-muted p-3">
+            <AnalysisIcon className="size-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            当前章节尚未分析，无法生成场景数据
+          </p>
+          {onGoAnalysis && (
+            <Button size="sm" onClick={onGoAnalysis}>
+              前往分析
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Scene count */}
+          <div className="border-b px-3 py-1.5">
+            <span className="text-xs text-muted-foreground">
+              {loading ? "加载中..." : `${scenes.length} 个场景`}
+            </span>
+          </div>
 
-      {/* Scene list */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {scenes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">未检测到场景</p>
-        ) : (
-          scenes.map((scene, i) => (
-            <SceneCard
-              key={i}
-              scene={scene}
-              active={i === activeSceneIndex}
-              borderColor={SCENE_BORDER_COLORS[i % SCENE_BORDER_COLORS.length]}
-              onClick={() => onSceneClick(scene, i)}
-            />
-          ))
-        )}
-      </div>
+          {/* Scene list */}
+          <div className="flex-1 overflow-y-auto p-2">
+            {loading ? (
+              <p className="text-sm text-muted-foreground">加载场景...</p>
+            ) : scenes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">未检测到场景</p>
+            ) : (
+              scenes.map((scene, i) => (
+                <SceneCard
+                  key={i}
+                  scene={scene}
+                  active={i === activeSceneIndex}
+                  borderColor={SCENE_BORDER_COLORS[i % SCENE_BORDER_COLORS.length]}
+                  onClick={() => onSceneClick(scene, i)}
+                />
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+function AnalysisIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+      <path d="m7 11 4-4 4 4 4-4" />
+    </svg>
   )
 }
 

@@ -514,7 +514,7 @@ class WorldStructureAgent:
         system = "你是一个小说世界观构建专家。请严格按照 JSON 格式输出。"
 
         _is_cloud = LLM_PROVIDER == "openai"
-        result = await self._llm.generate(
+        result, _usage = await self._llm.generate(
             system=system,
             prompt=prompt,
             format=_LLM_OUTPUT_SCHEMA,
@@ -1375,6 +1375,25 @@ class WorldStructureAgent:
             if layer.layer_id == layer_id:
                 return layer
         return None
+
+    # ── External vote injection ─────────────────────────
+
+    def inject_external_votes(self, votes: dict[str, Counter]) -> None:
+        """Merge externally-produced parent votes into the internal accumulator.
+
+        Used by post-analysis steps (SceneTransitionAnalyzer,
+        LocationHierarchyReviewer) to inject additional signals without
+        duplicating the resolution logic.
+        """
+        for child, counter in votes.items():
+            if child not in self._parent_votes:
+                self._parent_votes[child] = Counter()
+            self._parent_votes[child] += counter
+        if votes:
+            logger.info(
+                "Injected external votes: %d children affected",
+                len(votes),
+            )
 
     # ── Parent vote resolution ────────────────────────
 

@@ -6,6 +6,7 @@ export interface Novel {
   total_words: number
   created_at: string
   updated_at: string
+  is_sample: boolean
   analysis_progress: number
   reading_progress: number
   last_opened: string | null
@@ -119,15 +120,53 @@ export interface HealthResponse {
   status: string
 }
 
+export interface OllamaModel {
+  name: string
+  size: number
+  modified_at?: string
+}
+
+export interface HardwareInfo {
+  total_ram_gb: number
+  platform: string
+  arch: string
+}
+
+export interface ModelRecommendation {
+  name: string
+  display_name: string
+  size_gb: number
+  min_ram_gb: number
+  description: string
+  recommended: boolean
+  installed: boolean
+}
+
+export interface CloudProvider {
+  id: string
+  name: string
+  base_url: string
+  default_model: string
+}
+
+export interface CloudConfig {
+  provider: string
+  base_url: string
+  model: string
+  has_api_key: boolean
+  api_key_masked: string
+}
+
 export interface EnvironmentCheck {
   llm_provider: string
   llm_model: string
   // Ollama mode fields
   ollama_running?: boolean
+  ollama_status?: "not_installed" | "installed_not_running" | "running"
   ollama_url?: string
   required_model?: string
   model_available?: boolean
-  available_models?: string[]
+  available_models?: (OllamaModel | string)[]
   // Cloud mode fields
   llm_base_url?: string
   api_available?: boolean
@@ -140,6 +179,26 @@ export interface AnalyzeRequest {
   chapter_start?: number | null
   chapter_end?: number | null
   force?: boolean
+}
+
+export interface CostEstimate {
+  is_cloud: boolean
+  novel_title: string
+  chapter_range: [number, number]
+  chapter_count: number
+  total_words: number
+  provider: string
+  model: string
+  estimated_input_tokens: number
+  estimated_output_tokens: number
+  estimated_total_tokens: number
+  estimated_cost_usd: number
+  estimated_cost_cny: number
+  includes_prescan: boolean
+  input_price_per_1m: number
+  output_price_per_1m: number
+  monthly_budget_cny: number
+  monthly_used_cny: number
 }
 
 export interface AnalysisTask {
@@ -159,34 +218,67 @@ export interface AnalysisStats {
   events: number
 }
 
-export interface WsProgress {
+export interface AnalysisCostStats {
+  total_input_tokens: number
+  total_output_tokens: number
+  total_cost_usd: number
+  total_cost_cny: number
+  estimated_remaining_usd: number
+  estimated_remaining_cny: number
+  is_cloud: boolean
+  monthly_used_cny: number
+  monthly_budget_cny: number
+}
+
+export interface BudgetInfo {
+  monthly_budget_cny: number
+  monthly_used_cny: number
+  monthly_used_usd: number
+  monthly_input_tokens: number
+  monthly_output_tokens: number
+}
+
+/** All WS messages carry novel_id for cross-novel filtering */
+interface WsBase {
+  novel_id?: string
+}
+
+export interface WsProgress extends WsBase {
   type: "progress"
   chapter: number
   total: number
   done: number
   stats: AnalysisStats
+  cost?: AnalysisCostStats
 }
 
-export interface WsChapterDone {
+export interface WsChapterDone extends WsBase {
   type: "chapter_done"
   chapter: number
   status: "completed" | "failed"
   error?: string
 }
 
-export interface WsTaskStatus {
+export interface WsTaskStatus extends WsBase {
   type: "task_status"
   status: string
   stats?: AnalysisStats
+  cost?: AnalysisCostStats
 }
 
-export interface WsProcessing {
+export interface WsProcessing extends WsBase {
   type: "processing"
   chapter: number
   total: number
 }
 
-export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus
+export interface WsStage extends WsBase {
+  type: "stage"
+  chapter: number
+  stage_label: string
+}
+
+export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage
 
 // ── Entity Profiles ──────────────────────────────
 
@@ -447,6 +539,117 @@ export interface EntityDictionaryResponse {
   total: number
 }
 
+// ── Cost Detail ──────────────────────────────
+
+export interface ChapterCostDetail {
+  chapter_id: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  cost_cny: number
+  entity_count: number
+  extraction_ms: number
+  extracted_at: string | null
+  llm_model: string
+}
+
+export interface CostDetailSummary {
+  total_chapters: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_cost_usd: number
+  total_cost_cny: number
+  total_entities: number
+}
+
+export interface CostDetailResponse {
+  novel_id: string
+  novel_title: string
+  chapters: ChapterCostDetail[]
+  summary: CostDetailSummary
+  model: string
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface AnalysisRecord {
+  task_id: string
+  novel_id: string
+  novel_title: string
+  status: string
+  chapter_range: [number, number]
+  chapter_count: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_cost_usd: number
+  total_cost_cny: number
+  started_at: string
+  completed_at: string
+}
+
+// ── Series Bible ──────────────────────────────
+
+export interface SeriesBibleRequest {
+  modules?: string[]
+  template?: string
+  format?: string
+  chapter_start?: number
+  chapter_end?: number
+}
+
+export interface SeriesBibleTemplate {
+  id: string
+  name: string
+  description: string
+}
+
+export const SERIES_BIBLE_MODULES = [
+  { id: "characters", label: "人物档案" },
+  { id: "relations", label: "关系网络" },
+  { id: "locations", label: "地点百科" },
+  { id: "items", label: "物品道具" },
+  { id: "orgs", label: "组织势力" },
+  { id: "timeline", label: "时间线" },
+] as const
+
+export const SERIES_BIBLE_TEMPLATES = [
+  { id: "complete", name: "通用模板", description: "完整世界观文档，含全部模块" },
+  { id: "author", name: "网文作者套件", description: "人物设定卡 + 势力分布 + 时间线大纲" },
+] as const
+
+// ── Scenes (Screenplay Mode) ─────────────────────
+
+export interface SceneCharacterRole {
+  name: string
+  role: "主" | "配" | "提及"
+}
+
+export interface Scene {
+  index: number
+  chapter: number
+  title: string
+  location: string
+  characters: string[]
+  description: string
+  dialogue_count: number
+  paragraph_range?: [number, number]
+  events?: { summary: string; type: string }[]
+  // Rich metadata from multi-signal scene extractor
+  heading?: string
+  time_of_day?: string        // "早" | "午" | "晚" | "夜" | ""
+  emotional_tone?: string     // "战斗" | "紧张" | "悲伤" | "欢乐" | "平静" | ""
+  key_dialogue?: string[]     // 1-2 key dialogue lines
+  character_roles?: SceneCharacterRole[]
+  event_type?: string         // "对话" | "战斗" | "旅行" | "描写" | "回忆"
+  summary?: string            // LLM-generated 20-50 char scene summary
+}
+
+export interface ChapterScenesResponse {
+  chapter: number
+  scenes: Scene[]
+  scene_count: number
+}
+
 // ── Export / Import ──────────────────────────────
 
 export interface ImportPreview {
@@ -459,4 +662,31 @@ export interface ImportPreview {
   has_user_state: boolean
   data_size_bytes: number
   existing_novel_id: string | null
+}
+
+// ── Backup (full data) ──────────────────────────
+
+export interface BackupNovelPreview {
+  id: string
+  title: string
+  total_chapters: number
+  conflict: boolean
+  existing_id: string | null
+}
+
+export interface BackupPreview {
+  backup_format_version: number
+  exported_at: string
+  novel_count: number
+  novels: BackupNovelPreview[]
+  conflict_count: number
+  zip_size_bytes: number
+}
+
+export interface BackupImportResult {
+  total: number
+  imported: number
+  skipped: number
+  overwritten: number
+  errors: string[]
 }

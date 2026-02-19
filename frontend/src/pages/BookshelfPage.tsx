@@ -104,6 +104,11 @@ function NovelCard({
         <div
           className={`bg-gradient-to-br ${coverColor(novel.title)} relative mb-3 flex h-36 items-center justify-center rounded-lg`}
         >
+          {novel.is_sample && (
+            <div className="absolute top-2 left-2 rounded-full bg-white/20 px-2 py-0.5 backdrop-blur-sm">
+              <span className="text-[10px] font-medium text-white/90">内置样本</span>
+            </div>
+          )}
           {analysisStatus === "running" && (
             <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
               <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow outgoing network (LLM API calls, Ollama) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Allow incoming network (localhost backend) -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <!-- Allow read/write user-selected files (novel upload) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <!-- Allow read/write downloads folder (export) -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+</dict>
+</plist>
