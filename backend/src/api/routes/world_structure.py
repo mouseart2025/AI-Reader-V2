@@ -256,6 +256,9 @@ async def rebuild_hierarchy(novel_id: str):
                     if scene_votes:
                         agent.inject_external_votes(scene_votes)
                         scene_analysis_used = True
+                    # Propagate parent votes within sibling groups
+                    if scene_analysis.get("sibling_groups"):
+                        agent.propagate_sibling_parents(scene_analysis["sibling_groups"])
                 else:
                     yield _sse("scene", "无场景数据，跳过场景分析")
             except Exception:

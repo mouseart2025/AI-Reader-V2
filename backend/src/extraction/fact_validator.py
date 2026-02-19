@@ -58,6 +58,7 @@ _POSITIONAL_SUFFIXES = frozenset(
 _GENERIC_MODIFIERS = frozenset({
     "小", "大", "老", "新", "旧", "那", "这", "某", "一个", "一座", "一片",
     "一条", "一处", "那个", "这个", "那座", "这座",
+    "某条", "某个", "某座", "某处", "某片",
 })
 
 # Abstract/conceptual spatial terms — never physical locations
@@ -258,6 +259,25 @@ def _is_generic_location(name: str) -> str | None:
         })
         if base in _GENERIC_BASES:
             return f"compound positional ({base}+{name[-1]})"
+
+    # Rule 15: Quantifier prefix + descriptive filler + generic suffix
+    # E.g., "某条偏僻小路", "一个破旧山洞", "一片荒凉之地"
+    _QUANT_PREFIXES = (
+        "某条", "某个", "某座", "某片", "某处",
+        "一条", "一个", "一座", "一片", "一处",
+    )
+    _GENERIC_TRAIL = (
+        "洞穴", "通道", "山洞", "小路", "大路", "小道", "大道",
+        "山路", "水路", "地方", "之地", "之处", "峡谷", "山谷",
+        "路", "道", "洞", "房", "殿", "厅", "屋", "廊",
+    )
+    if n >= 3:
+        for prefix in _QUANT_PREFIXES:
+            if name.startswith(prefix):
+                for trail in _GENERIC_TRAIL:
+                    if name.endswith(trail) and len(name) <= len(prefix) + 4 + len(trail):
+                        return f"quantifier + filler + generic ({prefix}...{trail})"
+                break  # Only check first matching prefix
 
     return None
 
