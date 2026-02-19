@@ -192,10 +192,16 @@
     ],
     "locations": [
       {
+        "name": "彩霞山",
+        "type": "山",
+        "parent": "越国",
+        "description": "七玄门所在的山脉，位于越国境内"
+      },
+      {
         "name": "七玄门",
         "type": "门派",
-        "parent": null,
-        "description": "韩立修习武艺的门派"
+        "parent": "彩霞山",
+        "description": "韩立修习武艺的门派，位于彩霞山上"
       }
     ],
     "spatial_relationships": [
@@ -206,6 +212,14 @@
         "value": "一个多月路程（步行）",
         "confidence": "medium",
         "narrative_evidence": "三叔一个多月后接走韩立"
+      },
+      {
+        "source": "彩霞山",
+        "target": "七玄门",
+        "relation_type": "contains",
+        "value": "七玄门位于彩霞山上",
+        "confidence": "high",
+        "narrative_evidence": "七玄门建于彩霞山之上"
       }
     ],
     "item_events": [
@@ -476,15 +490,21 @@
         "description": "花果山瀑布后的天然洞府，铁板桥下有天造地设的家当"
       },
       {
+        "name": "天庭",
+        "type": "天界",
+        "parent": null,
+        "description": "天上仙界，玉皇大帝统治之处"
+      },
+      {
         "name": "灵霄宝殿",
         "type": "宫殿",
-        "parent": null,
+        "parent": "天庭",
         "description": "天庭玉帝理政之处"
       },
       {
         "name": "南天门",
         "type": "城门",
-        "parent": null,
+        "parent": "天庭",
         "description": "天庭入口之一"
       }
     ],
