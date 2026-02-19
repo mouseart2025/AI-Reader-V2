@@ -19,7 +19,7 @@ from pathlib import Path
 
 from src.db import world_structure_override_store, world_structure_store
 from src.extraction.fact_validator import _is_generic_location
-from src.infra.config import LLM_PROVIDER
+from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMClient, get_llm_client
 from src.models.chapter_fact import ChapterFact
 from src.services.location_hint_service import extract_direction_hint
@@ -618,15 +618,15 @@ class WorldStructureAgent:
 
         system = "你是一个小说世界观构建专家。请严格按照 JSON 格式输出。"
 
-        _is_cloud = LLM_PROVIDER == "openai"
+        budget = get_budget()
         result, _usage = await self._llm.generate(
             system=system,
             prompt=prompt,
             format=_LLM_OUTPUT_SCHEMA,
             temperature=0.1,
-            max_tokens=8192 if _is_cloud else 4096,
-            timeout=180 if _is_cloud else 120,
-            num_ctx=8192,
+            max_tokens=budget.ws_max_tokens,
+            timeout=budget.ws_timeout,
+            num_ctx=min(budget.context_window, 16384),
         )
         self._llm_call_count += 1
 

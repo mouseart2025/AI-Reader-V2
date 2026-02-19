@@ -51,7 +51,7 @@ AI-Reader-V2/
 │       │   └── prompts/            # System prompt + few-shot examples
 │       ├── db/                     # SQLite + ChromaDB data access
 │       ├── models/                 # Pydantic schemas / dataclasses
-│       ├── infra/                  # Config, LLM clients (Ollama + OpenAI-compatible)
+│       ├── infra/                  # Config, LLM clients, context budget auto-scaling
 │       └── utils/                  # Text processing, chapter splitting
 ├── frontend/
 │   ├── package.json
@@ -87,6 +87,14 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 ### Analysis Pipeline
 
 `AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU).
+
+### Token Budget Auto-Scaling
+
+`context_budget.py` (`TokenBudget` dataclass + `compute_budget()` + `get_budget()`) — all LLM budget parameters (chapter truncation length, context summary limits, num_ctx, timeouts) are derived from the model's context window size via linear interpolation: 8K context → conservative "local" values, 128K+ context → generous "cloud" values, intermediate models get proportional values. Replaces the old binary `LLM_PROVIDER == "openai"` budget switching.
+
+**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama `POST /api/show` → `model_info.*.context_length`. Cloud mode defaults to 131072. Failure falls back to 8192. Result stored in `config.CONTEXT_WINDOW_SIZE`.
+
+**Consumers**: `ChapterFactExtractor` (max_chapter_len, retry_len, segment_enabled, extraction_num_ctx), `ContextSummaryBuilder` (context_max_chars, char/rel/loc/item limits, hierarchy chains, world summary chars), `SceneLLMExtractor` (scene_max_chapter_len), `WorldStructureAgent` (ws_max_tokens, ws_timeout), `LocationHierarchyReviewer` (hierarchy_timeout). Non-budget `LLM_PROVIDER` checks (schema injection, cost tracking, client factory) are preserved unchanged.
 
 ### Entity Alias Resolution
 

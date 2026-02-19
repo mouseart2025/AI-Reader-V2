@@ -12,7 +12,7 @@ import logging
 from collections import Counter
 from pathlib import Path
 
-from src.infra.config import LLM_PROVIDER
+from src.infra.context_budget import get_budget
 from src.infra.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,7 @@ class LocationHierarchyReviewer:
 
         system = "你是一个小说地理分析专家。请严格按照 JSON 格式输出。"
 
-        is_cloud = LLM_PROVIDER == "openai"
+        budget = get_budget()
         try:
             result, _usage = await self.llm.generate(
                 system=system,
@@ -219,8 +219,8 @@ class LocationHierarchyReviewer:
                 format=_REVIEW_SCHEMA,
                 temperature=0.1,
                 max_tokens=4096,
-                timeout=120 if is_cloud else 90,
-                num_ctx=8192,
+                timeout=budget.hierarchy_timeout,
+                num_ctx=min(budget.context_window, 8192),
             )
         except Exception:
             logger.warning("LLM hierarchy review batch failed", exc_info=True)

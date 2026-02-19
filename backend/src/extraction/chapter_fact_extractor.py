@@ -6,7 +6,8 @@ import json
 import logging
 from pathlib import Path
 
-from src.infra.config import LLM_MAX_TOKENS, LLM_PROVIDER
+from src.infra.config import LLM_MAX_TOKENS
+from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import ChapterFact, CharacterFact
@@ -15,21 +16,9 @@ logger = logging.getLogger(__name__)
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-# Max chapter text length sent to LLM (chars).
-# Ollama (local 8B, 16K ctx): 8000 chars ≈ 12K tokens input budget
-# Cloud (256K ctx): 50000 chars ≈ 75K tokens — plenty of headroom
-_MAX_CHAPTER_LEN_LOCAL = 8000
-_MAX_CHAPTER_LEN_CLOUD = 50000
-_MAX_CHAPTER_LEN = _MAX_CHAPTER_LEN_CLOUD if LLM_PROVIDER == "openai" else _MAX_CHAPTER_LEN_LOCAL
-
-# Retry truncation: more aggressive cut on failure
-_RETRY_LEN_LOCAL = 6000
-_RETRY_LEN_CLOUD = 30000
-_RETRY_LEN = _RETRY_LEN_CLOUD if LLM_PROVIDER == "openai" else _RETRY_LEN_LOCAL
-
-# Segment splitting thresholds (chars). Cloud-mode only.
-_SEGMENT_THRESHOLD_2 = 7000   # >7000 chars → split into 2 segments
-_SEGMENT_THRESHOLD_3 = 12000  # >12000 chars → split into 3 segments
+# Segment splitting thresholds (chars). Only used when budget.segment_enabled.
+_SEGMENT_THRESHOLD_2 = 7000   # >7000 chars -> split into 2 segments
+_SEGMENT_THRESHOLD_3 = 12000  # >12000 chars -> split into 3 segments
 
 
 class ExtractionError(Exception):
@@ -269,12 +258,14 @@ class ChapterFactExtractor:
         """
         system = self.system_template.replace("{context}", context_summary or "（无前序上下文）")
 
-        # Truncate very long chapters to avoid token overflow
-        if len(chapter_text) > _MAX_CHAPTER_LEN:
-            chapter_text = chapter_text[:_MAX_CHAPTER_LEN]
+        budget = get_budget()
 
-        # Split long chapters into segments (cloud mode only)
-        if self._is_cloud:
+        # Truncate very long chapters to avoid token overflow
+        if len(chapter_text) > budget.max_chapter_len:
+            chapter_text = chapter_text[:budget.max_chapter_len]
+
+        # Split long chapters into segments (enabled for large context windows)
+        if budget.segment_enabled:
             segments = _split_chapter_text(chapter_text)
         else:
             segments = [chapter_text]
@@ -317,7 +308,8 @@ class ChapterFactExtractor:
             )
 
         # Retry: truncate text more aggressively
-        truncated = chapter_text[:_RETRY_LEN] if len(chapter_text) > _RETRY_LEN else chapter_text
+        retry_len = get_budget().retry_len
+        truncated = chapter_text[:retry_len] if len(chapter_text) > retry_len else chapter_text
         retry_prompt = self._build_user_prompt(chapter_id, truncated, example_text)
         retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
         try:
@@ -418,6 +410,7 @@ class ChapterFactExtractor:
                 f"```json\n{schema_text}\n```"
             )
 
+        budget = get_budget()
         max_out = LLM_MAX_TOKENS if self._is_cloud else 8192
         result, usage = await self.llm.generate(
             system=effective_system,
@@ -426,7 +419,7 @@ class ChapterFactExtractor:
             temperature=0.1,
             max_tokens=max_out,
             timeout=timeout,
-            num_ctx=16384,
+            num_ctx=budget.extraction_num_ctx,
         )
 
         if isinstance(result, str):

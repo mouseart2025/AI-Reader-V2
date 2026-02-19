@@ -75,10 +75,20 @@ async def _restore_persisted_settings() -> None:
         pass  # Don't block startup on settings restore errors
 
 
+async def _detect_context_window() -> None:
+    """Detect model context window size after settings are restored."""
+    try:
+        from src.infra.context_budget import detect_and_update_context_window
+        await detect_and_update_context_window()
+    except Exception:
+        pass  # Don't block startup on detection failure
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await _restore_persisted_settings()
+    await _detect_context_window()
     await auto_import_samples()
     # Recover tasks left in 'running' state from a previous server session
     await recover_stale_tasks()

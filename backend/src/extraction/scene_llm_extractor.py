@@ -6,7 +6,8 @@ import json
 import logging
 from pathlib import Path
 
-from src.infra.config import LLM_MAX_TOKENS, LLM_PROVIDER
+from src.infra.config import LLM_MAX_TOKENS
+from src.infra.context_budget import get_budget
 from src.infra.llm_client import LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import ChapterFact
@@ -14,11 +15,6 @@ from src.models.chapter_fact import ChapterFact
 logger = logging.getLogger(__name__)
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
-
-# Max chapter text length for scene extraction
-_MAX_CHAPTER_LEN_LOCAL = 8000
-_MAX_CHAPTER_LEN_CLOUD = 50000
-_MAX_CHAPTER_LEN = _MAX_CHAPTER_LEN_CLOUD if LLM_PROVIDER == "openai" else _MAX_CHAPTER_LEN_LOCAL
 
 
 class SceneLLMExtractor:
@@ -67,8 +63,9 @@ class SceneLLMExtractor:
         Returns a list of scene dicts ready for DB storage.
         """
         # 1. Add paragraph markers
-        if len(chapter_text) > _MAX_CHAPTER_LEN:
-            chapter_text = chapter_text[:_MAX_CHAPTER_LEN]
+        budget = get_budget()
+        if len(chapter_text) > budget.scene_max_chapter_len:
+            chapter_text = chapter_text[:budget.scene_max_chapter_len]
 
         marked_text, total_paragraphs = self._add_paragraph_markers(chapter_text)
         if total_paragraphs == 0:
@@ -99,7 +96,7 @@ class SceneLLMExtractor:
             temperature=0.1,
             max_tokens=max_out,
             timeout=300,
-            num_ctx=16384,
+            num_ctx=budget.extraction_num_ctx,
         )
 
         # 6. Parse response
