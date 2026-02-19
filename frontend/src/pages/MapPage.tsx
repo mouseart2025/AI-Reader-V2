@@ -12,8 +12,9 @@ import { GeographyPanel } from "@/components/visualization/GeographyPanel"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
-import { Globe, RefreshCw } from "lucide-react"
+import { Globe, Loader2, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { trackEvent } from "@/lib/tracker"
 
 const ICON_LEGEND: { icon: string; label: string }[] = [
   { icon: "capital", label: "都城" },
@@ -69,6 +70,11 @@ export default function MapPage() {
   // Rebuild hierarchy
   const [rebuilding, setRebuilding] = useState(false)
 
+  // Loading stage animation
+  const [loadingStage, setLoadingStage] = useState("加载地图数据...")
+  const loadingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loadingStartRef = useRef<number>(0)
+
   // Trajectory state
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -87,6 +93,7 @@ export default function MapPage() {
     if (!novelId) return
     let cancelled = false
     setLoading(true)
+    trackEvent("view_map")
 
     const layerParam =
       activeLayerId !== "overworld" ? activeLayerId : undefined
@@ -109,6 +116,32 @@ export default function MapPage() {
       cancelled = true
     }
   }, [novelId, chapterStart, chapterEnd, activeLayerId, setAnalyzedRange, reloadTrigger])
+
+  // Loading stage text animation (time-driven)
+  useEffect(() => {
+    if (loading) {
+      loadingStartRef.current = Date.now()
+      setLoadingStage("加载地图数据...")
+      loadingTimerRef.current = setInterval(() => {
+        const elapsed = Date.now() - loadingStartRef.current
+        if (elapsed < 1500) setLoadingStage("加载地图数据...")
+        else if (elapsed < 3000) setLoadingStage("聚合地点与轨迹...")
+        else if (elapsed < 6000) setLoadingStage("计算地理坐标...")
+        else if (elapsed < 10000) setLoadingStage("求解空间布局...")
+        else setLoadingStage("优化布局中，请稍候...")
+      }, 500)
+    } else {
+      if (loadingTimerRef.current) {
+        clearInterval(loadingTimerRef.current)
+        loadingTimerRef.current = null
+      }
+    }
+    return () => {
+      if (loadingTimerRef.current) {
+        clearInterval(loadingTimerRef.current)
+      }
+    }
+  }, [loading])
 
   const locations = mapData?.locations ?? []
   const trajectories = mapData?.trajectories ?? {}
@@ -307,7 +340,10 @@ export default function MapPage() {
         <div className="relative flex-1">
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-              <p className="text-muted-foreground">加载地图数据...</p>
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <p className="text-muted-foreground text-sm">{loadingStage}</p>
+              </div>
             </div>
           )}
 

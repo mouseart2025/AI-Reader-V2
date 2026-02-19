@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from src.infra.llm_client import LLMError, LLMTimeoutError, _extract_json
+from src.infra.llm_client import LLMError, LLMTimeoutError, LlmUsage, _extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -209,10 +209,10 @@ class OpenAICompatibleClient:
         max_tokens: int = 4096,
         timeout: int = 120,
         num_ctx: int | None = None,  # ignored, Ollama-only
-    ) -> str | dict:
+    ) -> tuple[str | dict, LlmUsage]:
         """Call OpenAI-compatible chat completions API.
 
-        Returns dict when format is given, str otherwise.
+        Returns (content, usage) tuple. Content is dict when format is given, str otherwise.
         """
         messages = [
             {"role": "system", "content": system},
@@ -263,6 +263,14 @@ class OpenAICompatibleClient:
 
         finish_reason = choice.get("finish_reason", "")
 
+        # Parse token usage from OpenAI-compatible response
+        usage_data = data.get("usage", {})
+        usage = LlmUsage(
+            prompt_tokens=usage_data.get("prompt_tokens", 0),
+            completion_tokens=usage_data.get("completion_tokens", 0),
+            total_tokens=usage_data.get("total_tokens", 0),
+        )
+
         if format is not None:
             if finish_reason == "length":
                 logger.warning(
@@ -272,11 +280,11 @@ class OpenAICompatibleClient:
                 content = _repair_truncated_json(content)
 
             try:
-                return json.loads(content)
+                return json.loads(content), usage
             except json.JSONDecodeError:
-                return _extract_json(content)
+                return _extract_json(content), usage
 
-        return content
+        return content, usage
 
     async def generate_stream(
         self,

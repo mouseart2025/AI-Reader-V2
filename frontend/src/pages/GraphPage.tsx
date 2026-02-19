@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d"
 import { fetchGraphData } from "@/api/client"
+import { trackEvent } from "@/lib/tracker"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
@@ -152,6 +153,7 @@ export default function GraphPage() {
     if (!novelId) return
     let cancelled = false
     setLoading(true)
+    trackEvent("view_graph")
 
     fetchGraphData(novelId, chapterStart, chapterEnd)
       .then((data) => {

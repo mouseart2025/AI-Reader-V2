@@ -1,1692 +1,786 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories]
 inputDocuments:
-  - PRD.md
+  - PRD-v1.0.md (v1.3)
   - _bmad-output/architecture.md
-  - interaction-design/01-bookshelf.excalidraw
-  - interaction-design/02-reading.excalidraw
-  - interaction-design/03-graph.excalidraw
-  - interaction-design/04-map.excalidraw
-  - interaction-design/05-timeline.excalidraw
-  - interaction-design/06-factions.excalidraw
-  - interaction-design/07-chat.excalidraw
-  - interaction-design/08-encyclopedia.excalidraw
-  - interaction-design/09-analysis.excalidraw
-  - interaction-design/10-settings.excalidraw
+date: '2026-02-17'
+scope: 仅未实现功能（已实现 FR-001~006, FR-012 不在范围内）
 ---
 
-# AI-Reader-V2 - Epic 与 Story 拆分
+# AI Reader V2 - Epic Breakdown（未实现功能）
 
-## 概述
+## Overview
 
-本文档将 PRD 的 83 个功能需求和架构决策拆分为可实施的 Epic 和 Story，用于指导开发实现。每个 Epic 交付完整的用户价值，每个 Story 可由单个开发 Agent 独立完成。
+本文档将 PRD v1.3 中**尚未实现**的功能需求分解为 11 个 Epic、41 个 Story。按用户价值组织，每个 Epic 可独立交付。
 
-## 需求清单
-
-### 功能需求 (FR)
-
-**书架管理**
-- FR-01 (F-01): 上传小说 (.txt / .md)，自动切分章节，显示预览页，确认后导入书架 [P0]
-- FR-02 (F-02): 书架列表展示，显示封面、书名、分析进度、阅读进度 [P0]
-- FR-03 (F-03): 删除小说，二次确认后删除小说及全部关联数据 [P0]
-- FR-04 (F-04): 书架搜索/排序，支持按书名搜索，按时间/书名排序 [P1]
-- FR-05 (F-05): 重复上传检测，同名小说上传时显示对比面板 [P1]
-- FR-06 (F-06): 章节切分调整，预览页支持切换切分模式、增删切分点 [P1]
-
-**小说阅读**
-- FR-10 (F-10): 章节阅读，渲染章节文本，支持上下章翻页 [P0]
-- FR-11 (F-11): 章节目录导航，侧边栏树形章节目录，支持卷>章多级折叠 [P0]
-- FR-12 (F-12): 实体高亮，已分析章节中实体名按类别颜色高亮 [P0]
-- FR-13 (F-13): 实体卡片弹出，点击高亮实体弹出对应卡片 [P0]
-- FR-14 (F-14): 阅读进度记忆，记住每本书最后阅读章节 [P0]
-- FR-15 (F-15): 章节引用跳转，卡片/问答中的章节引用可点击跳转 [P1]
-- FR-16 (F-16): 阅读设置，字号、行距、主题调节 [P1]
-- FR-17 (F-17): 全文搜索，在当前小说所有章节中搜索关键词 [P1]
-
-**实体卡片**
-- FR-20 (F-20): 人物卡片，展示基本信息、关系、能力、经历等 7 个区块 [P0]
-- FR-21 (F-21): 地点卡片，展示基本信息、空间层级、到访人物、事件等 6 个区块 [P0]
-- FR-22 (F-22): 物品卡片，展示基本信息、持有流转、使用记录等 6 个区块 [P1]
-- FR-23 (F-23): 组织卡片，展示基本信息、成员、据点、大事记等 7 个区块 [P1]
-- FR-24 (F-24): 卡片内截断与展开，各区块按规则截断 [P0]
-- FR-25 (F-25): 卡片间互相跳转，卡片内实体名可点击跳转 [P0]
-- FR-26 (F-26): 概念浮层，点击概念高亮弹出定义浮层 [P1]
-
-**知识图谱可视化**
-- FR-30 (F-30): 人物关系图，力导向图展示人物关系 [P0]
-- FR-31 (F-31): 世界地图-空间视图，语义缩放和人物轨迹 [P1]
-- FR-32 (F-32): 世界地图-层级视图，树状展示地点包含关系 [P0]
-- FR-33 (F-33): 时间线，水平轴展示事件分布 [P1]
-- FR-34 (F-34): 势力图，组织关系网络图 [P2]
-- FR-35 (F-35): 章节范围滑块，全局滑块控制所有视图数据范围 [P0]
-- FR-36 (F-36): 视图联动，四个视图之间数据联动 [P1]
-- FR-37 (F-37): 筛选面板，各视图支持按类型/属性筛选 [P0]
-- FR-38 (F-38): 路径查找，在关系图中查找两人物间最短路径 [P1]
-- FR-39 (F-39): 轨迹动画播放，空间地图上人物轨迹动画播放 [P2]
-- FR-40 (F-40): 手动调整地图布局，拖拽调整地点位置并持久化 [P2]
-
-**智能问答**
-- FR-50 (F-50): 自然语言问答，输入问题返回基于知识图谱的答案 [P0]
-- FR-51 (F-51): 答案来源标注，每个答案标注来源章节 [P0]
-- FR-52 (F-52): 答案中实体高亮，答案文本中实体名高亮可点击 [P0]
-- FR-53 (F-53): 对话上下文，支持连续追问 [P1]
-- FR-54 (F-54): 浮动面板问答，底部常驻输入框 [P0]
-- FR-55 (F-55): 对话历史，保存/切换/删除历史对话 [P1]
-- FR-56 (F-56): 对话导出，将对话导出为 Markdown [P2]
-
-**小说分析**
-- FR-60 (F-60): 全书分析，一键触发全书分析 [P0]
-- FR-61 (F-61): 分析进度展示，显示进度条、当前章节、统计 [P0]
-- FR-62 (F-62): 暂停/恢复分析 [P0]
-- FR-63 (F-63): 取消分析，终止分析任务 [P0]
-- FR-64 (F-64): 按范围分析，指定章节区间 [P1]
-- FR-65 (F-65): 重新分析，对已分析章节重新分析 [P1]
-- FR-66 (F-66): 按需分析，阅读到未分析章节时自动触发 [P2]
-
-**百科**
-- FR-70 (F-70): 百科页面，分类展示所有实体和概念 [P1]
-- FR-71 (F-71): 概念词条，展示概念定义、原文摘录 [P1]
-- FR-72 (F-72): 概念自动分类 [P1]
-
-**系统**
-- FR-80 (F-80): 首次使用引导，检测 Ollama 和模型状态 [P0]
-- FR-81 (F-81): 设置页面，阅读设置、LLM 配置、数据管理 [P1]
-- FR-82 (F-82): 分析数据导出 [P1]
-- FR-83 (F-83): 分析数据导入 [P1]
-
-### 非功能需求 (NFR)
-
-- NFR-01: 完全本地部署，无需联网
-- NFR-02: macOS 12.0+ (Apple Silicon M1/M2/M3/M4)
-- NFR-03: 浏览器兼容 Chrome 100+ / Safari 16+ / Edge 100+
-- NFR-04: 章节分析速度 ≤ 30s/章 (M1 16GB)，≤ 50s/章 (M1 8GB)
-- NFR-05: 问答首字 ≤ 3s（流式输出）
-- NFR-06: 阅读页加载 ≤ 1s（章节切换）
-- NFR-07: 图谱渲染 ≤ 3s（500 节点流畅）
-- NFR-08: 内存占用 ≤ 7GB（含模型，8GB 设备）
-- NFR-09: 数据本地持久化，应用关闭不丢失
-- NFR-10: 完全隐私，无遥测、无外部请求
-- NFR-11: 支持导入导出单本小说分析数据
-
-### 架构要求
-
-- ARCH-01: 前后端分离 — React 18 + TypeScript (Vite) 前端 + Python FastAPI 后端
-- ARCH-02: 两数据库 — SQLite (主存储) + ChromaDB (向量检索)
-- ARCH-03: ChapterFact 结构化抽取 — 每章一次 LLM 调用产出 ChapterFact JSON
-- ARCH-04: 聚合按需计算 — 实体档案从 ChapterFact 实时聚合，不持久化
-- ARCH-05: Ollama + Qwen 2.5 本地 LLM 推理
-- ARCH-06: WebSocket — 分析进度推送 + 流式问答
-- ARCH-07: 可视化引擎 — @react-force-graph-2d / Pixi.js v8 / 自研 Canvas 时间线
-- ARCH-08: 状态管理 — Zustand stores
-- ARCH-09: UI — shadcn/ui + Tailwind CSS
-
-### FR 覆盖映射
-
-| FR | Epic |
-|----|------|
-| FR-01, FR-02, FR-03 | Epic 1 (书架与上传) |
-| FR-04, FR-05, FR-06 | Epic 1 (书架与上传) |
-| FR-80 | Epic 1 (书架与上传) |
-| FR-60, FR-61, FR-62, FR-63 | Epic 2 (小说分析) |
-| FR-64, FR-65, FR-66 | Epic 2 (小说分析) |
-| FR-10, FR-11, FR-14 | Epic 3 (阅读与实体) |
-| FR-12, FR-13, FR-15, FR-16, FR-17 | Epic 3 (阅读与实体) |
-| FR-20, FR-21, FR-24, FR-25 | Epic 3 (阅读与实体) |
-| FR-22, FR-23, FR-26 | Epic 3 (阅读与实体) |
-| FR-30, FR-32, FR-35, FR-37 | Epic 4 (可视化) |
-| FR-31, FR-33, FR-36, FR-38 | Epic 4 (可视化) |
-| FR-34, FR-39, FR-40 | Epic 4 (可视化) |
-| FR-50, FR-51, FR-52, FR-54 | Epic 5 (智能问答) |
-| FR-53, FR-55, FR-56 | Epic 5 (智能问答) |
-| FR-70, FR-71, FR-72 | Epic 6 (百科与设置) |
-| FR-81, FR-82, FR-83 | Epic 6 (百科与设置) |
-
-## Epic 列表
-
-### Epic 1: 书架与小说上传
-用户可以上传小说文件，系统自动切分章节，通过书架界面管理所有导入的小说。首次使用时系统引导用户完成环境配置。
-**FRs:** FR-01, FR-02, FR-03, FR-04, FR-05, FR-06, FR-80
-
-### Epic 2: 小说分析引擎
-用户可以对已上传的小说触发 AI 分析，系统逐章提取结构化事实（ChapterFact），实时展示分析进度，支持暂停/恢复/取消操作。
-**FRs:** FR-60, FR-61, FR-62, FR-63, FR-64, FR-65, FR-66
-
-### Epic 3: 阅读体验与实体卡片
-用户可以阅读小说章节，已分析章节中的实体名自动高亮，点击可查看详细的实体卡片（人物/地点/物品/组织/概念）。
-**FRs:** FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26
-
-### Epic 4: 知识图谱可视化
-用户可以通过人物关系图、世界地图、时间线、势力图四种可视化视图从全局视角探索小说结构，所有视图通过章节范围滑块联动。
-**FRs:** FR-30, FR-31, FR-32, FR-33, FR-34, FR-35, FR-36, FR-37, FR-38, FR-39, FR-40
-
-### Epic 5: 智能问答
-用户可以用自然语言对小说内容提问，系统基于知识图谱和原文检索给出流式回答，标注来源章节，支持连续追问。
-**FRs:** FR-50, FR-51, FR-52, FR-53, FR-54, FR-55, FR-56
-
-### Epic 6: 百科与系统设置
-用户可以浏览小说的结构化知识百科（实体索引 + 概念词条），配置系统设置，导入/导出分析数据。
-**FRs:** FR-70, FR-71, FR-72, FR-81, FR-82, FR-83
+**已实现功能**（不在本文档范围）：书架管理(FR-001)、阅读高亮(FR-002)、实体卡片(FR-003)、AI 分析引擎(FR-004)、关系图(FR-005)、世界地图(FR-006)、智能问答(FR-012)、百科、实体预扫描。
 
 ---
 
-## Epic 1: 书架与小说上传
+## Requirements Inventory
 
-用户可以上传小说文件，系统自动切分章节，通过书架界面管理所有导入的小说。首次使用时系统引导用户完成环境配置。
+### Functional Requirements（待实现）
 
-### Story 1.1: 搭建前后端项目骨架
+```
+FR-007: 时间线可视化——以章节为轴展示事件节点，支持角色/类型筛选和缩放 [P1]
+FR-008: 势力图可视化——组织层级、势力间关系、成员归属，按章节范围查看演变 [P2]
+FR-009: Series Bible 导出——Markdown/Word/Excel/PDF，内容模块选择 + 场景化模板 [P0/P1]
+FR-010: 剧本模式——按场景组织，并列模式 + 独占模式 [P2, 实验性]
+FR-011: 设定冲突检测——四类矛盾识别，严重程度排序，原文对比 [P2]
+FR-013: 样本小说内置体验——西游记+三国演义预分析数据，首次启动零配置 [P0]
+FR-014: 分析成本控制——预估/实时追踪/预算告警/章节明细 [P0-云端]
+FR-015: 用户行为分析——本地匿名统计，用户可关闭 [P2]
+IFR-001: LLM 配置产品化——Ollama 检测/模型推荐/API Key 安全存储/设置 UI [P0]
+IFR-002: 桌面打包——Tauri 2.x + Python Sidecar + 签名 + 自动更新 [P0]
+```
 
-As a 开发者,
-I want 搭建完整的前后端项目结构和开发环境,
-So that 后续所有功能开发都有统一的基础框架。
+### NonFunctional Requirements
+
+```
+NFR-PERF-01: 启动 < 5秒    NFR-PERF-06: Markdown导出 < 30秒/500章
+NFR-SEC-01: API Key 密钥库   NFR-SEC-04: 更新包签名验证
+NFR-SEC-05: 无远程遥测       NFR-COMP-01: macOS 12+ / Win 10+ / Ubuntu 20.04+
+NFR-UX-01: 隐私信任度 > 80%  NFR-UX-02: 首次体验完成率 > 80%
+```
+
+### FR Coverage Map
+
+| FR | Epic | Story |
+|----|------|-------|
+| FR-013 | Epic 1 | 1.1~1.4 |
+| IFR-001 | Epic 2 | 2.1~2.4 |
+| FR-014 | Epic 3 | 3.1~3.4 |
+| FR-009 (Markdown) | Epic 4 | 4.1~4.4 |
+| IFR-002 | Epic 5 | 5.1~5.6 |
+| NFR-USA-02 | Epic 5 | 5.6 |
+| FR-007 | Epic 6 | 6.1~6.3 |
+| FR-009 (Word/Excel/PDF) | Epic 7 | 7.1~7.3 |
+| FR-008 | Epic 8 | 8.1~8.3 |
+| FR-011 | Epic 9 | 9.1~9.4 |
+| FR-010 | Epic 10 | 10.1~10.3 |
+| FR-015 | Epic 11 | 11.1~11.3 |
+
+## Epic List
+
+| # | Epic | 优先级 | FR | Stories |
+|---|------|--------|-----|---------|
+| 1 | 样本小说零门槛体验 | P0 | FR-013 | 4 |
+| 2 | LLM 配置管理 | P0 | IFR-001 | 4 |
+| 3 | 分析成本控制 | P0-云端 | FR-014 | 4 |
+| 4 | Series Bible Markdown 导出 | P0 | FR-009 | 4 |
+| 5 | 桌面应用打包与发布 | P0 | IFR-002, NFR-USA-02 | 6 |
+| 6 | 时间线可视化 | P1 | FR-007 | 3 |
+| 7 | 高级格式导出（Word/Excel/PDF） | P1 | FR-009 | 3 |
+| 8 | 势力图可视化 | P2 | FR-008 | 3 |
+| 9 | 设定冲突检测 | P2 | FR-011 | 4 |
+| 10 | 剧本模式 | P2 | FR-010 | 3 |
+| 11 | 用户行为分析 | P2 | FR-015 | 3 |
+
+---
+
+## Epic 1: 样本小说零门槛体验
+
+**目标：** 用户安装后 5 分钟内体验产品核心价值，无需配置 LLM、无需准备小说、无需等待分析。
+**成功标准：** NFR-UX-02 首次体验完成率 > 80%
+
+### Story 1.1: 制作样本小说预分析数据包
+
+As a 开发团队,
+I want 为《西游记》前25回和《三国演义》前30回生成完整的预分析数据,
+So that 样本数据质量与用户自行分析的结果一致。
 
 **Acceptance Criteria:**
 
-**Given** 空的项目仓库
-**When** 执行项目初始化
-**Then** 前端项目使用 Vite + React 18 + TypeScript 创建，配置 Tailwind CSS 和 shadcn/ui
-**And** 后端项目使用 FastAPI 创建，配置 uvicorn + aiosqlite + chromadb 依赖
-**And** SQLite 数据库初始化脚本包含 architecture.md 定义的全部 8 张表和索引
-**And** 前端开发服务器 (`npm run dev`) 和后端服务器 (`uvicorn`) 均可正常启动
-**And** 前端配置代理，将 `/api` 和 `/ws` 请求转发到后端
-**And** 项目目录结构与 architecture.md 6.6 和 6.7 节一致
-**And** 配置 CORS 允许本地开发跨域
-**And** 后端包含健康检查端点 `GET /api/health`
+**Given** 《西游记》前25回和《三国演义》前30回的 TXT 文本
+**When** 使用当前最优模型（qwen3:14b）执行完整分析流程
+**Then** 生成 novel 元信息 + chapters + chapter_facts + entity_dictionary + world_structure 全量数据
+**And** 导出为可导入的 JSON 数据包，两本样本总计压缩后 < 4MB
+**And** 数据包含 ChapterFact、实体词典、世界结构、别名映射等全部分析产物
 
-**技术说明:**
-- 前端: `npm create vite@latest frontend -- --template react-ts`
-- 后端目录: `backend/src/`
-- SQLite 数据库文件: `~/.ai-reader-v2/data.db`
-- ChromaDB 数据目录: `~/.ai-reader-v2/chroma/`
+### Story 1.2: 首次启动自动导入样本数据
+
+As a 新用户,
+I want 首次启动应用时样本小说自动出现在书架上,
+So that 我无需任何操作即可开始浏览。
+
+**Acceptance Criteria:**
+
+**Given** 用户首次启动应用（数据库为空）
+**When** 应用完成初始化
+**Then** 书架自动展示《西游记》和《三国演义》两本样本小说，标记为"📖 内置样本"
+**And** 样本小说可直接点击进入阅读页，所有功能（实体高亮、关系图、地图、百科、问答）均可使用
+**And** 导入过程 < 3 秒，不阻塞 UI
+**And** 用户可从书架删除样本小说释放空间
+
+### Story 1.3: 引导式功能展示（教学气泡）
+
+As a 新用户,
+I want 在样本小说中看到功能引导提示,
+So that 我能快速了解各功能的入口和用法。
+
+**Acceptance Criteria:**
+
+**Given** 用户打开样本小说的阅读页
+**When** 首次进入阅读页
+**Then** 显示步骤 1/4 引导气泡："试试点击高亮的人物名称，查看 AI 自动生成的角色卡片"
+**And** 用户点击"知道了"后进入下一步引导（关系图→世界地图→导出）
+**And** 用户点击"不再提示"后关闭所有引导
+**And** 引导状态持久化到 user_state 表，每个引导点只展示一次
+**And** 仅在样本小说中显示引导气泡，用户自己上传的小说不显示
+
+### Story 1.4: 功能发现底部导航条
+
+As a 新用户,
+I want 在样本小说阅读页底部看到功能入口,
+So that 我能发现并跳转到关系图、地图等可视化页面。
+
+**Acceptance Criteria:**
+
+**Given** 用户在样本小说的阅读页
+**When** 页面加载完成
+**Then** 底部显示功能发现条：📊 关系图 / 🗺️ 世界地图 / 📅 时间线 / 📤 导出
+**And** 点击可跳转到对应页面
+**And** 完成 4 步引导后显示"✅ 体验完成！[上传我自己的小说] [继续探索]"
 
 ---
 
-### Story 1.2: 实现小说上传与章节切分
+## Epic 2: LLM 配置管理
+
+**目标：** 用户可以通过图形界面配置 LLM，无需编辑环境变量或配置文件。系统自动检测本地 Ollama 并推荐模型。
+**依赖：** 无（独立 Epic）
+
+### Story 2.1: Ollama 自动检测与状态显示
 
 As a 用户,
-I want 上传一个 .txt 或 .md 文件，系统自动切分章节并显示预览,
-So that 我可以将小说导入系统进行后续分析。
+I want 应用自动检测本地 Ollama 的安装和运行状态,
+So that 我能了解当前环境是否就绪。
 
 **Acceptance Criteria:**
 
-**Given** 系统已启动
-**When** 用户通过上传接口提交一个 .txt 或 .md 文件
-**Then** 后端自动检测文件编码（支持 UTF-8、GBK、GB2312）
-**And** 按优先级尝试 5 种章节切分模式（"第X章"、"第X回"、数字序号、Markdown 标题、分隔线）
-**And** 提取书名（从文件名）和作者（从内容匹配"作者：XXX"）
-**And** 返回预览数据：章节列表（序号+标题+字数）、总章节数、总字数、书名、作者
-**And** 如果切分结果异常（仅 1 章或单章超 5 万字），返回中包含 warning 字段
-**And** 文件超过 100MB 时返回 warning 提示文件较大
+**Given** 用户打开设置页 > AI 引擎面板，或首次启动进入配置向导
+**When** 页面加载时
+**Then** 自动检测 Ollama 状态：已安装已运行 / 已安装未运行 / 未安装
+**And** 显示可用模型列表（已下载的模型名称和大小）
+**And** 未安装时提供"下载安装 Ollama"链接（打开 ollama.com）
+**And** 已安装未运行时提供"启动 Ollama"按钮
+**And** 检测过程 < 2 秒，失败时显示具体错误
 
-**Given** 预览数据已返回
-**When** 用户确认导入
-**Then** 小说和全部章节写入数据库，novels 记录包含 file_hash（SHA256）
-**And** 返回创建的 novel 对象
-
-**API:**
-- `POST /api/novels/upload` — 上传文件，返回预览
-- `POST /api/novels/confirm` — 确认导入
-
----
-
-### Story 1.3: 实现书架页面
+### Story 2.2: 模型推荐与下载引导
 
 As a 用户,
-I want 在书架页面看到所有已导入的小说，并能进行基本管理操作,
-So that 我可以快速找到和打开想要阅读/分析的小说。
+I want 系统根据我的硬件推荐合适的分析模型,
+So that 我能选择最适合的模型而不需要了解技术细节。
 
 **Acceptance Criteria:**
 
-**Given** 系统中已有导入的小说
-**When** 用户访问书架页面（`/`）
-**Then** 以卡片列表形式展示所有小说，每张卡片显示：封面（书名+作者生成）、书名、作者、章节数、分析进度条、阅读进度、最后打开时间
-**And** 默认按最后打开时间排序
+**Given** Ollama 已安装但没有可用的分析模型
+**When** 进入模型推荐界面
+**Then** 显示硬件检测结果（如"Apple M2 Pro, 16GB 内存"）
+**And** 推荐 2-3 个模型（如 qwen3:4b / qwen3:8b / qwen3:14b），标注推荐级别和内存要求
+**And** 用户点击"下载"后执行 `ollama pull` 并显示下载进度
+**And** 下载完成后自动设为默认模型
 
-**Given** 书架页面已加载
-**When** 用户点击某本小说卡片
-**Then** 跳转到该小说的阅读页面 `/novel/:id/read`
-
-**Given** 书架中有多本小说
-**When** 用户在搜索框输入关键词
-**Then** 按书名和作者实时过滤小说列表（FR-04）
-
-**Given** 用户右键点击或长按小说卡片
-**When** 选择"删除"
-**Then** 弹出二次确认对话框，确认后删除小说及全部关联数据（FR-03）
-
-**Given** 书架为空
-**When** 用户访问书架页面
-**Then** 显示空状态引导：居中提示"还没有导入小说"+ 醒目上传按钮
-
-**API:**
-- `GET /api/novels` — 获取小说列表
-- `DELETE /api/novels/{id}` — 删除小说
-
----
-
-### Story 1.4: 实现上传预览与确认流程（前端）
+### Story 2.3: 云端 LLM API Key 配置
 
 As a 用户,
-I want 在上传后看到章节切分预览，确认书名和作者后导入,
-So that 我可以在导入前检查切分结果是否合理。
+I want 通过界面配置云端 LLM 的 API Key 和提供商,
+So that 我可以使用 DeepSeek 等云端服务进行分析。
 
 **Acceptance Criteria:**
 
-**Given** 用户在书架页点击上传按钮
-**When** 选择 .txt 或 .md 文件
-**Then** 显示上传进度
+**Given** 用户在设置页选择"云端 API"模式
+**When** 输入 API Key 和选择提供商
+**Then** 提供商下拉列表包含 DeepSeek、OpenAI 等预设（自动填充 Base URL 和默认模型）
+**And** 输入 API Key 后可点击"验证"测试连通性
+**And** 验证成功显示 ✅，失败显示具体错误
+**And** API Key 通过 `keyring` 库存储到系统密钥库（macOS Keychain / Windows Credential Manager / Linux libsecret）
+**And** API Key 绝不以明文写入配置文件或数据库
+**And** fallback: 无系统密钥库时使用 AES-256-GCM 加密文件存储
 
-**Given** 后端返回预览数据
-**When** 预览页加载
-**Then** 显示书名和作者输入框（可编辑），章节列表（序号+标题+字数），总章节数和总字数
-**And** 如果预览数据包含 warning，显示黄色警告提示
-
-**Given** 预览页已展示
-**When** 用户点击"确认导入"
-**Then** 调用确认接口，成功后跳转回书架页，新小说出现在列表顶部
-
-**Given** 用户选择了非 .txt/.md 文件
-**When** 上传
-**Then** 即时提示"仅支持 .txt / .md 格式"
-
----
-
-### Story 1.5: 实现重复检测与排序功能
+### Story 2.4: AI 引擎设置面板
 
 As a 用户,
-I want 上传同名小说时看到对比面板，并能按不同方式排序书架,
-So that 我可以避免重复导入并快速找到想要的小说。
+I want 在设置页有统一的 AI 引擎配置界面,
+So that 我可以随时切换本地/云端模式和调整参数。
 
 **Acceptance Criteria:**
 
-**Given** 用户上传一本与已有小说同名的文件
-**When** 预览页显示
-**Then** 额外显示对比面板：已有版本和新上传版本的章节数、字数、导入时间
-**And** 提供三个选项："覆盖已有版本"、"作为新书导入"、"取消"（FR-05）
-**And** 选择"覆盖"会删除旧版本的全部分析数据
-
-**Given** 书架页面
-**When** 用户切换排序方式
-**Then** 支持按"最后打开时间"、"书名"、"章节数"排序（FR-04）
-
----
-
-### Story 1.6: 实现首次使用引导
-
-As a 首次使用的用户,
-I want 系统检测环境并引导我完成配置,
-So that 我可以顺利使用系统的 AI 分析功能。
-
-**Acceptance Criteria:**
-
-**Given** 用户首次打开应用
-**When** 应用加载
-**Then** 系统自动检测 Ollama 是否已安装并运行
-**And** 检测所需模型（qwen2.5:7b）是否已下载
-
-**Given** Ollama 未安装或未运行
-**When** 检测结果返回
-**Then** 显示引导页面，分步骤指导：安装 Ollama → 启动服务 → 下载模型
-
-**Given** 环境检测通过
-**When** 进入应用
-**Then** 直接进入空书架页面
-
-**API:**
-- `GET /api/settings/health-check` — 检测 Ollama 状态和模型列表
-
----
-
-### Story 1.7: 实现章节切分调整
-
-As a 用户,
-I want 在预览页调整章节切分方式,
-So that 自动切分不理想时我可以手动修正。
-
-**Acceptance Criteria:**
-
-**Given** 上传预览页已展示
-**When** 用户点击"调整切分"
-**Then** 显示切分模式选择（5 种模式），可选择切换模式重新切分（FR-06）
-**And** 支持在章节列表中删除或新增切分点
-**And** 支持输入自定义正则表达式重新切分
-**And** 调整后实时更新预览列表
-
----
-
-## Epic 2: 小说分析引擎
-
-用户可以对已上传的小说触发 AI 分析，系统逐章提取结构化事实（ChapterFact），实时展示分析进度，支持暂停/恢复/取消操作。
-
-### Story 2.1: 实现 LLM 客户端与 ChapterFact 抽取器
-
-As a 系统,
-I want 通过 Ollama API 调用 LLM 按章节提取结构化事实,
-So that 每章产出一个完整的 ChapterFact JSON。
-
-**Acceptance Criteria:**
-
-**Given** Ollama 服务运行中，Qwen 2.5 模型已下载
-**When** 调用 ChapterFactExtractor.extract(chapter_text, context_summary)
-**Then** 发送包含 system prompt、前序上下文摘要和章节全文的请求
-**And** 要求 LLM 以 ChapterFact JSON Schema 格式输出（structured output）
-**And** 返回解析后的 ChapterFact 对象，包含 characters、relationships、locations、item_events、org_events、events、new_concepts 七个数组
-
-**Given** LLM 返回的 JSON 格式不正确
-**When** 解析失败
-**Then** 重试一次（修正提示），再次失败则标记该章为 failed
-
-**Given** LLM 调用超时（>120s）
-**When** 超时发生
-**Then** 记录错误并标记该章为 failed，可后续重试
-
-**技术说明:**
-- 实现 `LLMClient` 类（Ollama HTTP API 封装）
-- 实现 `ChapterFactExtractor` 类
-- 实现 `FactValidator` 类（轻量后验证：名称长度、类型合法性）
-- 编写 system prompt 和 few-shot 示例
-
----
-
-### Story 2.2: 实现前序上下文摘要生成器
-
-As a 系统,
-I want 为每章分析自动生成前序章节的上下文摘要,
-So that LLM 在分析当前章节时能识别已知实体和关系。
-
-**Acceptance Criteria:**
-
-**Given** 小说前 N 章已有 ChapterFact 数据
-**When** 调用 ContextSummaryBuilder.build(novel_id, chapter_num)
-**Then** 从已有 ChapterFact 聚合生成摘要，包含：
-  - 已知人物列表（名称 + 当前身份/境界）
-  - 已知关系（人物对 + 最新关系类型）
-  - 已知地点（名称 + 类型 + 层级）
-  - 已知物品（名称 + 当前持有人）
-**And** 只包含最近 N 章出现过的活跃实体（非活跃实体淡出）
-**And** 总量控制在 2000 token 以内
-
-**Given** 分析第 1 章（无前序数据）
-**When** 调用 build
-**Then** 返回空摘要或仅包含"这是小说的第一章"提示
-
----
-
-### Story 2.3: 实现分析任务管理与进度推送
-
-As a 用户,
-I want 触发全书分析后看到实时进度，并能暂停/恢复/取消,
-So that 我可以掌控分析过程而不必等待完成。
-
-**Acceptance Criteria:**
-
-**Given** 用户选择一本已上传的小说
-**When** 触发全书分析
-**Then** 创建 analysis_task 记录（status=running）
-**And** 后台开始逐章处理：前序摘要 → LLM 抽取 → 验证 → 写入 chapter_facts → 更新 chapters.analysis_status
-
-**Given** 分析正在进行
-**When** 通过 WebSocket `/ws/analysis/{novel_id}` 连接
-**Then** 每完成一章推送进度消息：`{ type: "progress", chapter, total, stats: { entities, relations, events } }`
-**And** 每章完成推送：`{ type: "chapter_done", chapter, status }`
-
-**Given** 分析正在进行
-**When** 用户发送暂停请求 `PATCH /api/analysis/{task_id}` `{status: "paused"}`
-**Then** 当前章节处理完后退出循环，任务状态变为 paused（FR-62）
-**And** WebSocket 推送 `{ type: "task_status", status: "paused" }`
-
-**Given** 任务已暂停
-**When** 用户发送恢复请求 `{status: "running"}`
-**Then** 从 current_chapter + 1 继续分析
-
-**Given** 分析正在进行
-**When** 用户发送取消请求 `{status: "cancelled"}`
-**Then** 任务终止，已分析数据保留（FR-63）
-
-**API:**
-- `POST /api/novels/{novel_id}/analyze` — 触发分析
-- `PATCH /api/analysis/{task_id}` — 暂停/恢复/取消
-- `GET /api/analysis/{task_id}` — 查询任务状态
-- `WS /ws/analysis/{novel_id}` — 进度推送
-
----
-
-### Story 2.4: 实现分析页面（前端）
-
-As a 用户,
-I want 在分析页面查看进度、触发分析、管理分析任务,
-So that 我可以直观地管理小说的分析过程。
-
-**Acceptance Criteria:**
-
-**Given** 用户进入分析页面 `/novel/:id/analysis`
-**When** 小说未分析
-**Then** 显示"开始分析"按钮，点击触发全书分析
-
-**Given** 分析正在进行
-**When** 页面已加载
-**Then** 通过 WebSocket 连接实时显示：进度条、当前章节/总章节、已提取实体/关系/事件数
-**And** 显示"暂停"和"取消"按钮
-
-**Given** 分析已完成
-**When** 页面已加载
-**Then** 显示分析完成状态和统计信息（总实体数、关系数、事件数、耗时）
-
-**Given** 某些章节分析失败
-**When** 页面已加载
-**Then** 显示失败章节列表，每个失败章节提供"重试"按钮
-
----
-
-### Story 2.5: 实现按范围分析与重新分析
-
-As a 用户,
-I want 指定章节范围进行分析或重新分析已分析章节,
-So that 我可以灵活控制分析范围和更新分析质量。
-
-**Acceptance Criteria:**
-
-**Given** 分析页面
-**When** 用户选择章节范围（起始章-结束章）并点击"分析"
-**Then** 仅分析指定范围内未分析的章节（FR-64）
-
-**Given** 分析页面
-**When** 用户选择已分析的章节范围并点击"重新分析"
-**Then** 弹出确认对话框，确认后重新抽取并覆盖已有 ChapterFact 数据（FR-65）
-**And** 聚合缓存按 novel_id 失效
-
----
-
-## Epic 3: 阅读体验与实体卡片
-
-用户可以阅读小说章节，已分析章节中的实体名自动高亮，点击可查看详细的实体卡片（人物/地点/物品/组织/概念），卡片间支持导航跳转。
-
-### Story 3.1: 实现阅读页面基础功能
-
-As a 用户,
-I want 阅读小说章节并通过目录导航,
-So that 我可以像读书一样浏览小说内容。
-
-**Acceptance Criteria:**
-
-**Given** 用户点击书架中的某本小说
-**When** 进入阅读页 `/novel/:id/read`
-**Then** 显示小说的第一章（或上次阅读位置）内容
-**And** 左侧显示章节目录侧栏：
-  - 有卷结构的按卷>章两级折叠，卷标题显示分析进度（如"5/10 ✓"）
-  - 无卷结构的退化为平铺章节列表
-  - 当前章节高亮并自动展开所在卷
-  - 每章标注分析状态图标（绿色=已分析、黄色=分析中、红色=失败、灰色=未分析）
-  - 顶部章节搜索框
-  - 侧栏可通过按钮折叠
-
-**Given** 阅读页已加载
-**When** 用户点击章节目录中的某章
-**Then** 主区域切换到该章内容（FR-11）
-
-**Given** 阅读页已加载
-**When** 用户点击"下一章"/"上一章"按钮
-**Then** 跳转到相邻章节（FR-10）
-
-**Given** 用户阅读某章
-**When** 离开页面或切换小说
-**Then** 保存当前章节和滚动位置到 user_state 表，下次打开自动恢复（FR-14）
-
-**API:**
-- `GET /api/novels/{id}/chapters` — 章节列表（含分析状态）
-- `GET /api/novels/{id}/chapters/{chapter_num}` — 章节内容
-- `PUT /api/novels/{id}/user-state` — 保存阅读位置
-
----
-
-### Story 3.2: 实现实体聚合服务（后端）
-
-As a 系统,
-I want 从 ChapterFact 聚合生成实体档案,
-So that 前端可以获取完整的人物/地点/物品/组织数据。
-
-**Acceptance Criteria:**
-
-**Given** 小说已有 ChapterFact 数据
-**When** 调用 EntityAggregator.aggregate_person(novel_id, person_name)
-**Then** 从全部 ChapterFact 聚合生成 PersonProfile：
-  - 合并 aliases（按首次出现章节排序）
-  - 收集 appearance 列表（按章节排序）
-  - 收集 abilities_gained（按维度分组、章节排序）
-  - 从 relationships 构建关系演变链
-  - 从 item_events 构建物品关联
-  - 从 events 构建人物经历
-  - 统计：出场章节数、首末出场、关联人物数等
-
-**When** 调用 aggregate_location / aggregate_item / aggregate_org
-**Then** 同理生成 LocationProfile / ItemProfile / OrgProfile
-
-**Given** 聚合结果已生成
-**When** 同一 novel_id 再次请求
-**Then** 从 LRU 缓存返回（最大 100 个实体），新 ChapterFact 写入时按 novel_id 失效
-
-**Given** 请求小说的全部实体列表
-**When** 调用 get_all_entities(novel_id)
-**Then** 扫描全部 ChapterFact，返回去重后的实体名+类型+出场章节数列表
-
-**API:**
-- `GET /api/novels/{id}/entities` — 实体列表
-- `GET /api/novels/{id}/entities/{name}` — 单个实体完整档案
-
----
-
-### Story 3.3: 实现实体高亮渲染
-
-As a 用户,
-I want 已分析章节中的实体名自动高亮显示,
-So that 我在阅读时能一眼看出人物、地点、物品等。
-
-**Acceptance Criteria:**
-
-**Given** 用户阅读一个已分析完成的章节
-**When** 章节内容渲染
-**Then** 从该章的 ChapterFact 提取所有实体名（characters.name、locations.name、item_events.item_name、org_events.org_name、new_concepts.name）
-**And** 在章节文本中匹配这些实体名，按类别着色高亮：
-  - 人物=蓝色、地点=绿色、物品=橙色、组织=紫色、概念=灰色（FR-12）
-**And** 高亮文本可点击
-
-**Given** 用户阅读未分析的章节
-**When** 章节内容渲染
-**Then** 正常显示文本，无高亮
-
-**API:**
-- `GET /api/novels/{id}/chapters/{chapter_num}/entities` — 该章的实体名列表（用于高亮）
-
----
-
-### Story 3.4: 实现人物卡片和地点卡片
-
-As a 用户,
-I want 点击高亮的人物名或地点名后在右侧看到详细的实体卡片,
-So that 我可以快速了解该角色或地点的完整信息。
-
-**Acceptance Criteria:**
-
-**Given** 阅读页中某个高亮人物名被点击
-**When** 实体卡片抽屉打开
-**Then** 右侧滑出 420px 宽的抽屉，显示 PersonCard：
-  - A. 基本信息：姓名、别称列表（首次出现章节）、默认占位头像
-  - B. 外貌特征：按章节排序，默认倒序显示最近 3 条
-  - C. 人物关系：关系演变链（默认前 10 条）
-  - D. 能力：按维度分组（境界/技能/身份）
-  - E. 物品关系：关联物品及持有状态变化
-  - F. 经历：最近 5 章经历（倒序）
-  - G. 数据统计：出场章节数等（折叠区域）
-  每个区块按规则截断，超出显示"共 X 项 ▸ 查看全部"（FR-20, FR-24）
-
-**Given** 高亮地点名被点击
-**When** 实体卡片抽屉打开
-**Then** 显示 LocationCard：
-  - A. 基本信息、B. 空间层级、C. 环境描写、D. 到访人物、E. 发生事件、F. 统计（FR-21）
-
-**Given** 卡片抽屉已打开
-**When** 点击遮罩 / 关闭按钮 / Esc
-**Then** 抽屉关闭
-
----
-
-### Story 3.5: 实现卡片间导航与物品/组织/概念卡片
-
-As a 用户,
-I want 在卡片内点击实体名跳转到另一张卡片，并能通过面包屑回退,
-So that 我可以在实体之间自由探索。
-
-**Acceptance Criteria:**
-
-**Given** 人物卡片中某个人物名被点击
-**When** 点击触发
-**Then** 抽屉内容替换为新人物的卡片（非叠加新抽屉）
-**And** 顶部显示面包屑导航（如"韩立 > 墨大夫"），点击可回退
-**And** 面包屑最多保留 10 层（FR-25）
-
-**Given** 物品实体名被点击
-**When** 卡片加载
-**Then** 显示 ItemCard：基本信息、物品描述、持有流转链、使用记录、关联物品、统计（FR-22）
-
-**Given** 组织实体名被点击
-**When** 卡片加载
-**Then** 显示 OrgCard：基本信息、组织描述、组织层级、成员（身份演变链）、据点、大事记、统计（FR-23）
-
-**Given** 概念高亮被点击
-**When** 点击触发
-**Then** 弹出轻量浮层（非完整卡片），显示：概念名称、定义、分类、首次提及、关联概念
-**And** 底部提供"在百科中查看"链接（FR-26）
-
----
-
-### Story 3.6: 实现实体消歧与阅读设置
-
-As a 用户,
-I want 同名实体能让我选择查看哪一个，并能调整阅读显示设置,
-So that 我不会混淆同名角色，且阅读体验符合我的偏好。
-
-**Acceptance Criteria:**
-
-**Given** 点击的实体名对应多个同名实体（如两个"张三"）
-**When** 点击触发
-**Then** 弹出消歧选择面板，列出各同名实体的简要描述和出场章节数
-**And** 选择后打开对应实体的卡片
-
-**Given** 阅读页面
-**When** 用户打开阅读设置面板
-**Then** 可调整：字号（小/中/大/特大）、行距（紧凑/正常/宽松）、主题（亮色/暗色）（FR-16）
-**And** 设置实时生效并持久化
-
----
-
-### Story 3.7: 实现章节引用跳转与全文搜索
-
-As a 用户,
-I want 点击章节引用直接跳转，并能搜索全书关键词,
-So that 我可以快速在小说中定位目标内容。
-
-**Acceptance Criteria:**
-
-**Given** 卡片或问答中出现"第 X 章"格式的文本
-**When** 用户点击
-**Then** 跳转到阅读页对应章节（FR-15）
-
-**Given** 阅读页面
-**When** 用户使用全文搜索（搜索框或快捷键）输入关键词
-**Then** 在当前小说所有章节中搜索，返回匹配位置列表（章节+上下文片段）
-**And** 点击结果跳转到对应章节的匹配位置并高亮关键词（FR-17）
-
-**API:**
-- `GET /api/novels/{id}/search?q={keyword}` — 全文搜索
-
----
-
-## Epic 4: 知识图谱可视化
-
-用户可以通过人物关系图、世界地图、时间线、势力图四种可视化视图从全局视角探索小说结构，所有视图通过章节范围滑块联动。
-
-### Story 4.1: 实现可视化数据接口（后端）
-
-As a 系统,
-I want 为四种可视化视图提供数据接口,
-So that 前端可以获取按章节范围过滤的图谱/地图/时间线/势力数据。
-
-**Acceptance Criteria:**
-
-**Given** 小说已有 ChapterFact 数据
-**When** 调用 `GET /api/novels/{id}/graph?chapter_start=1&chapter_end=50`
-**Then** 返回该范围内的人物关系图数据：
-  - nodes: `[{ id, name, type, chapter_count, org }]`
-  - edges: `[{ source, target, relation_type, weight, chapters }]`
-
-**When** 调用 `GET /api/novels/{id}/map?chapter_start=1&chapter_end=50`
-**Then** 返回空间地图数据：
-  - locations: `[{ id, name, type, parent, level, mention_count }]`
-  - trajectories: `{ person_name: [{ location, chapter }] }`
-
-**When** 调用 `GET /api/novels/{id}/timeline?chapter_start=1&chapter_end=50`
-**Then** 返回时间线数据：
-  - events: `[{ chapter, summary, type, importance, participants, location }]`
-  - swimlanes: `{ person_name: [event_ids] }`
-
-**When** 调用 `GET /api/novels/{id}/factions?chapter_start=1&chapter_end=50`
-**Then** 返回势力图数据：
-  - orgs: `[{ id, name, type, member_count }]`
-  - relations: `[{ source, target, type, chapter }]`
-  - members: `{ org_name: [{ person, role, status }] }`
-
----
-
-### Story 4.2: 实现章节范围滑块与可视化页面框架
-
-As a 用户,
-I want 通过章节范围滑块控制所有视图的数据范围,
-So that 我可以观察小说在不同阶段的状态。
-
-**Acceptance Criteria:**
-
-**Given** 用户进入任一可视化页面（关系图/世界地图/时间线/势力图）
+**Given** 用户打开设置页 > AI 引擎
 **When** 页面加载
-**Then** 顶部显示章节范围滑块，范围从第 1 章到已分析的最后一章
-**And** 默认选择全部已分析范围
-
-**Given** 用户拖动章节范围滑块
-**When** 范围变化
-**Then** 当前视图的数据自动更新为新范围
-**And** chapterRangeStore 状态更新，其他视图切换过去时使用同一范围（FR-35）
-
-**Given** 用户在可视化页面间切换（通过顶部标签栏）
-**When** 切换到另一视图
-**Then** 章节范围状态保持一致
-
-**Given** 小说仅部分分析
-**When** 进入可视化页面
-**Then** 顶部提示"当前展示基于已分析的 X / Y 章数据"
+**Then** 显示两个模式切换：本地 Ollama（推荐）/ 云端 API
+**And** 本地模式显示：状态、模型选择下拉、地址、测试连接按钮
+**And** 云端模式显示：提供商、API Key（掩码）、模型、Base URL
+**And** 高级选项：最大 Token 数、请求超时、并发请求数
+**And** "保存"后配置立即生效（无需重启应用）
+**And** "恢复默认"还原为本地 Ollama + qwen3:8b
 
 ---
 
-### Story 4.3: 实现人物关系图
+## Epic 3: 分析成本控制
 
-As a 用户,
-I want 以力导向图查看人物之间的关系网络,
-So that 我可以直观理解角色间的关系结构。
+**目标：** 云端 LLM 用户可以预知、追踪和控制分析费用，避免意外高额消费。
+**依赖：** Epic 2（云端 LLM 配置）
+
+### Story 3.1: 成本预估模型
+
+As a 云端 LLM 用户,
+I want 在分析前看到预估费用,
+So that 我可以决定是否继续或调整分析范围。
 
 **Acceptance Criteria:**
 
-**Given** 可视化数据已加载
-**When** 关系图页面 `/novel/:id/graph` 渲染
-**Then** 使用 @react-force-graph-2d 绘制力导向图
-  - 节点大小按出场章节数映射
-  - 节点颜色按组织归属区分
-  - 节点标签显示姓名（密集时只显示主要人物，缩放后逐步显示）
-  - 边粗细按互动章节数映射
-  - 边颜色按关系大类区分（亲属暖色、友好绿色、敌对红色、组织蓝色）
-  - 边标签显示最新关系类型（FR-30）
+**Given** 用户使用云端 LLM 点击"开始分析"
+**When** 弹出成本预览弹窗
+**Then** 显示：小说名称、分析范围（章节数/字数）、LLM 提供商
+**And** 显示预估 Token 消耗（输入/输出分开）和预估费用（基于提供商定价）
+**And** 显示含/不含实体预扫描的费用差异
+**And** 显示"实际费用可能浮动 ±30%"提示
+**And** 显示本月已用预算和预算剩余
+**And** 提供"切换到本地 Ollama 可免费分析"选项
+**And** 用户确认后开始分析，取消则返回
 
-**Given** 关系图已渲染
-**When** 用户交互
-**Then** 支持：拖拽画布平移、滚轮缩放、拖拽节点、点击节点弹出实体卡片、悬浮节点高亮直接关系、双击节点进入聚焦模式
+### Story 3.2: 实时成本追踪
 
-**Given** 关系图页面
-**When** 用户打开筛选面板
-**Then** 支持按实体类型、关系类型、组织归属、最少出场数筛选（FR-37）
-
----
-
-### Story 4.4: 实现世界地图（层级视图 + 空间视图）
-
-As a 用户,
-I want 通过层级树和空间地图查看地点关系,
-So that 我可以理解小说世界的空间结构。
+As a 云端 LLM 用户,
+I want 在分析过程中看到实时费用,
+So that 我可以随时决定是否暂停分析。
 
 **Acceptance Criteria:**
 
-**Given** 地图数据已加载
-**When** 世界地图页面 `/novel/:id/map` 渲染（层级视图标签）
-**Then** 以可折叠树形结构展示地点层级关系
-  - 节点大小按提及章节数映射
-  - 节点颜色按地点类型区分
-  - 点击节点弹出地点卡片
-  - 双击展开/折叠子地点
-  - 提供"在空间地图中定位"按钮（FR-32）
+**Given** 云端分析正在进行
+**When** 分析进度页面加载
+**Then** 在进度条下方显示实时统计：已用 Token、已花费、预估剩余、预估总计
+**And** 每完成一章更新一次成本数据
+**And** 显示本月预算使用进度条
+**And** Token 消耗和费用数据随 WebSocket 进度消息一起推送
 
-**Given** 用户切换到空间视图标签
-**When** 空间地图渲染
-**Then** 使用 Pixi.js v8 渲染节点-区域型空间示意图
-  - 地点以图标节点形式按空间关系布局
-  - 包含子地点的地点渲染为半透明区域色块
-  - 支持 5 级语义缩放
-  - 画布底色为羊皮纸质感
-  - 支持拖拽平移、滚轮缩放、点击地点弹出卡片（FR-31）
+### Story 3.3: 预算告警机制
 
-**Given** 空间地图中
-**When** 用户选择人物叠加轨迹
-**Then** 显示该人物的移动轨迹（带箭头曲线 + 章节标注 + 渐变色）
+As a 云端 LLM 用户,
+I want 在接近预算上限时收到告警,
+So that 我不会无意中超出预算。
+
+**Acceptance Criteria:**
+
+**Given** 用户在设置中配置了月度预算上限
+**When** 本月消费达到预算的 80%
+**Then** Toast 提示"本月云端预算已用 80%，剩余 ¥X"
+**And** 达到 100% 时弹窗确认："已达预算上限。[继续] [暂停] [切换本地]"
+**And** 单次分析预估超出剩余预算时，分析前提示并提供选项
+**And** 预算设置在设置页 > 使用统计中，默认值 ¥50/月
+
+### Story 3.4: 分析成本明细
+
+As a 云端 LLM 用户,
+I want 分析完成后查看按章节的费用明细,
+So that 我可以了解成本构成。
+
+**Acceptance Criteria:**
+
+**Given** 一次云端分析已完成
+**When** 用户打开设置 > 使用统计 > 分析记录
+**Then** 显示每章的输入 Token、输出 Token、费用、发现实体数
+**And** 显示合计行
+**And** 支持导出为 CSV
+**And** 显示分析时间段和使用的 LLM 模型
 
 ---
 
-### Story 4.5: 实现时间线
+## Epic 4: Series Bible Markdown 导出
+
+**目标：** 用户可以将分析结果一键导出为结构化的 Markdown 设定文档，适合网文作者日常使用。
+**依赖：** 无（使用已有分析数据）
+
+### Story 4.1: 导出引擎核心架构
 
 As a 用户,
-I want 在时间轴上查看事件分布,
-So that 我可以把握故事的节奏和关键时间点。
+I want 一个可扩展的导出引擎,
+So that 当前支持 Markdown，未来可扩展 Word/Excel/PDF。
+
+**Acceptance Criteria:**
+
+**Given** 一本已完成分析的小说
+**When** 用户触发导出
+**Then** 后端 ExportService 从 EntityAggregator 获取人物/地点/物品/组织 Profile 数据
+**And** 从 VizService 获取关系图、地图、时间线数据
+**And** 支持按章节范围导出（chapter_start / chapter_end）
+**And** 支持选择导出模块：人物档案、势力分布、地图标注、时间线
+**And** 导出 API: `POST /api/novels/{id}/export` 返回文件下载
+
+### Story 4.2: Markdown 模板系统
+
+As a 网文作者,
+I want 选择不同的 Markdown 导出模板,
+So that 我可以得到适合自己工作流的格式。
+
+**Acceptance Criteria:**
+
+**Given** 用户选择 Markdown 格式导出
+**When** 选择模板
+**Then** 提供"网文作者套件"模板：人物设定卡、势力分布、时间线大纲
+**And** 提供"通用模板"：完整世界观文档
+**And** Markdown 输出为单个 .md 文件，含目录、分级标题
+**And** 人物卡片包含：姓名、别称、外貌、关系、能力、经历
+**And** 500 章小说完整 Markdown 导出 < 30 秒
+
+### Story 4.3: 导出中心 UI
+
+As a 用户,
+I want 在导航栏有导出入口，进入后选择格式、模块、模板,
+So that 导出过程直观便捷。
+
+**Acceptance Criteria:**
+
+**Given** 用户在任意小说功能页面
+**When** 点击导航栏"导出"
+**Then** 进入导出中心页面（/novel/:id/export）
+**And** 显示格式选择卡片（Markdown 可用，Word/Excel/PDF 显示"即将推出"）
+**And** 选择格式后显示内容模块勾选和模板下拉
+**And** 提供"预览"按钮（在新窗口预览 Markdown 渲染效果）
+**And** 提供"导出"按钮，下载 .md 文件
+
+### Story 4.4: 导出内容质量
+
+As a 用户,
+I want 导出的 Markdown 内容准确反映分析结果,
+So that 我可以直接用于创作参考。
+
+**Acceptance Criteria:**
+
+**Given** 一本分析完成的小说
+**When** 导出完整 Markdown
+**Then** 人物档案中的关系演变链与实体卡片一致
+**And** 别称列表完整（包含 AliasResolver 合并的所有别称）
+**And** 地点层级正确反映 WorldStructure 的 location_parents
+**And** 无乱码、无截断、Markdown 语法正确
+
+---
+
+## Epic 5: 桌面应用打包与发布
+
+**目标：** 用户可以在 macOS/Windows 上下载安装原生桌面应用，获得系统级体验，并可导出/导入全量数据实现跨设备迁移。
+**依赖：** 无（打包现有功能）
+
+### Story 5.1: Tauri 项目脚手架
+
+As a 开发团队,
+I want 将现有 React + FastAPI 项目集成到 Tauri 2.x 框架中,
+So that 可以生成跨平台桌面应用。
+
+**Acceptance Criteria:**
+
+**Given** 现有的 frontend/ 和 backend/ 代码
+**When** 初始化 Tauri 项目
+**Then** Tauri 配置指向 frontend/ 的 Vite 构建产物
+**And** Python 后端通过 PyInstaller 编译为 sidecar binary
+**And** Tauri externalBin 配置引用 sidecar
+**And** 开发模式下 `cargo tauri dev` 可同时启动前端和后端
+**And** 窗口标题为"AI Reader V2"，最小尺寸 1024×768
+
+### Story 5.2: Python Sidecar 打包
+
+As a 开发团队,
+I want 将 FastAPI 后端打包为独立可执行文件,
+So that 用户无需安装 Python 环境。
+
+**Acceptance Criteria:**
+
+**Given** backend/ 下的 FastAPI 应用
+**When** 使用 PyInstaller 打包
+**Then** 生成 macOS ARM64、macOS x64、Windows x64 三个平台的 sidecar binary
+**And** 包含所有依赖（aiosqlite, chromadb, jieba, numpy 等）
+**And** `--exclude-module` 排除未使用的大型库
+**And** sidecar 启动后监听指定端口，Tauri 前端通过 localhost 通信
+**And** sidecar 体积 < 200MB（压缩后）
+
+### Story 5.3: macOS 签名与公证
+
+As a macOS 用户,
+I want 下载的应用通过 Gatekeeper 验证,
+So that 我可以正常安装而不需手动允许。
+
+**Acceptance Criteria:**
+
+**Given** macOS .dmg 安装包
+**When** 用户双击安装
+**Then** Gatekeeper 不弹出"未知开发者"警告
+**And** 应用通过 Apple notarytool 公证
+**And** sidecar binary 已单独 ad-hoc 签名后再由 Tauri 整体签名
+**And** 使用 Apple Developer Program 证书（$99/年）
+
+### Story 5.4: Windows 签名与安装
+
+As a Windows 用户,
+I want 安装时不看到 SmartScreen 警告,
+So that 我信任这个应用是安全的。
+
+**Acceptance Criteria:**
+
+**Given** Windows .msi 安装包
+**When** 用户双击安装
+**Then** SmartScreen 不显示"未知发布者"警告
+**And** 安装包使用 EV Code Signing Certificate 签名
+**And** 安装后开始菜单有快捷方式
+**And** 首次运行检测 WebView2，未安装时引导安装
+
+### Story 5.5: 自动更新与 CI/CD
+
+As a 用户,
+I want 应用启动时自动检测更新,
+So that 我始终使用最新版本。
+
+**Acceptance Criteria:**
+
+**Given** 应用启动
+**When** 检测到新版本
+**Then** 显示更新提示（版本号 + 更新说明）
+**And** 用户可选"立即更新""稍后提醒""跳过此版本"
+**And** 更新包签名验证通过后安装并重启
+**And** GitHub Actions 自动构建 macOS ARM64/x64 + Windows x64 + Linux x64
+**And** 构建产物发布到 GitHub Releases + 更新服务器 JSON manifest
+
+### Story 5.6: 数据导出与迁移
+
+As a 用户,
+I want 一键导出全部数据为可迁移的格式,
+So that 我可以在新设备上恢复所有小说和分析结果。
+
+**Acceptance Criteria:**
+
+**Given** 用户在设置页点击"导出数据"
+**When** 导出开始执行
+**Then** 生成包含所有小说、章节、分析结果、用户配置的 JSON 数据包
+**And** 数据包以 .zip 格式压缩，文件名含导出日期
+**And** 提供"导入数据"入口，选择 .zip 文件后恢复全部数据
+**And** 导入时检测冲突（已存在的小说）并提示"覆盖/跳过/合并"
+**And** 导入/导出不包含 API Key（安全考虑，需在新设备重新配置）
+
+---
+
+## Epic 6: 时间线可视化
+
+**目标：** 用户可以在时间线视图中浏览小说事件的时间演进，快速把握故事脉络。
+**依赖：** 无（使用已有 ChapterFact 数据）
+
+### Story 6.1: 时间线数据聚合 API
+
+As a 用户,
+I want 后端提供时间线数据接口,
+So that 前端可以渲染事件时间线。
+
+**Acceptance Criteria:**
+
+**Given** 一本已分析的小说
+**When** 前端请求 `GET /api/novels/{id}/timeline?chapter_start=1&chapter_end=100`
+**Then** 返回按章节排序的事件列表，每个事件包含：chapter_number, event_type, description, characters, location
+**And** 事件类型分类：角色登场/退场、关键冲突、地点转移、物品交接、组织变动
+**And** 关键事件（涉及 3+ 角色）标记为 is_major: true
+**And** 响应时间 < 1 秒（500 章）
+
+### Story 6.2: 时间线可视化组件
+
+As a 用户,
+I want 在时间线页面浏览小说事件的时间演进,
+So that 我可以快速把握故事脉络。
 
 **Acceptance Criteria:**
 
 **Given** 时间线数据已加载
-**When** 时间线页面 `/novel/:id/timeline` 渲染
-**Then** 使用自研 Canvas 组件（基于 d3-scale + d3-axis）绘制水平时间线
-  - 横轴为章节编号
-  - 事件显示为轴上圆点，大小按重要度映射
-  - 颜色按事件类型区分（战斗红色、成长蓝色、社交绿色、旅行橙色）（FR-33）
+**When** 用户访问 /novel/:id/timeline
+**Then** 横轴显示章节刻度，事件以圆点表示
+**And** 关键事件以大节点高亮
+**And** 悬停事件显示摘要 tooltip
+**And** 点击事件展开详情卡片（原文摘要 + 涉及角色 + 章节链接）
+**And** 500 章/2000 事件节点 < 3 秒渲染
+**And** 滚动和缩放帧率 ≥ 30fps
+
+### Story 6.3: 时间线筛选与缩放
+
+As a 用户,
+I want 按角色和事件类型筛选时间线,
+So that 我可以聚焦特定角色或事件。
+
+**Acceptance Criteria:**
 
 **Given** 时间线已渲染
-**When** 用户交互
-**Then** 支持：悬浮事件节点显示摘要浮层、点击跳转到章节阅读、框选放大、拖拽平移、滚轮缩放
-
-**Given** 用户切换到多泳道模式
-**When** 选择多个人物
-**Then** 每个人物一条横向轨道，展示各自的事件线（FR-33）
-
-**Given** 筛选面板
-**When** 用户筛选
-**Then** 支持按事件类型、涉及人物、涉及地点、重要度阈值筛选
+**When** 用户使用筛选面板
+**Then** 可按角色多选筛选（仅显示所选角色相关事件）
+**And** 可按事件类型多选筛选
+**And** 鼠标滚轮/捏合缩放，从全书概览到单章详情
+**And** 支持章节范围选择器（与其他可视化页面共享 chapterRangeStore）
 
 ---
 
-### Story 4.6: 实现势力图与视图联动
+## Epic 7: 高级格式导出（Word/Excel/PDF）
+
+**目标：** 付费用户可以将分析结果导出为 Word、Excel、PDF 格式，满足传统出版、IP 改编、通用分享等场景需求。
+**依赖：** Epic 4（导出引擎核心 + Markdown 模板系统）
+
+### Story 7.1: Word 导出
+
+As a 传统出版作者/编辑,
+I want 将 Series Bible 导出为 Word 文档,
+So that 我可以用编辑的标准工作流审阅。
+
+**Acceptance Criteria:**
+
+**Given** 用户在导出中心选择 Word 格式
+**When** 点击导出
+**Then** 生成 .docx 文件，包含目录、页码、页眉
+**And** 人物档案、关系表、地点层级等内容与 Markdown 版一致
+**And** 使用 python-docx 生成
+**And** 500 章导出 < 60 秒
+
+### Story 7.2: Excel 导出
+
+As a IP 改编编辑/游戏策划,
+I want 将分析结果导出为 Excel 表格,
+So that 我可以用表格管理角色和设定数据。
+
+**Acceptance Criteria:**
+
+**Given** 用户在导出中心选择 Excel 格式
+**When** 选择"游戏策划套件"模板
+**Then** 生成 .xlsx 文件，包含多个 Sheet：角色表、势力表、物品/技能表、场景表
+**And** 角色表列：名称、别称、性别、阵营、能力、首次登场章节
+**And** 支持自定义字段选择
+**And** 使用 openpyxl 生成
+
+### Story 7.3: PDF 导出
 
 As a 用户,
-I want 查看组织关系网络，并在各视图间联动导航,
-So that 我可以从不同角度综合理解小说结构。
+I want 导出专业排版的 PDF 文档,
+So that 我可以分享只读版本的设定文档。
 
 **Acceptance Criteria:**
 
-**Given** 势力图数据已加载
-**When** 势力图页面 `/novel/:id/factions` 渲染
-**Then** 使用 @react-force-graph-2d 绘制组织关系网络
-  - 节点大小按成员数映射，颜色按组织类型区分
-  - 边样式按关系类型区分（盟友绿实线、敌对红实线、从属蓝虚线）
-  - 双击节点展开内部结构（FR-34）
-
-**Given** 用户在势力图中点击某组织
-**When** 切换到关系图页面
-**Then** 关系图自动筛选为该组织成员的关系网络（FR-36 视图联动）
-
-**Given** 用户在关系图中选择某人物
-**When** 切换到世界地图
-**Then** 世界地图自动叠加该人物的移动轨迹（FR-36）
-
-**Given** 用户在时间线中点击某事件节点
-**When** 点击触发
-**Then** 跳转到该章节的阅读页面（FR-36）
+**Given** 用户在导出中心选择 PDF 格式
+**When** 点击导出
+**Then** 生成含目录、页码、页眉的 PDF 文件
+**And** 排版美观（标题层级、表格、列表格式正确）
+**And** 使用 weasyprint 或 reportlab 生成
+**And** 500 章导出 < 90 秒
 
 ---
 
-### Story 4.7: 实现路径查找与高级交互
+## Epic 8: 势力图可视化
+
+**目标：** 用户可以查看小说中势力阵营的层级结构和动态演变。
+**依赖：** 无（使用已有 ChapterFact + WorldStructure 数据）
+
+### Story 8.1: 势力数据聚合 API
 
 As a 用户,
-I want 查找两个人物间的最短关系路径，播放轨迹动画,
-So that 我可以发现隐含的人物联系和移动模式。
+I want 后端提供势力/阵营数据接口,
+So that 前端可以渲染势力图。
 
 **Acceptance Criteria:**
 
-**Given** 关系图页面
-**When** 用户选择第一个人物节点后 Shift+点击第二个节点（或搜索框输入两人名）
-**Then** 系统计算最短关系路径（BFS），高亮路径上的节点和边（FR-38）
+**Given** 一本已分析的小说
+**When** 请求 `GET /api/novels/{id}/factions?chapter_start=1&chapter_end=100`
+**Then** 返回组织列表（含层级结构、成员列表）和组织间关系（同盟/敌对/从属）
+**And** 每个组织含：name, type, members[], sub_orgs[], relations[]
+**And** 支持章节范围过滤（仅该范围内出现的组织和关系）
 
-**Given** 空间地图中已选择人物轨迹
-**When** 用户点击"播放"按钮
-**Then** 轨迹按章节顺序逐段出现，章节滑块同步移动，可暂停/拖拽跳转
-**And** 停留超过 N 章的地点标记为较大圆点（FR-39）
-
-**Given** 空间地图中
-**When** 用户长按 0.5 秒拖拽地点图标
-**Then** 进入编辑模式，松手保存调整后的位置（FR-40）
-
----
-
-## Epic 5: 智能问答
-
-用户可以用自然语言对小说内容提问，系统基于知识图谱和原文检索给出流式回答，标注来源章节，支持连续追问。
-
-### Story 5.1: 实现问答 Pipeline（后端）
-
-As a 系统,
-I want 构建混合检索 + LLM 推理的问答 Pipeline,
-So that 能基于小说内容回答用户的自然语言问题。
-
-**Acceptance Criteria:**
-
-**Given** 小说已有 ChapterFact 和向量嵌入数据
-**When** 调用 QueryService.query(novel_id, question, conversation_id)
-**Then** 按以下步骤处理：
-  1. 问题分析：从问题中提取实体名，分类问题类型
-  2. 混合检索：
-     - 向量检索 (ChromaDB)：语义搜索相关章节 (权重 0.5)
-     - 实体检索：从 ChapterFact 中找相关实体事实 (权重 0.3)
-     - 关键词检索：章节全文关键词匹配 (权重 0.2)
-  3. 上下文构建：合并检索结果，拼接相关片段，附加对话历史
-  4. LLM 推理：流式生成答案，要求标注来源章节
-  5. 后处理：提取答案中的实体名和来源章节引用
-
-**Given** 小说仅部分分析
-**When** 回答生成
-**Then** 答案末尾标注"基于已分析的 X 章内容"
-
-**Given** 知识图谱中没有足够信息
-**When** 回答生成
-**Then** 明确回答"根据已分析的内容，暂未找到相关信息"
-
----
-
-### Story 5.2: 实现向量嵌入生成
-
-As a 系统,
-I want 为章节文本和实体描述生成向量嵌入,
-So that 问答时可以进行语义检索。
-
-**Acceptance Criteria:**
-
-**Given** 某章的 ChapterFact 已生成
-**When** 分析完成后
-**Then** 自动为该章文本生成嵌入向量，存入 ChromaDB `{novel_id}_chapters` collection
-**And** 为该章中新出现的实体生成描述嵌入，存入 `{novel_id}_entities` collection
-
-**Given** 嵌入模型为 BGE-base-zh-v1.5
-**When** 生成嵌入
-**Then** 使用 MPS 加速（Apple Silicon），768 维向量
-
-**API:**
-- 嵌入生成在分析流程中自动触发，无独立 API
-
----
-
-### Story 5.3: 实现流式问答 WebSocket 与浮动面板
+### Story 8.2: 势力图可视化组件
 
 As a 用户,
-I want 在任何小说页面通过底部输入框提问，看到答案逐字出现,
-So that 我可以随时提问而不必离开当前页面。
+I want 在势力图页面查看阵营分布和关系,
+So that 我可以理解小说中的势力格局。
 
 **Acceptance Criteria:**
 
-**Given** 用户在任何小说内页面
-**When** 点击底部常驻输入框或按 Cmd/Ctrl+K
-**Then** 浮动面板从底部滑出，占屏幕下方约 50% 高度（FR-54）
-**And** 面板可拖拽调整高度
-**And** 面板右上角提供"展开"按钮跳转到全屏对话页
+**Given** 势力数据已加载
+**When** 用户访问 /novel/:id/factions
+**Then** 显示树形/层级图，组织内部展示成员
+**And** 势力间关系以连线表示：同盟=绿实线、敌对=红虚线、从属=灰箭头
+**And** 节点大小按成员数量缩放
+**And** 20 个组织/200 个成员 < 2 秒渲染
 
-**Given** 浮动面板已打开
-**When** 用户输入问题并发送
-**Then** 通过 WebSocket `/ws/chat/{session_id}` 发送查询
-**And** 答案逐 token 流式显示
-**And** 完成后显示来源章节列表（可点击跳转）和答案中的实体高亮（可点击弹出卡片）（FR-50, FR-51, FR-52）
+### Story 8.3: 势力演变与交互
 
-**Given** 浮动面板打开
-**When** 点击面板外区域或按 Esc
-**Then** 面板收起
+As a 用户,
+I want 通过章节范围滑块查看势力变化,
+So that 我可以追踪势力格局的演变。
+
+**Acceptance Criteria:**
+
+**Given** 势力图已渲染
+**When** 用户拖动章节范围滑块
+**Then** 势力图动态更新，展示该范围内的势力格局
+**And** 点击组织节点展开详情卡片
+**And** 支持按类型筛选（政治/军事/宗教/家族）
+**And** 支持组织内部层级展开/折叠
 
 ---
 
-### Story 5.4: 实现对话管理与全屏对话页
+## Epic 9: 设定冲突检测
 
-As a 用户,
-I want 管理多个对话历史，在全屏模式下深度问答,
-So that 我可以就不同话题与系统对话并保留记录。
+**目标：** 用户可以自动发现作品中的设定矛盾，保障内容一致性。
+**依赖：** 无（使用已有 ChapterFact 数据）
+
+### Story 9.1: 角色属性冲突检测引擎
+
+As a 网文作者,
+I want 系统自动检测角色属性矛盾,
+So that 我能避免"吃书"。
 
 **Acceptance Criteria:**
 
-**Given** 用户从浮动面板点击"展开"
-**When** 进入全屏对话页 `/novel/:id/chat`
-**Then** 左侧显示对话列表侧栏，右侧显示当前对话流
-**And** 浮动面板中的对话在全屏页继续，上下文不丢失
+**Given** 一本已分析的小说
+**When** 用户触发冲突检测
+**Then** 检测角色年龄矛盾（如"第10章18岁 vs 第50章20岁但叙述仅隔1年"）
+**And** 检测角色能力矛盾（如能力突然消失或矛盾描述）
+**And** 每个冲突标注严重程度：严重/一般/提示
+**And** 每个冲突附带矛盾的原文片段和章节号
 
-**Given** 全屏对话页
-**When** 用户点击"新建对话"
-**Then** 创建新对话，清空上下文（FR-53）
+### Story 9.2: 地点与关系冲突检测
 
-**Given** 全屏对话页
-**When** 用户在侧栏切换对话
-**Then** 右侧显示选中对话的历史消息（FR-55）
+As a 用户,
+I want 系统检测地点层级和关系逻辑矛盾,
+So that 我的世界观设定保持一致。
 
-**Given** 对话历史
-**When** 用户删除某个对话
-**Then** 从列表移除，数据从数据库删除
+**Acceptance Criteria:**
 
-**Given** 用户连续追问（如"他后来呢？"）
-**When** 对话上下文中有前一轮提到的人物
-**Then** 系统理解代词指代，回答与上下文连续（FR-53）
+**Given** 冲突检测正在执行
+**When** 检测完成
+**Then** 检测地点层级矛盾（如同一地点在不同章节有不同上级）
+**And** 检测关系演变逻辑冲突（如角色已死但后续章节以活人出场）
+**And** 检测时间线冲突（事件时间顺序矛盾）
+**And** 所有冲突按严重程度排序输出
 
-**API:**
-- `GET /api/novels/{id}/conversations` — 对话列表
-- `POST /api/novels/{id}/conversations` — 创建对话
-- `DELETE /api/conversations/{id}` — 删除对话
-- `GET /api/conversations/{id}/messages` — 消息列表
+### Story 9.3: 冲突报告 UI
+
+As a 用户,
+I want 在专门的页面查看冲突检测结果,
+So that 我可以逐一审查和处理。
+
+**Acceptance Criteria:**
+
+**Given** 冲突检测完成
+**When** 用户进入冲突报告页面
+**Then** 显示冲突列表，按严重程度排序
+**And** 每个冲突展示：类型图标、描述、涉及章节
+**And** 点击冲突展开原文对比视图（并排显示矛盾段落，高亮冲突文本）
+**And** 提供筛选：全部/严重/一般/已处理
+**And** 用户可标记冲突为"已知"或"忽略"
+
+### Story 9.4: 冲突检测质量保障
+
+As a 用户,
+I want 冲突检测准确可靠,
+So that 我不会被大量误报干扰。
+
+**Acceptance Criteria:**
+
+**Given** 冲突检测引擎
+**When** 使用样本小说（西游记/三国演义）进行测试
+**Then** 严重冲突召回率 > 80%
+**And** 误报率 < 30%
+**And** 单本 500 章小说检测完成 < 5 分钟
 
 ---
 
-### Story 5.5: 实现对话导出
+## Epic 10: 剧本模式
 
-As a 用户,
-I want 将对话内容导出为 Markdown 文件,
-So that 我可以保存和分享问答结果。
+**目标：** 编剧用户可以在剧本视图中按场景浏览小说内容，辅助小说到剧本的改编。
+**状态：** 实验性功能，需编剧用户验证后决定是否正式纳入。
+**依赖：** 无
 
-**Acceptance Criteria:**
+### Story 10.1: 场景自动提取
 
-**Given** 全屏对话页中有对话内容
-**When** 用户点击"导出"
-**Then** 生成 Markdown 文件下载，包含对话标题、时间、全部问答内容和来源标注（FR-56）
-
----
-
-## Epic 6: 百科与系统设置
-
-用户可以浏览小说的结构化知识百科（实体索引 + 概念词条），配置系统设置，导入/导出分析数据。
-
-### Story 6.1: 实现百科页面
-
-As a 用户,
-I want 浏览小说中所有实体和概念的分类索引,
-So that 我可以系统性地了解小说的知识体系。
+As a 编剧,
+I want 系统自动将章节内容拆分为场景,
+So that 我可以以场景为单位进行改编。
 
 **Acceptance Criteria:**
 
-**Given** 小说已有分析数据
-**When** 用户进入百科页面 `/novel/:id/encyclopedia`
-**Then** 左侧显示分类导航树：
-  - 全部 (N)
-    - 人物 (N)
-    - 地点 (N)
-    - 物品 (N)
-    - 组织 (N)
-    - 概念 (N)
-      - 修炼体系 / 种族 / 货币 / 功法 / 其他 (子分类)
-  每个分类标注条目数量（FR-70, FR-72）
+**Given** 一本已分析的小说章节
+**When** 用户进入剧本模式
+**Then** 每章自动拆分为 1-N 个场景
+**And** 场景边界基于地点变化、时间跳跃、人物出场变化识别
+**And** 每个场景包含：标题、时间标记、地点、角色列表、描述、对话
+**And** 场景数据缓存（避免重复提取）
 
-**Given** 用户选择某分类
-**When** 右侧内容区更新
-**Then** 显示该分类下的词条列表：名称、类型、简要定义（一行）、首次出现章节
-**And** 支持按名称/首次出现章节排序
+### Story 10.2: 并列模式视图
 
-**Given** 用户在搜索框输入
-**When** 搜索
-**Then** 按名称模糊搜索，实时过滤（FR-70）
-
-**Given** 用户点击人物/地点/物品/组织词条
-**When** 点击
-**Then** 弹出对应实体卡片（复用 Epic 3 的卡片系统）
-
-**Given** 用户点击概念词条
-**When** 点击
-**Then** 展示概念详情：名称、分类、定义、首次提及、原文摘录（1-3 条附章节出处）、关联概念、关联实体（FR-71）
-
-**API:**
-- `GET /api/novels/{id}/encyclopedia` — 分类统计
-- `GET /api/novels/{id}/encyclopedia/entries?category={cat}&sort={field}` — 词条列表
-- `GET /api/novels/{id}/encyclopedia/{name}` — 概念详情
-
----
-
-### Story 6.2: 实现设置页面
-
-As a 用户,
-I want 在设置页面配置 LLM、阅读偏好和管理数据,
-So that 我可以根据自己的设备和偏好定制系统。
+As a 编剧,
+I want 左侧原文右侧剧本场景列表并排显示,
+So that 我可以对照原文理解场景划分。
 
 **Acceptance Criteria:**
 
-**Given** 用户进入设置页面 `/settings`
+**Given** 用户在剧本模式并列视图
 **When** 页面加载
-**Then** 显示以下设置分区：
+**Then** 左侧显示原文（支持滚动）
+**And** 右侧显示该章节所有场景列表
+**And** 同步滚动：剧本场景与原文段落联动高亮
+**And** 点击场景跳转到对应原文位置
 
-1. **LLM 配置**：
-   - 显示 Ollama 运行状态
-   - 模型选择（检测已下载模型列表）
-   - 各模型推荐配置标注
+### Story 10.3: 独占模式视图
 
-2. **阅读偏好**：
-   - 字号、行距、主题（亮/暗）设置（与阅读页联动）
+As a 编剧,
+I want 全屏显示单个场景,
+So that 我可以沉浸式阅读场景内容。
 
-3. **数据管理**：
-   - 显示各小说的数据大小
-   - 提供"导出分析数据"和"导入分析数据"入口（FR-81）
+**Acceptance Criteria:**
 
-**Given** 用户修改设置
-**When** 保存
-**Then** 设置持久化并即时生效
-
-**API:**
-- `GET /api/settings` — 获取设置
-- `PUT /api/settings` — 更新设置
-- `GET /api/settings/models` — 可用模型列表
+**Given** 用户切换到独占模式
+**When** 选择一个场景
+**Then** 全屏显示场景内容（标题 + 时间 + 地点 + 角色 + 描述 + 对话）
+**And** 顶部场景标签导航可快速切换
+**And** 支持键盘快捷键（←/→ 切换场景）
 
 ---
 
-### Story 6.3: 实现数据导入导出
+## Epic 11: 用户行为分析
+
+**目标：** 产品团队获取匿名化使用数据，为产品迭代提供数据支撑，同时尊重用户隐私。
+**依赖：** 无
+
+### Story 11.1: 事件追踪基础设施
+
+As a 产品团队,
+I want 在前端建立事件追踪系统,
+So that 可以记录用户的功能使用行为。
+
+**Acceptance Criteria:**
+
+**Given** 应用运行中
+**When** 用户执行关键操作（上传、分析、导出、查看卡片、打开问答等）
+**Then** 在本地 SQLite 记录匿名事件：event_type, metadata, timestamp
+**And** 不记录小说内容、用户身份、IP 地址
+**And** 事件数据仅本地存储，不自动上传
+**And** 代码统一通过 `trackEvent()` 函数调用
+
+### Story 11.2: 使用统计仪表盘
+
+As a 产品团队,
+I want 在设置页查看本地使用统计,
+So that 可以了解功能使用情况。
+
+**Acceptance Criteria:**
+
+**Given** 用户使用一段时间后
+**When** 打开设置 > 使用统计
+**Then** 显示：功能使用频率排行、导出格式偏好占比、分析完成率
+**And** 显示时间维度趋势图
+**And** 数据完全匿名，仅用于产品优化
+
+### Story 11.3: 隐私控制
 
 As a 用户,
-I want 导出某本小说的全部分析数据，并能在另一台机器导入,
-So that 我可以迁移数据而不必重新分析。
+I want 可以完全关闭行为追踪,
+So that 我的使用习惯不被记录。
 
 **Acceptance Criteria:**
 
-**Given** 用户在设置页或分析页选择某本小说
-**When** 点击"导出分析数据"
-**Then** 生成 JSON 文件下载，包含：novel 元信息、全部 chapters、全部 chapter_facts、user_state（FR-82）
-
-**Given** 用户点击"导入分析数据"
-**When** 选择一个导出的 JSON 文件
-**Then** 验证文件格式，显示预览（小说名、章节数、数据量）
-**And** 确认后导入到数据库，如已存在同名小说则提示覆盖或新建（FR-83）
-
-**API:**
-- `GET /api/novels/{id}/export` — 导出数据
-- `POST /api/novels/import` — 导入数据
+**Given** 用户打开设置 > 隐私
+**When** 关闭"使用统计"开关
+**Then** 停止记录所有行为事件
+**And** 可选择删除已收集的历史数据
+**And** 默认状态：开启（首次启动时告知用户并提供关闭选项）
 
 ---
 
-## Epic 7: 世界地图 V2 — 多层级世界结构
-
-用户可以看到包含宏观区域划分（如四大部洲）、多层空间（天界/冥界/洞府副本）、传送门连接的多层级世界地图，系统通过渐进式世界结构代理在分析过程中自动构建世界观。
-
-**依赖:** Epic 2（需要分析流水线）+ Epic 4 Stories 4.8-4.10（已有世界地图 V1 基础）
-**架构文档:** `_bmad-output/world-map-v2-architecture.md`
-
-### Story 7.1: WorldStructure 数据模型与存储层
-
-As a 系统,
-I want 定义世界结构的数据模型并提供数据库存储,
-So that 世界结构代理有持久化的数据基础。
-
-**Acceptance Criteria:**
-
-**Given** 系统启动
-**When** 数据库初始化
-**Then** 新增 `world_structures` 表和 `layer_layouts` 表
-
-**Given** WorldStructure 模型已定义
-**When** 调用 world_structure_store.save(novel_id, structure)
-**Then** WorldStructure JSON 持久化到数据库
-**And** 调用 load(novel_id) 可恢复完整对象
-
-**技术说明:**
-- 新增 `backend/src/models/world_structure.py`:
-  - `LayerType(Enum)`: overworld, celestial, underworld, underwater, instance, pocket
-  - `WorldRegion(BaseModel)`: name, cardinal_direction, region_type, parent_region, description
-  - `MapLayer(BaseModel)`: layer_id, name, layer_type, description, regions
-  - `Portal(BaseModel)`: name, source_layer, source_location, target_layer, target_location, is_bidirectional, first_chapter
-  - `WorldBuildingSignal(BaseModel)`: signal_type, chapter, raw_text_excerpt, extracted_facts, confidence
-  - `WorldStructure(BaseModel)`: novel_id, layers, portals, location_region_map, location_layer_map
-- 新增 `backend/src/db/world_structure_store.py`: save/load/delete CRUD
-- 在 `sqlite_db.py` `_SCHEMA_SQL` 中添加两张新表
-- 坐标系遵循上北下南左西右东惯例: +x=东(右), +y=北(上)
-
----
-
-### Story 7.2: WorldStructureAgent 信号扫描与启发式更新
-
-As a 系统,
-I want 在每章分析后扫描世界观构建信号并进行轻量启发式更新,
-So that 系统能自动识别天界/冥界/洞府等空间层和宏观区域划分。
-
-**Acceptance Criteria:**
-
-**Given** 某章 ChapterFact 已提取并验证
-**When** 调用 agent._scan_signals(chapter_num, chapter_text, fact)
-**Then** 返回 WorldBuildingSignal 列表，检测以下信号类型：
-  - `region_division`: 关键词 "分为"/"划为" + 洲/大陆/界/域 等
-  - `layer_transition`: 角色进入天界/地府/海底等非地理空间
-  - `instance_entry`: 角色进入洞府/阵法/秘境等封闭空间
-  - `macro_geography`: 新出现的宏观地点类型（洲/域/界/国）
-**And** 每个信号包含原文摘录（≤200字）
-
-**Given** 信号扫描完成但不触发 LLM
-**When** 调用 agent._apply_heuristic_updates(chapter_num, fact)
-**Then** 基于关键词自动分配地点到层：
-  - 名含 天宫/天庭/天门 等 → celestial 层
-  - 名含 地府/冥界/幽冥 等 → underworld 层
-  - type 含 洞/府/宫 且有明确入口 → instance 层候选
-  - parent 是已知区域 → 分配到该区域
-
-**技术说明:**
-- 新增 `backend/src/services/world_structure_agent.py`
-- `_scan_signals()` 纯本地执行，不调用 LLM
-- `_apply_heuristic_updates()` 更新 WorldStructure 并持久化
-- 信号规则可配置，支持不同小说类型
-
----
-
-### Story 7.3: WorldStructureAgent LLM 增量更新
-
-As a 系统,
-I want 当检测到高置信度世界观信号时调用 LLM 增量更新世界结构,
-So that 系统能理解"世界分为四大部洲"等宏观世界观声明。
-
-**Acceptance Criteria:**
-
-**Given** 信号扫描检测到高置信度信号
-**When** 满足触发条件（前5章必触发 / region_division 信号 / 首次 layer_transition / 每20章例行更新）
-**Then** 调用 LLM，输入包含：
-  - 当前 WorldStructure JSON
-  - 本章世界观信号原文摘录
-  - 本章提取的 locations 和 spatial_relationships
-**And** LLM 输出增量操作列表：ADD_REGION / ADD_LAYER / ADD_PORTAL / ASSIGN_LOCATION / UPDATE_REGION / NO_CHANGE
-**And** 操作应用到 WorldStructure 并持久化
-
-**Given** LLM 调用失败（超时/JSON解析错误）
-**When** 错误发生
-**Then** 记录日志但不中断分析流水线，WorldStructure 保持上一次成功状态
-
-**Given** 100章小说
-**When** 全书分析完成
-**Then** LLM 世界结构更新调用次数 ≤ 25 次（约增加15-25%开销）
-
-**技术说明:**
-- 新增 LLM prompt 模板: `backend/src/extraction/prompts/world_structure_update.txt`
-- 使用 structured output + schema 约束 LLM 输出格式
-- `_should_trigger_llm()` 实现触发条件判断
-- `_call_llm_for_update()` 调用 LLM 并解析操作
-- `_apply_operations()` 将操作应用到 WorldStructure
-
----
-
-### Story 7.4: 分析流水线集成与上下文反馈
-
-As a 系统,
-I want 将 WorldStructureAgent 嵌入分析流水线，并将世界结构反馈到提取上下文,
-So that 后续章节的提取能利用已构建的世界知识。
-
-**Acceptance Criteria:**
-
-**Given** 分析流水线运行中
-**When** 每章完成 fact_validator.validate(fact) 后
-**Then** 调用 world_agent.process_chapter(chapter_num, chapter_text, fact)
-**And** 流水线正常继续，agent 错误不阻塞分析
-
-**Given** WorldStructure 包含区域和层信息
-**When** context_summary_builder.build() 被调用
-**Then** 上下文中包含"已知世界结构"摘要段落：
-  - 主世界区域列表（名称+方位）
-  - 已知地图层列表
-  - 已知传送门列表（前10个）
-
-**Given** 用户强制重新分析（force=True）
-**When** 分析开始
-**Then** WorldStructure 在现有基础上增量更新（不清空重建）
-
-**验证标准:** 用西游记前10章测试，Agent 应能识别：
-  - 四大部洲（东胜神洲/西牛贺洲/南赡部洲/北俱芦洲）及其方位
-  - 天界层（天宫/凌霄殿等）
-  - 冥界层（地府/阎罗殿等）
-
-**技术说明:**
-- 修改 `backend/src/services/analysis_service.py` `_run_loop_inner()`
-- 在 validator 之后、store 之前注入 agent 调用
-- 修改 `backend/src/extraction/context_summary_builder.py` 添加世界结构摘要
-- Agent 初始化在 AnalysisService.__init__() 中
-
----
-
-### Story 7.5: WorldStructure API 端点
-
-As a 前端,
-I want 通过 API 获取小说的世界结构数据,
-So that 地图页面可以渲染多层级地图。
-
-**Acceptance Criteria:**
-
-**Given** 小说已分析且 WorldStructure 已构建
-**When** 调用 `GET /api/novels/{novel_id}/world-structure`
-**Then** 返回完整 WorldStructure：layers, portals, regions, location_region_map, location_layer_map
-
-**Given** 小说未分析或 WorldStructure 为空
-**When** 调用 API
-**Then** 返回默认结构（仅包含 overworld 层，无区域划分）
-
-**技术说明:**
-- 新增 `backend/src/api/routes/world_structure.py`
-- 在 `main.py` 注册路由
-- 返回 WorldStructure 的 JSON 序列化
-
----
-
-### Story 7.6: 区域级布局引擎
-
-As a 系统,
-I want 基于 WorldStructure 的区域划分在画布上分配区域边界框,
-So that 地点布局有宏观结构而不是平铺在一个平面上。
-
-**Acceptance Criteria:**
-
-**Given** WorldStructure 包含区域划分（如四大部洲）
-**When** 调用区域级布局
-**Then** 每个区域分配到画布对应方位的矩形边界框：
-  - cardinal_direction="east" → 画布右侧
-  - cardinal_direction="west" → 画布左侧
-  - cardinal_direction="south" → 画布下方
-  - cardinal_direction="north" → 画布上方
-**And** 遵循上北下南左西右东惯例
-
-**Given** 多个区域同方位（如多个国家都在"东"）
-**When** 方位冲突
-**Then** 同方位区域在该象限内等分细分
-
-**Given** WorldStructure 为空或仅有 overworld 无区域
-**When** 调用布局
-**Then** 回退到当前全局约束求解布局（兼容 V1）
-
-**技术说明:**
-- 重构 `backend/src/services/map_layout_service.py` 新增 `_layout_regions()` 方法
-- 区域边界框作为后续区域内约束求解的空间约束
-
----
-
-### Story 7.7: 区域内约束求解与副本独立布局
-
-As a 系统,
-I want 在每个区域边界框内独立运行约束求解器，副本层用独立小画布布局,
-So that 布局质量提升且求解效率更高。
-
-**Acceptance Criteria:**
-
-**Given** 区域边界框已分配
-**When** 对每个区域运行约束求解
-**Then** 仅使用该区域内地点的空间约束
-**And** 地点坐标限制在区域边界框范围内
-**And** 单区域地点数 10-50，参数维度 20-100
-
-**Given** WorldStructure 包含 instance 类型层（如水帘洞）
-**When** 副本层布局
-**Then** 使用独立的 [0, 300] 小画布布局
-**And** 副本内地点使用层内空间关系
-
-**Given** 天界层或冥界层
-**When** 层布局
-**Then** 使用独立画布，背景色/氛围与 overworld 不同
-
-**技术说明:**
-- 在 `map_layout_service.py` 中新增 `_solve_region()` 和 `_solve_layer()`
-- 复用现有 ConstraintSolver，但限制边界范围
-- 传送门位置标注在源层的出发地点附近
-
----
-
-### Story 7.8: 地图 API V2 与层布局缓存
-
-As a 前端,
-I want 通过 API 按层获取地图布局数据,
-So that 前端可以按需加载各层的地图。
-
-**Acceptance Criteria:**
-
-**Given** 小说有多层世界结构
-**When** 调用 `GET /api/novels/{id}/map?layer_id=overworld&chapter_start=1&chapter_end=100`
-**Then** 返回该层的布局数据：
-  - locations（该层的地点列表）
-  - layout（布局坐标）
-  - layout_mode
-  - terrain_url
-  - region_boundaries（区域边界框列表）
-  - portals（该层的传送门列表）
-
-**Given** 未指定 layer_id
-**When** 调用地图 API
-**Then** 默认返回 overworld 层数据 + world_structure 概要
-
-**Given** 层布局已缓存
-**When** 再次请求相同层和章节范围
-**Then** 从 layer_layouts 表返回缓存数据
-
-**技术说明:**
-- 修改 `backend/src/api/routes/map.py` 添加 layer_id 参数
-- 修改 `backend/src/services/visualization_service.py` 支持按层获取数据
-- 新增 layer_layouts 缓存表（在 Story 7.1 中已创建）
-
----
-
-### Story 7.9: 前端类型更新与 Tab 切换 UI
-
-As a 用户,
-I want 在地图页面通过 Tab 栏切换不同地图层（主世界/天界/冥界/副本）,
-So that 我可以浏览小说世界的不同空间层。
-
-**Acceptance Criteria:**
-
-**Given** 地图页面加载
-**When** 小说有多层世界结构
-**Then** 地图上方显示 Tab 栏，列出所有已解锁的地图层
-**And** 默认显示 overworld（主世界）层
-**And** 每个 Tab 显示层名称和地点数量
-
-**Given** 用户点击某个 Tab（如"天界"）
-**When** 切换层
-**Then** 地图内容切换到该层的布局数据
-**And** 背景色根据层类型变化：celestial 用深蓝/金色调，underworld 用暗紫色调，instance 用洞穴色调
-
-**Given** 章节范围内某层没有活动（无地点提及）
-**When** Tab 栏渲染
-**Then** 该层 Tab 显示为灰色禁用状态
-
-**技术说明:**
-- 更新 `frontend/src/api/types.ts` 添加 LayeredMapData / MapLayerInfo / PortalInfo / RegionBoundary 类型
-- 更新 `frontend/src/api/client.ts` 添加 fetchMapData layer_id 参数
-- 新增 `frontend/src/components/visualization/MapLayerTabs.tsx`
-- 修改 `frontend/src/pages/MapPage.tsx` 集成 Tab 切换逻辑
-
----
-
-### Story 7.10: 区域边界、传送门 UI 与增强 Fog of War
-
-As a 用户,
-I want 在主世界地图上看到区域边界划分和传送门入口标记,
-So that 我能直观理解小说世界的宏观结构和空间层级。
-
-**Acceptance Criteria:**
-
-**Given** overworld 层有区域划分
-**When** 地图渲染
-**Then** 区域以半透明填充色 + 虚线边界标识
-**And** 区域名称以大字体低透明度标注在区域中心
-
-**Given** 地图上有传送门位置（如南天门）
-**When** 地图渲染
-**Then** 传送门显示为特殊图标（⊙ 标记）
-**And** 点击传送门弹出 Popup，显示"通往：[目标层名]"和"进入地图"按钮
-**And** 点击"进入地图"切换到目标层的 Tab
-
-**Given** 章节范围滑动
-**When** 某地点尚未在当前范围出现但在之前章节出现过
-**Then** 地点显示为灰色轮廓（已揭示状态），而非完全透明
-**And** 当前范围未出现且之前也未出现的地点完全隐藏
-
-**技术说明:**
-- 修改 `frontend/src/components/visualization/NovelMap.tsx`:
-  - 新增 region-fills / region-borders / region-labels GeoJSON 层
-  - 新增 portals GeoJSON 层（circle + symbol）
-  - Fog of War 增强为三态：hidden(不显示) / revealed(灰色) / active(完整)
-- 传送门点击 → Tab 切换联动
-
----
-
-### Story 7.11: 用户编辑世界结构
-
-As a 用户,
-I want 手动调整世界结构（区域归属、传送门增删、区域方位）,
-So that 我可以修正 LLM 生成的错误。
-
-**Acceptance Criteria:**
-
-**Given** 地图页面或专用编辑页面
-**When** 用户拖拽地点到另一个区域
-**Then** 更新 location_region_map，存为 user override
-
-**Given** 用户在传送门面板中
-**When** 添加新传送门
-**Then** 指定名称、源层+地点、目标层，保存到 WorldStructure
-
-**Given** 用户编辑了世界结构
-**When** 保存
-**Then** 编辑存为 override，优先于 LLM 生成的结构
-**And** 下次 LLM 更新不覆盖用户 override
-
-**技术说明:**
-- 新增 `PUT /api/novels/{id}/world-structure/overrides` API
-- 新增 `world_structure_overrides` 数据库表
-- 前端新增编辑面板组件
-
----
-
-### Story 7.12: 提取增强与通用性优化
-
-As a 系统,
-I want 在 ChapterFact 中可选地提取世界观声明，并针对不同类型小说优化,
-So that 世界结构质量更高、方案更通用。
-
-**Acceptance Criteria:**
-
-**Given** extraction prompt 已增强
-**When** LLM 提取 ChapterFact
-**Then** 可选地提取 `world_declarations` 字段（区域划分声明/层声明/传送门声明）
-
-**Given** 不同类型小说
-**When** 世界结构构建
-**Then** 方案优雅处理：
-  - 奇幻/修仙: 多层世界（天界/地下/副本）
-  - 历史/武侠: 主要是地理平面 + 少量副本
-  - 都市: 单层城市地理，无副本
-  - 简单结构: 仅 overworld，无区域划分
-
-**技术说明:**
-- 修改 `backend/src/models/chapter_fact.py` 添加可选 `world_declarations` 字段
-- 修改 extraction prompt 添加世界观声明提取指令
-- 新增 `InBetween` 空间约束类型
-- 地点语义位置提示（东洋大海 → 东方）
-
----
-
-## 验证总结
-
-## Epic 8: 实体预扫描词典
-
-在小说导入后、LLM 逐章分析前，自动对全书文本进行统计扫描和 LLM 分类，生成高频实体词典，注入分析流水线提升提取质量。
-
-**依赖:** Epic 2（需要分析流水线）
-**架构文档:** `_bmad-output/entity-prescan-architecture.md`
-
-### Story 8.1: 数据模型与存储层
-
-As a 系统,
-I want 定义实体预扫描词典的数据模型并提供数据库存储,
-So that 预扫描引擎有持久化的数据基础。
-
-**Acceptance Criteria:**
-
-**Given** 系统启动
-**When** 数据库初始化
-**Then** 新增 `entity_dictionary` 表（novel_id, name, entity_type, frequency, confidence, aliases, source, sample_context）
-**And** `novels` 表新增 `prescan_status` 列
-
-**Given** EntityDictEntry 模型已定义
-**When** 调用 entity_dictionary_store.insert_batch(novel_id, entries)
-**Then** 批量插入词典条目，支持 INSERT OR REPLACE
-
-**技术说明:**
-- 新增 `backend/src/models/entity_dict.py`
-- 新增 `backend/src/db/entity_dictionary_store.py`
-- 修改 `backend/src/db/sqlite_db.py`
-- 修改 `backend/pyproject.toml` 新增 jieba 依赖
-
----
-
-### Story 8.2: Phase 1 统计扫描引擎
-
-As a 系统,
-I want 对全书文本进行统计扫描提取高频实体候选词,
-So that 后续 LLM 分类和词典注入有准确的候选数据来源。
-
-**Acceptance Criteria:**
-
-**Given** 小说已导入（chapters 表有数据）
-**When** 调用 EntityPreScanner 的 Phase 1
-**Then** 执行 jieba 分词+词频统计、n-gram 统计、对话归属正则、章节标题提取、后缀模式匹配
-**And** 合并去重后输出候选列表
-**And** 100 万字小说扫描 ≤ 15 秒
-
-**技术说明:**
-- 新增 `backend/src/extraction/entity_pre_scanner.py`
-- jieba 使用 `asyncio.to_thread()` 包装
-
----
-
-### Story 8.3: Phase 2 LLM 分类
-
-As a 系统,
-I want 用 LLM 对候选词进行分类和别名关联,
-So that 词典中的实体类型和别名信息更准确。
-
-**Acceptance Criteria:**
-
-**Given** Phase 1 产出候选列表
-**When** 调用 Phase 2 LLM 分类
-**Then** 取 Top-300 候选 + 上下文，单次 LLM 调用返回分类+别名组+拒绝词
-**And** LLM 失败时降级为仅 Phase 1 结果
-
-**技术说明:**
-- 新增 `backend/src/extraction/prescan_prompts.py`
-- 复用现有 `get_llm_client()` 工厂
-
----
-
-### Story 8.4: 流水线集成
-
-As a 用户,
-I want 预扫描词典自动集成到分析流水线中,
-So that 每次分析都能利用全书实体参考信息。
-
-**Acceptance Criteria:**
-
-**Given** 小说导入确认后
-**When** confirm_import() 返回
-**Then** 自动后台触发预扫描
-
-**Given** 用户点击"开始分析"
-**When** prescan_status 不是 completed
-**Then** 等待或触发预扫描（超时 120s 后降级）
-
-**Given** ContextSummaryBuilder.build() 被调用
-**When** 词典存在
-**Then** context 末尾注入"本书高频实体参考"段落（Top-100 实体）
-
-**技术说明:**
-- 修改 `novel_service.py`、`analysis_service.py`、`context_summary_builder.py`
-
----
-
-### Story 8.5: API 路由与注册
-
-As a 开发者/前端,
-I want 通过 REST API 查询预扫描状态和词典内容,
-So that 前端可以展示预扫描进度和词典数据。
-
-**Acceptance Criteria:**
-
-**Given** API 已注册
-**When** 调用 `POST /api/novels/{id}/prescan`
-**Then** 触发预扫描
-
-**When** 调用 `GET /api/novels/{id}/prescan`
-**Then** 返回预扫描状态和词典条目数
-
-**When** 调用 `GET /api/novels/{id}/entity-dictionary`
-**Then** 返回词典内容，支持按类型筛选
-
-**技术说明:**
-- 新增 `backend/src/api/routes/prescan.py`
-- 修改 `backend/src/api/main.py` 注册路由
-
----
-
-### FR 覆盖率
-
-| 模块 | FRs | 覆盖 Story |
-|------|-----|------------|
-| 书架 (F-01~06) | 6/6 | 1.2, 1.3, 1.4, 1.5, 1.7 |
-| 系统 (F-80) | 1/1 | 1.6 |
-| 分析 (F-60~66) | 7/7 | 2.1, 2.3, 2.4, 2.5 |
-| 阅读 (F-10~17) | 8/8 | 3.1, 3.3, 3.6, 3.7 |
-| 卡片 (F-20~26) | 7/7 | 3.4, 3.5 |
-| 可视化 (F-30~40) | 11/11 | 4.1~4.7 |
-| 问答 (F-50~56) | 7/7 | 5.1~5.5 |
-| 百科 (F-70~72) | 3/3 | 6.1 |
-| 系统 (F-81~83) | 3/3 | 6.2, 6.3 |
-
-**全部 53 个 FR（83 个功能项去重后的唯一功能）100% 覆盖。**
-
-### Epic 依赖关系
-
-```
-Epic 1 (书架上传) ← 无依赖，独立可用
-  │
-  ▼
-Epic 2 (分析引擎) ← 依赖 Epic 1（需要有小说才能分析）
-  │
-  ├──▶ Epic 3 (阅读卡片) ← 依赖 Epic 2（需要 ChapterFact 数据）
-  │
-  ├──▶ Epic 4 (可视化) ← 依赖 Epic 2（需要 ChapterFact 数据）
-  │    │
-  │    └──▶ Epic 7 (世界地图V2) ← 依赖 Epic 2（分析流水线）+ Epic 4.8-4.10（地图V1基础）
-  │
-  ├──▶ Epic 5 (问答) ← 依赖 Epic 2（需要 ChapterFact + 向量数据）
-  │
-  └──▶ Epic 6 (百科设置) ← 依赖 Epic 2（百科需要分析数据）
-
-Epic 3/4/5/6 之间无互相依赖，可并行开发。
-Epic 7 内部 Story 顺序: 7.1→7.2→7.3→7.4→7.5 (Phase 1) → 7.6→7.7→7.8 (Phase 2) → 7.9→7.10 (Phase 3) → 7.11→7.12 (Phase 4)
-```
-
-### Story 无前向依赖检查
-
-每个 Epic 内的 Story 仅依赖前序 Story，不依赖后续 Story。✅
-
----
-
-*Epic 与 Story 拆分完成。下一步：Sprint 规划 (SP 工作流) 或直接进入开发 (DS 工作流)。*
+*文档完成于 2026-02-17。共 11 个 Epic、41 个 Story。（IR 修复：拆分 Epic 6 + 新增 Story 5.6）*

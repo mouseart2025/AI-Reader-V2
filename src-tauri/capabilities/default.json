@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Default permissions for AI Reader V2",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-spawn",
+    "shell:allow-stdin-write",
+    "shell:allow-kill",
+    "updater:default"
+  ]
+}

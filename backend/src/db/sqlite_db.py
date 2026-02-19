@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS novels (
     total_chapters  INTEGER DEFAULT 0,
     total_words     INTEGER DEFAULT 0,
     prescan_status  TEXT DEFAULT 'pending',
+    is_sample       INTEGER DEFAULT 0,
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 );
@@ -140,6 +141,21 @@ CREATE TABLE IF NOT EXISTS entity_dictionary (
     UNIQUE(novel_id, name)
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key             TEXT PRIMARY KEY,
+    value           TEXT,
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS usage_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type      TEXT NOT NULL,
+    metadata        TEXT DEFAULT '{}',
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_events_type     ON usage_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_usage_events_time     ON usage_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_entity_dict_novel    ON entity_dictionary(novel_id, entity_type);
 CREATE INDEX IF NOT EXISTS idx_chapters_novel       ON chapters(novel_id, chapter_num);
 CREATE INDEX IF NOT EXISTS idx_chapter_facts_novel   ON chapter_facts(novel_id);
@@ -176,6 +192,13 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Column already exists
+        # Migration: add is_sample to novels for sample novel identification
+        try:
+            await conn.execute(
+                "ALTER TABLE novels ADD COLUMN is_sample INTEGER DEFAULT 0"
+            )
+        except Exception:
+            pass  # Column already exists
         # Migration: add lat/lng to map_user_overrides for geographic coordinate overrides
         try:
             await conn.execute(
@@ -186,6 +209,47 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Columns already exist
+        # Migration: add token/cost columns to chapter_facts for cost tracking
+        for col, col_type in [
+            ("input_tokens", "INTEGER"),
+            ("output_tokens", "INTEGER"),
+            ("cost_usd", "REAL"),
+            ("cost_cny", "REAL"),
+        ]:
+            try:
+                await conn.execute(
+                    f"ALTER TABLE chapter_facts ADD COLUMN {col} {col_type}"
+                )
+            except Exception:
+                pass  # Column already exists
+        # Migration: add scenes_json column to chapter_facts for LLM scene data
+        try:
+            await conn.execute(
+                "ALTER TABLE chapter_facts ADD COLUMN scenes_json TEXT"
+            )
+        except Exception:
+            pass  # Column already exists
+        # Migration: backfill analysis_tasks for sample novels that were
+        # imported without a completed task record (fixes AnalysisPage status)
+        try:
+            import uuid as _uuid
+
+            rows = await conn.execute_fetchall(
+                """SELECT n.id, n.total_chapters
+                   FROM novels n
+                   WHERE n.is_sample = 1
+                     AND NOT EXISTS (
+                       SELECT 1 FROM analysis_tasks t WHERE t.novel_id = n.id
+                     )"""
+            )
+            for row in rows:
+                await conn.execute(
+                    """INSERT INTO analysis_tasks (id, novel_id, status, chapter_start, chapter_end, current_chapter)
+                       VALUES (?, ?, 'completed', 1, ?, ?)""",
+                    (str(_uuid.uuid4()), row[0], row[1], row[1]),
+                )
+        except Exception:
+            pass
         await conn.commit()
     finally:
         await conn.close()

@@ -7,6 +7,7 @@ import { VisualizationLayout } from "@/components/visualization/VisualizationLay
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { trackEvent } from "@/lib/tracker"
 
 interface TimelineEvent {
   id: string
@@ -16,6 +17,7 @@ interface TimelineEvent {
   importance: string
   participants: string[]
   location: string | null
+  is_major?: boolean
 }
 
 // Color by event type
@@ -25,11 +27,15 @@ function eventColor(type: string): string {
     case "成长": return "#3b82f6"
     case "社交": return "#10b981"
     case "旅行": return "#f97316"
+    case "角色登场": return "#8b5cf6"
+    case "物品交接": return "#eab308"
+    case "组织变动": return "#ec4899"
     default: return "#6b7280"
   }
 }
 
-function importanceSize(importance: string): number {
+function importanceSize(importance: string, isMajor?: boolean): number {
+  if (isMajor) return 10
   switch (importance) {
     case "high": return 8
     case "medium": return 5
@@ -38,7 +44,7 @@ function importanceSize(importance: string): number {
   }
 }
 
-type FilterType = "all" | "战斗" | "成长" | "社交" | "旅行" | "其他"
+type FilterType = "all" | "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "其他"
 
 export default function TimelinePage() {
   const { novelId } = useParams<{ novelId: string }>()
@@ -50,17 +56,46 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true)
 
   // Filters
-  const [filterType, setFilterType] = useState<FilterType>("all")
+  const [filterTypes, setFilterTypes] = useState<Set<FilterType>>(new Set(["all"]))
   const [filterImportance, setFilterImportance] = useState<"all" | "high" | "medium">("all")
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [showSwimlanes, setShowSwimlanes] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<string[]>([])
+  const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
+
+  const toggleTypeFilter = useCallback((type: FilterType) => {
+    setFilterTypes((prev) => {
+      const next = new Set(prev)
+      if (type === "all") return new Set(["all"])
+      next.delete("all")
+      if (next.has(type)) {
+        next.delete(type)
+        return next.size === 0 ? new Set(["all"]) : next
+      }
+      next.add(type)
+      return next
+    })
+  }, [])
+
+  const toggleChapterCollapse = useCallback((chapter: number) => {
+    setCollapsedChapters((prev) => {
+      const next = new Set(prev)
+      if (next.has(chapter)) next.delete(chapter)
+      else next.add(chapter)
+      return next
+    })
+  }, [])
+
+  const expandAll = useCallback(() => {
+    setCollapsedChapters(new Set())
+  }, [])
 
   // Load data
   useEffect(() => {
     if (!novelId) return
     let cancelled = false
     setLoading(true)
+    trackEvent("view_timeline")
 
     fetchTimelineData(novelId, chapterStart, chapterEnd)
       .then((data) => {
@@ -82,13 +117,13 @@ export default function TimelinePage() {
   // Filtered events
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
-      if (filterType !== "all" && e.type !== filterType) return false
+      if (!filterTypes.has("all") && !filterTypes.has(e.type as FilterType)) return false
       if (filterImportance === "high" && e.importance !== "high") return false
       if (filterImportance === "medium" && e.importance === "low") return false
       if (selectedPersons.length > 0 && !e.participants.some((p) => selectedPersons.includes(p))) return false
       return true
     })
-  }, [events, filterType, filterImportance, selectedPersons])
+  }, [events, filterTypes, filterImportance, selectedPersons])
 
   // Group events by chapter for display
   const chapterGroups = useMemo(() => {
@@ -99,6 +134,10 @@ export default function TimelinePage() {
     }
     return Array.from(groups.entries()).sort((a, b) => a[0] - b[0])
   }, [filteredEvents])
+
+  const collapseAll = useCallback(() => {
+    setCollapsedChapters(new Set(chapterGroups.map(([ch]) => ch)))
+  }, [chapterGroups])
 
   // All persons across swimlanes
   const allPersons = useMemo(
@@ -117,22 +156,26 @@ export default function TimelinePage() {
     )
   }, [])
 
-  const EVENT_TYPES: FilterType[] = ["all", "战斗", "成长", "社交", "旅行", "其他"]
+  const EVENT_TYPES: FilterType[] = ["all", "战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "其他"]
 
   return (
     <VisualizationLayout>
       <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex items-center gap-3 border-b px-4 py-2 flex-shrink-0">
-          {/* Type filter */}
-          <div className="flex items-center gap-1">
+          {/* Type filter (multi-select) */}
+          <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs text-muted-foreground mr-1">类型</span>
             {EVENT_TYPES.map((t) => (
               <Button
                 key={t}
-                variant={filterType === t ? "default" : "outline"}
+                variant={
+                  t === "all"
+                    ? filterTypes.has("all") ? "default" : "outline"
+                    : filterTypes.has(t) ? "default" : "outline"
+                }
                 size="xs"
-                onClick={() => setFilterType(t)}
+                onClick={() => toggleTypeFilter(t)}
               >
                 {t === "all" ? "全部" : t}
               </Button>
@@ -162,6 +205,13 @@ export default function TimelinePage() {
             {filteredEvents.length} / {events.length} 事件
           </span>
 
+          <Button variant="outline" size="xs" onClick={collapseAll}>
+            折叠
+          </Button>
+          <Button variant="outline" size="xs" onClick={expandAll}>
+            展开
+          </Button>
+
           <Button
             variant={showSwimlanes ? "default" : "outline"}
             size="xs"
@@ -189,12 +239,15 @@ export default function TimelinePage() {
             {!loading && chapterGroups.length > 0 && (
               <div className="p-4">
                 {/* Legend */}
-                <div className="flex items-center gap-4 mb-4 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-3 mb-4 text-[10px] text-muted-foreground flex-wrap">
                   {[
                     { label: "战斗", color: "#ef4444" },
                     { label: "成长", color: "#3b82f6" },
                     { label: "社交", color: "#10b981" },
                     { label: "旅行", color: "#f97316" },
+                    { label: "角色登场", color: "#8b5cf6" },
+                    { label: "物品交接", color: "#eab308" },
+                    { label: "组织变动", color: "#ec4899" },
                     { label: "其他", color: "#6b7280" },
                   ].map((item) => (
                     <span key={item.label} className="flex items-center gap-1">
@@ -205,7 +258,7 @@ export default function TimelinePage() {
                       {item.label}
                     </span>
                   ))}
-                  <span className="ml-2">●大=高 ●中=中 ·小=低</span>
+                  <span className="ml-2">●大=关键 ●中=中 ·小=低</span>
                 </div>
 
                 {/* Timeline */}
@@ -213,18 +266,26 @@ export default function TimelinePage() {
                   {/* Vertical timeline line */}
                   <div className="absolute left-[60px] top-0 bottom-0 w-px bg-border" />
 
-                  {chapterGroups.map(([chapter, evts]) => (
+                  {chapterGroups.map(([chapter, evts]) => {
+                    const isCollapsed = collapsedChapters.has(chapter)
+                    return (
                     <div key={chapter} className="mb-4">
                       {/* Chapter marker */}
-                      <div className="flex items-center gap-3 mb-1">
+                      <div
+                        className="flex items-center gap-3 mb-1 cursor-pointer select-none"
+                        onClick={() => toggleChapterCollapse(chapter)}
+                      >
                         <span className="text-xs font-mono text-muted-foreground w-[52px] text-right">
                           Ch.{chapter}
                         </span>
                         <div className="size-2.5 rounded-full bg-border z-10" />
+                        <span className="text-[10px] text-muted-foreground">
+                          {evts.length} 事件 {isCollapsed ? "▸" : "▾"}
+                        </span>
                       </div>
 
                       {/* Events in this chapter */}
-                      <div className="ml-[72px] space-y-1.5">
+                      {!isCollapsed && <div className="ml-[72px] space-y-1.5">
                         {evts
                           .sort((a, b) => {
                             const imp = { high: 3, medium: 2, low: 1 }
@@ -243,10 +304,14 @@ export default function TimelinePage() {
                             >
                               {/* Event dot */}
                               <span
-                                className="rounded-full flex-shrink-0 mt-1"
+                                className={cn(
+                                  "rounded-full flex-shrink-0 mt-1",
+                                  evt.is_major && "ring-2 ring-offset-1 ring-primary/40",
+                                )}
+                                title={`${evt.summary}${evt.location ? ` @ ${evt.location}` : ""}${evt.participants.length > 0 ? ` [${evt.participants.slice(0, 3).join(", ")}]` : ""}`}
                                 style={{
-                                  width: importanceSize(evt.importance) * 2,
-                                  height: importanceSize(evt.importance) * 2,
+                                  width: importanceSize(evt.importance, evt.is_major) * 2,
+                                  height: importanceSize(evt.importance, evt.is_major) * 2,
                                   backgroundColor: eventColor(evt.type),
                                 }}
                               />
@@ -266,7 +331,13 @@ export default function TimelinePage() {
                                     {evt.type}
                                   </span>
 
-                                  {evt.importance === "high" && (
+                                  {evt.is_major && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-950/30">
+                                      关键
+                                    </span>
+                                  )}
+
+                                  {!evt.is_major && evt.importance === "high" && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30">
                                       重要
                                     </span>
@@ -297,9 +368,10 @@ export default function TimelinePage() {
                               </div>
                             </div>
                           ))}
-                      </div>
+                      </div>}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

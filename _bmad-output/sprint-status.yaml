@@ -1,4 +1,4 @@
-# generated: 2026-02-13
+# generated: 2026-02-17
 # project: AI-Reader-V2
 # project_key: NOKEY
 # tracking_system: file-system
@@ -11,11 +11,15 @@
 #   - in-progress: Epic actively being worked on
 #   - done: All stories in epic completed
 #
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
 # Story Status:
 #   - backlog: Story only exists in epic file
-#   - ready-for-dev: Story file created, ready for development
+#   - ready-for-dev: Story file created in stories folder
 #   - in-progress: Developer actively working on implementation
-#   - review: Implementation complete, ready for review
+#   - review: Ready for code review (via Dev's code-review workflow)
 #   - done: Story completed
 #
 # Retrospective Status:
@@ -24,18 +28,41 @@
 #
 # WORKFLOW NOTES:
 # ===============
-# - Mark epic as 'in-progress' when starting work on its first story
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
-# - Dev moves story to 'review', then Dev runs code-review (fresh context, ideally different LLM)
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# PRIORITY GUIDE (new epics from PRD v1.3):
+# =========================================
+# P0 Epics (n1-n5): MVP — must ship for v1.0
+# P1 Epics (n6-n7): Growth — target v1.1
+# P2 Epics (n8-n11): Future — target v1.2-v1.3
+#
+# DEPENDENCY CHAIN:
+# ==================
+# n-epic-3 (成本控制) depends on n-epic-2 (LLM 配置)
+# n-epic-7 (高级导出) depends on n-epic-4 (Markdown 导出)
+# All other new Epics are independent
+#
+# EPIC SOURCE:
+# ==================
+# Legacy epics (epic-1 ~ epic-7, epic-15): Old PRD.md, all completed
+# New epics (n-epic-1 ~ n-epic-11): PRD-v1.0.md v1.3 + _bmad-output/epics.md
 
-generated: 2026-02-13
+generated: 2026-02-17
 project: AI-Reader-V2
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output
 
 development_status:
-  # ── Epic 1: 书架与小说上传 ──
+
+  # ═══════════════════════════════════════════════
+  # LEGACY — Completed (old PRD, all done)
+  # ═══════════════════════════════════════════════
+
+  # Epic 1: 书架与小说上传 [DONE]
   epic-1: done
   1-1-scaffold-project-skeleton: done
   1-2-novel-upload-chapter-splitting: done
@@ -46,7 +73,7 @@ development_status:
   1-7-chapter-split-adjustment: done
   epic-1-retrospective: optional
 
-  # ── Epic 2: 小说分析引擎 ──
+  # Epic 2: 小说分析引擎 [DONE]
   epic-2: done
   2-1-llm-client-chapterfact-extractor: done
   2-2-context-summary-builder: done
@@ -55,7 +82,7 @@ development_status:
   2-5-range-analysis-reanalysis: done
   epic-2-retrospective: optional
 
-  # ── Epic 3: 阅读体验与实体卡片 ──
+  # Epic 3: 阅读体验与实体卡片 [DONE]
   epic-3: done
   3-1-reading-page-basics: done
   3-2-entity-aggregation-service: done
@@ -66,7 +93,7 @@ development_status:
   3-7-chapter-reference-jump-fulltext-search: done
   epic-3-retrospective: optional
 
-  # ── Epic 4: 知识图谱可视化 ──
+  # Epic 4: 知识图谱可视化 [DONE]
   epic-4: done
   4-1-visualization-data-api: done
   4-2-chapter-range-slider-framework: done
@@ -77,7 +104,7 @@ development_status:
   4-7-path-finding-advanced-interaction: done
   epic-4-retrospective: optional
 
-  # ── Epic 5: 智能问答 ──
+  # Epic 5: 智能问答 [DONE]
   epic-5: done
   5-1-qa-pipeline-backend: done
   5-2-vector-embedding-generation: done
@@ -86,36 +113,31 @@ development_status:
   5-5-conversation-export: done
   epic-5-retrospective: optional
 
-  # ── Epic 6: 百科与系统设置 ──
+  # Epic 6: 百科与系统设置 [DONE]
   epic-6: done
   6-1-encyclopedia-page: done
   6-2-settings-page: done
   6-3-data-import-export: done
   epic-6-retrospective: optional
 
-  # ── Epic 7: 世界地图 V2 — 多层级世界结构 ──
+  # Epic 7: 世界地图 V2 [DONE]
   epic-7: done
-  # Phase 1: 世界结构代理 + 数据模型
   7-1-world-structure-data-model: done
   7-2-signal-scanning: done
   7-3-llm-incremental-update: done
   7-4-pipeline-integration: done
   7-5-world-structure-api: done
-  # Phase 2: 分层布局引擎
   7-6-region-layout-engine: done
   7-7-region-solver-instance-layout: done
   7-8-map-api-v2: done
-  # Phase 3: 前端多层交互
   7-9-frontend-tabs: done
   7-10-regions-portals-fog: done
-  # Phase 4: 增强与迭代
   7-11-user-edit-world-structure: done
   7-12-extraction-enhancement: done
   epic-7-retrospective: optional
 
-  # ── Epic 15: 导入可靠性 + 文本卫生 + 基准测试 ──
+  # Epic 15: 导入可靠性 + 文本卫生 [DONE]
   epic-15: done
-  # Milestone 1: 章节切分永不失败
   15-1-benchmark-import-script: done
   15-3-preprocessing-enhancement: done
   15-4-chapter-en-mode: done
@@ -123,10 +145,106 @@ development_status:
   15-6-fixed-size-fallback: done
   15-7-split-diagnosis: done
   15-8-frontend-diagnosis-display: done
-  # Milestone 2: 文本卫生检测与清理
   15-10-noise-detection-engine: done
   15-11-clean-function: done
   15-12-import-flow-integration: done
   15-13-frontend-hygiene-report: done
   15-14-benchmark-hygiene-columns: done
   epic-15-retrospective: optional
+
+  # ═══════════════════════════════════════════════
+  # NEW — P0 MVP (v1.0) — from PRD v1.3 epics.md
+  # ═══════════════════════════════════════════════
+
+  # Epic N1: 样本小说零门槛体验 [P0, FR-013]
+  n-epic-1: done
+  n1-1-sample-novel-data-package: review
+  n1-2-first-launch-auto-import: review
+  n1-3-guided-tour-bubbles: review
+  n1-4-feature-discovery-bar: review
+  n-epic-1-retrospective: optional
+
+  # Epic N2: LLM 配置管理 [P0, IFR-001]
+  n-epic-2: done
+  n2-1-ollama-auto-detection: review
+  n2-2-model-recommendation: review
+  n2-3-cloud-api-key-config: review
+  n2-4-ai-engine-settings-panel: review
+  n-epic-2-retrospective: optional
+
+  # Epic N3: 分析成本控制 [P0-云端, FR-014] — depends on N-Epic-2
+  n-epic-3: done
+  n3-1-cost-estimation-model: review
+  n3-2-realtime-cost-tracking: review
+  n3-3-budget-alert-mechanism: review
+  n3-4-cost-detail-breakdown: review
+  n-epic-3-retrospective: optional
+
+  # Epic N4: Series Bible Markdown 导出 [P0, FR-009]
+  n-epic-4: done
+  n4-1-export-engine-core: review
+  n4-2-markdown-template-system: review
+  n4-3-export-center-ui: review
+  n4-4-export-content-quality: review
+  n-epic-4-retrospective: optional
+
+  # Epic N5: 桌面应用打包与发布 [P0, IFR-002, NFR-USA-02]
+  n-epic-5: done
+  n5-1-tauri-project-scaffold: review
+  n5-2-python-sidecar-packaging: review
+  n5-3-macos-signing-notarization: review
+  n5-4-windows-signing-installer: review
+  n5-5-auto-update-cicd: review
+  n5-6-data-export-migration: review
+  n-epic-5-retrospective: optional
+
+  # ═══════════════════════════════════════════════
+  # NEW — P1 Growth (v1.1)
+  # ═══════════════════════════════════════════════
+
+  # Epic N6: 时间线可视化 [P1, FR-007]
+  n-epic-6: done
+  n6-1-timeline-data-api: review
+  n6-2-timeline-visualization: review
+  n6-3-timeline-filter-zoom: review
+  n-epic-6-retrospective: optional
+
+  # Epic N7: 高级格式导出 Word/Excel/PDF [P1, FR-009] — depends on N-Epic-4
+  n-epic-7: done
+  n7-1-word-export: review
+  n7-2-excel-export: review
+  n7-3-pdf-export: review
+  n-epic-7-retrospective: optional
+
+  # ═══════════════════════════════════════════════
+  # NEW — P2 Future (v1.2-v1.3)
+  # ═══════════════════════════════════════════════
+
+  # Epic N8: 势力图可视化 [P2, FR-008]
+  n-epic-8: done
+  n8-1-faction-data-api: review
+  n8-2-faction-visualization: review
+  n8-3-faction-evolution-interaction: review
+  n-epic-8-retrospective: optional
+
+  # Epic N9: 设定冲突检测 [P2, FR-011]
+  n-epic-9: done
+  n9-1-character-attribute-conflict-engine: review
+  n9-2-location-relation-conflict-detection: review
+  n9-3-conflict-report-ui: review
+  n9-4-conflict-detection-quality: review
+  n-epic-9-retrospective: optional
+
+  # Epic N10: 剧本模式 [P2, FR-010, 实验性]
+  n-epic-10: done
+  n10-1-scene-auto-extraction: review
+  n10-2-side-by-side-view: review
+  n10-3-fullscreen-scene-view: review
+  n-epic-10-retrospective: optional
+
+  # Epic N11: 用户行为分析 [P2, FR-015]
+  n-epic-11: done
+  n11-1-event-tracking-infrastructure: review
+  n11-2-usage-statistics-dashboard: review
+  n11-3-privacy-control: review
+  n-epic-11-retrospective: optional

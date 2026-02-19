@@ -71,6 +71,7 @@ class NovelResponse(BaseModel):
     author: str | None
     total_chapters: int
     total_words: int
+    is_sample: bool = False
     created_at: str
     updated_at: str
 
@@ -83,6 +84,7 @@ class NovelListItem(BaseModel):
     total_words: int
     created_at: str
     updated_at: str
+    is_sample: bool = False
     analysis_progress: float = 0.0
     reading_progress: float = 0.0
     last_opened: str | None = None

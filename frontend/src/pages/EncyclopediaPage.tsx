@@ -7,6 +7,7 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { trackEvent } from "@/lib/tracker"
 
 interface CategoryStats {
   total: number
@@ -89,6 +90,7 @@ export default function EncyclopediaPage() {
     if (!novelId) return
     setLoading(true)
     setConceptDetail(null)
+    trackEvent("view_encyclopedia")
     fetchEncyclopediaEntries(novelId, activeCategory ?? undefined, sortBy)
       .then((data) => setEntries(data.entries))
       .finally(() => setLoading(false))

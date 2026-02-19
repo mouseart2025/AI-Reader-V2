@@ -326,6 +326,16 @@ export default function ReadingPage() {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0)
   const [scenesLoading, setScenesLoading] = useState(false)
 
+  // Current chapter's analysis status
+  const currentAnalysisStatus = useMemo(() => {
+    const ch = chapters.find((c) => c.chapter_num === currentChapterNum)
+    return ch?.analysis_status ?? "pending"
+  }, [chapters, currentChapterNum])
+
+  const handleGoAnalysis = useCallback(() => {
+    if (novelId) navigate(`/analysis/${novelId}`)
+  }, [novelId, navigate])
+
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
       const canonical = aliasMap[name] ?? name
@@ -783,8 +793,11 @@ export default function ReadingPage() {
         <ScenePanel
           scenes={scenes}
           activeSceneIndex={activeSceneIndex}
+          analysisStatus={currentAnalysisStatus}
+          loading={scenesLoading}
           onSceneClick={scrollToScene}
           onClose={() => setScenePanelOpen(false)}
+          onGoAnalysis={handleGoAnalysis}
         />
       )}
 

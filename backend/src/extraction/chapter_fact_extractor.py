@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from src.infra.config import LLM_MAX_TOKENS, LLM_PROVIDER
-from src.infra.llm_client import LLMError, get_llm_client
+from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import ChapterFact, CharacterFact
 
@@ -261,8 +261,8 @@ class ChapterFactExtractor:
         chapter_id: int,
         chapter_text: str,
         context_summary: str = "",
-    ) -> ChapterFact:
-        """Extract ChapterFact from chapter text.
+    ) -> tuple[ChapterFact, LlmUsage]:
+        """Extract ChapterFact from chapter text. Returns (fact, usage).
 
         Long chapters (cloud mode) are automatically split into segments
         and merged to avoid output truncation.
@@ -300,7 +300,7 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         chapter_text: str,
-    ) -> ChapterFact:
+    ) -> tuple[ChapterFact, LlmUsage]:
         """Extract from a single (non-split) chapter text with retry."""
         example_text = self._build_example_text()
         user_prompt = self._build_user_prompt(chapter_id, chapter_text, example_text)
@@ -335,10 +335,11 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         segments: list[str],
-    ) -> ChapterFact:
+    ) -> tuple[ChapterFact, LlmUsage]:
         """Extract from multiple segments and merge results."""
         example_text = self._build_example_text()
         segment_facts: list[ChapterFact] = []
+        total_usage = LlmUsage()
 
         for idx, seg_text in enumerate(segments):
             seg_label = f"（第 {idx + 1}/{len(segments)} 部分）"
@@ -352,10 +353,13 @@ class ChapterFactExtractor:
 
             # Each segment gets its own retry
             try:
-                fact = await self._call_and_parse(
+                fact, seg_usage = await self._call_and_parse(
                     system, user_prompt, novel_id, chapter_id,
                 )
                 segment_facts.append(fact)
+                total_usage.prompt_tokens += seg_usage.prompt_tokens
+                total_usage.completion_tokens += seg_usage.completion_tokens
+                total_usage.total_tokens += seg_usage.total_tokens
             except Exception as err:
                 logger.warning(
                     "Chapter %d segment %d/%d failed: %s — retrying",
@@ -367,10 +371,13 @@ class ChapterFactExtractor:
                         chapter_id, seg_text, example_text, segment_hint=seg_label,
                     )
                     retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
-                    fact = await self._call_and_parse(
+                    fact, seg_usage = await self._call_and_parse(
                         system, retry_prompt, novel_id, chapter_id,
                     )
                     segment_facts.append(fact)
+                    total_usage.prompt_tokens += seg_usage.prompt_tokens
+                    total_usage.completion_tokens += seg_usage.completion_tokens
+                    total_usage.total_tokens += seg_usage.total_tokens
                 except Exception as retry_err:
                     logger.error(
                         "Chapter %d segment %d/%d failed after retry: %s",
@@ -389,7 +396,7 @@ class ChapterFactExtractor:
             chapter_id, len(segment_facts),
             len(merged.characters), len(merged.locations), len(merged.events),
         )
-        return merged
+        return merged, total_usage
 
     async def _call_and_parse(
         self,
@@ -398,8 +405,8 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         timeout: int = 600,
-    ) -> ChapterFact:
-        """Call LLM and parse response into ChapterFact."""
+    ) -> tuple[ChapterFact, LlmUsage]:
+        """Call LLM and parse response into ChapterFact. Returns (fact, usage)."""
         effective_system = system
         if self._is_cloud:
             # Cloud APIs only support json_object mode, not schema-level enforcement.
@@ -412,7 +419,7 @@ class ChapterFactExtractor:
             )
 
         max_out = LLM_MAX_TOKENS if self._is_cloud else 8192
-        result = await self.llm.generate(
+        result, usage = await self.llm.generate(
             system=effective_system,
             prompt=prompt,
             format=self._schema,
@@ -429,4 +436,4 @@ class ChapterFactExtractor:
         result["novel_id"] = novel_id
         result["chapter_id"] = chapter_id
 
-        return ChapterFact.model_validate(result)
+        return ChapterFact.model_validate(result), usage

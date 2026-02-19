@@ -23,12 +23,66 @@ LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "8192"))
 
+# Preserve .env initial values as fallback for mode switching
+_ENV_LLM_API_KEY = LLM_API_KEY
+_ENV_LLM_BASE_URL = LLM_BASE_URL
+_ENV_LLM_MODEL = LLM_MODEL
+
 
 def get_model_name() -> str:
     """Return the active model name based on current provider."""
     if LLM_PROVIDER == "openai":
         return LLM_MODEL or "unknown"
     return OLLAMA_MODEL
+
+
+def update_cloud_config(
+    provider: str,
+    api_key: str,
+    base_url: str,
+    model: str,
+) -> None:
+    """Hot-update cloud LLM config at runtime (no restart needed).
+
+    Falls back to .env initial values when DB-provided values are empty.
+    """
+    global LLM_PROVIDER, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL  # noqa: PLW0603
+
+    LLM_PROVIDER = provider
+    LLM_API_KEY = api_key or _ENV_LLM_API_KEY
+    LLM_BASE_URL = base_url or _ENV_LLM_BASE_URL
+    LLM_MODEL = model or _ENV_LLM_MODEL
+
+    _reset_llm_client()
+
+
+def switch_to_ollama(model: str = "qwen3:8b") -> None:
+    """Hot-switch back to local Ollama mode."""
+    global LLM_PROVIDER, OLLAMA_MODEL  # noqa: PLW0603
+
+    LLM_PROVIDER = "ollama"
+    OLLAMA_MODEL = model
+
+    _reset_llm_client()
+
+
+def _reset_llm_client() -> None:
+    """Reset cached LLM client and notify AnalysisService singleton."""
+    from src.infra import llm_client
+
+    llm_client._client = None
+
+    # Also refresh the AnalysisService singleton so new tasks use the new client
+    from src.services.analysis_service import refresh_service_clients
+
+    refresh_service_clients()
+
+
+def update_max_tokens(max_tokens: int) -> None:
+    """Update LLM_MAX_TOKENS at runtime."""
+    global LLM_MAX_TOKENS  # noqa: PLW0603
+
+    LLM_MAX_TOKENS = max_tokens
 
 
 def ensure_data_dir() -> None:

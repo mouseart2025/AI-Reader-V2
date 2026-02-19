@@ -1,0 +1,44 @@
+你是一个小说地理分析专家。请审查以下小说的地点层级树，修复孤立根节点。
+
+## 小说类型
+{genre_hint}
+
+## 当前地点层级树
+{hierarchy_tree}
+
+## 孤立根节点（无 parent 的非顶级地点）
+{orphan_list}
+
+## 场景转换分析参考
+同区域地点组（频繁互相切换的场景地点）：
+{sibling_groups}
+
+中心枢纽节点（与多个地点有场景转换）：
+{hub_nodes}
+
+## 任务
+请根据以上信息，为孤立根节点推荐合适的 parent 地点。
+
+规则：
+1. parent 必须是层级树中已有的地点
+2. parent 的空间级别应大于 child（如 city 的 parent 应是 region/kingdom/continent）
+3. 同区域组中的地点通常共享同一个 parent
+4. 中心枢纽节点可能是周边地点的 parent 或 sibling
+5. 利用常识推断地理包含关系（如"贝克街"属于"伦敦"，"花果山"属于"傲来国"）
+6. 如果无法确定 parent，不要强行推荐
+
+请严格输出以下 JSON 格式：
+```json
+{{
+  "suggestions": [
+    {{
+      "child": "地点名",
+      "parent": "父地点名",
+      "confidence": "high/medium/low",
+      "reason": "推荐理由"
+    }}
+  ]
+}}
+```
+
+注意：只输出 JSON，不要添加其他文字。

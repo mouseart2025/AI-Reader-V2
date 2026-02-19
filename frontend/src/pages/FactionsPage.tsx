@@ -8,6 +8,7 @@ import { VisualizationLayout } from "@/components/visualization/VisualizationLay
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { trackEvent } from "@/lib/tracker"
 
 interface OrgNode {
   id: string
@@ -69,6 +70,8 @@ export default function FactionsPage() {
   const [loading, setLoading] = useState(true)
   const [hoverNode, setHoverNode] = useState<string | null>(null)
   const [selectedOrg, setSelectedOrg] = useState<string | null>(null)
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set(["all"]))
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set())
 
   const graphRef = useRef<ForceGraphMethods<OrgNode, OrgRelation>>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -91,6 +94,7 @@ export default function FactionsPage() {
     if (!novelId) return
     let cancelled = false
     setLoading(true)
+    trackEvent("view_factions")
 
     fetchFactionsData(novelId, chapterStart, chapterEnd)
       .then((data) => {
@@ -110,6 +114,69 @@ export default function FactionsPage() {
     return () => { cancelled = true }
   }, [novelId, chapterStart, chapterEnd, setAnalyzedRange])
 
+  const toggleTypeFilter = useCallback((type: string) => {
+    setFilterTypes((prev) => {
+      const next = new Set(prev)
+      if (type === "all") return new Set(["all"])
+      next.delete("all")
+      if (next.has(type)) {
+        next.delete(type)
+        return next.size === 0 ? new Set(["all"]) : next
+      }
+      next.add(type)
+      return next
+    })
+  }, [])
+
+  const toggleOrgExpand = useCallback((orgName: string) => {
+    setExpandedOrgs((prev) => {
+      const next = new Set(prev)
+      if (next.has(orgName)) next.delete(orgName)
+      else next.add(orgName)
+      return next
+    })
+  }, [])
+
+  // Available org types for filter
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>()
+    for (const org of orgs) {
+      for (const [key] of Object.entries(ORG_TYPE_COLORS)) {
+        if (org.type.includes(key)) {
+          types.add(key)
+          break
+        }
+      }
+    }
+    return Array.from(types).sort()
+  }, [orgs])
+
+  // Filtered orgs
+  const filteredOrgs = useMemo(() => {
+    if (filterTypes.has("all")) return orgs
+    return orgs.filter((o) => {
+      for (const t of filterTypes) {
+        if (o.type.includes(t)) return true
+      }
+      return false
+    })
+  }, [orgs, filterTypes])
+
+  const filteredOrgIds = useMemo(
+    () => new Set(filteredOrgs.map((o) => o.id)),
+    [filteredOrgs],
+  )
+
+  const filteredRelations = useMemo(
+    () =>
+      relations.filter((r) => {
+        const src = typeof r.source === "string" ? r.source : r.source.id
+        const tgt = typeof r.target === "string" ? r.target : r.target.id
+        return filteredOrgIds.has(src) && filteredOrgIds.has(tgt)
+      }),
+    [relations, filteredOrgIds],
+  )
+
   // Connected nodes on hover
   const connectedNodes = useMemo(() => {
     if (!hoverNode) return new Set<string>()
@@ -124,13 +191,8 @@ export default function FactionsPage() {
   }, [hoverNode, relations])
 
   const graphData = useMemo(
-    () => ({ nodes: orgs, links: relations }),
-    [orgs, relations],
-  )
-
-  const selectedMembers = useMemo(
-    () => (selectedOrg ? members[selectedOrg] ?? [] : []),
-    [selectedOrg, members],
+    () => ({ nodes: filteredOrgs, links: filteredRelations }),
+    [filteredOrgs, filteredRelations],
   )
 
   const handleNodeClick = useCallback(
@@ -149,7 +211,40 @@ export default function FactionsPage() {
 
   return (
     <VisualizationLayout>
-      <div className="flex h-full">
+      <div className="flex h-full flex-col">
+        {/* Toolbar */}
+        {availableTypes.length > 0 && (
+          <div className="flex items-center gap-2 border-b px-4 py-2 flex-shrink-0">
+            <span className="text-xs text-muted-foreground mr-1">类型筛选</span>
+            <Button
+              variant={filterTypes.has("all") ? "default" : "outline"}
+              size="xs"
+              onClick={() => toggleTypeFilter("all")}
+            >
+              全部
+            </Button>
+            {availableTypes.map((t) => (
+              <Button
+                key={t}
+                variant={filterTypes.has(t) ? "default" : "outline"}
+                size="xs"
+                onClick={() => toggleTypeFilter(t)}
+              >
+                <span
+                  className="inline-block size-2 rounded-full mr-1"
+                  style={{ backgroundColor: ORG_TYPE_COLORS[t] || "#6b7280" }}
+                />
+                {t}
+              </Button>
+            ))}
+            <div className="flex-1" />
+            <span className="text-xs text-muted-foreground">
+              {filteredOrgs.length} / {orgs.length} 组织
+            </span>
+          </div>
+        )}
+
+        <div className="flex flex-1 overflow-hidden">
         {/* Graph area */}
         <div className="relative flex-1" ref={containerRef}>
           {loading && (
@@ -287,73 +382,91 @@ export default function FactionsPage() {
         <div className="w-72 flex-shrink-0 border-l overflow-auto">
           <div className="p-3">
             <h3 className="text-sm font-medium mb-2">组织成员</h3>
+            <p className="text-[10px] text-muted-foreground mb-3">
+              点击展开/折叠成员列表
+            </p>
 
-            {!selectedOrg && (
-              <p className="text-muted-foreground text-xs">单击图中组织节点查看成员</p>
-            )}
+            <div className="space-y-1">
+              {filteredOrgs.map((org) => {
+                const orgMembers = members[org.name] ?? []
+                const isExpanded = expandedOrgs.has(org.name) || selectedOrg === org.name
 
-            {selectedOrg && (
-              <>
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="inline-block size-3 rounded"
-                    style={{
-                      backgroundColor: orgColor(
-                        orgs.find((o) => o.name === selectedOrg)?.type ?? "",
-                      ),
-                    }}
-                  />
-                  <span className="text-sm font-medium">{selectedOrg}</span>
-                  <button
-                    className="text-muted-foreground text-xs hover:text-foreground ml-auto"
-                    onClick={() => openEntityCard(selectedOrg, "org")}
-                  >
-                    详情
-                  </button>
-                </div>
+                return (
+                  <div key={org.id}>
+                    <button
+                      className={cn(
+                        "w-full flex items-center gap-2 text-xs px-2 py-1.5 rounded-md transition-colors",
+                        selectedOrg === org.name
+                          ? "bg-primary/10 font-medium"
+                          : "hover:bg-muted/50",
+                      )}
+                      onClick={() => {
+                        toggleOrgExpand(org.name)
+                        setSelectedOrg(selectedOrg === org.name ? null : org.name)
+                      }}
+                    >
+                      <span
+                        className="inline-block size-2.5 rounded flex-shrink-0"
+                        style={{ backgroundColor: orgColor(org.type) }}
+                      />
+                      <span className="flex-1 text-left truncate">{org.name}</span>
+                      <span className="text-muted-foreground flex-shrink-0">
+                        {orgMembers.length}人
+                      </span>
+                      <span className="text-muted-foreground text-[10px]">
+                        {isExpanded ? "▾" : "▸"}
+                      </span>
+                    </button>
 
-                {selectedMembers.length === 0 ? (
-                  <p className="text-muted-foreground text-xs">暂无成员数据</p>
-                ) : (
-                  <div className="space-y-1">
-                    {selectedMembers.map((m) => (
-                      <div
-                        key={`${m.person}-${m.role}`}
-                        className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md hover:bg-muted/50"
-                      >
+                    {isExpanded && orgMembers.length > 0 && (
+                      <div className="ml-4 mt-0.5 mb-1 space-y-0.5">
+                        {orgMembers.map((m) => (
+                          <div
+                            key={`${org.id}-${m.person}-${m.role}`}
+                            className="flex items-center gap-2 text-xs px-2 py-1 rounded-md hover:bg-muted/50"
+                          >
+                            <button
+                              className="text-blue-600 hover:underline flex-1 text-left truncate"
+                              onClick={() => openEntityCard(m.person, "person")}
+                            >
+                              {m.person}
+                            </button>
+
+                            {m.role && (
+                              <span className="text-muted-foreground flex-shrink-0">
+                                {m.role}
+                              </span>
+                            )}
+
+                            <span
+                              className={cn(
+                                "text-[10px] px-1 py-0.5 rounded flex-shrink-0",
+                                m.status === "离开" || m.status === "叛出" || m.status === "阵亡"
+                                  ? "bg-red-50 text-red-600 dark:bg-red-950/30"
+                                  : "bg-green-50 text-green-600 dark:bg-green-950/30",
+                              )}
+                            >
+                              {m.status || "在籍"}
+                            </span>
+                          </div>
+                        ))}
                         <button
-                          className="text-blue-600 hover:underline flex-1 text-left truncate"
-                          onClick={() => openEntityCard(m.person, "person")}
+                          className="text-[10px] text-muted-foreground hover:text-foreground px-2"
+                          onClick={() => openEntityCard(org.name, "org")}
                         >
-                          {m.person}
+                          查看组织详情
                         </button>
-
-                        {m.role && (
-                          <span className="text-muted-foreground flex-shrink-0">
-                            {m.role}
-                          </span>
-                        )}
-
-                        <span
-                          className={cn(
-                            "text-[10px] px-1 py-0.5 rounded flex-shrink-0",
-                            m.status === "离开" || m.status === "叛出" || m.status === "阵亡"
-                              ? "bg-red-50 text-red-600 dark:bg-red-950/30"
-                              : "bg-green-50 text-green-600 dark:bg-green-950/30",
-                          )}
-                        >
-                          {m.status || "在籍"}
-                        </span>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </>
-            )}
+                )
+              })}
+            </div>
           </div>
         </div>
 
         {novelId && <EntityCardDrawer novelId={novelId} />}
+        </div>
       </div>
     </VisualizationLayout>
   )

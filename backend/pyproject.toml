@@ -1,6 +1,6 @@
 [project]
 name = "ai-reader-v2-backend"
-version = "0.16.0"
+version = "0.19.0"
 description = "AI Reader V2 Backend - Novel analysis with local LLM"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -17,4 +17,19 @@ dependencies = [
     "pillow>=11.3.0",
     "opensimplex>=0.4.5.1",
     "jieba>=0.42.1",
+    "keyring>=25.7.0",
+    "python-docx>=1.2.0",
+    "openpyxl>=3.1.5",
+    "reportlab>=4.4.10",
 ]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "strict"
