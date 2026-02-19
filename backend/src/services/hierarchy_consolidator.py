@@ -566,6 +566,34 @@ def consolidate_hierarchy(
     # ── Steps 3-11: Chinese geography-specific consolidation ──
     # Only applies to genres where Chinese geography is relevant.
     if skip_chinese_geo:
+        # Still run catch-all adoption for fantasy/urban genres
+        uber_root = "天下"
+        if uber_root not in location_tiers:
+            location_tiers[uber_root] = _ROOT_TIER
+        catchall_adopted = 0
+        for node in list(all_known):
+            if node == uber_root or node in location_parents:
+                continue
+            node_tier = location_tiers.get(node, "city")
+            if node_tier == "world":
+                desc_count = 0
+                queue = [c for c, p in location_parents.items() if p == node]
+                seen: set[str] = set()
+                while queue and desc_count <= 3:
+                    n = queue.pop()
+                    if n in seen:
+                        continue
+                    seen.add(n)
+                    desc_count += 1
+                    queue.extend(c for c, p in location_parents.items() if p == n)
+                if desc_count > 3:
+                    continue
+            if _safe_set_parent(node, uber_root, location_parents, f"catchall-adopt:{node}"):
+                catchall_adopted += 1
+                changes_made += 1
+        if catchall_adopted:
+            logger.info("Catch-all adopted %d remaining orphan nodes under %s", catchall_adopted, uber_root)
+
         final_roots = _get_roots(location_parents)
         logger.info(
             "Hierarchy consolidation (genre=%s): %d generic fixes, "
@@ -865,6 +893,37 @@ def consolidate_hierarchy(
         if desc_count >= 5:
             if _safe_set_parent(root, uber_root, location_parents, "large-subtree-to-root"):
                 changes_made += 1
+
+    # ── Step 12: Catch-all — adopt ALL remaining orphan nodes under 天下 ──
+    # After all targeted steps, any node without a parent (whether it has
+    # children or is an isolated leaf) should be adopted under 天下,
+    # unless it IS 天下 or a genuine separate world (tier=world, >3 descendants).
+    # _get_roots() misses isolated leaves (no parent AND no children), so
+    # we iterate all_known to find every unparented node.
+    catchall_adopted = 0
+    for node in list(all_known):
+        if node == uber_root or node in location_parents:
+            continue  # Already has a parent
+        node_tier = location_tiers.get(node, "city")
+        # Keep genuine separate worlds (tier=world with >3 descendants)
+        if node_tier == "world":
+            desc_count = 0
+            queue = [c for c, p in location_parents.items() if p == node]
+            seen: set[str] = set()
+            while queue and desc_count <= 3:
+                n = queue.pop()
+                if n in seen:
+                    continue
+                seen.add(n)
+                desc_count += 1
+                queue.extend(c for c, p in location_parents.items() if p == n)
+            if desc_count > 3:
+                continue  # Genuine separate world — keep as root
+        if _safe_set_parent(node, uber_root, location_parents, f"catchall-adopt:{node}"):
+            catchall_adopted += 1
+            changes_made += 1
+    if catchall_adopted:
+        logger.info("Catch-all adopted %d remaining orphan nodes under %s", catchall_adopted, uber_root)
 
     # ── Final stats ──
     final_roots = _get_roots(location_parents)
