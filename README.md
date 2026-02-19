@@ -16,7 +16,7 @@
 - **势力图** — 组织架构与势力关系网络
 - **百科全书** — 分类浏览所有概念/功法/物品，全文搜索，地点层级树形视图
 - **智能问答** — 流式对话，RAG 检索增强，答案来源溯源，对话历史管理
-- **多 LLM 后端** — 支持本地 Ollama 和云端 OpenAI 兼容 API（DeepSeek、通义千问等）
+- **多 LLM 后端** — 支持本地 Ollama 和云端 OpenAI 兼容 API（DeepSeek、通义千问等），Token 预算根据模型上下文窗口自动缩放（8K~128K 线性插值）
 - **数据管理** — 全量导出/导入，分析数据清除，环境健康检查
 
 ## 世界地图技术方案
@@ -169,7 +169,7 @@ AI-Reader-V2/
 │       │   ├── world_structure.py   # WorldStructure / MapLayer / Portal / WorldRegion
 │       │   ├── entity_dict.py       # EntityDictEntry
 │       │   └── ...
-│       ├── infra/            # 配置 + LLM 客户端 (Ollama / OpenAI 兼容)
+│       ├── infra/            # 配置 + LLM 客户端 + Token 预算自适应
 │       └── utils/
 ├── frontend/
 │   ├── package.json
@@ -219,12 +219,13 @@ AI-Reader-V2/
 | Epic 17 | 场景转换分析 + LLM 层级审查 — 地点层级质量提升 | 2 | done |
 | Epic 18 | 两步层级重建 + 地图布局质量 + 环路修复 | 4 | done |
 | Epic 19 | 地理数据质量提升 — 空间信号挖掘 + 提取质量 + 上下文整合 | 11 | done |
+| Epic 20 | Token 预算自适应 — 根据模型上下文窗口动态缩放 | 1 | done |
 
-共计 **19 个 Epic、85 个 Story**，全部完成。
+共计 **20 个 Epic、86 个 Story**，全部完成。
 
 ## 版本
 
-当前版本：**v0.21.0**
+当前版本：**v0.22.0**
 
 ## License
 

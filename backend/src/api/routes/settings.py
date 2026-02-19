@@ -122,6 +122,7 @@ async def get_settings():
             "ollama_model": config.OLLAMA_MODEL,
             "required_model": REQUIRED_MODEL,
             "max_tokens": config.LLM_MAX_TOKENS,
+            "context_window": config.CONTEXT_WINDOW_SIZE,
         }
     }
 
@@ -299,6 +300,10 @@ async def set_default_model(req: SetDefaultModelRequest):
     # Also update runtime config
     config.OLLAMA_MODEL = req.model
 
+    # Re-detect context window for the new model
+    from src.infra.context_budget import detect_and_update_context_window
+    await detect_and_update_context_window()
+
     return {"success": True, "model": req.model}
 
 
@@ -378,6 +383,10 @@ async def save_cloud_config(req: CloudConfigRequest):
         base_url=req.base_url,
         model=req.model,
     )
+
+    # Re-detect context window for the new cloud config
+    from src.infra.context_budget import detect_and_update_context_window
+    await detect_and_update_context_window()
 
     return {"success": True, "storage": storage}
 
@@ -462,6 +471,10 @@ async def switch_llm_mode(req: SwitchModeRequest):
             model=cloud_cfg.get("cloud_model", ""),
         )
 
+    # Re-detect context window for the new mode/model
+    from src.infra.context_budget import detect_and_update_context_window
+    await detect_and_update_context_window()
+
     return {"success": True, "mode": req.mode}
 
 
@@ -518,6 +531,11 @@ async def restore_defaults():
 
     switch_to_ollama("qwen3:8b")
     update_max_tokens(8192)
+
+    # Re-detect context window for default model
+    from src.infra.context_budget import detect_and_update_context_window
+    await detect_and_update_context_window()
+
     return {"success": True}
 
 

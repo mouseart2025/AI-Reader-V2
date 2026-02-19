@@ -29,6 +29,16 @@ _ENV_LLM_BASE_URL = LLM_BASE_URL
 _ENV_LLM_MODEL = LLM_MODEL
 
 
+# Context window size (tokens). Auto-detected at startup; 8192 = conservative default.
+CONTEXT_WINDOW_SIZE: int = 8192
+
+
+def update_context_window(size: int) -> None:
+    """Update CONTEXT_WINDOW_SIZE at runtime (called after detection)."""
+    global CONTEXT_WINDOW_SIZE  # noqa: PLW0603
+    CONTEXT_WINDOW_SIZE = size
+
+
 def get_model_name() -> str:
     """Return the active model name based on current provider."""
     if LLM_PROVIDER == "openai":

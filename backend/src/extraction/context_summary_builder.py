@@ -5,7 +5,7 @@ import logging
 
 from src.db.chapter_fact_store import get_all_chapter_facts
 from src.db import entity_dictionary_store, world_structure_store
-from src.infra.config import LLM_PROVIDER
+from src.infra.context_budget import get_budget
 from src.models.chapter_fact import ChapterFact
 from src.models.world_structure import WorldStructure
 
@@ -13,10 +13,6 @@ logger = logging.getLogger(__name__)
 
 # How many recent chapters to consider for "active" entities
 _ACTIVE_WINDOW = 20
-# Approximate max characters for the summary
-# Ollama (local 8B): ~2000 tokens ≈ 6000 chars (tight context budget)
-# Cloud (256K ctx): ~6000 tokens ≈ 18000 chars (more context = better extraction)
-_MAX_CHARS = 18000 if LLM_PROVIDER == "openai" else 6000
 
 
 class ContextSummaryBuilder:
@@ -79,11 +75,11 @@ class ContextSummaryBuilder:
         # Build summary text
         sections: list[str] = []
 
-        _is_cloud = LLM_PROVIDER == "openai"
-        char_limit = 60 if _is_cloud else 30
-        rel_limit = 40 if _is_cloud else 20
-        loc_limit = 80 if _is_cloud else 30
-        item_limit = 30 if _is_cloud else 15
+        budget = get_budget()
+        char_limit = budget.char_limit
+        rel_limit = budget.rel_limit
+        loc_limit = budget.loc_limit
+        item_limit = budget.item_limit
 
         if characters:
             lines = ["### 已知人物"]
@@ -158,8 +154,9 @@ class ContextSummaryBuilder:
         summary = "\n\n".join(sections)
 
         # Truncate if too long
-        if len(summary) > _MAX_CHARS:
-            summary = summary[:_MAX_CHARS] + "\n...(已截断)"
+        max_chars = budget.context_max_chars
+        if len(summary) > max_chars:
+            summary = summary[:max_chars] + "\n...(已截断)"
 
         return summary
 
@@ -381,7 +378,7 @@ class ContextSummaryBuilder:
 
         # Sort by chain length descending, take top-N
         chains.sort(key=len, reverse=True)
-        max_chains = 15 if LLM_PROVIDER == "openai" else 10
+        max_chains = get_budget().max_hierarchy_chains
 
         lines = [
             "### 已知地点层级",
@@ -491,7 +488,7 @@ class ContextSummaryBuilder:
             lines.append(f"- 传送门: {', '.join(portal_parts)}")
 
         result = "\n".join(lines)
-        max_chars = 1500 if LLM_PROVIDER == "openai" else 800
-        if len(result) > max_chars:
-            result = result[:max_chars - 3] + "..."
+        ws_max = get_budget().world_summary_chars
+        if len(result) > ws_max:
+            result = result[:ws_max - 3] + "..."
         return result
