@@ -1562,6 +1562,57 @@ class WorldStructureAgent:
                 len(sibling_groups), propagated,
             )
 
+    @staticmethod
+    def _infer_parents_from_character_colocation(
+        char_chapter_locs: dict[str, dict[int, set[str]]],
+        votes: dict[str, Counter],
+        tiers: dict[str, str],
+    ) -> None:
+        """Infer parent relationships from character-location co-occurrence.
+
+        If a character visits both a large location (kingdom/region/city) and
+        small locations (site/building) across ≥3 chapters, the small locations
+        are likely inside the large one. Produces weak parent votes.
+
+        Args:
+            char_chapter_locs: {character: {chapter_id: set[location]}}
+            votes: Accumulated parent votes (mutated in place).
+            tiers: Location tier classifications.
+        """
+        inferred = 0
+
+        for _char_name, chapter_locs in char_chapter_locs.items():
+            # Count co-occurrence: how many chapters does (big, small) appear together?
+            pair_counts: Counter = Counter()
+            for _chapter_id, locs in chapter_locs.items():
+                big_locs: list[tuple[str, int]] = []
+                small_locs: list[tuple[str, int]] = []
+                for loc in locs:
+                    tier = tiers.get(loc, "city")
+                    rank = TIER_ORDER.get(tier, 4)
+                    if rank <= 3:  # kingdom or bigger (world=0, continent=1, kingdom=2, region=3)
+                        big_locs.append((loc, rank))
+                    elif rank >= 5:  # site or smaller (site=5, building=6)
+                        small_locs.append((loc, rank))
+
+                for big_loc, big_rank in big_locs:
+                    for small_loc, small_rank in small_locs:
+                        if small_rank - big_rank >= 2:
+                            pair_counts[(big_loc, small_loc)] += 1
+
+            # Add votes for pairs with ≥3 co-occurrences
+            for (big_loc, small_loc), count in pair_counts.items():
+                if count >= 3:
+                    weight = min(count, 5)
+                    votes.setdefault(small_loc, Counter())[big_loc] += weight
+                    inferred += 1
+
+        if inferred:
+            logger.info(
+                "Character colocation inference: %d parent votes added",
+                inferred,
+            )
+
     # ── Parent vote resolution ────────────────────────
 
     async def _rebuild_parent_votes(self) -> dict[str, Counter]:
@@ -1598,9 +1649,25 @@ class WorldStructureAgent:
 
         # Collect spatial neighbor pairs for post-loop propagation (A.1)
         spatial_neighbors: list[tuple[str, str]] = []
+        # Collect character-location co-occurrence per chapter (A.3)
+        char_chapter_locs: dict[str, dict[int, set[str]]] = {}
 
         for row in rows:
             data = _json.loads(row["fact_json"])
+            # A.3: Collect character locations per chapter
+            chapter_id = data.get("chapter_id", 0)
+            for char in data.get("characters", []):
+                char_name = char.get("name", "")
+                locs_in_ch = char.get("locations_in_chapter", [])
+                if char_name and locs_in_ch:
+                    if char_name not in char_chapter_locs:
+                        char_chapter_locs[char_name] = {}
+                    if chapter_id not in char_chapter_locs[char_name]:
+                        char_chapter_locs[char_name][chapter_id] = set()
+                    for loc in locs_in_ch:
+                        if loc and not _is_generic_location(loc):
+                            char_chapter_locs[char_name][chapter_id].add(loc)
+
             for loc in data.get("locations", []):
                 parent = loc.get("parent")
                 name = loc.get("name", "")
@@ -1674,6 +1741,12 @@ class WorldStructureAgent:
                     "Spatial neighbor propagation: %d pairs, %d votes propagated",
                     len(spatial_neighbors), total_propagated,
                 )
+
+        # ── Character colocation → parent inference (A.3) ──
+        if char_chapter_locs:
+            self._infer_parents_from_character_colocation(
+                char_chapter_locs, votes, tiers,
+            )
 
         return votes
 
