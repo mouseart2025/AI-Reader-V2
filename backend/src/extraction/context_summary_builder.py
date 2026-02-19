@@ -107,6 +107,13 @@ class ContextSummaryBuilder:
                 lines.append(f"- {rel['a']} ↔ {rel['b']}: {rel['type']}")
             sections.append("\n".join(lines))
 
+        # Scene focus (C.1) — recent high-frequency locations with full chains
+        focus_section = self._build_scene_focus_section(
+            recent_facts, location_parents, locations,
+        )
+        if focus_section:
+            sections.append(focus_section)
+
         # Hierarchy chains (before location list for context)
         hierarchy_section = self._format_hierarchy_chains(
             locations, location_parents,
@@ -258,6 +265,74 @@ class ContextSummaryBuilder:
 
         return {name: info for name, info in items.items() if name in recent_item_names}
 
+    def _build_scene_focus_section(
+        self,
+        recent_facts: list[ChapterFact],
+        location_parents: dict[str, str] | None,
+        locations: dict[str, dict],
+    ) -> str:
+        """Build 当前场景焦点 section from the most recent 3 chapters.
+
+        Identifies the most frequently visited locations and shows their
+        complete hierarchy chains, giving the LLM context for parent assignment.
+        """
+        if not recent_facts:
+            return ""
+
+        from collections import Counter as _Counter
+
+        # Use the last 3 chapter facts
+        last_n = recent_facts[-3:]
+        loc_freq: _Counter = _Counter()
+        for fact in last_n:
+            for char in fact.characters:
+                for loc in char.locations_in_chapter:
+                    if loc:
+                        loc_freq[loc] += 1
+
+        if not loc_freq:
+            return ""
+
+        focus_locs = [name for name, _ in loc_freq.most_common(3)]
+
+        lines = [
+            "### 当前场景焦点",
+            "（以下是最近章节中角色最频繁出现的地点及其层级链。本章如出现新的建筑/房间名称，优先将其 parent 设为下方焦点地点）",
+        ]
+
+        for loc in focus_locs:
+            chain = self._build_upward_chain(loc, location_parents)
+            parts = []
+            for name in chain:
+                loc_type = locations.get(name, {}).get("type", "")
+                parts.append(f"{name} ({loc_type})" if loc_type else name)
+            lines.append(" > ".join(parts))
+
+        return "\n".join(lines) if len(lines) > 2 else ""
+
+    @staticmethod
+    def _build_upward_chain(
+        location: str,
+        location_parents: dict[str, str] | None,
+    ) -> list[str]:
+        """Build hierarchy chain from root down to the given location."""
+        if not location_parents:
+            return [location]
+
+        chain = [location]
+        visited = {location}
+        current = location
+        while current in location_parents:
+            parent = location_parents[current]
+            if parent in visited:
+                break
+            chain.append(parent)
+            visited.add(parent)
+            current = parent
+
+        chain.reverse()  # Root first
+        return chain
+
     @staticmethod
     def _format_hierarchy_chains(
         locations: dict[str, dict],
@@ -306,9 +381,12 @@ class ContextSummaryBuilder:
 
         # Sort by chain length descending, take top-N
         chains.sort(key=len, reverse=True)
-        max_chains = 8
+        max_chains = 15 if LLM_PROVIDER == "openai" else 10
 
-        lines = ["### 已知地点层级"]
+        lines = [
+            "### 已知地点层级",
+            "（本章如出现新建筑/房间，请查看上述层级中是否有合适的 parent）",
+        ]
         seen_chains: set[str] = set()
         for chain in chains[:max_chains]:
             parts = []
@@ -368,10 +446,10 @@ class ContextSummaryBuilder:
 
     @staticmethod
     def _format_world_structure(ws: WorldStructure) -> str:
-        """Format WorldStructure as a concise summary (≤ 500 chars).
+        """Format WorldStructure as a concise summary.
 
-        Returns empty string if the structure is trivially default (only overworld
-        with no regions, no portals, and minimal location mappings).
+        Cloud mode: ≤ 1500 chars; Local mode: ≤ 800 chars.
+        Returns empty string if the structure is trivially default.
         """
         has_regions = any(layer.regions for layer in ws.layers)
         has_extra_layers = len(ws.layers) > 1
@@ -413,7 +491,7 @@ class ContextSummaryBuilder:
             lines.append(f"- 传送门: {', '.join(portal_parts)}")
 
         result = "\n".join(lines)
-        # Cap at 500 chars
-        if len(result) > 500:
-            result = result[:497] + "..."
+        max_chars = 1500 if LLM_PROVIDER == "openai" else 800
+        if len(result) > max_chars:
+            result = result[:max_chars - 3] + "..."
         return result

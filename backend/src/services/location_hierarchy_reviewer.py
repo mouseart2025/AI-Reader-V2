@@ -58,6 +58,9 @@ class LocationHierarchyReviewer:
     def __init__(self, llm=None):
         self.llm = llm or get_llm_client()
 
+    _BATCH_SIZE = 70
+    _MAX_BATCHES = 3
+
     async def review(
         self,
         location_tiers: dict[str, str],
@@ -66,6 +69,10 @@ class LocationHierarchyReviewer:
         novel_genre_hint: str | None,
     ) -> dict[str, Counter]:
         """Review hierarchy and return vote suggestions.
+
+        When orphan count > 80, automatically splits into batches of ~70,
+        with each batch receiving the previous batch's results as context.
+        Maximum 3 batches (covers ~210 orphans).
 
         Args:
             location_tiers: ``{location_name: tier}``
@@ -88,7 +95,70 @@ class LocationHierarchyReviewer:
             logger.debug("No orphan root nodes, skipping LLM review")
             return {}
 
-        # Build prompt
+        # Single batch if within limit
+        if len(orphans) <= 80:
+            return await self._review_batch(
+                location_tiers, current_parents, scene_analysis,
+                novel_genre_hint, orphans, all_locs,
+            )
+
+        # Multi-batch processing
+        logger.info(
+            "Large orphan set (%d), splitting into batches of %d (max %d batches)",
+            len(orphans), self._BATCH_SIZE, self._MAX_BATCHES,
+        )
+        all_votes: dict[str, Counter] = {}
+        remaining = list(orphans)
+        previous_suggestions: list[dict] = []
+
+        for batch_idx in range(self._MAX_BATCHES):
+            if not remaining:
+                break
+            batch = remaining[:self._BATCH_SIZE]
+            remaining = remaining[self._BATCH_SIZE:]
+
+            logger.info(
+                "Batch %d/%d: reviewing %d orphans (%d remaining)",
+                batch_idx + 1, self._MAX_BATCHES, len(batch), len(remaining),
+            )
+            batch_votes = await self._review_batch(
+                location_tiers, current_parents, scene_analysis,
+                novel_genre_hint, batch, all_locs,
+                previous_suggestions=previous_suggestions,
+            )
+
+            # Merge votes
+            for child, counter in batch_votes.items():
+                if child not in all_votes:
+                    all_votes[child] = Counter()
+                all_votes[child] += counter
+
+            # Collect suggestions for next batch context
+            for child, counter in batch_votes.items():
+                if counter:
+                    best_parent = counter.most_common(1)[0][0]
+                    previous_suggestions.append({
+                        "child": child, "parent": best_parent,
+                    })
+
+        logger.info(
+            "Multi-batch review complete: %d total votes across %d batches",
+            sum(len(c) for c in all_votes.values()),
+            min(len(orphans) // self._BATCH_SIZE + 1, self._MAX_BATCHES),
+        )
+        return all_votes
+
+    async def _review_batch(
+        self,
+        location_tiers: dict[str, str],
+        current_parents: dict[str, str],
+        scene_analysis: dict,
+        novel_genre_hint: str | None,
+        orphans: list[str],
+        all_locs: set[str],
+        previous_suggestions: list[dict] | None = None,
+    ) -> dict[str, Counter]:
+        """Execute a single LLM review batch for a subset of orphans."""
         template = _load_review_prompt_template()
 
         # Hierarchy tree
@@ -100,21 +170,19 @@ class LocationHierarchyReviewer:
         # Truncate to ~200 locations for token budget
         all_entries = hierarchy_lines
         if len(all_entries) > 200:
-            # Keep orphans + their potential parents (hubs, siblings)
             priority_locs = set(orphans)
             for group in scene_analysis.get("sibling_groups", []):
                 priority_locs.update(group)
             for hub, neighbors in scene_analysis.get("hub_nodes", {}).items():
                 priority_locs.add(hub)
                 priority_locs.update(neighbors)
-            # Filter hierarchy lines for priority locations, plus fill remaining
             priority_lines = [
                 line for line in hierarchy_lines
                 if any(loc in line for loc in priority_locs)
             ]
-            remaining = [l for l in hierarchy_lines if l not in priority_lines]
+            remaining_lines = [l for l in hierarchy_lines if l not in priority_lines]
             max_remaining = 200 - len(priority_lines)
-            all_entries = priority_lines + remaining[:max(0, max_remaining)]
+            all_entries = priority_lines + remaining_lines[:max(0, max_remaining)]
 
         # Format scene analysis
         sibling_text = "无" if not scene_analysis.get("sibling_groups") else "\n".join(
@@ -133,6 +201,14 @@ class LocationHierarchyReviewer:
             hub_nodes=hub_text,
         )
 
+        # Append previous batch results as additional context
+        if previous_suggestions:
+            prev_lines = [f"  {s['child']} → {s['parent']}" for s in previous_suggestions]
+            prompt += (
+                "\n\n## 前序批次已确认的归属关系（请勿重复建议，可作为参考）\n"
+                + "\n".join(prev_lines)
+            )
+
         system = "你是一个小说地理分析专家。请严格按照 JSON 格式输出。"
 
         is_cloud = LLM_PROVIDER == "openai"
@@ -147,7 +223,7 @@ class LocationHierarchyReviewer:
                 num_ctx=8192,
             )
         except Exception:
-            logger.warning("LLM hierarchy review call failed", exc_info=True)
+            logger.warning("LLM hierarchy review batch failed", exc_info=True)
             return {}
 
         if isinstance(result, str):
@@ -160,17 +236,15 @@ class LocationHierarchyReviewer:
         # Parse suggestions into votes
         votes: dict[str, Counter] = {}
         suggestions = result.get("suggestions", [])
-        valid_locs = all_locs
 
         for sug in suggestions:
             child = sug.get("child", "")
             parent = sug.get("parent", "")
             confidence = sug.get("confidence", "low")
 
-            # Validate: both must exist in location_tiers, and not self-referencing
             if not child or not parent or child == parent:
                 continue
-            if child not in valid_locs or parent not in valid_locs:
+            if child not in all_locs or parent not in all_locs:
                 continue
 
             weight = _CONFIDENCE_WEIGHT.get(confidence, 1)
@@ -183,7 +257,7 @@ class LocationHierarchyReviewer:
             )
 
         logger.info(
-            "Hierarchy review: %d suggestions from LLM, %d valid votes",
+            "Hierarchy review batch: %d suggestions, %d valid votes",
             len(suggestions), sum(len(c) for c in votes.values()),
         )
 
