@@ -403,16 +403,20 @@ function LocationTreeTab({
     return { roots, childrenMap, allNames, safeParents: parents }
   }, [ws])
 
-  // Default expand: roots + first level
+  // Default expand: roots + first 2 levels for a nested appearance
   useEffect(() => {
     if (initialized || roots.length === 0) return
     const defaultExpanded = new Set<string>()
     for (const root of roots) {
       defaultExpanded.add(root)
+      // Also expand depth-1 children
+      for (const child of childrenMap.get(root) ?? []) {
+        defaultExpanded.add(child)
+      }
     }
     setExpandedNodes(defaultExpanded)
     setInitialized(true)
-  }, [roots, initialized])
+  }, [roots, childrenMap, initialized])
 
   // Search: find matching nodes + their ancestors
   const searchMatchedNodes = useMemo(() => {
@@ -483,15 +487,17 @@ function LocationTreeTab({
 
     for (const root of roots) dfs(root, 0)
 
-    // Add orphans (in allNames but not visited) — DFS their subtrees too
+    // Add true orphans (no parent in the tree) — skip nodes hidden under collapsed parents
     for (const name of allNames) {
       if (!visited.has(name)) {
+        const parent = safeParents[name]
+        if (parent && allNames.has(parent)) continue // hidden under a collapsed parent
         dfs(name, 0)
       }
     }
 
     return result
-  }, [roots, childrenMap, allNames, expandedNodes, ws.location_tiers, overriddenKeys, searchMatchedNodes])
+  }, [roots, childrenMap, allNames, safeParents, expandedNodes, ws.location_tiers, overriddenKeys, searchMatchedNodes])
 
   const toggleExpand = useCallback((name: string) => {
     setExpandedNodes((prev) => {
