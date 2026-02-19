@@ -340,6 +340,99 @@ def _is_geographic_name(name: str) -> bool:
     return False
 
 
+def _tiered_catchall(
+    all_known: set[str],
+    uber_root: str,
+    location_parents: dict[str, str],
+    location_tiers: dict[str, str],
+) -> int:
+    """Adopt orphan nodes with tiered intermediate matching before uber_root fallback.
+
+    For building/site orphans, tries to find an existing node whose name is
+    a prefix of the orphan name (e.g., "七玄门百药园" → "七玄门"). Falls back
+    to uber_root if no suitable intermediate node is found.
+
+    Returns the number of nodes adopted.
+    """
+    from src.services.world_structure_agent import TIER_ORDER
+
+    # 1. Collect orphan nodes (skip uber_root, existing parents, worlds with >3 desc)
+    orphans: list[str] = []
+    for node in list(all_known):
+        if node == uber_root or node in location_parents:
+            continue
+        node_tier = location_tiers.get(node, "city")
+        if node_tier == "world":
+            desc_count = 0
+            queue = [c for c, p in location_parents.items() if p == node]
+            seen: set[str] = set()
+            while queue and desc_count <= 3:
+                n = queue.pop()
+                if n in seen:
+                    continue
+                seen.add(n)
+                desc_count += 1
+                queue.extend(c for c, p in location_parents.items() if p == n)
+            if desc_count > 3:
+                continue
+        orphans.append(node)
+
+    if not orphans:
+        return 0
+
+    # 2. Build candidate lookup: all nodes that already have a place in the hierarchy
+    existing_nodes = set(location_parents.keys()) | set(location_parents.values())
+    existing_nodes.discard(uber_root)
+    # Sort by name length descending for longest-prefix-first matching
+    sorted_candidates = sorted(existing_nodes, key=len, reverse=True)
+
+    # 3. Sort orphans: most specific (building/room) first, so they can find
+    #    intermediate parents before less specific orphans are processed
+    orphans.sort(
+        key=lambda n: TIER_ORDER.get(location_tiers.get(n, "city"), 4),
+        reverse=True,
+    )
+
+    adopted = 0
+    tiered_matches = 0
+
+    for orphan in orphans:
+        orphan_tier = location_tiers.get(orphan, "city")
+        orphan_rank = TIER_ORDER.get(orphan_tier, 4)
+
+        matched = False
+
+        # Try name prefix matching: orphan starts with a known node's name
+        # e.g., "七玄门百药园" starts with "七玄门"
+        if orphan_rank >= 4:  # city or more specific
+            for candidate in sorted_candidates:
+                if candidate == orphan:
+                    continue
+                if not orphan.startswith(candidate) or len(candidate) < 2:
+                    continue
+                cand_tier = location_tiers.get(candidate, "city")
+                cand_rank = TIER_ORDER.get(cand_tier, 4)
+                if cand_rank < orphan_rank:  # candidate is a bigger entity
+                    if _safe_set_parent(orphan, candidate, location_parents,
+                                        f"tiered-catchall:{orphan}→{candidate}"):
+                        matched = True
+                        tiered_matches += 1
+                        adopted += 1
+                        break
+
+        if not matched:
+            if _safe_set_parent(orphan, uber_root, location_parents,
+                                f"catchall-adopt:{orphan}"):
+                adopted += 1
+
+    if adopted:
+        logger.info(
+            "Tiered catch-all: %d adopted (%d via intermediate matching, %d to %s)",
+            adopted, tiered_matches, adopted - tiered_matches, uber_root,
+        )
+    return adopted
+
+
 def consolidate_hierarchy(
     location_parents: dict[str, str],
     location_tiers: dict[str, str],
@@ -566,33 +659,14 @@ def consolidate_hierarchy(
     # ── Steps 3-11: Chinese geography-specific consolidation ──
     # Only applies to genres where Chinese geography is relevant.
     if skip_chinese_geo:
-        # Still run catch-all adoption for fantasy/urban genres
+        # Still run tiered catch-all for fantasy/urban genres
         uber_root = "天下"
         if uber_root not in location_tiers:
             location_tiers[uber_root] = _ROOT_TIER
-        catchall_adopted = 0
-        for node in list(all_known):
-            if node == uber_root or node in location_parents:
-                continue
-            node_tier = location_tiers.get(node, "city")
-            if node_tier == "world":
-                desc_count = 0
-                queue = [c for c, p in location_parents.items() if p == node]
-                seen: set[str] = set()
-                while queue and desc_count <= 3:
-                    n = queue.pop()
-                    if n in seen:
-                        continue
-                    seen.add(n)
-                    desc_count += 1
-                    queue.extend(c for c, p in location_parents.items() if p == n)
-                if desc_count > 3:
-                    continue
-            if _safe_set_parent(node, uber_root, location_parents, f"catchall-adopt:{node}"):
-                catchall_adopted += 1
-                changes_made += 1
-        if catchall_adopted:
-            logger.info("Catch-all adopted %d remaining orphan nodes under %s", catchall_adopted, uber_root)
+        catchall_adopted = _tiered_catchall(
+            all_known, uber_root, location_parents, location_tiers,
+        )
+        changes_made += catchall_adopted
 
         final_roots = _get_roots(location_parents)
         logger.info(
@@ -894,36 +968,11 @@ def consolidate_hierarchy(
             if _safe_set_parent(root, uber_root, location_parents, "large-subtree-to-root"):
                 changes_made += 1
 
-    # ── Step 12: Catch-all — adopt ALL remaining orphan nodes under 天下 ──
-    # After all targeted steps, any node without a parent (whether it has
-    # children or is an isolated leaf) should be adopted under 天下,
-    # unless it IS 天下 or a genuine separate world (tier=world, >3 descendants).
-    # _get_roots() misses isolated leaves (no parent AND no children), so
-    # we iterate all_known to find every unparented node.
-    catchall_adopted = 0
-    for node in list(all_known):
-        if node == uber_root or node in location_parents:
-            continue  # Already has a parent
-        node_tier = location_tiers.get(node, "city")
-        # Keep genuine separate worlds (tier=world with >3 descendants)
-        if node_tier == "world":
-            desc_count = 0
-            queue = [c for c, p in location_parents.items() if p == node]
-            seen: set[str] = set()
-            while queue and desc_count <= 3:
-                n = queue.pop()
-                if n in seen:
-                    continue
-                seen.add(n)
-                desc_count += 1
-                queue.extend(c for c, p in location_parents.items() if p == n)
-            if desc_count > 3:
-                continue  # Genuine separate world — keep as root
-        if _safe_set_parent(node, uber_root, location_parents, f"catchall-adopt:{node}"):
-            catchall_adopted += 1
-            changes_made += 1
-    if catchall_adopted:
-        logger.info("Catch-all adopted %d remaining orphan nodes under %s", catchall_adopted, uber_root)
+    # ── Step 12: Tiered catch-all — adopt orphan nodes with intermediate matching ──
+    catchall_adopted = _tiered_catchall(
+        all_known, uber_root, location_parents, location_tiers,
+    )
+    changes_made += catchall_adopted
 
     # ── Final stats ──
     final_roots = _get_roots(location_parents)
