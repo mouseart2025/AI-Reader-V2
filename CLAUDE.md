@@ -106,6 +106,14 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 `WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent` (+1 per mention) and `spatial_relationships[relation_type=="contains"]` (weighted by confidence: high=3, medium=2, low=1). The winner for each child is stored in `WorldStructure.location_parents` (a `dict[str, str]`). Cycle detection (DFS) breaks the weakest link. User overrides (`location_parent` type) take precedence.
 
+**Suffix Rank System** (`_get_suffix_rank()`, `_NAME_SUFFIX_TIER`): Chinese location name suffixes encode geographic scale (界>国>城>谷>洞>殿). `_resolve_parents()` uses suffix rank as the PRIMARY signal for parent-child direction validation, falling back to LLM-classified `location_tiers` only when both names lack recognizable suffixes. This fixes ~35% of parent-child inversions caused by LLM extraction confusion (e.g., 元化国 incorrectly placed under 黄枫谷 → flipped because 国 rank 2 > 谷 rank 3). The same suffix rank is used in contains-relationship direction validation during vote accumulation. `_NAME_SUFFIX_TIER` (84 entries) also serves `_classify_tier()` Layer 1, providing reliable tier classification from name morphology for administrative, fantasy, natural feature, and building suffixes.
+
+**Rebuild stability**: `_rebuild_parent_votes()` injects existing `location_parents` as baseline votes (weight=2) before adding chapter_fact evidence, preventing parent wipeout when chapter_facts are sparse. `consolidate_hierarchy()` runs tier inversion fixes (Step 2b) and noise root rescue (Step 2c) for ALL genres (previously skipped for fantasy/urban). Oscillation damping detects direction flips between input and output parents; reverts flips not justified by clear suffix rank or tier difference.
+
+**Cycle detection**: Three layers of defense against cycles in `location_parents`: (1) `_resolve_parents()` walks each parent chain, breaks cycles at the weakest-voted edge; (2) `consolidate_hierarchy()` Step 0 breaks any pre-existing cycles before processing; (3) `world_structure_store.save()` runs `_break_cycles()` as a safety net before persisting. Frontend `WorldStructureEditor.tsx` tree building also detects and breaks cycles in a copy of the parents dict, preventing orphan nodes from appearing as flat depth-0 items.
+
+**Two-step hierarchy rebuild**: `POST /rebuild-hierarchy` streams SSE progress events (genre re-detection → vote rebuild → scene transition analysis → LLM review → consolidation) and returns a diff of `old_parent → new_parent` changes without saving. Each change includes `auto_select` (default checked or unchecked based on heuristics: removals default off, name-containment relationships default off, non-location parents default off). `POST /apply-hierarchy-changes` applies user-selected changes and auto-clears `map_user_overrides` for affected locations so they get repositioned by the constraint solver.
+
 Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` uses it for hierarchy sort. This replaces the old "first-to-arrive wins" strategy that caused duplicate location placements on the map.
 
 ### Relation Normalization and Classification
@@ -136,6 +144,10 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 **Integration**: `visualization_service.get_map_data()` calls `auto_resolve()` before existing ConstraintSolver path. If geo_type is realistic/mixed, raw lat/lng coordinates are returned as `geo_coords` for the Leaflet frontend, plus Mercator-projected canvas coordinates as fallback. Unresolved names scattered near neighbors via `place_unresolved_near_neighbors()`. Result cached as `layout_mode="geographic"`.
 
 `WorldStructure.geo_type` caches the detection result to avoid redundant computation.
+
+### Map Layout — Sunflower Seed Distribution
+
+`map_layout_service.py` — for locations exceeding `MAX_SOLVER_LOCATIONS=40`, overflow locations are placed by `_place_remaining()`, `_place_children()`, and `_hierarchy_layout()`. These methods use **sunflower seed distribution** (golden angle ≈137.5° + radius `r = base × (0.3 + 0.7 × √(i/n))`) instead of uniform circular placement (`angle = 2π*i/n, r = constant`), which caused visible ring patterns. The golden angle ensures successive points are maximally spread, while the sqrt-scaled radius fills the circular area organically from center outward.
 
 ### GeoMap — Leaflet Real-World Map
 

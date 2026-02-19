@@ -171,23 +171,125 @@ _FACILITY_TIER_MAP: dict[str, str] = {
     "饭场": "site", "窑洞": "site",
 }
 
-# Name suffix → tier (fallback when loc_type is unclear)
-# Ordered by longest match first to avoid partial matches
+# Name suffix → tier (used by _classify_tier Layer 1 and _get_suffix_rank)
+# Ordered by suffix length descending to avoid partial matches.
+# Comprehensive coverage: administrative, fantasy, natural features, buildings.
 _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
+    # ── 3+ char suffixes ──
     ("自治区", "continent"),
-    ("省", "continent"),
+    ("直辖市", "continent"),
+    # ── 2-char suffixes ──
+    ("大陆", "continent"),
+    ("王国", "kingdom"),
+    ("帝国", "kingdom"),
+    ("山脉", "region"),
+    ("坊市", "site"),   # 坊市 = marketplace in fantasy, not municipality
+    ("县城", "city"),   # "县城" = county seat, functions as a city/town
     ("地区", "kingdom"),
-    ("府", "kingdom"),  # 开封府, 大名府, etc.
-    ("县城", "city"),  # "县城" = county seat, functions as a city/town
-    ("市", "kingdom"),
-    ("州", "kingdom"),
-    ("县", "region"),
+    ("城市", "city"),
+    ("城池", "city"),
     ("公社", "city"),
+    # Common building compound suffixes
+    ("客栈", "building"),
+    ("酒楼", "building"),
+    ("酒馆", "building"),
+    ("茶馆", "building"),
+    ("茶楼", "building"),
+    ("当铺", "building"),
+    ("药铺", "building"),
+    ("牌坊", "site"),
+    ("书院", "building"),
+    ("祠堂", "building"),
+    ("宅院", "building"),
+    ("府邸", "building"),
+    ("洞府", "building"),  # cultivation cave dwelling
+    # ── 1-char: macro geography (continent) ──
+    ("省", "continent"),
+    ("界", "continent"),
+    ("洲", "continent"),
+    ("域", "continent"),
+    ("海", "continent"),
+    # ── 1-char: kingdom ──
+    ("国", "kingdom"),
+    ("道", "kingdom"),   # Song dynasty administrative route
+    ("府", "kingdom"),   # 开封府, 大名府, etc.
+    ("州", "kingdom"),
+    ("市", "kingdom"),
+    # ── 1-char: region ──
+    ("郡", "region"),
+    ("县", "region"),
+    ("山", "region"),
+    ("岭", "region"),
+    ("岛", "region"),
+    ("谷", "region"),
+    ("湖", "region"),
+    ("河", "region"),
+    ("林", "region"),
+    # ── 1-char: city ──
+    ("城", "city"),
+    ("都", "city"),
     ("镇", "city"),
     ("乡", "city"),
+    # ── 1-char: site ──
     ("村", "site"),
     ("庄", "site"),
+    ("寨", "site"),
+    ("屯", "site"),
+    ("营", "site"),
+    ("峰", "site"),
+    ("坡", "site"),
+    ("崖", "site"),
+    ("岗", "site"),
+    ("冈", "site"),
+    ("洞", "site"),
+    ("窟", "site"),
+    ("穴", "site"),
+    ("泉", "site"),
+    ("潭", "site"),
+    ("溪", "site"),
+    ("关", "site"),
+    ("坊", "site"),     # marketplace area
+    ("寺", "site"),
+    ("庙", "site"),
+    ("观", "site"),
+    ("庵", "site"),
+    ("祠", "site"),
+    # ── 1-char: building ──
+    ("殿", "building"),
+    ("堂", "building"),
+    ("阁", "building"),
+    ("楼", "building"),
+    ("塔", "building"),
+    ("亭", "building"),
+    ("房", "building"),
+    ("室", "building"),
+    ("厅", "building"),
+    ("院", "building"),
+    ("馆", "building"),
+    ("铺", "building"),
+    ("店", "building"),
 ]
+
+
+def _get_suffix_rank(name: str) -> int | None:
+    """Get geographic scale rank from Chinese location name suffix.
+
+    Uses name morphology (the suffix) to determine the geographic scale.
+    Returns a rank from TIER_ORDER (smaller = larger geographic entity),
+    or None if no recognizable suffix is found.
+
+    This is more reliable than LLM-classified location_tiers because the
+    suffix is factual (from the name itself), not model-inferred.
+    """
+    if len(name) < 2:
+        return None
+    for suffix, tier in _NAME_SUFFIX_TIER:
+        if name.endswith(suffix):
+            # Single-char suffix: require name longer than suffix (proper noun + suffix)
+            # Multi-char suffix: allow name == suffix (e.g., "坊市" matches "坊市")
+            if len(suffix) >= 2 or len(name) > len(suffix):
+                return TIER_ORDER.get(tier, 4)
+    return None
 
 # Minimum score to assign a genre (otherwise "unknown")
 _GENRE_MIN_SCORE = 5
@@ -1006,7 +1108,7 @@ class WorldStructureAgent:
         # Accumulate contains relationships as parent votes
         # Contains direction validation: LLM frequently inverts the direction,
         # writing "A contains B" when meaning "A is inside B".
-        # We validate using tier comparison and apply defensive weight reduction.
+        # Primary signal: suffix rank (name morphology). Fallback: tier comparison.
         for sr in fact.spatial_relationships:
             if sr.relation_type == "contains" and sr.source != sr.target:
                 source, target = sr.source, sr.target
@@ -1016,32 +1118,28 @@ class WorldStructureAgent:
                 # Defensive weight: reduced from {3,2,1} to {2,1,1}
                 # because contains direction is unreliable from LLM
                 weight = {"high": 2, "medium": 1, "low": 1}.get(sr.confidence, 1)
-                # Tier-based direction validation
-                source_tier = self.structure.location_tiers.get(source, "city")
-                target_tier = self.structure.location_tiers.get(target, "city")
-                source_rank = TIER_ORDER.get(source_tier, 4)
-                target_rank = TIER_ORDER.get(target_tier, 4)
-                if source_rank > target_rank:
-                    # source is smaller than target → LLM inverted direction, flip
-                    source, target = target, source
-                    logger.debug(
-                        "Contains direction fix: %s(%s) ⊄ %s(%s) → flipped",
-                        sr.source, source_tier, sr.target, target_tier,
-                    )
-                elif source_rank == target_rank:
-                    # Same tier — can't determine direction reliably
-                    # Use name containment heuristic
-                    if target.startswith(source) and len(target) > len(source):
-                        # target starts with source: target is sub-location of source
-                        # e.g., source=东京, target=东京城外 → direction correct
-                        pass
-                    elif source.startswith(target) and len(source) > len(target):
-                        # source starts with target: source is sub-location of target
-                        # e.g., source=东京城外, target=东京 → flip
+                # Direction validation: suffix rank > tier order
+                source_suf = _get_suffix_rank(source)
+                target_suf = _get_suffix_rank(target)
+                if source_suf is not None and target_suf is not None:
+                    if source_suf > target_suf:
                         source, target = target, source
-                    else:
-                        # No heuristic can help — reduce weight to 1 (same as parent vote)
-                        weight = 1
+                    elif source_suf == target_suf:
+                        weight = 1  # Same suffix rank, reduce weight
+                else:
+                    # Fallback: tier-based direction validation
+                    source_tier = self.structure.location_tiers.get(source, "city")
+                    target_tier = self.structure.location_tiers.get(target, "city")
+                    source_rank = TIER_ORDER.get(source_tier, 4)
+                    target_rank = TIER_ORDER.get(target_tier, 4)
+                    if source_rank > target_rank:
+                        source, target = target, source
+                    elif source_rank == target_rank:
+                        # Name containment heuristic
+                        if source.startswith(target) and len(source) > len(target):
+                            source, target = target, source
+                        elif not (target.startswith(source) and len(target) > len(source)):
+                            weight = 1
                 # source is container (parent), target is contained (child)
                 self._parent_votes.setdefault(target, Counter())[source] += weight
 
@@ -1398,11 +1496,25 @@ class WorldStructureAgent:
     # ── Parent vote resolution ────────────────────────
 
     async def _rebuild_parent_votes(self) -> dict[str, Counter]:
-        """Rebuild parent votes from all existing chapter facts (for pause/resume/rebuild)."""
+        """Rebuild parent votes from existing parents (baseline) + chapter facts.
+
+        Existing location_parents are injected as baseline votes (weight=2 each)
+        so that accumulated knowledge from the original analysis is preserved.
+        Chapter fact votes add on top. When chapter_facts are sparse (e.g., analysis
+        was interrupted), the baseline prevents all parents from being wiped out.
+        """
         from src.db.sqlite_db import get_connection
         import json as _json
 
         votes: dict[str, Counter] = {}
+
+        # Inject existing parents as baseline votes (weight=2).
+        # These represent accumulated knowledge from the original analysis
+        # (heuristics, LLM SET_PARENT, etc.) that isn't stored in chapter_facts.
+        if self.structure and self.structure.location_parents:
+            for child, parent in self.structure.location_parents.items():
+                votes.setdefault(child, Counter())[parent] += 2
+
         conn = await get_connection()
         try:
             cursor = await conn.execute(
@@ -1433,19 +1545,27 @@ class WorldStructureAgent:
                         continue
                     # Defensive weight reduction for contains relationships
                     weight = {"high": 2, "medium": 1, "low": 1}.get(sr.get("confidence", "low"), 1)
-                    # Tier-based direction validation
-                    source_tier = tiers.get(source, "city")
-                    target_tier = tiers.get(target, "city")
-                    source_rank = TIER_ORDER.get(source_tier, 4)
-                    target_rank = TIER_ORDER.get(target_tier, 4)
-                    if source_rank > target_rank:
-                        source, target = target, source
-                    elif source_rank == target_rank:
-                        # Name containment heuristic
-                        if source.startswith(target) and len(source) > len(target):
+                    # Direction validation: suffix rank (primary) > tier order (fallback)
+                    source_suf = _get_suffix_rank(source)
+                    target_suf = _get_suffix_rank(target)
+                    if source_suf is not None and target_suf is not None:
+                        if source_suf > target_suf:
                             source, target = target, source
-                        elif not (target.startswith(source) and len(target) > len(source)):
-                            weight = 1  # Can't determine direction, reduce weight
+                        elif source_suf == target_suf:
+                            weight = 1
+                    else:
+                        # Fallback: tier-based direction validation
+                        source_tier = tiers.get(source, "city")
+                        target_tier = tiers.get(target, "city")
+                        source_rank = TIER_ORDER.get(source_tier, 4)
+                        target_rank = TIER_ORDER.get(target_tier, 4)
+                        if source_rank > target_rank:
+                            source, target = target, source
+                        elif source_rank == target_rank:
+                            if source.startswith(target) and len(source) > len(target):
+                                source, target = target, source
+                            elif not (target.startswith(source) and len(target) > len(source)):
+                                weight = 1
                     votes.setdefault(target, Counter())[source] += weight
 
         return votes
@@ -1456,48 +1576,101 @@ class WorldStructureAgent:
         Algorithm:
         1. For each child, pick the parent with the most votes.
         2. Apply name containment heuristic (fix reversed pairs).
-        3. Apply direction validation (parent tier must be <= child tier).
-        4. Detect and break cycles (remove weakest link).
-        5. Skip entries overridden by user.
+        3. Apply direction validation: suffix rank (primary) > tier order (fallback).
+           Suffix rank uses Chinese location name morphology (国>城>谷>洞>殿 etc.)
+           and is more reliable than LLM-classified tiers.
+        4. Skip entries overridden by user.
+        5. Detect and break cycles (remove weakest link).
         """
         assert self.structure is not None
+
+        # Build known-locations set: tiers (classified) + vote keys (extracted as locations).
+        # Vote keys are children that the LLM extracted as locations needing parents,
+        # so they are definitely locations.  This filters out character names (e.g. 五色蛛)
+        # that only appear as vote *values* (potential parents) but were never extracted
+        # as a location themselves.
+        known_locs: set[str] = set()
+        if self.structure.location_tiers:
+            known_locs.update(self.structure.location_tiers.keys())
+        known_locs.update(self._parent_votes.keys())
 
         raw: dict[str, str] = {}
         for child, votes in self._parent_votes.items():
             if not votes:
                 continue
-            winner, _count = votes.most_common(1)[0]
-            if winner and winner != child:
-                raw[child] = winner
+            # Pick the highest-voted parent that is a known location.
+            for winner, _count in votes.most_common():
+                if winner and winner != child:
+                    if not known_locs or winner in known_locs:
+                        raw[child] = winner
+                        break
 
         # ── Name containment heuristic ──
         raw = self._apply_name_containment_heuristic(raw)
 
-        # ── Direction validation: parent tier must be <= child tier ──
+        # ── Bidirectional conflict resolution ──
+        # When both A→B and B→A exist in raw (both claim the other as parent),
+        # resolve deterministically to prevent oscillation across rebuilds.
+        resolved_bidir: set[tuple[str, str]] = set()
+        for child in list(raw):
+            parent = raw.get(child)
+            if parent and parent in raw and raw[parent] == child:
+                pair = tuple(sorted([child, parent]))
+                if pair in resolved_bidir:
+                    continue
+                resolved_bidir.add(pair)
+                a, b = pair  # a < b alphabetically
+                a_suf = _get_suffix_rank(a)
+                b_suf = _get_suffix_rank(b)
+                # Use suffix rank to determine correct direction
+                if a_suf is not None and b_suf is not None and a_suf != b_suf:
+                    if a_suf < b_suf:
+                        # a is bigger → a is parent → keep raw[b]=a, remove raw[a]
+                        raw.pop(a, None)
+                    else:
+                        raw.pop(b, None)
+                else:
+                    # Same rank or unknown: deterministic alphabetical tiebreak.
+                    # The name sorting later alphabetically is child.
+                    raw.pop(a, None)  # keep raw[b]=a (b is child of a)
+                logger.debug(
+                    "Bidirectional resolved: %s ↔ %s (suf=%s/%s)",
+                    a, b, a_suf, b_suf,
+                )
+
+        # ── Direction validation: suffix rank (primary) > tier order (fallback) ──
+        # Suffix rank is derived from Chinese location name morphology (e.g.,
+        # 国=kingdom, 城=city, 谷=region) and is more reliable than LLM-classified
+        # tiers, which are often chaotic (e.g., a valley classified as "continent").
         validated: dict[str, str] = {}
         for child, parent in raw.items():
-            child_tier = self.structure.location_tiers.get(child, "city")
-            parent_tier = self.structure.location_tiers.get(parent, "city")
-            child_rank = TIER_ORDER.get(child_tier, 4)
-            parent_rank = TIER_ORDER.get(parent_tier, 4)
+            child_suf = _get_suffix_rank(child)
+            parent_suf = _get_suffix_rank(parent)
 
-            if parent_rank <= child_rank:
-                # Normal: parent is bigger or same level
-                validated[child] = parent
+            should_flip = False
+
+            if child_suf is not None and parent_suf is not None:
+                # Both have suffix ranks — use name morphology for direction
+                if parent_suf > child_suf:
+                    should_flip = True
+                # If equal or parent_suf < child_suf, direction is correct
             else:
-                # Reversed! Parent is smaller than child.
-                # Check if parent also has child as a voted parent
-                reverse_votes = self._parent_votes.get(parent, Counter())
-                if child in reverse_votes:
-                    # Bidirectional votes — use tier to determine correct direction
-                    validated[parent] = child  # Flip: bigger one becomes parent
-                else:
-                    # Unidirectional but reversed — LLM likely got it wrong, correct it
-                    validated[parent] = child
+                # Fallback: tier-based validation
+                child_tier = self.structure.location_tiers.get(child, "city")
+                parent_tier = self.structure.location_tiers.get(parent, "city")
+                child_rank = TIER_ORDER.get(child_tier, 4)
+                parent_rank = TIER_ORDER.get(parent_tier, 4)
+                if parent_rank > child_rank:
+                    should_flip = True
+
+            if should_flip:
+                validated[parent] = child
                 logger.debug(
-                    "Parent direction fix: %s(%s) ⊂ %s(%s) → reversed",
-                    child, child_tier, parent, parent_tier,
+                    "Direction fix: %s ⊂ %s → reversed (suffix=%s/%s)",
+                    child, parent, child_suf, parent_suf,
                 )
+            else:
+                validated[child] = parent
 
         # Skip user-overridden entries
         result: dict[str, str] = {}
