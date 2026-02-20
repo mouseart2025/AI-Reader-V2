@@ -28,7 +28,7 @@
          → WorldStructureAgent (信号扫描 + 启发式 + LLM 增量更新)
          → 区域级约束求解布局 + 层独立布局
          → 程序化地形生成
-         → MapLibre GL JS 多层渲染
+         → D3.js + SVG 多层渲染 / react-leaflet 地理地图渲染
 ```
 
 ### V2 架构：多层级世界结构
@@ -64,7 +64,7 @@ V5 针对实际使用中发现的多个问题进行了系统性改进：
 3. **小说类型自适应** — 自动检测小说类型（奇幻/武侠/历史/都市），调整信号检测灵敏度：奇幻启用多层检测，都市禁用副本检测，简单结构优雅退化为 V1 模式
 4. **区域级约束求解** — 参考 [PlotMap](https://github.com/AutodeskAILab/PlotMap)（Autodesk AI Research, 2024）的 CMA-ES 方法，使用 `scipy.optimize.differential_evolution`，能量函数包含方位惩罚 + 距离误差 + 包含违反 + 分隔违反 + 夹在中间 + 反重叠 + 叙事轴 + 方位名称提示
 5. **程序化地形** — Voronoi 区域划分 + OpenSimplex 噪声生成地形底图，按地点类型分配生物群落颜色
-6. **浏览器渲染** — [MapLibre GL JS](https://maplibre.org/) 多层 Tab 切换，区域边界半透明填充，传送门标记点击切层，三态战争迷雾（hidden/revealed/active）
+6. **浏览器渲染** — D3.js + SVG 多层 Tab 切换，区域边界半透明填充，传送门标记点击切层，三态战争迷雾（hidden/revealed/active）；真实地理模式使用 react-leaflet + CartoDB 瓦片地图
 7. **用户编辑** — Override 机制存储用户修正（区域归属/传送门增删），LLM 重分析不覆盖用户编辑
 
 约束不足时（< 3 条空间关系），自动退化为层级圆形布局，确保始终有可用的地图视图。
@@ -83,7 +83,7 @@ V5 针对实际使用中发现的多个问题进行了系统性改进：
 | 层 | 技术 |
 |----|------|
 | 前端 | React 19 + TypeScript + Vite + Tailwind CSS v4 + shadcn/ui |
-| 地图渲染 | MapLibre GL JS |
+| 地图渲染 | D3.js + SVG (小说地图) / react-leaflet + Leaflet (地理地图) |
 | 关系图/势力图 | react-force-graph-2d |
 | 状态管理 | Zustand |
 | 后端 | Python + FastAPI + aiosqlite |
@@ -220,12 +220,13 @@ AI-Reader-V2/
 | Epic 18 | 两步层级重建 + 地图布局质量 + 环路修复 | 4 | done |
 | Epic 19 | 地理数据质量提升 — 空间信号挖掘 + 提取质量 + 上下文整合 | 11 | done |
 | Epic 20 | Token 预算自适应 — 根据模型上下文窗口动态缩放 | 1 | done |
+| Epic 21 | GeoNames 中文别名数据库集成 — 地理地名解析可扩展性提升 | 4 | done |
 
-共计 **20 个 Epic、86 个 Story**，全部完成。
+共计 **21 个 Epic、90 个 Story**，全部完成。
 
 ## 版本
 
-当前版本：**v0.22.0**
+当前版本：**v0.22.1**
 
 ## License
 
