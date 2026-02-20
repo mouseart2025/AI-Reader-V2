@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { ItemProfile } from "@/api/types"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 
@@ -6,7 +7,7 @@ interface ItemCardProps {
   onEntityClick: (name: string, type: string) => void
 }
 
-export function ItemCard({ profile, onEntityClick }: ItemCardProps) {
+export const ItemCard = memo(function ItemCard({ profile, onEntityClick }: ItemCardProps) {
   const { flow, related_items, stats } = profile
 
   return (
@@ -75,7 +76,7 @@ export function ItemCard({ profile, onEntityClick }: ItemCardProps) {
       </div>
     </div>
   )
-}
+})
 
 function formatStatLabel(key: string): string {
   const labels: Record<string, string> = {

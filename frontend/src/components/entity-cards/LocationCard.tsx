@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { LocationProfile } from "@/api/types"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 
@@ -6,7 +7,7 @@ interface LocationCardProps {
   onEntityClick: (name: string, type: string) => void
 }
 
-export function LocationCard({ profile, onEntityClick }: LocationCardProps) {
+export const LocationCard = memo(function LocationCard({ profile, onEntityClick }: LocationCardProps) {
   const { descriptions, visitors, events, stats } = profile
 
   const residents = visitors.filter((v) => v.is_resident)
@@ -113,7 +114,7 @@ export function LocationCard({ profile, onEntityClick }: LocationCardProps) {
       </div>
     </div>
   )
-}
+})
 
 function formatStatLabel(key: string): string {
   const labels: Record<string, string> = {

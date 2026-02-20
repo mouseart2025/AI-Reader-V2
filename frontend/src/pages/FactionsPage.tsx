@@ -202,13 +202,6 @@ export default function FactionsPage() {
     [selectedOrg],
   )
 
-  const handleNodeDblClick = useCallback(
-    (node: OrgNode) => {
-      openEntityCard(node.name, "org")
-    },
-    [openEntityCard],
-  )
-
   return (
     <VisualizationLayout>
       <div className="flex h-full flex-col">

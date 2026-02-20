@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { PersonProfile } from "@/api/types"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 
@@ -17,7 +18,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 const CATEGORY_ORDER = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
 
-export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
+export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: PersonCardProps) {
   const { aliases, appearances, abilities, relations, items, experiences, stats } = profile
 
   // Group abilities by dimension
@@ -208,7 +209,7 @@ export function PersonCard({ profile, onEntityClick }: PersonCardProps) {
       </div>
     </div>
   )
-}
+})
 
 function formatStatLabel(key: string): string {
   const labels: Record<string, string> = {

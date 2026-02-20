@@ -128,6 +128,20 @@ export default function GraphPage() {
   const [showPathPanel, setShowPathPanel] = useState(false)
   const [pathInfo, setPathInfo] = useState<string[]>([])
 
+  // Debounced filter values — slider UI updates immediately, graph filtering lags 150ms
+  const [debouncedMinChapters, setDebouncedMinChapters] = useState(minChapters)
+  const [debouncedMinEdgeWeight, setDebouncedMinEdgeWeight] = useState(minEdgeWeight)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMinChapters(minChapters), 150)
+    return () => clearTimeout(t)
+  }, [minChapters])
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMinEdgeWeight(minEdgeWeight), 150)
+    return () => clearTimeout(t)
+  }, [minEdgeWeight])
+
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge>>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
@@ -190,14 +204,14 @@ export default function GraphPage() {
     return map
   }, [nodes])
 
-  // Filter nodes AND edges
+  // Filter nodes AND edges (uses debounced values to avoid per-frame recomputation during slider drag)
   const { filteredNodes, filteredEdges, filteredNodeIds, degreeMap } = useMemo(() => {
-    const chapterFiltered = nodes.filter((n) => n.chapter_count >= minChapters)
+    const chapterFiltered = nodes.filter((n) => n.chapter_count >= debouncedMinChapters)
     const chapterIds = new Set(chapterFiltered.map((n) => n.id))
 
     // Filter edges by BOTH node presence and edge weight
     const validEdges = edges.filter((e) => {
-      if (e.weight < minEdgeWeight) return false
+      if (e.weight < debouncedMinEdgeWeight) return false
       const src = typeof e.source === "string" ? e.source : e.source.id
       const tgt = typeof e.target === "string" ? e.target : e.target.id
       return chapterIds.has(src) && chapterIds.has(tgt)
@@ -226,7 +240,7 @@ export default function GraphPage() {
       filteredNodeIds: connectedIds,
       degreeMap: deg,
     }
-  }, [nodes, edges, minChapters, minEdgeWeight])
+  }, [nodes, edges, debouncedMinChapters, debouncedMinEdgeWeight])
 
   // Highlight connected nodes on hover
   const connectedNodes = useMemo(() => {

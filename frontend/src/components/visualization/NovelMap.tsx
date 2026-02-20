@@ -56,22 +56,51 @@ function computeLabelCollisions(rects: LabelRect[]): Set<string> {
   // Sort by priority descending — higher priority labels claim space first
   const sorted = [...rects].sort((a, b) => b.priority - a.priority)
   const visible = new Set<string>()
-  const placed: LabelRect[] = []
+
+  // Grid-based spatial index for O(n) average collision detection (vs O(n²) brute force)
+  const cellSize = 60
+  const grid = new Map<number, LabelRect[]>()
+
+  const cellKeyAt = (cx: number, cy: number) => cx * 100003 + cy
+
+  const getCellRange = (r: LabelRect) => ({
+    x0: Math.floor(r.x / cellSize),
+    x1: Math.floor((r.x + r.w) / cellSize),
+    y0: Math.floor(r.y / cellSize),
+    y1: Math.floor((r.y + r.h) / cellSize),
+  })
 
   for (const r of sorted) {
+    const { x0, x1, y0, y1 } = getCellRange(r)
     let overlaps = false
-    for (const p of placed) {
-      if (
-        r.x < p.x + p.w && r.x + r.w > p.x &&
-        r.y < p.y + p.h && r.y + r.h > p.y
-      ) {
-        overlaps = true
-        break
+
+    outer:
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const cell = grid.get(cellKeyAt(cx, cy))
+        if (!cell) continue
+        for (const p of cell) {
+          if (
+            r.x < p.x + p.w && r.x + r.w > p.x &&
+            r.y < p.y + p.h && r.y + r.h > p.y
+          ) {
+            overlaps = true
+            break outer
+          }
+        }
       }
     }
+
     if (!overlaps) {
       visible.add(r.name)
-      placed.push(r)
+      for (let cx = x0; cx <= x1; cx++) {
+        for (let cy = y0; cy <= y1; cy++) {
+          const key = cellKeyAt(cx, cy)
+          let cell = grid.get(key)
+          if (!cell) { cell = []; grid.set(key, cell) }
+          cell.push(r)
+        }
+      }
     }
   }
   return visible
@@ -179,7 +208,7 @@ const ICON_NAMES = [
 export interface NovelMapProps {
   locations: MapLocation[]
   layout: MapLayoutItem[]
-  layoutMode: "constraint" | "hierarchy" | "layered"
+  layoutMode: "constraint" | "hierarchy" | "layered" | "geographic"
   layerType?: string
   terrainUrl: string | null
   visibleLocationNames: Set<string>
@@ -221,7 +250,6 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       layout,
       layoutMode,
       layerType,
-      terrainUrl,
       visibleLocationNames,
       revealedLocationNames,
       regionBoundaries,
