@@ -2,7 +2,7 @@
 
 Supports multiple geographic datasets:
   - "cn"    → GeoNames CN.zip  (comprehensive Chinese locations, ~10MB)
-  - "world" → GeoNames cities15000.zip (global cities with pop > 15000, ~2MB)
+  - "world" → GeoNames cities5000.zip (global cities with pop > 5000, ~5MB)
 
 Auto-detects which dataset to use based on novel genre and location name
 characteristics. Provides geo_type detection (realistic/mixed/fantasy) and
@@ -28,6 +28,12 @@ from src.infra.config import GEONAMES_DIR
 
 logger = logging.getLogger(__name__)
 
+# ── Chinese alternate name index (from zh_geonames.tsv) ──
+# Lazy-loaded by _load_zh_alias_index(). Only used with "world" dataset.
+# Format: {zh_name: [(lat, lng, pop, feature_code, country_code, geonameid), ...]}
+_zh_alias_index: dict[str, list[tuple[float, float, int, str, str, int]]] | None = None
+_ZH_GEONAMES_TSV = Path(__file__).resolve().parent.parent.parent / "data" / "zh_geonames.tsv"
+
 # ── Dataset configuration ────────────────────────────────
 
 
@@ -50,9 +56,9 @@ DATASET_CN = GeoDatasetConfig(
 
 DATASET_WORLD = GeoDatasetConfig(
     key="world",
-    url="https://download.geonames.org/export/dump/cities15000.zip",
-    zip_member="cities15000.txt",
-    description="GeoNames cities15000 — global cities with pop > 15000",
+    url="https://download.geonames.org/export/dump/cities5000.zip",
+    zip_member="cities5000.txt",
+    description="GeoNames cities5000 — global cities with pop > 5000",
 )
 
 DATASET_REGISTRY: dict[str, GeoDatasetConfig] = {
@@ -99,15 +105,17 @@ _NOTABLE_FEATURE_CODES = frozenset({
 _FANTASY_GENRES = frozenset({"fantasy"})
 
 # ── Supplementary geo data ──────────────────────────────
-# Countries, continents, oceans, and major cities missing from cities15000
-# Chinese alternate names. Coordinates are approximate centroids.
+# Supplementary geo data — entries NOT covered by zh_geonames.tsv or cities5000.
+# zh_geonames.tsv covers ~25K city-level Chinese names; these fill the gaps.
+# Categories: continents, oceans, countries, rivers, states (ADM1), landmarks,
+# ambiguous overrides, Taiwan transliterations, historical/literary names.
 _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
-    # Continents
+    # ── Continents (not in GeoNames city data) ──
     "亚洲": (34.05, 100.62), "欧洲": (48.69, 9.14), "非洲": (1.65, 17.70),
     "北美洲": (48.17, -101.85), "南美洲": (-8.78, -55.49),
     "大洋洲": (-22.74, 140.02), "美洲": (19.43, -99.13),
     "南极洲": (-82.86, 135.0),
-    # Oceans and major water bodies
+    # ── Oceans / seas / water bodies (not in GeoNames city data) ──
     "太平洋": (0.0, -160.0), "大西洋": (14.60, -28.27),
     "印度洋": (-20.0, 80.0), "北冰洋": (84.0, 0.0),
     "地中海": (35.0, 18.0), "红海": (20.0, 38.5),
@@ -115,8 +123,9 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "东海": (29.0, 126.0), "黄海": (35.0, 123.0),
     "渤海": (38.5, 119.5), "加勒比海": (15.0, -75.0),
     "黑海": (43.0, 35.0), "里海": (41.0, 51.0),
-    "阿拉伯海": (14.0, 65.0),
-    # Countries — major ones commonly referenced in Chinese literature
+    "阿拉伯海": (14.0, 65.0), "墨西哥湾": (25.0, -90.0),
+    "南太平洋": (-20.0, -140.0),
+    # ── Countries (not in cities5000, only city-level entries there) ──
     "中国": (35.86, 104.20), "日本": (36.20, 138.25),
     "韩国": (36.50, 127.77), "朝鲜": (40.34, 127.51),
     "印度": (20.59, 78.96), "泰国": (15.87, 100.99),
@@ -132,7 +141,7 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "丹麦": (56.26, 9.50), "芬兰": (61.92, 25.75),
     "波兰": (51.92, 19.15), "希腊": (39.07, 21.82),
     "土耳其": (38.96, 35.24), "俄罗斯": (61.52, 105.32),
-    "苏联": (61.52, 105.32),
+    "苏联": (61.52, 105.32),  # historical
     "美国": (37.09, -95.71), "加拿大": (56.13, -106.35),
     "墨西哥": (23.63, -102.55), "巴西": (-14.24, -51.93),
     "阿根廷": (-38.42, -63.62), "澳大利亚": (-25.27, 133.78),
@@ -143,73 +152,109 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "巴勒斯坦": (31.95, 35.23), "叙利亚": (34.80, 38.99),
     "阿富汗": (33.94, 67.71), "巴基斯坦": (30.38, 69.35),
     "斯里兰卡": (7.87, 80.77), "尼泊尔": (28.39, 84.12),
-    "蒙古": (46.86, 103.85),
-    # Key cities missing Chinese alternates in cities15000
-    "纽约": (40.71, -74.01), "横滨": (35.44, 139.64),
-    "布林迪西": (40.63, 17.94), "卡迪夫": (51.48, -3.18),
-    "长崎": (32.75, 129.88), "马德拉斯": (13.08, 80.27),
-    "贝拿勒斯": (25.32, 83.01), "阿拉哈巴德": (25.43, 81.85),
-    "昌德纳戈尔": (22.87, 88.38), "仰光": (16.87, 96.20),
-    "大阪": (34.69, 135.50), "京都": (35.01, 135.77),
-    "名古屋": (35.18, 136.91), "广岛": (34.40, 132.46),
-    "汉城": (37.57, 126.98), "首尔": (37.57, 126.98),
-    "曼谷": (13.76, 100.50), "河内": (21.03, 105.85),
-    "吉隆坡": (3.14, 101.69), "雅加达": (-6.21, 106.85),
-    "马尼拉": (14.60, 120.98), "德里": (28.64, 77.22),
-    "加尔各答": (22.57, 88.36), "孟买": (19.08, 72.88),
-    "开罗": (30.04, 31.24), "伊斯坦布尔": (41.01, 28.98),
-    "莫斯科": (55.76, 37.62), "圣彼得堡": (59.93, 30.32),
-    "柏林": (52.52, 13.41), "维也纳": (48.21, 16.37),
-    "罗马": (41.89, 12.51), "雅典": (37.98, 23.73),
-    "里斯本": (38.72, -9.14), "马德里": (40.42, -3.70),
-    "阿姆斯特丹": (52.37, 4.89), "布鲁塞尔": (50.85, 4.35),
-    "哥本哈根": (55.68, 12.57), "斯德哥尔摩": (59.33, 18.07),
-    "华沙": (52.23, 21.01), "布达佩斯": (47.50, 19.04),
-    "布拉格": (50.09, 14.42), "里约热内卢": (-22.91, -43.17),
-    "布宜诺斯艾利斯": (-34.60, -58.38), "悉尼": (-33.87, 151.21),
-    "墨尔本": (-37.81, 144.96), "温哥华": (49.25, -123.12),
-    "多伦多": (43.65, -79.38), "蒙特利尔": (45.50, -73.57),
-    "波士顿": (42.36, -71.06), "费城": (39.95, -75.17),
-    "华盛顿": (38.91, -77.04), "洛杉矶": (34.05, -118.24),
-    "西雅图": (47.61, -122.33), "休斯顿": (29.76, -95.37),
-    "迈阿密": (25.76, -80.19), "亚特兰大": (33.75, -84.39),
-    "檀香山": (21.31, -157.86), "火奴鲁鲁": (21.31, -157.86),
-    # Historical / literary names
+    "蒙古": (46.86, 103.85), "孟加拉": (23.68, 90.36),
+    "冰岛": (64.96, -19.02),
+    "澳洲": (-25.27, 133.78),  # colloquial for 澳大利亚
+    "新几内亚": (-6.0, 147.0),
+    "寮国": (19.86, 102.50),  # Taiwan for 老挝
+    "老挝": (19.86, 102.50),
+    # ── Rivers (not in GeoNames city data) ──
+    "恒河": (25.0, 83.0), "尼罗河": (26.0, 32.0),
+    "密西西比河": (32.0, -91.0), "亚马逊河": (-3.4, -58.5),
+    "多瑙河": (45.0, 29.0), "莱茵河": (50.0, 7.5),
+    "伏尔加河": (55.0, 49.0),
+    # ── Straits / canals (not in GeoNames city data) ──
+    "暹罗湾": (9.0, 101.0), "孟加拉湾": (14.0, 88.0),
+    "曼德海峡": (12.58, 43.33), "苏伊士运河": (30.46, 32.34),
+    "巴拿马运河": (9.08, -79.68), "马六甲海峡": (2.5, 101.5),
+    "英吉利海峡": (50.2, -1.0), "爱尔兰海峡": (53.5, -5.0),
+    # ── Historical / literary names (not in GeoNames or wrong match) ──
     "锡兰": (7.87, 80.77),  # Sri Lanka old name
     "暹罗": (15.87, 100.99),  # Thailand old name
     "波斯": (32.43, 53.69),  # Iran old name
-    "交趾支那": (10.82, 106.63),  # Cochinchina (southern Vietnam)
-    "安南": (16.46, 107.59),  # Annam (central Vietnam)
-    "苏门答腊": (0.59, 101.34),
-    "爪哇": (-7.61, 110.20),
-    "婆罗洲": (0.96, 114.55),
-    "好望角": (-34.36, 18.47),
-    "直布罗陀": (36.14, -5.35),
-    "马六甲": (2.19, 102.25),
-    "果阿": (15.30, 74.12),
-    "暹罗湾": (9.0, 101.0),
-    "孟加拉": (23.68, 90.36),  # Bangladesh
-    "孟加拉湾": (14.0, 88.0),
-    "曼德海峡": (12.58, 43.33),
-    "苏伊士运河": (30.46, 32.34),
-    "巴拿马运河": (9.08, -79.68),
-    "马六甲海峡": (2.5, 101.5),
-    "英吉利海峡": (50.2, -1.0),
-    "爱尔兰海峡": (53.5, -5.0),
-    "迦太基": (36.85, 10.33),
-    "耶路撒冷": (31.77, 35.23),
-    "麦加": (21.43, 39.83),
-    "巴格达": (33.31, 44.37),
-    "大马士革": (33.51, 36.29),
-    "恒河": (25.0, 83.0),  # Ganges approximate
-    "尼罗河": (26.0, 32.0),  # Nile approximate
-    "密西西比河": (32.0, -91.0),
-    "亚马逊河": (-3.4, -58.5),
-    "多瑙河": (45.0, 29.0),
-    "莱茵河": (50.0, 7.5),
-    "伏尔加河": (55.0, 49.0),
-    # Harbours / ports commonly referenced
-    "维多利亚港": (22.29, 114.17),  # Victoria Harbour, Hong Kong
+    "交趾支那": (10.82, 106.63),  # Cochinchina
+    "安南": (16.46, 107.59),  # Annam
+    "苏门答腊": (0.59, 101.34), "爪哇": (-7.61, 110.20),
+    "婆罗洲": (0.96, 114.55), "好望角": (-34.36, 18.47),
+    "果阿": (15.30, 74.12), "迦太基": (36.85, 10.33),
+    # ── Cities not in zh_geonames.tsv (no zh alternate in GeoNames) ──
+    "横滨": (35.44, 139.64), "布林迪西": (40.63, 17.94),
+    "卡迪夫": (51.48, -3.18), "长崎": (32.75, 129.88),
+    "马德拉斯": (13.08, 80.27), "贝拿勒斯": (25.32, 83.01),
+    "阿拉哈巴德": (25.43, 81.85), "昌德纳戈尔": (22.87, 88.38),
+    "大阪": (34.69, 135.50), "名古屋": (35.18, 136.91),
+    "广岛": (34.40, 132.46), "菲尼克斯": (33.45, -112.07),
+    "火奴鲁鲁": (21.31, -157.86),
+    # ── Ambiguous city overrides (zh_alias picks wrong city by population) ──
+    "华盛顿": (38.91, -77.04),  # override: zh_alias→UK Washington (pop 53K)
+    "汉城": (37.57, 126.98),  # override: zh_alias→湖北汉城 (not Seoul)
+    "伯明翰": (33.52, -86.80),  # override: Birmingham AL (not England)
+    "剑桥": (42.37, -71.11),  # override: Cambridge MA (not UK)
+    "西贡": (10.82, 106.63),  # override: Saigon/HCMC (not HK 西贡)
+    "圣路易斯": (38.63, -90.20),  # override: St. Louis MO (not Brazil)
+    "圣迭戈": (32.72, -117.16), "圣地亚哥": (32.72, -117.16),  # override: San Diego (not Chile)
+    "里奇蒙": (37.54, -77.44),  # override: Richmond VA (not CA)
+    "路易斯维尔": (38.25, -85.76),  # override: Louisville KY (not CO)
+    # ── US states (ADM1 — not in cities5000, which only has city-level) ──
+    "阿拉巴马": (32.32, -86.90), "阿拉巴马州": (32.32, -86.90),
+    "佐治亚": (32.17, -82.90), "佐治亚州": (32.17, -82.90),
+    "密西西比": (32.35, -89.40), "密西西比州": (32.35, -89.40),
+    "田纳西": (35.52, -86.58), "田纳西州": (35.52, -86.58),
+    "弗吉尼亚": (37.43, -78.66), "弗吉尼亚州": (37.43, -78.66),
+    "加利福尼亚": (36.78, -119.42), "加利福尼亚州": (36.78, -119.42),
+    "得克萨斯": (31.97, -99.90), "得克萨斯州": (31.97, -99.90),
+    "佛罗里达": (27.66, -81.52), "佛罗里达州": (27.66, -81.52),
+    "马萨诸塞": (42.41, -71.38), "马萨诸塞州": (42.41, -71.38),
+    "伊利诺伊": (40.63, -89.40), "伊利诺伊州": (40.63, -89.40),
+    "宾夕法尼亚": (41.20, -77.19), "宾夕法尼亚州": (41.20, -77.19),
+    "俄亥俄": (40.42, -82.91), "俄亥俄州": (40.42, -82.91),
+    "纽约州": (42.17, -74.95),
+    "路易斯安那": (30.98, -91.96), "路易斯安那州": (30.98, -91.96),
+    "北卡罗来纳": (35.76, -79.02), "北卡罗来纳州": (35.76, -79.02),
+    "南卡罗来纳": (33.84, -81.16), "南卡罗来纳州": (33.84, -81.16),
+    "科罗拉多": (39.55, -105.78), "科罗拉多州": (39.55, -105.78),
+    "华盛顿州": (47.75, -120.74),
+    "印第安纳": (40.27, -86.13), "印第安纳州": (40.27, -86.13),
+    "密苏里": (37.96, -91.83), "密苏里州": (37.96, -91.83),
+    "马里兰": (39.05, -76.64), "马里兰州": (39.05, -76.64),
+    "康涅狄格": (41.60, -72.76), "康涅狄格州": (41.60, -72.76),
+    "阿拉斯加": (64.20, -152.49), "阿拉斯加州": (64.20, -152.49),
+    # ── US state abbreviations (colloquial Chinese) ──
+    "加州": (36.78, -119.42), "德州": (31.97, -99.90),
+    "麻省": (42.41, -71.38), "华府": (38.91, -77.04),
+    # ── Fictional locations ──
+    "绿弓镇": (32.32, -86.90),  # Greenbow (Forrest Gump), placed in Alabama
+    # ── Taiwan-style transliterations (台湾译法, not in GeoNames) ──
+    "亚拉巴马": (32.32, -86.90), "亚拉巴马州": (32.32, -86.90),
+    "乔治亚": (32.17, -82.90), "乔治亚州": (32.17, -82.90),
+    "印第安那": (40.27, -86.13), "印第安那州": (40.27, -86.13),
+    "北卡罗莱纳": (35.76, -79.02), "北卡罗莱纳州": (35.76, -79.02),
+    "南卡罗莱纳": (33.84, -81.16), "南卡罗莱纳州": (33.84, -81.16),
+    "印第安那波里": (39.77, -86.16),  # Indianapolis (Taiwan)
+    "木比耳": (30.69, -88.04),  # Mobile (Taiwan)
+    "纳许维尔": (36.16, -86.78),  # Nashville (Taiwan)
+    "沙凡纳": (32.08, -81.10),  # Savannah (Taiwan)
+    "纽奥尔良": (29.95, -90.07),  # New Orleans (Taiwan)
+    "曼菲斯": (35.15, -90.05),  # Memphis (Taiwan)
+    "查尔斯屯": (32.78, -79.93),  # Charleston (Taiwan)
+    "蒙乔乌利": (32.37, -86.30),  # Montgomery (Taiwan)
+    "蒙夕": (32.37, -86.30),  # Montgomery (abbreviated)
+    "休士顿": (29.76, -95.37),  # Houston (Taiwan)
+    "德州休士顿": (29.76, -95.37),  # "Texas Houston" compound
+    "萨瓦纳": (32.08, -81.10), "萨瓦那": (32.08, -81.10),  # Savannah variants
+    # ── Vietnamese cities (common in war novels) ──
+    "归仁": (13.77, 109.22),  # Quy Nhon
+    "波来古": (13.97, 108.00),  # Pleiku
+    # ── Landmarks / institutions (not in GeoNames city data) ──
+    "维多利亚港": (22.29, 114.17),  # Victoria Harbour, HK
+    "白宫": (38.90, -77.04), "国会山庄": (38.89, -77.01),
+    "国会山": (38.89, -77.01), "华特·里德医院": (38.98, -77.10),
+    "哈佛大学": (42.37, -71.12), "乔治亚大学": (33.95, -83.37),
+    "迪斯尼乐园": (33.81, -117.92), "迪士尼乐园": (33.81, -117.92),
+    # ── US military bases ──
+    "狄克斯堡": (40.02, -74.58),  # Fort Dix
+    "班宁堡": (32.35, -84.95), "乔治亚州班宁堡": (32.35, -84.95),
+    "北极": (71.0, -156.0),  # Arctic (use Barrow)
 }
 
 # ── Chinese historical / literary geographic supplement ──
@@ -317,11 +362,93 @@ _NON_GEO_PATTERNS = re.compile(
     r"(号$|车厢|车站|码头|包厢|酒吧|饭店|旅店|旅馆|俱乐部|协会|学会|法庭|银行|"
     r"商行|商店|办公|仓库|警[署卫]|领事馆|教堂$|大厅|售票|围墙|祭坛|行政|"
     r"火车$|列车|客轮|雪橇|甲板|大街|街$|院$|栅栏|灌木|丛林|树丛|"
-    r"林间|密林|空[地场]|道上|河滨$|郊外$|花园$|舞台$|餐厅|烟馆|理发|"
+    r"林间|密林|空[地场]|道上|河滨$|河边$|郊外$|花园$|舞台$|餐厅|烟馆|理发|"
     # Interior / positional — common in mansion/estate novels
     r"房$|房中$|房内$|房里$|门口$|门前$|门外$|"
     r"前边|后面|外边|里边|隔壁|对门|旁边|前头|外头|里头|上面|下面)"
 )
+
+
+# ── Chinese alternate name index ─────────────────────────
+
+
+def _load_zh_alias_index() -> dict[str, list[tuple[float, float, int, str, str, int]]]:
+    """Lazy-load zh_geonames.tsv into an in-memory lookup dict.
+
+    TSV format (no header): zh_name \\t lat \\t lng \\t pop \\t feature_code \\t country_code \\t geonameid
+    Same zh_name can map to multiple geonames entries (e.g., 孟菲斯 → Memphis TN + Memphis FL).
+    Entries per name are sorted by population descending (done at build time).
+
+    Returns {zh_name: [(lat, lng, pop, feature_code, country_code, geonameid), ...]}.
+    """
+    global _zh_alias_index
+    if _zh_alias_index is not None:
+        return _zh_alias_index
+
+    if not _ZH_GEONAMES_TSV.exists():
+        logger.warning("zh_geonames.tsv not found at %s — Chinese alias lookup disabled", _ZH_GEONAMES_TSV)
+        _zh_alias_index = {}
+        return _zh_alias_index
+
+    index: dict[str, list[tuple[float, float, int, str, str, int]]] = {}
+    count = 0
+    with open(_ZH_GEONAMES_TSV, encoding="utf-8") as f:
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 7:
+                continue
+            try:
+                zh_name = parts[0]
+                lat = float(parts[1])
+                lng = float(parts[2])
+                pop = int(parts[3])
+                feat = parts[4]
+                cc = parts[5]
+                gid = int(parts[6])
+            except (ValueError, IndexError):
+                continue
+            index.setdefault(zh_name, []).append((lat, lng, pop, feat, cc, gid))
+            count += 1
+
+    _zh_alias_index = index
+    logger.info("zh_alias_index loaded: %d entries, %d unique names", count, len(index))
+    return _zh_alias_index
+
+
+def _resolve_from_zh_alias(
+    name: str,
+    parent_coord: tuple[float, float] | None = None,
+) -> tuple[float, float] | None:
+    """Look up a name in the Chinese alternate name index.
+
+    Disambiguation:
+      - If parent_coord is provided and multiple entries exist, prefer the one
+        closest to the parent (within 1000km).
+      - Otherwise, pick the entry with the highest population.
+    """
+    idx = _load_zh_alias_index()
+    entries = idx.get(name)
+    if not entries:
+        return None
+
+    if len(entries) == 1:
+        return (entries[0][0], entries[0][1])
+
+    # Multiple entries: disambiguate
+    if parent_coord:
+        # Prefer entry closest to parent within 1000km
+        closest = None
+        closest_dist = float("inf")
+        for lat, lng, pop, feat, cc, gid in entries:
+            dist = _haversine_km((lat, lng), parent_coord)
+            if dist < closest_dist:
+                closest_dist = dist
+                closest = (lat, lng)
+        if closest and closest_dist < 1000:
+            return closest
+
+    # Fallback: highest population (entries already sorted by pop desc from build)
+    return (entries[0][0], entries[0][1])
 
 
 # ── Data model ───────────────────────────────────────────
@@ -479,9 +606,10 @@ class GeoResolver:
 
         Resolution order (curated data beats noisy data):
           1. Curated supplement dictionaries (CN historical terms, world entities)
-          2. Exact match from GeoNames index
-          3. Suffix stripping (remove common Chinese geographic suffixes)
-          4. Disambiguation: prefer higher admin level, then population
+          2. Chinese alternate name index (zh_geonames.tsv, world dataset only)
+          3. Exact match from GeoNames index
+          4. Suffix stripping (remove common Chinese geographic suffixes)
+          5. Disambiguation: prefer higher admin level, then population
 
         Two-pass strategy when parent_map is provided:
           - Pass 1: resolve all names (exact + supplement matches first)
@@ -493,6 +621,7 @@ class GeoResolver:
         Returns dict of {name: (lat, lng)} for successfully resolved names.
         """
         index = self._load_index()
+        use_zh_alias = self.dataset_key == "world"
         result: dict[str, tuple[float, float]] = {}
         suffix_stripped_names: set[str] = set()  # track which used suffix stripping
 
@@ -507,10 +636,28 @@ class GeoResolver:
                 result[name] = sup
                 continue
 
-            # Level 2: exact match from GeoNames
+            # Skip obviously non-geographic names before GeoNames lookup.
+            # Generic Chinese words like 丛林(jungle), 花园(garden), 河边(riverside)
+            # can match real Chinese place names in GeoNames, causing wrong coordinates.
+            if _NON_GEO_PATTERNS.search(name):
+                continue
+
+            # Level 2: Chinese alternate name index (world dataset only)
+            if use_zh_alias:
+                parent_coord = None
+                if parent_map:
+                    p = parent_map.get(name)
+                    if p and p in result:
+                        parent_coord = result[p]
+                zh_coord = _resolve_from_zh_alias(name, parent_coord)
+                if zh_coord:
+                    result[name] = zh_coord
+                    continue
+
+            # Level 3: exact match from GeoNames
             entries = index.get(name)
 
-            # Level 3: suffix stripping
+            # Level 4: suffix stripping
             if not entries:
                 stripped = _GEO_SUFFIXES.sub("", name)
                 if stripped and stripped != name and len(stripped) >= 2:
@@ -613,6 +760,8 @@ class GeoResolver:
             which match common Chinese words like 后门, 角门, 大观园, 玉皇庙
         """
         index = self._load_index()
+        use_zh_alias = self.dataset_key == "world"
+        zh_idx = _load_zh_alias_index() if use_zh_alias else {}
         count = 0
         for name in names:
             if not name or len(name) < 2:
@@ -621,6 +770,15 @@ class GeoResolver:
             if name in _SUPPLEMENT_CN or name in _SUPPLEMENT_GEO:
                 count += 1
                 continue
+            # Chinese alternate name index: entries with pop >= 5000 or notable feature
+            if use_zh_alias and name in zh_idx:
+                entries = zh_idx[name]
+                # Best entry = first (sorted by pop desc at build time)
+                best = entries[0]
+                best_pop, best_feat = best[2], best[3]
+                if best_feat in _NOTABLE_FEATURE_CODES or best_pop >= 5000:
+                    count += 1
+                    continue
             # Exact match only — no suffix stripping for detection
             entries = index.get(name)
             if entries:
@@ -875,3 +1033,190 @@ def _pick_best_entry(entries: list[GeoEntry]) -> GeoEntry:
         return entries[0]
 
     return max(entries, key=lambda e: (_feature_rank(e.feature_code), e.population))
+
+
+# ── Unresolved location geo_coords estimation ──────────
+
+
+_GOLDEN_ANGLE = math.pi * (3 - math.sqrt(5))  # ≈ 2.3999... rad ≈ 137.5°
+
+
+def _find_resolved_ancestor(
+    name: str,
+    parent_map: dict[str, str | None],
+    resolved: dict[str, tuple[float, float]],
+) -> tuple[float, float] | None:
+    """Walk up the parent chain to find the first resolved ancestor.
+
+    Returns the ancestor's (lat, lng) or None if no resolved ancestor exists.
+    Cycle-safe: stops after visiting 20 nodes.
+    """
+    current = parent_map.get(name)
+    visited: set[str] = {name}
+    depth = 0
+    while current and depth < 20:
+        if current in resolved:
+            return resolved[current]
+        if current in visited:
+            break  # cycle
+        visited.add(current)
+        current = parent_map.get(current)
+        depth += 1
+    return None
+
+
+def _find_name_containment_anchor(
+    name: str,
+    resolved: dict[str, tuple[float, float]],
+) -> tuple[float, float] | None:
+    """Check if the unresolved name contains a resolved location name.
+
+    E.g., "旧金山机场" contains "旧金山" → use 旧金山's coordinates.
+    Picks the longest matching resolved name to avoid false positives.
+    """
+    best_match: str | None = None
+    best_len = 0
+    for resolved_name in resolved:
+        if len(resolved_name) < 2:
+            continue
+        if resolved_name in name and resolved_name != name and len(resolved_name) > best_len:
+            best_match = resolved_name
+            best_len = len(resolved_name)
+    if best_match:
+        return resolved[best_match]
+    return None
+
+
+def _compute_largest_cluster_centroid(
+    resolved: dict[str, tuple[float, float]],
+) -> tuple[float, float]:
+    """Compute centroid of the largest geographic cluster of resolved locations.
+
+    Uses simple grid-based clustering: divide the world into 30° cells,
+    find the cell with the most points, compute its centroid.
+    This avoids the "Atlantic Ocean centroid" problem when resolved locations
+    span multiple continents (e.g., US + China + Vietnam).
+    """
+    if not resolved:
+        return (0.0, 0.0)
+
+    # Grid-based clustering (30° cells ≈ 3000km)
+    cell_size = 30.0
+    cells: dict[tuple[int, int], list[tuple[float, float]]] = {}
+    for lat, lng in resolved.values():
+        cell = (int(lat // cell_size), int(lng // cell_size))
+        cells.setdefault(cell, []).append((lat, lng))
+
+    # Find the largest cluster
+    largest = max(cells.values(), key=len)
+    avg_lat = sum(c[0] for c in largest) / len(largest)
+    avg_lng = sum(c[1] for c in largest) / len(largest)
+    return (avg_lat, avg_lng)
+
+
+def place_unresolved_geo_coords(
+    unresolved_names: list[str],
+    resolved: dict[str, tuple[float, float]],
+    parent_map: dict[str, str | None],
+) -> dict[str, tuple[float, float]]:
+    """Estimate lat/lng for unresolved locations by proximity to resolved neighbors.
+
+    Resolution strategies (in priority order):
+      1. Walk parent chain → find first resolved ancestor
+      2. Name containment → "旧金山机场" contains resolved "旧金山"
+      3. Resolved sibling → same parent has a resolved child
+      4. Largest-cluster centroid → centroid of densest geographic cluster
+         (avoids placing orphans in the ocean for multi-continent novels)
+
+    Uses golden-angle (sunflower seed) distribution for scatter placement.
+    Jitter radius ≈ 0.3 degrees (~30km) to keep points close but distinct.
+
+    Returns {name: (lat, lng)} for each unresolved name that could be placed.
+    """
+    if not resolved or not unresolved_names:
+        return {}
+
+    # Build reverse parent map: parent -> [children]
+    children_of: dict[str, list[str]] = {}
+    for child, parent in parent_map.items():
+        if parent:
+            children_of.setdefault(parent, []).append(child)
+
+    # Fallback centroid: largest cluster, not global average
+    fallback_centroid = _compute_largest_cluster_centroid(resolved)
+
+    result: dict[str, tuple[float, float]] = {}
+    jitter_radius = 0.3  # degrees (~30km)
+
+    # Group unresolved by anchor strategy for better scatter
+    groups: dict[str, list[str]] = {}  # anchor_key -> [names]
+    anchors: dict[str, tuple[float, float]] = {}  # anchor_key -> (lat, lng)
+
+    for name in unresolved_names:
+        if name in resolved:
+            continue  # already resolved
+
+        anchor_coord = None
+        anchor_key = None
+
+        # Strategy 1: walk up parent chain to find ANY resolved ancestor
+        ancestor_coord = _find_resolved_ancestor(name, parent_map, resolved)
+        if ancestor_coord:
+            # Use the direct parent's name for grouping if possible
+            direct_parent = parent_map.get(name, "")
+            anchor_coord = ancestor_coord
+            anchor_key = f"ancestor:{direct_parent or name}"
+        else:
+            # Strategy 2: name containment (旧金山机场 → 旧金山)
+            containment_coord = _find_name_containment_anchor(name, resolved)
+            if containment_coord:
+                anchor_coord = containment_coord
+                anchor_key = f"contain:{name}"
+            else:
+                # Strategy 3: find a resolved sibling (same parent)
+                # Skip when siblings span > 40° (multi-continent parent like "天下"
+                # whose children are 美国, 南美洲, 澳洲 → centroid in ocean)
+                parent = parent_map.get(name)
+                if parent and parent in children_of:
+                    siblings = children_of[parent]
+                    sibling_coords = [
+                        resolved[s] for s in siblings
+                        if s in resolved and s != name
+                    ]
+                    if sibling_coords:
+                        lats = [c[0] for c in sibling_coords]
+                        lngs = [c[1] for c in sibling_coords]
+                        lat_span = max(lats) - min(lats)
+                        lng_span = max(lngs) - min(lngs)
+                        if lat_span <= 40 and lng_span <= 40:
+                            avg_lat = sum(lats) / len(lats)
+                            avg_lng = sum(lngs) / len(lngs)
+                            anchor_coord = (avg_lat, avg_lng)
+                            anchor_key = f"sibling:{parent}"
+
+        # Strategy 4: largest-cluster centroid
+        if anchor_coord is None:
+            anchor_coord = fallback_centroid
+            anchor_key = "cluster"
+
+        anchors[anchor_key] = anchor_coord
+        groups.setdefault(anchor_key, []).append(name)
+
+    # Place each group using sunflower seed distribution around its anchor
+    for anchor_key, names in groups.items():
+        center = anchors[anchor_key]
+        n = len(names)
+        for i, name in enumerate(names):
+            angle = i * _GOLDEN_ANGLE
+            # sqrt scaling fills the circle from center outward
+            r = jitter_radius * (0.3 + 0.7 * math.sqrt((i + 1) / max(n, 1)))
+            lat = center[0] + r * math.cos(angle)
+            lng = center[1] + r * math.sin(angle)
+            result[name] = (lat, lng)
+
+    if result:
+        logger.info(
+            "place_unresolved_geo_coords: estimated %d / %d unresolved locations",
+            len(result), len(unresolved_names),
+        )
+    return result

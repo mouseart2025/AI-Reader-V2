@@ -11,7 +11,7 @@ resolution-markers = [
 
 [[package]]
 name = "ai-reader-v2-backend"
-version = "0.19.0"
+version = "0.22.1"
 source = { virtual = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -39,6 +39,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "aiosqlite" },
+    { name = "opencc-python-reimplemented" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-asyncio", version = "1.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -68,6 +69,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
+    { name = "opencc-python-reimplemented", specifier = ">=0.1.7" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=1.2.0" },
 ]
@@ -2094,6 +2096,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0f/da/4522b199c12db7c5b46aaf265ee0d741abe65ea912f6c0aaa2cc18a4654d/onnxruntime-1.24.1-cp314-cp314-win_amd64.whl", hash = "sha256:ea4942104805e868f3ddddfa1fbb58b04503a534d489ab2d1452bbfa345c78c2", size = 12795556, upload-time = "2026-02-05T17:32:11.886Z" },
     { url = "https://files.pythonhosted.org/packages/a1/53/3b8969417276b061ff04502ccdca9db4652d397abbeb06c9f6ae05cec9ca/onnxruntime-1.24.1-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ea8963a99e0f10489acdf00ef3383c3232b7e44aa497b063c63be140530d9f85", size = 15025434, upload-time = "2026-02-05T17:31:06.942Z" },
     { url = "https://files.pythonhosted.org/packages/ab/a2/cfcf009eb38d90cc628c087b6506b3dfe1263387f3cbbf8d272af4fef957/onnxruntime-1.24.1-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:34488aa760fb5c2e6d06a7ca9241124eb914a6a06f70936a14c669d1b3df9598", size = 17099815, upload-time = "2026-02-05T17:31:43.092Z" },
+]
+
+[[package]]
+name = "opencc-python-reimplemented"
+version = "0.1.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8d/6d/c6f37eed651dd6b752e50f80a93396cdaa42a6acc6ce05ad7452303ea511/opencc-python-reimplemented-0.1.7.tar.gz", hash = "sha256:4f777ea3461a25257a7b876112cfa90bb6acabc6dfb843bf4d11266e43579dee", size = 482566, upload-time = "2023-02-11T03:58:42.25Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/6b/055b7806f320cc8f2cdf23c5f70221c0dc1683fca9ffaf76dfc2ad4b91b6/opencc_python_reimplemented-0.1.7-py2.py3-none-any.whl", hash = "sha256:41b3b92943c7bed291f448e9c7fad4b577c8c2eae30fcfe5a74edf8818493aa6", size = 481813, upload-time = "2023-02-11T03:58:39.66Z" },
 ]
 
 [[package]]

@@ -170,6 +170,23 @@ async def get_encyclopedia_entries(
                     auth_parent = ws.location_parents.get(entry["name"])
                     if auth_parent:
                         entry["parent"] = auth_parent
+            # Inject virtual parent nodes from location_parents so
+            # the tree structure matches WorldStructureEditor
+            existing_names = {e["name"] for e in result if e.get("type") == "location"}
+            parent_names = set(ws.location_parents.values())
+            for vp in parent_names - existing_names:
+                auth_parent = ws.location_parents.get(vp)
+                tier = (ws.location_tiers or {}).get(vp, "")
+                result.append({
+                    "name": vp,
+                    "type": "location",
+                    "category": "location",
+                    "definition": "",
+                    "first_chapter": 0,
+                    "parent": auth_parent or "",
+                    "tier": tier,
+                    "virtual": True,
+                })
         result = _sort_by_hierarchy(result)
     elif sort_by == "chapter":
         result.sort(key=lambda e: e["first_chapter"])
