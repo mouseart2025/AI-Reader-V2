@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect } from "react"
 import { useParams } from "react-router-dom"
 import { fetchNovel } from "@/api/client"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"

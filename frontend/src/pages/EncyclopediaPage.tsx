@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import { fetchNovel, fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
-import type { Novel, HierarchyChange, HierarchyRebuildResult } from "@/api/types"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useParams } from "react-router-dom"
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
+import type { HierarchyRebuildResult } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
@@ -58,10 +59,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function EncyclopediaPage() {
   const { novelId } = useParams<{ novelId: string }>()
-  const navigate = useNavigate()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
-
-  const [novel, setNovel] = useState<Novel | null>(null)
   const [stats, setStats] = useState<CategoryStats | null>(null)
   const [entries, setEntries] = useState<EncEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,11 +81,10 @@ export default function EncyclopediaPage() {
     if (activeCategory !== "location" && sortBy === "hierarchy") setSortBy("name")
   }, [activeCategory, sortBy])
 
-  // Load novel info and stats
+  // Load stats
   useEffect(() => {
     if (!novelId) return
-    fetchNovel(novelId).then(setNovel)
-    fetchEncyclopediaStats(novelId).then((data) => setStats(data as CategoryStats))
+    fetchEncyclopediaStats(novelId).then((data) => setStats(data as unknown as CategoryStats))
   }, [novelId])
 
   // Load entries when category or sort changes
@@ -198,13 +195,24 @@ export default function EncyclopediaPage() {
     })
   }, [])
 
+  // Virtual list setup
+  const listContainerRef = useRef<HTMLDivElement>(null)
+  const isTreeView = sortBy === "hierarchy" && !search.trim() && treeEntries.length > 0
+  const virtualItemCount = isTreeView ? treeEntries.length : filteredEntries.length
+  const virtualizer = useVirtualizer({
+    count: virtualItemCount,
+    getScrollElement: () => listContainerRef.current,
+    estimateSize: () => (isTreeView ? 40 : 48),
+    overscan: 15,
+  })
+
   const handleEntryClick = useCallback(
     (entry: EncEntry) => {
       if (entry.type === "concept") {
         // Show concept detail
         if (!novelId) return
         fetchConceptDetail(novelId, entry.name).then((data) =>
-          setConceptDetail(data as ConceptDetail),
+          setConceptDetail(data as unknown as ConceptDetail),
         )
       } else {
         openEntityCard(entry.name, entry.type as "person" | "location" | "item" | "org")
@@ -272,7 +280,7 @@ export default function EncyclopediaPage() {
         </div>
 
         {/* Middle: Entry list */}
-        <div className="flex-1 overflow-auto">
+        <div ref={listContainerRef} className="flex-1 overflow-auto">
           {/* Sort controls */}
           <div className="flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10">
             <span className="text-xs text-muted-foreground">排序</span>
@@ -351,77 +359,94 @@ export default function EncyclopediaPage() {
             <div className="flex items-center justify-center h-40">
               <p className="text-muted-foreground text-sm">暂无数据</p>
             </div>
-          ) : sortBy === "hierarchy" && !search.trim() && treeEntries.length > 0 ? (
-            <div className="divide-y">
-              {treeEntries.map((entry) => (
-                <div
-                  key={`${entry.name}-tree`}
-                  className="flex items-center gap-2 py-2 pr-4 hover:bg-muted/30 cursor-pointer transition-colors"
-                  style={{ paddingLeft: `${entry.depth * 20 + 16}px` }}
-                  onClick={() => handleEntryClick(entry)}
-                >
-                  {entry.hasChildren ? (
-                    <button
-                      className="w-4 text-xs text-muted-foreground hover:text-foreground flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleExpand(entry.name)
+          ) : virtualItemCount === 0 ? null : (
+            <div
+              style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                if (isTreeView) {
+                  const entry = treeEntries[virtualRow.index]
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                        paddingLeft: `${entry.depth * 20 + 16}px`,
                       }}
+                      className="flex items-center gap-2 py-2 pr-4 hover:bg-muted/30 cursor-pointer transition-colors border-b"
+                      onClick={() => handleEntryClick(entry)}
                     >
-                      {entry.isExpanded ? "\u25BC" : "\u25B6"}
-                    </button>
-                  ) : (
-                    <span className="w-4 flex-shrink-0" />
-                  )}
-                  <span
-                    className="inline-block size-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: TYPE_COLORS.location }}
-                  />
-                  <span className="text-sm font-medium truncate">{entry.name}</span>
-                  {entry.definition && (
-                    <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                      {entry.definition}
-                    </span>
-                  )}
-                  <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-auto">
-                    Ch.{entry.first_chapter}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y">
-              {filteredEntries.map((entry) => (
-                <div
-                  key={`${entry.name}-${entry.type}`}
-                  className="flex items-start gap-3 px-4 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors"
-                  onClick={() => handleEntryClick(entry)}
-                >
-                  {/* Type indicator */}
-                  <span
-                    className="inline-block size-2.5 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ backgroundColor: TYPE_COLORS[entry.type] ?? "#6b7280" }}
-                  />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{entry.name}</span>
-                      <span className="text-[10px] text-muted-foreground px-1 py-0.5 rounded bg-muted">
-                        {TYPE_LABELS[entry.type] ?? entry.category}
+                      {entry.hasChildren ? (
+                        <button
+                          className="w-4 text-xs text-muted-foreground hover:text-foreground flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleExpand(entry.name)
+                          }}
+                        >
+                          {entry.isExpanded ? "\u25BC" : "\u25B6"}
+                        </button>
+                      ) : (
+                        <span className="w-4 flex-shrink-0" />
+                      )}
+                      <span
+                        className="inline-block size-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: TYPE_COLORS.location }}
+                      />
+                      <span className="text-sm font-medium truncate">{entry.name}</span>
+                      {entry.definition && (
+                        <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                          {entry.definition}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-auto">
+                        Ch.{entry.first_chapter}
                       </span>
                     </div>
-                    {entry.definition && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {entry.definition}
-                      </p>
-                    )}
-                  </div>
-
-                  <span className="text-[10px] text-muted-foreground flex-shrink-0 mt-1">
-                    Ch.{entry.first_chapter}
-                  </span>
-                </div>
-              ))}
+                  )
+                } else {
+                  const entry = filteredEntries[virtualRow.index]
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="flex items-start gap-3 px-4 py-2.5 hover:bg-muted/30 cursor-pointer transition-colors border-b"
+                      onClick={() => handleEntryClick(entry)}
+                    >
+                      <span
+                        className="inline-block size-2.5 rounded-full mt-1.5 flex-shrink-0"
+                        style={{ backgroundColor: TYPE_COLORS[entry.type] ?? "#6b7280" }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{entry.name}</span>
+                          <span className="text-[10px] text-muted-foreground px-1 py-0.5 rounded bg-muted">
+                            {TYPE_LABELS[entry.type] ?? entry.category}
+                          </span>
+                        </div>
+                        {entry.definition && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {entry.definition}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground flex-shrink-0 mt-1">
+                        Ch.{entry.first_chapter}
+                      </span>
+                    </div>
+                  )
+                }
+              })}
             </div>
           )}
         </div>
@@ -491,7 +516,7 @@ export default function EncyclopediaPage() {
                           onClick={() => {
                             if (novelId)
                               fetchConceptDetail(novelId, c).then((d) =>
-                                setConceptDetail(d as ConceptDetail),
+                                setConceptDetail(d as unknown as ConceptDetail),
                               )
                           }}
                         >

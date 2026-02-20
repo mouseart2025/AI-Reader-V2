@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Markdown from "react-markdown"
-import { fetchNovel, exportConversationUrl } from "@/api/client"
-import type { Novel } from "@/api/types"
+import { exportConversationUrl } from "@/api/client"
 import { useChatStore } from "@/stores/chatStore"
-import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -12,9 +10,6 @@ import { cn } from "@/lib/utils"
 export default function ChatPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
-  const openEntityCard = useEntityCardStore((s) => s.openCard)
-
-  const [novel, setNovel] = useState<Novel | null>(null)
   const [input, setInput] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -24,7 +19,6 @@ export default function ChatPage() {
     messages,
     streaming,
     streamingContent,
-    streamingSources,
     loadConversations,
     newConversation,
     selectConversation,
@@ -35,12 +29,6 @@ export default function ChatPage() {
   } = useChatStore()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Load novel info
-  useEffect(() => {
-    if (!novelId) return
-    fetchNovel(novelId).then(setNovel)
-  }, [novelId])
 
   // Load conversations
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { fetchTimelineData } from "@/api/client"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
@@ -139,6 +140,37 @@ export default function TimelinePage() {
     setCollapsedChapters(new Set(chapterGroups.map(([ch]) => ch)))
   }, [chapterGroups])
 
+  // Flatten chapter groups into virtual list items
+  type FlatItem =
+    | { kind: "chapter"; chapter: number; eventCount: number; isCollapsed: boolean }
+    | { kind: "event"; event: TimelineEvent }
+
+  const flatItems = useMemo((): FlatItem[] => {
+    const items: FlatItem[] = []
+    for (const [chapter, evts] of chapterGroups) {
+      const isCollapsed = collapsedChapters.has(chapter)
+      items.push({ kind: "chapter", chapter, eventCount: evts.length, isCollapsed })
+      if (!isCollapsed) {
+        const sorted = [...evts].sort((a, b) => {
+          const imp = { high: 3, medium: 2, low: 1 }
+          return (imp[b.importance as keyof typeof imp] ?? 0) - (imp[a.importance as keyof typeof imp] ?? 0)
+        })
+        for (const evt of sorted) {
+          items.push({ kind: "event", event: evt })
+        }
+      }
+    }
+    return items
+  }, [chapterGroups, collapsedChapters])
+
+  const timelineContainerRef = useRef<HTMLDivElement>(null)
+  const timelineVirtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => timelineContainerRef.current,
+    estimateSize: (index) => (flatItems[index].kind === "chapter" ? 32 : 72),
+    overscan: 15,
+  })
+
   // All persons across swimlanes
   const allPersons = useMemo(
     () => Object.keys(swimlanes).sort((a, b) => (swimlanes[b]?.length ?? 0) - (swimlanes[a]?.length ?? 0)),
@@ -223,7 +255,7 @@ export default function TimelinePage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Main timeline area */}
-          <div className="flex-1 overflow-auto">
+          <div ref={timelineContainerRef} className="flex-1 overflow-auto">
             {loading && (
               <div className="flex items-center justify-center h-full">
                 <p className="text-muted-foreground">Loading timeline...</p>
@@ -236,7 +268,7 @@ export default function TimelinePage() {
               </div>
             )}
 
-            {!loading && chapterGroups.length > 0 && (
+            {!loading && flatItems.length > 0 && (
               <div className="p-4">
                 {/* Legend */}
                 <div className="flex items-center gap-3 mb-4 text-[10px] text-muted-foreground flex-wrap">
@@ -261,115 +293,119 @@ export default function TimelinePage() {
                   <span className="ml-2">●大=关键 ●中=中 ·小=低</span>
                 </div>
 
-                {/* Timeline */}
-                <div className="relative">
+                {/* Virtualized Timeline */}
+                <div
+                  className="relative"
+                  style={{ height: `${timelineVirtualizer.getTotalSize()}px` }}
+                >
                   {/* Vertical timeline line */}
                   <div className="absolute left-[60px] top-0 bottom-0 w-px bg-border" />
 
-                  {chapterGroups.map(([chapter, evts]) => {
-                    const isCollapsed = collapsedChapters.has(chapter)
+                  {timelineVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const item = flatItems[virtualRow.index]
+                    if (item.kind === "chapter") {
+                      return (
+                        <div
+                          key={virtualRow.key}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                          className="flex items-center gap-3 py-1 cursor-pointer select-none"
+                          onClick={() => toggleChapterCollapse(item.chapter)}
+                        >
+                          <span className="text-xs font-mono text-muted-foreground w-[52px] text-right">
+                            Ch.{item.chapter}
+                          </span>
+                          <div className="size-2.5 rounded-full bg-border z-10" />
+                          <span className="text-[10px] text-muted-foreground">
+                            {item.eventCount} 事件 {item.isCollapsed ? "▸" : "▾"}
+                          </span>
+                        </div>
+                      )
+                    }
+                    const evt = item.event
                     return (
-                    <div key={chapter} className="mb-4">
-                      {/* Chapter marker */}
                       <div
-                        className="flex items-center gap-3 mb-1 cursor-pointer select-none"
-                        onClick={() => toggleChapterCollapse(chapter)}
+                        key={virtualRow.key}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualRow.start}px)`,
+                          paddingLeft: "72px",
+                        }}
+                        className="pr-4 pb-1.5"
                       >
-                        <span className="text-xs font-mono text-muted-foreground w-[52px] text-right">
-                          Ch.{chapter}
-                        </span>
-                        <div className="size-2.5 rounded-full bg-border z-10" />
-                        <span className="text-[10px] text-muted-foreground">
-                          {evts.length} 事件 {isCollapsed ? "▸" : "▾"}
-                        </span>
-                      </div>
-
-                      {/* Events in this chapter */}
-                      {!isCollapsed && <div className="ml-[72px] space-y-1.5">
-                        {evts
-                          .sort((a, b) => {
-                            const imp = { high: 3, medium: 2, low: 1 }
-                            return (imp[b.importance as keyof typeof imp] ?? 0) - (imp[a.importance as keyof typeof imp] ?? 0)
-                          })
-                          .map((evt) => (
-                            <div
-                              key={evt.id}
-                              className={cn(
-                                "flex items-start gap-2 p-2 rounded-md border cursor-pointer transition-colors",
-                                selectedEvent?.id === evt.id
-                                  ? "bg-muted border-primary/50"
-                                  : "hover:bg-muted/50",
-                              )}
-                              onClick={() => setSelectedEvent(selectedEvent?.id === evt.id ? null : evt)}
-                            >
-                              {/* Event dot */}
+                        <div
+                          className={cn(
+                            "flex items-start gap-2 p-2 rounded-md border cursor-pointer transition-colors",
+                            selectedEvent?.id === evt.id
+                              ? "bg-muted border-primary/50"
+                              : "hover:bg-muted/50",
+                          )}
+                          onClick={() => setSelectedEvent(selectedEvent?.id === evt.id ? null : evt)}
+                        >
+                          <span
+                            className={cn(
+                              "rounded-full flex-shrink-0 mt-1",
+                              evt.is_major && "ring-2 ring-offset-1 ring-primary/40",
+                            )}
+                            style={{
+                              width: importanceSize(evt.importance, evt.is_major) * 2,
+                              height: importanceSize(evt.importance, evt.is_major) * 2,
+                              backgroundColor: eventColor(evt.type),
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm leading-snug">{evt.summary}</p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <span
-                                className={cn(
-                                  "rounded-full flex-shrink-0 mt-1",
-                                  evt.is_major && "ring-2 ring-offset-1 ring-primary/40",
-                                )}
-                                title={`${evt.summary}${evt.location ? ` @ ${evt.location}` : ""}${evt.participants.length > 0 ? ` [${evt.participants.slice(0, 3).join(", ")}]` : ""}`}
+                                className="text-[10px] px-1.5 py-0.5 rounded"
                                 style={{
-                                  width: importanceSize(evt.importance, evt.is_major) * 2,
-                                  height: importanceSize(evt.importance, evt.is_major) * 2,
-                                  backgroundColor: eventColor(evt.type),
+                                  backgroundColor: eventColor(evt.type) + "20",
+                                  color: eventColor(evt.type),
                                 }}
-                              />
-
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm leading-snug">{evt.summary}</p>
-
-                                {/* Tags */}
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                  <span
-                                    className="text-[10px] px-1.5 py-0.5 rounded"
-                                    style={{
-                                      backgroundColor: eventColor(evt.type) + "20",
-                                      color: eventColor(evt.type),
-                                    }}
-                                  >
-                                    {evt.type}
-                                  </span>
-
-                                  {evt.is_major && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-950/30">
-                                      关键
-                                    </span>
-                                  )}
-
-                                  {!evt.is_major && evt.importance === "high" && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30">
-                                      重要
-                                    </span>
-                                  )}
-
-                                  {evt.location && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      @ {evt.location}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Participants (shown on expand) */}
-                                {selectedEvent?.id === evt.id && evt.participants.length > 0 && (
-                                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[10px] text-muted-foreground">参与者:</span>
-                                    {evt.participants.map((p) => (
-                                      <button
-                                        key={p}
-                                        className="text-[10px] text-blue-600 hover:underline"
-                                        onClick={(e) => { e.stopPropagation(); handlePersonClick(p) }}
-                                      >
-                                        {p}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                              >
+                                {evt.type}
+                              </span>
+                              {evt.is_major && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-950/30">
+                                  关键
+                                </span>
+                              )}
+                              {!evt.is_major && evt.importance === "high" && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30">
+                                  重要
+                                </span>
+                              )}
+                              {evt.location && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  @ {evt.location}
+                                </span>
+                              )}
                             </div>
-                          ))}
-                      </div>}
-                    </div>
+                            {selectedEvent?.id === evt.id && evt.participants.length > 0 && (
+                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-muted-foreground">参与者:</span>
+                                {evt.participants.map((p) => (
+                                  <button
+                                    key={p}
+                                    className="text-[10px] text-blue-600 hover:underline"
+                                    onClick={(e) => { e.stopPropagation(); handlePersonClick(p) }}
+                                  >
+                                    {p}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     )
                   })}
                 </div>

@@ -74,20 +74,18 @@ function groupByVolume(chapters: Chapter[]): VolumeGroup[] {
 // ── TOC Sidebar ──────────────────────────────────
 
 function TocSidebar({
-  chapters,
   currentChapterNum,
-  search,
-  onSearchChange,
   onSelect,
   onClose,
 }: {
-  chapters: Chapter[]
   currentChapterNum: number
-  search: string
-  onSearchChange: (s: string) => void
   onSelect: (num: number) => void
   onClose: () => void
 }) {
+  const chapters = useReadingStore((s) => s.chapters)
+  const search = useReadingStore((s) => s.tocSearch)
+  const onSearchChange = useReadingStore((s) => s.setTocSearch)
+
   const filtered = useMemo(() => {
     if (!search.trim()) return chapters
     const q = search.trim().toLowerCase()
@@ -293,24 +291,20 @@ export default function ReadingPage() {
   const [error, setError] = useState<string | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const {
-    chapters,
-    currentChapter,
-    currentChapterNum,
-    entities,
-    aliasMap,
-    sidebarOpen,
-    tocSearch,
-    setChapters,
-    setCurrentChapter,
-    setCurrentChapterNum,
-    setEntities,
-    setAliasMap,
-    toggleSidebar,
-    setSidebarOpen,
-    setTocSearch,
-    reset,
-  } = useReadingStore()
+  const chapters = useReadingStore((s) => s.chapters)
+  const currentChapter = useReadingStore((s) => s.currentChapter)
+  const currentChapterNum = useReadingStore((s) => s.currentChapterNum)
+  const entities = useReadingStore((s) => s.entities)
+  const aliasMap = useReadingStore((s) => s.aliasMap)
+  const sidebarOpen = useReadingStore((s) => s.sidebarOpen)
+  const setChapters = useReadingStore((s) => s.setChapters)
+  const setCurrentChapter = useReadingStore((s) => s.setCurrentChapter)
+  const setCurrentChapterNum = useReadingStore((s) => s.setCurrentChapterNum)
+  const setEntities = useReadingStore((s) => s.setEntities)
+  const setAliasMap = useReadingStore((s) => s.setAliasMap)
+  const toggleSidebar = useReadingStore((s) => s.toggleSidebar)
+  const setSidebarOpen = useReadingStore((s) => s.setSidebarOpen)
+  const reset = useReadingStore((s) => s.reset)
 
   const openEntityCard = useEntityCardStore((s) => s.openCard)
   const { fontSize, lineHeight, setFontSize, setLineHeight } = useReadingSettingsStore()
@@ -371,10 +365,15 @@ export default function ReadingPage() {
         // Also include aliases so they get highlighted with the same color as their canonical entity
         const entityList = allEnts.map((e) => ({ name: e.name, type: e.type as ChapterEntity["type"] }))
         if (aliasData) {
+          // Build canonical→type map for O(1) lookup instead of O(n) find per alias
+          const canonicalTypeMap = new Map<string, ChapterEntity["type"]>()
+          for (const e of allEnts) {
+            canonicalTypeMap.set(e.name, e.type as ChapterEntity["type"])
+          }
           for (const [alias, canonical] of Object.entries(aliasData)) {
-            const ent = allEnts.find((e) => e.name === canonical)
-            if (ent) {
-              entityList.push({ name: alias, type: ent.type as ChapterEntity["type"] })
+            const type = canonicalTypeMap.get(canonical)
+            if (type) {
+              entityList.push({ name: alias, type })
             }
           }
         }
@@ -567,10 +566,7 @@ export default function ReadingPage() {
       {sidebarOpen && (
         <div className="w-64 shrink-0">
           <TocSidebar
-            chapters={chapters}
             currentChapterNum={currentChapterNum}
-            search={tocSearch}
-            onSearchChange={setTocSearch}
             onSelect={goToChapter}
             onClose={() => setSidebarOpen(false)}
           />

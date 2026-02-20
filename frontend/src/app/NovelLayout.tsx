@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { fetchNovel } from "@/api/client"
 import type { Novel } from "@/api/types"
-import { FloatingChatPanel } from "@/components/chat/FloatingChatPanel"
+
+const FloatingChatPanel = lazy(() =>
+  import("@/components/chat/FloatingChatPanel").then((m) => ({ default: m.FloatingChatPanel })),
+)
 import { GuidedTourBubble } from "@/components/shared/GuidedTourBubble"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -106,7 +109,7 @@ export function NovelLayout() {
         <Outlet />
       </div>
 
-      <FloatingChatPanel />
+      <Suspense><FloatingChatPanel /></Suspense>
     </div>
   )
 }

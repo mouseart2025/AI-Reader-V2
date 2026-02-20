@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { OrgProfile } from "@/api/types"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 
@@ -6,7 +7,7 @@ interface OrgCardProps {
   onEntityClick: (name: string, type: string) => void
 }
 
-export function OrgCard({ profile, onEntityClick }: OrgCardProps) {
+export const OrgCard = memo(function OrgCard({ profile, onEntityClick }: OrgCardProps) {
   const { member_events, org_relations, stats } = profile
 
   // Group member events by member
@@ -80,7 +81,7 @@ export function OrgCard({ profile, onEntityClick }: OrgCardProps) {
       </div>
     </div>
   )
-}
+})
 
 function formatStatLabel(key: string): string {
   const labels: Record<string, string> = {
