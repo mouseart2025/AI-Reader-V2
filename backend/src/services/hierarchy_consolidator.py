@@ -342,7 +342,7 @@ def _is_geographic_name(name: str) -> bool:
 
 def _tiered_catchall(
     all_known: set[str],
-    uber_root: str,
+    uber_root: str | None,
     location_parents: dict[str, str],
     location_tiers: dict[str, str],
 ) -> int:
@@ -351,6 +351,9 @@ def _tiered_catchall(
     For building/site orphans, tries to find an existing node whose name is
     a prefix of the orphan name (e.g., "七玄门百药园" → "七玄门"). Falls back
     to uber_root if no suitable intermediate node is found.
+
+    When uber_root is None (foreign novels), only prefix matching is performed
+    and no fallback adoption occurs — orphans without a prefix match stay as roots.
 
     Returns the number of nodes adopted.
     """
@@ -420,7 +423,7 @@ def _tiered_catchall(
                         adopted += 1
                         break
 
-        if not matched:
+        if not matched and uber_root is not None:
             if _safe_set_parent(orphan, uber_root, location_parents,
                                 f"catchall-adopt:{orphan}"):
                 adopted += 1
@@ -431,6 +434,30 @@ def _tiered_catchall(
             adopted, tiered_matches, adopted - tiered_matches, uber_root,
         )
     return adopted
+
+
+def _is_foreign_novel(location_tiers: dict[str, str]) -> bool:
+    """Detect if locations suggest a foreign (non-Chinese) novel.
+
+    Heuristic: if ≥3 location names match known foreign place patterns
+    (entries in _SUPPLEMENT_GEO — US states, countries, world cities, etc.)
+    and 0 locations match _PREFECTURE_TO_PROVINCE (Chinese historical geography),
+    the novel is likely foreign (e.g., a translated Western novel).
+    """
+    from src.services.geo_resolver import _SUPPLEMENT_GEO
+
+    location_names = set(location_tiers.keys())
+    foreign_count = sum(1 for n in location_names if n in _SUPPLEMENT_GEO)
+    chinese_count = sum(1 for n in location_names if n in _PREFECTURE_TO_PROVINCE)
+
+    is_foreign = foreign_count >= 3 and chinese_count == 0
+    if is_foreign:
+        logger.info(
+            "_is_foreign_novel: detected foreign novel "
+            "(foreign_matches=%d, chinese_matches=%d)",
+            foreign_count, chinese_count,
+        )
+    return is_foreign
 
 
 def consolidate_hierarchy(
@@ -501,7 +528,8 @@ def consolidate_hierarchy(
     # ── Genre-specific: Chinese geography steps (Steps 1-2) ──
     # Province tier fixes and province inversion fixes only apply to
     # genres where Chinese geography is relevant.
-    skip_chinese_geo = genre in ("fantasy", "urban")
+    is_foreign = _is_foreign_novel(location_tiers)
+    skip_chinese_geo = genre in ("fantasy", "urban") or is_foreign
 
     if not skip_chinese_geo:
         # ── Step 1: Fix province tiers first ──
@@ -659,20 +687,27 @@ def consolidate_hierarchy(
     # ── Steps 3-11: Chinese geography-specific consolidation ──
     # Only applies to genres where Chinese geography is relevant.
     if skip_chinese_geo:
-        # Still run tiered catch-all for fantasy/urban genres
-        uber_root = "天下"
-        if uber_root not in location_tiers:
-            location_tiers[uber_root] = _ROOT_TIER
-        catchall_adopted = _tiered_catchall(
-            all_known, uber_root, location_parents, location_tiers,
-        )
+        if is_foreign:
+            # Foreign novel: skip 天下 (Chinese concept), just run tiered catch-all
+            # with no uber_root so orphans only get adopted via prefix matching.
+            catchall_adopted = _tiered_catchall(
+                all_known, None, location_parents, location_tiers,
+            )
+        else:
+            # Fantasy/urban: use 天下 catch-all as before
+            uber_root = "天下"
+            if uber_root not in location_tiers:
+                location_tiers[uber_root] = _ROOT_TIER
+            catchall_adopted = _tiered_catchall(
+                all_known, uber_root, location_parents, location_tiers,
+            )
         changes_made += catchall_adopted
 
         final_roots = _get_roots(location_parents)
         logger.info(
-            "Hierarchy consolidation (genre=%s): %d generic fixes, "
+            "Hierarchy consolidation (genre=%s, foreign=%s): %d generic fixes, "
             "%d final roots, skipped Chinese geo steps",
-            genre, changes_made, len(final_roots),
+            genre, is_foreign, changes_made, len(final_roots),
         )
         return location_parents, location_tiers
 

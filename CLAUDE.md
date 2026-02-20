@@ -122,7 +122,7 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 **Two-step hierarchy rebuild**: `POST /rebuild-hierarchy` streams SSE progress events (genre re-detection → vote rebuild → scene transition analysis → LLM review → consolidation) and returns a diff of `old_parent → new_parent` changes without saving. Each change includes `auto_select` (default checked or unchecked based on heuristics: removals default off, name-containment relationships default off, non-location parents default off). `POST /apply-hierarchy-changes` applies user-selected changes and auto-clears `map_user_overrides` for affected locations so they get repositioned by the constraint solver.
 
-Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` uses it for hierarchy sort. This replaces the old "first-to-arrive wins" strategy that caused duplicate location placements on the map.
+Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` uses it for hierarchy sort and injects virtual parent nodes (uber-roots like "天下"/"地球" that exist only in `location_parents` values but not in ChapterFact extractions) so the encyclopedia hierarchy tree matches WorldStructureEditor. Virtual entries are marked with `virtual: True`. This replaces the old "first-to-arrive wins" strategy that caused duplicate location placements on the map.
 
 ### Relation Normalization and Classification
 
@@ -141,13 +141,15 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 `GeoResolver` (`geo_resolver.py`) — matches novel location names to real-world GeoNames coordinates for realistic geographic map layouts. Supports multiple datasets via `GeoDatasetConfig` registry:
 
 - **`cn`**: GeoNames CN.zip — comprehensive Chinese locations (~140K entries), used for historical/wuxia novels
-- **`world`**: GeoNames cities15000.zip — global cities with pop > 15000 (~25K entries), used for international novels
+- **`world`**: GeoNames cities5000.zip — global cities with pop > 5000 (~50K entries), used for international novels
+
+**Chinese alternate name index** (`_zh_alias_index`): Pre-built from GeoNames `alternateNamesV2` Chinese entries joined with `cities5000` coordinates. Stored as `backend/data/zh_geonames.tsv` (~26K entries, 1.3MB). Lazy-loaded on first world-dataset resolve. Includes both traditional and simplified Chinese variants (via opencc t2s conversion at build time). Built by `scripts/build_zh_geonames.py`.
 
 **Auto-detection pipeline** (`auto_resolve()`): `detect_geo_scope()` determines dataset based on genre_hint + location name CJK ratio → loads appropriate dataset → `detect_geo_type()` uses quality-weighted notable matching → returns `"realistic"` (≥20%), `"mixed"` (≥5%), or `"fantasy"` (<5%). **Fallback logic**: if CN dataset matches poorly (e.g., translated foreign place names like 伦敦/巴黎), automatically retries with world dataset.
 
-**Quality-weighted detection** (`_count_notable_matches()`): Only counts matches to places with population ≥ 5000 or county-level+ administrative codes (`_NOTABLE_FEATURE_CODES`: ADM1-3, PPLA-PPLA3, PPLC). Curated supplement entries always count as notable. Exact match only (no suffix stripping) for detection. This prevents false positives from tiny villages (pop=0) that share names with common Chinese words — e.g., 红楼梦's 上房/后门/角门/稻香村 all match real villages in GeoNames CN, but none are notable enough to count toward detection.
+**Quality-weighted detection** (`_count_notable_matches()`): Only counts matches to places with population ≥ 5000 or county-level+ administrative codes (`_NOTABLE_FEATURE_CODES`: ADM1-3, PPLA-PPLA3, PPLC). Curated supplement entries and zh alias index entries always count as notable. Exact match only (no suffix stripping) for detection. This prevents false positives from tiny villages (pop=0) that share names with common Chinese words — e.g., 红楼梦's 上房/后门/角门/稻香村 all match real villages in GeoNames CN, but none are notable enough to count toward detection.
 
-**Name resolution** uses 3-level matching: exact match → Chinese suffix stripping (城/府/州/县/镇/村/山/河/湖 etc.) → disambiguation by population + admin feature codes. Two-pass parent-proximity validation discards suffix-stripped matches >1000km from parent.
+**Name resolution** uses 4-level matching: curated supplement → Chinese alternate name index (world dataset only, with parent-proximity disambiguation) → exact GeoNames match → Chinese suffix stripping (城/府/州/县/镇/村/山/河/湖 etc.) + disambiguation by population + admin feature codes. Two-pass parent-proximity validation discards suffix-stripped matches >1000km from parent.
 
 **Integration**: `visualization_service.get_map_data()` calls `auto_resolve()` before existing ConstraintSolver path. If geo_type is realistic/mixed, raw lat/lng coordinates are returned as `geo_coords` for the Leaflet frontend, plus Mercator-projected canvas coordinates as fallback. Unresolved names scattered near neighbors via `place_unresolved_near_neighbors()`. Result cached as `layout_mode="geographic"`.
 

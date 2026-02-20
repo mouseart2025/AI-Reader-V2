@@ -65,6 +65,10 @@ _GENERIC_MODIFIERS = frozenset({
 _CONCEPTUAL_GEO_WORDS = frozenset({
     "江湖", "天下", "世界", "人间", "凡间", "尘世", "世间",
     "世俗界", "修仙界", "仙界", "魔界",
+    # 抽象地理概念 — LLM 从中文训练数据幻觉出
+    "地球", "全球", "全世界",
+    "中国大陆", "中国", "大陆",
+    "外国", "国外", "海外", "世界各地",
 })
 
 # Vehicle/object words that are not locations

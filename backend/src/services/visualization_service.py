@@ -28,7 +28,10 @@ from src.services.map_layout_service import (
     place_unresolved_near_neighbors,
 )
 from src.services.alias_resolver import build_alias_map
-from src.services.geo_resolver import auto_resolve as geo_auto_resolve
+from src.services.geo_resolver import (
+    auto_resolve as geo_auto_resolve,
+    place_unresolved_geo_coords,
+)
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
 
@@ -582,6 +585,18 @@ async def get_map_data(
                         name: {"lat": coord[0], "lng": coord[1]}
                         for name, coord in resolved.items()
                     }
+                    # Also estimate geo_coords for unresolved locations
+                    resolved_names = set(resolved.keys())
+                    unresolved_names = [
+                        loc["name"] for loc in locations
+                        if loc["name"] not in resolved_names
+                    ]
+                    if unresolved_names:
+                        estimated = place_unresolved_geo_coords(
+                            unresolved_names, resolved, loc_parent_map,
+                        )
+                        for name, (lat, lng) in estimated.items():
+                            geo_coords_raw[name] = {"lat": lat, "lng": lng}
             except Exception:
                 logger.warning("Failed to restore geo_coords from cache", exc_info=True)
     else:
@@ -634,6 +649,14 @@ async def get_map_data(
                             parent_map, _cw_hash, _ch_hash,
                         )
                         layout_data.extend(extra)
+
+                        # Also estimate geo_coords for unresolved locations
+                        # so GeoMap (Leaflet) can render them as markers
+                        estimated = place_unresolved_geo_coords(
+                            unresolved_names, resolved, parent_map,
+                        )
+                        for name, (lat, lng) in estimated.items():
+                            geo_coords_raw[name] = {"lat": lat, "lng": lng}
 
                     layout_mode = "geographic"
                     terrain_url = None
