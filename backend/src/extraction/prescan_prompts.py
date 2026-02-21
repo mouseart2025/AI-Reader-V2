@@ -31,7 +31,12 @@ _SYSTEM_PROMPT = """\
 - alias_groups 中的词必须是 entities 中已有的词
 - 不确定的词宁可保留（标为 unknown），不要轻易 reject
 - confidence: high（确定是实体）、medium（可能是实体）、low（不确定）
-- 只输出 JSON，不要输出其他内容"""
+- 只输出 JSON，不要输出其他内容
+
+## 别名分组注意
+- 同姓不等于同人！"韩立"和"韩胖子"是不同角色（恰好同姓），绝对不要放在同一个 alias_group
+- 只有明确是同一人的不同称呼才放一组（如"孙悟空/行者/齐天大圣"）
+- 亲属关系（父子、叔侄）不是别名关系"""
 
 
 def build_classification_prompt(

@@ -153,6 +153,18 @@ _BARE_SPEAKER_PATTERN = re.compile(
 )
 
 
+# ---------------------------------------------------------------------------
+# Naming introduction patterns — "叫作二愣子", "名叫韩立", "绰号行者"
+# ---------------------------------------------------------------------------
+_NAMING_PATTERN = re.compile(
+    r'(?:叫作|叫做|名叫|绰号|外号|人称|又叫|又名|唤作|唤做|自称|名为|号称|名号)'
+    r'[\u201c「]?'
+    r'(?![的了是在有他她我你它为不])'  # skip function-word starts
+    r'([\u4e00-\u9fff]{2,4})'
+    r'(?=[\u201d」\s，,。.！!？?、；;：:的了呢吧啊哦\u2018\u2019]|$)'
+)
+
+
 class EntityPreScanner:
     """Scans full novel text to build an entity dictionary."""
 
@@ -261,17 +273,28 @@ class EntityPreScanner:
         # 1d. Chapter title words
         title_words = self._extract_title_words(titles)
 
-        # 1e. Suffix pattern matching
-        all_names = set(word_freq.keys()) | set(ngram_freq.keys()) | set(dialogue_names.keys()) | set(title_words.keys())
+        # 1e. Naming introduction patterns (叫作/名叫/绰号...)
+        naming_names = self._extract_naming_patterns(full_text)
+
+        # 1f. Suffix pattern matching
+        all_names = (
+            set(word_freq.keys()) | set(ngram_freq.keys())
+            | set(dialogue_names.keys()) | set(title_words.keys())
+            | set(naming_names.keys())
+        )
         suffix_types = self._match_suffix_patterns(all_names)
 
-        # 1f. Merge all sources
+        # 1g. Merge all sources
         candidates = self._merge_candidates(
             word_freq, ngram_freq, dialogue_names, title_words,
-            suffix_types, full_text,
+            naming_names, suffix_types, full_text,
         )
 
         return candidates
+
+    # Chinese numeral characters — used by _scan_word_freq for nickname recovery
+    _NUM_PREFIXES = frozenset("一二三四五六七八九十")
+    _NUMERAL_CHARS = frozenset("一二三四五六七八九十百千万亿零两")
 
     def _scan_word_freq(self, full_text: str) -> Counter:
         """jieba POS-tagged word frequency: keep nouns 2-8 chars.
@@ -292,6 +315,16 @@ class EntityPreScanner:
                 continue
             # nr=person name, ns=place, nz=proper noun, n=general noun
             if flag.startswith(("nr", "ns", "nz", "n")):
+                counter[word] += 1
+            # Numeric-prefix nickname recovery (3+ chars): jieba often
+            # misclassifies nicknames like "二愣子"/"三太子" as verbs.
+            # Keep them regardless of POS tag, as long as they are not
+            # purely numeric words (一百, 三千万).
+            elif (
+                len(word) >= 3
+                and word[0] in self._NUM_PREFIXES
+                and not all(c in self._NUMERAL_CHARS for c in word)
+            ):
                 counter[word] += 1
 
         # If text was capped, extrapolate frequencies
@@ -379,6 +412,21 @@ class EntityPreScanner:
 
         return counter
 
+    def _extract_naming_patterns(self, full_text: str) -> Counter:
+        """Extract names introduced via explicit naming patterns.
+
+        Catches "叫作二愣子", "名叫韩立", "绰号行者" etc.  These are very
+        high-confidence person name signals. Caps input at 2M chars (naming
+        introductions cluster in the first portion of a novel).
+        """
+        text = full_text[:2_000_000] if len(full_text) > 2_000_000 else full_text
+        counter: Counter = Counter()
+        for m in _NAMING_PATTERN.finditer(text):
+            name = m.group(1).strip()
+            if name and name not in _STOPWORDS:
+                counter[name] += 1
+        return counter
+
     def _match_suffix_patterns(
         self, candidates: set[str]
     ) -> dict[str, str]:
@@ -409,6 +457,7 @@ class EntityPreScanner:
         ngram_freq: Counter,
         dialogue_names: Counter,
         title_words: Counter,
+        naming_names: Counter,
         suffix_types: dict[str, str],
         full_text: str,
     ) -> list[EntityDictEntry]:
@@ -441,6 +490,33 @@ class EntityPreScanner:
         all_names.update(ngram_only.keys())
         all_names.update(dialogue_names.keys())
         all_names.update(title_words.keys())
+        all_names.update(naming_names.keys())
+
+        # ── Upgrade numeric-prefix names ──
+        # jieba often splits "二愣子" into "二"+"愣子", "三太子" into "三"+"太子".
+        # When both "X" and "数X" exist, the full form is the correct entity name.
+        # Remove the short form and transfer its frequency to the long form.
+        short_to_remove: set[str] = set()
+        for name in list(all_names):
+            if len(name) >= 3 and name[0] in self._NUM_PREFIXES:
+                short_form = name[1:]
+                if short_form in all_names and short_form not in short_to_remove:
+                    # Verify: long form should have meaningful frequency
+                    long_freq = max(
+                        word_freq.get(name, 0), ngram_only.get(name, 0),
+                        dialogue_names.get(name, 0), title_words.get(name, 0),
+                        naming_names.get(name, 0),
+                    )
+                    if long_freq >= 3:
+                        short_to_remove.add(short_form)
+                        # Transfer frequency from short sources to long form
+                        for source in (word_freq, ngram_only, dialogue_names, title_words, naming_names):
+                            if short_form in source:
+                                source[name] = source.get(name, 0) + source.pop(short_form)
+                        logger.debug(
+                            "Numeric-prefix upgrade: '%s' → '%s'", short_form, name,
+                        )
+        all_names -= short_to_remove
 
         # Dynamic minimum frequency based on text length
         text_len = len(full_text)
@@ -459,17 +535,21 @@ class EntityPreScanner:
 
             # Merge frequency from all sources (take max between jieba and ngram)
             freq = max(word_freq.get(name, 0), ngram_only.get(name, 0))
-            # Add dialogue and title counts to boost signal
-            freq = max(freq, dialogue_names.get(name, 0), title_words.get(name, 0))
+            # Add dialogue, title, and naming counts to boost signal
+            freq = max(freq, dialogue_names.get(name, 0), title_words.get(name, 0),
+                       naming_names.get(name, 0))
 
-            # High-confidence sources (dialogue, title) use lower threshold
-            is_high_signal = name in dialogue_names or name in title_words
+            # High-confidence sources (dialogue, title, naming) use lower threshold
+            is_high_signal = name in dialogue_names or name in title_words or name in naming_names
             threshold = max(2, min_freq // 2) if is_high_signal else min_freq
             if freq < threshold:
                 continue
 
-            # Determine best source (priority: dialogue > title > suffix > freq)
-            if name in dialogue_names:
+            # Determine best source (priority: naming > dialogue > title > suffix > freq)
+            if name in naming_names:
+                source = "naming"
+                confidence = "high"
+            elif name in dialogue_names:
                 source = "dialogue"
                 confidence = "high"
             elif name in title_words:
@@ -487,8 +567,8 @@ class EntityPreScanner:
 
             # Entity type from suffix or default
             entity_type = suffix_types.get(name, "unknown")
-            # Dialogue names are persons
-            if name in dialogue_names and entity_type == "unknown":
+            # Dialogue and naming-pattern names are persons
+            if (name in dialogue_names or name in naming_names) and entity_type == "unknown":
                 entity_type = "person"
 
             # Extract sample context
@@ -504,9 +584,17 @@ class EntityPreScanner:
                 sample_context=sample_context,
             )
 
-        # Sort by frequency descending, cap at 500 candidates
+        # Sort by frequency descending, cap at 500 candidates.
+        # Naming-pattern matches (叫作X/名叫X) are always included: they are
+        # explicitly introduced character names — the highest-quality signal —
+        # and there are typically very few (< 30).
         sorted_entries = sorted(entries.values(), key=lambda e: e.frequency, reverse=True)
-        return sorted_entries[:500]
+        top_entries = sorted_entries[:500]
+        included = {e.name for e in top_entries}
+        for entry in sorted_entries[500:]:
+            if entry.name in naming_names and entry.name not in included:
+                top_entries.append(entry)
+        return top_entries
 
     @staticmethod
     def _dedup_ngrams(ngram_freq: Counter, jieba_names: set[str]) -> Counter:
@@ -598,17 +686,24 @@ class EntityPreScanner:
                 if entity.get("confidence"):
                     by_name[name].confidence = entity["confidence"]
 
-        # Process alias groups
+        # Process alias groups — only include names that actually exist
+        # in the candidate list. LLMs sometimes hallucinate alias group
+        # members that were never in the input (e.g., adding "韩胖子" to
+        # 韩立's group when 韩胖子 is a different character not in candidates).
         for group in llm_result.get("alias_groups", []):
             if not isinstance(group, list) or len(group) < 2:
                 continue
-            for name in group:
-                if name in by_name:
-                    others = [n for n in group if n != name]
-                    by_name[name].aliases = others
+            # Filter to candidates that exist in our list
+            valid_group = [n for n in group if n in by_name]
+            if len(valid_group) < 2:
+                continue
+            for name in valid_group:
+                others = [n for n in valid_group if n != name]
+                by_name[name].aliases = others
 
         # Remove rejected words
         rejected = set(llm_result.get("rejected", []))
         result = [c for c in candidates if c.name not in rejected]
 
         return result
+

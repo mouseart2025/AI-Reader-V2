@@ -375,6 +375,21 @@ def _clamp_name(name: str) -> str:
 class FactValidator:
     """Validate and clean a ChapterFact instance."""
 
+    def __init__(self) -> None:
+        # name_corrections: short_name → full_name mapping built from
+        # entity dictionary.  E.g., {"愣子": "二愣子"} when the dictionary
+        # contains "二愣子" with a numeric prefix that jieba/LLM truncated.
+        self._name_corrections: dict[str, str] = {}
+
+    def set_name_corrections(self, corrections: dict[str, str]) -> None:
+        """Set name correction mapping (truncated_name → full_name).
+
+        Built from entity dictionary by AnalysisService at startup.
+        Applied during character validation to fix LLM extraction errors
+        where numeric-prefix names are truncated (e.g., 愣子 → 二愣子).
+        """
+        self._name_corrections = corrections
+
     def validate(self, fact: ChapterFact) -> ChapterFact:
         """Return a cleaned copy of the ChapterFact."""
         characters = self._validate_characters(fact.characters)
@@ -428,6 +443,13 @@ class FactValidator:
         seen: dict[str, CharacterFact] = {}
         for ch in chars:
             name = _clamp_name(ch.name)
+            # Apply name corrections (e.g., 愣子 → 二愣子)
+            if name in self._name_corrections:
+                corrected = self._name_corrections[name]
+                logger.debug(
+                    "Name correction: '%s' → '%s'", name, corrected,
+                )
+                name = corrected
             if len(name) < _NAME_MIN_LEN:
                 continue
             # Drop generic person references and pure titles
@@ -456,6 +478,43 @@ class FactValidator:
                 )
             else:
                 seen[name] = ch.model_copy(update={"name": name})
+
+        # ── Alias-based character merge ──
+        # When character A explicitly lists character B as an alias and B
+        # exists as a separate character, merge B into A. This handles cases
+        # like 韩立/二愣子 where the LLM identifies them as the same person
+        # but also extracts both names as separate character entries.
+        merge_targets: dict[str, str] = {}  # name_to_remove -> name_to_keep
+        for name, ch in seen.items():
+            for alias in ch.new_aliases:
+                if alias in seen and alias != name:
+                    if alias not in merge_targets and name not in merge_targets:
+                        merge_targets[alias] = name
+
+        for target, keeper in merge_targets.items():
+            if target not in seen or keeper not in seen:
+                continue
+            target_ch = seen.pop(target)
+            keeper_ch = seen[keeper]
+            merged_aliases = list(dict.fromkeys(
+                keeper_ch.new_aliases + target_ch.new_aliases + [target]
+            ))
+            merged_aliases = [a for a in merged_aliases if a != keeper]
+            merged_locations = list(dict.fromkeys(
+                keeper_ch.locations_in_chapter + target_ch.locations_in_chapter
+            ))
+            merged_abilities = keeper_ch.abilities_gained + target_ch.abilities_gained
+            seen[keeper] = CharacterFact(
+                name=keeper,
+                new_aliases=merged_aliases,
+                appearance=keeper_ch.appearance or target_ch.appearance,
+                abilities_gained=merged_abilities,
+                locations_in_chapter=merged_locations,
+            )
+            logger.debug(
+                "Merged character '%s' into '%s' via explicit alias link",
+                target, keeper,
+            )
 
         # Second pass: clean new_aliases against the full character set
         # This catches LLM errors where one character's name is wrongly

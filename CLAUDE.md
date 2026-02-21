@@ -82,7 +82,9 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 ### Entity Pre-Scan (Optional, Before Analysis)
 
-`EntityPreScanner` — Phase 1: jieba word segmentation + n-gram frequency stats + dialogue attribution regex + suffix pattern matching → candidate list. Phase 2: LLM classifies candidates into entity types with aliases. Output: `entity_dictionary` table. The dictionary is injected into the extraction prompt to improve entity recognition quality.
+`EntityPreScanner` — Phase 1: jieba word segmentation + n-gram frequency stats + dialogue attribution regex + suffix pattern matching + **naming pattern extraction** (regex for "叫作/名叫/绰号" patterns) → candidate list. Phase 2: LLM classifies candidates into entity types with aliases. Output: `entity_dictionary` table. The dictionary is injected into the extraction prompt to improve entity recognition quality.
+
+**Numeric-prefix name recovery**: jieba often misclassifies Chinese nicknames starting with numerals (e.g., "二愣子", "三太子") as verbs. `_scan_word_freq()` includes a POS recovery path that keeps words with `_NUM_PREFIXES` ("一二三四五六七八九十") regardless of POS tag. `_merge_candidates()` detects when both short form ("愣子") and long form ("二愣子") exist, removes the short form and transfers its frequency to the long form. Naming-source entries bypass the top-500 candidate cutoff to ensure explicitly introduced names are always included.
 
 ### Analysis Pipeline
 
@@ -106,9 +108,13 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 `FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with 16 structural rules based on Chinese place name morphology (专名+通名 structure) instead of exhaustive blocklists, including descriptive adjective + generic tail patterns (Rule 16, e.g., "偏僻地方"、"荒凉之地"). Person validation uses `_is_generic_person()` to filter pure titles and generic references. Auto-created parent/region locations use `_infer_type_from_name()` to derive type from Chinese name suffix (e.g., "越国"→"国", "乱星海"→"海") instead of hardcoded "区域". See `_bmad-output/spatial-entity-quality-research.md` for the research basis.
 
+**Dictionary-driven name corrections**: `FactValidator` accepts a `name_corrections` mapping (set by `AnalysisService` at analysis start) that fixes LLM extraction errors where numeric-prefix names are truncated (e.g., "愣子" → "二愣子"). Built from entity dictionary: for each person entity starting with a Chinese numeral, if the short form (without prefix) is not itself a legitimate dictionary entity, a correction rule is created. Applied in `_validate_characters()` before deduplication.
+
+**Alias-based character merge**: After name deduplication, when character A explicitly lists character B as an alias and B exists as a separate character entry, B is merged into A (combining aliases, locations, abilities). This handles cases where the LLM correctly identifies alias relationships but also extracts both names as separate characters (e.g., 韩立 listing "二愣子" as alias while "二愣子" also exists as independent character).
+
 ### Context Summary Builder — Coreference Resolution
 
-`ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations (sorted by mention frequency, not just recent window) with an explicit coreference instruction, enabling the LLM to resolve anaphoric references like "小城" → "青牛镇" instead of extracting them as separate locations.
+`ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations (sorted by mention frequency, not just recent window) with an explicit coreference instruction, enabling the LLM to resolve anaphoric references like "小城" → "青牛镇" instead of extracting them as separate locations. **Always injects entity dictionary and world structure** even for early chapters (chapter 1-2) with no preceding facts — the `build()` method no longer returns early when preceding chapter facts are empty, ensuring pre-scan results are available from the first chapter. Naming-source entities (from explicit "叫作/名叫" patterns) are displayed in a separate emphasized section at the top of the dictionary injection, ahead of frequency-sorted entries, to maximize visibility for small local models.
 
 ### Location Parent Voting — Authoritative Hierarchy
 
