@@ -1,5 +1,7 @@
 # AI Reader V2
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
 本地部署的智能小说阅读理解系统。利用 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化视图，以及基于原文的自然语言问答。
 
 支持本地 Ollama 和云端 OpenAI 兼容 API 两种 LLM 推理模式，数据全部存储在本机。
