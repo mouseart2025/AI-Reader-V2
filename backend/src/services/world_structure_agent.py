@@ -203,6 +203,9 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("宅院", "building"),
     ("府邸", "building"),
     ("洞府", "building"),  # cultivation cave dwelling
+    ("码头", "site"),
+    ("渡口", "site"),
+    ("胡同", "site"),
     # ── 1-char: macro geography (continent) ──
     ("省", "continent"),
     ("界", "continent"),
@@ -249,6 +252,16 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("溪", "site"),
     ("关", "site"),
     ("坊", "site"),     # marketplace area
+    ("沟", "site"),     # 穷山沟
+    ("街", "site"),     # 长安街
+    ("巷", "site"),     # 柳巷
+    ("墓", "site"),     # 英雄墓
+    ("陵", "site"),     # 皇陵
+    ("桥", "site"),     # 断桥
+    ("坝", "site"),     # 大坝
+    ("堡", "site"),     # 铁堡
+    ("哨", "site"),     # 前哨
+    ("弄", "site"),     # 石库弄
     ("寺", "site"),
     ("庙", "site"),
     ("观", "site"),
@@ -271,6 +284,7 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("家", "building"),
     ("宅", "building"),
     ("舍", "building"),
+    ("居", "building"),  # 静心居
 ]
 
 
@@ -1147,7 +1161,7 @@ class WorldStructureAgent:
                     self.structure.location_tiers.get(name, "city"), 4)
                 if c_rank < p_rank:
                     continue  # child should not be bigger than primary setting
-                self._parent_votes.setdefault(name, Counter())[primary_setting] += 1
+                self._parent_votes.setdefault(name, Counter())[primary_setting] += 2
 
         # Accumulate contains relationships as parent votes
         # Contains direction validation: LLM frequently inverts the direction,
@@ -1339,7 +1353,7 @@ class WorldStructureAgent:
                 # region to prevent inflating high-tier counts under 天下.
                 raw_tier = LocationTier.site.value
             else:
-                raw_tier = LocationTier.city.value
+                raw_tier = LocationTier.site.value
 
         # ── Layer 5: parent tier constraint ──
         if parent and raw_tier:
@@ -1791,7 +1805,7 @@ class WorldStructureAgent:
                     c_rank = TIER_ORDER.get(tiers.get(loc_name, "city"), 4)
                     if c_rank < p_rank:
                         continue
-                    votes.setdefault(loc_name, Counter())[primary_setting] += 1
+                    votes.setdefault(loc_name, Counter())[primary_setting] += 2
 
         # ── Spatial neighbor propagation (adjacent/direction/in_between) ──
         # If A is adjacent/near B and B has a confident parent C, propagate A→C.
