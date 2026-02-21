@@ -209,6 +209,19 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Columns already exist
+        # Migration: add constraint_type/locked_parent to map_user_overrides
+        try:
+            await conn.execute(
+                "ALTER TABLE map_user_overrides ADD COLUMN constraint_type TEXT DEFAULT 'position'"
+            )
+        except Exception:
+            pass  # Column already exists
+        try:
+            await conn.execute(
+                "ALTER TABLE map_user_overrides ADD COLUMN locked_parent TEXT"
+            )
+        except Exception:
+            pass  # Column already exists
         # Migration: add token/cost columns to chapter_facts for cost tracking
         for col, col_type in [
             ("input_tokens", "INTEGER"),

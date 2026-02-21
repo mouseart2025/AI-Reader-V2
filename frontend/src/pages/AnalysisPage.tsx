@@ -169,21 +169,31 @@ export default function AnalysisPage() {
     }
   }, [novelId])
 
+  // Track previous novelId to avoid resetting stats when re-entering the same novel
+  const prevNovelIdRef = useRef<string | null>(null)
+
   // Load novel and latest task
   useEffect(() => {
     if (!novelId) return
     let cancelled = false
 
-    // Reset stale state from previous novel immediately
-    resetProgress()
-    setTask(null)
+    const novelChanged = prevNovelIdRef.current !== novelId
+    prevNovelIdRef.current = novelId
+
+    // Only reset progress when switching to a different novel.
+    // When returning to the same novel, preserve existing stats to avoid
+    // flashing zeros while the REST API call fetches the latest state.
+    if (novelChanged) {
+      resetProgress()
+      setTask(null)
+      // Reset prescan state for new novel
+      setPrescanStatus("pending")
+      setPrescanEntityCount(0)
+      setPrescanEntities([])
+      setPrescanExpanded(false)
+    }
     setLoading(true)
     setError(null)
-    // Reset prescan state for new novel
-    setPrescanStatus("pending")
-    setPrescanEntityCount(0)
-    setPrescanEntities([])
-    setPrescanExpanded(false)
 
     async function load() {
       try {
@@ -200,11 +210,17 @@ export default function AnalysisPage() {
             // Initialize progress + stats from REST before WS connects
             const total = latestTask.chapter_end - latestTask.chapter_start + 1
             const done = latestTask.current_chapter - latestTask.chapter_start
+            // Merge stats: prefer REST stats if they are more up-to-date
+            const currentStats = useAnalysisStore.getState().stats
+            const restHasMore = latestStats && (
+              latestStats.entities + latestStats.relations + latestStats.events
+              > currentStats.entities + currentStats.relations + currentStats.events
+            )
             useAnalysisStore.setState({
               currentChapter: latestTask.current_chapter,
               totalChapters: total,
               progress: total > 0 ? Math.round((done / total) * 100) : 0,
-              ...(latestStats ? { stats: latestStats } : {}),
+              ...(restHasMore ? { stats: latestStats } : {}),
             })
             connectWs(novelId!)
           } else if (latestTask.status === "completed" && latestStats) {
@@ -217,6 +233,10 @@ export default function AnalysisPage() {
               stats: latestStats,
             })
           }
+        } else if (novelChanged) {
+          // No task exists for this novel — ensure clean state
+          resetProgress()
+          setTask(null)
         }
         // Non-blocking prescan load
         loadPrescanData(novelId!)

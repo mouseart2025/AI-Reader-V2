@@ -182,6 +182,22 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 - **Collision detection**: Label rects tracked per frame, only non-overlapping labels rendered
 - **Dashed weak edges**: `linkLineDash` for weight ≤ 1
 
+### Force-Directed Pre-Layout Seeding
+
+`ConstraintSolver._force_directed_seed()` generates a physics-simulated initial population for `differential_evolution`, replacing random initialization. Uses `_hierarchy_layout()` as starting positions, then runs 80 iterations of spring-force simulation (constraint attraction + pairwise repulsion). User-overridden positions are fixed during simulation. Row 0 of the seed population = force-directed result; remaining rows = random (preserving DE diversity). Energy comparison logged: `Force-directed seed energy=X.XX, random sample energy=Y.YY`.
+
+### Location Semantic Role
+
+`LocationFact.role` (optional field: `"setting"` | `"referenced"` | `"boundary"` | `None`) distinguishes narrative function of each location in a chapter. `setting` = character physically present; `referenced` = mentioned in dialogue/narration; `boundary` = directional landmark. Default `None` for backward compatibility. Frontend renders `referenced` locations at 50% opacity and 70% icon scale; `boundary` locations at 60% opacity with dashed border ring.
+
+### Map Conflict Markers
+
+`get_map_data()` calls `_detect_location_conflicts()` (from `conflict_detector.py`) on loaded facts and includes `location_conflicts` array in the API response. Frontend `NovelMap.tsx` builds a `conflictIndex` (location name → descriptions), renders animated red dashed pulse rings on conflicting locations, and shows conflict details in the location popup.
+
+### Override Constraint Locking
+
+`map_user_overrides` table extended with `constraint_type` (`"position"` default | `"locked"`) and `locked_parent` columns. When `constraint_type='locked'`, the override survives `apply-hierarchy-changes` (not deleted). `locked_parent` overrides voted parent with highest priority in `get_map_data()`. Locked locations display a lock indicator on the map.
+
 ### Entity Quality — Single-Character Filtering
 
 Three-layer defense against common single-character nouns extracted as entities (书/饭/茶/龙):

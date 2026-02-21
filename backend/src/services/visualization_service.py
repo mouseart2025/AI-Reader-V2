@@ -32,6 +32,7 @@ from src.services.geo_resolver import (
     auto_resolve as geo_auto_resolve,
     place_unresolved_geo_coords,
 )
+from src.services.conflict_detector import _detect_location_conflicts
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
 
@@ -298,6 +299,10 @@ async def get_map_data(
     # Spatial constraint aggregation: (source, target, relation_type) -> best entry
     constraint_map: dict[tuple[str, str, str], dict] = {}
 
+    # Track the "best" role per location: setting > boundary > referenced > None
+    _ROLE_PRIORITY = {"setting": 3, "boundary": 2, "referenced": 1}
+    loc_role: dict[str, str | None] = {}
+
     for fact in facts:
         ch = fact.chapter_id
 
@@ -311,6 +316,12 @@ async def get_map_data(
                 }
             elif loc.parent and not loc_info[loc.name]["parent"]:
                 loc_info[loc.name]["parent"] = loc.parent
+            # Upgrade role to most significant seen
+            new_role = loc.role
+            if new_role:
+                cur = loc_role.get(loc.name)
+                if cur is None or _ROLE_PRIORITY.get(new_role, 0) > _ROLE_PRIORITY.get(cur, 0):
+                    loc_role[loc.name] = new_role
 
         # Build trajectories from characters' locations_in_chapter
         for char in fact.characters:
@@ -362,6 +373,7 @@ async def get_map_data(
             "mention_count": len(loc_chapters.get(name, set())),
             "tier": "city",     # placeholder, updated after ws load
             "icon": "generic",  # placeholder, updated after ws load
+            "role": loc_role.get(name),
         }
         for name, info in loc_info.items()
     ]
@@ -431,7 +443,21 @@ async def get_map_data(
                     authoritative = ws.location_parents.get(loc["name"])
                     if authoritative:
                         loc["parent"] = authoritative
-                # Recalculate hierarchy levels with updated parents
+
+            # Override parents with user-locked parents (highest priority)
+            try:
+                locked_parents = await _load_locked_parents(novel_id)
+                if locked_parents:
+                    for loc in locations:
+                        locked_p = locked_parents.get(loc["name"])
+                        if locked_p is not None:
+                            loc["parent"] = locked_p
+                            loc["locked"] = True
+            except Exception:
+                logger.warning("Failed to load locked parents", exc_info=True)
+
+            # Recalculate hierarchy levels with updated parents
+            if ws.location_parents:
                 # Rebuild loc_info parents first
                 for loc in locations:
                     if loc["name"] in loc_info:
@@ -739,6 +765,17 @@ async def get_map_data(
         if entries:
             geo_context.append({"chapter": fact.chapter_id, "entries": entries})
 
+    # ── Detect location hierarchy conflicts (reuse loaded facts, no extra DB query) ──
+    location_conflicts: list[dict] = []
+    try:
+        parsed_for_conflicts = [
+            (f.chapter_id, f.model_dump()) for f in facts
+        ]
+        raw_conflicts = _detect_location_conflicts(parsed_for_conflicts)
+        location_conflicts = [c.to_dict() for c in raw_conflicts]
+    except Exception:
+        logger.warning("Failed to detect location conflicts for map", exc_info=True)
+
     # Compute canvas_size for API response
     _ws_scale = ws.spatial_scale if ws else None
     _resp_cw, _resp_ch = SPATIAL_SCALE_CANVAS.get(
@@ -758,6 +795,7 @@ async def get_map_data(
         "spatial_scale": _ws_scale,
         "canvas_size": {"width": _resp_cw, "height": _resp_ch},
         "geography_context": geo_context,
+        "location_conflicts": location_conflicts,
     }
     if geo_coords_raw:
         # Apply user lat/lng overrides on top of auto-resolved coordinates
@@ -834,21 +872,40 @@ async def _load_user_overrides(novel_id: str) -> dict[str, tuple[float, float]]:
         await conn.close()
 
 
+async def _load_locked_parents(novel_id: str) -> dict[str, str]:
+    """Load locked parent assignments from user overrides."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT location_name, locked_parent FROM map_user_overrides "
+            "WHERE novel_id = ? AND constraint_type = 'locked' AND locked_parent IS NOT NULL",
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        return {row["location_name"]: row["locked_parent"] for row in rows}
+    finally:
+        await conn.close()
+
+
 async def save_user_override(
     novel_id: str, location_name: str, x: float, y: float,
     *, lat: float | None = None, lng: float | None = None,
+    constraint_type: str = "position", locked_parent: str | None = None,
 ) -> None:
     """Save or update a user coordinate override and invalidate layout cache."""
     conn = await get_connection()
     try:
         await conn.execute(
-            """INSERT INTO map_user_overrides (novel_id, location_name, x, y, lat, lng, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+            """INSERT INTO map_user_overrides
+               (novel_id, location_name, x, y, lat, lng, constraint_type, locked_parent, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                ON CONFLICT (novel_id, location_name)
                DO UPDATE SET x=excluded.x, y=excluded.y,
                              lat=excluded.lat, lng=excluded.lng,
+                             constraint_type=excluded.constraint_type,
+                             locked_parent=excluded.locked_parent,
                              updated_at=datetime('now')""",
-            (novel_id, location_name, x, y, lat, lng),
+            (novel_id, location_name, x, y, lat, lng, constraint_type, locked_parent),
         )
         # Invalidate all cached layouts for this novel
         await conn.execute(

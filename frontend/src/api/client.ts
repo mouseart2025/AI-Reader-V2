@@ -455,10 +455,11 @@ export function saveLocationOverride(
   locationName: string,
   x: number,
   y: number,
+  opts?: { constraint_type?: string; locked_parent?: string | null },
 ): Promise<{ status: string; message: string }> {
   return apiFetch(`/novels/${novelId}/map/layout/${encodeURIComponent(locationName)}`, {
     method: "PUT",
-    body: JSON.stringify({ x, y }),
+    body: JSON.stringify({ x, y, ...opts }),
   })
 }
 
@@ -467,10 +468,11 @@ export function saveGeoLocationOverride(
   locationName: string,
   lat: number,
   lng: number,
+  opts?: { constraint_type?: string; locked_parent?: string | null },
 ): Promise<{ status: string; message: string }> {
   return apiFetch(`/novels/${novelId}/map/layout/${encodeURIComponent(locationName)}`, {
     method: "PUT",
-    body: JSON.stringify({ x: 0, y: 0, lat, lng }),
+    body: JSON.stringify({ x: 0, y: 0, lat, lng, ...opts }),
   })
 }
 

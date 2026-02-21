@@ -1493,6 +1493,15 @@ class ConstraintSolver:
         maxiter = max(50, min(200, 2000 // max(self.n, 1)))
         popsize = max(4, min(8, 200 // max(self.n, 1)))
 
+        # Generate force-directed seed population
+        seed_population = self._force_directed_seed(bounds, valid_constraints, popsize)
+        seed_energy = self._energy(seed_population[0], valid_constraints)
+        random_energy = self._energy(seed_population[1], valid_constraints) if popsize > 1 else float("inf")
+        logger.info(
+            "Force-directed seed energy=%.2f, random sample energy=%.2f",
+            seed_energy, random_energy,
+        )
+
         try:
             result = differential_evolution(
                 self._energy,
@@ -1503,6 +1512,7 @@ class ConstraintSolver:
                 tol=1e-4,
                 seed=42,
                 polish=False,
+                init=seed_population,
             )
             coords = result.x.reshape(-1, 2)
             layout = {
@@ -1965,6 +1975,146 @@ class ConstraintSolver:
                 cy = max(self._canvas_min_y, min(self._canvas_max_y, cy))
                 layout[child] = (cx, cy)
             self._place_children(layout, children, child_radius * 0.6)
+
+    def _force_directed_seed(
+        self,
+        bounds: list[tuple[float, float]],
+        constraints: list[dict],
+        popsize: int,
+    ) -> np.ndarray:
+        """Generate an initial population for DE using force-directed simulation.
+
+        Returns ndarray of shape (popsize, 2*n):
+        - Row 0: force-directed result (physics-simulated positions)
+        - Rows 1..popsize-1: random positions (to maintain DE diversity)
+        """
+        n = self.n
+        dim = 2 * n
+
+        # Start from hierarchy layout positions
+        hierarchy = self._hierarchy_layout()
+        positions = np.zeros((n, 2), dtype=np.float64)
+        for i, name in enumerate(self.loc_names):
+            if name in hierarchy:
+                positions[i] = hierarchy[name]
+            else:
+                # Center of bounds for this location
+                positions[i, 0] = (bounds[2 * i][0] + bounds[2 * i][1]) / 2
+                positions[i, 1] = (bounds[2 * i + 1][0] + bounds[2 * i + 1][1]) / 2
+
+        # Identify fixed locations (user overrides)
+        fixed = np.array(
+            [name in self.user_overrides for name in self.loc_names],
+            dtype=bool,
+        )
+
+        # Compute ideal spacing for repulsion
+        area = (self._canvas_max_x - self._canvas_min_x) * (
+            self._canvas_max_y - self._canvas_min_y
+        )
+        ideal_spacing = math.sqrt(area / max(n, 1)) * 0.8
+
+        # Pre-parse constraint pairs with direction vectors
+        parsed_constraints: list[tuple[int, int, str, str, float]] = []
+        for c in constraints:
+            si = self.loc_index.get(c["source"])
+            ti = self.loc_index.get(c["target"])
+            if si is None or ti is None:
+                continue
+            weight = _CONF_RANK.get(c.get("confidence", "medium"), 2)
+            parsed_constraints.append(
+                (si, ti, c["relation_type"], c.get("value", ""), weight)
+            )
+
+        # Run 80 iterations of spring-force simulation
+        velocities = np.zeros_like(positions)
+        damping = 0.85
+        dt = 1.0
+
+        for _ in range(80):
+            forces = np.zeros_like(positions)
+
+            # ── Attraction: constraints pull locations toward satisfaction ──
+            for si, ti, rtype, value, weight in parsed_constraints:
+                diff = positions[ti] - positions[si]
+                dist = np.linalg.norm(diff)
+                if dist < 1e-6:
+                    continue
+                direction = diff / dist
+
+                if rtype == "contains":
+                    # Pull child toward parent if too far
+                    if dist > PARENT_RADIUS:
+                        force_mag = (dist - PARENT_RADIUS) * 0.1 * weight
+                        forces[ti] -= direction * force_mag
+                        if not fixed[si]:
+                            forces[si] += direction * force_mag * 0.3
+                elif rtype == "adjacent":
+                    # Pull toward ADJACENT_DIST
+                    force_mag = (dist - ADJACENT_DIST) * 0.05 * weight
+                    forces[si] += direction * force_mag
+                    forces[ti] -= direction * force_mag
+                elif rtype == "direction":
+                    vec = _DIRECTION_VECTORS.get(value)
+                    if vec is not None:
+                        # Nudge source in expected direction relative to target
+                        target_offset = np.array([
+                            vec[0] * DIRECTION_MARGIN * 2,
+                            vec[1] * DIRECTION_MARGIN * 2,
+                        ], dtype=np.float64)
+                        desired = positions[ti] + target_offset
+                        force = (desired - positions[si]) * 0.03 * weight
+                        forces[si] += force
+                elif rtype == "separated_by":
+                    if dist < SEPARATION_DIST:
+                        force_mag = (SEPARATION_DIST - dist) * 0.1 * weight
+                        forces[si] -= direction * force_mag
+                        forces[ti] += direction * force_mag
+
+            # ── Repulsion: O(n²) pairwise repulsion ──
+            for i in range(n):
+                for j in range(i + 1, n):
+                    diff = positions[j] - positions[i]
+                    dist = np.linalg.norm(diff)
+                    if dist < 1e-6:
+                        dist = 1e-6
+                        diff = np.random.randn(2) * 1e-6
+                    if dist < ideal_spacing:
+                        repulsion = ((ideal_spacing - dist) / ideal_spacing) ** 2
+                        force_mag = repulsion * ideal_spacing * 0.1
+                        direction = diff / dist
+                        forces[i] -= direction * force_mag
+                        forces[j] += direction * force_mag
+
+            # Zero out forces on fixed locations
+            forces[fixed] = 0.0
+
+            # Update velocities and positions
+            velocities = (velocities + forces * dt) * damping
+            positions += velocities * dt
+
+            # Boundary clamping
+            for i in range(n):
+                positions[i, 0] = np.clip(
+                    positions[i, 0], bounds[2 * i][0], bounds[2 * i][1]
+                )
+                positions[i, 1] = np.clip(
+                    positions[i, 1], bounds[2 * i + 1][0], bounds[2 * i + 1][1]
+                )
+
+        # Build seed population: row 0 = force-directed, rest = random
+        seed = np.empty((popsize, dim), dtype=np.float64)
+        seed[0] = positions.flatten()
+
+        # Fill remaining rows with random positions within bounds
+        rng = np.random.RandomState(42)
+        bounds_arr = np.array(bounds)  # (2*n, 2)
+        lows = bounds_arr[:, 0]
+        highs = bounds_arr[:, 1]
+        for row in range(1, popsize):
+            seed[row] = lows + rng.random(dim) * (highs - lows)
+
+        return seed
 
     def _spiral_layout(self) -> dict[str, tuple[float, float]]:
         """Place all locations in a spiral pattern from center."""

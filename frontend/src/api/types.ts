@@ -376,6 +376,8 @@ export interface MapLocation {
   mention_count: number
   tier?: string    // "world" | "continent" | "kingdom" | "region" | "city" | "site" | "building"
   icon?: string    // "city" | "mountain" | "cave" | "temple" | "generic" | ...
+  role?: string | null  // "setting" | "referenced" | "boundary"
+  locked?: boolean
 }
 
 export interface MapLayoutItem {
@@ -402,6 +404,15 @@ export interface TrajectoryPoint {
   chapter: number
 }
 
+export interface LocationConflict {
+  type: string
+  severity: string
+  description: string
+  chapters: number[]
+  entity: string
+  details: Record<string, unknown>
+}
+
 export interface MapData {
   locations: MapLocation[]
   trajectories: Record<string, TrajectoryPoint[]>
@@ -419,6 +430,7 @@ export interface MapData {
   canvas_size?: { width: number; height: number }
   geography_context?: GeographyChapter[]
   geo_coords?: Record<string, { lat: number; lng: number }>
+  location_conflicts?: LocationConflict[]
 }
 
 export interface GeographyEntry {

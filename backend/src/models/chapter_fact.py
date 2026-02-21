@@ -33,6 +33,7 @@ class LocationFact(BaseModel):
     type: str
     parent: str | None = None
     description: str | None = None
+    role: str | None = None  # "setting" | "referenced" | "boundary"
 
 
 class ItemEventFact(BaseModel):
