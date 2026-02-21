@@ -104,7 +104,7 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 ### Fact Validation — Morphological Filtering
 
-`FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with 10 structural rules based on Chinese place name morphology (专名+通名 structure) instead of exhaustive blocklists. Person validation uses `_is_generic_person()` to filter pure titles and generic references. See `_bmad-output/spatial-entity-quality-research.md` for the research basis.
+`FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with 16 structural rules based on Chinese place name morphology (专名+通名 structure) instead of exhaustive blocklists, including descriptive adjective + generic tail patterns (Rule 16, e.g., "偏僻地方"、"荒凉之地"). Person validation uses `_is_generic_person()` to filter pure titles and generic references. Auto-created parent/region locations use `_infer_type_from_name()` to derive type from Chinese name suffix (e.g., "越国"→"国", "乱星海"→"海") instead of hardcoded "区域". See `_bmad-output/spatial-entity-quality-research.md` for the research basis.
 
 ### Context Summary Builder — Coreference Resolution
 
@@ -112,7 +112,9 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 ### Location Parent Voting — Authoritative Hierarchy
 
-`WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent` (+1 per mention) and `spatial_relationships[relation_type=="contains"]` (weighted by confidence: high=3, medium=2, low=1). The winner for each child is stored in `WorldStructure.location_parents` (a `dict[str, str]`). Cycle detection (DFS) breaks the weakest link. User overrides (`location_parent` type) take precedence.
+`WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent` (+1 per mention), `spatial_relationships[relation_type=="contains"]` (weighted by confidence: high=2, medium=1, low=1), and **chapter primary setting inference** (weight=1 per co-occurrence). The winner for each child is stored in `WorldStructure.location_parents` (a `dict[str, str]`). Cycle detection (DFS) breaks the weakest link. User overrides (`location_parent` type) take precedence.
+
+**Chapter Primary Setting Inference**: Each chapter identifies a "primary setting" — the `role="setting"` location with the highest tier rank (largest geographic scale). Co-occurring orphan locations (no parent, not referenced/boundary, not bigger than the primary setting) receive a weak parent vote (weight=1) pointing to the primary setting. Across many chapters, these votes accumulate (e.g., "百药园" appearing with "七玄门" in 10 chapters → 10 votes). Fallback for old data without `role`: uses the first non-generic location in the chapter. Applied in both `_apply_heuristic_updates()` (live analysis) and `_rebuild_parent_votes()` (hierarchy rebuild).
 
 **Suffix Rank System** (`_get_suffix_rank()`, `_NAME_SUFFIX_TIER`): Chinese location name suffixes encode geographic scale (界>国>城>谷>洞>殿). `_resolve_parents()` uses suffix rank as the PRIMARY signal for parent-child direction validation, falling back to LLM-classified `location_tiers` only when both names lack recognizable suffixes. This fixes ~35% of parent-child inversions caused by LLM extraction confusion (e.g., 元化国 incorrectly placed under 黄枫谷 → flipped because 国 rank 2 > 谷 rank 3). The same suffix rank is used in contains-relationship direction validation during vote accumulation. `_NAME_SUFFIX_TIER` (84 entries) also serves `_classify_tier()` Layer 1, providing reliable tier classification from name morphology for administrative, fantasy, natural feature, and building suffixes.
 

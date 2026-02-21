@@ -276,6 +276,8 @@ export interface WsStage extends WsBase {
   type: "stage"
   chapter: number
   stage_label: string
+  llm_model?: string
+  llm_provider?: string // "ollama" | "openai"
 }
 
 export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage

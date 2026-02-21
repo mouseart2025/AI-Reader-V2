@@ -20,6 +20,8 @@ interface AnalysisState {
   stats: AnalysisStats
   costStats: AnalysisCostStats | null
   stageLabel: string | null
+  llmModel: string | null
+  llmProvider: string | null // "ollama" | "openai"
   failedChapters: FailedChapter[]
   ws: WebSocket | null
   /** Internal: track connected novelId for reconnect */
@@ -49,6 +51,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   stats: { ...initialStats },
   costStats: null,
   stageLabel: null,
+  llmModel: null,
+  llmProvider: null,
   failedChapters: [],
   ws: null,
   _novelId: null,
@@ -66,6 +70,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       stats: { ...initialStats },
       costStats: null,
       stageLabel: null,
+      llmModel: null,
+      llmProvider: null,
       failedChapters: [],
     }),
 
@@ -106,7 +112,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         const s = get()
 
         if (msg.type === "stage") {
-          set({ stageLabel: msg.stage_label })
+          set({
+            stageLabel: msg.stage_label,
+            ...(msg.llm_model ? { llmModel: msg.llm_model } : {}),
+            ...(msg.llm_provider ? { llmProvider: msg.llm_provider } : {}),
+          })
         } else if (msg.type === "progress") {
           set({
             currentChapter: msg.chapter,

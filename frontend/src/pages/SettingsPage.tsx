@@ -1131,7 +1131,7 @@ export default function SettingsPage() {
                   ))}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  当前: {LINE_HEIGHT_MAP[lineHeight]}
+                  当前: {{ compact: "1.6x", normal: "2.0x", loose: "2.6x" }[lineHeight]}
                 </p>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import Markdown from "react-markdown"
 import { exportConversationUrl } from "@/api/client"
 import { useChatStore } from "@/stores/chatStore"
+import { useLlmInfoStore, formatLlmLabel } from "@/stores/llmInfoStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -29,6 +30,11 @@ export default function ChatPage() {
   } = useChatStore()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // LLM info for display
+  const llmInfo = useLlmInfoStore()
+  useEffect(() => { llmInfo.fetch() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const llmLabel = formatLlmLabel(llmInfo.model, llmInfo.provider)
 
   // Load conversations
   useEffect(() => {
@@ -251,7 +257,7 @@ export default function ChatPage() {
                 </div>
                 <div className="rounded-lg px-4 py-2.5 bg-muted">
                   <span className="text-sm text-muted-foreground animate-pulse">
-                    正在思考...
+                    {llmLabel ? `${llmLabel} 思考中...` : "正在思考..."}
                   </span>
                 </div>
               </div>
