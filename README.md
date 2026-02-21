@@ -234,4 +234,4 @@ AI-Reader-V2/
 
 ## License
 
-Private
+本项目采用 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可证。允许非商业用途的分享和改编，需署名并以相同协议分发。
