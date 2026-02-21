@@ -390,6 +390,7 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
 
     # Clear map coordinate overrides for affected locations so they get
     # repositioned by the constraint solver based on the new hierarchy.
+    # Skip locked overrides (constraint_type='locked') — those are user-pinned.
     affected_locs = {c.location for c in body.changes}
     if affected_locs:
         from src.db.sqlite_db import get_connection
@@ -399,7 +400,8 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
             placeholders = ",".join("?" for _ in affected_locs)
             await conn.execute(
                 f"DELETE FROM map_user_overrides WHERE novel_id = ? "
-                f"AND location_name IN ({placeholders})",
+                f"AND location_name IN ({placeholders}) "
+                f"AND (constraint_type IS NULL OR constraint_type != 'locked')",
                 (novel_id, *affected_locs),
             )
             await conn.commit()

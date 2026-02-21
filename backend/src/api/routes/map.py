@@ -49,6 +49,8 @@ class OverrideRequest(BaseModel):
     y: float = 0.0
     lat: float | None = None
     lng: float | None = None
+    constraint_type: str = "position"  # "position" | "locked"
+    locked_parent: str | None = None
 
 
 @router.put("/layout/{location_name}")
@@ -61,8 +63,12 @@ async def update_location_override(
     if not novel:
         raise HTTPException(status_code=404, detail="小说不存在")
 
-    await save_user_override(novel_id, location_name, body.x, body.y,
-                             lat=body.lat, lng=body.lng)
+    await save_user_override(
+        novel_id, location_name, body.x, body.y,
+        lat=body.lat, lng=body.lng,
+        constraint_type=body.constraint_type,
+        locked_parent=body.locked_parent,
+    )
     return {"status": "ok", "message": "位置已保存"}
 
 

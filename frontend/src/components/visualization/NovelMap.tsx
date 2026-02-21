@@ -14,6 +14,7 @@ import * as d3Shape from "d3-shape"
 import "d3-transition"
 import type {
   LayerType,
+  LocationConflict,
   MapLayoutItem,
   MapLocation,
   PortalInfo,
@@ -220,6 +221,7 @@ export interface NovelMapProps {
   canvasSize?: { width: number; height: number }
   spatialScale?: string
   focusLocation?: string | null
+  locationConflicts?: LocationConflict[]
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
   onPortalClick?: (targetLayerId: string) => void
@@ -258,6 +260,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       currentLocation,
       canvasSize: canvasSizeProp,
       focusLocation,
+      locationConflicts,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
@@ -423,6 +426,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
 
       viewport.append("g").attr("id", "portals")
+      viewport.append("g").attr("id", "conflict-markers")
       viewport.append("g").attr("id", "focus-overlay")
 
       // Setup d3-zoom
@@ -613,6 +617,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const isActive = visibleLocationNames.has(item.name)
         const isRevealed = !isActive && revealed.has(item.name)
         const isCurrent = currentLocation === item.name
+        const locRole = loc?.role
 
         const typeColor = locationColor(loc?.type ?? "", item.name)
         let color: string
@@ -632,11 +637,21 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           opacity = 0.2
         }
 
+        // Role-based adjustments for active locations
+        let dotRadius = 3
+        if (isActive && locRole === "referenced") {
+          opacity *= 0.5
+          dotRadius = 2
+        } else if (isActive && locRole === "boundary") {
+          opacity *= 0.6
+          dotRadius = 2
+        }
+
         const dot = dotsG
           .append("circle")
           .attr("cx", item.x)
           .attr("cy", item.y)
-          .attr("r", 3)
+          .attr("r", dotRadius)
           .attr("fill", color)
           .attr("opacity", opacity)
 
@@ -670,6 +685,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const isRevealed = !isActive && revealed.has(item.name)
         const isCurrent = currentLocation === item.name
         const mention = loc?.mention_count ?? 0
+        const locRole = loc?.role
 
         let color: string
         let opacity: number
@@ -687,8 +703,20 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           opacity = 0.2
         }
 
+        // Role-based adjustments for active locations
+        let iconScale = 1.0
+        let strokeDasharray: string | null = null
+        if (isActive && locRole === "referenced") {
+          opacity *= 0.5
+          iconScale = 0.7
+        } else if (isActive && locRole === "boundary") {
+          opacity *= 0.6
+          strokeDasharray = "3 2"
+        }
+
         const iconName = loc?.icon ?? "generic"
-        const iconSize = TIER_ICON_SIZE[tier] ?? 20
+        const baseIconSize = TIER_ICON_SIZE[tier] ?? 20
+        const iconSize = baseIconSize * iconScale
 
         // Location group — counter-scaled at position
         // The group translates to the location point; icon/label use local coords
@@ -714,6 +742,33 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("fill", color)
             .attr("opacity", opacity)
           iconG.html(iconContent)
+        }
+
+        // Lock indicator for locked locations
+        if (loc?.locked) {
+          locG
+            .append("text")
+            .attr("x", item.x + iconSize / 2 + 2)
+            .attr("y", item.y - iconSize / 2)
+            .attr("font-size", "10px")
+            .attr("fill", darkBg ? "#fbbf24" : "#b45309")
+            .attr("opacity", opacity)
+            .style("pointer-events", "none")
+            .text("\uD83D\uDD12")  // lock emoji
+        }
+
+        // Dashed border ring for boundary-role locations
+        if (strokeDasharray && isActive) {
+          locG
+            .append("circle")
+            .attr("cx", item.x)
+            .attr("cy", item.y)
+            .attr("r", iconSize / 2 + 3)
+            .attr("fill", "none")
+            .attr("stroke", color)
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", strokeDasharray)
+            .attr("opacity", opacity)
         }
 
         // Label (hidden by default — collision detection will show visible ones)
@@ -910,6 +965,82 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         })
       }
     }, [mapReady, layout, portals, layoutMap, darkBg])
+
+    // ── Render conflict markers ─────────────────────────
+    // Build conflict index: location name -> conflict descriptions
+    const conflictIndex = useMemo(() => {
+      const idx = new Map<string, string[]>()
+      if (!locationConflicts?.length) return idx
+      for (const c of locationConflicts) {
+        if (!c.entity) continue
+        const existing = idx.get(c.entity) ?? []
+        existing.push(c.description)
+        idx.set(c.entity, existing)
+      }
+      return idx
+    }, [locationConflicts])
+
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const conflictG = svg.select("#conflict-markers")
+      conflictG.selectAll("*").remove()
+
+      if (conflictIndex.size === 0) return
+
+      for (const item of layout) {
+        if (item.is_portal) continue
+        const descriptions = conflictIndex.get(item.name)
+        if (!descriptions) continue
+
+        // Red dashed pulse ring
+        const ring = conflictG
+          .append("circle")
+          .attr("cx", item.x)
+          .attr("cy", item.y)
+          .attr("r", 18)
+          .attr("fill", "none")
+          .attr("stroke", "#ef4444")
+          .attr("stroke-width", 1.5)
+          .attr("stroke-dasharray", "4 3")
+          .attr("opacity", 0.8)
+
+        // Pulse animation: scale the ring
+        const animateScale = () => {
+          ring
+            .attr("r", 18)
+            .attr("opacity", 0.8)
+            .transition()
+            .duration(1200)
+            .attr("r", 26)
+            .attr("opacity", 0.2)
+            .on("end", animateScale)
+        }
+        animateScale()
+
+        // Click handler: show conflict details in popup
+        conflictG
+          .append("circle")
+          .attr("cx", item.x)
+          .attr("cy", item.y)
+          .attr("r", 20)
+          .attr("fill", "transparent")
+          .style("cursor", "pointer")
+          .on("click", (event: MouseEvent) => {
+            event.stopPropagation()
+            const loc = locMap.get(item.name)
+            setPopup({
+              x: item.x,
+              y: item.y,
+              content: "location",
+              name: item.name,
+              locType: loc?.type ?? "",
+              parent: loc?.parent ?? "",
+              mentionCount: loc?.mention_count ?? 0,
+            })
+          })
+      }
+    }, [mapReady, layout, conflictIndex, locMap])
 
     // ── Zoom-based visibility + counter-scale + collision detection ──
     useEffect(() => {
@@ -1261,6 +1392,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
                 <div className="text-muted-foreground text-[11px] mb-1.5">
                   出现 {popup.mentionCount} 章
                 </div>
+                {conflictIndex.has(popup.name) && (
+                  <div className="text-[11px] text-red-500 mb-1.5 border-t border-red-200 pt-1">
+                    {conflictIndex.get(popup.name)!.map((desc, i) => (
+                      <div key={i} className="mb-0.5">{desc}</div>
+                    ))}
+                  </div>
+                )}
                 <button
                   className="text-[11px] text-blue-500 underline"
                   onClick={() => {

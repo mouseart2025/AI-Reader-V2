@@ -192,19 +192,18 @@ async def get_latest_task(novel_id: str):
     if not task:
         return {"task": None, "stats": None}
 
-    # Compute cumulative stats from existing chapter facts
+    # Compute cumulative stats from existing chapter facts.
+    # Note: get_all_chapter_facts already filters by novel_id, and chapter_id
+    # is the DB row ID (not chapter_num), so we count all facts without
+    # range filtering to avoid a chapter_id vs chapter_num mismatch.
     stats = {"entities": 0, "relations": 0, "events": 0}
     if task["status"] in ("running", "paused", "completed"):
         all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
-        ch_start = task.get("chapter_start", 1)
-        ch_end = task.get("chapter_end", 999999)
         for ef in all_facts:
-            ch_id = ef.get("chapter_id", 0)
-            if ch_start <= ch_id <= ch_end:
-                fact = ef.get("fact", {})
-                stats["entities"] += len(fact.get("characters", [])) + len(fact.get("locations", []))
-                stats["relations"] += len(fact.get("relationships", []))
-                stats["events"] += len(fact.get("events", []))
+            fact = ef.get("fact", {})
+            stats["entities"] += len(fact.get("characters", [])) + len(fact.get("locations", []))
+            stats["relations"] += len(fact.get("relationships", []))
+            stats["events"] += len(fact.get("events", []))
 
     return {"task": task, "stats": stats}
 

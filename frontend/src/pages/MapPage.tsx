@@ -446,6 +446,7 @@ export default function MapPage() {
                 canvasSize={mapData?.canvas_size}
                 spatialScale={mapData?.spatial_scale}
                 focusLocation={focusLocation}
+                locationConflicts={mapData?.location_conflicts}
                 onLocationClick={handleLocationClick}
                 onLocationDragEnd={handleDragEnd}
                 onPortalClick={handlePortalClick}
