@@ -278,6 +278,34 @@ class AnalysisService:
             "stats": stats,
         })
 
+        # Build name corrections from entity dictionary (numeric-prefix fix).
+        # E.g., if dictionary has "二愣子" and LLM extracts "愣子", correct it.
+        _NUM_PREFIXES = frozenset("一二三四五六七八九十")
+        try:
+            _dict_entries = await entity_dictionary_store.get_all(novel_id)
+            _corrections: dict[str, str] = {}
+            _dict_names = {e.name for e in _dict_entries}
+            for entry in _dict_entries:
+                name = entry.name
+                if (
+                    len(name) >= 3
+                    and name[0] in _NUM_PREFIXES
+                    and entry.entity_type == "person"
+                ):
+                    short_form = name[1:]
+                    # Only correct if the short form is NOT itself a
+                    # legitimate entity in the dictionary
+                    if short_form not in _dict_names:
+                        _corrections[short_form] = name
+            if _corrections:
+                self.validator.set_name_corrections(_corrections)
+                logger.info(
+                    "Name corrections loaded: %s",
+                    ", ".join(f"{k}→{v}" for k, v in _corrections.items()),
+                )
+        except Exception as e:
+            logger.warning("Failed to build name corrections: %s", e)
+
         for chapter_num in range(chapter_start, chapter_end + 1):
             # Check for pause/cancel signal
             signal = self._task_signals.get(task_id, "running")

@@ -32,114 +32,121 @@ class ContextSummaryBuilder:
             location_parents: Authoritative parent map from WorldStructure
                 (location_name → parent_name). Used to build hierarchy chains.
 
-        Returns empty string for chapter 1 (no preceding data).
+        Returns context string. For early chapters with no preceding facts,
+        still returns entity dictionary and world structure sections if available.
         """
-        if chapter_num <= 1:
-            return ""
-
-        all_facts = await get_all_chapter_facts(novel_id)
-        if not all_facts:
-            return ""
-
-        # Only use facts from chapters before current one
-        preceding = [
-            f for f in all_facts if f["fact"]["chapter_id"] < chapter_num
-        ]
-        if not preceding:
-            return ""
-
-        # Parse into ChapterFact objects
-        chapter_facts: list[ChapterFact] = []
-        for row in preceding:
-            try:
-                chapter_facts.append(ChapterFact.model_validate(row["fact"]))
-            except Exception:
-                continue
-
-        if not chapter_facts:
-            return ""
-
-        # Determine active window
-        recent_cutoff = chapter_num - _ACTIVE_WINDOW
-        recent_facts = [f for f in chapter_facts if f.chapter_id >= recent_cutoff]
-        # If no recent facts, use last 5 available
-        if not recent_facts:
-            recent_facts = chapter_facts[-5:]
-
-        # Aggregate
-        characters = self._aggregate_characters(chapter_facts, recent_facts)
-        relationships = self._aggregate_relationships(chapter_facts, recent_facts)
-        locations = self._aggregate_locations(chapter_facts, recent_facts)
-        items = self._aggregate_items(chapter_facts, recent_facts)
-
         # Build summary text
         sections: list[str] = []
-
         budget = get_budget()
-        char_limit = budget.char_limit
-        rel_limit = budget.rel_limit
-        loc_limit = budget.loc_limit
-        item_limit = budget.item_limit
 
-        if characters:
-            lines = ["### 已知人物"]
-            for name, info in list(characters.items())[:char_limit]:
-                parts = [name]
-                if info.get("aliases"):
-                    # Limit to 3 short aliases; longer ones are often errors
-                    short_aliases = [
-                        a for a in info["aliases"] if len(a) <= 5
-                    ][:3]
-                    if short_aliases:
-                        parts.append(f"(别名: {', '.join(short_aliases)})")
-                if info.get("abilities"):
-                    parts.append(f"[{', '.join(info['abilities'][:3])}]")
-                lines.append("- " + " ".join(parts))
-            sections.append("\n".join(lines))
+        # ── Preceding chapter fact aggregation (skip for chapter 1) ──
+        chapter_facts: list[ChapterFact] = []
+        if chapter_num > 1:
+            all_facts = await get_all_chapter_facts(novel_id)
+            if all_facts:
+                preceding = [
+                    f for f in all_facts
+                    if f["fact"]["chapter_id"] < chapter_num
+                ]
+                for row in preceding:
+                    try:
+                        chapter_facts.append(
+                            ChapterFact.model_validate(row["fact"])
+                        )
+                    except Exception:
+                        continue
 
-        if relationships:
-            lines = ["### 已知关系"]
-            for rel in relationships[:rel_limit]:
-                lines.append(f"- {rel['a']} ↔ {rel['b']}: {rel['type']}")
-            sections.append("\n".join(lines))
-
-        # Scene focus (C.1) — recent high-frequency locations with full chains
-        focus_section = self._build_scene_focus_section(
-            recent_facts, location_parents, locations,
-        )
-        if focus_section:
-            sections.append(focus_section)
-
-        # Hierarchy chains (before location list for context)
-        hierarchy_section = self._format_hierarchy_chains(
-            locations, location_parents,
-        )
-        if hierarchy_section:
-            sections.append(hierarchy_section)
-
-        if locations:
-            lines = [
-                "### 已知地点",
-                '（如果本章出现"小城""那座山""此地"等泛称，且上下文明确指代以下某个地名，请直接使用该地名，不要将泛称作为独立地点提取）',
+        if chapter_facts:
+            # Determine active window
+            recent_cutoff = chapter_num - _ACTIVE_WINDOW
+            recent_facts = [
+                f for f in chapter_facts if f.chapter_id >= recent_cutoff
             ]
-            for name, info in list(locations.items())[:loc_limit]:
-                desc = f"- {name} ({info['type']})"
-                # Use authoritative parent from location_parents if available
-                parent = (
-                    location_parents.get(name) if location_parents
-                    else info.get("parent")
-                ) or info.get("parent")
-                if parent:
-                    desc += f" ⊂ {parent}"
-                lines.append(desc)
-            sections.append("\n".join(lines))
+            if not recent_facts:
+                recent_facts = chapter_facts[-5:]
 
-        if items:
-            lines = ["### 已知物品"]
-            for name, info in list(items.items())[:item_limit]:
-                holder = info.get("holder", "未知")
-                lines.append(f"- {name} ({info['type']}) — 持有: {holder}")
-            sections.append("\n".join(lines))
+            # Aggregate
+            characters = self._aggregate_characters(chapter_facts, recent_facts)
+            relationships = self._aggregate_relationships(
+                chapter_facts, recent_facts,
+            )
+            locations = self._aggregate_locations(chapter_facts, recent_facts)
+            items = self._aggregate_items(chapter_facts, recent_facts)
+
+            char_limit = budget.char_limit
+            rel_limit = budget.rel_limit
+            loc_limit = budget.loc_limit
+            item_limit = budget.item_limit
+
+            if characters:
+                lines = ["### 已知人物"]
+                for name, info in list(characters.items())[:char_limit]:
+                    parts = [name]
+                    if info.get("aliases"):
+                        short_aliases = [
+                            a for a in info["aliases"] if len(a) <= 5
+                        ][:3]
+                        if short_aliases:
+                            parts.append(
+                                f"(别名: {', '.join(short_aliases)})"
+                            )
+                    if info.get("abilities"):
+                        parts.append(
+                            f"[{', '.join(info['abilities'][:3])}]"
+                        )
+                    lines.append("- " + " ".join(parts))
+                sections.append("\n".join(lines))
+
+            if relationships:
+                lines = ["### 已知关系"]
+                for rel in relationships[:rel_limit]:
+                    lines.append(f"- {rel['a']} ↔ {rel['b']}: {rel['type']}")
+                sections.append("\n".join(lines))
+
+            # Scene focus — recent high-frequency locations with full chains
+            focus_section = self._build_scene_focus_section(
+                recent_facts, location_parents, locations,
+            )
+            if focus_section:
+                sections.append(focus_section)
+
+            # Hierarchy chains (before location list for context)
+            hierarchy_section = self._format_hierarchy_chains(
+                locations, location_parents,
+            )
+            if hierarchy_section:
+                sections.append(hierarchy_section)
+
+            if locations:
+                lines = [
+                    "### 已知地点",
+                    '（如果本章出现"小城""那座山""此地"等泛称，'
+                    '且上下文明确指代以下某个地名，请直接使用该地名，'
+                    '不要将泛称作为独立地点提取）',
+                ]
+                for name, info in list(locations.items())[:loc_limit]:
+                    desc = f"- {name} ({info['type']})"
+                    parent = (
+                        location_parents.get(name) if location_parents
+                        else info.get("parent")
+                    ) or info.get("parent")
+                    if parent:
+                        desc += f" ⊂ {parent}"
+                    lines.append(desc)
+                sections.append("\n".join(lines))
+
+            if items:
+                lines = ["### 已知物品"]
+                for name, info in list(items.items())[:item_limit]:
+                    holder = info.get("holder", "未知")
+                    lines.append(
+                        f"- {name} ({info['type']}) — 持有: {holder}"
+                    )
+                sections.append("\n".join(lines))
+
+        # ── Always inject: world structure + entity dictionary ──
+        # These are available from pre-scan and don't depend on preceding
+        # chapter facts, so they must be injected even for early chapters.
 
         # World structure summary
         world_section = await self._build_world_structure_section(novel_id)
@@ -151,9 +158,11 @@ class ContextSummaryBuilder:
         if dict_section:
             sections.append(dict_section)
 
+        if not sections:
+            return ""
+
         summary = "\n\n".join(sections)
 
-        # Truncate if too long
         max_chars = budget.context_max_chars
         if len(summary) > max_chars:
             summary = summary[:max_chars] + "\n...(已截断)"
@@ -425,15 +434,47 @@ class ContextSummaryBuilder:
         if not dictionary:
             return ""
 
-        lines = [
-            "### 本书高频实体参考",
-            "以下实体在全书中高频出现，提取时请特别注意不要遗漏（仅供参考，仍以原文为准）：",
-            "⚠️ 下方「可能别名」仅为预扫描猜测，必须在本章原文中找到明确依据才能作为 new_aliases 输出。不同的人绝不能互为别名。",
-        ]
-        for entry in dictionary[:100]:  # Top-100
+        # Separate naming-source entries (highest quality: explicit name
+        # introductions like "叫作二愣子") from frequency-sorted entries.
+        # Put naming entries FIRST so they're not buried at the bottom
+        # of a long list where small local models might ignore them.
+        naming_entries = [e for e in dictionary if e.source == "naming"]
+        top = dictionary[:100]
+        included = {e.name for e in top} | {e.name for e in naming_entries}
+        # Fill remaining slots from top-100 (skip those already in naming)
+        freq_entries = [e for e in top if e.name not in {n.name for n in naming_entries}]
+
+        lines: list[str] = []
+
+        # ── Naming entries first (with emphasis) ──
+        if naming_entries:
+            lines.append("### 文中明确命名的实体（必须使用完整名称提取）")
+            lines.append(
+                '以下名称在原文中通过"叫作/名叫/绰号"等方式明确引入，'
+                "提取时务必使用完整名称，不要截断：",
+            )
+            for entry in naming_entries:
+                line = f"- **{entry.name}**（{entry.entity_type}）"
+                if entry.aliases:
+                    safe = [a for a in entry.aliases if len(a) <= 4][:2]
+                    if safe:
+                        line += f" 可能别名：{'、'.join(safe)}（需文本确认）"
+                lines.append(line)
+            lines.append("")
+
+        # ── High-frequency entries ──
+        lines.append("### 本书高频实体参考")
+        lines.append(
+            "以下实体在全书中高频出现，提取时请特别注意不要遗漏"
+            "（仅供参考，仍以原文为准）：",
+        )
+        lines.append(
+            "⚠️ 下方「可能别名」仅为预扫描猜测，必须在本章原文中"
+            "找到明确依据才能作为 new_aliases 输出。不同的人绝不能互为别名。",
+        )
+        for entry in freq_entries:
             line = f"- {entry.name}（{entry.entity_type}，出现{entry.frequency}次）"
             if entry.aliases:
-                # Only inject short, likely-correct aliases (≤4 chars, max 2)
                 safe = [a for a in entry.aliases if len(a) <= 4][:2]
                 if safe:
                     line += f" 可能别名：{'、'.join(safe)}（需文本确认）"
