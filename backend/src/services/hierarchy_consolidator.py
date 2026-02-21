@@ -423,10 +423,33 @@ def _tiered_catchall(
                         adopted += 1
                         break
 
+        # D.4: Try dominant intermediate node matching for site/building orphans
+        if not matched and orphan_rank >= 5 and uber_root is not None:
+            uber_children = [c for c, p in location_parents.items() if p == uber_root]
+            dominant = None
+            dominant_desc = 0
+            for uc in uber_children:
+                uc_rank = TIER_ORDER.get(location_tiers.get(uc, "city"), 4)
+                if uc_rank > orphan_rank or uc_rank < 2:
+                    continue
+                desc = sum(1 for c, p in location_parents.items() if p == uc)
+                if desc > dominant_desc:
+                    dominant = uc
+                    dominant_desc = desc
+            if dominant and dominant_desc >= 3:
+                if _safe_set_parent(orphan, dominant, location_parents,
+                                    f"tiered-dominant:{orphan}→{dominant}"):
+                    matched = True
+                    tiered_matches += 1
+                    adopted += 1
+
+        # D.5: uber_root adoption tier gate — only city+ (rank ≤ 4) directly under uber_root
         if not matched and uber_root is not None:
-            if _safe_set_parent(orphan, uber_root, location_parents,
-                                f"catchall-adopt:{orphan}"):
-                adopted += 1
+            if orphan_rank <= 4:  # city 及以上才直接挂天下
+                if _safe_set_parent(orphan, uber_root, location_parents,
+                                    f"catchall-adopt:{orphan}"):
+                    adopted += 1
+            # site/building 孤儿留为独立根（优于污染天下子节点）
 
     if adopted:
         logger.info(
