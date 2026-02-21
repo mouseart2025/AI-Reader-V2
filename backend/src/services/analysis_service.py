@@ -73,10 +73,13 @@ class AnalysisService:
     @staticmethod
     async def _broadcast_stage(novel_id: str, chapter: int, label: str) -> None:
         """Broadcast a stage label for the current chapter processing step."""
+        from src.infra.config import LLM_PROVIDER, get_model_name
         await manager.broadcast(novel_id, {
             "type": "stage",
             "chapter": chapter,
             "stage_label": label,
+            "llm_model": get_model_name(),
+            "llm_provider": LLM_PROVIDER,
         })
 
     async def start(

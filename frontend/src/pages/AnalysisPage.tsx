@@ -14,6 +14,7 @@ import {
 import type { CostEstimate, EntityDictItem, Novel, PrescanStatus } from "@/api/types"
 import { CostPreviewDialog } from "@/components/shared/CostPreviewDialog"
 import { useAnalysisStore } from "@/stores/analysisStore"
+import { useLlmInfoStore, formatLlmLabel } from "@/stores/llmInfoStore"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -99,12 +100,22 @@ export default function AnalysisPage() {
     stats,
     costStats,
     stageLabel,
+    llmModel: wsLlmModel,
+    llmProvider: wsLlmProvider,
     failedChapters,
     setTask,
     resetProgress,
     connectWs,
     disconnectWs,
   } = useAnalysisStore()
+
+  // LLM info: prefer real-time WS data, fallback to cached health-check
+  const llmInfo = useLlmInfoStore()
+  useEffect(() => { llmInfo.fetch() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const llmLabel = formatLlmLabel(
+    wsLlmModel || llmInfo.model,
+    wsLlmProvider || llmInfo.provider,
+  )
 
   const isRunning = task?.status === "running"
   const isPaused = task?.status === "paused"
@@ -481,6 +492,7 @@ export default function AnalysisPage() {
         entities={prescanEntities}
         loading={prescanLoading}
         expanded={prescanExpanded}
+        llmLabel={llmLabel}
         onToggleExpand={() => setPrescanExpanded((v) => !v)}
         onTrigger={handleTriggerPrescan}
       />
@@ -509,6 +521,11 @@ export default function AnalysisPage() {
                     <span className="text-sm font-normal text-muted-foreground ml-1">
                       {stageLabel}
                     </span>
+                  )}
+                  {llmLabel && (
+                    <Badge variant="outline" className="ml-2 text-xs font-normal">
+                      {llmLabel}
+                    </Badge>
                   )}
                 </>
               ) : "已暂停"}
@@ -855,6 +872,7 @@ function PrescanCard({
   entities,
   loading,
   expanded,
+  llmLabel,
   onToggleExpand,
   onTrigger,
 }: {
@@ -863,6 +881,7 @@ function PrescanCard({
   entities: EntityDictItem[]
   loading: boolean
   expanded: boolean
+  llmLabel: string
   onToggleExpand: () => void
   onTrigger: () => void
 }) {
@@ -926,7 +945,10 @@ function PrescanCard({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            <span className="text-muted-foreground text-sm">正在扫描...</span>
+            <span className="text-muted-foreground text-sm">
+              正在扫描...
+              {llmLabel && <span className="ml-1 opacity-70">{llmLabel}</span>}
+            </span>
           </div>
         )}
 

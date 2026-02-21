@@ -236,8 +236,17 @@ def _alias_safety_level(alias: str) -> int:
     if n == 1:
         return 1
     # Numeric prefix — "两个仙女", "七八十渔人", "三个人" — not person names
-    if alias[0] in "一二三四五六七八九十两百千万几数" and n >= 3:
-        return 1
+    # Only block when 2nd char is a measure word or another digit, confirming
+    # quantity phrase. Legitimate names like "二愣子", "一灯大师" pass through.
+    _NUM_CHARS = "一二三四五六七八九十两百千万几数"
+    _MEASURE_WORDS = "个位名条只头群队批把道尊座对双副件匹株棵颗朵阵帮伙"
+    if alias[0] in _NUM_CHARS and n >= 3:
+        # "百/千/万/几/数" almost never start legitimate names → always block
+        if alias[0] in "百千万几数":
+            return 1
+        # For 一-十/两: block only if followed by measure word or another digit
+        if alias[1] in _MEASURE_WORDS or alias[1] in _NUM_CHARS:
+            return 1
 
     # Level 2: safe
     return 2

@@ -19,9 +19,9 @@ export const FONT_SIZE_MAP: Record<FontSize, string> = {
 }
 
 export const LINE_HEIGHT_MAP: Record<LineHeight, string> = {
-  compact: "leading-7",
-  normal: "leading-8",
-  loose: "leading-10",
+  compact: "leading-[1.6]",
+  normal: "leading-[2.0]",
+  loose: "leading-[2.6]",
 }
 
 export const useReadingSettingsStore = create<ReadingSettingsState>()(

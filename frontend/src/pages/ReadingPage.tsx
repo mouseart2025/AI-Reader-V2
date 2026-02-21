@@ -741,7 +741,7 @@ export default function ReadingPage() {
                             key={i}
                             data-para={i}
                             className={cn(
-                              "mb-2 leading-relaxed transition-colors",
+                              "mb-2 transition-colors",
                               sceneIdx != null && `border-l-3 pl-3 ${borderColor}`,
                               isActive && "bg-accent/30 rounded-r",
                             )}

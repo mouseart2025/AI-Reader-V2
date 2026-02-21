@@ -130,6 +130,18 @@ _FALLBACK_GEO_BLOCKLIST = frozenset({
     "船上", "船头", "船中",
     "马上", "车上",
     "战场", "阵前", "阵中", "阵后",
+    # Route/journey
+    "半路", "途中", "路途", "沿途",
+    # Descriptive nature compounds
+    "深山", "深山老林", "荒山野岭", "穷山恶水",
+    "密林深处", "荒野", "旷野", "原野", "野外",
+    # On-object
+    "树上", "石上", "岩上", "岩石上", "岩石边", "岩石下",
+    "石壁", "崖壁", "绝壁",
+    # Vague "place" terms
+    "偏僻地方", "偏僻之地", "偏僻之处",
+    "神秘之处", "神秘地方", "秘密之处", "隐秘之处",
+    "安全之处", "安全地方", "隐蔽之处",
 })
 
 # ── Person generic references ─────────────────────────────────────────
@@ -205,7 +217,7 @@ def _is_generic_location(name: str) -> str | None:
     if n >= 2 and name[-1] in _POSITIONAL_SUFFIXES:
         prefix = name[:-1]
         # Check if prefix is purely generic (all chars are generic suffixes or common words)
-        if all(c in _GEO_GENERIC_SUFFIXES or c in "场水地天" for c in prefix):
+        if all(c in _GEO_GENERIC_SUFFIXES or c in "场水地天石岩土沙草木树竹" for c in prefix):
             return f"relative position ({prefix}+{name[-1]})"
 
     # Rule 8: Generic modifier + generic suffix — no specific name part
@@ -226,7 +238,7 @@ def _is_generic_location(name: str) -> str | None:
     if n == 2:
         # Don't filter X+administrative_suffix — these are typically real place names
         if name[1] not in "州城镇县国省郡府":
-            if name[0] in _GEO_GENERIC_SUFFIXES | frozenset("水天地场石土") and name[1] in _GEO_GENERIC_SUFFIXES | frozenset("面子落处口边旁"):
+            if name[0] in _GEO_GENERIC_SUFFIXES | frozenset("水天地场石土半荒深远近") and name[1] in _GEO_GENERIC_SUFFIXES | frozenset("面子落处口边旁"):
                 return "two-char generic compound"
 
     # Rule 10: Starts with demonstrative/direction + 边/里/面/处
@@ -283,7 +295,58 @@ def _is_generic_location(name: str) -> str | None:
                         return f"quantifier + filler + generic ({prefix}...{trail})"
                 break  # Only check first matching prefix
 
+    # Rule 16: Descriptive adjective + generic location tail
+    # E.g., "偏僻地方", "荒凉之地", "隐秘角落", "广阔地带"
+    _DESCRIPTIVE_ADJECTIVES = frozenset({
+        "偏僻", "荒凉", "偏远", "僻静", "幽静", "隐秘", "神秘",
+        "安静", "清幽", "阴暗", "黑暗", "宽敞", "狭窄",
+        "破旧", "简陋", "豪华", "广阔",
+    })
+    _GENERIC_TAILS = frozenset({
+        "地方", "之地", "之处", "角落", "所在", "地带", "地界",
+    })
+    for adj in _DESCRIPTIVE_ADJECTIVES:
+        if name.startswith(adj):
+            tail = name[len(adj):]
+            if tail in _GENERIC_TAILS:
+                return f"descriptive adj + generic tail ({adj}+{tail})"
+            break
+
     return None
+
+
+_SUFFIX_TO_TYPE: list[tuple[str, str]] = [
+    # Longer suffixes first to avoid partial matches
+    ("大陆", "大陆"), ("山脉", "山脉"), ("山谷", "山谷"),
+    ("王国", "王国"), ("帝国", "帝国"),
+    # Single-char suffixes
+    ("国", "国"), ("省", "省"), ("州", "州"), ("府", "府"),
+    ("城", "城市"), ("镇", "城镇"), ("县", "县"),
+    ("村", "村庄"), ("庄", "庄园"),
+    ("山", "山"), ("岭", "山岭"), ("峰", "山峰"),
+    ("谷", "山谷"), ("崖", "山崖"),
+    ("河", "河流"), ("江", "江"), ("湖", "湖泊"),
+    ("海", "海"), ("溪", "溪流"), ("泉", "泉"),
+    ("洲", "大洲"), ("界", "界域"), ("域", "域"),
+    ("洞", "洞府"), ("殿", "宫殿"), ("宫", "宫殿"),
+    ("阁", "阁楼"), ("楼", "楼阁"), ("塔", "塔"),
+    ("寺", "寺庙"), ("庙", "寺庙"), ("观", "道观"),
+    ("岛", "岛屿"), ("关", "关隘"),
+    ("门", "门派"), ("宗", "宗门"), ("派", "门派"),
+    ("林", "林地"), ("原", "平原"), ("漠", "沙漠"),
+]
+
+
+def _infer_type_from_name(name: str) -> str:
+    """Infer location type from Chinese name suffix.
+
+    Used when auto-creating LocationFact entries for referenced parents/regions
+    that lack explicit type information. Falls back to "区域" if no suffix matches.
+    """
+    for suffix, type_label in _SUFFIX_TO_TYPE:
+        if name.endswith(suffix) and len(name) > len(suffix):
+            return type_label
+    return "区域"
 
 
 def _is_generic_person(name: str) -> str | None:
@@ -749,7 +812,7 @@ class FactValidator:
             if parent and parent.strip() and parent not in existing_names and parent not in to_add:
                 to_add[parent] = LocationFact(
                     name=parent,
-                    type="区域",
+                    type=_infer_type_from_name(parent),
                     description="",
                 )
                 logger.debug("Auto-adding parent location: %s (referenced by %s)", parent, loc.name)
@@ -764,7 +827,7 @@ class FactValidator:
                     if child and child not in existing_names and child not in to_add:
                         to_add[child] = LocationFact(
                             name=child,
-                            type="区域",
+                            type=_infer_type_from_name(child),
                             parent=content.get("parent"),
                             description="",
                         )
@@ -776,7 +839,7 @@ class FactValidator:
                     if div_parent not in existing_names and div_parent not in to_add:
                         to_add[div_parent] = LocationFact(
                             name=div_parent,
-                            type="区域",
+                            type=_infer_type_from_name(div_parent),
                             description="",
                         )
                         logger.debug("Auto-adding location from region_division parent: %s", div_parent)

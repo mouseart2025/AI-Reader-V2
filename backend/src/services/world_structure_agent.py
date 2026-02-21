@@ -1108,6 +1108,47 @@ class WorldStructureAgent:
                 if not _is_generic_location(loc.name) and not _is_generic_location(loc.parent):
                     self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
 
+        # ── Chapter primary setting → parent inference ──
+        # Identify the "primary setting" of this chapter (the highest-tier setting
+        # location), then give weak parent votes (weight=1) from co-occurring
+        # orphan locations to the primary setting. Accumulates across chapters.
+        setting_candidates = [
+            loc for loc in fact.locations
+            if loc.role == "setting" and not _is_generic_location(loc.name)
+        ]
+        primary_setting = None
+        if setting_candidates:
+            best_rank = 999
+            for loc in setting_candidates:
+                rank = TIER_ORDER.get(
+                    self.structure.location_tiers.get(loc.name, "city"), 4)
+                if rank < best_rank:
+                    best_rank = rank
+                    primary_setting = loc.name
+        elif fact.locations:
+            # Fallback for old data without role: use first non-generic location
+            for loc in fact.locations:
+                if not _is_generic_location(loc.name):
+                    primary_setting = loc.name
+                    break
+
+        if primary_setting:
+            p_rank = TIER_ORDER.get(
+                self.structure.location_tiers.get(primary_setting, "city"), 4)
+            for loc in fact.locations:
+                name = loc.name
+                if name == primary_setting or loc.parent:
+                    continue
+                if _is_generic_location(name):
+                    continue
+                if loc.role in ("referenced", "boundary"):
+                    continue
+                c_rank = TIER_ORDER.get(
+                    self.structure.location_tiers.get(name, "city"), 4)
+                if c_rank < p_rank:
+                    continue  # child should not be bigger than primary setting
+                self._parent_votes.setdefault(name, Counter())[primary_setting] += 1
+
         # Accumulate contains relationships as parent votes
         # Contains direction validation: LLM frequently inverts the direction,
         # writing "A contains B" when meaning "A is inside B".
@@ -1714,6 +1755,43 @@ class WorldStructureAgent:
                         elif not (target.startswith(source) and len(target) > len(source)):
                             weight = 1
                 votes.setdefault(target, Counter())[source] += weight
+
+            # ── Chapter primary setting → parent inference (rebuild) ──
+            locations = data.get("locations", [])
+            setting_candidates = [
+                loc for loc in locations
+                if loc.get("role") == "setting" and not _is_generic_location(loc.get("name", ""))
+            ]
+            primary_setting = None
+            if setting_candidates:
+                best_rank = 999
+                for loc in setting_candidates:
+                    loc_name = loc.get("name", "")
+                    rank = TIER_ORDER.get(tiers.get(loc_name, "city"), 4)
+                    if rank < best_rank:
+                        best_rank = rank
+                        primary_setting = loc_name
+            elif locations:
+                for loc in locations:
+                    loc_name = loc.get("name", "")
+                    if loc_name and not _is_generic_location(loc_name):
+                        primary_setting = loc_name
+                        break
+
+            if primary_setting:
+                p_rank = TIER_ORDER.get(tiers.get(primary_setting, "city"), 4)
+                for loc in locations:
+                    loc_name = loc.get("name", "")
+                    if loc_name == primary_setting or loc.get("parent"):
+                        continue
+                    if not loc_name or _is_generic_location(loc_name):
+                        continue
+                    if loc.get("role") in ("referenced", "boundary"):
+                        continue
+                    c_rank = TIER_ORDER.get(tiers.get(loc_name, "city"), 4)
+                    if c_rank < p_rank:
+                        continue
+                    votes.setdefault(loc_name, Counter())[primary_setting] += 1
 
         # ── Spatial neighbor propagation (adjacent/direction/in_between) ──
         # If A is adjacent/near B and B has a confident parent C, propagate A→C.
