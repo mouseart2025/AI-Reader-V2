@@ -58,7 +58,7 @@ export function distortPolygonEdges(
 ): Point[] {
   if (polygon.length < 3) return polygon
 
-  const amplitude = Math.min(canvasWidth, canvasHeight) * 0.01
+  const amplitude = Math.min(canvasWidth, canvasHeight) * 0.018
 
   const result: Point[] = []
   const n = polygon.length
