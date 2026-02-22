@@ -1,15 +1,13 @@
 import { useState, useMemo } from "react"
-import { MapPin, ArrowRight, X, Search } from "lucide-react"
+import { MapPin, ArrowRight, Search } from "lucide-react"
 import type { GeographyChapter } from "@/api/types"
 
 interface GeographyPanelProps {
   context: GeographyChapter[]
-  visible: boolean
-  onClose: () => void
   onLocationClick?: (name: string) => void
 }
 
-export function GeographyPanel({ context, visible, onClose, onLocationClick }: GeographyPanelProps) {
+export function GeographyPanel({ context, onLocationClick }: GeographyPanelProps) {
   const [search, setSearch] = useState("")
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
 
@@ -37,21 +35,8 @@ export function GeographyPanel({ context, visible, onClose, onLocationClick }: G
     })
   }
 
-  if (!visible) return null
-
   return (
-    <div className="absolute right-0 top-0 bottom-0 w-80 bg-background/95 backdrop-blur border-l shadow-lg z-30 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b">
-        <h3 className="text-sm font-medium">地理上下文</h3>
-        <button
-          onClick={onClose}
-          className="p-1 rounded hover:bg-muted transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
+    <div className="flex flex-col h-full">
       {/* Search */}
       <div className="px-3 py-2 border-b">
         <div className="relative">

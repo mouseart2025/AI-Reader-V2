@@ -605,6 +605,7 @@ async def get_map_data(
                 }
                 _scope, _gtype, _resolver, resolved = await geo_auto_resolve(
                     ws.novel_genre_hint, all_names, all_names, loc_parent_map,
+                    known_geo_type=ws.geo_type,
                 )
                 if resolved:
                     geo_coords_raw = {
@@ -640,12 +641,22 @@ async def get_map_data(
                     loc["name"]: loc.get("parent")
                     for loc in locations
                 }
-                geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
-                    ws.novel_genre_hint, all_names, major_names, loc_parent_map,
-                )
-
-                # Cache geo_type on WorldStructure
-                if ws.geo_type != geo_type:
+                if ws.geo_type:
+                    # Use cached geo_type — skip re-detection to avoid
+                    # oscillation when chapter range changes the location subset
+                    geo_type = ws.geo_type
+                    if geo_type in ("realistic", "mixed"):
+                        _, _, resolver, resolved = await geo_auto_resolve(
+                            ws.novel_genre_hint, all_names, major_names, loc_parent_map,
+                            known_geo_type=geo_type,
+                        )
+                    else:
+                        resolver, resolved = None, None
+                else:
+                    # First-time detection — run full detection and persist
+                    geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
+                        ws.novel_genre_hint, all_names, major_names, loc_parent_map,
+                    )
                     ws.geo_type = geo_type
                     await world_structure_store.save(novel_id, ws)
 

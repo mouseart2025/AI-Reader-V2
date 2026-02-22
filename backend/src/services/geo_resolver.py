@@ -102,7 +102,7 @@ _NOTABLE_FEATURE_CODES = frozenset({
 })
 
 # Genre hints that are definitively fantasy → skip geo resolution entirely
-_FANTASY_GENRES = frozenset({"fantasy"})
+_FANTASY_GENRES = frozenset({"fantasy", "xianxia"})
 
 # ── Supplementary geo data ──────────────────────────────
 # Supplementary geo data — entries NOT covered by zh_geonames.tsv or cities5000.
@@ -927,6 +927,7 @@ async def auto_resolve(
     location_names: list[str],
     major_names: list[str],
     parent_map: dict[str, str | None] | None = None,
+    known_geo_type: str | None = None,
 ) -> tuple[str, str, GeoResolver | None, dict[str, tuple[float, float]]]:
     """High-level entry point: detect scope, load dataset, resolve names.
 
@@ -935,10 +936,27 @@ async def auto_resolve(
         location_names: all location names for resolution
         major_names: major location names (level <= 3) for geo_type detection
         parent_map: {location_name: parent_name} for proximity validation
+        known_geo_type: if provided, skip detection and use this geo_type directly.
+            Useful when geo_type is already cached on WorldStructure to avoid
+            re-detection oscillation across different chapter ranges.
 
     Returns:
         (geo_scope, geo_type, resolver_or_none, resolved_coords)
     """
+    # ── Fast path: caller already knows the geo_type (cached) ──
+    if known_geo_type:
+        if known_geo_type not in ("realistic", "mixed"):
+            return ("", known_geo_type, None, {})
+        # Need coordinate resolution — still need a dataset
+        geo_scope = detect_geo_scope(genre_hint, location_names)
+        if geo_scope == "none":
+            return (geo_scope, known_geo_type, None, {})
+        resolver = GeoResolver(dataset_key=geo_scope)
+        await resolver.ensure_ready()
+        resolved = resolver.resolve_names(location_names, parent_map)
+        return (geo_scope, known_geo_type, resolver, resolved)
+
+    # ── Normal path: detect geo_type from scratch ──
     geo_scope = detect_geo_scope(genre_hint, location_names)
 
     if geo_scope == "none":

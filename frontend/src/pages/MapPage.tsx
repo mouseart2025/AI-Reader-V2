@@ -13,7 +13,7 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Globe, Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 
@@ -59,8 +59,8 @@ export default function MapPage() {
   // Legend state
   const [legendOpen, setLegendOpen] = useState(false)
 
-  // Geography panel
-  const [showGeoPanel, setShowGeoPanel] = useState(false)
+  // Right panel tab
+  const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
 
   // Focus location (click-to-navigate: fly to + highlight)
   const [focusLocation, setFocusLocation] = useState<string | null>(null)
@@ -454,192 +454,206 @@ export default function MapPage() {
             )
           )}
 
-          <GeographyPanel
-            context={mapData?.geography_context ?? []}
-            visible={showGeoPanel}
-            onClose={() => setShowGeoPanel(false)}
-            onLocationClick={handleGeoLocationClick}
-          />
         </div>
 
-        {/* Right: Trajectory panel */}
-        <div className="w-64 flex-shrink-0 overflow-auto border-l">
-          <div className="p-3">
-            <div className="flex flex-wrap items-center gap-1 mb-2">
-              <h3 className="text-sm font-medium whitespace-nowrap mr-auto">人物轨迹</h3>
-              <div className="flex gap-1">
-                <Button
-                  variant={showGeoPanel ? "default" : "outline"}
-                  size="xs"
-                  onClick={() => setShowGeoPanel((v) => !v)}
-                >
-                  <Globe className="h-3 w-3 mr-1" />
-                  地理
-                </Button>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  disabled={rebuilding}
-                  onClick={() => {
-                    if (!novelId || rebuilding) return
-                    setRebuilding(true)
-                    setRebuildProgress("正在初始化...")
-                    rebuildHierarchy(novelId, setRebuildProgress)
-                      .then((res) => {
-                        if (res.changes.length === 0) {
-                          setToast("层级无变化")
-                          setTimeout(() => setToast(null), 4000)
-                        } else {
-                          setRebuildResult(res)
-                          setSelectedChanges(new Set(res.changes.map((c, i) => c.auto_select ? i : -1).filter(i => i >= 0)))
-                        }
-                      })
-                      .catch(() => {
-                        setToast("层级重建失败")
+        {/* Right panel */}
+        <div className="w-80 flex-shrink-0 border-l flex flex-col">
+          {/* Header: tabs + action buttons */}
+          <div className="p-2 border-b space-y-1.5">
+            {/* Row 1: Tab buttons */}
+            <div className="flex gap-1">
+              <Button
+                variant={rightTab === "geography" ? "default" : "outline"}
+                size="xs"
+                onClick={() => setRightTab("geography")}
+              >
+                地理上下文
+              </Button>
+              <Button
+                variant={rightTab === "trajectory" ? "default" : "outline"}
+                size="xs"
+                onClick={() => setRightTab("trajectory")}
+              >
+                人物轨迹
+              </Button>
+            </div>
+            {/* Row 2: Action buttons */}
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={rebuilding}
+                onClick={() => {
+                  if (!novelId || rebuilding) return
+                  setRebuilding(true)
+                  setRebuildProgress("正在初始化...")
+                  rebuildHierarchy(novelId, setRebuildProgress)
+                    .then((res) => {
+                      if (res.changes.length === 0) {
+                        setToast("层级无变化")
                         setTimeout(() => setToast(null), 4000)
-                      })
-                      .finally(() => {
-                        setRebuilding(false)
-                        setRebuildProgress("")
-                      })
-                  }}
-                >
-                  <RefreshCw className={cn("h-3 w-3 mr-1", rebuilding && "animate-spin")} />
-                  {rebuilding ? "重建中..." : "重建层级"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={() => setEditorOpen(true)}
-                >
-                  编辑世界
-                </Button>
-              </div>
+                      } else {
+                        setRebuildResult(res)
+                        setSelectedChanges(new Set(res.changes.map((c, i) => c.auto_select ? i : -1).filter(i => i >= 0)))
+                      }
+                    })
+                    .catch(() => {
+                      setToast("层级重建失败")
+                      setTimeout(() => setToast(null), 4000)
+                    })
+                    .finally(() => {
+                      setRebuilding(false)
+                      setRebuildProgress("")
+                    })
+                }}
+              >
+                <RefreshCw className={cn("h-3 w-3 mr-1", rebuilding && "animate-spin")} />
+                {rebuilding ? "重建中..." : "重建层级"}
+              </Button>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => setEditorOpen(true)}
+              >
+                编辑世界
+              </Button>
             </div>
+          </div>
 
-            {personList.length === 0 && (
-              <p className="text-muted-foreground text-xs">暂无轨迹数据</p>
-            )}
-
-            {/* Person selector */}
-            <div className="space-y-1 mb-3 max-h-48 overflow-auto">
-              {personList.map((person) => (
-                <button
-                  key={person}
-                  className={cn(
-                    "w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
-                    selectedPerson === person &&
-                      "bg-primary/10 text-primary font-medium",
-                  )}
-                  onClick={() =>
-                    setSelectedPerson(selectedPerson === person ? null : person)
-                  }
-                >
-                  <span>{person}</span>
-                  <span className="text-muted-foreground ml-1">
-                    ({trajectories[person]?.length ?? 0}站)
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Selected trajectory with playback */}
-            {selectedPerson && selectedTrajectory.length > 0 && (
-              <div className="border-t pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-medium">
-                    {selectedPerson} ({selectedTrajectory.length}站)
-                  </h4>
-                  <div className="flex gap-1">
-                    {playing ? (
-                      <Button variant="outline" size="xs" onClick={stopPlay}>
-                        停止
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="xs" onClick={startPlay}>
-                        播放
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Progress bar during playback */}
-                {(playing || playIndex > 0) && (
-                  <div className="mb-2">
-                    <input
-                      type="range"
-                      min={0}
-                      max={selectedTrajectory.length - 1}
-                      value={playIndex}
-                      onChange={(e) => {
-                        stopPlay()
-                        setPlayIndex(Number(e.target.value))
-                      }}
-                      className="w-full h-1 accent-primary"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>Ch.{selectedTrajectory[0]?.chapter}</span>
-                      <span>
-                        Ch.{selectedTrajectory[selectedTrajectory.length - 1]?.chapter}
-                      </span>
-                    </div>
-                  </div>
+          {/* Content area */}
+          <div className="flex-1 overflow-auto">
+            {rightTab === "geography" ? (
+              <GeographyPanel
+                context={mapData?.geography_context ?? []}
+                onLocationClick={handleGeoLocationClick}
+              />
+            ) : (
+              <div className="p-3">
+                {personList.length === 0 && (
+                  <p className="text-muted-foreground text-xs">暂无轨迹数据</p>
                 )}
 
-                <div className="space-y-0">
-                  {selectedTrajectory.map((point, i) => {
-                    const isVisible = i <= playIndex || (!playing && playIndex === 0)
-                    const isCurrent = playing && i === playIndex
-                    const stays = stayDurations.get(point.location) ?? 0
+                {/* Person selector */}
+                <div className="space-y-1 mb-3 max-h-48 overflow-auto">
+                  {personList.map((person) => (
+                    <button
+                      key={person}
+                      className={cn(
+                        "w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
+                        selectedPerson === person &&
+                          "bg-primary/10 text-primary font-medium",
+                      )}
+                      onClick={() =>
+                        setSelectedPerson(selectedPerson === person ? null : person)
+                      }
+                    >
+                      <span>{person}</span>
+                      <span className="text-muted-foreground ml-1">
+                        ({trajectories[person]?.length ?? 0}站)
+                      </span>
+                    </button>
+                  ))}
+                </div>
 
-                    return (
-                      <div
-                        key={`${i}-${point.chapter}-${point.location}`}
-                        className={cn(
-                          "flex items-start gap-2 transition-opacity",
-                          !isVisible && "opacity-20",
+                {/* Selected trajectory with playback */}
+                {selectedPerson && selectedTrajectory.length > 0 && (
+                  <div className="border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium">
+                        {selectedPerson} ({selectedTrajectory.length}站)
+                      </h4>
+                      <div className="flex gap-1">
+                        {playing ? (
+                          <Button variant="outline" size="xs" onClick={stopPlay}>
+                            停止
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="xs" onClick={startPlay}>
+                            播放
+                          </Button>
                         )}
-                      >
-                        {/* Timeline dot + line */}
-                        <div className="flex flex-col items-center">
-                          <div
-                            className={cn(
-                              "rounded-full flex-shrink-0 transition-all",
-                              isCurrent
-                                ? "size-3 bg-amber-500 ring-2 ring-amber-300"
-                                : stays >= 3
-                                  ? "size-2.5 bg-primary"
-                                  : "size-2 bg-primary",
-                              i === 0 && !isCurrent && "ring-2 ring-primary/30",
-                            )}
-                          />
-                          {i < selectedTrajectory.length - 1 && (
-                            <div className="w-px h-5 bg-border" />
-                          )}
-                        </div>
+                      </div>
+                    </div>
 
-                        {/* Content */}
-                        <div className="flex-1 -mt-0.5 pb-1">
-                          <span
-                            className={cn(
-                              "text-xs hover:underline cursor-pointer",
-                              isCurrent && "font-bold text-amber-600",
-                            )}
-                            onClick={() => {
-                              handleGeoLocationClick(point.location)
-                              openEntityCard(point.location, "location")
-                            }}
-                          >
-                            {point.location}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground ml-1">
-                            Ch.{point.chapter}
+                    {/* Progress bar during playback */}
+                    {(playing || playIndex > 0) && (
+                      <div className="mb-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={selectedTrajectory.length - 1}
+                          value={playIndex}
+                          onChange={(e) => {
+                            stopPlay()
+                            setPlayIndex(Number(e.target.value))
+                          }}
+                          className="w-full h-1 accent-primary"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>Ch.{selectedTrajectory[0]?.chapter}</span>
+                          <span>
+                            Ch.{selectedTrajectory[selectedTrajectory.length - 1]?.chapter}
                           </span>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
+                    )}
+
+                    <div className="space-y-0">
+                      {selectedTrajectory.map((point, i) => {
+                        const isVisible = i <= playIndex || (!playing && playIndex === 0)
+                        const isCurrent = playing && i === playIndex
+                        const stays = stayDurations.get(point.location) ?? 0
+
+                        return (
+                          <div
+                            key={`${i}-${point.chapter}-${point.location}`}
+                            className={cn(
+                              "flex items-start gap-2 transition-opacity",
+                              !isVisible && "opacity-20",
+                            )}
+                          >
+                            {/* Timeline dot + line */}
+                            <div className="flex flex-col items-center">
+                              <div
+                                className={cn(
+                                  "rounded-full flex-shrink-0 transition-all",
+                                  isCurrent
+                                    ? "size-3 bg-amber-500 ring-2 ring-amber-300"
+                                    : stays >= 3
+                                      ? "size-2.5 bg-primary"
+                                      : "size-2 bg-primary",
+                                  i === 0 && !isCurrent && "ring-2 ring-primary/30",
+                                )}
+                              />
+                              {i < selectedTrajectory.length - 1 && (
+                                <div className="w-px h-5 bg-border" />
+                              )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 -mt-0.5 pb-1">
+                              <span
+                                className={cn(
+                                  "text-xs hover:underline cursor-pointer",
+                                  isCurrent && "font-bold text-amber-600",
+                                )}
+                                onClick={() => {
+                                  handleGeoLocationClick(point.location)
+                                  openEntityCard(point.location, "location")
+                                }}
+                              >
+                                {point.location}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground ml-1">
+                                Ch.{point.chapter}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
