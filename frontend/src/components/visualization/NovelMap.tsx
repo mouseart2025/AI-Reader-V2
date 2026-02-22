@@ -21,7 +21,7 @@ import type {
   RegionBoundary,
   TrajectoryPoint,
 } from "@/api/types"
-import { generateTerritories } from "@/lib/territoryGenerator"
+import { generateHullTerritories } from "@/lib/hullTerritoryGenerator"
 import { distortPolygonEdges, type Point } from "@/lib/edgeDistortion"
 
 // ── Canvas defaults ────────────────────────────────
@@ -108,21 +108,39 @@ function computeLabelCollisions(rects: LabelRect[]): Set<string> {
 }
 
 const TIER_TEXT_SIZE: Record<string, number> = {
-  continent: 22,
-  kingdom: 18,
+  continent: 26,
+  kingdom: 20,
   region: 14,
-  city: 12,
-  site: 10,
-  building: 9,
+  city: 11,
+  site: 9,
+  building: 8,
 }
 
 const TIER_ICON_SIZE: Record<string, number> = {
-  continent: 32,
-  kingdom: 28,
+  continent: 40,
+  kingdom: 30,
   region: 24,
-  city: 20,
-  site: 16,
-  building: 14,
+  city: 18,
+  site: 14,
+  building: 10,
+}
+
+const TIER_DOT_RADIUS: Record<string, number> = {
+  continent: 5,
+  kingdom: 4.5,
+  region: 4,
+  city: 3,
+  site: 2.5,
+  building: 2,
+}
+
+const TIER_FONT_WEIGHT: Record<string, number> = {
+  continent: 700,
+  kingdom: 600,
+  region: 400,
+  city: 400,
+  site: 400,
+  building: 400,
 }
 
 const TIERS = ["continent", "kingdom", "region", "city", "site", "building"] as const
@@ -305,7 +323,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // Territory generation
     const territories = useMemo(
-      () => generateTerritories(locations, layout, { width: canvasW, height: canvasH }),
+      () => generateHullTerritories(locations, layout, { width: canvasW, height: canvasH }),
       [locations, layout, canvasW, canvasH],
     )
 
@@ -371,6 +389,23 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("in", "SourceGraphic")
         .attr("mode", "multiply")
 
+      // Parchment stain filter (low-frequency large-scale color variation)
+      const stainFilter = defs.append("filter").attr("id", "parchment-stain")
+      stainFilter
+        .append("feTurbulence")
+        .attr("type", "fractalNoise")
+        .attr("baseFrequency", "0.003")
+        .attr("numOctaves", "2")
+        .attr("stitchTiles", "stitch")
+      stainFilter
+        .append("feColorMatrix")
+        .attr("type", "saturate")
+        .attr("values", "0")
+      stainFilter
+        .append("feBlend")
+        .attr("in", "SourceGraphic")
+        .attr("mode", "multiply")
+
       // Hand-drawn line filter (subtle roughness)
       const handDrawnFilter = defs.append("filter").attr("id", "hand-drawn")
       handDrawnFilter
@@ -383,7 +418,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .append("feDisplacementMap")
         .attr("in", "SourceGraphic")
         .attr("in2", "noise")
-        .attr("scale", "2")
+        .attr("scale", "6")
         .attr("xChannelSelector", "R")
         .attr("yChannelSelector", "G")
 
@@ -406,8 +441,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("width", canvasW)
           .attr("height", canvasH)
           .attr("filter", "url(#parchment-noise)")
-          .attr("opacity", 0.04)
+          .attr("opacity", 0.10)
           .attr("fill", "#8b7355")
+
+        // Large-scale parchment variation
+        viewport
+          .append("rect")
+          .attr("id", "bg-stain")
+          .attr("width", canvasW)
+          .attr("height", canvasH)
+          .attr("filter", "url(#parchment-stain)")
+          .attr("opacity", 0.06)
+          .attr("fill", "#6b5c4a")
       }
 
       // Terrain image placeholder
@@ -487,7 +532,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, regionBoundaries, canvasW, canvasH, darkBg])
 
-    // ── Render territories ───────────────────────────
+    // ── Render territories (nested convex hulls) ──────
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
@@ -498,47 +543,55 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (territories.length === 0) return
 
-      // For dense maps (many territories), reduce visual noise:
-      // only show top-level territories and fade boundaries
       const isDense = territories.length > 15
-      const maxLevel = isDense ? 0 : 2
+
+      // Per-level rendering parameters
+      const STROKE_WIDTH = [3.0, 2.2, 1.5, 1.0]
+      const STROKE_OP = isDense
+        ? [0.20, 0.12, 0.08, 0.06]
+        : [0.40, 0.30, 0.20, 0.15]
+      const FILL_OP = [0.05, 0.04, 0.03, 0.02]
+      const DASH = ["12,6", "8,4", "6,3", "4,3"]
+      const DISTORT_SEGS = [20, 16, 12, 10]
+      const LABEL_SIZE = [16, 13, 11, 10]
+      const LABEL_OP = isDense
+        ? [0.20, 0.12, 0.08, 0.06]
+        : [0.35, 0.25, 0.20, 0.15]
+      const LABEL_SPACING = ["3px", "1px", "0", "0"]
+
+      const clamp = (level: number) => Math.min(level, 3)
 
       for (const terr of territories) {
-        if (terr.level > maxLevel) continue
+        const li = clamp(terr.level)
+
+        // Deterministic seed per territory name for unique hand-drawn ripple
+        const seed = hashString(terr.name) % 100
 
         const distorted = distortPolygonEdges(
           terr.polygon,
           canvasW,
           canvasH,
-          16,
-          7,
+          DISTORT_SEGS[li],
+          seed,
         )
         const pathData = polygonToPath(distorted)
 
-        // Warm parchment-friendly stroke color
         const strokeColor = darkBg ? terr.color : "#8b7355"
         const fillColor = darkBg ? terr.color : "#c4a97d"
-
-        // Reduce opacity for dense maps
-        const strokeOp = isDense
-          ? (terr.level === 0 ? 0.15 : 0.08)
-          : (terr.level === 0 ? 0.35 : 0.2)
 
         terrG
           .append("path")
           .attr("d", pathData)
           .attr("fill", fillColor)
-          .attr("fill-opacity", terr.level === 0 ? 0.06 : 0.04)
+          .attr("fill-opacity", FILL_OP[li])
           .attr("stroke", strokeColor)
-          .attr("stroke-opacity", strokeOp)
-          .attr("stroke-width", Math.max(0.8, 2.5 - terr.level * 0.7))
-          .attr("stroke-dasharray", terr.level === 0 ? "10,5" : "6,4")
+          .attr("stroke-opacity", STROKE_OP[li])
+          .attr("stroke-width", STROKE_WIDTH[li])
+          .attr("stroke-dasharray", DASH[li])
+          .attr("stroke-linejoin", "round")
 
         // Label at centroid
         const centroid = polygonCentroid(terr.polygon)
-        const labelOp = isDense
-          ? (terr.level === 0 ? 0.2 : 0.1)
-          : (terr.level === 0 ? 0.4 : 0.25)
 
         terrLabelsG
           .append("text")
@@ -547,9 +600,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "central")
           .attr("fill", darkBg ? terr.color : "#6b5c4a")
-          .attr("opacity", labelOp)
-          .attr("font-size", `${Math.max(11, 16 - terr.level * 2)}px`)
+          .attr("opacity", LABEL_OP[li])
+          .attr("font-size", `${LABEL_SIZE[li]}px`)
           .attr("font-weight", "300")
+          .attr("letter-spacing", LABEL_SPACING[li])
           .style("pointer-events", "none")
           .text(terr.name)
       }
@@ -638,13 +692,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
 
         // Role-based adjustments for active locations
-        let dotRadius = 3
+        const tier = loc?.tier ?? "city"
+        let dotRadius = TIER_DOT_RADIUS[tier] ?? 3
         if (isActive && locRole === "referenced") {
           opacity *= 0.5
-          dotRadius = 2
+          dotRadius *= 0.7
         } else if (isActive && locRole === "boundary") {
           opacity *= 0.6
-          dotRadius = 2
+          dotRadius *= 0.7
         }
 
         const dot = dotsG
@@ -786,10 +841,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("y", item.y + iconSize / 2 + fontSize * 0.9)
           .attr("text-anchor", "middle")
           .attr("font-size", `${fontSize}px`)
+          .attr("font-weight", TIER_FONT_WEIGHT[tier] ?? 400)
           .attr("fill", textColor)
           .attr("opacity", opacity)
           .attr("stroke", darkBg ? "rgba(0,0,0,0.6)" : "#ffffff")
-          .attr("stroke-width", 1.5)
+          .attr("stroke-width", (TIER_FONT_WEIGHT[tier] ?? 400) >= 600 ? 2.5 : 1.5)
           .attr("paint-order", "stroke")
           .style("pointer-events", "none")
           .text(item.name)
@@ -1048,12 +1104,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const svg = d3Selection.select(svgRef.current)
       const k = currentScale
 
-      // Tier visibility
+      // Tier visibility — fade in over 30% of threshold range instead of hard cut
       for (const tier of TIERS) {
         const minScale = TIER_MIN_SCALE[tier] ?? 1.2
+        const fadeRange = minScale * 0.3
+        const tierOpacity = Math.min(1, Math.max(0, (k - minScale + fadeRange) / fadeRange))
         svg
           .select(`#locations-${tier}`)
-          .style("display", k >= minScale ? "" : "none")
+          .style("display", tierOpacity > 0 ? "" : "none")
+          .style("opacity", tierOpacity > 0 ? tierOpacity : null)
       }
 
       // Counter-scale: keep icons + labels at constant screen size
@@ -1070,10 +1129,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const labelRects: LabelRect[] = []
       svg.selectAll<SVGGElement, unknown>(".location-item").each(function () {
         const g = d3Selection.select(this)
-        // Check if this tier is visible
+        // Check if this tier is visible (include fading-in tiers)
         const tier = g.attr("data-tier") ?? "city"
         const minScale = TIER_MIN_SCALE[tier] ?? 1.2
-        if (k < minScale) return
+        const fadeRange = minScale * 0.3
+        if (k < minScale - fadeRange) return
 
         const name = g.attr("data-name") ?? ""
         const x = parseFloat(g.attr("data-x"))
@@ -1313,7 +1373,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                "radial-gradient(ellipse at center, transparent 50%, rgba(120,90,50,0.18) 100%)",
+                "radial-gradient(ellipse at center, transparent 50%, rgba(120,90,50,0.28) 100%)",
             }}
           />
         )}
@@ -1461,4 +1521,13 @@ function polygonCentroid(pts: Point[]): Point {
   }
   const n = pts.length || 1
   return [cx / n, cy / n]
+}
+
+/** Simple string hash for deterministic per-territory distortion seed. */
+function hashString(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  }
+  return Math.abs(h)
 }

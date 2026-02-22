@@ -57,6 +57,14 @@ DIRECTION_MARGIN = 50
 
 # Containment radius for parent locations
 PARENT_RADIUS = 120
+PARENT_RADIUS_BY_TIER: dict[str, float] = {
+    "continent": 300,
+    "kingdom": 200,
+    "region": 150,
+    "city": 100,
+    "site": 60,
+    "building": 40,
+}
 
 # Separation minimum distance
 SEPARATION_DIST = 150
@@ -1863,10 +1871,16 @@ class ConstraintSolver:
         actual = np.linalg.norm(coords[si] - coords[ti])
         return ((actual - target_dist) / target_dist) ** 2 * 100
 
+    def _get_parent_radius(self, si: int) -> float:
+        """Get containment radius based on the parent (source) location's tier."""
+        tier = self.locations[si].get("tier", "city") if si < len(self.locations) else "city"
+        return PARENT_RADIUS_BY_TIER.get(tier, PARENT_RADIUS)
+
     def _e_contains(self, coords: np.ndarray, si: int, ti: int) -> float:
         """Containment penalty: target (child) should be within parent radius."""
         dist = np.linalg.norm(coords[si] - coords[ti])
-        violation = max(0.0, dist - PARENT_RADIUS)
+        radius = self._get_parent_radius(si)
+        violation = max(0.0, dist - radius)
         return violation ** 2
 
     def _e_adjacent(self, coords: np.ndarray, si: int, ti: int) -> float:
@@ -2044,8 +2058,9 @@ class ConstraintSolver:
 
                 if rtype == "contains":
                     # Pull child toward parent if too far
-                    if dist > PARENT_RADIUS:
-                        force_mag = (dist - PARENT_RADIUS) * 0.1 * weight
+                    radius = self._get_parent_radius(si)
+                    if dist > radius:
+                        force_mag = (dist - radius) * 0.1 * weight
                         forces[ti] -= direction * force_mag
                         if not fixed[si]:
                             forces[si] += direction * force_mag * 0.3
