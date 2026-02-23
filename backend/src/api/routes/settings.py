@@ -104,10 +104,6 @@ class SwitchModeRequest(BaseModel):
     ollama_model: str | None = None
 
 
-class AdvancedSettingsRequest(BaseModel):
-    max_tokens: int
-
-
 class BudgetRequest(BaseModel):
     monthly_budget_cny: float
 
@@ -123,7 +119,6 @@ async def get_settings():
             "ollama_base_url": OLLAMA_BASE_URL,
             "ollama_model": config.OLLAMA_MODEL,
             "required_model": REQUIRED_MODEL,
-            "max_tokens": config.LLM_MAX_TOKENS,
             "context_window": config.CONTEXT_WINDOW_SIZE,
         }
     }
@@ -489,31 +484,6 @@ async def get_running_tasks():
     return {"running_count": len(service._active_loops)}
 
 
-@router.post("/advanced")
-async def save_advanced_settings(req: AdvancedSettingsRequest):
-    """Save advanced LLM settings."""
-    from src.db.sqlite_db import get_connection
-    from src.infra.config import update_max_tokens
-
-    if req.max_tokens < 1024 or req.max_tokens > 131072:
-        return {"success": False, "error": "max_tokens 需在 1024~131072 范围内"}
-
-    conn = await get_connection()
-    try:
-        await conn.execute(
-            """INSERT INTO app_settings (key, value, updated_at)
-               VALUES ('llm_max_tokens', ?, datetime('now'))
-               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at""",
-            (str(req.max_tokens),),
-        )
-        await conn.commit()
-    finally:
-        await conn.close()
-
-    update_max_tokens(req.max_tokens)
-    return {"success": True, "max_tokens": req.max_tokens}
-
-
 @router.post("/restore-defaults")
 async def restore_defaults():
     """Restore LLM config to defaults: local Ollama + qwen3:8b."""
@@ -568,51 +538,160 @@ async def save_budget(req: BudgetRequest):
     return {"success": True, "monthly_budget_cny": req.monthly_budget_cny}
 
 
-_BENCHMARK_PROMPT = """你是一个小说分析助手。请从以下段落中提取人物、地点、关系等结构化信息。
+# ── Benchmark: ~3000-char chapter text for realistic extraction ────────
 
-段落内容：
-韩立看着眼前这座名为"坠星峡谷"的巨大裂缝，心中不禁有些忐忑。这里是越国和岚国的边境地带，据说有不少修仙者在此殒命。他回忆起师父墨大夫的叮嘱——"小心落日峰附近的血煞宗弟子"，便更加警觉起来。身旁的厉飞雨则是一副不以为意的表情，手中把玩着一枚碧绿色的储物袋。
+_BENCHMARK_CHAPTER_TEXT = """\
+韩立盘坐在黄枫谷后山的一处隐秘洞府中，手中捏着一枚散发着淡淡灵光的筑基丹。这枚丹药是他花了三年时间，走遍了坠星峡谷和万妖山外围，冒着生命危险收集灵药材料，最终求得墨大夫亲手炼制而成。洞府四壁镶嵌着数十枚聚灵石，淡青色的灵气缓缓向中央汇聚，在韩立身周形成了一层薄薄的灵气漩涡。
 
-"韩师弟，你不必如此紧张。"厉飞雨笑道，"有南宫婉师姐在前面探路，咱们只管跟着就是。更何况，七玄门派来的支援也快到了。"
+"师父，弟子准备突破了。"韩立对坐在对面的墨大夫恭敬说道。
 
-韩立微微点头，目光却掠过远处那片被称为"万妖山"的连绵群山。据说那里栖息着一头四级妖兽——赤焰蟒，实力堪比结丹期修士。黄枫谷的掌门令狐冲已经下令，任何弟子不得擅自进入万妖山深处。
+墨大夫捋了捋花白的胡须，面色凝重道："韩立，筑基是修仙路上第一道天堑。你虽然修炼长春功多年，灵力也算深厚，但筑基的凶险不在于灵力是否充足，而在于你能否在灵力冲击经脉时保持神识清明。为师当年也是九死一生才侥幸成功。"
 
-就在这时，一道遁光从天边疾驰而来，正是他们等候已久的七玄门长老钟卫安。钟长老面色凝重，落地后第一句话便是："坏消息，血煞宗的宗主亲自来了。"
+他顿了顿，又补充道："长春功虽然入门容易，但后期进境极慢。好在此功法有一个独特之处——修炼者的灵力浑厚程度远超同阶，这对冲击筑基反而是优势。你要记住，药力运转到紫府时千万不可急躁，宁可多耗费一些时间，也要确保每一条经脉都被灵力充分洗练。"
 
-请提取上述段落中的所有人物（含别名）、地点（含层级关系）、组织、人物关系和重要事件。以JSON格式输出。"""
+韩立点了点头，将筑基丹吞入腹中。一股温热的药力从丹田升起，沿着经脉缓缓运转。他按照长春功的行功路线引导药力，先走任脉，再转督脉，最后汇聚于紫府。
 
-# Average chapter ≈ 3000 chars ⇒ estimate = elapsed_ms * (3000 / benchmark_input_len)
-_BENCHMARK_INPUT_CHARS = len(_BENCHMARK_PROMPT)
+就在药力运行到第三个周天时，一阵剧烈的疼痛从经脉中传来。韩立咬紧牙关，额头上豆大的汗珠不断滚落。墨大夫在一旁密切注视着，手中已经准备好了一枚护脉丹，以防万一。这枚护脉丹同样出自墨大夫之手，用万妖山特产的血灵芝为主料炼制，能在经脉即将破裂时迅速修复损伤。
+
+时间一分一秒过去，韩立的气息忽强忽弱，灵力波动越来越剧烈。洞府外，负责守护的厉飞雨和南宫婉也感受到了这股波动。
+
+"韩师弟的灵压好强……"南宫婉喃喃道，秀眉微蹙，"但似乎很不稳定。"
+
+厉飞雨沉声道："韩师弟的资质虽非上佳，但胜在心志坚定。墨大夫又亲自坐镇，应该不会有事。倒是我担心另一件事——前几日从越国和岚国边境传来消息，血煞宗的人最近频繁出没于落日峰附近。我在坠星峡谷执行任务时，亲眼见到两名黑袍修士鬼鬼祟祟地在峡谷南段探查，虽然没能看清面目，但那股阴森的血煞之气绝不会错。"
+
+"血煞宗？"南宫婉神色一变，"他们不是被七玄门联合几大门派围剿过一次了吗？怎么又冒出来了？"
+
+厉飞雨摇了摇头："据七玄门的钟卫安长老传信，血煞宗宗主赵无极不但没死，反而趁乱夺了一件上古法宝——噬魂幡。此宝能收摄修士魂魄，炼化后可大增修为，极为邪门。赵无极凭借此宝，已从结丹初期一举突破到结丹中期。更可怕的是，据钟长老调查，赵无极为了修炼噬魂幡，暗中残害了至少三十名散修，其中不乏筑基中期的高手。"
+
+南宫婉面色凝重："结丹中期……整个黄枫谷也只有谷主令狐冲和大长老两人是这个境界。如果赵无极真的来犯——"
+
+"所以钟卫安长老已经向黄枫谷发出了联盟请求。"厉飞雨接话道，"令狐冲掌门三天前已经同意，并且指派了灵兽山的陈师叔率领十名筑基期弟子前往坠星峡谷驻守。七玄门那边也派出了以钟卫安长老为首的精锐小队，在落日峰一带布下了警戒阵法。两家联手，至少在坠星峡谷方向可以形成一道防线。"
+
+南宫婉稍稍松了口气，但随即又想到什么："那万妖山方向呢？黄枫谷的东面可是完全敞开的……"
+
+厉飞雨苦笑道："这正是最让人头疼的地方。万妖山妖兽众多，又不受人控制，万一有人故意驱使妖兽——"
+
+话音未落，洞府中突然传来一声清越的长啸。一道耀眼的灵光从洞口激射而出，直冲天际。韩立的气息在刹那间发生了质变——原本浑浊的灵力变得清澈透明，经脉中的灵力运转速度提升了数倍。洞府周围的聚灵石因灵力涌动过于剧烈，纷纷碎裂开来，化为一地粉末。
+
+"成了！筑基成功了！"墨大夫大喜过望，忍不住仰天长笑。
+
+韩立缓缓睁开双眼，感受着体内焕然一新的灵力，心中既欣喜又感慨。筑基之后，他能清晰地感受到天地间游离的灵气——以前如同雾中观花，如今却如同置身于灵气的海洋中，每一丝灵气的流动都纤毫毕现。他站起身来，向墨大夫深深一揖："多谢师父护法之恩。弟子能有今日，全赖师父多年栽培。"
+
+墨大夫摆了摆手："你的成功是你自己挣来的。不过现在还不是高兴的时候，你刚突破筑基，境界尚未稳固，需要至少半个月的闭关巩固。为师已经在百药园为你备好了几味灵药——两株五十年份的紫阳花、一瓶凝元露，还有三枚培元丹，待你出关后来取。另外，我还为你准备了一卷御器术的入门心法，筑基之后方可修炼此术，御使法器飞行，行动速度可提升数倍。"
+
+这时厉飞雨和南宫婉也走了进来，纷纷向韩立道贺。韩立注意到南宫婉手中拿着一封传音符，便问道："南宫师姐，可是有什么消息？"
+
+南宫婉将传音符递给墨大夫："墨大夫，这是乌龟岛陈巧倩师姐发来的急信。万妖山深处近来妖气大盛，赤焰蟒的领地附近发现了四级妖兽活动的痕迹，还有多具散修的残骸——都是被吸干了精血而死。陈师姐怀疑，有人在暗中驱使妖兽或以散修血祭妖兽，意图不明。她已经知会了彩霞山的云霄子前辈，请他密切关注万妖山北麓的动静。"
+
+墨大夫的脸色瞬间阴沉下来："四级妖兽……那可是相当于结丹期修士的存在。万妖山距离黄枫谷不过三百里，如果那些妖兽被驱赶过来……而且你说散修的尸体是被吸干精血的？这种手法倒是与血煞宗的邪功如出一辙。"
+
+厉飞雨面色微变："墨大夫的意思是，赵无极可能在万妖山和坠星峡谷两个方向同时布局？"
+
+墨大夫缓缓点头："不排除这个可能。血煞宗覆灭之前，赵无极就以狡诈多变著称。他若真的恢复了实力，绝不会只从一个方向进攻。我这就去面见谷主，商议对策。韩立，你安心闭关，莫要分心。"
+
+韩立虽然刚刚筑基成功，但听到这些消息，心中也不禁涌起一股沉重感。修仙界从来都不太平，越国境内的几大门派——黄枫谷、七玄门、灵兽山——虽然表面上和平共处，但暗地里的争斗从未停止。而血煞宗这个邪修势力的死灰复燃，更是给本就紧张的局势雪上加霜。
+
+他望向洞府外的天空，彩霞山的轮廓在夕阳下显得格外壮美。远处是连绵的万妖山脉，那片深不可测的原始山林中不知隐藏着多少危险。万妖山以西是坠星峡谷，峡谷的另一边便是岚国的势力范围。越国和岚国虽然名义上互不侵犯，但修仙界的纷争从来不以凡人的国界为限。
+
+墨大夫临走前又叮嘱了一句："对了，张铁也在百药园修炼，他前些日子象甲功突破了第六层，正是春风得意的时候。你闭关时若有什么需要，可以找他帮忙。此外，百药园后面的灵泉洞灵气浓度极高，是闭关巩固境界的绝佳之地——为师已经为你预留了半月的使用权。"
+
+韩立感激地点了点头。他环顾了一下已经破碎的洞府，聚灵石的粉末散落一地，墙壁上还留着灵力冲击造成的裂纹。他暗暗下定决心：等境界稳固后，一定要尽快修炼御器术，提升实力。无论是为了自保，还是为了报答墨大夫的养育之恩，更或是为了在即将到来的风暴中保护同门师兄弟，他都不能停下脚步。
+
+厉飞雨拍了拍韩立的肩膀："韩师弟，安心闭关，外面的事有我们顶着。等你出关，咱们一起去坠星峡谷看看那些血煞宗的鼠辈。"
+
+南宫婉微微一笑："飞雨师兄说的不错。韩师弟你现在最重要的事就是稳固境界，切不可急于求成。"
+
+韩立郑重地向二人抱拳："多谢两位师兄师姐，韩立记下了。"\
+"""
+
+_BENCHMARK_INPUT_CHARS = len(_BENCHMARK_CHAPTER_TEXT)
 _ESTIMATED_CHAPTER_CHARS = 3000
 
+# ── Fixed entity dictionary for benchmark (same format as context_summary_builder output) ────────
+
+_BENCHMARK_ENTITY_DICT = """\
+## 已知实体词典（来自预扫描）
+以下是本书已确认的实体名称，请在提取时优先使用这些名称：
+
+【人物】韩立（别名：二愣子）| 墨大夫 | 厉飞雨 | 南宫婉 | 令狐冲 | 钟卫安 | 赵无极 | 陈巧倩 | 张铁 | 云霄子
+【组织】黄枫谷 | 七玄门 | 血煞宗 | 灵兽山
+【地点】越国 | 岚国 | 坠星峡谷 | 万妖山 | 落日峰 | 黄枫谷后山 | 百药园 | 乌龟岛 | 彩霞山 | 灵泉洞
+【物品】筑基丹 | 噬魂幡 | 护脉丹 | 传音符 | 聚灵石
+【概念】长春功 | 筑基 | 结丹 | 象甲功 | 御器术\
+"""
+
 # ── Golden standard for quality evaluation ────────
+
 _GOLDEN_STANDARD = {
-    "characters": ["韩立", "厉飞雨", "南宫婉", "墨大夫", "令狐冲", "钟卫安"],
-    "locations": ["坠星峡谷", "越国", "岚国", "万妖山", "落日峰", "黄枫谷"],
-    "organizations": ["血煞宗", "七玄门"],
+    "characters": [
+        "韩立", "墨大夫", "厉飞雨", "南宫婉", "令狐冲",
+        "钟卫安", "赵无极", "陈巧倩", "张铁", "云霄子",
+    ],
+    "locations": [
+        "黄枫谷", "坠星峡谷", "万妖山", "落日峰", "百药园",
+        "越国", "岚国", "乌龟岛", "彩霞山", "灵泉洞",
+    ],
+    "organizations": ["血煞宗", "七玄门", "灵兽山"],
     "key_relations": [
-        ("韩立", "墨大夫", "师徒"),
-        ("韩立", "厉飞雨", "同门"),
-        ("韩立", "南宫婉", "同门"),
-        ("钟卫安", "七玄门", "所属"),
+        ("韩立", "墨大夫"),
+        ("韩立", "厉飞雨"),
+        ("韩立", "南宫婉"),
+        ("赵无极", "血煞宗"),
+        ("钟卫安", "七玄门"),
+        ("令狐冲", "黄枫谷"),
+        ("韩立", "张铁"),
     ],
 }
 
 
-def _evaluate_quality(llm_output: str) -> dict:
-    """Evaluate LLM output quality against golden standard via string matching."""
+def _evaluate_quality(llm_output) -> dict:
+    """Evaluate LLM output quality against golden standard.
+
+    Accepts dict (structured output) or str (cloud text fallback).
+    """
+    # Build a flat text for entity/relation name matching
+    if isinstance(llm_output, dict):
+        # Structured output — extract names from known fields
+        text_parts: list[str] = []
+        for ch in llm_output.get("characters", []):
+            if isinstance(ch, dict):
+                text_parts.append(ch.get("name", ""))
+                text_parts.extend(ch.get("new_aliases", []))
+            else:
+                text_parts.append(str(ch))
+        for loc in llm_output.get("locations", []):
+            if isinstance(loc, dict):
+                text_parts.append(loc.get("name", ""))
+            else:
+                text_parts.append(str(loc))
+        for rel in llm_output.get("relationships", []):
+            if isinstance(rel, dict):
+                text_parts.append(rel.get("person_a", ""))
+                text_parts.append(rel.get("person_b", ""))
+            else:
+                text_parts.append(str(rel))
+        for org in llm_output.get("org_events", []):
+            if isinstance(org, dict):
+                text_parts.append(org.get("org_name", ""))
+            else:
+                text_parts.append(str(org))
+        # Also dump the entire dict as text for fallback matching
+        flat_text = " ".join(text_parts) + " " + json.dumps(llm_output, ensure_ascii=False)
+    else:
+        flat_text = str(llm_output)
+
     all_entities = (
         _GOLDEN_STANDARD["characters"]
         + _GOLDEN_STANDARD["locations"]
         + _GOLDEN_STANDARD["organizations"]
     )
-    found = [e for e in all_entities if e in llm_output]
-    missed = [e for e in all_entities if e not in llm_output]
+    found = [e for e in all_entities if e in flat_text]
+    missed = [e for e in all_entities if e not in flat_text]
     entity_recall = len(found) / len(all_entities) if all_entities else 0
 
     rel_found = 0
-    for a, b, _ in _GOLDEN_STANDARD["key_relations"]:
-        if a in llm_output and b in llm_output:
+    for a, b in _GOLDEN_STANDARD["key_relations"]:
+        if a in flat_text and b in flat_text:
             rel_found += 1
     total_rels = len(_GOLDEN_STANDARD["key_relations"])
     relation_recall = rel_found / total_rels if total_rels else 0
@@ -630,9 +709,16 @@ def _evaluate_quality(llm_output: str) -> dict:
 
 @router.post("/model-benchmark")
 async def run_model_benchmark():
-    """Run a quick benchmark on the current LLM model."""
+    """Run a realistic benchmark using the full extraction pipeline."""
     from src.db.sqlite_db import get_connection
+    from src.extraction.chapter_fact_extractor import (
+        _build_extraction_schema,
+        _load_examples,
+        _load_system_prompt,
+    )
+    from src.infra.context_budget import get_budget
     from src.infra.llm_client import get_llm_client, LLMError
+    from src.infra.openai_client import OpenAICompatibleClient
 
     model = get_model_name()
     provider = LLM_PROVIDER
@@ -642,14 +728,58 @@ async def run_model_benchmark():
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
 
+    is_cloud = isinstance(client, OpenAICompatibleClient)
+    budget = get_budget()
+
+    # ── Build real extraction prompt ──
+    system_template = _load_system_prompt()
+    context = _BENCHMARK_ENTITY_DICT + "\n\n（无前序上下文）"
+    system = system_template.replace("{context}", context)
+
+    # Cloud: embed schema in system prompt (same as _call_and_parse)
+    schema = _build_extraction_schema()
+    if is_cloud:
+        schema_text = json.dumps(schema, ensure_ascii=False, indent=2)
+        system += (
+            f"\n\n## 输出 JSON Schema\n"
+            f"你必须严格按照以下 JSON Schema 输出，不要输出多余字段或文本：\n"
+            f"```json\n{schema_text}\n```"
+        )
+
+    # Build user prompt with one few-shot example
+    examples = _load_examples()
+    example_text = ""
+    if examples:
+        examples_json = json.dumps([examples[0]], ensure_ascii=False, indent=2)
+        example_text = f"## 参考示例\n```json\n{examples_json}\n```\n\n"
+
+    user_prompt = (
+        f"{example_text}"
+        f"## 第 1 章\n\n{_BENCHMARK_CHAPTER_TEXT}\n\n"
+        "【关键要求】\n"
+        "1. characters：宁多勿漏！包含所有有名字或固定称呼的人物\n"
+        "2. relationships：任何两个人物有互动或提及关系都必须提取，evidence 引用原文\n"
+        "3. locations：宁多勿漏！所有具体地名都必须提取\n"
+        "4. events：每个事件的 participants 列出参与者姓名，location 填写地点\n"
+        "5. spatial_relationships：提取地点间的方位/距离/包含/相邻关系\n"
+        "6. world_declarations：当文中有世界宏观结构描述时必须提取，没有则输出空列表\n"
+        "7. new_concepts：功法、丹药、修炼体系等首次出现的概念，definition 必须详细\n"
+        "8. 只提取原文明确出现的内容，禁止编造\n"
+    )
+
+    max_out = LLM_MAX_TOKENS if is_cloud else 8192
+    timeout = 120 if is_cloud else 300
+
     start = time.time()
     try:
         result, usage = await client.generate(
-            system="你是一个结构化信息提取助手。请用JSON格式回复。",
-            prompt=_BENCHMARK_PROMPT,
+            system=system,
+            prompt=user_prompt,
+            format=schema,
             temperature=0.1,
-            max_tokens=2048,
-            timeout=120,
+            max_tokens=max_out,
+            timeout=timeout,
+            num_ctx=budget.extraction_num_ctx,
         )
     except LLMError as e:
         raise HTTPException(status_code=503, detail=f"模型调用失败: {e}")
@@ -660,7 +790,7 @@ async def run_model_benchmark():
     output_tokens = usage.completion_tokens
     tokens_per_second = round(output_tokens / (elapsed_ms / 1000), 1) if elapsed_ms > 0 else 0
 
-    # Estimate single chapter time (average chapter ~3000 chars)
+    # Benchmark text ≈ real chapter length, so elapsed ≈ chapter time
     estimated_chapter_s = round(elapsed_ms / 1000 * (_ESTIMATED_CHAPTER_CHARS / _BENCHMARK_INPUT_CHARS), 1)
 
     # Quality evaluation
