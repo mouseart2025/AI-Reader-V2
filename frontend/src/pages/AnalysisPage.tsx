@@ -8,6 +8,7 @@ import {
   fetchPrescanStatus,
   getLatestAnalysisTask,
   patchAnalysisTask,
+  retryFailedChapters,
   startAnalysis,
   triggerPrescan,
 } from "@/api/client"
@@ -52,6 +53,15 @@ function formatTokens(n: number): string {
   return String(n)
 }
 
+function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}秒`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}分${s % 60}秒`
+  const h = Math.floor(m / 60)
+  return `${h}小时${m % 60}分`
+}
+
 export default function AnalysisPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
@@ -78,6 +88,9 @@ export default function AnalysisPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearing, setClearing] = useState(false)
 
+  // Retry state
+  const [retrying, setRetrying] = useState(false)
+
   // Budget alert state
   const [budgetToast, setBudgetToast] = useState<string | null>(null)
   const [showBudgetExceeded, setShowBudgetExceeded] = useState(false)
@@ -99,11 +112,14 @@ export default function AnalysisPage() {
     totalChapters,
     stats,
     costStats,
+    timingStats,
+    qualitySummary,
     stageLabel,
     llmModel: wsLlmModel,
     llmProvider: wsLlmProvider,
     failedChapters,
     setTask,
+    setQualitySummary,
     resetProgress,
     connectWs,
     disconnectWs,
@@ -208,7 +224,7 @@ export default function AnalysisPage() {
 
     async function load() {
       try {
-        const [n, { task: latestTask, stats: latestStats }] = await Promise.all([
+        const [n, { task: latestTask, stats: latestStats, quality: latestQuality }] = await Promise.all([
           fetchNovel(novelId!),
           getLatestAnalysisTask(novelId!),
         ])
@@ -217,6 +233,7 @@ export default function AnalysisPage() {
         setRangeEnd(n.total_chapters)
         if (latestTask) {
           setTask(latestTask)
+          setQualitySummary(latestQuality ?? null)
           if (latestTask.status === "running" || latestTask.status === "paused") {
             // Initialize progress + stats from REST before WS connects
             const total = latestTask.chapter_end - latestTask.chapter_start + 1
@@ -540,6 +557,14 @@ export default function AnalysisPage() {
                 <span>{progress}%</span>
               </div>
               <Progress value={progress} />
+              {timingStats && (
+                <div className="mt-1.5 text-muted-foreground text-sm flex flex-wrap gap-x-3">
+                  <span>本章 {formatDuration(timingStats.last_chapter_ms)}</span>
+                  <span>均速 {formatDuration(timingStats.avg_chapter_ms)}/章</span>
+                  <span>已用 {formatDuration(timingStats.elapsed_total_ms)}</span>
+                  <span>预计剩余 {formatDuration(timingStats.eta_ms)}</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -624,6 +649,30 @@ export default function AnalysisPage() {
             <p className="text-muted-foreground text-sm">
               已分析第 {task?.chapter_start} - {task?.chapter_end} 章
             </p>
+            {task?.timing_summary && (
+              <div className="rounded-md border p-3 text-sm flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                <span>总耗时 {formatDuration(task.timing_summary.total_ms)}</span>
+                <span>均速 {formatDuration(task.timing_summary.avg_chapter_ms)}/章</span>
+                <span>最快 {formatDuration(task.timing_summary.min_chapter_ms)}</span>
+                <span>最慢 {formatDuration(task.timing_summary.max_chapter_ms)}</span>
+              </div>
+            )}
+            {qualitySummary && (totalChapters > 0) && (
+              <div className="rounded-md border p-3 text-sm space-y-1">
+                <span className="text-muted-foreground text-xs font-medium">分析质量</span>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground">
+                  <span>{totalChapters - (qualitySummary.truncated_chapters + qualitySummary.segmented_chapters)} 章完整提取</span>
+                  {qualitySummary.truncated_chapters > 0 && (
+                    <span className="text-yellow-600 dark:text-yellow-400">
+                      {qualitySummary.truncated_chapters} 章被截断（Token不足）
+                    </span>
+                  )}
+                  {qualitySummary.segmented_chapters > 0 && (
+                    <span>{qualitySummary.segmented_chapters} 章使用分段提取</span>
+                  )}
+                </div>
+              </div>
+            )}
             {costStats?.is_cloud && costStats.total_cost_usd > 0 && (
               <div className="rounded-md border p-3 text-sm flex justify-between">
                 <span className="text-muted-foreground">本次分析费用</span>
@@ -679,7 +728,28 @@ export default function AnalysisPage() {
       {failedChapters.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>失败章节 ({failedChapters.length})</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <span>失败章节 ({failedChapters.length})</span>
+              {!isActive && novelId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={retrying}
+                  onClick={async () => {
+                    setRetrying(true)
+                    try {
+                      await retryFailedChapters(novelId)
+                    } catch {
+                      // ignore
+                    } finally {
+                      setRetrying(false)
+                    }
+                  }}
+                >
+                  {retrying ? "重试中..." : "重试失败章节"}
+                </Button>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">

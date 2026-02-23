@@ -2,8 +2,10 @@ import { create } from "zustand"
 import { getLatestAnalysisTask } from "@/api/client"
 import type {
   AnalysisCostStats,
+  AnalysisQualitySummary,
   AnalysisStats,
   AnalysisTask,
+  AnalysisTimingStats,
   AnalysisWsMessage,
 } from "@/api/types"
 
@@ -19,6 +21,8 @@ interface AnalysisState {
   totalChapters: number
   stats: AnalysisStats
   costStats: AnalysisCostStats | null
+  timingStats: AnalysisTimingStats | null
+  qualitySummary: AnalysisQualitySummary | null
   stageLabel: string | null
   llmModel: string | null
   llmProvider: string | null // "ollama" | "openai"
@@ -34,6 +38,7 @@ interface AnalysisState {
   _connGen: number
 
   setTask: (task: AnalysisTask | null) => void
+  setQualitySummary: (q: AnalysisQualitySummary | null) => void
   resetProgress: () => void
   connectWs: (novelId: string) => void
   disconnectWs: () => void
@@ -50,6 +55,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   totalChapters: 0,
   stats: { ...initialStats },
   costStats: null,
+  timingStats: null,
+  qualitySummary: null,
   stageLabel: null,
   llmModel: null,
   llmProvider: null,
@@ -61,6 +68,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   _connGen: 0,
 
   setTask: (task) => set({ task }),
+  setQualitySummary: (q) => set({ qualitySummary: q }),
 
   resetProgress: () =>
     set({
@@ -69,6 +77,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       totalChapters: 0,
       stats: { ...initialStats },
       costStats: null,
+      timingStats: null,
+      qualitySummary: null,
       stageLabel: null,
       llmModel: null,
       llmProvider: null,
@@ -125,6 +135,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
             stats: msg.stats,
             stageLabel: null,
             ...(msg.cost ? { costStats: msg.cost } : {}),
+            ...(msg.timing ? { timingStats: msg.timing } : {}),
           })
         } else if (msg.type === "processing") {
           set({
@@ -140,6 +151,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
                 ...s.failedChapters,
                 { chapter: msg.chapter, error: msg.error ?? "Unknown error" },
               ],
+            })
+          } else if (msg.status === "retry_success") {
+            set({
+              failedChapters: s.failedChapters.filter(
+                (fc) => fc.chapter !== msg.chapter,
+              ),
             })
           }
         } else if (msg.type === "task_status") {

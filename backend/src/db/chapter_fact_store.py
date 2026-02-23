@@ -16,6 +16,8 @@ async def insert_chapter_fact(
     output_tokens: int = 0,
     cost_usd: float = 0.0,
     cost_cny: float = 0.0,
+    is_truncated: bool = False,
+    segment_count: int = 1,
 ) -> None:
     """Insert or replace a chapter fact record."""
     conn = await get_connection()
@@ -24,8 +26,9 @@ async def insert_chapter_fact(
             """
             INSERT OR REPLACE INTO chapter_facts
                 (novel_id, chapter_id, fact_json, llm_model, extraction_ms,
-                 input_tokens, output_tokens, cost_usd, cost_cny)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 input_tokens, output_tokens, cost_usd, cost_cny,
+                 is_truncated, segment_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 novel_id,
@@ -37,6 +40,8 @@ async def insert_chapter_fact(
                 output_tokens,
                 cost_usd,
                 cost_cny,
+                1 if is_truncated else 0,
+                segment_count,
             ),
         )
         await conn.commit()
@@ -81,7 +86,8 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
         cursor = await conn.execute(
             """
             SELECT chapter_id, fact_json, llm_model, extracted_at, extraction_ms,
-                   input_tokens, output_tokens, cost_usd, cost_cny
+                   input_tokens, output_tokens, cost_usd, cost_cny,
+                   is_truncated, segment_count
             FROM chapter_facts
             WHERE novel_id = ?
             ORDER BY chapter_id
@@ -100,6 +106,8 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
                 "output_tokens": row["output_tokens"] or 0,
                 "cost_usd": row["cost_usd"] or 0.0,
                 "cost_cny": row["cost_cny"] or 0.0,
+                "is_truncated": bool(row["is_truncated"]) if row["is_truncated"] is not None else False,
+                "segment_count": row["segment_count"] or 1,
             }
             for row in rows
         ]

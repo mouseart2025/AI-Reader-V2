@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.infra.config import LLM_MAX_TOKENS
@@ -19,6 +20,15 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 # Segment splitting thresholds (chars). Only used when budget.segment_enabled.
 _SEGMENT_THRESHOLD_2 = 7000   # >7000 chars -> split into 2 segments
 _SEGMENT_THRESHOLD_3 = 12000  # >12000 chars -> split into 3 segments
+
+
+@dataclass
+class ExtractionMeta:
+    """Quality metadata about the extraction process."""
+    is_truncated: bool = False
+    original_len: int = 0
+    truncated_len: int = 0
+    segment_count: int = 1
 
 
 class ExtractionError(Exception):
@@ -250,8 +260,8 @@ class ChapterFactExtractor:
         chapter_id: int,
         chapter_text: str,
         context_summary: str = "",
-    ) -> tuple[ChapterFact, LlmUsage]:
-        """Extract ChapterFact from chapter text. Returns (fact, usage).
+    ) -> tuple[ChapterFact, LlmUsage, ExtractionMeta]:
+        """Extract ChapterFact from chapter text. Returns (fact, usage, meta).
 
         Long chapters (cloud mode) are automatically split into segments
         and merged to avoid output truncation.
@@ -259,10 +269,14 @@ class ChapterFactExtractor:
         system = self.system_template.replace("{context}", context_summary or "（无前序上下文）")
 
         budget = get_budget()
+        original_len = len(chapter_text)
+        meta = ExtractionMeta(original_len=original_len)
 
         # Truncate very long chapters to avoid token overflow
         if len(chapter_text) > budget.max_chapter_len:
             chapter_text = chapter_text[:budget.max_chapter_len]
+            meta.is_truncated = True
+            meta.truncated_len = len(chapter_text)
 
         # Split long chapters into segments (enabled for large context windows)
         if budget.segment_enabled:
@@ -270,20 +284,24 @@ class ChapterFactExtractor:
         else:
             segments = [chapter_text]
 
+        meta.segment_count = len(segments)
+
         if len(segments) > 1:
             logger.info(
                 "Chapter %d: splitting %d chars into %d segments (%s)",
                 chapter_id, len(chapter_text), len(segments),
                 ", ".join(f"{len(s)}c" for s in segments),
             )
-            return await self._extract_segmented(
+            fact, usage = await self._extract_segmented(
                 system, novel_id, chapter_id, segments,
             )
+            return fact, usage, meta
 
         # Single segment — original flow with retry
-        return await self._extract_single(
+        fact, usage = await self._extract_single(
             system, novel_id, chapter_id, chapter_text,
         )
+        return fact, usage, meta
 
     async def _extract_single(
         self,

@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS usage_events (
     created_at      TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS benchmark_records (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    model           TEXT NOT NULL,
+    provider        TEXT NOT NULL,
+    context_window  INTEGER,
+    elapsed_ms      INTEGER NOT NULL,
+    input_tokens    INTEGER,
+    output_tokens   INTEGER,
+    tokens_per_second REAL,
+    estimated_chapter_time_s REAL,
+    estimated_chapter_chars  INTEGER DEFAULT 3000,
+    quality_score   REAL,
+    quality_detail  TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_usage_events_type     ON usage_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_usage_events_time     ON usage_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_entity_dict_novel    ON entity_dictionary(novel_id, entity_type);
@@ -242,6 +258,26 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Column already exists
+        # Migration: add timing_summary column to analysis_tasks
+        try:
+            await conn.execute(
+                "ALTER TABLE analysis_tasks ADD COLUMN timing_summary TEXT"
+            )
+        except Exception:
+            pass  # Column already exists
+        # Migration: add quality columns to chapter_facts
+        try:
+            await conn.execute(
+                "ALTER TABLE chapter_facts ADD COLUMN is_truncated INTEGER DEFAULT 0"
+            )
+        except Exception:
+            pass
+        try:
+            await conn.execute(
+                "ALTER TABLE chapter_facts ADD COLUMN segment_count INTEGER DEFAULT 1"
+            )
+        except Exception:
+            pass
         # Migration: backfill analysis_tasks for sample novels that were
         # imported without a completed task record (fixes AnalysisPage status)
         try:

@@ -9,7 +9,8 @@ from fastapi import WebSocket
 
 from src.db import analysis_task_store, chapter_fact_store, entity_dictionary_store
 from src.db import world_structure_store
-from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError
+from src.db.sqlite_db import get_connection
+from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError, ExtractionMeta
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
@@ -225,6 +226,14 @@ class AnalysisService:
         total = chapter_end - chapter_start + 1
         stats = {"entities": 0, "relations": 0, "events": 0}
 
+        # Timing tracking
+        _chapter_times: list[int] = []
+        _analysis_start_ms = int(time.time() * 1000)
+        # Track chapters that failed during this run (for auto-retry)
+        _failed_in_run: list[dict] = []
+        # Quality tracking
+        _quality_stats = {"truncated_count": 0, "segmented_count": 0, "total_segments": 0}
+
         # Cost tracking (cloud mode only)
         from src.infra import config as _cfg
         is_cloud = _cfg.LLM_PROVIDER == "openai"
@@ -385,12 +394,18 @@ class AnalysisService:
 
                 # Extract facts
                 await self._broadcast_stage(novel_id, chapter_num, "AI 提取中")
-                fact, chapter_usage = await self.extractor.extract(
+                fact, chapter_usage, extraction_meta = await self.extractor.extract(
                     novel_id=novel_id,
                     chapter_id=chapter_num,
                     chapter_text=chapter["content"],
                     context_summary=context,
                 )
+                # Track quality stats
+                if extraction_meta.is_truncated:
+                    _quality_stats["truncated_count"] += 1
+                if extraction_meta.segment_count > 1:
+                    _quality_stats["segmented_count"] += 1
+                _quality_stats["total_segments"] += extraction_meta.segment_count
 
                 # Accumulate cost (cloud mode)
                 if is_cloud:
@@ -447,6 +462,7 @@ class AnalysisService:
 
                 await self._broadcast_stage(novel_id, chapter_num, "保存数据")
                 elapsed_ms = int(time.time() * 1000) - start_ms
+                _chapter_times.append(elapsed_ms)
 
                 # Per-chapter cost (cloud mode)
                 _ch_cost_usd = 0.0
@@ -470,6 +486,8 @@ class AnalysisService:
                     output_tokens=chapter_usage.completion_tokens,
                     cost_usd=_ch_cost_usd,
                     cost_cny=_ch_cost_cny,
+                    is_truncated=extraction_meta.is_truncated,
+                    segment_count=extraction_meta.segment_count,
                 )
 
                 # Scene extraction via LLM (non-fatal)
@@ -524,10 +542,12 @@ class AnalysisService:
 
             except ExtractionError as e:
                 elapsed_ms = int(time.time() * 1000) - start_ms
+                _chapter_times.append(elapsed_ms)
                 logger.error("Extraction failed for chapter %d: %s", chapter_num, e)
                 await analysis_task_store.update_chapter_analysis_status(
                     novel_id, chapter_num, "failed"
                 )
+                _failed_in_run.append(chapter)
                 await manager.broadcast(novel_id, {
                     "type": "chapter_done",
                     "chapter": chapter_num,
@@ -537,10 +557,12 @@ class AnalysisService:
 
             except Exception as e:
                 elapsed_ms = int(time.time() * 1000) - start_ms
+                _chapter_times.append(elapsed_ms)
                 logger.error("Unexpected error for chapter %d: %s", chapter_num, e)
                 await analysis_task_store.update_chapter_analysis_status(
                     novel_id, chapter_num, "failed"
                 )
+                _failed_in_run.append(chapter)
                 await manager.broadcast(novel_id, {
                     "type": "chapter_done",
                     "chapter": chapter_num,
@@ -562,7 +584,76 @@ class AnalysisService:
             }
             if is_cloud:
                 progress_msg["cost"] = cost_stats
+            if _chapter_times:
+                avg_ms = sum(_chapter_times) // len(_chapter_times)
+                remaining = total - done_count
+                progress_msg["timing"] = {
+                    "last_chapter_ms": _chapter_times[-1],
+                    "avg_chapter_ms": avg_ms,
+                    "elapsed_total_ms": int(time.time() * 1000) - _analysis_start_ms,
+                    "eta_ms": avg_ms * remaining,
+                }
             await manager.broadcast(novel_id, progress_msg)
+
+        # ── Auto-retry failed chapters (1 attempt) ──
+        if _failed_in_run:
+            logger.info("Auto-retrying %d failed chapters", len(_failed_in_run))
+            await self._broadcast_stage(novel_id, chapter_end, f"重试 {len(_failed_in_run)} 个失败章节")
+            for retry_ch in _failed_in_run:
+                retry_num = retry_ch["chapter_number"]
+                retry_start = int(time.time() * 1000)
+                try:
+                    _loc_parents = (
+                        world_agent.structure.location_parents
+                        if world_agent.structure else None
+                    )
+                    ctx = await self.context_builder.build(
+                        novel_id, retry_num, location_parents=_loc_parents,
+                    )
+                    fact, usage = await self.extractor.extract(
+                        novel_id=novel_id,
+                        chapter_id=retry_num,
+                        chapter_text=retry_ch["content"],
+                        context_summary=ctx,
+                    )
+                    fact = self.validator.validate(fact)
+                    retry_elapsed = int(time.time() * 1000) - retry_start
+                    await chapter_fact_store.insert_chapter_fact(
+                        novel_id=novel_id,
+                        chapter_id=retry_ch["id"],
+                        fact=fact,
+                        llm_model=OLLAMA_MODEL,
+                        extraction_ms=retry_elapsed,
+                        input_tokens=usage.prompt_tokens,
+                        output_tokens=usage.completion_tokens,
+                        cost_usd=0.0,
+                        cost_cny=0.0,
+                    )
+                    await analysis_task_store.update_chapter_analysis_status(
+                        novel_id, retry_num, "completed"
+                    )
+                    stats["entities"] += len(fact.characters) + len(fact.locations)
+                    stats["relations"] += len(fact.relationships)
+                    stats["events"] += len(fact.events)
+                    await manager.broadcast(novel_id, {
+                        "type": "chapter_done",
+                        "chapter": retry_num,
+                        "status": "retry_success",
+                    })
+                    logger.info("Auto-retry succeeded for chapter %d", retry_num)
+                except Exception as e:
+                    logger.warning("Auto-retry failed for chapter %d: %s", retry_num, e)
+
+        # ── Persist timing summary ──
+        if _chapter_times:
+            timing_summary = {
+                "total_ms": int(time.time() * 1000) - _analysis_start_ms,
+                "avg_chapter_ms": sum(_chapter_times) // len(_chapter_times),
+                "min_chapter_ms": min(_chapter_times),
+                "max_chapter_ms": max(_chapter_times),
+                "chapters_processed": len(_chapter_times),
+            }
+            await analysis_task_store.save_timing_summary(task_id, timing_summary)
 
         # ── Post-analysis: location hierarchy enhancement ──
         try:
@@ -623,6 +714,78 @@ class AnalysisService:
         await manager.broadcast(novel_id, completed_msg)
         self._task_signals.pop(task_id, None)
         logger.info("Task %s completed for novel %s", task_id, novel_id)
+
+
+    async def retry_failed_chapters(self, novel_id: str) -> dict:
+        """Retry all failed chapters for the latest task of a novel."""
+        # Get failed chapters
+        conn = await get_connection()
+        try:
+            cursor = await conn.execute(
+                """
+                SELECT c.id, c.chapter_number, c.content
+                FROM chapters c
+                JOIN chapter_facts cf ON c.id = cf.chapter_id AND c.novel_id = cf.novel_id
+                WHERE c.novel_id = ? AND cf.analysis_status = 'failed'
+                ORDER BY c.chapter_number
+                """,
+                (novel_id,),
+            )
+            rows = await cursor.fetchall()
+        finally:
+            await conn.close()
+
+        if not rows:
+            return {"retried": 0, "succeeded": 0, "failed": 0}
+
+        ws = await world_structure_store.load(novel_id)
+        loc_parents = ws.location_parents if ws else None
+        succeeded = 0
+        failed = 0
+
+        for row in rows:
+            ch_id = row["id"]
+            ch_num = row["chapter_number"]
+            ch_content = row["content"]
+
+            try:
+                ctx = await self.context_builder.build(
+                    novel_id, ch_num, location_parents=loc_parents,
+                )
+                fact, usage = await self.extractor.extract(
+                    novel_id=novel_id,
+                    chapter_id=ch_num,
+                    chapter_text=ch_content,
+                    context_summary=ctx,
+                )
+                fact = self.validator.validate(fact)
+                elapsed_ms = 0  # Not timing individual retries here
+
+                await chapter_fact_store.insert_chapter_fact(
+                    novel_id=novel_id,
+                    chapter_id=ch_id,
+                    fact=fact,
+                    llm_model=OLLAMA_MODEL,
+                    extraction_ms=elapsed_ms,
+                    input_tokens=usage.prompt_tokens,
+                    output_tokens=usage.completion_tokens,
+                    cost_usd=0.0,
+                    cost_cny=0.0,
+                )
+                await analysis_task_store.update_chapter_analysis_status(
+                    novel_id, ch_num, "completed"
+                )
+                await manager.broadcast(novel_id, {
+                    "type": "chapter_done",
+                    "chapter": ch_num,
+                    "status": "retry_success",
+                })
+                succeeded += 1
+            except Exception as e:
+                logger.warning("Manual retry failed for chapter %d: %s", ch_num, e)
+                failed += 1
+
+        return {"retried": len(rows), "succeeded": succeeded, "failed": failed}
 
 
 def _count_orphan_roots(structure: WorldStructure) -> int:

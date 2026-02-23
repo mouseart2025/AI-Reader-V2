@@ -214,6 +214,18 @@ export function restoreDefaults(): Promise<{ success: boolean }> {
   return apiFetch("/settings/restore-defaults", { method: "POST" })
 }
 
+export function runModelBenchmark(): Promise<import("./types").BenchmarkResult> {
+  return apiFetch("/settings/model-benchmark", { method: "POST" })
+}
+
+export function fetchBenchmarkHistory(): Promise<import("./types").BenchmarkRecord[]> {
+  return apiFetch("/settings/model-benchmark/history")
+}
+
+export function deleteBenchmarkRecord(id: number): Promise<{ success: boolean }> {
+  return apiFetch(`/settings/model-benchmark/history/${id}`, { method: "DELETE" })
+}
+
 export function fetchBudget(): Promise<import("./types").BudgetInfo> {
   return apiFetch("/settings/budget")
 }
@@ -538,7 +550,7 @@ export function getAnalysisTask(taskId: string): Promise<AnalysisTask> {
 
 export function getLatestAnalysisTask(
   novelId: string,
-): Promise<{ task: AnalysisTask | null; stats: AnalysisStats | null }> {
+): Promise<{ task: AnalysisTask | null; stats: AnalysisStats | null; quality: import("./types").AnalysisQualitySummary | null }> {
   return apiFetch(`/novels/${novelId}/analysis/latest`)
 }
 
@@ -546,6 +558,12 @@ export function clearAnalysisData(
   novelId: string,
 ): Promise<{ ok: boolean; message: string }> {
   return apiFetch(`/novels/${novelId}/analysis`, { method: "DELETE" })
+}
+
+export function retryFailedChapters(
+  novelId: string,
+): Promise<{ retried: number; succeeded: number; failed: number }> {
+  return apiFetch(`/novels/${novelId}/analysis/retry-failed`, { method: "POST" })
 }
 
 export function fetchActiveAnalyses(): Promise<{

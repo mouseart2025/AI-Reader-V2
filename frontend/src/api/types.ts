@@ -173,6 +173,38 @@ export interface EnvironmentCheck {
   error?: string
 }
 
+export interface BenchmarkResult {
+  model: string
+  provider: string
+  context_window: number
+  benchmark: {
+    elapsed_ms: number
+    input_tokens: number
+    output_tokens: number
+    tokens_per_second: number
+    estimated_chapter_time_s: number
+    estimated_chapter_chars: number
+  }
+  quality: {
+    overall_score: number
+    entity_recall: number
+    relation_recall: number
+    notes: string[]
+  }
+}
+
+export interface BenchmarkRecord {
+  id: number
+  model: string
+  provider: string
+  context_window: number
+  elapsed_ms: number
+  tokens_per_second: number
+  estimated_chapter_time_s: number
+  quality_score: number | null
+  created_at: string
+}
+
 // ── Analysis ──────────────────────────────────
 
 export interface AnalyzeRequest {
@@ -201,6 +233,27 @@ export interface CostEstimate {
   monthly_used_cny: number
 }
 
+export interface AnalysisTimingStats {
+  last_chapter_ms: number
+  avg_chapter_ms: number
+  elapsed_total_ms: number
+  eta_ms: number
+}
+
+export interface AnalysisTimingSummary {
+  total_ms: number
+  avg_chapter_ms: number
+  min_chapter_ms: number
+  max_chapter_ms: number
+  chapters_processed: number
+}
+
+export interface AnalysisQualitySummary {
+  truncated_chapters: number
+  segmented_chapters: number
+  total_segments: number
+}
+
 export interface AnalysisTask {
   id: string
   novel_id: string
@@ -208,6 +261,7 @@ export interface AnalysisTask {
   chapter_start: number
   chapter_end: number
   current_chapter: number
+  timing_summary?: AnalysisTimingSummary | null
   created_at: string
   updated_at: string
 }
@@ -250,12 +304,13 @@ export interface WsProgress extends WsBase {
   done: number
   stats: AnalysisStats
   cost?: AnalysisCostStats
+  timing?: AnalysisTimingStats
 }
 
 export interface WsChapterDone extends WsBase {
   type: "chapter_done"
   chapter: number
-  status: "completed" | "failed"
+  status: "completed" | "failed" | "retry_success"
   error?: string
 }
 
