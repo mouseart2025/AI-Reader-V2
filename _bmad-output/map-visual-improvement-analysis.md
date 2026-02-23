@@ -205,20 +205,22 @@ PARENT_RADIUS_BY_TIER = {
 - 渲染到 `#terrain` SVG 层（z-order 在 regions/territories 之下）
 - 全局上限 MAX_HINTS=900
 
-#### M3: 区域名称弯曲文字
+#### M3: 区域名称弯曲文字 ✅ (v0.25.5)
 
 **思路**：大区域名称沿 path 弯曲排列，或按区域轮廓方向旋转，体现地图美感。
 
-**实现**：
-- 对 region-labels，使用 SVG `<textPath>` 沿一条微弧线路径绘制文字
-- 弧线方向根据区域在画布中的位置决定（上方向下弯、下方向上弯）
-- 字间距（letter-spacing）根据区域面积自适应
+**已实现** (`NovelMap.tsx`)：
+- Region labels 和 territory labels (level 0-1) 使用 SVG `<textPath>` 沿二次贝塞尔弧线绘制
+- 弧线方向根据区域在画布中的位置决定（上方向下弯、下方向上弯），sagitta 为弧宽的 12-15%
+- 字间距（letter-spacing）按层级自适应（region 14px, territory L0 10px, L1 4px）
+- `href` 通过原生 DOM `setAttributeNS(xlink)` + `setAttribute("href")` 双设置确保浏览器兼容
+- 需要 WorldStructure 的 regions 数据驱动（`regionBoundaries` 非空时生效）
 
-**改动文件**：`NovelMap.tsx`（修改 region-labels 渲染）
-
-#### M4: 暗色层专属主题
+#### M4: 暗色层专属主题 ✅ (v0.25.4)
 
 **思路**：为不同层类型添加专属背景纹理和氛围效果。
+
+**已实现** (`NovelMap.tsx`)：
 
 | 层 | 背景效果 |
 |----|---------|
@@ -228,9 +230,7 @@ PARENT_RADIUS_BY_TIER = {
 | pocket | 虫洞/漩涡径向渐变 |
 | spirit | 紫色雾气 + 灵魂火焰散点 |
 
-**实现**：每种层的 SVG 背景 pattern/filter 预定义，在 SVG defs 中，按 layerType 选择。
-
-**改动文件**：`NovelMap.tsx`（新增各层背景 pattern/filter）
+各层 SVG 背景 pattern/filter 预定义在 defs 中，按 layerType 选择渲染。
 
 #### M5: 小地图 + 视口指示器
 
@@ -314,8 +314,8 @@ PARENT_RADIUS_BY_TIER = {
 | P1 | **Q5** overview-dots 分级 | 减少视觉噪声 | 0.5h |
 | ~~P2~~ | ~~**M1** 嵌套 hull 区域边界~~ | ~~解决核心的层级可视化问题~~ | ✅ v0.25.2 |
 | ~~P2~~ | ~~**M2** 地形语义纹理~~ | ~~显著提升地图美感~~ | ✅ v0.25.3 |
-| P3 | **M4** 暗色层主题 | 提升非 overworld 层体验 | 3-4h |
-| P3 | **M3** 弯曲区域文字 | 细节美感提升 | 2-3h |
+| ~~P3~~ | ~~**M4** 暗色层主题~~ | ~~提升非 overworld 层体验~~ | ✅ v0.25.4 |
+| ~~P3~~ | ~~**M3** 弯曲区域文字~~ | ~~细节美感提升~~ | ✅ v0.25.5 |
 | P3 | **M5** 小地图 | 大地图导航辅助 | 3-4h |
 | P4 | **M6** 密集聚类 | 解决 400+ 地点的信息过载 | 4-6h |
 | P5 | **X2** 分治约束求解 | 解决大量地点布局质量 | 16-24h |
