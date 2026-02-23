@@ -242,9 +242,21 @@ Three-layer defense against common single-character nouns extracted as entities 
 
 Scene/screenplay functionality is integrated into ReadingPage as a right-side panel (`ScenePanel.tsx`), not a standalone page. The toolbar "剧本" toggle button opens/closes the panel. When open: scenes are fetched via `fetchChapterScenes()`, the text switches from whole-block to paragraph-level rendering with colored left borders (`border-l-3 + SCENE_BORDER_COLORS[sceneIdx]`) marking scene boundaries, and the active scene's paragraphs get `bg-accent/30` highlighting. Clicking a SceneCard scrolls the text to the corresponding paragraph. Shared components (`SceneCard`, `SCENE_BORDER_COLORS`, `TONE_STYLES`, `EVENT_TYPE_STYLES`) are exported from `components/shared/ScenePanel.tsx`.
 
+### Analysis Timing & Quality Tracking
+
+`AnalysisService` tracks per-chapter timing and quality metrics during analysis. `_chapter_times` accumulates elapsed_ms per chapter, enabling real-time ETA via WebSocket (`timing.eta_ms = avg_ms * remaining`). `ExtractionMeta` (from `ChapterFactExtractor`) reports `is_truncated` (chapter exceeded budget.max_chapter_len) and `segment_count` (number of segments for long chapters). These are persisted to `chapter_facts` columns and surfaced in the analysis progress UI. On completion, a `timing_summary` JSON (total_ms, avg/min/max_chapter_ms, chapters_processed) is saved to `analysis_tasks.timing_summary`.
+
+**Auto-retry**: After the main loop, failed chapters get one automatic retry attempt. Success broadcasts `"retry_success"` status via WebSocket.
+
+### Model Benchmark — Quality Evaluation & History
+
+`POST /model-benchmark` runs a fixed extraction prompt against the current LLM and evaluates output quality against a golden standard (`_GOLDEN_STANDARD` in `settings.py`). Quality scoring uses pure string matching (no extra LLM call): `entity_recall` = fraction of golden entities found in output text, `relation_recall` = fraction of golden relations where both endpoints appear. `overall_score = entity_recall * 0.6 + relation_recall * 0.4` (0-100). Results auto-save to `benchmark_records` table. The response includes `benchmark.estimated_chapter_chars` (default 3000) so the frontend can display what the time estimate is based on.
+
+`GET /model-benchmark/history` returns the last 50 records. `DELETE /model-benchmark/history/{id}` removes a record. Frontend `SettingsPage.tsx` shows a collapsible history table with time/model/speed/estimated chapter time/quality score, with color coding (green ≥80, yellow ≥60, red <60).
+
 ### Two Databases Only
 
-- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides (13 tables)
+- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, benchmark_records (14 tables)
 - **ChromaDB**: chapter embeddings + entity embeddings for semantic search
 
 ## Code Conventions
@@ -312,7 +324,7 @@ uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 
 ## Database Schema (SQLite)
 
-13 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`. See `_bmad-output/architecture.md` section 5.1 for core DDL.
+14 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`. See `_bmad-output/architecture.md` section 5.1 for core DDL.
 
 ## Important Notes
 

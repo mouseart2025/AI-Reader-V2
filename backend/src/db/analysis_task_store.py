@@ -1,5 +1,6 @@
 """CRUD operations for analysis_tasks table."""
 
+import json
 import logging
 
 from src.db.sqlite_db import get_connection
@@ -128,6 +129,19 @@ async def get_chapter_content(novel_id: str, chapter_num: int) -> dict | None:
         await conn.close()
 
 
+async def save_timing_summary(task_id: str, timing: dict) -> None:
+    """Persist timing_summary JSON to analysis_tasks."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "UPDATE analysis_tasks SET timing_summary = ?, updated_at = datetime('now') WHERE id = ?",
+            (json.dumps(timing, ensure_ascii=False), task_id),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
 async def get_latest_task(novel_id: str) -> dict | None:
     """Get the most recent task for a novel (any status)."""
     conn = await get_connection()
@@ -135,7 +149,7 @@ async def get_latest_task(novel_id: str) -> dict | None:
         cursor = await conn.execute(
             """
             SELECT id, novel_id, status, chapter_start, chapter_end,
-                   current_chapter, created_at, updated_at
+                   current_chapter, timing_summary, created_at, updated_at
             FROM analysis_tasks
             WHERE novel_id = ?
             ORDER BY created_at DESC LIMIT 1
@@ -143,7 +157,13 @@ async def get_latest_task(novel_id: str) -> dict | None:
             (novel_id,),
         )
         row = await cursor.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        result = dict(row)
+        # Parse timing_summary from JSON text
+        ts = result.get("timing_summary")
+        result["timing_summary"] = json.loads(ts) if ts else None
+        return result
     finally:
         await conn.close()
 

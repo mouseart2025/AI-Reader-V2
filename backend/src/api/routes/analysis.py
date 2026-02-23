@@ -197,6 +197,7 @@ async def get_latest_task(novel_id: str):
     # is the DB row ID (not chapter_num), so we count all facts without
     # range filtering to avoid a chapter_id vs chapter_num mismatch.
     stats = {"entities": 0, "relations": 0, "events": 0}
+    quality = {"truncated_chapters": 0, "segmented_chapters": 0, "total_segments": 0}
     if task["status"] in ("running", "paused", "completed"):
         all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
         for ef in all_facts:
@@ -204,8 +205,26 @@ async def get_latest_task(novel_id: str):
             stats["entities"] += len(fact.get("characters", [])) + len(fact.get("locations", []))
             stats["relations"] += len(fact.get("relationships", []))
             stats["events"] += len(fact.get("events", []))
+            if ef.get("is_truncated"):
+                quality["truncated_chapters"] += 1
+            seg = ef.get("segment_count", 1)
+            if seg > 1:
+                quality["segmented_chapters"] += 1
+            quality["total_segments"] += seg
 
-    return {"task": task, "stats": stats}
+    return {"task": task, "stats": stats, "quality": quality}
+
+
+@router.post("/novels/{novel_id}/analysis/retry-failed")
+async def retry_failed_chapters(novel_id: str):
+    """Retry all failed chapters for the latest task."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    service = get_analysis_service()
+    result = await service.retry_failed_chapters(novel_id)
+    return result
 
 
 @router.delete("/novels/{novel_id}/analysis")
@@ -284,6 +303,9 @@ async def get_cost_detail(novel_id: str):
     total_cost_cny = 0.0
     total_entities = 0
     model_used = ""
+    truncated_count = 0
+    segmented_count = 0
+    total_segments = 0
 
     for ef in all_facts:
         fact = ef.get("fact", {})
@@ -297,12 +319,19 @@ async def get_cost_detail(novel_id: str):
         out = ef.get("output_tokens", 0)
         c_usd = ef.get("cost_usd", 0.0)
         c_cny = ef.get("cost_cny", 0.0)
+        is_trunc = ef.get("is_truncated", False)
+        seg_count = ef.get("segment_count", 1)
 
         total_input += inp
         total_output += out
         total_cost_usd += c_usd
         total_cost_cny += c_cny
         total_entities += entity_count
+        if is_trunc:
+            truncated_count += 1
+        if seg_count > 1:
+            segmented_count += 1
+        total_segments += seg_count
 
         if not model_used and ef.get("llm_model"):
             model_used = ef["llm_model"]
@@ -317,6 +346,8 @@ async def get_cost_detail(novel_id: str):
             "extraction_ms": ef.get("extraction_ms", 0),
             "extracted_at": ef.get("extracted_at"),
             "llm_model": ef.get("llm_model", ""),
+            "is_truncated": is_trunc,
+            "segment_count": seg_count,
         })
 
     return {
@@ -330,6 +361,11 @@ async def get_cost_detail(novel_id: str):
             "total_cost_usd": round(total_cost_usd, 4),
             "total_cost_cny": round(total_cost_cny, 2),
             "total_entities": total_entities,
+        },
+        "quality": {
+            "truncated_chapters": truncated_count,
+            "segmented_chapters": segmented_count,
+            "total_segments": total_segments,
         },
         "model": model_used,
         "started_at": task["created_at"] if task else None,

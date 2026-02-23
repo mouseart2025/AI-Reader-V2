@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, saveAdvancedSettings, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, backupExportUrl, previewBackupImport, confirmBackupImport } from "@/api/client"
-import type { EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
+import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, saveAdvancedSettings, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, backupExportUrl, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
+import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -139,6 +139,41 @@ export default function SettingsPage() {
   const [backupImporting, setBackupImporting] = useState(false)
   const [backupResult, setBackupResult] = useState<BackupImportResult | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+
+  // Benchmark state
+  const [benchmarking, setBenchmarking] = useState(false)
+  const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null)
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null)
+  const [benchmarkHistory, setBenchmarkHistory] = useState<BenchmarkRecord[]>([])
+  const [showBenchmarkHistory, setShowBenchmarkHistory] = useState(true)
+
+  const loadBenchmarkHistory = useCallback(() => {
+    fetchBenchmarkHistory()
+      .then(setBenchmarkHistory)
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { loadBenchmarkHistory() }, [loadBenchmarkHistory])
+
+  const handleBenchmark = useCallback(async () => {
+    setBenchmarking(true)
+    setBenchmarkResult(null)
+    setBenchmarkError(null)
+    try {
+      const result = await runModelBenchmark()
+      setBenchmarkResult(result)
+      loadBenchmarkHistory()
+    } catch (err) {
+      setBenchmarkError(err instanceof Error ? err.message : "性能测试失败")
+    } finally {
+      setBenchmarking(false)
+    }
+  }, [loadBenchmarkHistory])
+
+  const handleDeleteBenchmarkRecord = useCallback(async (id: number) => {
+    setBenchmarkHistory((prev) => prev.filter((r) => r.id !== id))
+    await deleteBenchmarkRecord(id).catch(() => {})
+  }, [])
 
   // Usage analytics state
   const [usageStats, setUsageStats] = useState<{
@@ -680,6 +715,112 @@ export default function SettingsPage() {
                       </div>
                     )}
 
+                    {/* Performance benchmark */}
+                    {envCheck?.ollama_status === "running" && (
+                      <div className="border-t pt-3 mt-3">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={handleBenchmark}
+                            disabled={benchmarking}
+                          >
+                            {benchmarking ? "测试中..." : "性能测试"}
+                          </Button>
+                          {benchmarking && (
+                            <span className="text-xs text-muted-foreground">正在调用模型，请稍候...</span>
+                          )}
+                        </div>
+                        {benchmarkResult && (
+                          <div className="mt-2 rounded-md border p-2.5 text-xs space-y-1">
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                              <span>响应时间: <strong>{(benchmarkResult.benchmark.elapsed_ms / 1000).toFixed(1)}秒</strong></span>
+                              <span>速度: <strong>{benchmarkResult.benchmark.tokens_per_second} token/s</strong></span>
+                              <span>预估单章: <strong>~{benchmarkResult.benchmark.estimated_chapter_time_s}秒</strong> <span className="text-muted-foreground font-normal">(约{benchmarkResult.benchmark.estimated_chapter_chars}字)</span></span>
+                              <span>上下文窗口: <strong>{(benchmarkResult.context_window / 1024).toFixed(0)}K</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span>分析质量:</span>
+                              <strong className={cn(
+                                benchmarkResult.quality.overall_score >= 80 ? "text-green-600" :
+                                benchmarkResult.quality.overall_score >= 60 ? "text-yellow-600" : "text-red-500"
+                              )}>
+                                {benchmarkResult.quality.overall_score}分
+                              </strong>
+                              <span className="text-muted-foreground">
+                                (实体识别 {benchmarkResult.quality.entity_recall}% | 关系识别 {benchmarkResult.quality.relation_recall}%)
+                              </span>
+                            </div>
+                            {benchmarkResult.quality.notes.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {benchmarkResult.quality.notes.join("，")}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">
+                              输入 {formatTokens(benchmarkResult.benchmark.input_tokens)} / 输出 {formatTokens(benchmarkResult.benchmark.output_tokens)} tokens
+                            </p>
+                          </div>
+                        )}
+                        {benchmarkError && (
+                          <p className="mt-1 text-xs text-red-500">{benchmarkError}</p>
+                        )}
+                        {/* Benchmark history */}
+                        {benchmarkHistory.length > 0 && (
+                          <div className="mt-3">
+                            <button
+                              className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowBenchmarkHistory(!showBenchmarkHistory)}
+                            >
+                              <span>历史记录 ({benchmarkHistory.length})</span>
+                              <span>{showBenchmarkHistory ? "收起" : "展开"}</span>
+                            </button>
+                            {showBenchmarkHistory && (
+                              <div className="mt-1.5 border rounded-md overflow-hidden">
+                                <table className="w-full text-[11px]">
+                                  <thead>
+                                    <tr className="bg-muted/40 text-muted-foreground">
+                                      <th className="text-left px-2 py-1 font-medium">时间</th>
+                                      <th className="text-left px-2 py-1 font-medium">模型</th>
+                                      <th className="text-right px-2 py-1 font-medium">速度</th>
+                                      <th className="text-right px-2 py-1 font-medium">预估单章</th>
+                                      <th className="text-right px-2 py-1 font-medium">质量</th>
+                                      <th className="text-right px-2 py-1 font-medium"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {benchmarkHistory.map((rec) => (
+                                      <tr key={rec.id} className="border-t hover:bg-muted/20">
+                                        <td className="px-2 py-1 text-muted-foreground">{formatDateTime(rec.created_at)}</td>
+                                        <td className="px-2 py-1 font-mono">{rec.model}</td>
+                                        <td className="px-2 py-1 text-right font-mono">{rec.tokens_per_second} t/s</td>
+                                        <td className="px-2 py-1 text-right font-mono">~{rec.estimated_chapter_time_s}秒</td>
+                                        <td className={cn(
+                                          "px-2 py-1 text-right font-mono",
+                                          rec.quality_score != null && rec.quality_score >= 80 ? "text-green-600" :
+                                          rec.quality_score != null && rec.quality_score >= 60 ? "text-yellow-600" :
+                                          rec.quality_score != null ? "text-red-500" : "text-muted-foreground",
+                                        )}>
+                                          {rec.quality_score != null ? `${rec.quality_score}分` : "-"}
+                                        </td>
+                                        <td className="px-2 py-1 text-right">
+                                          <button
+                                            className="text-muted-foreground hover:text-red-500 transition-colors"
+                                            onClick={() => handleDeleteBenchmarkRecord(rec.id)}
+                                          >
+                                            删除
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Switch button — only when Ollama is NOT the active engine */}
                     {envCheck?.llm_provider === "openai" && (
                       <div className="border-t pt-3 mt-3">
@@ -809,6 +950,112 @@ export default function SettingsPage() {
                         <span className="text-xs text-muted-foreground">{cloudSaveMsg}</span>
                       )}
                     </div>
+
+                    {/* Performance benchmark (cloud) */}
+                    {(envCheck?.api_available || cloudConfig?.has_api_key) && (
+                      <div className="border-t pt-3 mt-3">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={handleBenchmark}
+                            disabled={benchmarking}
+                          >
+                            {benchmarking ? "测试中..." : "性能测试"}
+                          </Button>
+                          {benchmarking && (
+                            <span className="text-xs text-muted-foreground">正在调用模型，请稍候...</span>
+                          )}
+                        </div>
+                        {benchmarkResult && (
+                          <div className="mt-2 rounded-md border p-2.5 text-xs space-y-1">
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                              <span>响应时间: <strong>{(benchmarkResult.benchmark.elapsed_ms / 1000).toFixed(1)}秒</strong></span>
+                              <span>速度: <strong>{benchmarkResult.benchmark.tokens_per_second} token/s</strong></span>
+                              <span>预估单章: <strong>~{benchmarkResult.benchmark.estimated_chapter_time_s}秒</strong> <span className="text-muted-foreground font-normal">(约{benchmarkResult.benchmark.estimated_chapter_chars}字)</span></span>
+                              <span>上下文窗口: <strong>{(benchmarkResult.context_window / 1024).toFixed(0)}K</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span>分析质量:</span>
+                              <strong className={cn(
+                                benchmarkResult.quality.overall_score >= 80 ? "text-green-600" :
+                                benchmarkResult.quality.overall_score >= 60 ? "text-yellow-600" : "text-red-500"
+                              )}>
+                                {benchmarkResult.quality.overall_score}分
+                              </strong>
+                              <span className="text-muted-foreground">
+                                (实体识别 {benchmarkResult.quality.entity_recall}% | 关系识别 {benchmarkResult.quality.relation_recall}%)
+                              </span>
+                            </div>
+                            {benchmarkResult.quality.notes.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {benchmarkResult.quality.notes.join("，")}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">
+                              输入 {formatTokens(benchmarkResult.benchmark.input_tokens)} / 输出 {formatTokens(benchmarkResult.benchmark.output_tokens)} tokens
+                            </p>
+                          </div>
+                        )}
+                        {benchmarkError && (
+                          <p className="mt-1 text-xs text-red-500">{benchmarkError}</p>
+                        )}
+                        {/* Benchmark history (cloud) */}
+                        {benchmarkHistory.length > 0 && (
+                          <div className="mt-3">
+                            <button
+                              className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowBenchmarkHistory(!showBenchmarkHistory)}
+                            >
+                              <span>历史记录 ({benchmarkHistory.length})</span>
+                              <span>{showBenchmarkHistory ? "收起" : "展开"}</span>
+                            </button>
+                            {showBenchmarkHistory && (
+                              <div className="mt-1.5 border rounded-md overflow-hidden">
+                                <table className="w-full text-[11px]">
+                                  <thead>
+                                    <tr className="bg-muted/40 text-muted-foreground">
+                                      <th className="text-left px-2 py-1 font-medium">时间</th>
+                                      <th className="text-left px-2 py-1 font-medium">模型</th>
+                                      <th className="text-right px-2 py-1 font-medium">速度</th>
+                                      <th className="text-right px-2 py-1 font-medium">预估单章</th>
+                                      <th className="text-right px-2 py-1 font-medium">质量</th>
+                                      <th className="text-right px-2 py-1 font-medium"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {benchmarkHistory.map((rec) => (
+                                      <tr key={rec.id} className="border-t hover:bg-muted/20">
+                                        <td className="px-2 py-1 text-muted-foreground">{formatDateTime(rec.created_at)}</td>
+                                        <td className="px-2 py-1 font-mono">{rec.model}</td>
+                                        <td className="px-2 py-1 text-right font-mono">{rec.tokens_per_second} t/s</td>
+                                        <td className="px-2 py-1 text-right font-mono">~{rec.estimated_chapter_time_s}秒</td>
+                                        <td className={cn(
+                                          "px-2 py-1 text-right font-mono",
+                                          rec.quality_score != null && rec.quality_score >= 80 ? "text-green-600" :
+                                          rec.quality_score != null && rec.quality_score >= 60 ? "text-yellow-600" :
+                                          rec.quality_score != null ? "text-red-500" : "text-muted-foreground",
+                                        )}>
+                                          {rec.quality_score != null ? `${rec.quality_score}分` : "-"}
+                                        </td>
+                                        <td className="px-2 py-1 text-right">
+                                          <button
+                                            className="text-muted-foreground hover:text-red-500 transition-colors"
+                                            onClick={() => handleDeleteBenchmarkRecord(rec.id)}
+                                          >
+                                            删除
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Switch button — only when cloud is NOT the active engine */}
                     {envCheck?.llm_provider !== "openai" && (

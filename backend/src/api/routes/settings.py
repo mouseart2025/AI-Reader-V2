@@ -6,13 +6,15 @@ import os
 import platform
 import shutil
 import subprocess
+import time
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.infra.config import (
+    CONTEXT_WINDOW_SIZE,
     LLM_API_KEY,
     LLM_BASE_URL,
     LLM_MAX_TOKENS,
@@ -564,6 +566,194 @@ async def save_budget(req: BudgetRequest):
         return {"success": False, "error": "预算不能为负数"}
     await set_monthly_budget(req.monthly_budget_cny)
     return {"success": True, "monthly_budget_cny": req.monthly_budget_cny}
+
+
+_BENCHMARK_PROMPT = """你是一个小说分析助手。请从以下段落中提取人物、地点、关系等结构化信息。
+
+段落内容：
+韩立看着眼前这座名为"坠星峡谷"的巨大裂缝，心中不禁有些忐忑。这里是越国和岚国的边境地带，据说有不少修仙者在此殒命。他回忆起师父墨大夫的叮嘱——"小心落日峰附近的血煞宗弟子"，便更加警觉起来。身旁的厉飞雨则是一副不以为意的表情，手中把玩着一枚碧绿色的储物袋。
+
+"韩师弟，你不必如此紧张。"厉飞雨笑道，"有南宫婉师姐在前面探路，咱们只管跟着就是。更何况，七玄门派来的支援也快到了。"
+
+韩立微微点头，目光却掠过远处那片被称为"万妖山"的连绵群山。据说那里栖息着一头四级妖兽——赤焰蟒，实力堪比结丹期修士。黄枫谷的掌门令狐冲已经下令，任何弟子不得擅自进入万妖山深处。
+
+就在这时，一道遁光从天边疾驰而来，正是他们等候已久的七玄门长老钟卫安。钟长老面色凝重，落地后第一句话便是："坏消息，血煞宗的宗主亲自来了。"
+
+请提取上述段落中的所有人物（含别名）、地点（含层级关系）、组织、人物关系和重要事件。以JSON格式输出。"""
+
+# Average chapter ≈ 3000 chars ⇒ estimate = elapsed_ms * (3000 / benchmark_input_len)
+_BENCHMARK_INPUT_CHARS = len(_BENCHMARK_PROMPT)
+_ESTIMATED_CHAPTER_CHARS = 3000
+
+# ── Golden standard for quality evaluation ────────
+_GOLDEN_STANDARD = {
+    "characters": ["韩立", "厉飞雨", "南宫婉", "墨大夫", "令狐冲", "钟卫安"],
+    "locations": ["坠星峡谷", "越国", "岚国", "万妖山", "落日峰", "黄枫谷"],
+    "organizations": ["血煞宗", "七玄门"],
+    "key_relations": [
+        ("韩立", "墨大夫", "师徒"),
+        ("韩立", "厉飞雨", "同门"),
+        ("韩立", "南宫婉", "同门"),
+        ("钟卫安", "七玄门", "所属"),
+    ],
+}
+
+
+def _evaluate_quality(llm_output: str) -> dict:
+    """Evaluate LLM output quality against golden standard via string matching."""
+    all_entities = (
+        _GOLDEN_STANDARD["characters"]
+        + _GOLDEN_STANDARD["locations"]
+        + _GOLDEN_STANDARD["organizations"]
+    )
+    found = [e for e in all_entities if e in llm_output]
+    missed = [e for e in all_entities if e not in llm_output]
+    entity_recall = len(found) / len(all_entities) if all_entities else 0
+
+    rel_found = 0
+    for a, b, _ in _GOLDEN_STANDARD["key_relations"]:
+        if a in llm_output and b in llm_output:
+            rel_found += 1
+    total_rels = len(_GOLDEN_STANDARD["key_relations"])
+    relation_recall = rel_found / total_rels if total_rels else 0
+
+    overall = round((entity_recall * 0.6 + relation_recall * 0.4) * 100, 1)
+    notes = [f"漏掉: {e}" for e in missed] if missed else []
+
+    return {
+        "overall_score": overall,
+        "entity_recall": round(entity_recall * 100, 1),
+        "relation_recall": round(relation_recall * 100, 1),
+        "notes": notes,
+    }
+
+
+@router.post("/model-benchmark")
+async def run_model_benchmark():
+    """Run a quick benchmark on the current LLM model."""
+    from src.db.sqlite_db import get_connection
+    from src.infra.llm_client import get_llm_client, LLMError
+
+    model = get_model_name()
+    provider = LLM_PROVIDER
+
+    try:
+        client = get_llm_client()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    start = time.time()
+    try:
+        result, usage = await client.generate(
+            system="你是一个结构化信息提取助手。请用JSON格式回复。",
+            prompt=_BENCHMARK_PROMPT,
+            temperature=0.1,
+            max_tokens=2048,
+            timeout=120,
+        )
+    except LLMError as e:
+        raise HTTPException(status_code=503, detail=f"模型调用失败: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"未知错误: {e}")
+
+    elapsed_ms = int((time.time() - start) * 1000)
+    output_tokens = usage.completion_tokens
+    tokens_per_second = round(output_tokens / (elapsed_ms / 1000), 1) if elapsed_ms > 0 else 0
+
+    # Estimate single chapter time (average chapter ~3000 chars)
+    estimated_chapter_s = round(elapsed_ms / 1000 * (_ESTIMATED_CHAPTER_CHARS / _BENCHMARK_INPUT_CHARS), 1)
+
+    # Quality evaluation
+    quality = _evaluate_quality(result)
+
+    # Auto-save to benchmark_records
+    try:
+        conn = await get_connection()
+        try:
+            await conn.execute(
+                """INSERT INTO benchmark_records
+                   (model, provider, context_window, elapsed_ms, input_tokens, output_tokens,
+                    tokens_per_second, estimated_chapter_time_s, estimated_chapter_chars,
+                    quality_score, quality_detail)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    model, provider, CONTEXT_WINDOW_SIZE, elapsed_ms,
+                    usage.prompt_tokens, output_tokens, tokens_per_second,
+                    estimated_chapter_s, _ESTIMATED_CHAPTER_CHARS,
+                    quality["overall_score"],
+                    json.dumps(quality, ensure_ascii=False),
+                ),
+            )
+            await conn.commit()
+        finally:
+            await conn.close()
+    except Exception:
+        pass  # Don't fail benchmark if save fails
+
+    return {
+        "model": model,
+        "provider": provider,
+        "context_window": CONTEXT_WINDOW_SIZE,
+        "benchmark": {
+            "elapsed_ms": elapsed_ms,
+            "input_tokens": usage.prompt_tokens,
+            "output_tokens": output_tokens,
+            "tokens_per_second": tokens_per_second,
+            "estimated_chapter_time_s": estimated_chapter_s,
+            "estimated_chapter_chars": _ESTIMATED_CHAPTER_CHARS,
+        },
+        "quality": quality,
+    }
+
+
+@router.get("/model-benchmark/history")
+async def get_benchmark_history():
+    """Return recent benchmark records."""
+    from src.db.sqlite_db import get_connection
+
+    conn = await get_connection()
+    try:
+        rows = await conn.execute_fetchall(
+            """SELECT id, model, provider, context_window, elapsed_ms,
+                      tokens_per_second, estimated_chapter_time_s,
+                      quality_score, created_at
+               FROM benchmark_records
+               ORDER BY created_at DESC
+               LIMIT 50"""
+        )
+        records = [
+            {
+                "id": r[0],
+                "model": r[1],
+                "provider": r[2],
+                "context_window": r[3],
+                "elapsed_ms": r[4],
+                "tokens_per_second": r[5],
+                "estimated_chapter_time_s": r[6],
+                "quality_score": r[7],
+                "created_at": r[8],
+            }
+            for r in rows
+        ]
+        return records
+    finally:
+        await conn.close()
+
+
+@router.delete("/model-benchmark/history/{record_id}")
+async def delete_benchmark_record(record_id: int):
+    """Delete a benchmark record."""
+    from src.db.sqlite_db import get_connection
+
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "DELETE FROM benchmark_records WHERE id = ?", (record_id,)
+        )
+        await conn.commit()
+        return {"success": True}
+    finally:
+        await conn.close()
 
 
 async def _check_ollama() -> dict:
