@@ -142,6 +142,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
             currentChapter: msg.chapter,
             totalChapters: msg.total,
             stageLabel: null,
+            ...(msg.timing ? { timingStats: msg.timing } : {}),
           })
         } else if (msg.type === "chapter_done") {
           set({ stageLabel: null })
@@ -250,7 +251,7 @@ async function _pollTaskStatus(
   set: (partial: Partial<AnalysisState>) => void,
 ) {
   try {
-    const { task, stats: latestStats } = await getLatestAnalysisTask(novelId)
+    const { task, stats: latestStats, timing: latestTiming } = await getLatestAnalysisTask(novelId)
     if (task) {
       set({ task })
       // Update progress from task's current_chapter
@@ -262,6 +263,7 @@ async function _pollTaskStatus(
           totalChapters: total,
           progress: Math.round((done / total) * 100),
           ...(latestStats ? { stats: latestStats } : {}),
+          ...(latestTiming ? { timingStats: latestTiming } : {}),
         })
       } else if (task.status === "completed") {
         set({ progress: 100, ...(latestStats ? { stats: latestStats } : {}) })

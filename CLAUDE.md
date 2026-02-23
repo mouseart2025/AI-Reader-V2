@@ -94,9 +94,9 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 `context_budget.py` (`TokenBudget` dataclass + `compute_budget()` + `get_budget()`) — all LLM budget parameters (chapter truncation length, context summary limits, num_ctx, timeouts) are derived from the model's context window size via linear interpolation: 8K context → conservative "local" values, 128K+ context → generous "cloud" values, intermediate models get proportional values. Replaces the old binary `LLM_PROVIDER == "openai"` budget switching.
 
-**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama `POST /api/show` → `model_info.*.context_length`. Cloud mode defaults to 131072. Failure falls back to 8192. Result stored in `config.CONTEXT_WINDOW_SIZE`.
+**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama `POST /api/show` → `model_info.*.context_length`. Cloud mode defaults to 131072. Failure falls back to 8192. Result stored in `config.CONTEXT_WINDOW_SIZE`. Local Ollama models are capped at `_OLLAMA_CTX_CAP = 16384` to prevent KV cache bloat on consumer hardware (4B models on 8-16GB machines drop from ~10 tok/s to ~2-3 tok/s at 32K context, causing timeouts).
 
-**Consumers**: `ChapterFactExtractor` (max_chapter_len, retry_len, segment_enabled, extraction_num_ctx), `ContextSummaryBuilder` (context_max_chars, char/rel/loc/item limits, hierarchy chains, world summary chars), `SceneLLMExtractor` (scene_max_chapter_len), `WorldStructureAgent` (ws_max_tokens, ws_timeout), `LocationHierarchyReviewer` (hierarchy_timeout). Non-budget `LLM_PROVIDER` checks (schema injection, cost tracking, client factory) are preserved unchanged.
+**Consumers**: `ChapterFactExtractor` (max_chapter_len, retry_len, segment_enabled, extraction_num_ctx, **few-shot example count** — only 1 example for context_window ≤ 16K, 2 examples above), `ContextSummaryBuilder` (context_max_chars, char/rel/loc/item limits, hierarchy chains, world summary chars), `SceneLLMExtractor` (scene_max_chapter_len), `WorldStructureAgent` (ws_max_tokens, ws_timeout), `LocationHierarchyReviewer` (hierarchy_timeout). Non-budget `LLM_PROVIDER` checks (schema injection, cost tracking, client factory) are preserved unchanged.
 
 ### Entity Alias Resolution
 
@@ -245,6 +245,8 @@ Scene/screenplay functionality is integrated into ReadingPage as a right-side pa
 ### Analysis Timing & Quality Tracking
 
 `AnalysisService` tracks per-chapter timing and quality metrics during analysis. `_chapter_times` accumulates elapsed_ms per chapter, enabling real-time ETA via WebSocket (`timing.eta_ms = avg_ms * remaining`). `ExtractionMeta` (from `ChapterFactExtractor`) reports `is_truncated` (chapter exceeded budget.max_chapter_len) and `segment_count` (number of segments for long chapters). These are persisted to `chapter_facts` columns and surfaced in the analysis progress UI. On completion, a `timing_summary` JSON (total_ms, avg/min/max_chapter_ms, chapters_processed) is saved to `analysis_tasks.timing_summary`.
+
+**Live timing persistence**: `AnalysisService._live_timing` (dict keyed by novel_id) stores the latest timing snapshot in memory, surviving page navigation. Updated after every chapter (success or failure). The `processing` WS message includes `timing` so the frontend receives timing even before the first `progress` message. REST `GET /novels/{id}/analysis/latest` returns `timing` when the task is running/paused. Frontend `analysisStore._pollTaskStatus()`, `AnalysisPage` mount load, and `visibilitychange` handler all restore `timingStats` from REST. Cleaned up on task completion/cancel; preserved on pause.
 
 **Auto-retry**: After the main loop, failed chapters get one automatic retry attempt. Success broadcasts `"retry_success"` status via WebSocket.
 

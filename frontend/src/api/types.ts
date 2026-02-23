@@ -325,6 +325,7 @@ export interface WsProcessing extends WsBase {
   type: "processing"
   chapter: number
   total: number
+  timing?: AnalysisTimingStats
 }
 
 export interface WsStage extends WsBase {

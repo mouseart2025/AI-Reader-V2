@@ -181,7 +181,6 @@ export function fetchSettings(): Promise<{
     ollama_base_url: string
     ollama_model: string
     required_model: string
-    max_tokens: number
   }
 }> {
   return apiFetch("/settings")
@@ -199,15 +198,6 @@ export function switchLlmMode(
 
 export function fetchRunningTasks(): Promise<{ running_count: number }> {
   return apiFetch("/settings/running-tasks")
-}
-
-export function saveAdvancedSettings(
-  maxTokens: number,
-): Promise<{ success: boolean; max_tokens: number; error?: string }> {
-  return apiFetch("/settings/advanced", {
-    method: "POST",
-    body: JSON.stringify({ max_tokens: maxTokens }),
-  })
 }
 
 export function restoreDefaults(): Promise<{ success: boolean }> {
@@ -550,7 +540,7 @@ export function getAnalysisTask(taskId: string): Promise<AnalysisTask> {
 
 export function getLatestAnalysisTask(
   novelId: string,
-): Promise<{ task: AnalysisTask | null; stats: AnalysisStats | null; quality: import("./types").AnalysisQualitySummary | null }> {
+): Promise<{ task: AnalysisTask | null; stats: AnalysisStats | null; quality: import("./types").AnalysisQualitySummary | null; timing: import("./types").AnalysisTimingStats | null }> {
   return apiFetch(`/novels/${novelId}/analysis/latest`)
 }
 

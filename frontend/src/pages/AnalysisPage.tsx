@@ -224,7 +224,7 @@ export default function AnalysisPage() {
 
     async function load() {
       try {
-        const [n, { task: latestTask, stats: latestStats, quality: latestQuality }] = await Promise.all([
+        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming }] = await Promise.all([
           fetchNovel(novelId!),
           getLatestAnalysisTask(novelId!),
         ])
@@ -249,6 +249,7 @@ export default function AnalysisPage() {
               totalChapters: total,
               progress: total > 0 ? Math.round((done / total) * 100) : 0,
               ...(restHasMore ? { stats: latestStats } : {}),
+              ...(latestTiming ? { timingStats: latestTiming } : {}),
             })
             connectWs(novelId!)
           } else if (latestTask.status === "completed" && latestStats) {
@@ -327,7 +328,7 @@ export default function AnalysisPage() {
     function handleVisibilityChange() {
       if (document.visibilityState !== "visible") return
       // Re-fetch task status and reconnect WS if needed
-      getLatestAnalysisTask(novelId!).then(({ task: latestTask, stats: latestStats }) => {
+      getLatestAnalysisTask(novelId!).then(({ task: latestTask, stats: latestStats, timing: latestTiming }) => {
         if (latestTask) {
           setTask(latestTask)
           if (latestTask.status === "running" || latestTask.status === "paused") {
@@ -338,6 +339,7 @@ export default function AnalysisPage() {
               totalChapters: total,
               progress: total > 0 ? Math.round((done / total) * 100) : 0,
               ...(latestStats ? { stats: latestStats } : {}),
+              ...(latestTiming ? { timingStats: latestTiming } : {}),
             })
             connectWs(novelId!)
           }
