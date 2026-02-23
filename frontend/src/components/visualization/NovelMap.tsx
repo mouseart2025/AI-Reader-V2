@@ -577,23 +577,66 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       regionsG.selectAll("*").remove()
       labelsG.selectAll("*").remove()
 
+      // Access <defs> for arc path definitions; clean up old arcs
+      const defs = svg.select("defs")
+      defs.selectAll("path[id^='region-arc-']").remove()
+
       if (!regionBoundaries || regionBoundaries.length === 0) return
 
       for (const rb of regionBoundaries) {
-        // Text-only label at region center (no polygon border)
-        labelsG
+        const [cx, cy] = rb.center
+
+        // 1. Compute horizontal span from polygon
+        let minX = Infinity, maxX = -Infinity
+        for (const [px] of rb.polygon) {
+          if (px < minX) minX = px
+          if (px > maxX) maxX = px
+        }
+        const span = maxX - minX
+
+        // 2. Arc sizing — wide enough for text with generous spacing
+        const fontSize = 26
+        const letterSpacing = 14 // wider spacing for map feel
+        const nameLen = rb.region_name.length
+        const charWidth = fontSize + letterSpacing
+        const textWidth = nameLen * charWidth
+        const arcWidth = Math.max(textWidth * 1.5, Math.min(span * 0.75, 500))
+        const halfArc = arcWidth / 2
+
+        // 3. Bend direction: top half bends down, bottom half bends up
+        //    15% sagitta for clearly visible curvature
+        const bendDown = cy < canvasH / 2
+        const sagitta = arcWidth * 0.15 * (bendDown ? 1 : -1)
+
+        // 4. Quadratic Bezier arc path
+        const pathId = `region-arc-${hashString(rb.region_name)}`
+        const startX = cx - halfArc
+        const endX = cx + halfArc
+        const controlY = cy + sagitta
+
+        defs.append("path")
+          .attr("id", pathId)
+          .attr("d", `M${startX},${cy} Q${cx},${controlY} ${endX},${cy}`)
+
+        // 5. Text along arc
+        const text = labelsG
           .append("text")
-          .attr("x", rb.center[0])
-          .attr("y", rb.center[1])
-          .attr("text-anchor", "middle")
-          .attr("dominant-baseline", "central")
           .attr("fill", darkBg ? "#ffffff" : "#8b7355")
-          .attr("opacity", 0.25)
-          .attr("font-size", "26px")
+          .attr("opacity", darkBg ? 0.55 : 0.45)
+          .attr("font-size", `${fontSize}px`)
           .attr("font-weight", "300")
-          .attr("letter-spacing", "6px")
+          .attr("letter-spacing", `${letterSpacing}px`)
           .style("pointer-events", "none")
+
+        text
+          .append("textPath")
+          .attr("startOffset", "50%")
+          .attr("text-anchor", "middle")
           .text(rb.region_name)
+          .each(function () {
+            this.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${pathId}`)
+            this.setAttribute("href", `#${pathId}`)
+          })
       }
     }, [mapReady, regionBoundaries, canvasW, canvasH, darkBg])
 
@@ -605,6 +648,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const terrLabelsG = svg.select("#territory-labels")
       terrG.selectAll("*").remove()
       terrLabelsG.selectAll("*").remove()
+
+      // Access <defs> for arc paths; clean up old territory arcs
+      const defs = svg.select("defs")
+      defs.selectAll("path[id^='terr-arc-']").remove()
 
       if (territories.length === 0) return
 
@@ -655,22 +702,71 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("stroke-dasharray", DASH[li])
           .attr("stroke-linejoin", "round")
 
-        // Label at centroid
+        // Label at centroid — curved arc for level 0-1, flat for deeper levels
         const centroid = polygonCentroid(terr.polygon)
+        const [tcx, tcy] = centroid
 
-        terrLabelsG
-          .append("text")
-          .attr("x", centroid[0])
-          .attr("y", centroid[1])
-          .attr("text-anchor", "middle")
-          .attr("dominant-baseline", "central")
-          .attr("fill", darkBg ? terr.color : "#6b5c4a")
-          .attr("opacity", LABEL_OP[li])
-          .attr("font-size", `${LABEL_SIZE[li]}px`)
-          .attr("font-weight", "300")
-          .attr("letter-spacing", LABEL_SPACING[li])
-          .style("pointer-events", "none")
-          .text(terr.name)
+        if (li <= 1 && terr.name.length >= 2) {
+          // Compute territory horizontal span
+          let tMinX = Infinity, tMaxX = -Infinity
+          for (const [px] of terr.polygon) {
+            if (px < tMinX) tMinX = px
+            if (px > tMaxX) tMaxX = px
+          }
+          const tSpan = tMaxX - tMinX
+
+          const tFontSize = LABEL_SIZE[li]
+          const tLetterSpacing = li === 0 ? 10 : 4
+          const tCharWidth = tFontSize + tLetterSpacing
+          const tTextWidth = terr.name.length * tCharWidth
+          const tArcWidth = Math.max(tTextWidth * 1.5, Math.min(tSpan * 0.7, 400))
+          const tHalfArc = tArcWidth / 2
+
+          const tBendDown = tcy < canvasH / 2
+          const tSagitta = tArcWidth * 0.12 * (tBendDown ? 1 : -1)
+
+          const tPathId = `terr-arc-${hashString(terr.name)}`
+          const tStartX = tcx - tHalfArc
+          const tEndX = tcx + tHalfArc
+          const tControlY = tcy + tSagitta
+
+          defs.append("path")
+            .attr("id", tPathId)
+            .attr("d", `M${tStartX},${tcy} Q${tcx},${tControlY} ${tEndX},${tcy}`)
+
+          const tText = terrLabelsG
+            .append("text")
+            .attr("fill", darkBg ? terr.color : "#6b5c4a")
+            .attr("opacity", LABEL_OP[li])
+            .attr("font-size", `${tFontSize}px`)
+            .attr("font-weight", "300")
+            .attr("letter-spacing", `${tLetterSpacing}px`)
+            .style("pointer-events", "none")
+
+          tText
+            .append("textPath")
+            .attr("startOffset", "50%")
+            .attr("text-anchor", "middle")
+            .text(terr.name)
+            .each(function () {
+              this.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", `#${tPathId}`)
+              this.setAttribute("href", `#${tPathId}`)
+            })
+        } else {
+          terrLabelsG
+            .append("text")
+            .attr("x", tcx)
+            .attr("y", tcy)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "central")
+            .attr("fill", darkBg ? terr.color : "#6b5c4a")
+            .attr("opacity", LABEL_OP[li])
+            .attr("font-size", `${LABEL_SIZE[li]}px`)
+            .attr("font-weight", "300")
+            .attr("letter-spacing", LABEL_SPACING[li])
+            .style("pointer-events", "none")
+            .text(terr.name)
+        }
       }
     }, [mapReady, territories, canvasW, canvasH, darkBg])
 
@@ -849,6 +945,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("data-y", item.y)
           .style("cursor", "pointer")
 
+        // Transparent hit-area circle for reliable click/hover detection
+        locG
+          .append("circle")
+          .attr("class", "loc-hitarea")
+          .attr("cx", item.x)
+          .attr("cy", item.y)
+          .attr("r", Math.max(iconSize / 2 + 6, 14))
+          .attr("fill", "transparent")
+
         // Icon — render as inner SVG group (local coords centered at origin)
         const iconContent = iconDefs.get(iconName)
         if (iconContent) {
@@ -918,15 +1023,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         // Click handler
         locG.on("click", (event: MouseEvent) => {
           event.stopPropagation()
-          setPopup({
-            x: item.x,
-            y: item.y,
-            content: "location",
-            name: item.name,
-            locType: loc?.type ?? "",
-            parent: loc?.parent ?? "",
-            mentionCount: mention,
-          })
+          onClickRef.current?.(item.name)
         })
       }
 
@@ -942,14 +1039,23 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       (svg: d3Selection.Selection<SVGSVGElement, unknown, null, undefined>) => {
         const locationItems = svg.selectAll<SVGGElement, unknown>(".location-item")
 
+        let dragStartClientX = 0
+        let dragStartClientY = 0
+        let hasDragged = false
+
         const drag = d3Drag
           .drag<SVGGElement, unknown>()
+          .clickDistance(5)
           .on("start", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
             // Prevent zoom during drag
             event.sourceEvent.stopPropagation()
+            dragStartClientX = event.sourceEvent.clientX
+            dragStartClientY = event.sourceEvent.clientY
+            hasDragged = false
             d3Selection.select(this).raise().style("cursor", "grabbing")
           })
           .on("drag", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
+            hasDragged = true
             const g = d3Selection.select(this)
             const name = g.attr("data-name")
             if (!name) return
@@ -981,9 +1087,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             g.select(".loc-label")
               .attr("x", canvasX)
               .attr("y", canvasY + iconSize / 2 + fontSize * 0.9)
+
+            // Update hit-area circle position
+            g.select(".loc-hitarea")
+              .attr("cx", canvasX)
+              .attr("cy", canvasY)
           })
           .on("end", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
             d3Selection.select(this).style("cursor", "pointer")
+            if (!hasDragged) return // Click, not drag — let the click handler fire
+
             const name = d3Selection.select(this).attr("data-name")
             if (!name) return
 

@@ -218,6 +218,14 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 
 **Rendering** (in `NovelMap.tsx`): SVG `<symbol>` definitions in `<defs>`, `<use>` elements in existing `#terrain` group (z-order: below regions/territories, above parchment). `pointer-events: none`. Water symbols use `stroke` + `fill="none"`; others use `fill`. Colors: warm earthy tones (light bg) / brighter variants (dark bg). Opacity range ~0.11–0.22.
 
+### Map Location Click-to-Card
+
+Clicking a location on `NovelMap.tsx` directly opens the `EntityCardDrawer` via `onLocationClick` → `openEntityCard(name, "location")`, without showing a popup tooltip. Each location `<g>` has a transparent hit-area circle (`class="loc-hitarea"`, `fill="transparent"`, `r >= 14px`) as the first child to ensure reliable pointer detection regardless of icon SVG shape/size. The d3-drag behavior uses `.clickDistance(5)` and a `hasDragged` guard so that clicks (< 5px movement) fire the click handler while actual drags (≥ 5px) trigger position save via `onDragEndRef`. Conflict markers retain their own popup click handlers independently.
+
+### Region Label Curved Text
+
+Region labels (`#region-labels` group) render text along SVG `<textPath>` arcs when `regionBoundaries` data is available (from `WorldStructure.layers[].regions` → Voronoi boundaries). Arc paths are defined in `<defs>` as quadratic Bezier curves (`M...Q...`), with bend direction based on vertical position (top-half bends down, bottom-half bends up). `href` is set via both `setAttributeNS(xlink namespace)` and `setAttribute("href")` for browser compatibility. Territory labels (`#territory-labels`) use the same technique for level 0-1 territories.
+
 ### Override Constraint Locking
 
 `map_user_overrides` table extended with `constraint_type` (`"position"` default | `"locked"`) and `locked_parent` columns. When `constraint_type='locked'`, the override survives `apply-hierarchy-changes` (not deleted). `locked_parent` overrides voted parent with highest priority in `get_map_data()`. Locked locations display a lock indicator on the map.
