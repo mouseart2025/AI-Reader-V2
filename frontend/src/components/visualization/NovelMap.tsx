@@ -460,6 +460,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("filter", "url(#parchment-stain)")
           .attr("opacity", 0.06)
           .attr("fill", "#6b5c4a")
+      } else {
+        // Layer-specific atmospheric textures for dark backgrounds
+        const effectiveLayer = layoutMode === "hierarchy"
+          ? "underground"
+          : (layerType ?? "underground")
+        renderLayerAtmosphere(viewport, defs, effectiveLayer, canvasW, canvasH)
       }
 
       // Terrain image placeholder
@@ -1589,4 +1595,312 @@ function hashString(s: string): number {
     h = ((h << 5) - h + s.charCodeAt(i)) | 0
   }
   return Math.abs(h)
+}
+
+/** Deterministic pseudo-random [0,1) from integer seed. */
+function pseudoRandom(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453
+  return x - Math.floor(x)
+}
+
+// ── Layer Atmosphere Rendering ─────────────────────────
+
+type D3Group = d3Selection.Selection<SVGGElement, unknown, null, undefined>
+type D3Defs = d3Selection.Selection<SVGDefsElement, unknown, null, undefined>
+
+/**
+ * Render layer-specific atmospheric SVG textures for dark background layers.
+ * Called from the SVG init useEffect when darkBg is true.
+ */
+function renderLayerAtmosphere(
+  viewport: D3Group,
+  defs: D3Defs,
+  effectiveLayerType: string,
+  w: number,
+  h: number,
+): void {
+  const atmoG = viewport.append("g")
+    .attr("id", "layer-atmosphere")
+    .style("pointer-events", "none")
+
+  switch (effectiveLayerType) {
+    case "sky":
+      renderSkyAtmosphere(atmoG, defs, w, h)
+      break
+    case "underground":
+      renderUndergroundAtmosphere(atmoG, defs, w, h)
+      break
+    case "sea":
+      renderSeaAtmosphere(atmoG, defs, w, h)
+      break
+    case "pocket":
+      renderPocketAtmosphere(atmoG, defs, w, h)
+      break
+    case "spirit":
+      renderSpiritAtmosphere(atmoG, defs, w, h)
+      break
+    default:
+      // hierarchy mode fallback — use underground theme
+      renderUndergroundAtmosphere(atmoG, defs, w, h)
+      break
+  }
+}
+
+/** Sky (天界) — starfield + nebula glow */
+function renderSkyAtmosphere(
+  g: D3Group, defs: D3Defs, w: number, h: number,
+): void {
+  // Deep blue radial gradient background
+  const grad = defs.append("radialGradient")
+    .attr("id", "sky-bg-grad")
+    .attr("cx", "50%").attr("cy", "50%").attr("r", "70%")
+  grad.append("stop").attr("offset", "0%").attr("stop-color", "#0f1f3a")
+  grad.append("stop").attr("offset", "100%").attr("stop-color", "#060d1a")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "url(#sky-bg-grad)")
+    .attr("opacity", 0.6)
+
+  // Small stars (~150)
+  for (let i = 0; i < 150; i++) {
+    const sx = pseudoRandom(i * 3 + 1) * w
+    const sy = pseudoRandom(i * 3 + 2) * h
+    const sr = 0.5 + pseudoRandom(i * 3 + 3) * 0.5
+    const so = 0.3 + pseudoRandom(i * 3 + 4) * 0.3
+    g.append("circle")
+      .attr("cx", sx).attr("cy", sy)
+      .attr("r", sr).attr("fill", "#ffffff").attr("opacity", so)
+  }
+
+  // Bright stars (~20) with optional cross flare
+  for (let i = 0; i < 20; i++) {
+    const bx = pseudoRandom(i * 5 + 500) * w
+    const by = pseudoRandom(i * 5 + 501) * h
+    const br = 1.5 + pseudoRandom(i * 5 + 502)
+    const bo = 0.7 + pseudoRandom(i * 5 + 503) * 0.2
+    g.append("circle")
+      .attr("cx", bx).attr("cy", by)
+      .attr("r", br).attr("fill", "#ffffff").attr("opacity", bo)
+
+    // Cross flare on ~30% of bright stars
+    if (pseudoRandom(i * 5 + 504) < 0.3) {
+      const fl = br * 3
+      g.append("path")
+        .attr("d", `M${bx - fl},${by} L${bx + fl},${by} M${bx},${by - fl} L${bx},${by + fl}`)
+        .attr("stroke", "#ffffff").attr("stroke-width", 0.5)
+        .attr("opacity", bo * 0.5)
+    }
+  }
+
+  // Nebula glow — 2 large faint circles
+  const nebulaPositions = [
+    { cx: w * 0.3, cy: h * 0.4, r: 180, o: 0.04 },
+    { cx: w * 0.7, cy: h * 0.6, r: 150, o: 0.05 },
+  ]
+  for (const nb of nebulaPositions) {
+    g.append("circle")
+      .attr("cx", nb.cx).attr("cy", nb.cy)
+      .attr("r", nb.r).attr("fill", "#1e3a5f").attr("opacity", nb.o)
+  }
+}
+
+/** Underground (冥界/地下) — rock texture + dark mist + cracks */
+function renderUndergroundAtmosphere(
+  g: D3Group, defs: D3Defs, w: number, h: number,
+): void {
+  // Rock texture via feTurbulence
+  const rockFilter = defs.append("filter").attr("id", "rock-noise")
+  rockFilter.append("feTurbulence")
+    .attr("type", "fractalNoise")
+    .attr("baseFrequency", "0.04")
+    .attr("numOctaves", "3")
+    .attr("stitchTiles", "stitch")
+  rockFilter.append("feColorMatrix")
+    .attr("type", "saturate").attr("values", "0")
+  rockFilter.append("feBlend")
+    .attr("in", "SourceGraphic").attr("mode", "multiply")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "#2a1a3e")
+    .attr("filter", "url(#rock-noise)")
+    .attr("opacity", 0.12)
+
+  // Purple mist radial gradient (dark edges)
+  const mistGrad = defs.append("radialGradient")
+    .attr("id", "underground-mist")
+    .attr("cx", "50%").attr("cy", "50%").attr("r", "60%")
+  mistGrad.append("stop").attr("offset", "0%").attr("stop-color", "transparent")
+  mistGrad.append("stop").attr("offset", "100%").attr("stop-color", "rgba(30,10,50,0.3)")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "url(#underground-mist)")
+
+  // Random cracks — 6 short lines
+  for (let i = 0; i < 6; i++) {
+    const x1 = pseudoRandom(i * 4 + 700) * w
+    const y1 = pseudoRandom(i * 4 + 701) * h
+    const x2 = x1 + (pseudoRandom(i * 4 + 702) - 0.5) * 80
+    const y2 = y1 + (pseudoRandom(i * 4 + 703) - 0.5) * 80
+    g.append("line")
+      .attr("x1", x1).attr("y1", y1)
+      .attr("x2", x2).attr("y2", y2)
+      .attr("stroke", "#3a2050").attr("stroke-width", 1)
+      .attr("opacity", 0.15)
+  }
+}
+
+/** Sea (海底) — deep blue gradient + wave lines + bubbles */
+function renderSeaAtmosphere(
+  g: D3Group, defs: D3Defs, w: number, h: number,
+): void {
+  // Top-to-bottom deep blue gradient
+  const seaGrad = defs.append("linearGradient")
+    .attr("id", "sea-grad")
+    .attr("x1", "0%").attr("y1", "0%")
+    .attr("x2", "0%").attr("y2", "100%")
+  seaGrad.append("stop").attr("offset", "0%").attr("stop-color", "#0a2540")
+  seaGrad.append("stop").attr("offset", "100%").attr("stop-color", "#061a30")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "url(#sea-grad)")
+    .attr("opacity", 0.5)
+
+  // Horizontal wave lines — 4 wavy paths using quadratic curves
+  for (let i = 0; i < 4; i++) {
+    const baseY = h * (0.15 + i * 0.22)
+    const amp = 8 + pseudoRandom(i + 800) * 6
+    const segments = 8
+    const segW = w / segments
+    let d = `M0,${baseY}`
+    for (let s = 0; s < segments; s++) {
+      const cx = s * segW + segW / 2
+      const cy = baseY + (s % 2 === 0 ? -amp : amp)
+      const ex = (s + 1) * segW
+      d += ` Q${cx},${cy} ${ex},${baseY}`
+    }
+    g.append("path")
+      .attr("d", d)
+      .attr("fill", "none")
+      .attr("stroke", "#1a4a6a")
+      .attr("stroke-width", 1.5)
+      .attr("opacity", 0.15)
+  }
+
+  // Bubble scatter — 35 small circles
+  for (let i = 0; i < 35; i++) {
+    const bx = pseudoRandom(i * 3 + 900) * w
+    const by = pseudoRandom(i * 3 + 901) * h
+    const br = 2 + pseudoRandom(i * 3 + 902) * 4
+    const bo = 0.08 + pseudoRandom(i * 3 + 903) * 0.07
+    g.append("circle")
+      .attr("cx", bx).attr("cy", by)
+      .attr("r", br)
+      .attr("fill", "none")
+      .attr("stroke", "#1a5a7a")
+      .attr("stroke-width", 0.8)
+      .attr("opacity", bo)
+  }
+}
+
+/** Pocket (副本/洞府) — dark brown texture + vortex hint + light spots */
+function renderPocketAtmosphere(
+  g: D3Group, defs: D3Defs, w: number, h: number,
+): void {
+  // Brown noise texture
+  const pocketFilter = defs.append("filter").attr("id", "pocket-noise")
+  pocketFilter.append("feTurbulence")
+    .attr("type", "fractalNoise")
+    .attr("baseFrequency", "0.03")
+    .attr("numOctaves", "3")
+    .attr("stitchTiles", "stitch")
+  pocketFilter.append("feColorMatrix")
+    .attr("type", "saturate").attr("values", "0")
+  pocketFilter.append("feBlend")
+    .attr("in", "SourceGraphic").attr("mode", "multiply")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "#2a1f15")
+    .attr("filter", "url(#pocket-noise)")
+    .attr("opacity", 0.10)
+
+  // Central vortex hint — radial gradient
+  const vortexGrad = defs.append("radialGradient")
+    .attr("id", "pocket-vortex")
+    .attr("cx", "50%").attr("cy", "50%").attr("r", "45%")
+  vortexGrad.append("stop").attr("offset", "0%").attr("stop-color", "#2a1f15")
+  vortexGrad.append("stop").attr("offset", "100%").attr("stop-color", "transparent")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "url(#pocket-vortex)")
+    .attr("opacity", 0.15)
+
+  // Scattered light spots — 10 small circles
+  for (let i = 0; i < 10; i++) {
+    const sx = pseudoRandom(i * 3 + 1100) * w
+    const sy = pseudoRandom(i * 3 + 1101) * h
+    const sr = 3 + pseudoRandom(i * 3 + 1102) * 5
+    const so = 0.06 + pseudoRandom(i * 3 + 1103) * 0.04
+    g.append("circle")
+      .attr("cx", sx).attr("cy", sy)
+      .attr("r", sr)
+      .attr("fill", "#5a4030")
+      .attr("opacity", so)
+  }
+}
+
+/** Spirit (灵界) — purple mist texture + glow orbs + soul flames */
+function renderSpiritAtmosphere(
+  g: D3Group, defs: D3Defs, w: number, h: number,
+): void {
+  // Purple mist turbulence
+  const spiritFilter = defs.append("filter").attr("id", "spirit-noise")
+  spiritFilter.append("feTurbulence")
+    .attr("type", "fractalNoise")
+    .attr("baseFrequency", "0.02")
+    .attr("numOctaves", "2")
+    .attr("stitchTiles", "stitch")
+  spiritFilter.append("feColorMatrix")
+    .attr("type", "saturate").attr("values", "0")
+  spiritFilter.append("feBlend")
+    .attr("in", "SourceGraphic").attr("mode", "multiply")
+
+  g.append("rect")
+    .attr("width", w).attr("height", h)
+    .attr("fill", "#2a1040")
+    .attr("filter", "url(#spirit-noise)")
+    .attr("opacity", 0.10)
+
+  // Purple radial glow orbs — 3
+  const glowPositions = [
+    { cx: w * 0.25, cy: h * 0.35, r: 160, o: 0.08 },
+    { cx: w * 0.65, cy: h * 0.55, r: 120, o: 0.06 },
+    { cx: w * 0.5, cy: h * 0.8, r: 140, o: 0.07 },
+  ]
+  for (const gl of glowPositions) {
+    g.append("circle")
+      .attr("cx", gl.cx).attr("cy", gl.cy)
+      .attr("r", gl.r)
+      .attr("fill", "#2a1040")
+      .attr("opacity", gl.o)
+  }
+
+  // Soul flame scatter — 12 small ellipses
+  for (let i = 0; i < 12; i++) {
+    const fx = pseudoRandom(i * 3 + 1300) * w
+    const fy = pseudoRandom(i * 3 + 1301) * h
+    const rx = 2 + pseudoRandom(i * 3 + 1302) * 3
+    const ry = rx * (1.3 + pseudoRandom(i * 3 + 1303) * 0.4)
+    const fo = 0.06 + pseudoRandom(i * 3 + 1304) * 0.06
+    g.append("ellipse")
+      .attr("cx", fx).attr("cy", fy)
+      .attr("rx", rx).attr("ry", ry)
+      .attr("fill", "#7c3aed")
+      .attr("opacity", fo)
+  }
 }
