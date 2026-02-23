@@ -70,6 +70,12 @@ class AnalysisService:
         # Track running tasks for pause/cancel
         self._task_signals: dict[str, str] = {}  # task_id -> desired status
         self._active_loops: set[str] = set()  # task_ids with currently-running loops
+        # Live timing stats per novel (survives page navigation)
+        self._live_timing: dict[str, dict] = {}
+
+    def get_live_timing(self, novel_id: str) -> dict | None:
+        """Return live timing stats for a running analysis, or None."""
+        return self._live_timing.get(novel_id)
 
     @staticmethod
     async def _broadcast_stage(novel_id: str, chapter: int, label: str) -> None:
@@ -326,6 +332,7 @@ class AnalysisService:
                 # DB status and broadcast already handled by cancel()
                 logger.info("Task %s loop stopping (cancelled) at chapter %d", task_id, chapter_num)
                 self._task_signals.pop(task_id, None)
+                self._live_timing.pop(novel_id, None)
                 return
 
             # Get chapter content
@@ -376,6 +383,7 @@ class AnalysisService:
                 "type": "processing",
                 "chapter": chapter_num,
                 "total": total,
+                **({"timing": self._live_timing[novel_id]} if novel_id in self._live_timing else {}),
             })
 
             chapter_pk = chapter["id"]
@@ -463,6 +471,7 @@ class AnalysisService:
                 await self._broadcast_stage(novel_id, chapter_num, "保存数据")
                 elapsed_ms = int(time.time() * 1000) - start_ms
                 _chapter_times.append(elapsed_ms)
+                self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
 
                 # Per-chapter cost (cloud mode)
                 _ch_cost_usd = 0.0
@@ -543,6 +552,7 @@ class AnalysisService:
             except ExtractionError as e:
                 elapsed_ms = int(time.time() * 1000) - start_ms
                 _chapter_times.append(elapsed_ms)
+                self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
                 logger.error("Extraction failed for chapter %d: %s", chapter_num, e)
                 await analysis_task_store.update_chapter_analysis_status(
                     novel_id, chapter_num, "failed"
@@ -558,6 +568,7 @@ class AnalysisService:
             except Exception as e:
                 elapsed_ms = int(time.time() * 1000) - start_ms
                 _chapter_times.append(elapsed_ms)
+                self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
                 logger.error("Unexpected error for chapter %d: %s", chapter_num, e)
                 await analysis_task_store.update_chapter_analysis_status(
                     novel_id, chapter_num, "failed"
@@ -713,8 +724,23 @@ class AnalysisService:
             completed_msg["cost"] = cost_stats
         await manager.broadcast(novel_id, completed_msg)
         self._task_signals.pop(task_id, None)
+        self._live_timing.pop(novel_id, None)
         logger.info("Task %s completed for novel %s", task_id, novel_id)
 
+
+    def _update_live_timing(
+        self, novel_id: str, chapter_times: list[int],
+        analysis_start_ms: int, total: int, done_count: int,
+    ) -> None:
+        """Update in-memory live timing dict for REST polling."""
+        avg_ms = sum(chapter_times) // len(chapter_times)
+        remaining = total - done_count
+        self._live_timing[novel_id] = {
+            "last_chapter_ms": chapter_times[-1],
+            "avg_chapter_ms": avg_ms,
+            "elapsed_total_ms": int(time.time() * 1000) - analysis_start_ms,
+            "eta_ms": avg_ms * remaining,
+        }
 
     async def retry_failed_chapters(self, novel_id: str) -> dict:
         """Retry all failed chapters for the latest task of a novel."""

@@ -20,6 +20,13 @@ logger = logging.getLogger(__name__)
 _CTX_MIN = 8192      # 8K  -> min values
 _CTX_MAX = 131072    # 128K -> max values
 
+# Practical cap for local Ollama models.  Many models (qwen3:4b/8b) report
+# huge theoretical context windows (262K) that cause KV cache bloat and
+# generation timeouts on consumer hardware.  16K keeps KV cache small enough
+# for 4B models on 8-16GB machines (~10 tok/s) while still fitting system
+# prompt + ~8K chapter + dictionary + schema.
+_OLLAMA_CTX_CAP = 16384
+
 
 def _scale(ctx: int, min_val: int, max_val: int) -> int:
     """8K -> min_val, 128K -> max_val, linear interpolation, clamped."""
@@ -138,8 +145,14 @@ async def detect_and_update_context_window() -> int:
 
     Detection order:
     1. Cloud mode -> 131072 (128K default)
-    2. Ollama -> POST /api/show
+    2. Ollama -> POST /api/show, capped at _OLLAMA_CTX_CAP
     3. Failure -> 8192 (conservative fallback)
+
+    Ollama models (e.g. qwen3:4b) may report very large theoretical context
+    windows (262K) that are impractical for local inference.  Allocating a
+    huge KV cache dramatically slows generation and causes timeouts.  We cap
+    the detected value to _OLLAMA_CTX_CAP so that budget parameters stay
+    practical for local hardware.
     """
     from src.infra import config
 
@@ -152,14 +165,21 @@ async def detect_and_update_context_window() -> int:
             ctx, config.get_model_name(),
         )
     else:
-        ctx = await detect_context_window_ollama(
+        raw_ctx = await detect_context_window_ollama(
             config.OLLAMA_BASE_URL, config.OLLAMA_MODEL,
         )
-        if ctx is not None:
-            logger.info(
-                "Context window detected: %d for model %s",
-                ctx, config.OLLAMA_MODEL,
-            )
+        if raw_ctx is not None:
+            ctx = min(raw_ctx, _OLLAMA_CTX_CAP)
+            if raw_ctx > _OLLAMA_CTX_CAP:
+                logger.info(
+                    "Context window for %s: reported %d, capped to %d for local inference",
+                    config.OLLAMA_MODEL, raw_ctx, ctx,
+                )
+            else:
+                logger.info(
+                    "Context window detected: %d for model %s",
+                    ctx, config.OLLAMA_MODEL,
+                )
         else:
             ctx = 8192
             logger.warning(

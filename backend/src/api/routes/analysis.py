@@ -212,7 +212,12 @@ async def get_latest_task(novel_id: str):
                 quality["segmented_chapters"] += 1
             quality["total_segments"] += seg
 
-    return {"task": task, "stats": stats, "quality": quality}
+    timing = None
+    if task["status"] in ("running", "paused"):
+        service = get_analysis_service()
+        timing = service.get_live_timing(novel_id)
+
+    return {"task": task, "stats": stats, "quality": quality, "timing": timing}
 
 
 @router.post("/novels/{novel_id}/analysis/retry-failed")

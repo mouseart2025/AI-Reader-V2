@@ -226,11 +226,16 @@ class ChapterFactExtractor:
         self._is_cloud = isinstance(self.llm, OpenAICompatibleClient)
 
     def _build_example_text(self) -> str:
-        """Build the few-shot examples section for the user prompt."""
+        """Build the few-shot examples section for the user prompt.
+
+        For small context windows (≤16K), only 1 example is sent to save ~1.2K
+        tokens of input budget.
+        """
         if not self.examples:
             return ""
+        budget = get_budget()
         examples_to_show = [self.examples[0]]
-        if len(self.examples) >= 4:
+        if len(self.examples) >= 4 and budget.context_window > 16384:
             examples_to_show.append(self.examples[3])
         examples_json = json.dumps(examples_to_show, ensure_ascii=False, indent=2)
         return f"## 参考示例\n```json\n{examples_json}\n```\n\n"
