@@ -162,7 +162,7 @@ PARENT_RADIUS_BY_TIER = {
 
 ### 🟡 Medium Effort（新增组件/逻辑，不重构核心）
 
-#### M1: 层级嵌套区域边界（替代 Voronoi）
+#### M1: 层级嵌套区域边界（替代 Voronoi） ✅ (v0.25.2)
 
 **思路**：为有子节点的地点绘制 **convex hull + padding** 作为包含区域，替代当前 Voronoi 空间分割。
 
@@ -192,21 +192,18 @@ PARENT_RADIUS_BY_TIER = {
 └────────────────────────────────────────────────┘
 ```
 
-#### M2: 地形语义纹理层
+#### M2: 地形语义纹理层 ✅ (v0.25.3)
 
 **思路**：不用 terrain.png 位图，改用 SVG 纹理 pattern 为不同地点类型添加暗示性地形背景。
 
-**实现**：
-- 在地点附近绘制低 opacity 的地形暗示符号：
-  - 山脉/山：三角形重复 pattern（▲▲▲），分布在地点周围
-  - 河流/湖泊/海：波浪线 pattern（～～～），蓝色半透明
-  - 森林/林：树形符号（🌲 or SVG tree icon），散布在地点周围
-  - 沙漠：点状 pattern（·····）
-- 所有地形符号 opacity=0.12~0.2，不干扰主要信息
-
-**改动文件**：
-- `NovelMap.tsx`（新增 `#terrain-hints` 层，在 territories 与 locations 之间）
-- 新增 `terrainHints.ts`（根据地点 type/icon 生成周围的装饰性地形 pattern 坐标）
+**已实现** (`terrainHints.ts` + `NovelMap.tsx`)：
+- 5 类地形：mountain/water/forest/desert/cave，每类 2-3 个变体（含集群变体：山脉连峰/树丛/三重波浪）
+- 按 tier 分级的符号数量（continent 22 → building 3）、散布半径（160→24px）和基础尺寸（38→12px）
+- 确定性伪随机放置（sin-hash），√ 极坐标分布避免中心聚集
+- 碰撞过滤（< 18px 跳过）+ 画布边界裁剪
+- 亮色/暗色背景自适应配色，opacity 0.11-0.22
+- 渲染到 `#terrain` SVG 层（z-order 在 regions/territories 之下）
+- 全局上限 MAX_HINTS=900
 
 #### M3: 区域名称弯曲文字
 
@@ -315,8 +312,8 @@ PARENT_RADIUS_BY_TIER = {
 | P1 | **Q1** 增强羊皮纸质感 | 最小代价提升氛围感 | 0.5h |
 | P1 | **Q2** 增强手绘边界 | 配合 Q1 增强地图感 | 0.5h |
 | P1 | **Q5** overview-dots 分级 | 减少视觉噪声 | 0.5h |
-| P2 | **M1** 嵌套 hull 区域边界 | 解决核心的层级可视化问题 | 6-8h |
-| P2 | **M2** 地形语义纹理 | 显著提升地图美感 | 4-6h |
+| ~~P2~~ | ~~**M1** 嵌套 hull 区域边界~~ | ~~解决核心的层级可视化问题~~ | ✅ v0.25.2 |
+| ~~P2~~ | ~~**M2** 地形语义纹理~~ | ~~显著提升地图美感~~ | ✅ v0.25.3 |
 | P3 | **M4** 暗色层主题 | 提升非 overworld 层体验 | 3-4h |
 | P3 | **M3** 弯曲区域文字 | 细节美感提升 | 2-3h |
 | P3 | **M5** 小地图 | 大地图导航辅助 | 3-4h |

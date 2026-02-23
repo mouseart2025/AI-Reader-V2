@@ -204,6 +204,20 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 
 `get_map_data()` calls `_detect_location_conflicts()` (from `conflict_detector.py`) on loaded facts and includes `location_conflicts` array in the API response. Frontend `NovelMap.tsx` builds a `conflictIndex` (location name → descriptions), renders animated red dashed pulse rings on conflicting locations, and shows conflict details in the location popup.
 
+### Terrain Semantic Texture Layer
+
+`terrainHints.ts` (`generateTerrainHints()`) — generates decorative SVG symbols around terrain-type locations to fill empty parchment space with hand-drawn map ambiance. Pure frontend, no backend changes.
+
+**Icon → terrain mapping**: `mountain`→mountain, `water`/`island`→water, `forest`→forest, `desert`→desert, `cave`→cave. All other icons (city, temple, palace, etc.) produce no terrain hints.
+
+**Symbol definitions**: 3 variants per major category (mountain/water/forest), 2 for desert/cave. Includes "cluster" variants: mountain ridge (3 overlapping peaks), tree cluster (3 trees), triple wave (3 parallel wavy lines). Cluster variants appear ~35% of the time.
+
+**Tier-dependent sizing**: Each tier has independent count, spread radius, and base symbol size (continent: 22 symbols, 160px radius, 38px base; building: 3 symbols, 24px radius, 12px base). Size varies ×0.5–1.0 per symbol. Global cap `MAX_HINTS=900` with proportional scale-down.
+
+**Placement**: Deterministic sin-hash pseudo-random, sqrt-distributed polar coordinates (golden-angle-like spread avoiding center clustering). Collision filter skips symbols within 18px of any location center. Canvas boundary clipping at 20px margin.
+
+**Rendering** (in `NovelMap.tsx`): SVG `<symbol>` definitions in `<defs>`, `<use>` elements in existing `#terrain` group (z-order: below regions/territories, above parchment). `pointer-events: none`. Water symbols use `stroke` + `fill="none"`; others use `fill`. Colors: warm earthy tones (light bg) / brighter variants (dark bg). Opacity range ~0.11–0.22.
+
 ### Override Constraint Locking
 
 `map_user_overrides` table extended with `constraint_type` (`"position"` default | `"locked"`) and `locked_parent` columns. When `constraint_type='locked'`, the override survives `apply-hierarchy-changes` (not deleted). `locked_parent` overrides voted parent with highest priority in `get_map_data()`. Locked locations display a lock indicator on the map.
