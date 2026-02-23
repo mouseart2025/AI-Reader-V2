@@ -22,6 +22,7 @@ import type {
   TrajectoryPoint,
 } from "@/api/types"
 import { generateHullTerritories } from "@/lib/hullTerritoryGenerator"
+import { generateTerrainHints } from "@/lib/terrainHints"
 import { distortPolygonEdges, type Point } from "@/lib/edgeDistortion"
 
 // ── Canvas defaults ────────────────────────────────
@@ -327,6 +328,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       [locations, layout, canvasW, canvasH],
     )
 
+    // Terrain texture hints
+    const terrainHints = useMemo(
+      () => generateTerrainHints(locations, layout, { width: canvasW, height: canvasH }, darkBg),
+      [locations, layout, canvasW, canvasH, darkBg],
+    )
+
     // ── Load SVG icons ──────────────────────────────
     useEffect(() => {
       let cancelled = false
@@ -502,6 +509,58 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     // ── Terrain image (disabled: Voronoi boundary darkening conflicts with
     //    territory/region layers, causing visual clutter) ──────────────
     // Pure SVG parchment texture (bg + bg-texture) provides a cleaner base.
+
+    // ── Render terrain texture hints ─────────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const terrainG = svg.select("#terrain")
+      terrainG.selectAll("*").remove()
+
+      const { symbolDefs, hints } = terrainHints
+      if (hints.length === 0) return
+
+      // Add symbol definitions to <defs>
+      const defs = svg.select("defs")
+      // Remove old terrain symbols before adding new ones
+      defs.selectAll("symbol[id^='terrain-']").remove()
+
+      for (const def of symbolDefs) {
+        const sym = defs
+          .append("symbol")
+          .attr("id", def.id)
+          .attr("viewBox", def.viewBox)
+        sym.html(def.pathData)
+      }
+
+      // Render <use> elements into #terrain group
+      for (const hint of hints) {
+        const def = symbolDefs.find((d) => d.id === hint.symbolId)
+        const sz = hint.size
+        const useEl = terrainG
+          .append("use")
+          .attr("href", `#${hint.symbolId}`)
+          .attr("x", hint.x - sz / 2)
+          .attr("y", hint.y - sz / 2)
+          .attr("width", sz)
+          .attr("height", sz)
+          .attr("opacity", hint.opacity)
+          .attr(
+            "transform",
+            `rotate(${hint.rotation}, ${hint.x}, ${hint.y})`,
+          )
+          .style("pointer-events", "none")
+
+        if (def?.strokeOnly) {
+          useEl
+            .attr("fill", "none")
+            .attr("stroke", hint.color)
+            .attr("stroke-width", 1.2 + sz / 20)
+        } else {
+          useEl.attr("fill", hint.color)
+        }
+      }
+    }, [mapReady, terrainHints])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
