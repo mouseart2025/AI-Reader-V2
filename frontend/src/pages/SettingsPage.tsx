@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, saveAdvancedSettings, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, backupExportUrl, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
+import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, backupExportUrl, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
 import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
 import { Button } from "@/components/ui/button"
@@ -49,7 +49,6 @@ export default function SettingsPage() {
     fetchSettings().then((data) => {
       const mode = data.settings.llm_provider === "openai" ? "openai" : "ollama"
       setViewTab(mode)
-      setMaxTokens(data.settings.max_tokens)
       setSelectedOllamaModel(data.settings.ollama_model)
     }).catch(() => {})
 
@@ -111,8 +110,6 @@ export default function SettingsPage() {
   // viewTab: which tab panel is visible (pure UI navigation)
   // activeEngine: which engine the backend actually uses (from envCheck)
   const [viewTab, setViewTab] = useState<"ollama" | "openai">("ollama")
-  const [maxTokens, setMaxTokens] = useState(8192)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [modeSwitching, setModeSwitching] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [selectedOllamaModel, setSelectedOllamaModel] = useState("")
@@ -286,10 +283,6 @@ export default function SettingsPage() {
     refreshEnv()
   }, [])
 
-  const handleSaveMaxTokens = useCallback(async () => {
-    await saveAdvancedSettings(maxTokens).catch(() => {})
-  }, [maxTokens])
-
   const handleRestoreDefaults = useCallback(async () => {
     setRestoring(true)
     try {
@@ -297,7 +290,6 @@ export default function SettingsPage() {
       if (res.success) {
         setViewTab("ollama")
         setSelectedOllamaModel("qwen3:8b")
-        setMaxTokens(8192)
         refreshEnv()
       }
     } catch { /* ignore */ }
@@ -1081,43 +1073,6 @@ export default function SettingsPage() {
                     )}
                   </>
                 )}
-
-                {/* Advanced settings */}
-                <div className="border-t pt-3 mt-3">
-                  <button
-                    className="flex w-full items-center justify-between text-sm"
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                  >
-                    <span>高级选项</span>
-                    <span className="text-xs text-muted-foreground">
-                      {showAdvanced ? "收起" : "展开"}
-                    </span>
-                  </button>
-                  {showAdvanced && (
-                    <div className="mt-3 space-y-3">
-                      <div>
-                        <span className="text-sm block mb-1.5">最大 Token 数</span>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            className="w-32 border rounded px-2 py-1.5 text-sm bg-background font-mono"
-                            value={maxTokens}
-                            onChange={(e) => setMaxTokens(parseInt(e.target.value) || 8192)}
-                            min={1024}
-                            max={131072}
-                            step={1024}
-                          />
-                          <Button variant="outline" size="xs" onClick={handleSaveMaxTokens}>
-                            保存
-                          </Button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          LLM 单次请求最大输出 Token 数（默认 8192）
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* Footer: refresh + restore */}
                 <div className="border-t pt-3 mt-3 flex items-center gap-3">
