@@ -220,28 +220,33 @@ _client: LLMClient | OpenAICompatibleClient | AnthropicClient | None = None
 
 
 def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient:
-    """Return module-level singleton LLM client based on LLM_PROVIDER config."""
+    """Return module-level singleton LLM client based on LLM_PROVIDER config.
+
+    Always reads config.* dynamically — never uses module-level imports of
+    LLM_PROVIDER / LLM_API_KEY / etc., which are frozen snapshots from import
+    time and do NOT reflect runtime hot-switches via update_cloud_config().
+    """
     global _client
     if _client is None:
-        if LLM_PROVIDER == "openai":
-            if not LLM_API_KEY:
+        from src.infra import config as _cfg  # dynamic read every time
+        if _cfg.LLM_PROVIDER == "openai":
+            if not _cfg.LLM_API_KEY:
                 raise ValueError("LLM_API_KEY is required when LLM_PROVIDER=openai")
-            if not LLM_BASE_URL:
+            if not _cfg.LLM_BASE_URL:
                 raise ValueError("LLM_BASE_URL is required when LLM_PROVIDER=openai")
-            from src.infra import config as _cfg
             if _cfg.LLM_PROVIDER_FORMAT == "anthropic":
                 from src.infra.anthropic_client import AnthropicClient
                 _client = AnthropicClient(
-                    base_url=LLM_BASE_URL,
-                    api_key=LLM_API_KEY,
-                    model=LLM_MODEL or "claude-sonnet-4-5",
+                    base_url=_cfg.LLM_BASE_URL,
+                    api_key=_cfg.LLM_API_KEY,
+                    model=_cfg.LLM_MODEL or "claude-sonnet-4-5",
                 )
             else:
                 from src.infra.openai_client import OpenAICompatibleClient
                 _client = OpenAICompatibleClient(
-                    base_url=LLM_BASE_URL,
-                    api_key=LLM_API_KEY,
-                    model=LLM_MODEL or "gpt-4o",
+                    base_url=_cfg.LLM_BASE_URL,
+                    api_key=_cfg.LLM_API_KEY,
+                    model=_cfg.LLM_MODEL or "gpt-4o",
                 )
         else:
             _client = LLMClient()

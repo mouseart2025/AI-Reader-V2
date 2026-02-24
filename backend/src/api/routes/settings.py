@@ -818,19 +818,21 @@ async def run_model_benchmark():
         _load_examples,
         _load_system_prompt,
     )
+    from src.infra import config as _cfg
     from src.infra.context_budget import get_budget
     from src.infra.llm_client import get_llm_client, LLMError
     from src.infra.openai_client import OpenAICompatibleClient
+    from src.infra.anthropic_client import AnthropicClient
 
-    model = get_model_name()
-    provider = LLM_PROVIDER
+    model = _cfg.get_model_name()      # dynamic read
+    provider = _cfg.LLM_PROVIDER       # dynamic read
 
     try:
         client = get_llm_client()
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    is_cloud = isinstance(client, OpenAICompatibleClient)
+    is_cloud = isinstance(client, (OpenAICompatibleClient, AnthropicClient))
     budget = get_budget()
 
     # ── Build real extraction prompt ──
@@ -869,7 +871,7 @@ async def run_model_benchmark():
         "8. 只提取原文明确出现的内容，禁止编造\n"
     )
 
-    max_out = LLM_MAX_TOKENS if is_cloud else 8192
+    max_out = _cfg.LLM_MAX_TOKENS if is_cloud else 8192
     timeout = 120 if is_cloud else 300
 
     start = time.time()

@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 
-from src.infra.config import LLM_MAX_TOKENS
+from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
@@ -23,7 +23,7 @@ class SceneLLMExtractor:
     def __init__(self, llm=None):
         self.llm = llm or get_llm_client()
         self.system_template = self._load_system_prompt()
-        self._is_cloud = isinstance(self.llm, OpenAICompatibleClient)
+        self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
 
     @staticmethod
     def _load_system_prompt() -> str:
@@ -89,7 +89,8 @@ class SceneLLMExtractor:
         )
 
         # 5. Call LLM
-        max_out = min(LLM_MAX_TOKENS, 4096) if self._is_cloud else 4096
+        from src.infra import config as _cfg  # dynamic read (avoids frozen module-level import)
+        max_out = min(_cfg.LLM_MAX_TOKENS, 4096) if self._is_cloud else 4096
         result, usage = await self.llm.generate(
             system=system,
             prompt=user_prompt,
