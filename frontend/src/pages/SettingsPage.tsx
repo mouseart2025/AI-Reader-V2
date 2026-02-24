@@ -205,10 +205,14 @@ export default function SettingsPage() {
       .catch(() => {})
   }, [])
 
+  // 模型预设选择器状态：false = 使用 select 预设，true = 自由输入
+  const [isCustomModel, setIsCustomModel] = useState(false)
+
   const handleProviderChange = useCallback(
     (providerId: string) => {
       setCloudProvider(providerId)
       setCloudValidResult(null)
+      setIsCustomModel(false)
       const preset = cloudProviders.find((p) => p.id === providerId)
       if (preset) {
         setCloudBaseUrl(preset.base_url)
@@ -222,7 +226,7 @@ export default function SettingsPage() {
     setCloudValidating(true)
     setCloudValidResult(null)
     try {
-      const res = await validateCloudApi(cloudBaseUrl, cloudApiKey)
+      const res = await validateCloudApi(cloudBaseUrl, cloudApiKey, cloudProvider)
       setCloudValidResult(res)
     } catch {
       setCloudValidResult({ valid: false, error: "验证请求失败" })
@@ -856,21 +860,62 @@ export default function SettingsPage() {
                     )}
 
                     {/* Provider select */}
-                    <div>
-                      <span className="text-sm block mb-1.5">提供商</span>
-                      <select
-                        className="w-full border rounded px-2 py-1.5 text-sm bg-background"
-                        value={cloudProvider}
-                        onChange={(e) => handleProviderChange(e.target.value)}
-                      >
-                        <option value="">选择提供商...</option>
-                        {cloudProviders.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {(() => {
+                      const DOMESTIC_IDS = ["deepseek", "minimax", "qwen", "moonshot", "zhipu", "siliconflow", "yi"]
+                      const INTL_IDS = ["openai", "anthropic", "gemini"]
+                      const PROVIDER_TAGS: Record<string, string> = {
+                        deepseek: "推荐",
+                        minimax: "长文本",
+                        qwen: "多模态",
+                        moonshot: "128K",
+                        zhipu: "免费额度",
+                        siliconflow: "开源模型",
+                        yi: "推理",
+                        openai: "国际标准",
+                        anthropic: "最强推理",
+                        gemini: "多模态",
+                      }
+                      const domestic = cloudProviders.filter((p) => DOMESTIC_IDS.includes(p.id))
+                      const intl = cloudProviders.filter((p) => INTL_IDS.includes(p.id))
+                      const custom = cloudProviders.filter((p) => !DOMESTIC_IDS.includes(p.id) && !INTL_IDS.includes(p.id))
+                      const selectedTag = cloudProvider ? PROVIDER_TAGS[cloudProvider] : undefined
+                      return (
+                        <div>
+                          <span className="text-sm block mb-1.5">提供商</span>
+                          <div className="flex items-center gap-2">
+                            <select
+                              className="flex-1 border rounded px-2 py-1.5 text-sm bg-background"
+                              value={cloudProvider}
+                              onChange={(e) => handleProviderChange(e.target.value)}
+                            >
+                              <option value="">选择提供商...</option>
+                              {domestic.length > 0 && (
+                                <optgroup label="国产模型">
+                                  {domestic.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {intl.length > 0 && (
+                                <optgroup label="海外模型">
+                                  {intl.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {custom.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
+                            {selectedTag && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">
+                                {selectedTag}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
 
                     {/* Base URL */}
                     <div>
@@ -884,15 +929,41 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Model */}
-                    <div>
-                      <span className="text-sm block mb-1.5">模型</span>
-                      <input
-                        className="w-full border rounded px-2 py-1.5 text-sm bg-background font-mono"
-                        value={cloudModel}
-                        onChange={(e) => setCloudModel(e.target.value)}
-                        placeholder="model-name"
-                      />
-                    </div>
+                    {(() => {
+                      const selectedProvider = cloudProviders.find((p) => p.id === cloudProvider)
+                      const hasPresets = selectedProvider?.models && selectedProvider.models.length > 0
+                      return (
+                        <div>
+                          <span className="text-sm block mb-1.5">模型</span>
+                          {hasPresets && !isCustomModel ? (
+                            <select
+                              className="w-full border rounded px-2 py-1.5 text-sm bg-background font-mono"
+                              value={cloudModel}
+                              onChange={(e) => {
+                                if (e.target.value === "__custom__") {
+                                  setIsCustomModel(true)
+                                  setCloudModel("")
+                                } else {
+                                  setCloudModel(e.target.value)
+                                }
+                              }}
+                            >
+                              {selectedProvider!.models!.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                              <option value="__custom__">自定义...</option>
+                            </select>
+                          ) : (
+                            <input
+                              className="w-full border rounded px-2 py-1.5 text-sm bg-background font-mono"
+                              value={cloudModel}
+                              onChange={(e) => setCloudModel(e.target.value)}
+                              placeholder="model-name"
+                            />
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* API Key */}
                     <div>
@@ -917,6 +988,11 @@ export default function SettingsPage() {
                           {cloudValidating ? "验证中..." : "验证"}
                         </Button>
                       </div>
+                      {cloudProviders.find((p) => p.id === cloudProvider)?.api_format === "anthropic" && (
+                        <p className="text-xs mt-1 text-muted-foreground">
+                          Claude API 使用独立鉴权格式，Key 将通过 x-api-key 头传递，而非 Bearer Token
+                        </p>
+                      )}
                       {cloudValidResult && (
                         <p
                           className={cn(

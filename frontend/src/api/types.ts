@@ -147,6 +147,8 @@ export interface CloudProvider {
   name: string
   base_url: string
   default_model: string
+  models?: string[]       // 该供应商支持的模型预设列表
+  api_format?: string     // "openai" (默认) | "anthropic"
 }
 
 export interface CloudConfig {

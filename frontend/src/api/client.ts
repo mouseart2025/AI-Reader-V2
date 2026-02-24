@@ -167,10 +167,11 @@ export function saveCloudConfig(config: {
 export function validateCloudApi(
   base_url: string,
   api_key: string,
+  provider: string = "",
 ): Promise<{ valid: boolean; error?: string }> {
   return apiFetch("/settings/cloud/validate", {
     method: "POST",
-    body: JSON.stringify({ base_url, api_key }),
+    body: JSON.stringify({ base_url, api_key, provider }),
   })
 }
 

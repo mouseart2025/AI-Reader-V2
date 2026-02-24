@@ -1039,8 +1039,6 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       (svg: d3Selection.Selection<SVGSVGElement, unknown, null, undefined>) => {
         const locationItems = svg.selectAll<SVGGElement, unknown>(".location-item")
 
-        let dragStartClientX = 0
-        let dragStartClientY = 0
         let hasDragged = false
 
         const drag = d3Drag
@@ -1049,8 +1047,6 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .on("start", function (event: d3Drag.D3DragEvent<SVGGElement, unknown, unknown>) {
             // Prevent zoom during drag
             event.sourceEvent.stopPropagation()
-            dragStartClientX = event.sourceEvent.clientX
-            dragStartClientY = event.sourceEvent.clientY
             hasDragged = false
             d3Selection.select(this).raise().style("cursor", "grabbing")
           })
@@ -1290,7 +1286,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         svg
           .select(`#locations-${tier}`)
           .style("display", tierOpacity > 0 ? "" : "none")
-          .style("opacity", tierOpacity > 0 ? tierOpacity : null)
+          .style("opacity", tierOpacity)
       }
 
       // Counter-scale: keep icons + labels at constant screen size
