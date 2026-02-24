@@ -483,7 +483,24 @@ async def validate_cloud_api(req: ValidateCloudRequest):
                 resp = await client.get(f"{base}/v1/models", headers=headers)
             else:
                 headers = {"Authorization": f"Bearer {req.api_key}"}
+                # 先尝试 GET /models；部分供应商（MiniMax 等）不实现该端点
                 resp = await client.get(f"{base}/models", headers=headers)
+                if resp.status_code == 404:
+                    # Fallback：用最小化 completions 请求探测鉴权是否有效
+                    # 1 token 请求几乎无费用；401 = key 无效，其他状态 = 连接正常
+                    probe = await client.post(
+                        f"{base}/chat/completions",
+                        headers={**headers, "Content-Type": "application/json"},
+                        json={
+                            "model": "__probe__",
+                            "messages": [{"role": "user", "content": "hi"}],
+                            "max_tokens": 1,
+                        },
+                    )
+                    if probe.status_code == 401:
+                        return {"valid": False, "error": "API Key 无效（401 Unauthorized）"}
+                    # 任何非 401 响应（包括 400/422 模型不存在）都说明 key 有效、接口可达
+                    return {"valid": True}
 
             if resp.status_code == 200:
                 return {"valid": True}
