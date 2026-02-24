@@ -94,9 +94,9 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 `context_budget.py` (`TokenBudget` dataclass + `compute_budget()` + `get_budget()`) — all LLM budget parameters (chapter truncation length, context summary limits, num_ctx, timeouts) are derived from the model's context window size via linear interpolation: 8K context → conservative "local" values, 128K+ context → generous "cloud" values, intermediate models get proportional values. Replaces the old binary `LLM_PROVIDER == "openai"` budget switching.
 
-**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama `POST /api/show` → `model_info.*.context_length`. Cloud mode defaults to 131072. Failure falls back to 8192. Result stored in `config.CONTEXT_WINDOW_SIZE`. Local Ollama models are capped at `_OLLAMA_CTX_CAP = 16384` to prevent KV cache bloat on consumer hardware (4B models on 8-16GB machines drop from ~10 tok/s to ~2-3 tok/s at 32K context, causing timeouts).
+**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama `POST /api/show` → `model_info.*.context_length`. Cloud OpenAI-compatible mode defaults to 131072; Anthropic (`LLM_PROVIDER_FORMAT == "anthropic"`) defaults to 200000 (all Claude 3.x/4.x have 200K context). Failure falls back to 8192. Result stored in `config.CONTEXT_WINDOW_SIZE`. Local Ollama models are capped at `_OLLAMA_CTX_CAP = 16384` to prevent KV cache bloat on consumer hardware (4B models on 8-16GB machines drop from ~10 tok/s to ~2-3 tok/s at 32K context, causing timeouts).
 
-**Consumers**: `ChapterFactExtractor` (max_chapter_len, retry_len, segment_enabled, extraction_num_ctx, **few-shot example count** — only 1 example for context_window ≤ 16K, 2 examples above), `ContextSummaryBuilder` (context_max_chars, char/rel/loc/item limits, hierarchy chains, world summary chars), `SceneLLMExtractor` (scene_max_chapter_len), `WorldStructureAgent` (ws_max_tokens, ws_timeout), `LocationHierarchyReviewer` (hierarchy_timeout). Non-budget `LLM_PROVIDER` checks (schema injection, cost tracking, client factory) are preserved unchanged.
+**Consumers**: `ChapterFactExtractor` (max_chapter_len, retry_len, segment_enabled, extraction_num_ctx, **few-shot example count** — only 1 example for context_window ≤ 16K, 2 examples above), `ContextSummaryBuilder` (context_max_chars, char/rel/loc/item limits, hierarchy chains, world summary chars), `SceneLLMExtractor` (scene_max_chapter_len), `WorldStructureAgent` (ws_max_tokens, ws_timeout), `LocationHierarchyReviewer` (hierarchy_timeout). `ChapterFactExtractor._is_cloud` and `SceneLLMExtractor._is_cloud` are set via `isinstance(llm, (OpenAICompatibleClient, AnthropicClient))` — controls JSON schema injection into system prompt and max_tokens budget.
 
 ### Entity Alias Resolution
 
@@ -305,10 +305,13 @@ EMBEDDING_MODEL       # Default: BAAI/bge-base-zh-v1.5
 
 # Cloud LLM mode (set LLM_PROVIDER=openai to use)
 LLM_PROVIDER          # "ollama" (default) or "openai"
-LLM_API_KEY           # API key for OpenAI-compatible provider
+LLM_API_KEY           # API key for the cloud provider
 LLM_BASE_URL          # Base URL (e.g., https://api.deepseek.com/v1)
 LLM_MODEL             # Model name (e.g., deepseek-chat)
 LLM_MAX_TOKENS        # Default: 8192
+# LLM_PROVIDER_FORMAT is set automatically by update_cloud_config() — not an env var.
+# "openai" (default, all OpenAI-compatible providers) or "anthropic" (Claude API).
+# Controls auth header (Bearer vs x-api-key) and endpoint (/chat/completions vs /v1/messages).
 ```
 
 ## Common Commands
@@ -332,7 +335,7 @@ uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 
 - **Language**: All UI text, error messages, LLM prompts, and extraction rules are in **Chinese**
 - **Privacy**: Data stays local. Cloud mode only sends LLM requests to the configured API endpoint — no telemetry
-- **Dual LLM backend**: `LLM_PROVIDER=ollama` (default, local) or `LLM_PROVIDER=openai` (cloud, any OpenAI-compatible API)
+- **Dual LLM backend**: `LLM_PROVIDER=ollama` (default, local) or `LLM_PROVIDER=openai` (cloud). Cloud supports 10 providers: DeepSeek, MiniMax, Qwen, Moonshot, Zhipu, SiliconFlow, Yi, OpenAI, Gemini, Anthropic. Anthropic uses a separate `AnthropicClient` (`anthropic_client.py`) with `x-api-key` auth and `/v1/messages` endpoint; all others use `OpenAICompatibleClient`. `LLM_PROVIDER_FORMAT` (`"openai"` | `"anthropic"`) is set automatically by `update_cloud_config()` and controls which client is instantiated by `get_llm_client()`.
 - **Apple Silicon optimized**: Targets M1/M2/M3/M4 with MPS acceleration for embeddings
 - **No tests yet**: Test infrastructure (pytest, vitest) is not set up yet
 - **TypeScript strict mode**: `strict: true`, `noUnusedLocals`, `noUnusedParameters` enabled

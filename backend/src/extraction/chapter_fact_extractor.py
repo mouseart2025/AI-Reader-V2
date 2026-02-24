@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from src.infra.config import LLM_MAX_TOKENS
+from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
@@ -223,7 +223,7 @@ class ChapterFactExtractor:
         self.system_template = _load_system_prompt()
         self.examples = _load_examples()
         self._schema = _build_extraction_schema()
-        self._is_cloud = isinstance(self.llm, OpenAICompatibleClient)
+        self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
 
     def _build_example_text(self) -> str:
         """Build the few-shot examples section for the user prompt.
@@ -434,7 +434,8 @@ class ChapterFactExtractor:
             )
 
         budget = get_budget()
-        max_out = LLM_MAX_TOKENS if self._is_cloud else 8192
+        from src.infra import config as _cfg  # dynamic read (avoids frozen module-level import)
+        max_out = _cfg.LLM_MAX_TOKENS if self._is_cloud else 8192
         result, usage = await self.llm.generate(
             system=effective_system,
             prompt=prompt,

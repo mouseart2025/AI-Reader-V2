@@ -14,7 +14,6 @@ from src.extraction.chapter_fact_extractor import ChapterFactExtractor, Extracti
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
-from src.infra.config import LLM_MODEL, LLM_PROVIDER, OLLAMA_MODEL
 from src.infra.llm_client import LlmUsage, get_llm_client
 from src.models.world_structure import WorldStructure
 from src.services.cost_service import add_monthly_usage, get_monthly_budget, get_monthly_usage, get_pricing
@@ -489,7 +488,7 @@ class AnalysisService:
                     novel_id=novel_id,
                     chapter_id=chapter_pk,
                     fact=fact,
-                    llm_model=OLLAMA_MODEL,
+                    llm_model=_cfg.get_model_name(),
                     extraction_ms=elapsed_ms,
                     input_tokens=chapter_usage.prompt_tokens,
                     output_tokens=chapter_usage.completion_tokens,
@@ -633,7 +632,7 @@ class AnalysisService:
                         novel_id=novel_id,
                         chapter_id=retry_ch["id"],
                         fact=fact,
-                        llm_model=OLLAMA_MODEL,
+                        llm_model=_cfg.get_model_name(),
                         extraction_ms=retry_elapsed,
                         input_tokens=usage.prompt_tokens,
                         output_tokens=usage.completion_tokens,
@@ -791,7 +790,7 @@ class AnalysisService:
                     novel_id=novel_id,
                     chapter_id=ch_id,
                     fact=fact,
-                    llm_model=OLLAMA_MODEL,
+                    llm_model=_cfg.get_model_name(),
                     extraction_ms=elapsed_ms,
                     input_tokens=usage.prompt_tokens,
                     output_tokens=usage.completion_tokens,
