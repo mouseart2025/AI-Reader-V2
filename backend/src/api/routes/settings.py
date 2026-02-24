@@ -1050,11 +1050,34 @@ async def _check_openai() -> dict:
 
     try:
         base = config.LLM_BASE_URL.rstrip("/")
-        headers = {"Authorization": f"Bearer {config.LLM_API_KEY}"}
+        from src.infra.config import LLM_PROVIDER_FORMAT
+        is_anthropic = LLM_PROVIDER_FORMAT == "anthropic"
         transport = httpx.AsyncHTTPTransport()
         async with httpx.AsyncClient(timeout=15.0, transport=transport) as client:
-            resp = await client.get(f"{base}/models", headers=headers)
-            result["api_available"] = resp.status_code == 200
+            if is_anthropic:
+                headers = {
+                    "x-api-key": config.LLM_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                }
+                resp = await client.get(f"{base}/v1/models", headers=headers)
+                result["api_available"] = resp.status_code == 200
+            else:
+                headers = {"Authorization": f"Bearer {config.LLM_API_KEY}"}
+                resp = await client.get(f"{base}/models", headers=headers)
+                if resp.status_code == 404:
+                    # 部分供应商（MiniMax 等）不实现 /models，用 completions 探测
+                    probe = await client.post(
+                        f"{base}/chat/completions",
+                        headers={**headers, "Content-Type": "application/json"},
+                        json={
+                            "model": "__probe__",
+                            "messages": [{"role": "user", "content": "hi"}],
+                            "max_tokens": 1,
+                        },
+                    )
+                    result["api_available"] = probe.status_code != 401
+                else:
+                    result["api_available"] = resp.status_code == 200
     except (httpx.ConnectError, httpx.TimeoutException, Exception) as e:
         result["cloud_error"] = str(e)[:200]
 
