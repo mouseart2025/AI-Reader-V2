@@ -29,7 +29,7 @@ So that 我可以用已有的 API Key 直接接入这些服务，无需手动填
 
     | id | name | base_url | default_model | models |
     |----|------|----------|---------------|--------|
-    | minimax | MiniMax | https://api.minimax.chat/v1 | MiniMax-M1 | ["MiniMax-M1", "MiniMax-Text-01"] |
+    | minimax | MiniMax | https://api.minimax.chat/v1 | MiniMax-M2.5 | ["MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-Text-01"] |
     | qwen | 阿里云百炼（Qwen） | https://dashscope.aliyuncs.com/compatible-mode/v1 | qwen-max | ["qwen-max", "qwen-plus", "qwen-turbo", "qwen-long"] |
     | moonshot | Moonshot / Kimi | https://api.moonshot.cn/v1 | moonshot-v1-32k | ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"] |
     | zhipu | 智谱 GLM | https://open.bigmodel.cn/api/paas/v4 | glm-4 | ["glm-4", "glm-4-air", "glm-4-flash"] |

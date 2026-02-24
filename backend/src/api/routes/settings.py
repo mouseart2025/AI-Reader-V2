@@ -71,8 +71,8 @@ CLOUD_PROVIDERS = [
         "id": "minimax",
         "name": "MiniMax",
         "base_url": "https://api.minimax.chat/v1",
-        "default_model": "MiniMax-M1",
-        "models": ["MiniMax-M1", "MiniMax-Text-01"],
+        "default_model": "MiniMax-M2.5",
+        "models": ["MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-Text-01"],
         "api_format": "openai",
     },
     {
