@@ -15,6 +15,7 @@ import httpx
 from src.infra.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER, OLLAMA_BASE_URL, OLLAMA_MODEL
 
 if TYPE_CHECKING:
+    from src.infra.anthropic_client import AnthropicClient
     from src.infra.openai_client import OpenAICompatibleClient
 
 logger = logging.getLogger(__name__)
@@ -215,10 +216,10 @@ class LLMClient:
 
 
 # Module-level singleton
-_client: LLMClient | OpenAICompatibleClient | None = None
+_client: LLMClient | OpenAICompatibleClient | AnthropicClient | None = None
 
 
-def get_llm_client() -> LLMClient | OpenAICompatibleClient:
+def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient:
     """Return module-level singleton LLM client based on LLM_PROVIDER config."""
     global _client
     if _client is None:
@@ -227,12 +228,21 @@ def get_llm_client() -> LLMClient | OpenAICompatibleClient:
                 raise ValueError("LLM_API_KEY is required when LLM_PROVIDER=openai")
             if not LLM_BASE_URL:
                 raise ValueError("LLM_BASE_URL is required when LLM_PROVIDER=openai")
-            from src.infra.openai_client import OpenAICompatibleClient
-            _client = OpenAICompatibleClient(
-                base_url=LLM_BASE_URL,
-                api_key=LLM_API_KEY,
-                model=LLM_MODEL or "gpt-4o",
-            )
+            from src.infra import config as _cfg
+            if _cfg.LLM_PROVIDER_FORMAT == "anthropic":
+                from src.infra.anthropic_client import AnthropicClient
+                _client = AnthropicClient(
+                    base_url=LLM_BASE_URL,
+                    api_key=LLM_API_KEY,
+                    model=LLM_MODEL or "claude-sonnet-4-5",
+                )
+            else:
+                from src.infra.openai_client import OpenAICompatibleClient
+                _client = OpenAICompatibleClient(
+                    base_url=LLM_BASE_URL,
+                    api_key=LLM_API_KEY,
+                    model=LLM_MODEL or "gpt-4o",
+                )
         else:
             _client = LLMClient()
     return _client

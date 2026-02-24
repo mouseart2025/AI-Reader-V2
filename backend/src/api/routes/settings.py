@@ -58,23 +58,96 @@ MODEL_CATALOG = [
 # ── Cloud provider presets ────────────────────────
 
 CLOUD_PROVIDERS = [
+    # 国产模型
     {
         "id": "deepseek",
         "name": "DeepSeek",
         "base_url": "https://api.deepseek.com",
         "default_model": "deepseek-chat",
+        "models": ["deepseek-chat", "deepseek-reasoner"],
+        "api_format": "openai",
     },
+    {
+        "id": "minimax",
+        "name": "MiniMax",
+        "base_url": "https://api.minimax.chat/v1",
+        "default_model": "MiniMax-M1",
+        "models": ["MiniMax-M1", "MiniMax-Text-01"],
+        "api_format": "openai",
+    },
+    {
+        "id": "qwen",
+        "name": "阿里云百炼（Qwen）",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "default_model": "qwen-max",
+        "models": ["qwen-max", "qwen-plus", "qwen-turbo", "qwen-long"],
+        "api_format": "openai",
+    },
+    {
+        "id": "moonshot",
+        "name": "Moonshot / Kimi",
+        "base_url": "https://api.moonshot.cn/v1",
+        "default_model": "moonshot-v1-32k",
+        "models": ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+        "api_format": "openai",
+    },
+    {
+        "id": "zhipu",
+        "name": "智谱 GLM",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "default_model": "glm-4",
+        "models": ["glm-4", "glm-4-air", "glm-4-flash"],
+        "api_format": "openai",
+    },
+    {
+        "id": "siliconflow",
+        "name": "SiliconFlow",
+        "base_url": "https://api.siliconflow.cn/v1",
+        "default_model": "Qwen/Qwen2.5-72B-Instruct",
+        "models": ["Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3", "Qwen/QwQ-32B"],
+        "api_format": "openai",
+    },
+    {
+        "id": "yi",
+        "name": "零一万物（Yi）",
+        "base_url": "https://api.lingyiwanwu.com/v1",
+        "default_model": "yi-large",
+        "models": ["yi-large", "yi-large-turbo", "yi-medium"],
+        "api_format": "openai",
+    },
+    # 海外模型
     {
         "id": "openai",
         "name": "OpenAI",
         "base_url": "https://api.openai.com/v1",
         "default_model": "gpt-4o-mini",
+        "models": ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini"],
+        "api_format": "openai",
     },
+    {
+        "id": "anthropic",
+        "name": "Anthropic（Claude）",
+        "base_url": "https://api.anthropic.com",
+        "default_model": "claude-sonnet-4-5",
+        "models": ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5"],
+        "api_format": "anthropic",
+    },
+    {
+        "id": "gemini",
+        "name": "Google Gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "default_model": "gemini-2.0-flash",
+        "models": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+        "api_format": "openai",
+    },
+    # 自定义
     {
         "id": "custom",
         "name": "自定义",
         "base_url": "",
         "default_model": "",
+        "models": [],
+        "api_format": "openai",
     },
 ]
 
@@ -97,6 +170,7 @@ class CloudConfigRequest(BaseModel):
 class ValidateCloudRequest(BaseModel):
     base_url: str
     api_key: str
+    provider: str = ""  # provider id，用于识别 Anthropic 等特殊格式
 
 
 class SwitchModeRequest(BaseModel):
@@ -394,12 +468,23 @@ async def validate_cloud_api(req: ValidateCloudRequest):
     if not req.api_key or not req.base_url:
         return {"valid": False, "error": "API Key 和 Base URL 不能为空"}
 
+    # 判断是否为 Anthropic 协议
+    is_anthropic = req.provider == "anthropic" or "anthropic.com" in req.base_url
+
     try:
         base = req.base_url.rstrip("/")
-        headers = {"Authorization": f"Bearer {req.api_key}"}
         transport = httpx.AsyncHTTPTransport()
         async with httpx.AsyncClient(timeout=10.0, transport=transport) as client:
-            resp = await client.get(f"{base}/models", headers=headers)
+            if is_anthropic:
+                headers = {
+                    "x-api-key": req.api_key,
+                    "anthropic-version": "2023-06-01",
+                }
+                resp = await client.get(f"{base}/v1/models", headers=headers)
+            else:
+                headers = {"Authorization": f"Bearer {req.api_key}"}
+                resp = await client.get(f"{base}/models", headers=headers)
+
             if resp.status_code == 200:
                 return {"valid": True}
             elif resp.status_code == 401:

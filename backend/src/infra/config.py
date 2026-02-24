@@ -23,6 +23,10 @@ LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "8192"))
 
+# API protocol format for cloud providers: "openai" (default) | "anthropic"
+# Separate from LLM_PROVIDER so users can use Anthropic-compatible proxies
+LLM_PROVIDER_FORMAT: str = "openai"
+
 # Preserve .env initial values as fallback for mode switching
 _ENV_LLM_API_KEY = LLM_API_KEY
 _ENV_LLM_BASE_URL = LLM_BASE_URL
@@ -56,22 +60,27 @@ def update_cloud_config(
 
     Falls back to .env initial values when DB-provided values are empty.
     """
-    global LLM_PROVIDER, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL  # noqa: PLW0603
+    global LLM_PROVIDER, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER_FORMAT  # noqa: PLW0603
 
     LLM_PROVIDER = provider
     LLM_API_KEY = api_key or _ENV_LLM_API_KEY
     LLM_BASE_URL = base_url or _ENV_LLM_BASE_URL
     LLM_MODEL = model or _ENV_LLM_MODEL
+    # Detect API format from provider id or base_url
+    LLM_PROVIDER_FORMAT = "anthropic" if (
+        provider == "anthropic" or "anthropic.com" in (base_url or "")
+    ) else "openai"
 
     _reset_llm_client()
 
 
 def switch_to_ollama(model: str = "qwen3:8b") -> None:
     """Hot-switch back to local Ollama mode."""
-    global LLM_PROVIDER, OLLAMA_MODEL  # noqa: PLW0603
+    global LLM_PROVIDER, OLLAMA_MODEL, LLM_PROVIDER_FORMAT  # noqa: PLW0603
 
     LLM_PROVIDER = "ollama"
     OLLAMA_MODEL = model
+    LLM_PROVIDER_FORMAT = "openai"
 
     _reset_llm_client()
 

@@ -158,7 +158,13 @@ async def detect_and_update_context_window() -> int:
 
     ctx: int | None = None
 
-    if config.LLM_PROVIDER == "openai":
+    if config.LLM_PROVIDER == "openai" and config.LLM_PROVIDER_FORMAT == "anthropic":
+        ctx = 200000
+        logger.info(
+            "Context window: %d (Anthropic/Claude, model=%s)",
+            ctx, config.get_model_name(),
+        )
+    elif config.LLM_PROVIDER == "openai":
         ctx = 131072
         logger.info(
             "Context window: %d (cloud mode, model=%s)",

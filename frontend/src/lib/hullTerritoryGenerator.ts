@@ -274,11 +274,6 @@ function capsule(points: Point[], padding: number): Point[] {
 
   const dx = p1[0] - p0[0]
   const dy = p1[1] - p0[1]
-  const len = Math.sqrt(dx * dx + dy * dy) || 1
-
-  // Perpendicular unit vector
-  const nx = -dy / len
-  const ny = dx / len
 
   // Build capsule: semicircle around p0, straight to p1, semicircle around p1
   const result: Point[] = []
