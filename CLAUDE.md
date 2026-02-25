@@ -248,7 +248,17 @@ Scene/screenplay functionality is integrated into ReadingPage as a right-side pa
 
 **Live timing persistence**: `AnalysisService._live_timing` (dict keyed by novel_id) stores the latest timing snapshot in memory, surviving page navigation. Updated after every chapter (success or failure). The `processing` WS message includes `timing` so the frontend receives timing even before the first `progress` message. REST `GET /novels/{id}/analysis/latest` returns `timing` when the task is running/paused. Frontend `analysisStore._pollTaskStatus()`, `AnalysisPage` mount load, and `visibilitychange` handler all restore `timingStats` from REST. Cleaned up on task completion/cancel; preserved on pause.
 
-**Auto-retry**: After the main loop, failed chapters get one automatic retry attempt. Success broadcasts `"retry_success"` status via WebSocket.
+**Auto-retry**: After the main loop, failed chapters get one automatic retry attempt. Success broadcasts `"retry_success"` status via WebSocket. `content_policy` chapters are **skipped** during retry (same content will always be rejected by the provider's safety filter).
+
+### Analysis Failure Resilience (N28)
+
+**Error persistence** (`chapters` table): `analysis_error TEXT` and `error_type TEXT` columns store the failure reason per chapter. `_classify_error(exc)` maps exceptions to five types: `timeout` (LLMTimeoutError), `parse_error` (LLMParseError / ExtractionError), `content_policy` (LLMError with safety keywords like "content_filter"/"违规"/"审核"), `http_error` (other LLMError), `unknown`. Frontend `AnalysisPage` shows a colored badge per failed chapter (orange=内容审核, yellow=超时, red=其他) with hover tooltip.
+
+**Task state recovery** (`recover_stale_tasks()`): Called at server startup (`lifespan` in `main.py`). Any task stuck in `"running"` is auto-reset to `"paused"` so the user can resume. Prevents permanently-stuck tasks caused by `uvicorn --reload` killing asyncio tasks mid-execution.
+
+**content_policy skip** (N28.3): `_failed_in_run` entries carry `error_type`; retry loop skips chapters with `error_type == "content_policy"`. Saves time and tokens on content that will always be rejected.
+
+**Post-analysis LLM timeout** (N28.4): `LocationHierarchyReviewer.review()` is wrapped with `asyncio.wait_for(timeout=60.0)`. On `asyncio.TimeoutError`: logs a warning, broadcasts stage message "地点层级优化超时，已跳过", sets `review_votes = None`, and continues non-fatally to task completion.
 
 ### Model Benchmark — Quality Evaluation & History
 
