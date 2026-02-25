@@ -487,6 +487,7 @@ export interface MapData {
   layout: MapLayoutItem[]
   layout_mode: "constraint" | "hierarchy" | "layered" | "geographic"
   terrain_url: string | null
+  rivers?: { points: number[][]; width: number }[]
   analyzed_range: [number, number]
   region_boundaries?: RegionBoundary[]
   portals?: PortalInfo[]

@@ -13,9 +13,10 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Download, Loader2, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
+import { annealLabels, type AnnealItem } from "@/lib/labelAnnealing"
 
 const ICON_LEGEND: { icon: string; label: string }[] = [
   { icon: "capital", label: "都城" },
@@ -86,6 +87,10 @@ export default function MapPage() {
   const [selectedChanges, setSelectedChanges] = useState<Set<number>>(new Set())
   const [applying, setApplying] = useState(false)
 
+  // Export state
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState("")
+
   // Loading stage animation
   const [loadingStage, setLoadingStage] = useState("加载地图数据...")
   const loadingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -95,6 +100,7 @@ export default function MapPage() {
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
   const [playIndex, setPlayIndex] = useState(0)
+  const [playSpeed, setPlaySpeed] = useState(800) // ms per step: 1200=slow, 800=normal, 400=fast
   const playTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const mapHandle = useRef<NovelMapHandle>(null)
 
@@ -319,6 +325,168 @@ export default function MapPage() {
     setExpandedNodes(new Set())
   }, [])
 
+  // ── Export handler ──
+  const handleExport = useCallback(async () => {
+    const svgEl = mapHandle.current?.getSvgElement()
+    if (!svgEl || exporting) return
+
+    setExporting(true)
+    setExportProgress("准备中...")
+
+    try {
+      // 1. Clone SVG
+      const clone = svgEl.cloneNode(true) as SVGSVGElement
+
+      // 2. Reset viewport zoom transform → identity
+      const viewport = clone.querySelector("#viewport")
+      if (viewport) viewport.setAttribute("transform", "")
+
+      // 3. Remove counter-scale from each location item
+      clone.querySelectorAll(".location-item").forEach((g) => {
+        ;(g as SVGGElement).setAttribute("transform", "")
+      })
+
+      // 4. Show all tier groups (undo zoom-based hiding)
+      const tiers = ["continent", "kingdom", "region", "city", "site", "building"]
+      for (const tier of tiers) {
+        const group = clone.querySelector(`#locations-${tier}`) as SVGGElement | null
+        if (group) {
+          group.style.display = ""
+          group.style.opacity = "1"
+        }
+      }
+
+      // 5. Show all labels initially
+      clone.querySelectorAll(".loc-label").forEach((el) => {
+        ;(el as SVGElement).style.display = ""
+      })
+
+      // 6. Hide interactive-only elements
+      clone.querySelectorAll(".loc-hitarea").forEach((el) => el.remove())
+      const conflictG = clone.querySelector("#conflict-markers")
+      if (conflictG) conflictG.innerHTML = ""
+      const focusG = clone.querySelector("#focus-overlay")
+      if (focusG) focusG.innerHTML = ""
+      const overviewG = clone.querySelector("#overview-dots")
+      if (overviewG) overviewG.innerHTML = ""
+
+      // 7. Extract label items for annealing
+      const items: AnnealItem[] = []
+      clone.querySelectorAll(".location-item").forEach((g) => {
+        const name = g.getAttribute("data-name") ?? ""
+        const cx = parseFloat(g.getAttribute("data-x") ?? "0")
+        const cy = parseFloat(g.getAttribute("data-y") ?? "0")
+        if (!name || isNaN(cx) || isNaN(cy)) return
+        const label = g.querySelector(".loc-label") as SVGTextElement | null
+        if (!label) return
+        const fontSize = parseFloat(label.getAttribute("font-size") ?? "12")
+        const icon = g.querySelector("use")
+        const iconSize = parseFloat(icon?.getAttribute("width") ?? "20")
+        items.push({
+          name, cx, cy, iconSize, fontSize,
+          labelW: name.length * fontSize + 4,
+          labelH: fontSize + 4,
+        })
+      })
+
+      // 8. Run simulated annealing
+      setExportProgress("正在优化标签布局...")
+      const placements = await annealLabels(items, (pct) => {
+        setExportProgress(`正在优化标签布局... ${Math.round(pct * 100)}%`)
+      })
+
+      // 9. Apply annealed positions
+      clone.querySelectorAll(".location-item").forEach((g) => {
+        const name = g.getAttribute("data-name") ?? ""
+        const label = g.querySelector(".loc-label") as SVGTextElement | null
+        if (!label || !name) return
+        const cx = parseFloat(g.getAttribute("data-x") ?? "0")
+        const cy = parseFloat(g.getAttribute("data-y") ?? "0")
+        const placement = placements.get(name)
+        if (placement) {
+          label.setAttribute("x", String(cx + placement.offsetX))
+          label.setAttribute("y", String(cy + placement.offsetY))
+          label.setAttribute("text-anchor", placement.textAnchor)
+          label.style.display = ""
+        } else {
+          label.style.display = "none"
+        }
+      })
+
+      // 10. Set viewBox to canvas bounds + padding
+      const bgRect = clone.querySelector("#bg")
+      const cw = parseFloat(bgRect?.getAttribute("width") ?? "1600")
+      const ch = parseFloat(bgRect?.getAttribute("height") ?? "900")
+      const pad = 50
+      clone.setAttribute("viewBox", `${-pad} ${-pad} ${cw + pad * 2} ${ch + pad * 2}`)
+      const outW = (cw + pad * 2) * 3
+      const outH = (ch + pad * 2) * 3
+      clone.setAttribute("width", String(outW))
+      clone.setAttribute("height", String(outH))
+      clone.style.width = `${outW}px`
+      clone.style.height = `${outH}px`
+
+      // 11. Add watermark
+      const watermark = document.createElementNS("http://www.w3.org/2000/svg", "text")
+      watermark.setAttribute("x", String(cw - 10))
+      watermark.setAttribute("y", String(ch + pad - 10))
+      watermark.setAttribute("text-anchor", "end")
+      watermark.setAttribute("font-size", "10")
+      watermark.setAttribute("fill", "#999")
+      watermark.setAttribute("opacity", "0.5")
+      watermark.textContent = "Generated by AI Reader V2"
+      viewport?.appendChild(watermark)
+
+      // 12. Serialize SVG → PNG
+      setExportProgress("正在生成图片...")
+      const svgStr = new XMLSerializer().serializeToString(clone)
+      const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        canvas.width = outW
+        canvas.height = outH
+        const ctx = canvas.getContext("2d")!
+        ctx.drawImage(img, 0, 0)
+        URL.revokeObjectURL(url)
+
+        canvas.toBlob((pngBlob) => {
+          if (!pngBlob) {
+            setExporting(false)
+            setExportProgress("")
+            return
+          }
+          const pngUrl = URL.createObjectURL(pngBlob)
+          const a = document.createElement("a")
+          a.href = pngUrl
+          a.download = `novel-map-${Date.now()}.png`
+          a.click()
+          URL.revokeObjectURL(pngUrl)
+
+          setExporting(false)
+          setExportProgress("")
+          setToast("地图已导出")
+          setTimeout(() => setToast(null), 3000)
+        }, "image/png")
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        setExporting(false)
+        setExportProgress("")
+        setToast("导出失败")
+        setTimeout(() => setToast(null), 4000)
+      }
+      img.src = url
+    } catch {
+      setExporting(false)
+      setExportProgress("")
+      setToast("导出失败")
+      setTimeout(() => setToast(null), 4000)
+    }
+  }, [exporting])
+
   // ── Animation controls ──
   const startPlay = useCallback(() => {
     if (selectedTrajectory.length === 0) return
@@ -344,11 +512,11 @@ export default function MapPage() {
         }
         return prev + 1
       })
-    }, 800)
+    }, playSpeed)
     return () => {
       if (playTimer.current) clearInterval(playTimer.current)
     }
-  }, [playing, selectedTrajectory.length])
+  }, [playing, selectedTrajectory.length, playSpeed])
 
   useEffect(() => {
     stopPlay()
@@ -503,6 +671,26 @@ export default function MapPage() {
               </button>
             )}
 
+            {/* Export map button (NovelMap only) */}
+            {layoutMode !== "geographic" && (
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
+                  "bg-background/90 text-muted-foreground hover:text-foreground",
+                  exporting && "opacity-60 cursor-not-allowed",
+                )}
+              >
+                {exporting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+                {exporting ? exportProgress || "导出中..." : "导出全图"}
+              </button>
+            )}
+
             {/* Legend (hide in geographic mode — icons are fantasy-specific) */}
             {layoutMode !== "geographic" && (
               <div className="rounded-lg border bg-background/90 p-2">
@@ -578,12 +766,17 @@ export default function MapPage() {
                 layoutMode={layoutMode}
                 layerType={activeLayerType}
                 terrainUrl={terrainUrl}
+                rivers={mapData?.rivers}
                 visibleLocationNames={visibleLocationNames}
                 revealedLocationNames={revealedLocationNames}
                 regionBoundaries={regionBoundaries}
                 portals={portals}
                 trajectoryPoints={visibleTrajectory}
+                allTrajectoryPoints={selectedTrajectory}
                 currentLocation={currentLocation}
+                stayDurations={stayDurations}
+                playing={playing}
+                playIndex={playIndex}
                 canvasSize={mapData?.canvas_size}
                 spatialScale={mapData?.spatial_scale}
                 focusLocation={focusLocation}
@@ -705,7 +898,7 @@ export default function MapPage() {
                       <h4 className="text-xs font-medium">
                         {selectedPerson} ({selectedTrajectory.length}站)
                       </h4>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 items-center">
                         {playing ? (
                           <Button variant="outline" size="xs" onClick={stopPlay}>
                             停止
@@ -715,6 +908,27 @@ export default function MapPage() {
                             播放
                           </Button>
                         )}
+                        {/* Speed control */}
+                        <div className="flex border rounded-md overflow-hidden ml-1">
+                          {([
+                            { label: "×0.5", ms: 1200 },
+                            { label: "×1", ms: 800 },
+                            { label: "×2", ms: 400 },
+                          ] as const).map(({ label, ms }) => (
+                            <button
+                              key={ms}
+                              className={cn(
+                                "px-1.5 py-0.5 text-[10px] transition-colors",
+                                playSpeed === ms
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-muted",
+                              )}
+                              onClick={() => setPlaySpeed(ms)}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 

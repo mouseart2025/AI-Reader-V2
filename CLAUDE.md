@@ -228,6 +228,26 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 
 **Rendering** (in `NovelMap.tsx`): SVG `<symbol>` definitions in `<defs>`, `<use>` elements in existing `#terrain` group (z-order: below regions/territories, above parchment). `pointer-events: none`. Water symbols use `stroke` + `fill="none"`; others use `fill`. Colors: warm earthy tones (light bg) / brighter variants (dark bg). Opacity range ~0.11–0.22.
 
+### Label Multi-Anchor Collision Detection (N30.1)
+
+`computeLabelLayout()` in `NovelMap.tsx` replaces the previous `computeLabelCollisions()` hide-on-collision strategy with a multi-anchor try system. Returns `Map<string, LabelPlacement>` instead of `Set<string>`. For each label (sorted by priority), tries 8 candidate positions: bottom → right → top-right → top → top-left → left → bottom-left → bottom-right. Each anchor has specific `textAnchor` ("middle"/"start"/"end") and offset calculations. Only hides if all 8 positions collide. Grid spatial index (cell size 60px) provides O(1) collision checks. Zoom callback applies `offsetX/k, offsetY/k` to convert screen-space offsets to world-space (counter-scaled labels).
+
+### Simulated Annealing Label Export (N30.2)
+
+`labelAnnealing.ts` — standalone SA optimizer for HD map export. 8 anchor definitions matching NovelMap's candidates. `annealLabels()` async function: greedy warm start → 5000 SA iterations with incremental delta energy computation. Energy: `W_OVERLAP=10` (label-label overlap area), `W_OCCLUSION=5` (label-icon overlap), `W_OFFSET=0.5` (distance from default anchor). Chunked async (500 iterations/chunk) with setTimeout(0) for UI responsiveness. Export pipeline in MapPage: clone SVG → reset transforms → remove counter-scale → show all tiers → extract AnnealItems → run annealing → apply positions → set viewBox 3x → watermark → SVG→PNG download.
+
+### River Network Generation (N30.3)
+
+`generate_rivers()` in `map_layout_service.py` — gradient descent on OpenSimplex elevation field. Water-type locations serve as river sources. `_trace_river()` follows negative elevation gradient with lateral noise perturbation (±15° wiggle), terminating at canvas edge or elevation minimum. River width tapers from source (3-5px) to mouth. Returns `[{points: [[x,y],...], width: float}]`. Frontend renders in `#rivers` SVG group (after terrain, before regions) using `d3Shape.curveBasis` for smooth curves, blue color (#6b9bc3 light / #7eb8d8 dark), opacity 0.6.
+
+### Whittaker Biome Matrix (N30.4)
+
+`_WHITTAKER_GRID` — 5×5 grid (elevation × moisture) of RGB biome colors. `_biome_color_at()` uses bilinear interpolation for smooth transitions between biomes (no hard boundaries). `_elevation_at_img()` and `_moisture_at_img()` compute environmental fields influenced by mountain/water location proximity. `_lloyd_relax()` performs Voronoi centroid iteration with clamped movement (±30px max total displacement) for location seed points. `generate_terrain()` refactored to use Whittaker matrix instead of per-type biome colors, with Lloyd relaxation for more uniform cell shapes.
+
+### Trajectory Animation Enhancement (N30.5)
+
+NovelMap trajectory rendering uses dual-path progressive drawing: background dashed path (full trajectory, opacity 0.2) + foreground solid path (visible slice, opacity 0.85). Waypoint circle radius scales with stay duration: `r = min(4 + stay * 1.5, 12)`. Current playback position shows pulse marker (SVG `<animate>` for radius 10→18→10 and opacity 0.6→0.1→0.6, 1.5s loop). Chapter labels ("Ch.N") at first occurrence of each location. Counter-scale in zoom callback: stroke-width `3/k`, circle radius `baseR/k`, label font-size `9/k`. Auto-pan follows playback when current point is within 20% of viewport edge, using `d3Zoom.translateTo` with 300ms transition. MapPage adds `playSpeed` state (1200/800/400ms) with three-speed toggle buttons (×0.5/×1/×2).
+
 ### Map Location Click-to-Card
 
 Clicking a location on `NovelMap.tsx` directly opens the `EntityCardDrawer` via `onLocationClick` → `openEntityCard(name, "location")`, without showing a popup tooltip. Each location `<g>` has a transparent hit-area circle (`class="loc-hitarea"`, `fill="transparent"`, `r >= 14px`) as the first child to ensure reliable pointer detection regardless of icon SVG shape/size. The d3-drag behavior uses `.clickDistance(5)` and a `hasDragged` guard so that clicks (< 5px movement) fire the click handler while actual drags (≥ 5px) trigger position save via `onDragEndRef`. Conflict markers retain their own popup click handlers independently.

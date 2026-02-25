@@ -52,60 +52,126 @@ const TIER_WEIGHT: Record<string, number> = {
 interface LabelRect {
   x: number; y: number; w: number; h: number
   name: string; priority: number
+  iconScreenX: number; iconScreenY: number
+  labelW: number; labelH: number
+  iconSize: number; fontSize: number
 }
 
-function computeLabelCollisions(rects: LabelRect[]): Set<string> {
-  // Sort by priority descending — higher priority labels claim space first
-  const sorted = [...rects].sort((a, b) => b.priority - a.priority)
-  const visible = new Set<string>()
+interface LabelPlacement {
+  anchor: string
+  offsetX: number   // screen-space dx from icon center
+  offsetY: number   // screen-space dy from icon center
+  textAnchor: string // "middle" | "start" | "end"
+}
 
-  // Grid-based spatial index for O(n) average collision detection (vs O(n²) brute force)
+const ANCHOR_CANDIDATES: {
+  name: string
+  textAnchor: string
+  getOffset: (iconH: number, fh: number) => { dx: number; dy: number }
+}[] = [
+  { name: "bottom",       textAnchor: "middle", getOffset: (iconH, fh) => ({ dx: 0, dy: iconH / 2 + fh * 0.9 }) },
+  { name: "right",        textAnchor: "start",  getOffset: (iconH) => ({ dx: iconH / 2 + 4, dy: 0 }) },
+  { name: "top-right",    textAnchor: "start",  getOffset: (iconH, fh) => ({ dx: iconH / 2 + 2, dy: -(fh * 0.5 + 2) }) },
+  { name: "top",          textAnchor: "middle", getOffset: (iconH, fh) => ({ dx: 0, dy: -(iconH / 2 + fh * 0.3 + 4) }) },
+  { name: "top-left",     textAnchor: "end",    getOffset: (iconH, fh) => ({ dx: -(iconH / 2 + 2), dy: -(fh * 0.5 + 2) }) },
+  { name: "left",         textAnchor: "end",    getOffset: (iconH) => ({ dx: -(iconH / 2 + 4), dy: 0 }) },
+  { name: "bottom-left",  textAnchor: "end",    getOffset: (iconH, fh) => ({ dx: -(iconH / 2 + 2), dy: fh * 0.5 + 2 }) },
+  { name: "bottom-right", textAnchor: "start",  getOffset: (iconH, fh) => ({ dx: iconH / 2 + 2, dy: fh * 0.5 + 2 }) },
+]
+
+/** Compute AABB in screen-space for a label at a given anchor offset */
+function computeAnchorRect(
+  iconSX: number, iconSY: number,
+  dx: number, dy: number,
+  labelW: number, labelH: number,
+  textAnchor: string,
+): { x: number; y: number; w: number; h: number } {
+  const cx = iconSX + dx
+  const cy = iconSY + dy
+  let x: number
+  if (textAnchor === "middle") {
+    x = cx - labelW / 2
+  } else if (textAnchor === "start") {
+    x = cx
+  } else {
+    // "end"
+    x = cx - labelW
+  }
+  return { x, y: cy - labelH / 2, w: labelW, h: labelH }
+}
+
+function computeLabelLayout(rects: LabelRect[]): Map<string, LabelPlacement> {
+  const sorted = [...rects].sort((a, b) => b.priority - a.priority)
+  const result = new Map<string, LabelPlacement>()
+
   const cellSize = 60
-  const grid = new Map<number, LabelRect[]>()
+  const grid = new Map<number, { x: number; y: number; w: number; h: number }[]>()
 
   const cellKeyAt = (cx: number, cy: number) => cx * 100003 + cy
 
-  const getCellRange = (r: LabelRect) => ({
+  const getCellRange = (r: { x: number; y: number; w: number; h: number }) => ({
     x0: Math.floor(r.x / cellSize),
     x1: Math.floor((r.x + r.w) / cellSize),
     y0: Math.floor(r.y / cellSize),
     y1: Math.floor((r.y + r.h) / cellSize),
   })
 
-  for (const r of sorted) {
-    const { x0, x1, y0, y1 } = getCellRange(r)
-    let overlaps = false
-
-    outer:
+  const checkCollision = (rect: { x: number; y: number; w: number; h: number }): boolean => {
+    const { x0, x1, y0, y1 } = getCellRange(rect)
     for (let cx = x0; cx <= x1; cx++) {
       for (let cy = y0; cy <= y1; cy++) {
         const cell = grid.get(cellKeyAt(cx, cy))
         if (!cell) continue
         for (const p of cell) {
           if (
-            r.x < p.x + p.w && r.x + r.w > p.x &&
-            r.y < p.y + p.h && r.y + r.h > p.y
-          ) {
-            overlaps = true
-            break outer
-          }
+            rect.x < p.x + p.w && rect.x + rect.w > p.x &&
+            rect.y < p.y + p.h && rect.y + rect.h > p.y
+          ) return true
         }
       }
     }
+    return false
+  }
 
-    if (!overlaps) {
-      visible.add(r.name)
-      for (let cx = x0; cx <= x1; cx++) {
-        for (let cy = y0; cy <= y1; cy++) {
-          const key = cellKeyAt(cx, cy)
-          let cell = grid.get(key)
-          if (!cell) { cell = []; grid.set(key, cell) }
-          cell.push(r)
-        }
+  const registerRect = (rect: { x: number; y: number; w: number; h: number }) => {
+    const { x0, x1, y0, y1 } = getCellRange(rect)
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const key = cellKeyAt(cx, cy)
+        let cell = grid.get(key)
+        if (!cell) { cell = []; grid.set(key, cell) }
+        cell.push(rect)
       }
     }
   }
-  return visible
+
+  for (const r of sorted) {
+    let placed = false
+    for (const anchor of ANCHOR_CANDIDATES) {
+      const { dx, dy } = anchor.getOffset(r.iconSize, r.fontSize)
+      const rect = computeAnchorRect(
+        r.iconScreenX, r.iconScreenY,
+        dx, dy,
+        r.labelW, r.labelH,
+        anchor.textAnchor,
+      )
+      if (!checkCollision(rect)) {
+        registerRect(rect)
+        result.set(r.name, {
+          anchor: anchor.name,
+          offsetX: dx,
+          offsetY: dy,
+          textAnchor: anchor.textAnchor,
+        })
+        placed = true
+        break
+      }
+    }
+    if (!placed) {
+      // All 8 anchors collide — label stays hidden
+    }
+  }
+  return result
 }
 
 const TIER_TEXT_SIZE: Record<string, number> = {
@@ -235,8 +301,13 @@ export interface NovelMapProps {
   revealedLocationNames?: Set<string>
   regionBoundaries?: RegionBoundary[]
   portals?: PortalInfo[]
+  rivers?: { points: number[][]; width: number }[]
   trajectoryPoints?: TrajectoryPoint[]
+  allTrajectoryPoints?: TrajectoryPoint[]  // full trajectory (for background dashed path)
   currentLocation?: string | null
+  stayDurations?: Map<string, number>
+  playing?: boolean
+  playIndex?: number
   canvasSize?: { width: number; height: number }
   spatialScale?: string
   focusLocation?: string | null
@@ -250,6 +321,7 @@ export interface NovelMapProps {
 
 export interface NovelMapHandle {
   fitToLocations: () => void
+  getSvgElement: () => SVGSVGElement | null
 }
 
 // ── Popup state ─────────────────────────────────────
@@ -277,8 +349,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       revealedLocationNames,
       regionBoundaries,
       portals,
+      rivers,
       trajectoryPoints,
+      allTrajectoryPoints,
       currentLocation,
+      stayDurations,
+      playing: isPlaying,
+      playIndex: currentPlayIndex,
       canvasSize: canvasSizeProp,
       focusLocation,
       locationConflicts,
@@ -476,6 +553,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       // Terrain image placeholder
       viewport.append("g").attr("id", "terrain")
+      viewport.append("g").attr("id", "rivers")
 
       // Layer groups (Z-order)
       viewport.append("g").attr("id", "regions")
@@ -573,6 +651,38 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
       }
     }, [mapReady, terrainHints])
+
+    // ── Render rivers ──────────────────────────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const riversG = svg.select("#rivers")
+      riversG.selectAll("*").remove()
+
+      if (!rivers || rivers.length === 0) return
+
+      const line = d3Shape
+        .line<number[]>()
+        .x((d) => d[0])
+        .y((d) => d[1])
+        .curve(d3Shape.curveBasis)
+
+      const riverColor = darkBg ? "#7eb8d8" : "#6b9bc3"
+
+      for (const river of rivers) {
+        if (river.points.length < 2) continue
+        riversG
+          .append("path")
+          .attr("d", line(river.points))
+          .attr("fill", "none")
+          .attr("stroke", riverColor)
+          .attr("stroke-width", river.width)
+          .attr("stroke-linecap", "round")
+          .attr("stroke-linejoin", "round")
+          .attr("opacity", 0.6)
+          .style("pointer-events", "none")
+      }
+    }, [mapReady, rivers, darkBg])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
@@ -776,52 +886,198 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, territories, canvasW, canvasH, darkBg])
 
-    // ── Render trajectory ────────────────────────────
+    // ── Render trajectory (progressive drawing + pulse marker) ──
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
       const trajG = svg.select("#trajectory")
       trajG.selectAll("*").remove()
 
-      if (!trajectoryPoints || trajectoryPoints.length === 0) return
+      // Use full trajectory for background, visible slice for foreground
+      const allPts = allTrajectoryPoints ?? trajectoryPoints
+      if (!allPts || allPts.length === 0) return
 
-      const coords: Point[] = []
-      for (const pt of trajectoryPoints) {
+      // Resolve all trajectory point coordinates
+      const allCoords: Point[] = []
+      const allChapters: number[] = []
+      for (const pt of allPts) {
         const item = layoutMap.get(pt.location)
-        if (item) coords.push([item.x, item.y])
+        if (item) {
+          allCoords.push([item.x, item.y])
+          allChapters.push(pt.chapter)
+        }
       }
 
-      if (coords.length < 2) return
+      // Resolve visible trajectory point coordinates
+      const visPts = trajectoryPoints ?? []
+      const visCoords: Point[] = []
+      for (const pt of visPts) {
+        const item = layoutMap.get(pt.location)
+        if (item) visCoords.push([item.x, item.y])
+      }
 
-      // Draw line
+      if (allCoords.length < 2) return
+
       const lineGen = d3Shape
         .line<Point>()
         .x((d) => d[0])
         .y((d) => d[1])
         .curve(d3Shape.curveCardinal.tension(0.5))
 
+      // Background path: full trajectory, dashed, low opacity
       trajG
         .append("path")
-        .attr("d", lineGen(coords)!)
+        .attr("class", "traj-bg")
+        .attr("d", lineGen(allCoords)!)
         .attr("fill", "none")
         .attr("stroke", "#f59e0b")
         .attr("stroke-width", 3)
-        .attr("stroke-opacity", 0.85)
+        .attr("stroke-opacity", 0.2)
+        .attr("stroke-dasharray", "8,6")
         .attr("stroke-linecap", "round")
         .attr("stroke-linejoin", "round")
 
-      // Draw points
-      for (const coord of coords) {
+      // Foreground path: visible trajectory, solid, high opacity
+      if (visCoords.length >= 2) {
+        trajG
+          .append("path")
+          .attr("class", "traj-fg")
+          .attr("d", lineGen(visCoords)!)
+          .attr("fill", "none")
+          .attr("stroke", "#f59e0b")
+          .attr("stroke-width", 3)
+          .attr("stroke-opacity", 0.85)
+          .attr("stroke-linecap", "round")
+          .attr("stroke-linejoin", "round")
+      }
+
+      // Draw waypoint circles + chapter labels
+      // Track which locations have been labeled to avoid duplicate labels at same location
+      const labeledLocs = new Set<string>()
+      for (let i = 0; i < allCoords.length; i++) {
+        const coord = allCoords[i]
+        const pt = allPts[i]
+        const isVisible = i < visPts.length
+        const isCurrent = isPlaying && i === (currentPlayIndex ?? 0)
+        const stay = stayDurations?.get(pt.location) ?? 0
+        const baseR = Math.min(4 + stay * 1.5, 12)
+
+        // Waypoint circle
         trajG
           .append("circle")
+          .attr("class", "traj-dot")
           .attr("cx", coord[0])
           .attr("cy", coord[1])
-          .attr("r", 5)
-          .attr("fill", "#d97706")
-          .attr("stroke", "#fff")
+          .attr("r", baseR)
+          .attr("data-base-r", baseR)
+          .attr("fill", isVisible ? "#d97706" : "#f59e0b")
+          .attr("fill-opacity", isVisible ? 1 : 0.25)
+          .attr("stroke", isVisible ? "#fff" : "#f59e0b")
           .attr("stroke-width", 1.5)
+          .attr("stroke-opacity", isVisible ? 1 : 0.3)
+          .append("title")
+          .text(stay > 1 ? `${pt.location} — 停留 ${stay} 章` : pt.location)
+
+        // Chapter label (only first occurrence at each location)
+        if (!labeledLocs.has(pt.location)) {
+          labeledLocs.add(pt.location)
+          trajG
+            .append("text")
+            .attr("class", "traj-label")
+            .attr("x", coord[0])
+            .attr("y", coord[1] - baseR - 3)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 9)
+            .attr("fill", darkBg ? "#fbbf24" : "#92400e")
+            .attr("fill-opacity", isVisible ? 0.7 : 0.2)
+            .style("pointer-events", "none")
+            .text(`Ch.${allChapters[i]}`)
+        }
+
+        // Pulse marker at current playback position
+        if (isCurrent) {
+          // Inner glow circle
+          trajG
+            .append("circle")
+            .attr("class", "traj-pulse-inner")
+            .attr("cx", coord[0])
+            .attr("cy", coord[1])
+            .attr("r", 6)
+            .attr("data-base-r", 6)
+            .attr("fill", "#f59e0b")
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2)
+
+          // Outer pulsing ring
+          const pulseOuter = trajG
+            .append("circle")
+            .attr("class", "traj-pulse-outer")
+            .attr("cx", coord[0])
+            .attr("cy", coord[1])
+            .attr("r", 14)
+            .attr("data-base-r", 14)
+            .attr("fill", "none")
+            .attr("stroke", "#f59e0b")
+            .attr("stroke-width", 2)
+
+          // SVG animate for radius pulse
+          pulseOuter
+            .append("animate")
+            .attr("attributeName", "r")
+            .attr("values", "10;18;10")
+            .attr("dur", "1.5s")
+            .attr("repeatCount", "indefinite")
+
+          // SVG animate for opacity pulse
+          pulseOuter
+            .append("animate")
+            .attr("attributeName", "opacity")
+            .attr("values", "0.6;0.1;0.6")
+            .attr("dur", "1.5s")
+            .attr("repeatCount", "indefinite")
+        }
       }
-    }, [mapReady, trajectoryPoints, layoutMap])
+    }, [mapReady, trajectoryPoints, allTrajectoryPoints, layoutMap, darkBg, stayDurations, isPlaying, currentPlayIndex])
+
+    // ── Auto-pan to follow playback ────────────────────
+    useEffect(() => {
+      if (!isPlaying || !svgRef.current || !zoomRef.current) return
+      if (!trajectoryPoints || trajectoryPoints.length === 0) return
+      const idx = currentPlayIndex ?? 0
+      if (idx >= trajectoryPoints.length) return
+
+      const pt = trajectoryPoints[idx]
+      const item = layoutMap.get(pt.location)
+      if (!item) return
+
+      const svgNode = svgRef.current
+      const svgW = svgNode.clientWidth || 800
+      const svgH = svgNode.clientHeight || 600
+      const t = transformRef.current
+
+      // Current screen position of the trajectory point
+      const screenX = item.x * t.k + t.x
+      const screenY = item.y * t.k + t.y
+
+      // If the point is within 20% of viewport edge, pan to center it
+      const marginX = svgW * 0.2
+      const marginY = svgH * 0.2
+      if (
+        screenX < marginX || screenX > svgW - marginX ||
+        screenY < marginY || screenY > svgH - marginY
+      ) {
+        const svg = d3Selection.select(svgNode)
+        svg
+          .transition()
+          .duration(300)
+          .call(
+            zoomRef.current.transform,
+            d3Zoom.zoomIdentity
+              .translate(svgW / 2 - item.x * t.k, svgH / 2 - item.y * t.k)
+              .scale(t.k),
+          )
+      }
+    }, [isPlaying, currentPlayIndex, trajectoryPoints, layoutMap])
 
     // ── Render overview dots ─────────────────────────
     useEffect(() => {
@@ -1342,6 +1598,19 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         g.attr("transform", `translate(${x},${y}) scale(${1 / k}) translate(${-x},${-y})`)
       })
 
+      // Trajectory counter-scale: keep stroke-width, circle radius, and labels constant
+      svg.selectAll<SVGPathElement, unknown>(".traj-bg, .traj-fg")
+        .attr("stroke-width", 3 / k)
+      svg.selectAll<SVGCircleElement, unknown>(".traj-dot, .traj-pulse-inner, .traj-pulse-outer")
+        .each(function () {
+          const el = d3Selection.select(this)
+          const baseR = parseFloat(el.attr("data-base-r") ?? "5")
+          el.attr("r", baseR / k)
+            .attr("stroke-width", (el.classed("traj-pulse-inner") ? 2 : 1.5) / k)
+        })
+      svg.selectAll<SVGTextElement, unknown>(".traj-label")
+        .attr("font-size", 9 / k)
+
       // Collision detection — build screen-space label rects
       const labelRects: LabelRect[] = []
       svg.selectAll<SVGGElement, unknown>(".location-item").each(function () {
@@ -1363,31 +1632,50 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const fontSize = TIER_TEXT_SIZE[tier] ?? 12
         const iconSize = TIER_ICON_SIZE[tier] ?? 20
 
-        // Estimate label width in screen pixels (Chinese chars ~= fontSize each)
+        // Estimate label dimensions in screen pixels
         const labelW = name.length * fontSize + 4
         const labelH = fontSize + 4
-        // Label position in screen-space (counter-scaled, so fontSize stays constant)
-        const labelY = y + (iconSize / 2 + fontSize * 0.9) / k
-        const screenX = x * k
-        const screenY = labelY * k
+        const iconScreenX = x * k
+        const iconScreenY = y * k
 
+        // Default position (bottom) for the initial rect — computeLabelLayout will try all anchors
+        const defaultDy = iconSize / 2 + fontSize * 0.9
         labelRects.push({
-          x: screenX - labelW / 2,
-          y: screenY - labelH / 2,
+          x: iconScreenX - labelW / 2,
+          y: iconScreenY + defaultDy - labelH / 2,
           w: labelW,
           h: labelH,
           name,
           priority: tierW * 1000 + mention,
+          iconScreenX,
+          iconScreenY,
+          labelW,
+          labelH,
+          iconSize,
+          fontSize,
         })
       })
 
-      const visibleLabels = computeLabelCollisions(labelRects)
+      const labelLayout = computeLabelLayout(labelRects)
 
-      // Apply visibility to labels
+      // Apply label placement (position + text-anchor + visibility)
       svg.selectAll<SVGGElement, unknown>(".location-item").each(function () {
         const g = d3Selection.select(this)
         const name = g.attr("data-name") ?? ""
-        g.select(".loc-label").style("display", visibleLabels.has(name) ? "" : "none")
+        const label = g.select(".loc-label")
+        const placement = labelLayout.get(name)
+        if (placement) {
+          const x = parseFloat(g.attr("data-x"))
+          const y = parseFloat(g.attr("data-y"))
+          // Convert screen-space offset to world-space (labels are counter-scaled by 1/k)
+          label
+            .attr("x", x + placement.offsetX / k)
+            .attr("y", y + placement.offsetY / k)
+            .attr("text-anchor", placement.textAnchor)
+            .style("display", "")
+        } else {
+          label.style("display", "none")
+        }
       })
 
       // Territory labels fade at high zoom
@@ -1446,7 +1734,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .call(zoomRef.current.transform, transform)
     }, [layout])
 
-    useImperativeHandle(ref, () => ({ fitToLocations }), [fitToLocations])
+    useImperativeHandle(ref, () => ({
+      fitToLocations,
+      getSvgElement: () => svgRef.current,
+    }), [fitToLocations])
 
     // Auto-fit when layout changes
     useEffect(() => {
