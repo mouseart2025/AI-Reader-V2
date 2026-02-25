@@ -278,6 +278,14 @@ async def init_db() -> None:
             )
         except Exception:
             pass
+        # Migration: add error tracking columns to chapters for failure diagnosis
+        for col, col_type in [("analysis_error", "TEXT"), ("error_type", "TEXT")]:
+            try:
+                await conn.execute(
+                    f"ALTER TABLE chapters ADD COLUMN {col} {col_type}"
+                )
+            except Exception:
+                pass  # Column already exists
         # Migration: backfill analysis_tasks for sample novels that were
         # imported without a completed task record (fixes AnalysisPage status)
         try:

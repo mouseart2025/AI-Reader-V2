@@ -760,10 +760,35 @@ export default function AnalysisPage() {
                   key={fc.chapter}
                   className="flex items-center justify-between rounded-md border p-2 text-sm"
                 >
-                  <span>第 {fc.chapter} 章</span>
-                  <span className="text-muted-foreground max-w-[60%] truncate text-xs">
-                    {fc.error}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0">第 {fc.chapter} 章</span>
+                    {fc.title && (
+                      <span className="text-muted-foreground truncate text-xs">{fc.title}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {fc.error_type && (
+                      <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                        fc.error_type === "content_policy"
+                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                          : fc.error_type === "timeout"
+                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      }`}>
+                        {fc.error_type === "content_policy" ? "内容审核"
+                          : fc.error_type === "timeout" ? "超时"
+                          : fc.error_type === "parse_error" ? "解析失败"
+                          : fc.error_type === "http_error" ? "HTTP错误"
+                          : "未知错误"}
+                      </span>
+                    )}
+                    <span
+                      className="text-muted-foreground max-w-[200px] truncate text-xs"
+                      title={fc.error}
+                    >
+                      {fc.error}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>

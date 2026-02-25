@@ -217,7 +217,15 @@ async def get_latest_task(novel_id: str):
         service = get_analysis_service()
         timing = service.get_live_timing(novel_id)
 
-    return {"task": task, "stats": stats, "quality": quality, "timing": timing}
+    failed_chapters = await analysis_task_store.get_failed_chapters(novel_id)
+
+    return {
+        "task": task,
+        "stats": stats,
+        "quality": quality,
+        "timing": timing,
+        "failed_chapters": failed_chapters,
+    }
 
 
 @router.post("/novels/{novel_id}/analysis/retry-failed")

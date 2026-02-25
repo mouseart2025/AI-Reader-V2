@@ -256,6 +256,13 @@ export interface AnalysisQualitySummary {
   total_segments: number
 }
 
+export interface FailedChapter {
+  chapter_num: number
+  title: string
+  analysis_error: string | null
+  error_type: "timeout" | "content_policy" | "http_error" | "parse_error" | "unknown" | null
+}
+
 export interface AnalysisTask {
   id: string
   novel_id: string
