@@ -2171,6 +2171,110 @@ def _biome_for_type(loc_type: str) -> tuple[int, int, int]:
     return _DEFAULT_BIOME
 
 
+# ── Whittaker biome matrix (elevation × moisture → color) ────────────
+# 5×5 grid, rows = elevation (0.0 → 1.0), cols = moisture (0.0 → 1.0)
+_WHITTAKER_GRID: list[list[tuple[int, int, int]]] = [
+    # e=0.0  (lowland)
+    [(170, 165, 130), (150, 160, 123), (130, 155, 115), (115, 138, 105), (100, 120, 95)],
+    # e=0.25
+    [(185, 170, 138), (155, 163, 125), (135, 158, 118), (118, 142, 108), (105, 125, 98)],
+    # e=0.5
+    [(190, 170, 140), (168, 168, 130), (145, 165, 120), (128, 153, 110), (110, 140, 100)],
+    # e=0.75
+    [(165, 145, 125), (130, 133, 108), (112, 127, 99), (95, 120, 90), (95, 120, 90)],
+    # e=1.0  (peak)
+    [(250, 248, 245), (250, 248, 245), (250, 248, 245), (250, 248, 245), (250, 248, 245)],
+]
+
+
+def _biome_color_at(elevation: float, moisture: float) -> tuple[int, int, int]:
+    """Whittaker matrix lookup with bilinear interpolation for smooth biome transitions."""
+    e = max(0.0, min(1.0, elevation)) * 4  # scale to grid range 0-4
+    m = max(0.0, min(1.0, moisture)) * 4
+    ei = min(3, int(e))
+    mi = min(3, int(m))
+    ef = e - ei  # fractional part
+    mf = m - mi
+    c00 = _WHITTAKER_GRID[ei][mi]
+    c01 = _WHITTAKER_GRID[ei][mi + 1]
+    c10 = _WHITTAKER_GRID[ei + 1][mi]
+    c11 = _WHITTAKER_GRID[ei + 1][mi + 1]
+    r = int(c00[0] * (1 - ef) * (1 - mf) + c01[0] * (1 - ef) * mf +
+            c10[0] * ef * (1 - mf) + c11[0] * ef * mf)
+    g = int(c00[1] * (1 - ef) * (1 - mf) + c01[1] * (1 - ef) * mf +
+            c10[1] * ef * (1 - mf) + c11[1] * ef * mf)
+    b = int(c00[2] * (1 - ef) * (1 - mf) + c01[2] * (1 - ef) * mf +
+            c10[2] * ef * (1 - mf) + c11[2] * ef * mf)
+    return (r, g, b)
+
+
+def _elevation_at_img(
+    px: float, py: float, noise_gen, img_w: int, img_h: int,
+    mountain_pts: list[tuple[float, float]],
+    water_pts: list[tuple[float, float]],
+) -> float:
+    """Compute elevation at image-space coordinates. Returns 0-1."""
+    nx, ny = px / img_w, py / img_h
+    e = noise_gen.noise2(nx * 3, ny * 3) * 0.5 + 0.5
+    e += noise_gen.noise2(nx * 7, ny * 7) * 0.15
+    radius = max(img_w, img_h) * 0.15
+    for mx, my in mountain_pts:
+        d = math.hypot(px - mx, py - my)
+        if d < radius:
+            e += 0.25 * (1 - d / radius)
+    for wx, wy in water_pts:
+        d = math.hypot(px - wx, py - wy)
+        if d < radius:
+            e -= 0.2 * (1 - d / radius)
+    return max(0.0, min(1.0, e))
+
+
+def _moisture_at_img(
+    px: float, py: float, moisture_gen, img_w: int, img_h: int,
+    mountain_pts: list[tuple[float, float]],
+    water_pts: list[tuple[float, float]],
+) -> float:
+    """Compute moisture at image-space coordinates. Returns 0-1."""
+    nx, ny = px / img_w, py / img_h
+    m = moisture_gen.noise2(nx * 3, ny * 3) * 0.5 + 0.5
+    m += moisture_gen.noise2(nx * 6, ny * 6) * 0.15
+    w_radius = max(img_w, img_h) * 0.15
+    for wx, wy in water_pts:
+        d = math.hypot(px - wx, py - wy)
+        if d < w_radius:
+            m += 0.3 * (1 - d / w_radius)
+    m_radius = max(img_w, img_h) * 0.12
+    for mx, my in mountain_pts:
+        d = math.hypot(px - mx, py - my)
+        if d < m_radius:
+            m -= 0.15 * (1 - d / m_radius)
+    return max(0.0, min(1.0, m))
+
+
+def _lloyd_relax(
+    points: np.ndarray, w: int, h: int,
+    n_fixed: int = 0, iterations: int = 2, max_shift: float = 30.0,
+) -> np.ndarray:
+    """Lloyd relaxation. First n_fixed points are clamped to ±max_shift total movement."""
+    pts = points.copy()
+    original_fixed = points[:n_fixed].copy()
+    for _ in range(iterations):
+        vor = Voronoi(pts)
+        for i, region_idx in enumerate(vor.point_region):
+            region = vor.regions[region_idx]
+            if -1 in region or len(region) == 0:
+                continue
+            verts = vor.vertices[region]
+            centroid = verts.mean(axis=0)
+            if i < n_fixed:
+                total_delta = centroid - original_fixed[i]
+                total_delta = np.clip(total_delta, -max_shift, max_shift)
+                pts[i] = original_fixed[i] + total_delta
+            else:
+                pts[i] = centroid
+    return np.clip(pts, [10, 10], [w - 10, h - 10])
+
+
 def generate_terrain(
     locations: list[dict],
     layout: dict[str, tuple[float, float]],
@@ -2207,28 +2311,63 @@ def generate_terrain(
     # Scale layout coordinates from canvas to image
     scale_x = img_w / canvas_width
     scale_y = img_h / canvas_height
-    points = []
-    biome_colors = []
+    points: list[list[float]] = []
+    mountain_img_pts: list[tuple[float, float]] = []
+    water_img_pts: list[tuple[float, float]] = []
+
+    _MOUNTAIN_SUFFIXES = ("山", "峰", "岭", "崖", "岩")
+    _WATER_SUFFIXES = ("河", "湖", "海", "泉", "潭", "溪", "池")
 
     for loc in locations:
         name = loc["name"]
         if name not in layout:
             continue
         x, y = layout[name]
-        # Flip y: canvas y=0 is bottom, image y=0 is top
         px = x * scale_x
         py = (canvas_height - y) * scale_y
         points.append([px, py])
-        biome_colors.append(_biome_for_type(loc.get("type", "")))
+        loc_type = loc.get("type", "")
+        if any(s in name or s in loc_type for s in _MOUNTAIN_SUFFIXES):
+            mountain_img_pts.append((px, py))
+        if any(s in name or s in loc_type for s in _WATER_SUFFIXES):
+            water_img_pts.append((px, py))
 
     if len(points) < 2:
         return None
 
-    point_arr = np.array(points, dtype=np.float64)  # (N, 2)
-    biome_arr = np.array(biome_colors, dtype=np.uint8)  # (N, 3)
+    n_locations = len(points)
 
-    # Generate noise field for boundary displacement (vectorized via opensimplex)
+    # Add random fill points to reach max(n_locations, 30) for uniform Voronoi cells
+    n_fill = max(0, 30 - n_locations)
+    if n_fill > 0:
+        fill_rng = np.random.default_rng(hash(novel_id) % (2**31) + 123)
+        for _ in range(n_fill):
+            points.append([
+                float(fill_rng.uniform(20, img_w - 20)),
+                float(fill_rng.uniform(20, img_h - 20)),
+            ])
+
+    point_arr = np.array(points, dtype=np.float64)
+
+    # Lloyd relaxation: 2 iterations for more regular cell shapes
+    if len(point_arr) >= 4:
+        point_arr = _lloyd_relax(
+            point_arr, img_w, img_h,
+            n_fixed=n_locations, iterations=2, max_shift=30.0,
+        )
+
+    # Compute biome color per seed point via Whittaker matrix
     noise_gen = OpenSimplex(seed=hash(novel_id) % (2**31))
+    moisture_gen = OpenSimplex(seed=hash(novel_id + "moisture") % (2**31))
+
+    biome_colors: list[tuple[int, int, int]] = []
+    for i in range(len(point_arr)):
+        px, py = float(point_arr[i, 0]), float(point_arr[i, 1])
+        elev = _elevation_at_img(px, py, noise_gen, img_w, img_h, mountain_img_pts, water_img_pts)
+        moist = _moisture_at_img(px, py, moisture_gen, img_w, img_h, mountain_img_pts, water_img_pts)
+        biome_colors.append(_biome_color_at(elev, moist))
+
+    biome_arr = np.array(biome_colors, dtype=np.uint8)
 
     # Create coordinate grids
     ys, xs = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
@@ -2475,3 +2614,149 @@ def place_unresolved_near_neighbors(
         orphan_idx += 1
 
     return result
+
+
+# ── River network generation ────────────────────────────────────────
+
+_WATER_ICONS = {"water", "island"}
+_MOUNTAIN_ICONS = {"mountain"}
+
+
+def _trace_river(
+    sx: float, sy: float,
+    elevation_fn,
+    wiggle_gen,
+    canvas_w: int, canvas_h: int,
+    step: int = 20,
+    max_steps: int = 200,
+) -> list[tuple[float, float]]:
+    """Trace a single river path via gradient descent with lateral wiggle."""
+    path = [(sx, sy)]
+    x, y = sx, sy
+    for i in range(max_steps):
+        cur_e = elevation_fn(x, y)
+        best_x, best_y, best_e = x, y, cur_e
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1),
+                        (-1, -1), (1, 1), (-1, 1), (1, -1)]:
+            nx, ny = x + dx * step, y + dy * step
+            if nx < 10 or nx > canvas_w - 10 or ny < 10 or ny > canvas_h - 10:
+                continue
+            e = elevation_fn(nx, ny)
+            if e < best_e:
+                best_x, best_y, best_e = nx, ny, e
+        if best_x == x and best_y == y:
+            break  # local minimum
+        # Lateral wiggle perpendicular to flow direction
+        fx, fy = best_x - x, best_y - y
+        length = max(0.1, math.hypot(fx, fy))
+        perp_x, perp_y = -fy / length, fx / length
+        wiggle = wiggle_gen.noise2(best_x * 0.01, best_y * 0.01) * 15
+        new_x = max(10, min(canvas_w - 10, best_x + wiggle * perp_x))
+        new_y = max(10, min(canvas_h - 10, best_y + wiggle * perp_y))
+        path.append((new_x, new_y))
+        x, y = best_x, best_y  # gradient position (unwiggled) for next step
+    return path
+
+
+def generate_rivers(
+    locations: list[dict],
+    layout_data: list[dict],
+    novel_id: str,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
+) -> list[dict]:
+    """Generate river paths from high-elevation sources toward low areas.
+
+    Returns list of ``{"points": [[x, y], ...], "width": float}`` dicts.
+    Returns empty list when no water/mountain locations exist (AC-9).
+    """
+    from opensimplex import OpenSimplex
+
+    # Build coord lookup from layout
+    coords: dict[str, tuple[float, float]] = {}
+    for item in layout_data:
+        coords[item["name"]] = (item["x"], item["y"])
+
+    # Classify locations by icon
+    mountain_pts: list[tuple[float, float]] = []
+    water_pts: list[tuple[float, float]] = []
+    for loc in locations:
+        name = loc.get("name", "")
+        icon = loc.get("icon", "generic")
+        pt = coords.get(name)
+        if not pt:
+            continue
+        if icon in _MOUNTAIN_ICONS:
+            mountain_pts.append(pt)
+        elif icon in _WATER_ICONS:
+            water_pts.append(pt)
+
+    # AC-9: skip if no relevant terrain features
+    if not mountain_pts and not water_pts:
+        return []
+
+    # Deterministic noise generators (offset from terrain seed)
+    base_seed = hash(novel_id) % (2**31)
+    elev_noise = OpenSimplex(seed=base_seed + 42)
+    wiggle_noise = OpenSimplex(seed=base_seed + 99)
+
+    # ── Elevation field ──
+    def elevation_at(x: float, y: float) -> float:
+        nx, ny = x / canvas_width, y / canvas_height
+        # Base terrain: two-octave noise
+        e = elev_noise.noise2(nx * 3, ny * 3) * 0.5 + 0.5
+        e += elev_noise.noise2(nx * 7, ny * 7) * 0.15
+        # Mountain attraction: raise elevation near mountains
+        for mx, my in mountain_pts:
+            d = math.hypot(x - mx, y - my)
+            if d < 300:
+                e += 0.35 * max(0, 1 - d / 300)
+        # Water attraction: lower elevation near water bodies
+        for wx, wy in water_pts:
+            d = math.hypot(x - wx, y - wy)
+            if d < 300:
+                e -= 0.35 * max(0, 1 - d / 300)
+        return e
+
+    # ── Identify river sources ──
+    sources: list[tuple[float, float]] = []
+    if mountain_pts:
+        for mx, my in mountain_pts:
+            angle = elev_noise.noise2(mx * 0.1, my * 0.1) * math.pi
+            sx = mx + 40 * math.cos(angle)
+            sy = my + 40 * math.sin(angle)
+            sx = max(30, min(canvas_width - 30, sx))
+            sy = max(30, min(canvas_height - 30, sy))
+            sources.append((sx, sy))
+    else:
+        # No mountains: sample highest-elevation points
+        rng = np.random.default_rng(base_seed + 7)
+        for _ in range(5):
+            best, best_e = (canvas_width / 2, canvas_height / 2), -999.0
+            for _ in range(30):
+                cx = float(rng.uniform(50, canvas_width - 50))
+                cy = float(rng.uniform(50, canvas_height - 50))
+                e = elevation_at(cx, cy)
+                if e > best_e:
+                    best, best_e = (cx, cy), e
+            sources.append(best)
+
+    # Limit to 3-8 rivers
+    sources = sources[:8]
+
+    # ── Trace rivers ──
+    rivers: list[dict] = []
+    for sx, sy in sources:
+        path = _trace_river(
+            sx, sy, elevation_at, wiggle_noise,
+            canvas_width, canvas_height,
+        )
+        if len(path) < 5:
+            continue
+        width = min(3.0, max(1.0, len(path) / 30))
+        rivers.append({
+            "points": [[round(px, 1), round(py, 1)] for px, py in path],
+            "width": round(width, 1),
+        })
+
+    return rivers

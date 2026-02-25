@@ -22,6 +22,7 @@ from src.services.map_layout_service import (
     _layout_regions,
     compute_chapter_hash,
     compute_layered_layout,
+    generate_rivers,
     generate_terrain,
     generate_voronoi_boundaries,
     layout_to_list,
@@ -793,6 +794,14 @@ async def get_map_data(
         _ws_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
     ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
 
+    # Generate river network (constraint mode with 3+ locations, non-geographic)
+    rivers: list[dict] = []
+    if layout_mode == "constraint" and len(layout_data) >= 3 and not layer_id:
+        rivers = generate_rivers(
+            locations, layout_data, novel_id,
+            canvas_width=_resp_cw, canvas_height=_resp_ch,
+        )
+
     result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
@@ -800,6 +809,7 @@ async def get_map_data(
         "layout": layout_data,
         "layout_mode": layout_mode,
         "terrain_url": terrain_url if not layer_id else None,
+        "rivers": rivers,
         "region_boundaries": region_boundaries,
         "portals": portals_response,
         "revealed_location_names": revealed_names,
