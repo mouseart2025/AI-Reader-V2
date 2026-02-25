@@ -62,6 +62,11 @@ export default function MapPage() {
   // Conflict markers toggle (off by default)
   const [showConflicts, setShowConflicts] = useState(false)
 
+  // Mention count filter
+  const [minMentions, setMinMentions] = useState(1)
+  const [maxMentionCount, setMaxMentionCount] = useState(1)
+  const [debouncedMinMentions, setDebouncedMinMentions] = useState(1)
+
   // Right panel tab
   const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
 
@@ -115,6 +120,12 @@ export default function MapPage() {
           setLayers(data.world_structure.layers)
         }
         setMapData(data)
+        // Apply backend-suggested mention filter defaults
+        const suggested = data.suggested_min_mentions ?? 1
+        const maxMC = data.max_mention_count ?? 1
+        setMinMentions(suggested)
+        setDebouncedMinMentions(suggested)
+        setMaxMentionCount(maxMC)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -151,6 +162,12 @@ export default function MapPage() {
     }
   }, [loading])
 
+  // Debounce mention filter (150ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMinMentions(minMentions), 150)
+    return () => clearTimeout(t)
+  }, [minMentions])
+
   const locations = mapData?.locations ?? []
   const trajectories = mapData?.trajectories ?? {}
   const layout = mapData?.layout ?? []
@@ -159,14 +176,26 @@ export default function MapPage() {
   const regionBoundaries = mapData?.region_boundaries
   const portals = mapData?.portals
 
+  // ── Mention count filtering ──────────────────────────────
+  const filteredLocations = useMemo(() => {
+    if (debouncedMinMentions <= 1) return locations
+    return locations.filter((l) => l.mention_count >= debouncedMinMentions)
+  }, [locations, debouncedMinMentions])
+
+  const filteredLayout = useMemo(() => {
+    if (debouncedMinMentions <= 1) return layout
+    const nameSet = new Set(filteredLocations.map((l) => l.name))
+    return layout.filter((item) => item.is_portal || nameSet.has(item.name))
+  }, [layout, filteredLocations, debouncedMinMentions])
+
   // ── Visible locations (fog of war: active) ────────────────
   const visibleLocationNames = useMemo(() => {
     const set = new Set<string>()
-    for (const loc of locations) {
+    for (const loc of filteredLocations) {
       set.add(loc.name)
     }
     return set
-  }, [locations])
+  }, [filteredLocations])
 
   // ── Revealed locations (fog of war: previously seen) ──────
   const revealedLocationNames = useMemo(() => {
@@ -375,49 +404,76 @@ export default function MapPage() {
             </div>
           )}
 
-          {/* Conflict markers toggle */}
-          {conflictCount > 0 && layoutMode !== "geographic" && (
-            <button
-              onClick={() => setShowConflicts((v) => !v)}
-              className={cn(
-                "absolute bottom-24 left-3 z-10 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
-                showConflicts
-                  ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
-                  : "bg-background/90 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className={cn(
-                "inline-block size-2 rounded-full",
-                showConflicts ? "bg-red-500" : "bg-muted-foreground/40",
-              )} />
-              冲突 {conflictCount}
-            </button>
-          )}
-
-          {/* Legend (hide in geographic mode — icons are fantasy-specific) */}
-          {layoutMode !== "geographic" && <div className="absolute bottom-10 left-3 z-10 rounded-lg border bg-background/90 p-2">
-            <button
-              onClick={() => setLegendOpen((v) => !v)}
-              className="text-muted-foreground flex items-center gap-1 text-[10px] hover:text-foreground"
-            >
-              图例 {legendOpen ? "▾" : "▸"}
-            </button>
-            {legendOpen && (
-              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                {ICON_LEGEND.filter((item) => usedIcons.has(item.icon)).map((item) => (
-                  <div key={item.icon} className="flex items-center gap-1.5 text-xs">
-                    <img
-                      src={`/map-icons/${item.icon}.svg`}
-                      alt={item.label}
-                      className="size-3.5 opacity-60"
-                      style={{ filter: "invert(0.4)" }}
-                    />
-                    {item.label}
-                  </div>
-                ))}
+          {/* Bottom-left control stack */}
+          <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1.5">
+            {/* Mention count filter slider */}
+            {maxMentionCount > 1 && (
+              <div className="rounded-lg border bg-background/90 px-2.5 py-2 w-44">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-muted-foreground text-[11px]">
+                    最少提及: {minMentions}
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    {filteredLocations.length} / {locations.length}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={Math.min(maxMentionCount, 30)}
+                  value={minMentions}
+                  onChange={(e) => setMinMentions(Number(e.target.value))}
+                  className="w-full h-1 accent-primary"
+                />
               </div>
             )}
-          </div>}
+
+            {/* Conflict markers toggle */}
+            {conflictCount > 0 && layoutMode !== "geographic" && (
+              <button
+                onClick={() => setShowConflicts((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
+                  showConflicts
+                    ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                    : "bg-background/90 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span className={cn(
+                  "inline-block size-2 rounded-full",
+                  showConflicts ? "bg-red-500" : "bg-muted-foreground/40",
+                )} />
+                冲突 {conflictCount}
+              </button>
+            )}
+
+            {/* Legend (hide in geographic mode — icons are fantasy-specific) */}
+            {layoutMode !== "geographic" && (
+              <div className="rounded-lg border bg-background/90 p-2">
+                <button
+                  onClick={() => setLegendOpen((v) => !v)}
+                  className="text-muted-foreground flex items-center gap-1 text-[10px] hover:text-foreground"
+                >
+                  图例 {legendOpen ? "▾" : "▸"}
+                </button>
+                {legendOpen && (
+                  <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                    {ICON_LEGEND.filter((item) => usedIcons.has(item.icon)).map((item) => (
+                      <div key={item.icon} className="flex items-center gap-1.5 text-xs">
+                        <img
+                          src={`/map-icons/${item.icon}.svg`}
+                          alt={item.label}
+                          className="size-3.5 opacity-60"
+                          style={{ filter: "invert(0.4)" }}
+                        />
+                        {item.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Toast / Progress */}
           {(toast || (rebuilding && rebuildProgress)) && (
@@ -447,7 +503,7 @@ export default function MapPage() {
           {!loading && locations.length > 0 && (
             layoutMode === "geographic" && mapData?.geo_coords && activeLayerId === "overworld" ? (
               <GeoMap
-                locations={locations}
+                locations={filteredLocations}
                 geoCoords={mapData.geo_coords}
                 trajectoryPoints={visibleTrajectory}
                 currentLocation={currentLocation}
@@ -461,8 +517,8 @@ export default function MapPage() {
             ) : (
               <NovelMap
                 ref={mapHandle}
-                locations={locations}
-                layout={layout}
+                locations={filteredLocations}
+                layout={filteredLayout}
                 layoutMode={layoutMode}
                 layerType={activeLayerType}
                 terrainUrl={terrainUrl}
