@@ -807,6 +807,8 @@ async def get_map_data(
         "canvas_size": {"width": _resp_cw, "height": _resp_ch},
         "geography_context": geo_context,
         "location_conflicts": location_conflicts,
+        "max_mention_count": max((l["mention_count"] for l in locations), default=1),
+        "suggested_min_mentions": 3 if len(locations) > 300 else (2 if len(locations) > 150 else 1),
     }
     if geo_coords_raw:
         # Apply user lat/lng overrides on top of auto-resolved coordinates

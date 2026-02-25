@@ -498,6 +498,8 @@ export interface MapData {
   geography_context?: GeographyChapter[]
   geo_coords?: Record<string, { lat: number; lng: number }>
   location_conflicts?: LocationConflict[]
+  max_mention_count?: number
+  suggested_min_mentions?: number
 }
 
 export interface GeographyEntry {
