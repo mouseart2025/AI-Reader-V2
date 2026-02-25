@@ -59,6 +59,9 @@ export default function MapPage() {
   // Legend state
   const [legendOpen, setLegendOpen] = useState(false)
 
+  // Conflict markers toggle (off by default)
+  const [showConflicts, setShowConflicts] = useState(false)
+
   // Right panel tab
   const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
 
@@ -171,6 +174,13 @@ export default function MapPage() {
     if (!names || names.length === 0) return undefined
     return new Set(names)
   }, [mapData?.revealed_location_names])
+
+  // ── Conflict count for toggle badge ──
+  const conflictCount = useMemo(() => {
+    const cs = mapData?.location_conflicts
+    if (!cs?.length) return 0
+    return new Set(cs.map((c) => c.entity)).size
+  }, [mapData?.location_conflicts])
 
   // ── Icons used in current data (for legend) ──
   const usedIcons = useMemo(() => {
@@ -365,6 +375,25 @@ export default function MapPage() {
             </div>
           )}
 
+          {/* Conflict markers toggle */}
+          {conflictCount > 0 && layoutMode !== "geographic" && (
+            <button
+              onClick={() => setShowConflicts((v) => !v)}
+              className={cn(
+                "absolute bottom-24 left-3 z-10 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
+                showConflicts
+                  ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                  : "bg-background/90 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span className={cn(
+                "inline-block size-2 rounded-full",
+                showConflicts ? "bg-red-500" : "bg-muted-foreground/40",
+              )} />
+              冲突 {conflictCount}
+            </button>
+          )}
+
           {/* Legend (hide in geographic mode — icons are fantasy-specific) */}
           {layoutMode !== "geographic" && <div className="absolute bottom-10 left-3 z-10 rounded-lg border bg-background/90 p-2">
             <button
@@ -446,7 +475,7 @@ export default function MapPage() {
                 canvasSize={mapData?.canvas_size}
                 spatialScale={mapData?.spatial_scale}
                 focusLocation={focusLocation}
-                locationConflicts={mapData?.location_conflicts}
+                locationConflicts={showConflicts ? mapData?.location_conflicts : undefined}
                 onLocationClick={handleLocationClick}
                 onLocationDragEnd={handleDragEnd}
                 onPortalClick={handlePortalClick}
