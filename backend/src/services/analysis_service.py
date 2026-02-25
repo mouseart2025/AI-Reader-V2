@@ -583,7 +583,7 @@ class AnalysisService:
                     novel_id, chapter_num, "failed",
                     error_msg=err_msg, error_type=err_type,
                 )
-                _failed_in_run.append(chapter)
+                _failed_in_run.append({**chapter, "error_type": err_type})
                 await manager.broadcast(novel_id, {
                     "type": "chapter_done",
                     "chapter": chapter_num,
@@ -602,7 +602,7 @@ class AnalysisService:
                     novel_id, chapter_num, "failed",
                     error_msg=err_msg, error_type=err_type,
                 )
-                _failed_in_run.append(chapter)
+                _failed_in_run.append({**chapter, "error_type": err_type})
                 await manager.broadcast(novel_id, {
                     "type": "chapter_done",
                     "chapter": chapter_num,
@@ -642,6 +642,10 @@ class AnalysisService:
             await self._broadcast_stage(novel_id, chapter_end, f"重试 {len(_failed_in_run)} 个失败章节")
             for retry_ch in _failed_in_run:
                 retry_num = retry_ch["chapter_number"]
+                # N28.3: content_policy chapters will always be rejected — skip retry
+                if retry_ch.get("error_type") == "content_policy":
+                    logger.info("Skipping retry for chapter %d: content_policy (will always be rejected)", retry_num)
+                    continue
                 retry_start = int(time.time() * 1000)
                 try:
                     _loc_parents = (
@@ -722,12 +726,20 @@ class AnalysisService:
                 if orphan_count >= 3:
                     from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
                     reviewer = LocationHierarchyReviewer()
-                    review_votes = await reviewer.review(
-                        location_tiers=world_agent.structure.location_tiers,
-                        current_parents=world_agent.structure.location_parents,
-                        scene_analysis=scene_analysis,
-                        novel_genre_hint=world_agent.structure.novel_genre_hint,
-                    )
+                    try:
+                        review_votes = await asyncio.wait_for(
+                            reviewer.review(
+                                location_tiers=world_agent.structure.location_tiers,
+                                current_parents=world_agent.structure.location_parents,
+                                scene_analysis=scene_analysis,
+                                novel_genre_hint=world_agent.structure.novel_genre_hint,
+                            ),
+                            timeout=60.0,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning("Post-analysis LLM hierarchy review timed out (>60s), skipping")
+                        await self._broadcast_stage(novel_id, chapter_end, "地点层级优化超时，已跳过")
+                        review_votes = None
                     if review_votes:
                         world_agent.inject_external_votes(review_votes)
 
