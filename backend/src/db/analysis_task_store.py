@@ -94,19 +94,44 @@ async def update_task_progress(task_id: str, current_chapter: int) -> None:
 
 
 async def update_chapter_analysis_status(
-    novel_id: str, chapter_num: int, status: str
+    novel_id: str,
+    chapter_num: int,
+    status: str,
+    error_msg: str | None = None,
+    error_type: str | None = None,
 ) -> None:
-    """Update chapters.analysis_status for a specific chapter."""
+    """Update chapters.analysis_status (and optionally error info) for a chapter."""
     conn = await get_connection()
     try:
         await conn.execute(
             """
-            UPDATE chapters SET analysis_status = ?, analyzed_at = datetime('now')
+            UPDATE chapters
+            SET analysis_status = ?, analyzed_at = datetime('now'),
+                analysis_error = ?, error_type = ?
             WHERE novel_id = ? AND chapter_num = ?
             """,
-            (status, novel_id, chapter_num),
+            (status, error_msg, error_type, novel_id, chapter_num),
         )
         await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def get_failed_chapters(novel_id: str) -> list[dict]:
+    """Return chapters with analysis_status='failed', including error details."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            SELECT chapter_num, title, analysis_error, error_type
+            FROM chapters
+            WHERE novel_id = ? AND analysis_status = 'failed'
+            ORDER BY chapter_num
+            """,
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
     finally:
         await conn.close()
 

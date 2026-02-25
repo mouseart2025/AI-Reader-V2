@@ -14,7 +14,7 @@ from src.extraction.chapter_fact_extractor import ChapterFactExtractor, Extracti
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
-from src.infra.llm_client import LlmUsage, get_llm_client
+from src.infra.llm_client import LLMError, LLMParseError, LLMTimeoutError, LlmUsage, get_llm_client
 from src.models.world_structure import WorldStructure
 from src.services.cost_service import add_monthly_usage, get_monthly_budget, get_monthly_usage, get_pricing
 from src.services import embedding_service
@@ -23,6 +23,31 @@ from src.services.visualization_service import invalidate_layout_cache
 from src.services.world_structure_agent import WorldStructureAgent
 
 logger = logging.getLogger(__name__)
+
+# Keywords that indicate a content-policy rejection from cloud APIs
+_CONTENT_POLICY_SIGNALS = [
+    "content_filter", "content_policy", "sensitive_words", "sensitive",
+    "violated", "blocked", "safety", "moderation", "inappropriate",
+    "涉黄", "涉暴", "违规", "审核",
+]
+
+
+def _classify_error(exc: Exception) -> tuple[str, str]:
+    """Return (error_type, error_message) for a failed chapter exception.
+
+    error_type values: timeout | content_policy | http_error | parse_error | unknown
+    """
+    msg = str(exc)
+    if isinstance(exc, LLMTimeoutError):
+        return "timeout", msg[:500]
+    if isinstance(exc, LLMParseError):
+        return "parse_error", msg[:500]
+    if isinstance(exc, LLMError):
+        lower = msg.lower()
+        if any(kw in lower for kw in _CONTENT_POLICY_SIGNALS):
+            return "content_policy", msg[:500]
+        return "http_error", msg[:500]
+    return "unknown", msg[:500]
 
 
 class _ConnectionManager:
@@ -552,32 +577,38 @@ class AnalysisService:
                 elapsed_ms = int(time.time() * 1000) - start_ms
                 _chapter_times.append(elapsed_ms)
                 self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
-                logger.error("Extraction failed for chapter %d: %s", chapter_num, e)
+                err_type, err_msg = "parse_error", str(e)[:500]
+                logger.error("Extraction failed for chapter %d [%s]: %s", chapter_num, err_type, e)
                 await analysis_task_store.update_chapter_analysis_status(
-                    novel_id, chapter_num, "failed"
+                    novel_id, chapter_num, "failed",
+                    error_msg=err_msg, error_type=err_type,
                 )
                 _failed_in_run.append(chapter)
                 await manager.broadcast(novel_id, {
                     "type": "chapter_done",
                     "chapter": chapter_num,
                     "status": "failed",
-                    "error": str(e),
+                    "error": err_msg,
+                    "error_type": err_type,
                 })
 
             except Exception as e:
                 elapsed_ms = int(time.time() * 1000) - start_ms
                 _chapter_times.append(elapsed_ms)
                 self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
-                logger.error("Unexpected error for chapter %d: %s", chapter_num, e)
+                err_type, err_msg = _classify_error(e)
+                logger.error("Unexpected error for chapter %d [%s]: %s", chapter_num, err_type, e)
                 await analysis_task_store.update_chapter_analysis_status(
-                    novel_id, chapter_num, "failed"
+                    novel_id, chapter_num, "failed",
+                    error_msg=err_msg, error_type=err_type,
                 )
                 _failed_in_run.append(chapter)
                 await manager.broadcast(novel_id, {
                     "type": "chapter_done",
                     "chapter": chapter_num,
                     "status": "failed",
-                    "error": str(e),
+                    "error": err_msg,
+                    "error_type": err_type,
                 })
 
             # Update task progress
@@ -652,7 +683,12 @@ class AnalysisService:
                     })
                     logger.info("Auto-retry succeeded for chapter %d", retry_num)
                 except Exception as e:
-                    logger.warning("Auto-retry failed for chapter %d: %s", retry_num, e)
+                    err_type, err_msg = _classify_error(e)
+                    logger.warning("Auto-retry failed for chapter %d [%s]: %s", retry_num, err_type, e)
+                    await analysis_task_store.update_chapter_analysis_status(
+                        novel_id, retry_num, "failed",
+                        error_msg=err_msg, error_type=err_type,
+                    )
 
         # ── Persist timing summary ──
         if _chapter_times:

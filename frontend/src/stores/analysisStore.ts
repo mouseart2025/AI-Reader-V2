@@ -7,11 +7,14 @@ import type {
   AnalysisTask,
   AnalysisTimingStats,
   AnalysisWsMessage,
+  FailedChapter as ApiFailedChapter,
 } from "@/api/types"
 
 interface FailedChapter {
   chapter: number
+  title?: string
   error: string
+  error_type?: ApiFailedChapter["error_type"]
 }
 
 interface AnalysisState {
@@ -150,7 +153,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
             set({
               failedChapters: [
                 ...s.failedChapters,
-                { chapter: msg.chapter, error: msg.error ?? "Unknown error" },
+                {
+                  chapter: msg.chapter,
+                  error: msg.error ?? "Unknown error",
+                  error_type: (msg as { error_type?: FailedChapter["error_type"] }).error_type,
+                },
               ],
             })
           } else if (msg.status === "retry_success") {
@@ -251,9 +258,21 @@ async function _pollTaskStatus(
   set: (partial: Partial<AnalysisState>) => void,
 ) {
   try {
-    const { task, stats: latestStats, timing: latestTiming } = await getLatestAnalysisTask(novelId)
+    const { task, stats: latestStats, timing: latestTiming, failed_chapters } =
+      await getLatestAnalysisTask(novelId)
     if (task) {
       set({ task })
+      // Restore failed chapters from DB (survives page reload)
+      if (failed_chapters?.length) {
+        set({
+          failedChapters: failed_chapters.map((fc) => ({
+            chapter: fc.chapter_num,
+            title: fc.title,
+            error: fc.analysis_error ?? "未知错误",
+            error_type: fc.error_type,
+          })),
+        })
+      }
       // Update progress from task's current_chapter
       if (task.status === "running" || task.status === "paused") {
         const total = task.chapter_end - task.chapter_start + 1

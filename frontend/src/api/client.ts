@@ -541,7 +541,13 @@ export function getAnalysisTask(taskId: string): Promise<AnalysisTask> {
 
 export function getLatestAnalysisTask(
   novelId: string,
-): Promise<{ task: AnalysisTask | null; stats: AnalysisStats | null; quality: import("./types").AnalysisQualitySummary | null; timing: import("./types").AnalysisTimingStats | null }> {
+): Promise<{
+  task: AnalysisTask | null
+  stats: AnalysisStats | null
+  quality: import("./types").AnalysisQualitySummary | null
+  timing: import("./types").AnalysisTimingStats | null
+  failed_chapters: import("./types").FailedChapter[]
+}> {
   return apiFetch(`/novels/${novelId}/analysis/latest`)
 }
 
