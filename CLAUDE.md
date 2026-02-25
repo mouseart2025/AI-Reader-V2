@@ -112,6 +112,8 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 **Alias-based character merge**: After name deduplication, when character A explicitly lists character B as an alias and B exists as a separate character entry, B is merged into A (combining aliases, locations, abilities). This handles cases where the LLM correctly identifies alias relationships but also extracts both names as separate characters (e.g., 韩立 listing "二愣子" as alias while "二愣子" also exists as independent character).
 
+**Homonym location disambiguation** (N29.3): `_disambiguate_homonym_locations()` renames generic architectural names (夹道, 后门, 角门, etc.) by prepending the parent location with a middle-dot separator: `"夹道"` → `"大观园·夹道"`. Only applies to names in `HOMONYM_PRONE_NAMES` (shared set in `utils/location_names.py`, also used by `conflict_detector.py`) that have a non-empty parent. Runs as the final post-processing step in `validate()`, after all other validation is complete and parent fields are finalized. Also syncs the rename across `characters[].locations_in_chapter`, `events[].location`, `spatial_relationships[].source/target`, and `locations[].parent`. Only affects new analyses; existing data is not retroactively modified. Frontend substring search (`.includes()`) naturally matches original names within disambiguated names (searching "夹道" finds "大观园·夹道").
+
 ### Context Summary Builder — Coreference Resolution
 
 `ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations (sorted by mention frequency, not just recent window) with an explicit coreference instruction, enabling the LLM to resolve anaphoric references like "小城" → "青牛镇" instead of extracting them as separate locations. **Always injects entity dictionary and world structure** even for early chapters (chapter 1-2) with no preceding facts — the `build()` method no longer returns early when preceding chapter facts are empty, ensuring pre-scan results are available from the first chapter. Naming-source entities (from explicit "叫作/名叫" patterns) are displayed in a separate emphasized section at the top of the dictionary injection, ahead of frequency-sorted entries, to maximize visibility for small local models.
@@ -202,7 +204,15 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 
 ### Map Conflict Markers
 
-`get_map_data()` calls `_detect_location_conflicts()` (from `conflict_detector.py`) on loaded facts and includes `location_conflicts` array in the API response. Frontend `NovelMap.tsx` builds a `conflictIndex` (location name → descriptions), renders animated red dashed pulse rings on conflicting locations, and shows conflict details in the location popup.
+`get_map_data()` calls `_detect_location_conflicts()` (from `conflict_detector.py`) on loaded facts and includes `location_conflicts` array in the API response. Frontend `NovelMap.tsx` builds a `conflictIndex` (location name → descriptions), renders animated red dashed pulse rings on conflicting locations, and shows conflict details in the location popup. Conflict display is toggled via `showConflicts` state in `MapPage.tsx` (default off). `conflict_detector.py` filters out homonym-prone location names (`is_homonym_prone()` from shared `utils/location_names.py`) and requires minority parent to appear in ≥2 chapters (`_MIN_MINORITY_CHAPTERS`), reducing false-positive conflicts by ~85%.
+
+### Map Readability — Dense Location Optimization (N29)
+
+`MapPage.tsx` implements a two-stage filtering pipeline for maps with many locations (e.g., 红楼梦 760 locations):
+
+- **Mention count filter** (N29.1): `minMentions` slider filters locations by `mention_count`. Backend provides `max_mention_count` and `suggested_min_mentions` (3 for >300 locations, 2 for >150, 1 otherwise). 150ms debounce prevents excessive re-renders. Effect: 760→107 at threshold 3.
+- **Tier collapse/expand** (N29.2): `COLLAPSED_TIERS = {site, building}` hides lower-tier locations within their parent nodes by default. `expandedNodes` Set tracks which parents have been expanded. `collapsedChildCount` Map provides badge counts. `NovelMap.tsx` renders blue "+N" badges on parent nodes; double-click toggles expand/collapse. Expand All / Collapse All buttons in controls. Effect: 107→19 visible + 88 collapsed.
+- **Combined pipeline**: `useMemo` chains mention filter → tier collapse before passing `filteredLocations` + `filteredLayout` to NovelMap/GeoMap.
 
 ### Terrain Semantic Texture Layer
 
