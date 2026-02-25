@@ -241,9 +241,11 @@ export interface NovelMapProps {
   spatialScale?: string
   focusLocation?: string | null
   locationConflicts?: LocationConflict[]
+  collapsedChildCount?: Map<string, number>
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
   onPortalClick?: (targetLayerId: string) => void
+  onToggleExpand?: (parentName: string) => void
 }
 
 export interface NovelMapHandle {
@@ -280,9 +282,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       canvasSize: canvasSizeProp,
       focusLocation,
       locationConflicts,
+      collapsedChildCount,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
+      onToggleExpand,
     },
     ref,
   ) {
@@ -302,6 +306,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     onDragEndRef.current = onLocationDragEnd
     const onPortalClickRef = useRef(onPortalClick)
     onPortalClickRef.current = onPortalClick
+    const onToggleExpandRef = useRef(onToggleExpand)
+    onToggleExpandRef.current = onToggleExpand
 
     const canvasW = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
     const canvasH = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
@@ -1020,11 +1026,47 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .style("pointer-events", "none")
           .text(item.name)
 
-        // Click handler
+        // Click handler (single-click → entity card)
         locG.on("click", (event: MouseEvent) => {
           event.stopPropagation()
           onClickRef.current?.(item.name)
         })
+
+        // Double-click → toggle expand/collapse children
+        locG.on("dblclick", (event: MouseEvent) => {
+          event.stopPropagation()
+          event.preventDefault()
+          onToggleExpandRef.current?.(item.name)
+        })
+
+        // Collapsed-children badge ("+N")
+        const childN = collapsedChildCount?.get(item.name)
+        if (childN && childN > 0) {
+          const badgeR = 7
+          const bx = item.x + iconSize / 2 + 2
+          const by = item.y - iconSize / 2 - 2
+          locG
+            .append("circle")
+            .attr("class", "collapse-badge")
+            .attr("cx", bx)
+            .attr("cy", by)
+            .attr("r", badgeR)
+            .attr("fill", "#3b82f6")
+            .attr("stroke", darkBg ? "#1e293b" : "#ffffff")
+            .attr("stroke-width", 1.5)
+            .style("cursor", "pointer")
+          locG
+            .append("text")
+            .attr("class", "collapse-badge-text")
+            .attr("x", bx)
+            .attr("y", by + 3.5)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "8px")
+            .attr("font-weight", 700)
+            .attr("fill", "#ffffff")
+            .style("pointer-events", "none")
+            .text(`+${childN}`)
+        }
       }
 
       // Setup drag on location groups
@@ -1032,6 +1074,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     }, [
       mapReady, layout, locMap, locations, iconDefs,
       visibleLocationNames, revealedLocationNames, currentLocation, darkBg,
+      collapsedChildCount,
     ])
 
     // ── Setup drag behavior ──────────────────────────

@@ -67,6 +67,9 @@ export default function MapPage() {
   const [maxMentionCount, setMaxMentionCount] = useState(1)
   const [debouncedMinMentions, setDebouncedMinMentions] = useState(1)
 
+  // Tier collapse/expand
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+
   // Right panel tab
   const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
 
@@ -176,17 +179,36 @@ export default function MapPage() {
   const regionBoundaries = mapData?.region_boundaries
   const portals = mapData?.portals
 
-  // ── Mention count filtering ──────────────────────────────
-  const filteredLocations = useMemo(() => {
-    if (debouncedMinMentions <= 1) return locations
-    return locations.filter((l) => l.mention_count >= debouncedMinMentions)
-  }, [locations, debouncedMinMentions])
+  // ── Collapsed tiers ────────────────────────────────────
+  const COLLAPSED_TIERS = new Set(["site", "building"])
+
+  // ── Combined filtering: mention count → tier collapse ──
+  const { filteredLocations, collapsedChildCount } = useMemo(() => {
+    // Step 1: mention count filter
+    const afterMention = debouncedMinMentions <= 1
+      ? locations
+      : locations.filter((l) => l.mention_count >= debouncedMinMentions)
+
+    // Step 2: tier collapse — hide site/building unless parent is expanded
+    const result: typeof locations = []
+    const childCount = new Map<string, number>()
+
+    for (const loc of afterMention) {
+      const tier = loc.tier ?? "city"
+      if (COLLAPSED_TIERS.has(tier) && loc.parent && !expandedNodes.has(loc.parent)) {
+        // Collapsed — count it under its parent
+        childCount.set(loc.parent, (childCount.get(loc.parent) ?? 0) + 1)
+      } else {
+        result.push(loc)
+      }
+    }
+    return { filteredLocations: result, collapsedChildCount: childCount }
+  }, [locations, debouncedMinMentions, expandedNodes])
 
   const filteredLayout = useMemo(() => {
-    if (debouncedMinMentions <= 1) return layout
     const nameSet = new Set(filteredLocations.map((l) => l.name))
     return layout.filter((item) => item.is_portal || nameSet.has(item.name))
-  }, [layout, filteredLocations, debouncedMinMentions])
+  }, [layout, filteredLocations])
 
   // ── Visible locations (fog of war: active) ────────────────
   const visibleLocationNames = useMemo(() => {
@@ -274,6 +296,28 @@ export default function MapPage() {
     },
     [],
   )
+
+  // ── Tier collapse/expand handlers ──
+  const handleToggleExpand = useCallback((parentName: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev)
+      if (next.has(parentName)) next.delete(parentName)
+      else next.add(parentName)
+      return next
+    })
+  }, [])
+
+  const handleExpandAll = useCallback(() => {
+    const parents = new Set<string>()
+    for (const loc of locations) {
+      if (loc.parent) parents.add(loc.parent)
+    }
+    setExpandedNodes(parents)
+  }, [locations])
+
+  const handleCollapseAll = useCallback(() => {
+    setExpandedNodes(new Set())
+  }, [])
 
   // ── Animation controls ──
   const startPlay = useCallback(() => {
@@ -428,6 +472,18 @@ export default function MapPage() {
               </div>
             )}
 
+            {/* Expand / Collapse all */}
+            {collapsedChildCount.size > 0 && (
+              <div className="flex gap-1">
+                <button
+                  onClick={expandedNodes.size > 0 ? handleCollapseAll : handleExpandAll}
+                  className="rounded-lg border bg-background/90 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {expandedNodes.size > 0 ? "全部折叠" : "全部展开"}
+                </button>
+              </div>
+            )}
+
             {/* Conflict markers toggle */}
             {conflictCount > 0 && layoutMode !== "geographic" && (
               <button
@@ -532,9 +588,11 @@ export default function MapPage() {
                 spatialScale={mapData?.spatial_scale}
                 focusLocation={focusLocation}
                 locationConflicts={showConflicts ? mapData?.location_conflicts : undefined}
+                collapsedChildCount={collapsedChildCount}
                 onLocationClick={handleLocationClick}
                 onLocationDragEnd={handleDragEnd}
                 onPortalClick={handlePortalClick}
+                onToggleExpand={handleToggleExpand}
               />
             )
           )}
