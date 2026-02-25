@@ -6,6 +6,8 @@ Location filtering uses a 3-layer approach based on Chinese place name morpholog
 
 import logging
 
+from src.utils.location_names import is_homonym_prone
+
 from src.models.chapter_fact import (
     ChapterFact,
     CharacterFact,
@@ -420,6 +422,15 @@ class FactValidator:
         # Cross-check: ensure relationship persons exist in characters
         characters = self._ensure_relation_persons_in_characters(
             characters, relationships
+        )
+
+        # Post-processing: disambiguate homonymous location names (N29.3)
+        # Renames generic names like "夹道" → "大观园·夹道" when parent is known.
+        # Must run after all other validation so parent fields are finalized.
+        locations, characters, events, spatial_relationships = (
+            self._disambiguate_homonym_locations(
+                locations, characters, events, spatial_relationships,
+            )
         )
 
         return ChapterFact(
@@ -924,6 +935,79 @@ class FactValidator:
                 ", ".join(to_add.keys()),
             )
         return locations
+
+    def _disambiguate_homonym_locations(
+        self,
+        locations: list,
+        characters: list[CharacterFact],
+        events: list[EventFact],
+        spatial_relationships: list[SpatialRelationship],
+    ) -> tuple[list, list[CharacterFact], list[EventFact], list[SpatialRelationship]]:
+        """Disambiguate homonymous location names by adding parent prefix.
+
+        Generic architectural names (夹道, 后门, etc.) that have a parent are
+        renamed to "{parent}·{name}" (e.g. "大观园·夹道") to prevent data
+        pollution when the same generic name exists in multiple buildings.
+
+        Also updates all cross-references within the same ChapterFact.
+        """
+        rename_map: dict[str, str] = {}  # old_name -> new_name
+
+        new_locations = []
+        for loc in locations:
+            if is_homonym_prone(loc.name) and loc.parent:
+                new_name = f"{loc.parent}·{loc.name}"
+                rename_map[loc.name] = new_name
+                new_locations.append(loc.model_copy(update={"name": new_name}))
+                logger.debug("Disambiguated location: '%s' → '%s'", loc.name, new_name)
+            else:
+                new_locations.append(loc)
+
+        if not rename_map:
+            return locations, characters, events, spatial_relationships
+
+        logger.info(
+            "Disambiguated %d homonym locations: %s",
+            len(rename_map),
+            ", ".join(f"{k}→{v}" for k, v in rename_map.items()),
+        )
+
+        # Sync references: characters[].locations_in_chapter
+        new_characters = []
+        for ch in characters:
+            new_locs = [rename_map.get(loc, loc) for loc in ch.locations_in_chapter]
+            if new_locs != list(ch.locations_in_chapter):
+                new_characters.append(ch.model_copy(update={"locations_in_chapter": new_locs}))
+            else:
+                new_characters.append(ch)
+
+        # Sync references: events[].location
+        new_events = []
+        for ev in events:
+            if ev.location and ev.location in rename_map:
+                new_events.append(ev.model_copy(update={"location": rename_map[ev.location]}))
+            else:
+                new_events.append(ev)
+
+        # Sync references: spatial_relationships[].source and .target
+        new_spatial = []
+        for rel in spatial_relationships:
+            updates: dict = {}
+            if rel.source in rename_map:
+                updates["source"] = rename_map[rel.source]
+            if rel.target in rename_map:
+                updates["target"] = rename_map[rel.target]
+            new_spatial.append(rel.model_copy(update=updates) if updates else rel)
+
+        # Sync references: locations[].parent (rare: parent itself was disambiguated)
+        final_locations = []
+        for loc in new_locations:
+            if loc.parent and loc.parent in rename_map:
+                final_locations.append(loc.model_copy(update={"parent": rename_map[loc.parent]}))
+            else:
+                final_locations.append(loc)
+
+        return final_locations, new_characters, new_events, new_spatial
 
     def _validate_world_declarations(
         self, declarations: list[WorldDeclaration]
