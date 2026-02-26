@@ -131,6 +131,11 @@ TIER_ORDER: dict[str, int] = {
 }
 _TIER_NAMES = list(TIER_ORDER.keys())
 
+# Minimum total votes required to keep a micro-location in hierarchy.
+# Sub-locations (门外/墙下/粪窖边 etc.) with fewer total votes are pruned
+# from parent resolution to reduce noise in the global hierarchy.
+_MIN_MICRO_VOTES = 3
+
 # Administrative system (realistic + historical)
 _ADMIN_TIER_MAP: dict[str, str] = {
     # continent level
@@ -228,11 +233,13 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("湖", "region"),
     ("河", "region"),
     ("林", "region"),
+    ("境", "region"),    # 太虚幻境, 仙境, 幻境 — realm/domain
     # ── 1-char: city ──
     ("城", "city"),
     ("都", "city"),
     ("镇", "city"),
     ("乡", "city"),
+    ("京", "city"),     # 神京, 南京, 东京 — capital city
     # ── 1-char: site ──
     ("村", "site"),
     ("庄", "site"),
@@ -267,6 +274,7 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("观", "site"),
     ("庵", "site"),
     ("祠", "site"),
+    ("园", "site"),      # 大观园, 会芳园 — 户外区域
     # ── 1-char: building ──
     ("殿", "building"),
     ("堂", "building"),
@@ -285,6 +293,14 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("宅", "building"),
     ("舍", "building"),
     ("居", "building"),  # 静心居
+    ("轩", "building"),  # 怡红轩
+    ("斋", "building"),  # 蘅芜斋
+    ("棚", "building"),  # 木香棚, 瓜棚
+    ("架", "building"),  # 荼蘼架, 葡萄架
+    ("窗", "building"),  # 临窗
+    ("门", "building"),  # 月洞门, 角门 — gates within compounds
+    ("坞", "site"),      # 芭蕉坞 — garden area
+    ("径", "site"),      # 羊肠小径 — path/trail
 ]
 
 
@@ -307,6 +323,17 @@ def _get_suffix_rank(name: str) -> int | None:
             if len(suffix) >= 2 or len(name) > len(suffix):
                 return TIER_ORDER.get(tier, 4)
     return None
+
+# Realm/fantasy location keywords — locations containing these are
+# dream worlds, spiritual realms, etc. that shouldn't adopt real-world
+# children via primary setting inference.
+_REALM_KEYWORDS = frozenset("幻梦仙灵冥虚魔")
+
+
+def _is_realm_location(name: str) -> bool:
+    """Check if a location name indicates a fantasy/dream realm."""
+    return any(kw in name for kw in _REALM_KEYWORDS)
+
 
 # Minimum score to assign a genre (otherwise "unknown")
 _GENRE_MIN_SCORE = 5
@@ -1065,6 +1092,9 @@ class WorldStructureAgent:
         """Apply keyword-based heuristics to assign locations to layers/regions."""
         assert self.structure is not None
 
+        # Uber-root exemption: names like "天下" are generic but valid as hierarchy root
+        uber_root_name = self._find_uber_root(self.structure.location_parents)
+
         for loc in fact.locations:
             name = loc.name
             loc_type = loc.type or ""
@@ -1117,9 +1147,13 @@ class WorldStructureAgent:
                 self.structure.location_icons[name] = icon
 
             # ── Parent vote accumulation ──
-            # Skip generic locations — they pollute hierarchy with noise
+            # Skip generic locations — they pollute hierarchy with noise.
+            # Exempt uber-root both as child name and as parent (so locations
+            # like 维扬 with only parent=天下 don't become orphans).
+            # Uber-root votes are capped later to avoid drowning specific parents.
             if loc.parent and loc.name != loc.parent:
-                if not _is_generic_location(loc.name) and not _is_generic_location(loc.parent):
+                if (not _is_generic_location(loc.name) or loc.name == uber_root_name) and \
+                   (not _is_generic_location(loc.parent) or loc.parent == uber_root_name):
                     self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
 
         # ── Chapter primary setting → parent inference ──
@@ -1128,13 +1162,16 @@ class WorldStructureAgent:
         # orphan locations to the primary setting. Accumulates across chapters.
         setting_candidates = [
             loc for loc in fact.locations
-            if loc.role == "setting" and not _is_generic_location(loc.name)
+            if loc.role == "setting" and (
+                not _is_generic_location(loc.name) or loc.name == uber_root_name
+            )
         ]
         primary_setting = None
         if setting_candidates:
             best_rank = 999
             for loc in setting_candidates:
-                rank = TIER_ORDER.get(
+                suf = _get_suffix_rank(loc.name)
+                rank = suf if suf is not None else TIER_ORDER.get(
                     self.structure.location_tiers.get(loc.name, "city"), 4)
                 if rank < best_rank:
                     best_rank = rank
@@ -1142,22 +1179,26 @@ class WorldStructureAgent:
         elif fact.locations:
             # Fallback for old data without role: use first non-generic location
             for loc in fact.locations:
-                if not _is_generic_location(loc.name):
+                if not _is_generic_location(loc.name) or loc.name == uber_root_name:
                     primary_setting = loc.name
                     break
 
-        if primary_setting:
-            p_rank = TIER_ORDER.get(
+        # Skip realm/fantasy primary settings to prevent dream chapters
+        # from polluting real-world hierarchy.
+        if primary_setting and not _is_realm_location(primary_setting):
+            _p_suf = _get_suffix_rank(primary_setting)
+            p_rank = _p_suf if _p_suf is not None else TIER_ORDER.get(
                 self.structure.location_tiers.get(primary_setting, "city"), 4)
             for loc in fact.locations:
                 name = loc.name
                 if name == primary_setting or loc.parent:
                     continue
-                if _is_generic_location(name):
+                if _is_generic_location(name) and name != uber_root_name:
                     continue
                 if loc.role in ("referenced", "boundary"):
                     continue
-                c_rank = TIER_ORDER.get(
+                _c_suf = _get_suffix_rank(name)
+                c_rank = _c_suf if _c_suf is not None else TIER_ORDER.get(
                     self.structure.location_tiers.get(name, "city"), 4)
                 if c_rank < p_rank:
                     continue  # child should not be bigger than primary setting
@@ -1170,34 +1211,28 @@ class WorldStructureAgent:
         for sr in fact.spatial_relationships:
             if sr.relation_type == "contains" and sr.source != sr.target:
                 source, target = sr.source, sr.target
-                # Skip generic locations
-                if _is_generic_location(source) or _is_generic_location(target):
+                # Skip generic locations (exempt uber-root)
+                if (_is_generic_location(source) and source != uber_root_name) or \
+                   (_is_generic_location(target) and target != uber_root_name):
                     continue
                 # Defensive weight: reduced from {3,2,1} to {2,1,1}
                 # because contains direction is unreliable from LLM
                 weight = {"high": 2, "medium": 1, "low": 1}.get(sr.confidence, 1)
-                # Direction validation: suffix rank > tier order
+                # Direction validation: unified effective rank (suffix > tier)
                 source_suf = _get_suffix_rank(source)
                 target_suf = _get_suffix_rank(target)
-                if source_suf is not None and target_suf is not None:
-                    if source_suf > target_suf:
+                src_rank_eff = source_suf if source_suf is not None else TIER_ORDER.get(
+                    self.structure.location_tiers.get(source, "city"), 4)
+                tgt_rank_eff = target_suf if target_suf is not None else TIER_ORDER.get(
+                    self.structure.location_tiers.get(target, "city"), 4)
+                if src_rank_eff > tgt_rank_eff:
+                    source, target = target, source
+                elif src_rank_eff == tgt_rank_eff:
+                    # Name containment heuristic for tiebreak
+                    if source.startswith(target) and len(source) > len(target):
                         source, target = target, source
-                    elif source_suf == target_suf:
-                        weight = 1  # Same suffix rank, reduce weight
-                else:
-                    # Fallback: tier-based direction validation
-                    source_tier = self.structure.location_tiers.get(source, "city")
-                    target_tier = self.structure.location_tiers.get(target, "city")
-                    source_rank = TIER_ORDER.get(source_tier, 4)
-                    target_rank = TIER_ORDER.get(target_tier, 4)
-                    if source_rank > target_rank:
-                        source, target = target, source
-                    elif source_rank == target_rank:
-                        # Name containment heuristic
-                        if source.startswith(target) and len(source) > len(target):
-                            source, target = target, source
-                        elif not (target.startswith(source) and len(target) > len(source)):
-                            weight = 1
+                    elif not (target.startswith(source) and len(target) > len(source)):
+                        weight = 1
                 # source is container (parent), target is contained (child)
                 self._parent_votes.setdefault(target, Counter())[source] += weight
 
@@ -1212,7 +1247,8 @@ class WorldStructureAgent:
             source, target = sr.source, sr.target
             if source == target:
                 continue
-            if _is_generic_location(source) or _is_generic_location(target):
+            if (_is_generic_location(source) and source != uber_root_name) or \
+               (_is_generic_location(target) and target != uber_root_name):
                 continue
             # Bidirectional propagation: if either has a parent, share with the other
             for from_loc, to_loc in [(source, target), (target, source)]:
@@ -1231,10 +1267,10 @@ class WorldStructureAgent:
         all_known = set(self.structure.location_tiers.keys())
         for loc in fact.locations:
             name = loc.name
-            if _is_generic_location(name):
+            if _is_generic_location(name) and name != uber_root_name:
                 continue
             for other in all_known:
-                if name == other or _is_generic_location(other):
+                if name == other or (_is_generic_location(other) and other != uber_root_name):
                     continue
                 # Longer name starts with shorter: longer is likely child
                 # e.g., "石圪节公社" starts with "石圪节" but is actually the
@@ -1361,7 +1397,7 @@ class WorldStructureAgent:
             if parent_tier:
                 parent_rank = TIER_ORDER.get(parent_tier, 3)
                 child_rank = TIER_ORDER.get(raw_tier, 4)
-                if child_rank <= parent_rank:
+                if child_rank < parent_rank:
                     # Child should not be bigger than or equal to parent — push down
                     raw_tier = _TIER_NAMES[min(parent_rank + 1, len(_TIER_NAMES) - 1)]
 
@@ -1683,12 +1719,10 @@ class WorldStructureAgent:
 
         votes: dict[str, Counter] = {}
 
-        # Inject existing parents as baseline votes (weight=2).
-        # These represent accumulated knowledge from the original analysis
-        # (heuristics, LLM SET_PARENT, etc.) that isn't stored in chapter_facts.
-        if self.structure and self.structure.location_parents:
-            for child, parent in self.structure.location_parents.items():
-                votes.setdefault(child, Counter())[parent] += 2
+        # Uber-root exemption: names like "天下" are generic but valid as hierarchy root
+        uber_root_name = self._find_uber_root(
+            self.structure.location_parents if self.structure else {}
+        )
 
         conn = await get_connection()
         try:
@@ -1699,6 +1733,52 @@ class WorldStructureAgent:
             rows = await cursor.fetchall()
         finally:
             await conn.close()
+
+        # Pre-scan: build (child, parent) pairs from chapter facts for targeted
+        # baseline filtering. Only skip baseline entries that CONTRADICT chapter
+        # fact evidence — keep entries that AGREE or have no CF info at all.
+        _cf_parent_pairs: set[tuple[str, str]] = set()
+        _children_with_cf_evidence: set[str] = set()
+        for row in rows:
+            data = _json.loads(row["fact_json"])
+            for loc in data.get("locations", []):
+                name = loc.get("name", "")
+                parent = loc.get("parent", "")
+                if name and parent and parent != "None" and name != parent:
+                    _cf_parent_pairs.add((name, parent))
+                    _children_with_cf_evidence.add(name)
+            for sr in data.get("spatial_relationships", []):
+                if sr.get("relation_type") == "contains":
+                    source = sr.get("source", "")
+                    target = sr.get("target", "")
+                    if source and target:
+                        _cf_parent_pairs.add((target, source))
+                        _children_with_cf_evidence.add(target)
+
+        # Inject existing parents as baseline votes (weight=1).
+        # Skip entries where: (a) parent is phantom (not in tiers), OR
+        # (b) the child has chapter fact evidence but this specific child→parent
+        # pair is NOT supported by any chapter fact — likely a stale artifact
+        # from previous buggy consolidation (e.g., 维扬→太虚幻境).
+        if self.structure and self.structure.location_parents:
+            known_locs = set(self.structure.location_tiers.keys())
+            baseline_injected = 0
+            baseline_skipped = 0
+            for child, parent in self.structure.location_parents.items():
+                if parent not in known_locs and parent != uber_root_name:
+                    baseline_skipped += 1
+                    continue  # phantom parent
+                if child in _children_with_cf_evidence and \
+                   (child, parent) not in _cf_parent_pairs:
+                    baseline_skipped += 1
+                    continue  # contradicts chapter fact evidence
+                votes.setdefault(child, Counter())[parent] += 1
+                baseline_injected += 1
+            if baseline_skipped:
+                logger.info(
+                    "Baseline injection: %d injected, %d skipped (phantom/contradicted)",
+                    baseline_injected, baseline_skipped,
+                )
 
         tiers = self.structure.location_tiers if self.structure else {}
 
@@ -1720,14 +1800,15 @@ class WorldStructureAgent:
                     if chapter_id not in char_chapter_locs[char_name]:
                         char_chapter_locs[char_name][chapter_id] = set()
                     for loc in locs_in_ch:
-                        if loc and not _is_generic_location(loc):
+                        if loc and (not _is_generic_location(loc) or loc == uber_root_name):
                             char_chapter_locs[char_name][chapter_id].add(loc)
 
             for loc in data.get("locations", []):
                 parent = loc.get("parent")
                 name = loc.get("name", "")
                 if parent and name and name != parent:
-                    if not _is_generic_location(name) and not _is_generic_location(parent):
+                    if (not _is_generic_location(name) or name == uber_root_name) and \
+                       (not _is_generic_location(parent) or parent == uber_root_name):
                         votes.setdefault(name, Counter())[parent] += 1
             for sr in data.get("spatial_relationships", []):
                 rel_type = sr.get("relation_type", "")
@@ -1735,7 +1816,8 @@ class WorldStructureAgent:
                 target = sr.get("target", "")
                 if not source or not target or source == target:
                     continue
-                if _is_generic_location(source) or _is_generic_location(target):
+                if (_is_generic_location(source) and source != uber_root_name) or \
+                   (_is_generic_location(target) and target != uber_root_name):
                     continue
 
                 # Collect adjacent/direction/in_between pairs for propagation
@@ -1747,26 +1829,19 @@ class WorldStructureAgent:
                     continue
                 # Defensive weight reduction for contains relationships
                 weight = {"high": 2, "medium": 1, "low": 1}.get(sr.get("confidence", "low"), 1)
-                # Direction validation: suffix rank (primary) > tier order (fallback)
+                # Direction validation: unified effective rank (suffix > tier)
                 source_suf = _get_suffix_rank(source)
                 target_suf = _get_suffix_rank(target)
-                if source_suf is not None and target_suf is not None:
-                    if source_suf > target_suf:
+                src_rank_eff = source_suf if source_suf is not None else TIER_ORDER.get(
+                    tiers.get(source, "city"), 4)
+                tgt_rank_eff = target_suf if target_suf is not None else TIER_ORDER.get(
+                    tiers.get(target, "city"), 4)
+                if src_rank_eff > tgt_rank_eff:
+                    source, target = target, source
+                elif src_rank_eff == tgt_rank_eff:
+                    if source.startswith(target) and len(source) > len(target):
                         source, target = target, source
-                    elif source_suf == target_suf:
-                        weight = 1
-                else:
-                    # Fallback: tier-based direction validation
-                    source_tier = tiers.get(source, "city")
-                    target_tier = tiers.get(target, "city")
-                    source_rank = TIER_ORDER.get(source_tier, 4)
-                    target_rank = TIER_ORDER.get(target_tier, 4)
-                    if source_rank > target_rank:
-                        source, target = target, source
-                    elif source_rank == target_rank:
-                        if source.startswith(target) and len(source) > len(target):
-                            source, target = target, source
-                        elif not (target.startswith(source) and len(target) > len(source)):
+                    elif not (target.startswith(source) and len(target) > len(source)):
                             weight = 1
                 votes.setdefault(target, Counter())[source] += weight
 
@@ -1774,35 +1849,52 @@ class WorldStructureAgent:
             locations = data.get("locations", [])
             setting_candidates = [
                 loc for loc in locations
-                if loc.get("role") == "setting" and not _is_generic_location(loc.get("name", ""))
+                if loc.get("role") == "setting" and (
+                    not _is_generic_location(loc.get("name", ""))
+                    or loc.get("name", "") == uber_root_name
+                )
             ]
             primary_setting = None
             if setting_candidates:
                 best_rank = 999
                 for loc in setting_candidates:
                     loc_name = loc.get("name", "")
-                    rank = TIER_ORDER.get(tiers.get(loc_name, "city"), 4)
+                    suf = _get_suffix_rank(loc_name)
+                    rank = suf if suf is not None else TIER_ORDER.get(
+                        tiers.get(loc_name, "city"), 4)
                     if rank < best_rank:
                         best_rank = rank
                         primary_setting = loc_name
             elif locations:
                 for loc in locations:
                     loc_name = loc.get("name", "")
-                    if loc_name and not _is_generic_location(loc_name):
+                    if loc_name and (
+                        not _is_generic_location(loc_name)
+                        or loc_name == uber_root_name
+                    ):
                         primary_setting = loc_name
                         break
 
-            if primary_setting:
-                p_rank = TIER_ORDER.get(tiers.get(primary_setting, "city"), 4)
+            # Skip realm/fantasy primary settings to prevent dream chapters
+            # from polluting real-world hierarchy (e.g., 太虚幻境 chapter
+            # assigning parent votes to 荣国府 interior locations).
+            if primary_setting and not _is_realm_location(primary_setting):
+                _p_suf = _get_suffix_rank(primary_setting)
+                p_rank = _p_suf if _p_suf is not None else TIER_ORDER.get(
+                    tiers.get(primary_setting, "city"), 4)
                 for loc in locations:
                     loc_name = loc.get("name", "")
                     if loc_name == primary_setting or loc.get("parent"):
                         continue
-                    if not loc_name or _is_generic_location(loc_name):
+                    if not loc_name or (
+                        _is_generic_location(loc_name) and loc_name != uber_root_name
+                    ):
                         continue
                     if loc.get("role") in ("referenced", "boundary"):
                         continue
-                    c_rank = TIER_ORDER.get(tiers.get(loc_name, "city"), 4)
+                    _c_suf = _get_suffix_rank(loc_name)
+                    c_rank = _c_suf if _c_suf is not None else TIER_ORDER.get(
+                        tiers.get(loc_name, "city"), 4)
                     if c_rank < p_rank:
                         continue
                     votes.setdefault(loc_name, Counter())[primary_setting] += 2
@@ -1840,7 +1932,48 @@ class WorldStructureAgent:
                 char_chapter_locs, votes, tiers,
             )
 
+        # ── Uber-root vote capping ──
+        # Uber-root parent votes (e.g., parent=天下) are allowed through the
+        # generic filter so locations like 维扬 don't become orphans. But for
+        # locations with specific parents (like 荣国府→都中), uber-root's many
+        # chapter mentions would drown out specific signals. Cap uber-root votes
+        # to 2 when OTHER parent candidates exist.
+        if uber_root_name:
+            capped = 0
+            for loc_name, counter in votes.items():
+                if uber_root_name in counter and len(counter) > 1:
+                    # Has both uber-root and specific parents — cap uber-root
+                    if counter[uber_root_name] > 2:
+                        counter[uber_root_name] = 2
+                        capped += 1
+            if capped:
+                logger.info(
+                    "Uber-root vote capping: capped %d locations' %s votes to 2",
+                    capped, uber_root_name,
+                )
+
         return votes
+
+    @staticmethod
+    def _find_uber_root(location_parents: dict[str, str]) -> str | None:
+        """Find the uber-root: the most-referenced root node in location_parents.
+
+        The uber-root (e.g., "天下") is defined as the parent value that:
+        1. Is NOT itself a child of anything (i.e., a true root)
+        2. Has the most children pointing to it
+
+        Returns the name, or None if no parents exist.
+        """
+        if not location_parents:
+            return None
+        children = set(location_parents.keys())
+        parent_counts: Counter = Counter()
+        for parent in location_parents.values():
+            if parent not in children:
+                parent_counts[parent] += 1
+        if not parent_counts:
+            return None
+        return parent_counts.most_common(1)[0][0]
 
     def _resolve_parents(self) -> dict[str, str]:
         """Resolve authoritative parents from accumulated votes.
@@ -1856,6 +1989,17 @@ class WorldStructureAgent:
         """
         assert self.structure is not None
 
+        # ── Uber-root vote capping (live analysis path) ──
+        # Same logic as in _rebuild_parent_votes: cap uber-root votes to 2 when
+        # other parent candidates exist, so specific parents like 都中 win over 天下.
+        uber_root_name = self._find_uber_root(
+            self.structure.location_parents) if self.structure.location_parents else None
+        if uber_root_name:
+            for _loc, counter in self._parent_votes.items():
+                if uber_root_name in counter and len(counter) > 1:
+                    if counter[uber_root_name] > 2:
+                        counter[uber_root_name] = 2
+
         # Build known-locations set: tiers (classified) + vote keys (extracted as locations).
         # Vote keys are children that the LLM extracted as locations needing parents,
         # so they are definitely locations.  This filters out character names (e.g. 五色蛛)
@@ -1866,9 +2010,17 @@ class WorldStructureAgent:
             known_locs.update(self.structure.location_tiers.keys())
         known_locs.update(self._parent_votes.keys())
 
+        from src.services.hierarchy_consolidator import _is_sub_location_name
+
         raw: dict[str, str] = {}
+        pruned_micro: list[str] = []
         for child, votes in self._parent_votes.items():
             if not votes:
+                continue
+            # Micro-location pruning: skip sub-locations with very few votes
+            total_votes = sum(votes.values())
+            if total_votes < _MIN_MICRO_VOTES and _is_sub_location_name(child):
+                pruned_micro.append(child)
                 continue
             # Pick the highest-voted parent that is a known location.
             for winner, _count in votes.most_common():
@@ -1876,6 +2028,12 @@ class WorldStructureAgent:
                     if not known_locs or winner in known_locs:
                         raw[child] = winner
                         break
+
+        if pruned_micro:
+            logger.info(
+                "Micro-location pruning: removed %d locations from hierarchy (%s...)",
+                len(pruned_micro), ", ".join(pruned_micro[:5]),
+            )
 
         # ── Name containment heuristic ──
         raw = self._apply_name_containment_heuristic(raw)
@@ -1921,26 +2079,24 @@ class WorldStructureAgent:
 
             should_flip = False
 
-            if child_suf is not None and parent_suf is not None:
-                # Both have suffix ranks — use name morphology for direction
-                if parent_suf > child_suf:
-                    should_flip = True
-                # If equal or parent_suf < child_suf, direction is correct
-            else:
-                # Fallback: tier-based validation
-                child_tier = self.structure.location_tiers.get(child, "city")
-                parent_tier = self.structure.location_tiers.get(parent, "city")
-                child_rank = TIER_ORDER.get(child_tier, 4)
-                parent_rank = TIER_ORDER.get(parent_tier, 4)
-                if parent_rank > child_rank:
-                    should_flip = True
+            # Unified effective rank: prefer suffix rank, fall back to tier
+            child_rank_eff = child_suf if child_suf is not None else TIER_ORDER.get(
+                self.structure.location_tiers.get(child, "city"), 4)
+            parent_rank_eff = parent_suf if parent_suf is not None else TIER_ORDER.get(
+                self.structure.location_tiers.get(parent, "city"), 4)
+            if parent_rank_eff > child_rank_eff:
+                should_flip = True
 
             if should_flip:
-                validated[parent] = child
-                logger.debug(
-                    "Direction fix: %s ⊂ %s → reversed (suffix=%s/%s)",
-                    child, parent, child_suf, parent_suf,
-                )
+                if parent not in validated:
+                    validated[parent] = child
+                    logger.debug(
+                        "Direction fix: %s ⊂ %s → reversed (suffix=%s/%s)",
+                        child, parent, child_suf, parent_suf,
+                    )
+                else:
+                    # parent already has a parent assignment — keep original direction
+                    validated[child] = parent
             else:
                 validated[child] = parent
 

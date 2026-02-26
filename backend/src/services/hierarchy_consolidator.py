@@ -164,11 +164,17 @@ _RIVERS_TO_PROVINCE: dict[str, str] = {
 
 # ── Province-level nodes that should be connected to the uber-root ──
 _PROVINCES: set[str] = {
+    # 历史行政区
     "山东", "河北", "京畿", "河东", "河南", "山西",
     "江南", "两浙", "淮南", "荆湖", "关西", "蜀",
     "福建", "广东", "广西", "湖南", "湖北", "陕西",
     "江西", "淮东", "淮西", "浙西", "浙东", "江北",
     "北地",
+    # 常见二字城市/地区名（防止被 _is_sub_location_name 误判）
+    "都中", "金陵", "姑苏", "扬州", "长安", "洛阳",
+    "南京", "北京", "开封", "杭州", "苏州", "成都",
+    "天津", "西安", "太原", "济南", "武汉", "广州",
+    "长沙", "南昌", "贵阳", "昆明", "兰州", "沈阳",
 }
 
 # Tier assignments for provinces and uber-root
@@ -310,6 +316,10 @@ def _is_sub_location_name(name: str) -> bool:
     # Check ending patterns
     for suffix in sorted(_SUB_LOCATION_ENDINGS, key=len, reverse=True):
         if name.endswith(suffix) and len(name) > len(suffix):
+            # Single-char suffixes: require name length >= 3 to avoid
+            # false positives on valid 2-char place names (都中, 河上)
+            if len(suffix) == 1 and len(name) <= 2:
+                continue
             return True
 
     # Check containing patterns
@@ -345,6 +355,7 @@ def _tiered_catchall(
     uber_root: str | None,
     location_parents: dict[str, str],
     location_tiers: dict[str, str],
+    saved_parents: dict[str, str] | None = None,
 ) -> int:
     """Adopt orphan nodes with tiered intermediate matching before uber_root fallback.
 
@@ -424,28 +435,56 @@ def _tiered_catchall(
                         break
 
         # D.4: Try dominant intermediate node matching for site/building orphans
+        # Search up to 3 levels deep to find the best adoption target
         if not matched and orphan_rank >= 5 and uber_root is not None:
-            uber_children = [c for c, p in location_parents.items() if p == uber_root]
             dominant = None
             dominant_desc = 0
-            for uc in uber_children:
-                uc_rank = TIER_ORDER.get(location_tiers.get(uc, "city"), 4)
-                if uc_rank > orphan_rank or uc_rank < 2:
-                    continue
-                desc = sum(1 for c, p in location_parents.items() if p == uc)
-                if desc > dominant_desc:
-                    dominant = uc
-                    dominant_desc = desc
-            if dominant and dominant_desc >= 3:
+            # BFS: check uber_root children, then their children, etc. (max 3 levels)
+            search_parents = [uber_root]
+            for _depth in range(3):
+                next_parents = []
+                for sp in search_parents:
+                    sp_children = [c for c, p in location_parents.items() if p == sp]
+                    for uc in sp_children:
+                        uc_rank = TIER_ORDER.get(location_tiers.get(uc, "city"), 4)
+                        if uc_rank >= orphan_rank or uc_rank < 2:
+                            continue
+                        # Skip realm/fantasy locations (幻/梦/仙/灵/冥/虚/魔)
+                        # — they should not adopt real-world orphans
+                        if any(kw in uc for kw in "幻梦仙灵冥虚魔"):
+                            continue
+                        desc = sum(1 for c, p in location_parents.items() if p == uc)
+                        if desc > dominant_desc:
+                            dominant = uc
+                            dominant_desc = desc
+                        if desc > 0:
+                            next_parents.append(uc)
+                search_parents = next_parents
+                if not search_parents:
+                    break
+            if dominant and dominant_desc >= 2:
                 if _safe_set_parent(orphan, dominant, location_parents,
                                     f"tiered-dominant:{orphan}→{dominant}"):
                     matched = True
                     tiered_matches += 1
                     adopted += 1
 
-        # D.5: uber_root adoption tier gate — only city+ (rank ≤ 4) directly under uber_root
+        # D.5: Try saved parent first, then uber_root (tier-gated)
         if not matched and uber_root is not None:
-            if orphan_rank <= 4:  # city 及以上才直接挂天下
+            # Prefer saved parent over uber_root to avoid regressions
+            saved_ok = False
+            _realm_kw = "幻梦仙灵冥虚魔"
+            if saved_parents and not any(kw in orphan for kw in _realm_kw):
+                old_p = saved_parents.get(orphan)
+                if old_p and old_p != uber_root and old_p in all_known:
+                    if old_p in location_parents or any(
+                        p == old_p for p in location_parents.values()
+                    ):
+                        if _safe_set_parent(orphan, old_p, location_parents,
+                                            f"catchall-saved:{orphan}→{old_p}"):
+                            adopted += 1
+                            saved_ok = True
+            if not saved_ok and orphan_rank <= 4:  # city 及以上才直接挂天下
                 if _safe_set_parent(orphan, uber_root, location_parents,
                                     f"catchall-adopt:{orphan}"):
                     adopted += 1
@@ -488,6 +527,7 @@ def consolidate_hierarchy(
     location_tiers: dict[str, str],
     novel_genre_hint: str | None = None,
     parent_votes: dict[str, Counter] | None = None,
+    saved_parents: dict[str, str] | None = None,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Consolidate location hierarchy to reduce roots to single digits.
 
@@ -496,6 +536,8 @@ def consolidate_hierarchy(
         location_tiers: Current location → tier mapping (modified in place and returned).
         novel_genre_hint: Genre of the novel (historical/wuxia/fantasy/etc.).
         parent_votes: Vote counters for diagnostics (optional, read-only).
+        saved_parents: Previously saved parent mapping (optional). Used as fallback
+            for orphan roots — prefer saved parent over 天下 to prevent regressions.
 
     Returns:
         Updated (location_parents, location_tiers) tuple.
@@ -505,7 +547,7 @@ def consolidate_hierarchy(
     all_known = set(location_tiers.keys())
     changes_made = 0
 
-    # ── Step 0: Break any pre-existing cycles ──
+# ── Step 0: Break any pre-existing cycles ──
     # Cycles can persist from earlier versions or edge cases in _resolve_parents.
     # Walk each parent chain; if we revisit a node, break the weakest edge.
     checked: set[str] = set()
@@ -542,7 +584,7 @@ def consolidate_hierarchy(
     if cycles_broken:
         logger.info("Broke %d pre-existing cycle(s) in location_parents", cycles_broken)
 
-    # Snapshot input parents for oscillation damping at the end
+# Snapshot input parents for oscillation damping at the end
     input_parents = dict(location_parents)
 
     # Import TIER_ORDER and _get_suffix_rank once
@@ -594,37 +636,47 @@ def consolidate_hierarchy(
 
         should_fix = False
 
-        # Primary: suffix rank (name morphology is more reliable than LLM tiers)
+        # Conservative inversion detection: only compare like-with-like.
+        # Suffix rank is unreliable across types (e.g., 府 = prefecture OR manor),
+        # so mixing suffix rank with tier rank causes false inversions.
         child_suf = _get_suffix_rank(child)
         parent_suf = _get_suffix_rank(parent)
         if child_suf is not None and parent_suf is not None:
+            # Both have suffix → high-confidence comparison
             if parent_suf > child_suf:
                 should_fix = True
-        else:
-            # Fallback: tier-based detection
-            child_tier = location_tiers.get(child, "city")
-            parent_tier = location_tiers.get(parent, "city")
-            child_rank = TIER_ORDER.get(child_tier, 4)
-            parent_rank = TIER_ORDER.get(parent_tier, 4)
+        elif child_suf is None and parent_suf is None:
+            # Neither has suffix → use tier comparison
+            child_rank = TIER_ORDER.get(location_tiers.get(child, "city"), 4)
+            parent_rank = TIER_ORDER.get(location_tiers.get(parent, "city"), 4)
             if parent_rank > child_rank:
                 should_fix = True
             elif parent_rank == child_rank and _is_sub_location_name(parent) and _is_geographic_name(child):
                 should_fix = True
+        # Mixed (one has suffix, one doesn't): skip — ambiguous, let
+        # _resolve_parents's vote-based result stand.
 
         if should_fix:
             inversion_fixes.append((child, parent))
 
-    # Apply fixes: for each inverted pair, free the child and make parent child of child
+    # Apply fixes: for each inverted pair, free the child and optionally reverse
     inversions_fixed = 0
     for child, parent in inversion_fixes:
         # Verify the relationship still exists (may have been modified by earlier fix)
         if location_parents.get(child) != parent:
             continue
         del location_parents[child]
-        if _safe_set_parent(parent, child, location_parents,
-                            f"tier-inversion: {parent} was parent of {child}"):
-            inversions_fixed += 1
-            changes_made += 1
+        # Only reverse (make old-parent a child of old-child) if old-parent
+        # doesn't already have its own parent. Otherwise we'd OVERWRITE a
+        # correct parent assignment (e.g., 大观园→荣国府 overwritten by
+        # 大观园→甬道 when fixing 甬道→大观园 inversion).
+        if parent not in location_parents:
+            if _safe_set_parent(parent, child, location_parents,
+                                f"tier-inversion: {parent} was parent of {child}"):
+                inversions_fixed += 1
+                changes_made += 1
+            else:
+                changes_made += 1
         else:
             changes_made += 1
 
@@ -988,22 +1040,35 @@ def consolidate_hierarchy(
     if geo_rescues:
         logger.info("Geo-rescued %d locations to correct provinces", geo_rescues)
 
-    # ── Step 10: Connect remaining geographic roots to uber-root ──
-    # Any root with a proper geographic name that couldn't be mapped to a
-    # province gets connected directly to 天下 rather than being an orphan root.
-    roots = _get_roots(location_parents)
-    for root in list(roots):
-        if root == uber_root:
-            continue
-        if _is_geographic_name(root) and not _is_sub_location_name(root):
-            if _safe_set_parent(root, uber_root, location_parents, "geo-to-root"):
-                changes_made += 1
 
-    # ── Step 11: Handle remaining non-geographic roots ──
-    # Only connect roots that have meaningful subtrees (5+ descendants) to 天下.
-    # Noise sub-locations with small subtrees are left as separate trees —
-    # they'll appear as unparented micro-clusters on the map, which is
-    # preferable to cluttering 天下's direct children.
+    # Helper: try saved parent before falling back to uber_root
+    _REALM_KW = "幻梦仙灵冥虚魔"
+
+    def _try_saved_or_uber(orphan: str, reason: str) -> bool:
+        """Try to reconnect orphan to its saved parent; fall back to uber_root."""
+        nonlocal changes_made
+        if saved_parents and not any(kw in orphan for kw in _REALM_KW):
+            old_p = saved_parents.get(orphan)
+            if old_p and old_p != uber_root and old_p in all_known:
+                # Check the saved parent itself is in the hierarchy
+                # (either has a parent or IS the uber_root's child)
+                if old_p in location_parents or any(
+                    p == old_p for p in location_parents.values()
+                ):
+                    if _safe_set_parent(orphan, old_p, location_parents,
+                                        f"saved-fallback:{reason}"):
+                        changes_made += 1
+                        return True
+        if _safe_set_parent(orphan, uber_root, location_parents, reason):
+            changes_made += 1
+            return True
+        return False
+
+    # ── Step 10: Connect large-subtree roots first (before geographic roots) ──
+    # Large subtree roots (e.g., 荣国府 with many children) establish anchor
+    # points in the hierarchy. Running this BEFORE geographic root connection
+    # ensures intermediate parents (like 都中) are available for saved_parents
+    # fallback in subsequent steps.
     roots = _get_roots(location_parents)
     for root in list(roots):
         if root == uber_root or root in _PROVINCES:
@@ -1021,14 +1086,26 @@ def consolidate_hierarchy(
                         break
             if desc_count > 5:
                 break
-        # Only connect roots with substantial subtrees to 天下
+        # Only connect roots with substantial subtrees
         if desc_count >= 5:
-            if _safe_set_parent(root, uber_root, location_parents, "large-subtree-to-root"):
-                changes_made += 1
+            _try_saved_or_uber(root, "large-subtree-to-root")
+
+    # ── Step 11: Connect remaining geographic roots to uber-root ──
+    # Any root with a proper geographic name that couldn't be mapped to a
+    # province gets connected directly to 天下 rather than being an orphan root.
+    # Runs AFTER large-subtree step so saved_parents fallback can find
+    # intermediate parents (e.g., 都中) established in the previous step.
+    roots = _get_roots(location_parents)
+    for root in list(roots):
+        if root == uber_root:
+            continue
+        if _is_geographic_name(root) and not _is_sub_location_name(root):
+            _try_saved_or_uber(root, "geo-to-root")
 
     # ── Step 12: Tiered catch-all — adopt orphan nodes with intermediate matching ──
     catchall_adopted = _tiered_catchall(
         all_known, uber_root, location_parents, location_tiers,
+        saved_parents=saved_parents,
     )
     changes_made += catchall_adopted
 

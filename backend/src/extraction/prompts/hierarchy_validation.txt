@@ -1,0 +1,47 @@
+你是一个小说地理分析专家。请验证以下小说地点层级树的合理性，找出明显错误的父子关系。
+
+## 小说类型
+{genre_hint}
+
+## 顶级节点「{uber_root}」的直接子节点
+{root_children}
+
+## 前两层子节点详情（最多50个）
+{hierarchy_detail}
+
+## 可疑项（building/site 级别直接挂顶级节点）
+{suspicious_items}
+
+## 任务
+请检查以上层级关系，找出以下类型的错误：
+
+1. **不应直接挂在顶级节点的子节点**：例如建筑、房间、小地点不应该是「{uber_root}」的直接子节点，它们应该属于某个中间层级（城市、区域等）
+2. **方向反转的父子关系**：父节点的地理级别比子节点小（如一个国家成了一个房间的子节点）
+3. **tier 级别不合理的直接子节点**：building/site 级别的地点不应直接挂在 world/continent 级别下
+
+对于每个错误，请推荐正确的 parent（必须是已知地点）。
+
+规则：
+- correct_parent 必须是上述层级树中已有的地点名称
+- 只修正有明确证据的错误，不要猜测
+- confidence 只使用 "high" 或 "medium"（low 太不确定，不要使用）
+- 如果找不到合适的 correct_parent，不要强行推荐
+
+请严格输出以下 JSON 格式：
+```json
+{{
+  "corrections": [
+    {{
+      "child": "地点名",
+      "wrong_parent": "当前错误的父地点",
+      "correct_parent": "正确的父地点",
+      "confidence": "high/medium",
+      "reason": "修正理由"
+    }}
+  ]
+}}
+```
+
+注意：
+- 只输出 JSON，不要添加其他文字
+- 如果层级树没有问题，输出空的 corrections 数组：{{"corrections": []}}

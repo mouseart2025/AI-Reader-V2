@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections import Counter
 
 from src.db.chapter_fact_store import get_all_chapter_facts
 from src.db import entity_dictionary_store, world_structure_store
@@ -23,6 +24,7 @@ class ContextSummaryBuilder:
         novel_id: str,
         chapter_num: int,
         location_parents: dict[str, str] | None = None,
+        location_tiers: dict[str, str] | None = None,
     ) -> str:
         """Build context summary for the given chapter.
 
@@ -31,6 +33,8 @@ class ContextSummaryBuilder:
             chapter_num: Current chapter number (1-indexed).
             location_parents: Authoritative parent map from WorldStructure
                 (location_name → parent_name). Used to build hierarchy chains.
+            location_tiers: Location tier classifications from WorldStructure
+                (location_name → tier). Used for macro hub display.
 
         Returns context string. For early chapters with no preceding facts,
         still returns entity dictionary and world structure sections if available.
@@ -109,6 +113,13 @@ class ContextSummaryBuilder:
             )
             if focus_section:
                 sections.append(focus_section)
+
+            # Macro hub anchoring — top-down view of major areas
+            hub_section = self._build_macro_hub_section(
+                location_parents, location_tiers,
+            )
+            if hub_section:
+                sections.append(hub_section)
 
             # Hierarchy chains (before location list for context)
             hierarchy_section = self._format_hierarchy_chains(
@@ -315,6 +326,90 @@ class ContextSummaryBuilder:
             lines.append(" > ".join(parts))
 
         return "\n".join(lines) if len(lines) > 2 else ""
+
+    @staticmethod
+    def _build_macro_hub_section(
+        location_parents: dict[str, str] | None,
+        location_tiers: dict[str, str] | None,
+    ) -> str:
+        """Build macro hub section: top-level geographic areas for contextual anchoring.
+
+        Identifies major area hubs (depth 1-2 nodes with many descendants) and
+        presents them to the LLM so it can anchor new locations to known areas.
+        """
+        if not location_parents:
+            return ""
+
+        # 1. Find uber-root
+        children_set = set(location_parents.keys())
+        parent_counts: Counter = Counter()
+        for p in location_parents.values():
+            if p not in children_set:
+                parent_counts[p] += 1
+        if not parent_counts:
+            return ""
+        uber_root = parent_counts.most_common(1)[0][0]
+
+        # 2. Build children map
+        children_map: dict[str, list[str]] = {}
+        for child, parent in location_parents.items():
+            children_map.setdefault(parent, []).append(child)
+
+        # 3. Count descendants (recursive)
+        def _count_descendants(node: str, visited: set) -> int:
+            if node in visited:
+                return 0
+            visited.add(node)
+            kids = children_map.get(node, [])
+            total = len(kids)
+            for k in kids:
+                total += _count_descendants(k, visited)
+            return total
+
+        # 4. Collect hubs: uber-root's direct children with >= 3 descendants
+        hubs: list[tuple[str, int]] = []
+        for child in children_map.get(uber_root, []):
+            desc_count = _count_descendants(child, set())
+            if desc_count >= 3:
+                hubs.append((child, desc_count))
+
+        if not hubs:
+            return ""
+
+        # Sort by descendant count descending, limit to top 8
+        hubs.sort(key=lambda x: -x[1])
+        hubs = hubs[:8]
+
+        # 5. For each hub, show its direct children (top 5)
+        lines = [
+            "### 本小说主要宏观区域",
+            f"（以下是「{uber_root}」下的主要区域。"
+            "本章如出现新地点，请优先判断它属于哪个区域，"
+            "并将该区域或其下属地点设为 parent）",
+        ]
+        for hub_name, desc_count in hubs:
+            tier_str = ""
+            if location_tiers:
+                tier = location_tiers.get(hub_name, "")
+                if tier:
+                    tier_str = f" [{tier}]"
+            sub_children = children_map.get(hub_name, [])
+            if sub_children:
+                shown = sub_children[:5]
+                suffix = (
+                    f" 等{len(sub_children)}处"
+                    if len(sub_children) > 5 else ""
+                )
+                lines.append(
+                    f"- **{hub_name}**{tier_str}（含 {desc_count} 处下属地点）→ "
+                    f"{'、'.join(shown)}{suffix}"
+                )
+            else:
+                lines.append(
+                    f"- **{hub_name}**{tier_str}（含 {desc_count} 处下属地点）"
+                )
+
+        return "\n".join(lines)
 
     @staticmethod
     def _build_upward_chain(

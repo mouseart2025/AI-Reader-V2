@@ -262,3 +262,174 @@ class LocationHierarchyReviewer:
         )
 
         return votes
+
+    # ── LLM output schema for hierarchy validation ──
+    _VALIDATION_SCHEMA: dict = {
+        "type": "object",
+        "properties": {
+            "corrections": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "child": {"type": "string"},
+                        "wrong_parent": {"type": "string"},
+                        "correct_parent": {"type": "string"},
+                        "confidence": {
+                            "type": "string",
+                            "enum": ["high", "medium"],
+                        },
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["child", "wrong_parent", "correct_parent", "confidence"],
+                },
+            },
+        },
+        "required": ["corrections"],
+    }
+
+    async def validate_hierarchy(
+        self,
+        location_parents: dict[str, str],
+        location_tiers: dict[str, str],
+        novel_genre_hint: str | None,
+    ) -> list[dict]:
+        """Post-consolidation LLM validation of hierarchy reasonableness.
+
+        Unlike ``review()`` which focuses on orphan placement, this method
+        checks the entire hierarchy for structural errors: wrong parent-child
+        direction, micro-locations directly under uber-root, etc.
+
+        Returns a list of correction dicts:
+        ``[{child, wrong_parent, correct_parent, confidence, reason}]``
+        """
+        if not location_parents:
+            return []
+
+        # Find uber-root
+        children = set(location_parents.keys())
+        parent_counts: Counter = Counter()
+        for p in location_parents.values():
+            if p not in children:
+                parent_counts[p] += 1
+        if not parent_counts:
+            return []
+        uber_root = parent_counts.most_common(1)[0][0]
+
+        # Build root children list
+        root_children_names = [
+            child for child, parent in location_parents.items()
+            if parent == uber_root
+        ]
+        if not root_children_names:
+            return []
+
+        # Format root children with tier and child count
+        child_count_map: Counter = Counter(location_parents.values())
+        root_children_lines = []
+        for name in sorted(root_children_names):
+            tier = location_tiers.get(name, "unknown")
+            n_children = child_count_map.get(name, 0)
+            root_children_lines.append(f"  {name} [tier={tier}, 子节点={n_children}]")
+
+        # Build first two layers detail (limited to 50 nodes)
+        detail_lines = []
+        shown = 0
+        for rc_name in sorted(root_children_names):
+            if shown >= 50:
+                break
+            rc_tier = location_tiers.get(rc_name, "unknown")
+            detail_lines.append(f"  {uber_root} → {rc_name} [tier={rc_tier}]")
+            shown += 1
+            # Second level: children of this root child
+            for child, parent in sorted(location_parents.items()):
+                if parent == rc_name and shown < 50:
+                    c_tier = location_tiers.get(child, "unknown")
+                    detail_lines.append(f"    {rc_name} → {child} [tier={c_tier}]")
+                    shown += 1
+
+        # Highlight suspicious items: building/site directly under uber-root
+        suspicious_lines = []
+        for name in sorted(root_children_names):
+            tier = location_tiers.get(name, "unknown")
+            if tier in ("building", "site"):
+                suspicious_lines.append(f"  ⚠ {name} [tier={tier}] → parent={uber_root}")
+
+        # Load prompt template
+        path = _PROMPTS_DIR / "hierarchy_validation.txt"
+        template = path.read_text(encoding="utf-8")
+        prompt = template.format(
+            genre_hint=novel_genre_hint or "未知",
+            uber_root=uber_root,
+            root_children="\n".join(root_children_lines) or "无",
+            hierarchy_detail="\n".join(detail_lines) or "无",
+            suspicious_items="\n".join(suspicious_lines) or "无可疑项",
+        )
+
+        system = "你是一个小说地理分析专家。请严格按照 JSON 格式输出。"
+        budget = get_budget()
+
+        try:
+            result, _usage = await self.llm.generate(
+                system=system,
+                prompt=prompt,
+                format=self._VALIDATION_SCHEMA,
+                temperature=0.1,
+                max_tokens=4096,
+                timeout=budget.hierarchy_timeout,
+                num_ctx=min(budget.context_window, 8192),
+            )
+        except Exception:
+            logger.warning("LLM hierarchy validation failed", exc_info=True)
+            return []
+
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse LLM validation result as JSON")
+                return []
+
+        # Parse and validate corrections
+        all_known = set(location_tiers.keys()) | set(location_parents.values())
+        corrections = []
+        for corr in result.get("corrections", []):
+            child = corr.get("child", "")
+            wrong_parent = corr.get("wrong_parent", "")
+            correct_parent = corr.get("correct_parent", "")
+            confidence = corr.get("confidence", "")
+
+            # Validation rules
+            if not child or not correct_parent:
+                continue
+            if child not in all_known or correct_parent not in all_known:
+                continue
+            if confidence not in ("high", "medium"):
+                continue
+            # wrong_parent must match current actual parent
+            actual_parent = location_parents.get(child)
+            if actual_parent != wrong_parent:
+                continue
+            # Don't create self-loops
+            if child == correct_parent:
+                continue
+
+            corrections.append({
+                "child": child,
+                "wrong_parent": wrong_parent,
+                "correct_parent": correct_parent,
+                "confidence": confidence,
+                "reason": corr.get("reason", ""),
+            })
+            logger.debug(
+                "Hierarchy validation: %s: %s → %s (confidence=%s, reason=%s)",
+                child, wrong_parent, correct_parent, confidence,
+                corr.get("reason", ""),
+            )
+
+        logger.info(
+            "Hierarchy validation: %d corrections from %d LLM suggestions",
+            len(corrections), len(result.get("corrections", [])),
+        )
+
+        return corrections
