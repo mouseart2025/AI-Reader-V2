@@ -230,7 +230,7 @@ export function generateTerrainHints(
   const layoutMap = new Map<string, MapLayoutItem>()
   for (const item of layout) layoutMap.set(item.name, item)
 
-  const baseOpacity = darkBg ? 0.18 : 0.22
+  const baseOpacity = darkBg ? 0.28 : 0.35
   const colorPalette = darkBg ? COLORS_DARK : COLORS_LIGHT
   const pad = 20
 
