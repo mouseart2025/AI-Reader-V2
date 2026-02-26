@@ -7,9 +7,10 @@ that are not top-level tiers like world/continent).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from src.infra.context_budget import get_budget
@@ -288,6 +289,13 @@ class LocationHierarchyReviewer:
         "required": ["corrections"],
     }
 
+    # Subtree size threshold: trees smaller than this are batched together
+    _SUBTREE_MIN_SIZE = 5
+    # Per-subtree LLM timeout (seconds)
+    _SUBTREE_TIMEOUT = 45.0
+    # Max nodes per subtree slice sent to LLM
+    _SUBTREE_MAX_DETAIL = 30
+
     async def validate_hierarchy(
         self,
         location_parents: dict[str, str],
@@ -296,9 +304,9 @@ class LocationHierarchyReviewer:
     ) -> list[dict]:
         """Post-consolidation LLM validation of hierarchy reasonableness.
 
-        Unlike ``review()`` which focuses on orphan placement, this method
-        checks the entire hierarchy for structural errors: wrong parent-child
-        direction, micro-locations directly under uber-root, etc.
+        Splits validation by uber-root's direct subtrees for lower LLM
+        cognitive load and better parallelism.  Cloud mode runs subtrees
+        concurrently via ``asyncio.gather()``; local mode runs sequentially.
 
         Returns a list of correction dicts:
         ``[{child, wrong_parent, correct_parent, confidence, reason}]``
@@ -307,10 +315,10 @@ class LocationHierarchyReviewer:
             return []
 
         # Find uber-root
-        children = set(location_parents.keys())
+        children_set = set(location_parents.keys())
         parent_counts: Counter = Counter()
         for p in location_parents.values():
-            if p not in children:
+            if p not in children_set:
                 parent_counts[p] += 1
         if not parent_counts:
             return []
@@ -324,43 +332,185 @@ class LocationHierarchyReviewer:
         if not root_children_names:
             return []
 
-        # Format root children with tier and child count
-        child_count_map: Counter = Counter(location_parents.values())
-        root_children_lines = []
-        for name in sorted(root_children_names):
-            tier = location_tiers.get(name, "unknown")
-            n_children = child_count_map.get(name, 0)
-            root_children_lines.append(f"  {name} [tier={tier}, 子节点={n_children}]")
+        # Build parent→children index for subtree collection
+        children_of: dict[str, list[str]] = defaultdict(list)
+        for child, parent in location_parents.items():
+            children_of[parent].append(child)
 
-        # Build first two layers detail (limited to 50 nodes)
+        # Collect subtrees rooted at each uber-root direct child
+        def _collect_subtree(root: str) -> dict[str, str]:
+            """BFS to collect all descendants' parent relationships."""
+            subtree: dict[str, str] = {}
+            queue = [root]
+            while queue:
+                node = queue.pop(0)
+                for ch in children_of.get(node, []):
+                    subtree[ch] = node
+                    queue.append(ch)
+            return subtree
+
+        # Partition into large subtrees and small-tree batch
+        large_slices: list[tuple[str, dict[str, str]]] = []
+        small_batch_parents: dict[str, str] = {}
+        small_batch_roots: list[str] = []
+
+        for rc in root_children_names:
+            st = _collect_subtree(rc)
+            # subtree includes rc's own children; total nodes = len(st) + 1 (rc itself)
+            total_nodes = len(st) + 1
+            if total_nodes >= self._SUBTREE_MIN_SIZE:
+                # Include the root child → uber_root relationship for context
+                st[rc] = uber_root
+                large_slices.append((rc, st))
+                logger.info(
+                    "Subtree partition: %s (%d nodes) → independent slice",
+                    rc, total_nodes,
+                )
+            else:
+                small_batch_parents[rc] = uber_root
+                small_batch_parents.update(st)
+                small_batch_roots.append(rc)
+
+        # Add small-tree batch if non-empty
+        if small_batch_parents:
+            label = "小子树批次({})".format(", ".join(small_batch_roots[:5]))
+            large_slices.append((label, small_batch_parents))
+            logger.info(
+                "Subtree partition: %d small subtrees (%d nodes) → batched",
+                len(small_batch_roots), len(small_batch_parents),
+            )
+
+        logger.info(
+            "Subtree validation: %d slices from %d root children",
+            len(large_slices), len(root_children_names),
+        )
+
+        all_known = set(location_tiers.keys()) | set(location_parents.values())
+
+        # Determine cloud vs local mode for concurrency
+        from src.infra.openai_client import OpenAICompatibleClient
+        from src.infra.anthropic_client import AnthropicClient
+        is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
+
+        # Build coroutines for each slice
+        async def _run_slice(label: str, sp: dict[str, str]) -> list[dict]:
+            try:
+                return await asyncio.wait_for(
+                    self._validate_subtree(
+                        subtree_root=label,
+                        subtree_parents=sp,
+                        location_tiers=location_tiers,
+                        location_parents=location_parents,
+                        all_known=all_known,
+                        uber_root=uber_root,
+                        novel_genre_hint=novel_genre_hint,
+                    ),
+                    timeout=self._SUBTREE_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Subtree validation timed out (%.0fs): %s",
+                    self._SUBTREE_TIMEOUT, label,
+                )
+                return []
+            except Exception:
+                logger.warning(
+                    "Subtree validation failed: %s", label, exc_info=True,
+                )
+                return []
+
+        if is_cloud and len(large_slices) > 1:
+            # Cloud: concurrent execution
+            logger.info("Cloud mode: running %d subtree validations concurrently", len(large_slices))
+            results = await asyncio.gather(
+                *[_run_slice(label, sp) for label, sp in large_slices]
+            )
+            all_corrections = []
+            for r in results:
+                all_corrections.extend(r)
+        else:
+            # Local: sequential execution
+            all_corrections = []
+            for label, sp in large_slices:
+                corrs = await _run_slice(label, sp)
+                all_corrections.extend(corrs)
+
+        logger.info(
+            "Subtree validation complete: %d total corrections from %d slices",
+            len(all_corrections), len(large_slices),
+        )
+        return all_corrections
+
+    async def _validate_subtree(
+        self,
+        subtree_root: str,
+        subtree_parents: dict[str, str],
+        location_tiers: dict[str, str],
+        location_parents: dict[str, str],
+        all_known: set[str],
+        uber_root: str,
+        novel_genre_hint: str | None,
+    ) -> list[dict]:
+        """Validate a single subtree slice via LLM.
+
+        Args:
+            subtree_root: Display name of this subtree (for logging)
+            subtree_parents: ``{child: parent}`` within this subtree
+            location_tiers: Full tier map for all locations
+            location_parents: Full parent map (for actual_parent validation)
+            all_known: Set of all known location names
+            uber_root: The uber-root name
+            novel_genre_hint: Genre hint string
+        """
+        if not subtree_parents:
+            return []
+
+        # Determine the effective root for this subtree's prompt
+        # For large subtrees, use the subtree root as context anchor
+        # For the small batch, use uber_root
+        effective_root = uber_root
+
+        # Collect all locations in this subtree
+        subtree_locs = set(subtree_parents.keys()) | set(subtree_parents.values())
+
+        # Format root children with tier and child count (within subtree)
+        child_count_map: Counter = Counter(subtree_parents.values())
+        direct_children = [
+            ch for ch, p in subtree_parents.items()
+            if p == uber_root or p not in subtree_parents
+        ]
+        root_children_lines = []
+        for name in sorted(direct_children):
+            tier = location_tiers.get(name, "unknown")
+            n_ch = child_count_map.get(name, 0)
+            root_children_lines.append(f"  {name} [tier={tier}, 子节点={n_ch}]")
+
+        # Build detail lines (limited to _SUBTREE_MAX_DETAIL)
         detail_lines = []
         shown = 0
-        for rc_name in sorted(root_children_names):
-            if shown >= 50:
+        for child, parent in sorted(subtree_parents.items()):
+            if shown >= self._SUBTREE_MAX_DETAIL:
                 break
-            rc_tier = location_tiers.get(rc_name, "unknown")
-            detail_lines.append(f"  {uber_root} → {rc_name} [tier={rc_tier}]")
+            c_tier = location_tiers.get(child, "unknown")
+            detail_lines.append(f"  {parent} → {child} [tier={c_tier}]")
             shown += 1
-            # Second level: children of this root child
-            for child, parent in sorted(location_parents.items()):
-                if parent == rc_name and shown < 50:
-                    c_tier = location_tiers.get(child, "unknown")
-                    detail_lines.append(f"    {rc_name} → {child} [tier={c_tier}]")
-                    shown += 1
 
         # Highlight suspicious items: building/site directly under uber-root
         suspicious_lines = []
-        for name in sorted(root_children_names):
-            tier = location_tiers.get(name, "unknown")
-            if tier in ("building", "site"):
-                suspicious_lines.append(f"  ⚠ {name} [tier={tier}] → parent={uber_root}")
+        for child, parent in sorted(subtree_parents.items()):
+            if parent == uber_root:
+                tier = location_tiers.get(child, "unknown")
+                if tier in ("building", "site"):
+                    suspicious_lines.append(
+                        f"  ⚠ {child} [tier={tier}] → parent={uber_root}"
+                    )
 
-        # Load prompt template
+        # Load prompt template and format
         path = _PROMPTS_DIR / "hierarchy_validation.txt"
         template = path.read_text(encoding="utf-8")
         prompt = template.format(
             genre_hint=novel_genre_hint or "未知",
-            uber_root=uber_root,
+            uber_root=effective_root,
             root_children="\n".join(root_children_lines) or "无",
             hierarchy_detail="\n".join(detail_lines) or "无",
             suspicious_items="\n".join(suspicious_lines) or "无可疑项",
@@ -368,6 +518,11 @@ class LocationHierarchyReviewer:
 
         system = "你是一个小说地理分析专家。请严格按照 JSON 格式输出。"
         budget = get_budget()
+
+        logger.info(
+            "Validating subtree: %s (%d nodes, %d detail lines)",
+            subtree_root, len(subtree_parents), len(detail_lines),
+        )
 
         try:
             result, _usage = await self.llm.generate(
@@ -380,18 +535,23 @@ class LocationHierarchyReviewer:
                 num_ctx=min(budget.context_window, 8192),
             )
         except Exception:
-            logger.warning("LLM hierarchy validation failed", exc_info=True)
+            logger.warning(
+                "LLM hierarchy validation failed for subtree: %s",
+                subtree_root, exc_info=True,
+            )
             return []
 
         if isinstance(result, str):
             try:
                 result = json.loads(result)
             except json.JSONDecodeError:
-                logger.warning("Failed to parse LLM validation result as JSON")
+                logger.warning(
+                    "Failed to parse LLM validation result for subtree: %s",
+                    subtree_root,
+                )
                 return []
 
         # Parse and validate corrections
-        all_known = set(location_tiers.keys()) | set(location_parents.values())
         corrections = []
         for corr in result.get("corrections", []):
             child = corr.get("child", "")
@@ -399,18 +559,15 @@ class LocationHierarchyReviewer:
             correct_parent = corr.get("correct_parent", "")
             confidence = corr.get("confidence", "")
 
-            # Validation rules
             if not child or not correct_parent:
                 continue
             if child not in all_known or correct_parent not in all_known:
                 continue
             if confidence not in ("high", "medium"):
                 continue
-            # wrong_parent must match current actual parent
             actual_parent = location_parents.get(child)
             if actual_parent != wrong_parent:
                 continue
-            # Don't create self-loops
             if child == correct_parent:
                 continue
 
@@ -422,14 +579,14 @@ class LocationHierarchyReviewer:
                 "reason": corr.get("reason", ""),
             })
             logger.debug(
-                "Hierarchy validation: %s: %s → %s (confidence=%s, reason=%s)",
-                child, wrong_parent, correct_parent, confidence,
-                corr.get("reason", ""),
+                "Subtree %s: %s: %s → %s (confidence=%s, reason=%s)",
+                subtree_root, child, wrong_parent, correct_parent,
+                confidence, corr.get("reason", ""),
             )
 
         logger.info(
-            "Hierarchy validation: %d corrections from %d LLM suggestions",
-            len(corrections), len(result.get("corrections", [])),
+            "Subtree %s: %d corrections from %d LLM suggestions",
+            subtree_root, len(corrections),
+            len(result.get("corrections", [])),
         )
-
         return corrections

@@ -324,6 +324,44 @@ def _get_suffix_rank(name: str) -> int | None:
                 return TIER_ORDER.get(tier, 4)
     return None
 
+def _find_common_parent(
+    a: str,
+    b: str,
+    parent_votes: dict[str, Counter],
+    known_locs: set[str],
+) -> str | None:
+    """Find best common parent for two sibling locations.
+
+    Used when bidirectional conflict resolution detects a sibling pair
+    (same suffix rank, close vote counts).  Searches the vote data for
+    a third-party parent that both (or either) location has been voted
+    under.
+
+    Returns the best common parent name, or None if none found.
+    """
+    a_cands = {
+        p: c for p, c in parent_votes.get(a, Counter()).items()
+        if p != b and p != a and p in known_locs
+    }
+    b_cands = {
+        p: c for p, c in parent_votes.get(b, Counter()).items()
+        if p != a and p != b and p in known_locs
+    }
+    # Priority: common candidate parent for both
+    common = set(a_cands) & set(b_cands)
+    if common:
+        return max(common, key=lambda p: a_cands[p] + b_cands[p])
+    # Fallback: highest-voted non-sibling parent from either
+    merged: Counter = Counter()
+    for p, c in a_cands.items():
+        merged[p] += c
+    for p, c in b_cands.items():
+        merged[p] += c
+    if merged:
+        return merged.most_common(1)[0][0]
+    return None
+
+
 # Realm/fantasy location keywords — locations containing these are
 # dream worlds, spiritual realms, etc. that shouldn't adopt real-world
 # children via primary setting inference.
@@ -2052,6 +2090,33 @@ class WorldStructureAgent:
                 a, b = pair  # a < b alphabetically
                 a_suf = _get_suffix_rank(a)
                 b_suf = _get_suffix_rank(b)
+
+                # ── Sibling detection ──
+                # When suffix ranks are equal (or both unknown) and vote counts
+                # are close (ratio < 2:1), treat as siblings and search for a
+                # common third-party parent instead of forcing a direction.
+                if a_suf == b_suf:
+                    a_to_b = self._parent_votes.get(a, Counter()).get(b, 0)
+                    b_to_a = self._parent_votes.get(b, Counter()).get(a, 0)
+                    ratio = (
+                        max(a_to_b, b_to_a) / max(min(a_to_b, b_to_a), 1)
+                    )
+                    if ratio < 2.0:
+                        common = _find_common_parent(
+                            a, b, self._parent_votes, known_locs,
+                        )
+                        if common:
+                            raw.pop(a, None)
+                            raw.pop(b, None)
+                            raw[a] = common
+                            raw[b] = common
+                            logger.debug(
+                                "Sibling cluster: %s ↔ %s → parent %s "
+                                "(suf=%s/%s, votes=%d/%d)",
+                                a, b, common, a_suf, b_suf, a_to_b, b_to_a,
+                            )
+                            continue
+
                 # Use suffix rank to determine correct direction
                 if a_suf is not None and b_suf is not None and a_suf != b_suf:
                     if a_suf < b_suf:
