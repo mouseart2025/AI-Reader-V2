@@ -420,8 +420,15 @@ class AnalysisService:
                     world_agent.structure.location_parents
                     if world_agent.structure else None
                 )
+                _loc_tiers = (
+                    dict(world_agent.structure.location_tiers)
+                    if world_agent.structure and world_agent.structure.location_tiers
+                    else None
+                )
                 context = await self.context_builder.build(
-                    novel_id, chapter_num, location_parents=_loc_parents,
+                    novel_id, chapter_num,
+                    location_parents=_loc_parents,
+                    location_tiers=_loc_tiers,
                 )
 
                 # Extract facts
@@ -652,8 +659,15 @@ class AnalysisService:
                         world_agent.structure.location_parents
                         if world_agent.structure else None
                     )
+                    _loc_tiers = (
+                        dict(world_agent.structure.location_tiers)
+                        if world_agent.structure and world_agent.structure.location_tiers
+                        else None
+                    )
                     ctx = await self.context_builder.build(
-                        novel_id, retry_num, location_parents=_loc_parents,
+                        novel_id, retry_num,
+                        location_parents=_loc_parents,
+                        location_tiers=_loc_tiers,
                     )
                     fact, usage = await self.extractor.extract(
                         novel_id=novel_id,
@@ -813,6 +827,7 @@ class AnalysisService:
 
         ws = await world_structure_store.load(novel_id)
         loc_parents = ws.location_parents if ws else None
+        loc_tiers = dict(ws.location_tiers) if ws and ws.location_tiers else None
         succeeded = 0
         failed = 0
 
@@ -823,7 +838,9 @@ class AnalysisService:
 
             try:
                 ctx = await self.context_builder.build(
-                    novel_id, ch_num, location_parents=loc_parents,
+                    novel_id, ch_num,
+                    location_parents=loc_parents,
+                    location_tiers=loc_tiers,
                 )
                 fact, usage = await self.extractor.extract(
                     novel_id=novel_id,

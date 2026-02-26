@@ -336,6 +336,7 @@ _SUFFIX_TO_TYPE: list[tuple[str, str]] = [
     ("岛", "岛屿"), ("关", "关隘"),
     ("门", "门派"), ("宗", "宗门"), ("派", "门派"),
     ("林", "林地"), ("原", "平原"), ("漠", "沙漠"),
+    ("园", "园林"), ("轩", "建筑"), ("斋", "建筑"),
 ]
 
 
@@ -367,8 +368,13 @@ def _is_generic_person(name: str) -> str | None:
 
 
 def _clamp_name(name: str) -> str:
-    """Truncate name to max length."""
+    """Clean and truncate location name."""
     name = name.strip()
+    # Split on Chinese/English list separators, take first element
+    for sep in ("、", "，", "；", ",", ";"):
+        if sep in name:
+            name = name.split(sep)[0].strip()
+            break
     if len(name) > _NAME_MAX_LEN:
         return name[:_NAME_MAX_LEN]
     return name

@@ -238,6 +238,23 @@ async def rebuild_hierarchy(novel_id: str):
             for ov in overrides:
                 agent._overridden_keys.add((ov["override_type"], ov["override_key"]))
 
+            # 0.5. Re-classify stale tiers using current (fixed) classification logic
+            # Fixes locations that got "city" tier from old Layer 4 fallback
+            from src.services.world_structure_agent import _get_suffix_rank
+            retier_count = 0
+            for loc_name in list(ws.location_tiers.keys()):
+                if ("location_tier", loc_name) in agent._overridden_keys:
+                    continue
+                parent = ws.location_parents.get(loc_name)
+                level = 1 if parent else 0
+                new_tier = agent._classify_tier(loc_name, "", parent, level)
+                old_tier = ws.location_tiers[loc_name]
+                if new_tier != old_tier:
+                    ws.location_tiers[loc_name] = new_tier
+                    retier_count += 1
+            if retier_count:
+                yield _sse("init", f"修正 {retier_count} 个过时的层级分类")
+
             # 1. Rebuild parent votes
             yield _sse("votes", "正在从章节事实重建投票数据...")
             agent._parent_votes = await agent._rebuild_parent_votes()
@@ -279,13 +296,17 @@ async def rebuild_hierarchy(novel_id: str):
                     provider=provider_label,
                 )
                 try:
+                    import asyncio as _asyncio_review
                     from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
                     reviewer = LocationHierarchyReviewer()
-                    review_votes = await reviewer.review(
-                        ws.location_tiers,
-                        temp_parents,
-                        scene_analysis,
-                        ws.novel_genre_hint,
+                    review_votes = await _asyncio_review.wait_for(
+                        reviewer.review(
+                            ws.location_tiers,
+                            temp_parents,
+                            scene_analysis,
+                            ws.novel_genre_hint,
+                        ),
+                        timeout=90.0,
                     )
                     if review_votes:
                         agent.inject_external_votes(review_votes)
@@ -293,6 +314,9 @@ async def rebuild_hierarchy(novel_id: str):
                         yield _sse("llm", f"LLM 审查完成，获得 {len(review_votes)} 条建议")
                     else:
                         yield _sse("llm", "LLM 审查完成，无新建议")
+                except _asyncio_review.TimeoutError:
+                    logger.warning("LLM hierarchy review timed out for %s", novel_id)
+                    yield _sse("llm", "LLM 审查超时(>90s)，使用纯算法结果")
                 except Exception:
                     logger.warning("LLM hierarchy review failed for %s", novel_id, exc_info=True)
                     yield _sse("llm", "LLM 审查失败，使用纯算法结果")
@@ -309,7 +333,45 @@ async def rebuild_hierarchy(novel_id: str):
                 dict(ws.location_tiers),
                 novel_genre_hint=ws.novel_genre_hint,
                 parent_votes=agent._parent_votes,
+                saved_parents=dict(ws.location_parents),
             )
+
+            # 4.5. LLM hierarchy validation (post-consolidation)
+            try:
+                import asyncio as _asyncio
+                from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
+                yield _sse("validate", "正在进行 LLM 层级合理性验证...")
+                _val_reviewer = LocationHierarchyReviewer()
+                corrections = await _asyncio.wait_for(
+                    _val_reviewer.validate_hierarchy(
+                        new_parents, new_tiers, ws.novel_genre_hint,
+                    ),
+                    timeout=60.0,
+                )
+                if corrections:
+                    for corr in corrections:
+                        new_parents[corr["child"]] = corr["correct_parent"]
+                    yield _sse("validate", f"LLM 验证修正 {len(corrections)} 处")
+                else:
+                    yield _sse("validate", "LLM 验证完成，层级结构合理")
+            except _asyncio.TimeoutError:
+                logger.warning("LLM hierarchy validation timed out for %s", novel_id)
+                yield _sse("validate", "LLM 层级验证超时，已跳过")
+            except Exception:
+                logger.warning("LLM hierarchy validation failed for %s", novel_id, exc_info=True)
+                yield _sse("validate", "LLM 层级验证失败，已跳过")
+
+            # 4.9. Clean phantom parents — parent values that don't exist as known locations
+            # (e.g., "薛姨妈室、里间" which is in location_parents but not location_tiers)
+            _uber_root = agent._find_uber_root(new_parents) if new_parents else None
+            phantom_cleaned = 0
+            for _child, _parent in list(new_parents.items()):
+                if _parent not in new_tiers and _parent != _uber_root:
+                    del new_parents[_child]
+                    phantom_cleaned += 1
+            if phantom_cleaned:
+                logger.info("Cleaned %d phantom parent entries", phantom_cleaned)
+                yield _sse("validate", f"清理 {phantom_cleaned} 个幻影父节点")
 
             # 5. Compute diff (use new_tiers as known location set for validation)
             old_parents = dict(ws.location_parents)
