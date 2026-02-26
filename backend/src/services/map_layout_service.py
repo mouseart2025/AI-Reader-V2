@@ -2174,16 +2174,18 @@ def _biome_for_type(loc_type: str) -> tuple[int, int, int]:
 # ── Whittaker biome matrix (elevation × moisture → color) ────────────
 # 5×5 grid, rows = elevation (0.0 → 1.0), cols = moisture (0.0 → 1.0)
 _WHITTAKER_GRID: list[list[tuple[int, int, int]]] = [
-    # e=0.0  (lowland)
-    [(170, 165, 130), (150, 160, 123), (130, 155, 115), (115, 138, 105), (100, 120, 95)],
-    # e=0.25
-    [(185, 170, 138), (155, 163, 125), (135, 158, 118), (118, 142, 108), (105, 125, 98)],
-    # e=0.5
-    [(190, 170, 140), (168, 168, 130), (145, 165, 120), (128, 153, 110), (110, 140, 100)],
-    # e=0.75
-    [(165, 145, 125), (130, 133, 108), (112, 127, 99), (95, 120, 90), (95, 120, 90)],
-    # e=1.0  (peak)
-    [(250, 248, 245), (250, 248, 245), (250, 248, 245), (250, 248, 245), (250, 248, 245)],
+    # Warm parchment palette: center values are neutral/warm,
+    # green/teal only appears at high moisture (near water/garden locations).
+    # e=0.0  (lowland): warm sand → warm → olive → green → teal
+    [(215, 200, 160), (200, 195, 150), (165, 180, 125), (120, 160, 95), (100, 148, 120)],
+    # e=0.25: warm tan → sandy → light olive → forest → wetland
+    [(210, 198, 158), (198, 192, 148), (170, 180, 130), (130, 162, 100), (108, 145, 118)],
+    # e=0.5:  parchment → neutral → subtle olive → moderate → green-gray
+    [(205, 195, 160), (195, 190, 152), (180, 182, 140), (150, 170, 115), (125, 152, 112)],
+    # e=0.75: cool parchment → gray-warm → gray → dark olive → dark
+    [(188, 180, 158), (175, 168, 150), (158, 160, 135), (130, 145, 110), (108, 128, 100)],
+    # e=1.0  (peak): bright / snow
+    [(240, 238, 230), (238, 235, 228), (235, 233, 225), (232, 230, 222), (228, 226, 220)],
 ]
 
 
@@ -2283,11 +2285,14 @@ def generate_terrain(
     canvas_width: int = CANVAS_WIDTH,
     canvas_height: int = CANVAS_HEIGHT,
 ) -> str | None:
-    """Generate a terrain PNG based on Voronoi regions + simplex noise.
+    """Generate a terrain PNG using continuous simplex noise fields.
 
-    Uses fully vectorized numpy operations for performance.
-    The output image aspect ratio matches the canvas (16:9).
-    Returns the file path or None on failure.
+    Instead of Voronoi cells (geometric, hard edges), this uses continuous
+    elevation + moisture noise fields → Whittaker biome color lookup for
+    every pixel. Location types bias the fields (mountains raise elevation,
+    water boosts moisture) so terrain naturally reflects the story geography.
+
+    Final image is Gaussian-blurred for smooth, painterly transitions.
     """
     try:
         from PIL import Image
@@ -2299,7 +2304,7 @@ def generate_terrain(
     if len(layout) < 2:
         return None
 
-    # Compute image dimensions preserving canvas aspect ratio
+    # ── Image dimensions (preserve canvas 16:9 aspect) ──
     aspect = canvas_width / max(canvas_height, 1)
     if aspect >= 1:
         img_w = size
@@ -2308,15 +2313,17 @@ def generate_terrain(
         img_h = size
         img_w = max(1, int(size * aspect))
 
-    # Scale layout coordinates from canvas to image
     scale_x = img_w / canvas_width
     scale_y = img_h / canvas_height
-    points: list[list[float]] = []
-    mountain_img_pts: list[tuple[float, float]] = []
-    water_img_pts: list[tuple[float, float]] = []
 
-    _MOUNTAIN_SUFFIXES = ("山", "峰", "岭", "崖", "岩")
-    _WATER_SUFFIXES = ("河", "湖", "海", "泉", "潭", "溪", "池")
+    # ── Classify location influence points ──
+    _MOUNTAIN_KW = ("山", "峰", "岭", "崖", "岩", "高", "丘")
+    _WATER_KW = ("河", "湖", "海", "泉", "潭", "溪", "池", "港", "江", "洋", "水")
+    _FOREST_KW = ("林", "园", "苑", "圃", "庄", "村")
+
+    mountain_pts: list[tuple[float, float]] = []
+    water_pts: list[tuple[float, float]] = []
+    forest_pts: list[tuple[float, float]] = []
 
     for loc in locations:
         name = loc["name"]
@@ -2325,152 +2332,134 @@ def generate_terrain(
         x, y = layout[name]
         px = x * scale_x
         py = (canvas_height - y) * scale_y
-        points.append([px, py])
         loc_type = loc.get("type", "")
-        if any(s in name or s in loc_type for s in _MOUNTAIN_SUFFIXES):
-            mountain_img_pts.append((px, py))
-        if any(s in name or s in loc_type for s in _WATER_SUFFIXES):
-            water_img_pts.append((px, py))
+        icon = loc.get("icon", "")
+        combined = name + loc_type + icon
+        if any(k in combined for k in _MOUNTAIN_KW) or icon == "mountain":
+            mountain_pts.append((px, py))
+        if any(k in combined for k in _WATER_KW) or icon in ("water", "island"):
+            water_pts.append((px, py))
+        if any(k in combined for k in _FOREST_KW) or icon == "forest":
+            forest_pts.append((px, py))
 
-    if len(points) < 2:
-        return None
+    # ── Noise generators ──
+    seed_base = hash(novel_id) % (2**31)
+    elev_noise = OpenSimplex(seed=seed_base)
+    moist_noise = OpenSimplex(seed=seed_base + 9973)
+    detail_noise = OpenSimplex(seed=seed_base + 19937)
+    paper_noise = OpenSimplex(seed=seed_base + 31337)
 
-    n_locations = len(points)
+    # ── Sparse-sample + upsample helper ──
+    from scipy.ndimage import zoom, gaussian_filter
 
-    # Add random fill points to reach max(n_locations, 30) for uniform Voronoi cells
-    n_fill = max(0, 30 - n_locations)
-    if n_fill > 0:
-        fill_rng = np.random.default_rng(hash(novel_id) % (2**31) + 123)
-        for _ in range(n_fill):
-            points.append([
-                float(fill_rng.uniform(20, img_w - 20)),
-                float(fill_rng.uniform(20, img_h - 20)),
-            ])
+    def _sparse_noise(gen, freq: float, step: int = 4) -> np.ndarray:
+        """Sample noise at sparse grid, then bilinear upsample."""
+        rows_s = range(0, img_h, step)
+        cols_s = range(0, img_w, step)
+        sparse = np.zeros((len(list(rows_s)), len(list(cols_s))), dtype=np.float64)
+        for ri, row in enumerate(range(0, img_h, step)):
+            for ci, col in enumerate(range(0, img_w, step)):
+                sparse[ri, ci] = gen.noise2(col * freq, row * freq)
+        zy = img_h / max(sparse.shape[0], 1)
+        zx = img_w / max(sparse.shape[1], 1)
+        return zoom(sparse, (zy, zx), order=1)[:img_h, :img_w]
 
-    point_arr = np.array(points, dtype=np.float64)
+    # ── Continuous elevation field (multi-octave) ──
+    elev = (
+        _sparse_noise(elev_noise, 0.004, step=4) * 0.50     # large-scale terrain
+        + _sparse_noise(elev_noise, 0.012, step=4) * 0.30   # medium detail
+        + _sparse_noise(elev_noise, 0.035, step=8) * 0.20   # fine detail
+    )
+    elev = elev * 0.5 + 0.38  # bias toward lowland (warm tones) by default
 
-    # Lloyd relaxation: 2 iterations for more regular cell shapes
-    if len(point_arr) >= 4:
-        point_arr = _lloyd_relax(
-            point_arr, img_w, img_h,
-            n_fixed=n_locations, iterations=2, max_shift=30.0,
-        )
+    # Location influence on elevation
+    influence_r = max(img_w, img_h) * 0.18
+    ys_grid, xs_grid = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
 
-    # Compute biome color per seed point via Whittaker matrix
-    noise_gen = OpenSimplex(seed=hash(novel_id) % (2**31))
-    moisture_gen = OpenSimplex(seed=hash(novel_id + "moisture") % (2**31))
+    for mx, my in mountain_pts:
+        dist = np.sqrt((xs_grid - mx) ** 2 + (ys_grid - my) ** 2)
+        mask = dist < influence_r
+        elev[mask] += 0.25 * (1.0 - dist[mask] / influence_r)
 
-    biome_colors: list[tuple[int, int, int]] = []
-    for i in range(len(point_arr)):
-        px, py = float(point_arr[i, 0]), float(point_arr[i, 1])
-        elev = _elevation_at_img(px, py, noise_gen, img_w, img_h, mountain_img_pts, water_img_pts)
-        moist = _moisture_at_img(px, py, moisture_gen, img_w, img_h, mountain_img_pts, water_img_pts)
-        biome_colors.append(_biome_color_at(elev, moist))
+    for wx, wy in water_pts:
+        dist = np.sqrt((xs_grid - wx) ** 2 + (ys_grid - wy) ** 2)
+        mask = dist < influence_r
+        elev[mask] -= 0.20 * (1.0 - dist[mask] / influence_r)
 
-    biome_arr = np.array(biome_colors, dtype=np.uint8)
+    elev = np.clip(elev, 0.0, 1.0)
 
-    # Create coordinate grids
-    ys, xs = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
+    # ── Continuous moisture field (multi-octave) ──
+    moist = (
+        _sparse_noise(moist_noise, 0.005, step=4) * 0.50
+        + _sparse_noise(moist_noise, 0.015, step=4) * 0.30
+        + _sparse_noise(moist_noise, 0.04, step=8) * 0.20
+    )
+    moist = moist * 0.5 + 0.30  # bias toward dry (warm parchment tones) by default
 
-    # Add simplex noise displacement for natural Voronoi boundaries
-    # Process in rows for noise2 (opensimplex doesn't have vectorized 2D)
-    noise_scale = 0.005
-    displacement = np.zeros((img_h, img_w), dtype=np.float64)
-    for row in range(0, img_h, 4):  # sample every 4th row, interpolate
-        for col in range(0, img_w, 4):
-            displacement[row, col] = noise_gen.noise2(col * noise_scale, row * noise_scale)
+    water_r = max(img_w, img_h) * 0.22
+    for wx, wy in water_pts:
+        dist = np.sqrt((xs_grid - wx) ** 2 + (ys_grid - wy) ** 2)
+        mask = dist < water_r
+        moist[mask] += 0.35 * (1.0 - dist[mask] / water_r)
 
-    # Bilinear upsample the sparse noise grid
-    from scipy.ndimage import zoom
-    sparse = displacement[::4, ::4]
-    zoom_y = img_h / max(sparse.shape[0], 1)
-    zoom_x = img_w / max(sparse.shape[1], 1)
-    displacement = zoom(sparse, (zoom_y, zoom_x), order=1)[:img_h, :img_w]
+    forest_r = max(img_w, img_h) * 0.15
+    for fx, fy in forest_pts:
+        dist = np.sqrt((xs_grid - fx) ** 2 + (ys_grid - fy) ** 2)
+        mask = dist < forest_r
+        moist[mask] += 0.20 * (1.0 - dist[mask] / forest_r)
 
-    xs_displaced = xs + displacement * 40
-    ys_displaced = ys + displacement * 40
+    mtn_r = max(img_w, img_h) * 0.14
+    for mx, my in mountain_pts:
+        dist = np.sqrt((xs_grid - mx) ** 2 + (ys_grid - my) ** 2)
+        mask = dist < mtn_r
+        moist[mask] -= 0.12 * (1.0 - dist[mask] / mtn_r)
 
-    # Find nearest point for each pixel (vectorized)
-    # Process in row-blocks to manage memory (~img_w * n_points per block)
-    block_size = 128
-    nearest = np.zeros((img_h, img_w), dtype=np.int32)
+    moist = np.clip(moist, 0.0, 1.0)
 
-    for row_start in range(0, img_h, block_size):
-        row_end = min(row_start + block_size, img_h)
-        bx = xs_displaced[row_start:row_end]  # (block, img_w)
-        by = ys_displaced[row_start:row_end]
+    # ── Per-pixel Whittaker color lookup ──
+    # Vectorized: scale to grid indices and bilinear interpolate
+    e_idx = np.clip(elev * 4.0, 0.0, 4.0)
+    m_idx = np.clip(moist * 4.0, 0.0, 4.0)
+    ei = np.clip(np.floor(e_idx).astype(np.int32), 0, 3)
+    mi = np.clip(np.floor(m_idx).astype(np.int32), 0, 3)
+    ef = e_idx - ei.astype(np.float64)
+    mf = m_idx - mi.astype(np.float64)
 
-        # Compute distances to each point: (block, img_w, n_points)
-        dx = bx[:, :, np.newaxis] - point_arr[:, 0]  # broadcast
-        dy = by[:, :, np.newaxis] - point_arr[:, 1]
-        dist_sq = dx ** 2 + dy ** 2
-        nearest[row_start:row_end] = np.argmin(dist_sq, axis=2)
+    # Build grid lookup array
+    grid_arr = np.array(_WHITTAKER_GRID, dtype=np.float64)  # (5, 5, 3)
+    c00 = grid_arr[ei, mi]          # (H, W, 3)
+    c01 = grid_arr[ei, mi + 1]
+    c10 = grid_arr[ei + 1, mi]
+    c11 = grid_arr[ei + 1, mi + 1]
 
-    # Build RGB image from nearest indices
-    rgb = biome_arr[nearest]  # (img_h, img_w, 3)
+    ef3 = ef[:, :, np.newaxis]
+    mf3 = mf[:, :, np.newaxis]
+    rgb = (
+        c00 * (1 - ef3) * (1 - mf3)
+        + c01 * (1 - ef3) * mf3
+        + c10 * ef3 * (1 - mf3)
+        + c11 * ef3 * mf3
+    )
 
-    # Add multi-octave color variation noise for visual depth
-    detail_noise = np.zeros((img_h, img_w), dtype=np.float64)
-    octaves = [(0.01, 0.5), (0.03, 0.3), (0.08, 0.2)]  # (frequency, weight)
-    step = 2
-    for freq, weight in octaves:
-        layer = np.zeros((img_h, img_w), dtype=np.float64)
-        for row in range(0, img_h, step):
-            for col in range(0, img_w, step):
-                layer[row, col] = noise_gen.noise2(col * freq, row * freq)
-        sparse_layer = layer[::step, ::step]
-        zy = img_h / max(sparse_layer.shape[0], 1)
-        zx = img_w / max(sparse_layer.shape[1], 1)
-        layer = zoom(sparse_layer, (zy, zx), order=1)[:img_h, :img_w]
-        detail_noise += layer * weight
+    # ── Color variation noise for visual depth ──
+    variation = (
+        _sparse_noise(detail_noise, 0.01, step=2) * 0.5
+        + _sparse_noise(detail_noise, 0.03, step=4) * 0.3
+        + _sparse_noise(detail_noise, 0.08, step=8) * 0.2
+    )
+    rgb = rgb + variation[:, :, np.newaxis] * 30  # ±15 color variation
 
-    variation = (detail_noise * 40).astype(np.int16)  # ±20 amplitude
-    rgb = np.clip(rgb.astype(np.int16) + variation[:, :, np.newaxis], 0, 255)
+    # ── Paper grain texture ──
+    paper = _sparse_noise(paper_noise, 0.12, step=4)
+    rgb = rgb + paper[:, :, np.newaxis] * 12  # ±6 grain
 
-    # Paper grain overlay: high-frequency noise for parchment texture
-    paper_noise = np.zeros((img_h, img_w), dtype=np.float64)
-    paper_step = 4
-    for row in range(0, img_h, paper_step):
-        for col in range(0, img_w, paper_step):
-            paper_noise[row, col] = noise_gen.noise2(col * 0.15, row * 0.15)
-    sparse_paper = paper_noise[::paper_step, ::paper_step]
-    pzy = img_h / max(sparse_paper.shape[0], 1)
-    pzx = img_w / max(sparse_paper.shape[1], 1)
-    paper_noise = zoom(sparse_paper, (pzy, pzx), order=1)[:img_h, :img_w]
-    paper_variation = (paper_noise * 16).astype(np.int16)  # ±8 amplitude
-    rgb = np.clip(rgb + paper_variation[:, :, np.newaxis], 0, 255)
+    rgb = np.clip(rgb, 0, 255).astype(np.uint8)
 
-    # Boundary darkening: darken pixels near region boundaries.
-    # Skip darkening when cells are tiny (many points clustered together),
-    # which would otherwise produce ugly dense stripes.
-    min_cell_dist = min(img_w, img_h) * 0.03  # minimum cell size for darkening to apply
-    darken = np.ones((img_h, img_w), dtype=np.float64)
-    for row_start in range(0, img_h, block_size):
-        row_end = min(row_start + block_size, img_h)
-        bx = xs_displaced[row_start:row_end]
-        by = ys_displaced[row_start:row_end]
-        dx = bx[:, :, np.newaxis] - point_arr[:, 0]
-        dy = by[:, :, np.newaxis] - point_arr[:, 1]
-        dist_sq = dx ** 2 + dy ** 2
-        # Partition to find two smallest distances
-        part = np.partition(dist_sq, 1, axis=2)
-        d1 = np.sqrt(part[:, :, 0])
-        d2 = np.sqrt(part[:, :, 1])
-        # Ratio: 1.0 at boundary (d1≈d2), 0.0 deep inside a region
-        ratio = np.where(d2 > 0, d1 / d2, 0.0)
-        # Map ratio to darkening factor: closer to 1.0 = more darkening (up to 25%)
-        # Only apply when d2 is large enough (cell is big enough for visible border)
-        edge_factor = np.clip((ratio - 0.75) / 0.25, 0.0, 1.0)
-        # Suppress darkening for tiny cells (clustered points)
-        cell_mask = np.where(d2 > min_cell_dist, 1.0, 0.0)
-        darken[row_start:row_end] = 1.0 - edge_factor * cell_mask * 0.25
-    rgb = (rgb * darken[:, :, np.newaxis]).astype(np.int16)
+    # ── Gaussian blur for smooth, painterly transitions ──
+    for ch in range(3):
+        rgb[:, :, ch] = gaussian_filter(rgb[:, :, ch].astype(np.float64), sigma=4).astype(np.uint8)
 
-    # Global parchment tint: blend 15% warm cream color
-    cream = np.array([235, 220, 195], dtype=np.int16)
-    rgb = np.clip((rgb * 85 + cream * 15) // 100, 0, 255).astype(np.uint8)
-
-    # Save
+    # ── Save ──
     img = Image.fromarray(rgb, "RGB")
     maps_dir = DATA_DIR / "maps" / novel_id
     maps_dir.mkdir(parents=True, exist_ok=True)
@@ -2753,7 +2742,7 @@ def generate_rivers(
         )
         if len(path) < 5:
             continue
-        width = min(3.0, max(1.0, len(path) / 30))
+        width = min(5.0, max(1.5, len(path) / 20))
         rivers.append({
             "points": [[round(px, 1), round(py, 1)] for px, py in path],
             "width": round(width, 1),

@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fantasy Map Demo — AI Reader V2 N31 Visual Prototype</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1e;
+    color: #e0e0e0;
+    font-family: system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #controls {
+    position: fixed; top: 12px; right: 12px; z-index: 10;
+    background: rgba(30,30,34,0.92); border-radius: 8px; padding: 14px;
+    font-size: 13px; max-width: 260px; backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  #controls h3 { margin-bottom: 8px; font-size: 14px; color: #ccc; }
+  #controls label { display: block; margin: 5px 0 2px; color: #aaa; font-size: 12px; }
+  #controls input[type="range"] { width: 100%; }
+  #controls .group { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  #controls .val { float: right; color: #8ab4f8; font-size: 11px; }
+  .toggle { cursor: pointer; user-select: none; }
+  .toggle input { margin-right: 4px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <h3>N31 Visual Prototype</h3>
+
+  <div class="group">
+    <label>Terrain opacity <span class="val" id="v-terrain">0.50</span></label>
+    <input type="range" id="r-terrain" min="0" max="1" step="0.05" value="0.50">
+  </div>
+
+  <div class="group">
+    <label>Rough.js roughness <span class="val" id="v-roughness">1.5</span></label>
+    <input type="range" id="r-roughness" min="0" max="4" step="0.1" value="1.5">
+    <label>Rough.js bowing <span class="val" id="v-bowing">1.0</span></label>
+    <input type="range" id="r-bowing" min="0" max="4" step="0.1" value="1.0">
+  </div>
+
+  <div class="group">
+    <label>Hand-drawn filter scale <span class="val" id="v-filter">3</span></label>
+    <input type="range" id="r-filter" min="0" max="10" step="0.5" value="3">
+    <label>Parchment intensity <span class="val" id="v-parchment">0.6</span></label>
+    <input type="range" id="r-parchment" min="0" max="1" step="0.05" value="0.6">
+  </div>
+
+  <div class="group">
+    <label>Territory fill opacity <span class="val" id="v-territory">0.15</span></label>
+    <input type="range" id="r-territory" min="0" max="0.5" step="0.01" value="0.15">
+    <label class="toggle"><input type="checkbox" id="c-hachure" checked> Hachure fill</label>
+  </div>
+
+  <div class="group">
+    <label class="toggle"><input type="checkbox" id="c-coastline" checked> Coastline</label>
+    <label class="toggle"><input type="checkbox" id="c-contours" checked> Ocean contour lines</label>
+    <label class="toggle"><input type="checkbox" id="c-compass" checked> Compass rose</label>
+    <label class="toggle"><input type="checkbox" id="c-vignette" checked> Edge vignette</label>
+  </div>
+</div>
+
+<svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<!-- rough.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.min.js"></script>
+
+<script>
+// ══════════════════════════════════════════════
+// Demo data — simulates a subset of 红楼梦 map
+// ══════════════════════════════════════════════
+const W = window.innerWidth, H = window.innerHeight;
+const svg = document.getElementById('map');
+svg.setAttribute('width', W);
+svg.setAttribute('height', H);
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+// Locations (name, x, y, tier, icon)
+const locations = [
+  { name: '京城', x: W*0.50, y: H*0.45, tier: 'kingdom', icon: 'city' },
+  { name: '荣国府', x: W*0.52, y: H*0.52, tier: 'region', icon: 'palace' },
+  { name: '宁国府', x: W*0.58, y: H*0.48, tier: 'region', icon: 'palace' },
+  { name: '大观园', x: W*0.47, y: H*0.56, tier: 'region', icon: 'forest' },
+  { name: '怡红院', x: W*0.44, y: H*0.60, tier: 'city', icon: 'building' },
+  { name: '潇湘馆', x: W*0.49, y: H*0.62, tier: 'city', icon: 'building' },
+  { name: '蘅芜苑', x: W*0.43, y: H*0.54, tier: 'city', icon: 'building' },
+  { name: '稻香村', x: W*0.51, y: H*0.58, tier: 'city', icon: 'forest' },
+  { name: '金陵', x: W*0.55, y: H*0.70, tier: 'kingdom', icon: 'city' },
+  { name: '姑苏', x: W*0.65, y: H*0.60, tier: 'kingdom', icon: 'city' },
+  { name: '扬州', x: W*0.62, y: H*0.68, tier: 'kingdom', icon: 'city' },
+  { name: '平安州', x: W*0.40, y: H*0.35, tier: 'kingdom', icon: 'city' },
+  { name: '铁槛寺', x: W*0.35, y: H*0.50, tier: 'city', icon: 'temple' },
+  { name: '馒头庵', x: W*0.33, y: H*0.55, tier: 'city', icon: 'temple' },
+  { name: '太虚幻境', x: W*0.72, y: H*0.25, tier: 'continent', icon: 'mountain' },
+  { name: '宁荣街', x: W*0.55, y: H*0.53, tier: 'city', icon: 'city' },
+];
+
+// Territories (name, locations contained, color)
+const territories = [
+  { name: '京城辖区', locs: ['京城','荣国府','宁国府','大观园','怡红院','潇湘馆','蘅芜苑','稻香村','宁荣街'], color: '#8B5A2B', level: 0 },
+  { name: '大观园', locs: ['大观园','怡红院','潇湘馆','蘅芜苑','稻香村'], color: '#4A7C59', level: 1 },
+  { name: '江南地区', locs: ['金陵','姑苏','扬州'], color: '#4A6B8A', level: 0 },
+];
+
+// Rivers (list of [x,y] waypoints)
+const rivers = [
+  { name: '护城河', points: [[W*0.30, H*0.30], [W*0.35, H*0.40], [W*0.40, H*0.48], [W*0.45, H*0.50], [W*0.50, H*0.48], [W*0.55, H*0.44], [W*0.60, H*0.42]], width: 3 },
+  { name: '沁芳溪', points: [[W*0.44, H*0.52], [W*0.45, H*0.55], [W*0.47, H*0.58], [W*0.50, H*0.60], [W*0.52, H*0.63]], width: 1.5 },
+  { name: '大江', points: [[W*0.25, H*0.65], [W*0.35, H*0.68], [W*0.45, H*0.72], [W*0.55, H*0.73], [W*0.65, H*0.70], [W*0.75, H*0.65]], width: 5 },
+];
+
+// ══════════════════════════════════════════════
+// SVG Filters (parchment + hand-drawn edges)
+// ══════════════════════════════════════════════
+const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+defs.innerHTML = `
+  <!-- Parchment texture filter -->
+  <filter id="parchment" color-interpolation-filters="linearRGB"
+          x="0%" y="0%" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.018 0.022"
+                  numOctaves="6" seed="3" result="noise"/>
+    <feDiffuseLighting in="noise" lighting-color="#f0deb0"
+                       surfaceScale="1.8" result="lit">
+      <feDistantLight azimuth="45" elevation="55"/>
+    </feDiffuseLighting>
+  </filter>
+
+  <!-- Hand-drawn edge wobble filter -->
+  <filter id="hand-drawn" x="-3%" y="-3%" width="106%" height="106%">
+    <feTurbulence type="turbulence" baseFrequency="0.03"
+                  numOctaves="3" seed="5" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise"
+                       scale="3" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+
+  <!-- Vignette radial gradient -->
+  <radialGradient id="vignette" cx="50%" cy="50%" r="65%">
+    <stop offset="0%" stop-color="transparent"/>
+    <stop offset="75%" stop-color="transparent"/>
+    <stop offset="100%" stop-color="rgba(10,8,5,0.65)"/>
+  </radialGradient>
+
+  <!-- Ocean pattern (light parallel lines) -->
+  <pattern id="ocean-lines" patternUnits="userSpaceOnUse" width="12" height="12"
+           patternTransform="rotate(15)">
+    <line x1="0" y1="6" x2="12" y2="6" stroke="rgba(100,140,170,0.15)" stroke-width="0.8"/>
+  </pattern>
+
+  <!-- Hachure pattern for territories -->
+  <pattern id="hachure-brown" patternUnits="userSpaceOnUse" width="8" height="8"
+           patternTransform="rotate(-41)">
+    <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(139,90,43,0.25)" stroke-width="0.8"/>
+  </pattern>
+  <pattern id="hachure-green" patternUnits="userSpaceOnUse" width="8" height="8"
+           patternTransform="rotate(-41)">
+    <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(74,124,89,0.25)" stroke-width="0.8"/>
+  </pattern>
+  <pattern id="hachure-blue" patternUnits="userSpaceOnUse" width="8" height="8"
+           patternTransform="rotate(-41)">
+    <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(74,107,138,0.25)" stroke-width="0.8"/>
+  </pattern>
+`;
+svg.appendChild(defs);
+
+// ══════════════════════════════════════════════
+// Layer groups (z-order)
+// ══════════════════════════════════════════════
+const layers = {};
+['ocean','parchment-bg','terrain','coastline','contours','territories','rivers',
+ 'terrain-hints','locations','labels','compass','vignette-overlay'].forEach(id => {
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.id = id;
+  svg.appendChild(g);
+  layers[id] = g;
+});
+
+// ══════════════════════════════════════════════
+// Terrain: draw a simple continuous noise image (simulated by gradient)
+// In production this would be the backend terrain.png
+// ══════════════════════════════════════════════
+function drawTerrain() {
+  const g = layers['terrain'];
+  g.innerHTML = '';
+  // Simulate terrain with overlapping radial gradients
+  const zones = [
+    { cx: W*0.47, cy: H*0.56, r: 180, color: 'rgba(90,140,80,0.35)' },  // 大观园 green
+    { cx: W*0.55, cy: H*0.70, r: 150, color: 'rgba(90,130,110,0.25)' },  // 金陵 blue-green
+    { cx: W*0.72, cy: H*0.25, r: 200, color: 'rgba(160,150,130,0.30)' }, // 太虚幻境 gray
+    { cx: W*0.50, cy: H*0.45, r: 250, color: 'rgba(180,160,120,0.20)' }, // 京城 warm
+    { cx: W*0.40, cy: H*0.35, r: 160, color: 'rgba(175,165,135,0.20)' }, // 平安州
+    { cx: W*0.62, cy: H*0.64, r: 180, color: 'rgba(120,150,130,0.22)' }, // 姑苏 teal
+  ];
+  zones.forEach((z, i) => {
+    const gid = `terrain-grad-${i}`;
+    const grad = document.createElementNS('http://www.w3.org/2000/svg', 'radialGradient');
+    grad.id = gid;
+    grad.setAttribute('cx', z.cx / W * 100 + '%');
+    grad.setAttribute('cy', z.cy / H * 100 + '%');
+    grad.setAttribute('r', z.r / Math.max(W,H) * 100 + '%');
+    grad.innerHTML = `<stop offset="0%" stop-color="${z.color}"/>
+                      <stop offset="100%" stop-color="transparent"/>`;
+    defs.appendChild(grad);
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('width', W);
+    rect.setAttribute('height', H);
+    rect.setAttribute('fill', `url(#${gid})`);
+    g.appendChild(rect);
+  });
+}
+
+// ══════════════════════════════════════════════
+// Parchment background
+// ══════════════════════════════════════════════
+function drawParchment() {
+  const g = layers['parchment-bg'];
+  g.innerHTML = '';
+  // Base color
+  const base = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  base.setAttribute('width', W); base.setAttribute('height', H);
+  base.setAttribute('fill', '#e8d5a0');
+  g.appendChild(base);
+  // Paper texture overlay
+  const tex = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  tex.setAttribute('width', W); tex.setAttribute('height', H);
+  tex.setAttribute('filter', 'url(#parchment)');
+  tex.id = 'parchment-rect';
+  g.appendChild(tex);
+}
+
+// ══════════════════════════════════════════════
+// Coastline — alpha-shape-like outline around all locations
+// ══════════════════════════════════════════════
+function computeCoastline(padding) {
+  // Simple: convex hull of all locations + padding, with noise distortion
+  const pts = locations.map(l => [l.x, l.y]);
+  // Graham scan convex hull
+  function cross(O, A, B) { return (A[0]-O[0])*(B[1]-O[1]) - (A[1]-O[1])*(B[0]-O[0]); }
+  const sorted = pts.slice().sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+  const lower = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (const p of sorted.reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+
+  // Expand hull outward by padding
+  const cx = hull.reduce((s,p) => s+p[0], 0) / hull.length;
+  const cy = hull.reduce((s,p) => s+p[1], 0) / hull.length;
+  const expanded = hull.map(p => {
+    const dx = p[0] - cx, dy = p[1] - cy;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    return [p[0] + dx/d * padding, p[1] + dy/d * padding];
+  });
+
+  // Add noise to make coastline organic
+  const seed = 42;
+  const noisy = expanded.map((p, i) => {
+    const angle = Math.atan2(p[1]-cy, p[0]-cx);
+    const noise = Math.sin(angle * 7 + seed) * 25 + Math.sin(angle * 13 + seed*2) * 15 + Math.sin(angle * 23 + seed*3) * 8;
+    const dx = p[0] - cx, dy = p[1] - cy;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    return [cx + dx/d * (d + noise), cy + dy/d * (d + noise)];
+  });
+
+  // Interpolate more points for smoothness
+  const smooth = [];
+  for (let i = 0; i < noisy.length; i++) {
+    const a = noisy[i], b = noisy[(i+1) % noisy.length];
+    smooth.push(a);
+    // Subdivide
+    for (let t = 0.25; t < 1; t += 0.25) {
+      const mx = a[0] + (b[0]-a[0]) * t;
+      const my = a[1] + (b[1]-a[1]) * t;
+      const subNoise = Math.sin(mx*0.05+my*0.03+seed) * 12;
+      const ddx = mx - cx, ddy = my - cy;
+      const dd = Math.sqrt(ddx*ddx + ddy*ddy);
+      smooth.push([cx + ddx/dd * (dd + subNoise), cy + ddy/dd * (dd + subNoise)]);
+    }
+  }
+
+  return smooth;
+}
+
+function coastlineToPath(pts) {
+  if (pts.length < 3) return '';
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i-1], curr = pts[i], next = pts[(i+1) % pts.length];
+    const cpx = curr[0], cpy = curr[1];
+    d += ` L ${cpx} ${cpy}`;
+  }
+  d += ' Z';
+  return d;
+}
+
+// ══════════════════════════════════════════════
+// Rough.js renderer
+// ══════════════════════════════════════════════
+const rc = rough.svg(svg);
+
+function getRoughOpts() {
+  return {
+    roughness: parseFloat(document.getElementById('r-roughness').value),
+    bowing: parseFloat(document.getElementById('r-bowing').value),
+    seed: 42,
+  };
+}
+
+// ══════════════════════════════════════════════
+// Render functions
+// ══════════════════════════════════════════════
+
+function drawCoastline() {
+  const g = layers['coastline'];
+  g.innerHTML = '';
+  if (!document.getElementById('c-coastline').checked) return;
+
+  const coastPts = computeCoastline(100);
+  const pathD = coastlineToPath(coastPts);
+  const opts = getRoughOpts();
+
+  // Ocean fill (outside coastline) — use SVG clip-path trick
+  // Draw a large rect with coastline cut out
+  const oceanPath = `M 0 0 L ${W} 0 L ${W} ${H} L 0 ${H} Z ` + pathD;
+  const oceanEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  oceanEl.setAttribute('d', oceanPath);
+  oceanEl.setAttribute('fill', 'rgba(140,170,195,0.25)');
+  oceanEl.setAttribute('fill-rule', 'evenodd');
+  g.appendChild(oceanEl);
+
+  // Ocean line pattern
+  const oceanLines = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  oceanLines.setAttribute('d', oceanPath);
+  oceanLines.setAttribute('fill', 'url(#ocean-lines)');
+  oceanLines.setAttribute('fill-rule', 'evenodd');
+  g.appendChild(oceanLines);
+
+  // Rough.js coastline border
+  const coastNode = rc.path(pathD, {
+    ...opts,
+    roughness: opts.roughness * 1.2,
+    stroke: '#6B5B3E',
+    strokeWidth: 2,
+    fill: 'none',
+  });
+  g.appendChild(coastNode);
+}
+
+function drawContours() {
+  const g = layers['contours'];
+  g.innerHTML = '';
+  if (!document.getElementById('c-contours').checked) return;
+
+  // Draw 3 concentric offset coastlines for bathymetric contour effect
+  [120, 145, 175].forEach((pad, i) => {
+    const pts = computeCoastline(pad);
+    const d = coastlineToPath(pts);
+    const node = rc.path(d, {
+      ...getRoughOpts(),
+      roughness: getRoughOpts().roughness * 0.6,
+      stroke: `rgba(100,130,160,${0.2 - i * 0.05})`,
+      strokeWidth: 0.8,
+      fill: 'none',
+    });
+    g.appendChild(node);
+  });
+}
+
+function drawTerritories() {
+  const g = layers['territories'];
+  g.innerHTML = '';
+  const opts = getRoughOpts();
+  const fillOp = parseFloat(document.getElementById('r-territory').value);
+  const useHachure = document.getElementById('c-hachure').checked;
+
+  const hachurePatterns = { '#8B5A2B': 'url(#hachure-brown)', '#4A7C59': 'url(#hachure-green)', '#4A6B8A': 'url(#hachure-blue)' };
+
+  territories.forEach(t => {
+    const pts = t.locs.map(name => {
+      const loc = locations.find(l => l.name === name);
+      return loc ? [loc.x, loc.y] : null;
+    }).filter(Boolean);
+    if (pts.length < 3) return;
+
+    // Convex hull
+    function cross(O, A, B) { return (A[0]-O[0])*(B[1]-O[1]) - (A[1]-O[1])*(B[0]-O[0]); }
+    const sorted = pts.slice().sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+    const lower = [];
+    for (const p of sorted) {
+      while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (const p of [...sorted].reverse()) {
+      while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    const hull = lower.slice(0,-1).concat(upper.slice(0,-1));
+
+    // Expand
+    const cx = hull.reduce((s,p)=>s+p[0],0)/hull.length;
+    const cy = hull.reduce((s,p)=>s+p[1],0)/hull.length;
+    const pad = t.level === 0 ? 60 : 35;
+    const expanded = hull.map(p => {
+      const dx = p[0]-cx, dy = p[1]-cy;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      return [p[0]+dx/d*pad, p[1]+dy/d*pad];
+    });
+
+    // Build path
+    const pathD = `M ${expanded[0][0]} ${expanded[0][1]} ` +
+      expanded.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ') + ' Z';
+
+    // Rough.js territory
+    const fillColor = t.color + Math.round(fillOp * 255).toString(16).padStart(2,'0');
+    const node = rc.path(pathD, {
+      ...opts,
+      roughness: opts.roughness * 0.8,
+      stroke: t.color,
+      strokeWidth: t.level === 0 ? 2 : 1.5,
+      fill: useHachure ? t.color : fillColor,
+      fillStyle: useHachure ? 'hachure' : 'solid',
+      fillWeight: 0.7,
+      hachureAngle: -41 + t.level * 30,
+      hachureGap: 6 + t.level * 2,
+    });
+    node.style.opacity = useHachure ? '0.6' : '1';
+    g.appendChild(node);
+
+    // Territory label (curved text effect via simple positioned text)
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', cx);
+    label.setAttribute('y', cy - (t.level === 0 ? pad + 10 : pad + 5));
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('fill', t.color);
+    label.setAttribute('font-size', t.level === 0 ? '16' : '13');
+    label.setAttribute('font-family', "'Georgia', 'Noto Serif SC', serif");
+    label.setAttribute('letter-spacing', t.level === 0 ? '6' : '3');
+    label.setAttribute('opacity', '0.7');
+    label.textContent = t.name;
+    g.appendChild(label);
+  });
+}
+
+function drawRivers() {
+  const g = layers['rivers'];
+  g.innerHTML = '';
+  const opts = getRoughOpts();
+
+  rivers.forEach(river => {
+    // Build smooth bezier path
+    const pts = river.points;
+    if (pts.length < 2) return;
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const xc = (pts[i][0] + pts[i+1][0]) / 2;
+      const yc = (pts[i][1] + pts[i+1][1]) / 2;
+      d += ` Q ${pts[i][0]} ${pts[i][1]} ${xc} ${yc}`;
+    }
+    d += ` L ${pts[pts.length-1][0]} ${pts[pts.length-1][1]}`;
+
+    const node = rc.path(d, {
+      ...opts,
+      roughness: opts.roughness * 0.5,
+      bowing: opts.bowing * 2,
+      stroke: 'rgba(80,120,155,0.65)',
+      strokeWidth: river.width * 1.5,
+      fill: 'none',
+    });
+    g.appendChild(node);
+  });
+}
+
+function drawTerrainHints() {
+  const g = layers['terrain-hints'];
+  g.innerHTML = '';
+  const hints = [
+    // Mountains near 太虚幻境
+    { x: W*0.68, y: H*0.22, type: 'mountain', size: 20 },
+    { x: W*0.74, y: H*0.20, type: 'mountain', size: 24 },
+    { x: W*0.71, y: H*0.28, type: 'mountain', size: 18 },
+    { x: W*0.76, y: H*0.26, type: 'mountain', size: 16 },
+    { x: W*0.66, y: H*0.18, type: 'mountain', size: 22 },
+    // Trees near 大观园
+    { x: W*0.42, y: H*0.58, type: 'tree', size: 14 },
+    { x: W*0.45, y: H*0.63, type: 'tree', size: 12 },
+    { x: W*0.50, y: H*0.64, type: 'tree', size: 16 },
+    { x: W*0.40, y: H*0.55, type: 'tree', size: 10 },
+    { x: W*0.53, y: H*0.60, type: 'tree', size: 13 },
+    { x: W*0.46, y: H*0.57, type: 'tree', size: 11 },
+    // Waves in ocean area
+    { x: W*0.15, y: H*0.40, type: 'wave', size: 18 },
+    { x: W*0.20, y: H*0.25, type: 'wave', size: 16 },
+    { x: W*0.12, y: H*0.60, type: 'wave', size: 14 },
+    { x: W*0.80, y: H*0.50, type: 'wave', size: 16 },
+    { x: W*0.85, y: H*0.35, type: 'wave', size: 20 },
+    { x: W*0.18, y: H*0.75, type: 'wave', size: 15 },
+    { x: W*0.82, y: H*0.70, type: 'wave', size: 17 },
+  ];
+
+  const opts = getRoughOpts();
+  hints.forEach(h => {
+    const s = h.size;
+    if (h.type === 'mountain') {
+      // Triangle peak
+      const node = rc.path(
+        `M ${h.x} ${h.y-s*0.7} L ${h.x-s*0.5} ${h.y+s*0.3} L ${h.x+s*0.5} ${h.y+s*0.3} Z`,
+        { ...opts, roughness: 1.2, stroke: 'rgba(120,100,70,0.5)', strokeWidth: 1.2, fill: 'rgba(150,130,90,0.15)', fillStyle: 'hachure', hachureGap: 4 }
+      );
+      g.appendChild(node);
+    } else if (h.type === 'tree') {
+      // Circle canopy + trunk
+      const canopy = rc.circle(h.x, h.y - s*0.2, s, {
+        ...opts, roughness: 1.5, stroke: 'rgba(70,110,60,0.5)', strokeWidth: 1, fill: 'rgba(80,130,65,0.2)', fillStyle: 'solid'
+      });
+      g.appendChild(canopy);
+      const trunk = rc.line(h.x, h.y + s*0.1, h.x, h.y + s*0.4, {
+        ...opts, roughness: 0.8, stroke: 'rgba(100,80,50,0.4)', strokeWidth: 1.5
+      });
+      g.appendChild(trunk);
+    } else if (h.type === 'wave') {
+      const node = rc.path(
+        `M ${h.x-s*0.5} ${h.y} Q ${h.x-s*0.25} ${h.y-s*0.3} ${h.x} ${h.y} Q ${h.x+s*0.25} ${h.y+s*0.3} ${h.x+s*0.5} ${h.y}`,
+        { ...opts, roughness: 0.8, stroke: 'rgba(90,130,165,0.35)', strokeWidth: 1.2, fill: 'none' }
+      );
+      g.appendChild(node);
+    }
+  });
+}
+
+function drawLocations() {
+  const g = layers['locations'];
+  g.innerHTML = '';
+  const opts = getRoughOpts();
+
+  // Tier → base scale multiplier (dramatic differences)
+  const tierScale = { continent: 1.6, kingdom: 1.2, region: 0.9, city: 0.65 };
+  // Ink color by icon type
+  const colorMap = {
+    city: '#6B5B3E', palace: '#8B4513', temple: '#5B4530',
+    building: '#7B6B55', forest: '#3B6B3E', mountain: '#6B6B6B'
+  };
+
+  locations.forEach(loc => {
+    const sc = tierScale[loc.tier] || 0.65;
+    const color = colorMap[loc.icon] || '#6B5B3E';
+    const x = loc.x, y = loc.y;
+    const ropts = { ...opts, roughness: opts.roughness * 0.7, seed: opts.seed };
+
+    if (loc.icon === 'mountain') {
+      // ─── Mountain: double peak with snow cap ───
+      const pw = 18 * sc, ph = 22 * sc;
+      // Back peak (smaller)
+      g.appendChild(rc.path(
+        `M ${x-pw*0.1} ${y-ph*0.6} L ${x-pw*0.55} ${y+ph*0.35} L ${x+pw*0.35} ${y+ph*0.35} Z`,
+        { ...ropts, stroke: color, strokeWidth: 1.2, fill: 'rgba(140,130,110,0.3)', fillStyle: 'hachure', hachureGap: 3*sc, hachureAngle: -60 }
+      ));
+      // Front peak (taller)
+      g.appendChild(rc.path(
+        `M ${x+pw*0.05} ${y-ph*0.5} L ${x-pw*0.45} ${y+ph*0.4} L ${x+pw*0.55} ${y+ph*0.4} Z`,
+        { ...ropts, stroke: color, strokeWidth: 1.5, fill: 'rgba(120,110,90,0.25)', fillStyle: 'hachure', hachureGap: 3*sc, hachureAngle: 60 }
+      ));
+      // Snow cap
+      g.appendChild(rc.path(
+        `M ${x+pw*0.05} ${y-ph*0.5} L ${x-pw*0.12} ${y-ph*0.25} L ${x+pw*0.22} ${y-ph*0.25} Z`,
+        { ...ropts, roughness: 0.5, stroke: 'rgba(200,195,185,0.7)', strokeWidth: 0.8, fill: 'rgba(245,240,230,0.6)', fillStyle: 'solid' }
+      ));
+
+    } else if (loc.icon === 'palace') {
+      // ─── Palace: Chinese gate with double roof ───
+      const bw = 16 * sc, bh = 14 * sc;
+      // Base wall
+      g.appendChild(rc.rectangle(x-bw*0.5, y-bh*0.1, bw, bh*0.7, {
+        ...ropts, stroke: color, strokeWidth: 1.3, fill: 'rgba(160,100,50,0.2)', fillStyle: 'solid'
+      }));
+      // Lower roof (wider)
+      g.appendChild(rc.path(
+        `M ${x-bw*0.65} ${y-bh*0.1} Q ${x} ${y-bh*0.35} ${x+bw*0.65} ${y-bh*0.1}`,
+        { ...ropts, roughness: opts.roughness * 0.5, stroke: color, strokeWidth: 1.5, fill: 'none' }
+      ));
+      // Upper roof (narrower, taller)
+      g.appendChild(rc.path(
+        `M ${x-bw*0.4} ${y-bh*0.3} Q ${x} ${y-bh*0.7} ${x+bw*0.4} ${y-bh*0.3}`,
+        { ...ropts, roughness: opts.roughness * 0.5, stroke: color, strokeWidth: 1.8, fill: 'none' }
+      ));
+      // Gate door
+      g.appendChild(rc.rectangle(x-bw*0.12, y+bh*0.1, bw*0.24, bh*0.5, {
+        ...ropts, roughness: 0.5, stroke: color, strokeWidth: 1, fill: 'rgba(80,50,20,0.35)', fillStyle: 'solid'
+      }));
+
+    } else if (loc.icon === 'temple') {
+      // ─── Temple: pagoda with tiered roofs ───
+      const tw = 12 * sc, th = 18 * sc;
+      // Base
+      g.appendChild(rc.rectangle(x-tw*0.4, y+th*0.05, tw*0.8, th*0.35, {
+        ...ropts, stroke: color, strokeWidth: 1.2, fill: 'rgba(130,110,85,0.2)', fillStyle: 'solid'
+      }));
+      // Tier 1 roof
+      g.appendChild(rc.path(
+        `M ${x-tw*0.55} ${y+th*0.05} L ${x} ${y-th*0.15} L ${x+tw*0.55} ${y+th*0.05}`,
+        { ...ropts, stroke: color, strokeWidth: 1.3, fill: 'none' }
+      ));
+      // Tier 2 roof (narrower)
+      g.appendChild(rc.path(
+        `M ${x-tw*0.35} ${y-th*0.15} L ${x} ${y-th*0.35} L ${x+tw*0.35} ${y-th*0.15}`,
+        { ...ropts, stroke: color, strokeWidth: 1.3, fill: 'none' }
+      ));
+      // Spire
+      g.appendChild(rc.line(x, y-th*0.35, x, y-th*0.55, {
+        ...ropts, roughness: 0.6, stroke: color, strokeWidth: 1.5
+      }));
+
+    } else if (loc.icon === 'forest') {
+      // ─── Forest/Garden: cluster of 3 trees ───
+      const ts = 8 * sc;
+      const trees = [
+        { dx: -ts*0.6, dy: ts*0.15, s: ts*0.8 },  // left
+        { dx: ts*0.6,  dy: ts*0.2,  s: ts*0.75 }, // right
+        { dx: 0,       dy: -ts*0.3, s: ts*1.0 },  // center (tallest)
+      ];
+      trees.forEach(t => {
+        // Canopy
+        g.appendChild(rc.circle(x+t.dx, y+t.dy-t.s*0.5, t.s*1.3, {
+          ...ropts, roughness: 1.8, stroke: 'rgba(60,100,50,0.6)', strokeWidth: 1,
+          fill: 'rgba(70,120,55,0.2)', fillStyle: 'solid'
+        }));
+        // Trunk
+        g.appendChild(rc.line(x+t.dx, y+t.dy, x+t.dx, y+t.dy+t.s*0.5, {
+          ...ropts, roughness: 0.6, stroke: 'rgba(100,80,45,0.5)', strokeWidth: 1.2
+        }));
+      });
+
+    } else if (loc.icon === 'city') {
+      // ─── City: walled enclosure with crenellation ───
+      const cw = 14 * sc, ch = 12 * sc;
+      // Outer wall (rounded rectangle effect via ellipse)
+      g.appendChild(rc.ellipse(x, y, cw*1.1, ch*1.0, {
+        ...ropts, stroke: color, strokeWidth: 1.8, fill: 'rgba(180,160,120,0.15)', fillStyle: 'solid'
+      }));
+      // Inner buildings (small rectangles)
+      g.appendChild(rc.rectangle(x-cw*0.18, y-ch*0.2, cw*0.2, ch*0.3, {
+        ...ropts, roughness: 0.4, stroke: color, strokeWidth: 0.8, fill: 'rgba(140,120,80,0.2)', fillStyle: 'solid'
+      }));
+      g.appendChild(rc.rectangle(x+cw*0.05, y-ch*0.15, cw*0.18, ch*0.25, {
+        ...ropts, roughness: 0.4, stroke: color, strokeWidth: 0.8, fill: 'rgba(140,120,80,0.2)', fillStyle: 'solid'
+      }));
+      // Flag/tower dot on top
+      if (sc >= 1.0) {
+        g.appendChild(rc.line(x, y-ch*0.5, x, y-ch*0.8, {
+          ...ropts, roughness: 0.5, stroke: color, strokeWidth: 1
+        }));
+        g.appendChild(rc.path(
+          `M ${x} ${y-ch*0.8} L ${x+cw*0.15} ${y-ch*0.7} L ${x} ${y-ch*0.6}`,
+          { ...ropts, roughness: 0.8, stroke: color, strokeWidth: 0.8, fill: 'rgba(160,80,60,0.4)', fillStyle: 'solid' }
+        ));
+      }
+
+    } else {
+      // ─── Building (default): simple house with roof ───
+      const bw = 10 * sc, bh = 9 * sc;
+      // Walls
+      g.appendChild(rc.rectangle(x-bw*0.4, y-bh*0.05, bw*0.8, bh*0.55, {
+        ...ropts, stroke: color, strokeWidth: 1.2, fill: 'rgba(170,150,120,0.15)', fillStyle: 'solid'
+      }));
+      // Roof
+      g.appendChild(rc.path(
+        `M ${x-bw*0.5} ${y-bh*0.05} L ${x} ${y-bh*0.45} L ${x+bw*0.5} ${y-bh*0.05}`,
+        { ...ropts, stroke: color, strokeWidth: 1.5, fill: 'rgba(140,100,60,0.2)', fillStyle: 'hachure', hachureGap: 3 }
+      ));
+    }
+  });
+}
+
+function drawLabels() {
+  const g = layers['labels'];
+  g.innerHTML = '';
+
+  const tierScale = { continent: 1.6, kingdom: 1.2, region: 0.9, city: 0.65 };
+  const sizeMap = { continent: 18, kingdom: 15, region: 12, city: 10 };
+  // Vertical offset depends on icon type to avoid overlap with taller icons
+  const iconOffsetY = { mountain: 22, palace: 16, temple: 18, forest: 14, city: 14, building: 10 };
+
+  locations.forEach(loc => {
+    const fs = sizeMap[loc.tier] || 10;
+    const sc = tierScale[loc.tier] || 0.65;
+    const offY = (iconOffsetY[loc.icon] || 12) * sc;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', loc.x);
+    text.setAttribute('y', loc.y + offY + 4);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', fs);
+    text.setAttribute('font-family', "'Georgia', 'Noto Serif SC', serif");
+    text.setAttribute('fill', '#4a3c2a');
+    text.setAttribute('stroke', 'rgba(240,220,180,0.8)');
+    text.setAttribute('stroke-width', '3');
+    text.setAttribute('paint-order', 'stroke');
+    text.setAttribute('filter', 'url(#hand-drawn)');
+    // Bold for higher tiers
+    if (loc.tier === 'continent' || loc.tier === 'kingdom') {
+      text.setAttribute('font-weight', 'bold');
+      text.setAttribute('letter-spacing', loc.tier === 'continent' ? '4' : '2');
+    }
+    text.textContent = loc.name;
+    g.appendChild(text);
+  });
+}
+
+function drawCompass() {
+  const g = layers['compass'];
+  g.innerHTML = '';
+  if (!document.getElementById('c-compass').checked) return;
+
+  const cx = W * 0.88, cy = H * 0.15, size = 35;
+  const opts = getRoughOpts();
+
+  // N-S line
+  g.appendChild(rc.line(cx, cy - size, cx, cy + size, { ...opts, roughness: 0.8, stroke: '#6B5B3E', strokeWidth: 1.5 }));
+  // E-W line
+  g.appendChild(rc.line(cx - size, cy, cx + size, cy, { ...opts, roughness: 0.8, stroke: '#6B5B3E', strokeWidth: 1.5 }));
+  // N arrow
+  g.appendChild(rc.path(`M ${cx} ${cy-size-8} L ${cx-6} ${cy-size+8} L ${cx+6} ${cy-size+8} Z`, {
+    ...opts, roughness: 1, stroke: '#6B5B3E', fill: '#6B5B3E', fillStyle: 'solid', strokeWidth: 1
+  }));
+  // N label
+  const nLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  nLabel.setAttribute('x', cx); nLabel.setAttribute('y', cy - size - 14);
+  nLabel.setAttribute('text-anchor', 'middle');
+  nLabel.setAttribute('font-size', '14');
+  nLabel.setAttribute('font-family', "'Georgia', serif");
+  nLabel.setAttribute('fill', '#6B5B3E');
+  nLabel.textContent = 'N';
+  g.appendChild(nLabel);
+  // Circle
+  g.appendChild(rc.circle(cx, cy, size * 2 + 10, { ...opts, roughness: 1.2, stroke: 'rgba(107,91,62,0.4)', strokeWidth: 0.8, fill: 'none' }));
+}
+
+function drawVignette() {
+  const g = layers['vignette-overlay'];
+  g.innerHTML = '';
+  if (!document.getElementById('c-vignette').checked) return;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('width', W); rect.setAttribute('height', H);
+  rect.setAttribute('fill', 'url(#vignette)');
+  rect.style.pointerEvents = 'none';
+  g.appendChild(rect);
+}
+
+// ══════════════════════════════════════════════
+// Render all layers
+// ══════════════════════════════════════════════
+function renderAll() {
+  drawParchment();
+  drawTerrain();
+  drawCoastline();
+  drawContours();
+  drawTerritories();
+  drawRivers();
+  drawTerrainHints();
+  drawLocations();
+  drawLabels();
+  drawCompass();
+  drawVignette();
+  applySliderValues();
+}
+
+function applySliderValues() {
+  // Terrain opacity
+  const tOp = document.getElementById('r-terrain').value;
+  layers['terrain'].style.opacity = tOp;
+  document.getElementById('v-terrain').textContent = tOp;
+
+  // Filter scale
+  const fScale = document.getElementById('r-filter').value;
+  document.querySelector('#hand-drawn feDisplacementMap').setAttribute('scale', fScale);
+  document.getElementById('v-filter').textContent = fScale;
+
+  // Parchment
+  const pOp = document.getElementById('r-parchment').value;
+  const pRect = document.getElementById('parchment-rect');
+  if (pRect) pRect.style.opacity = pOp;
+  document.getElementById('v-parchment').textContent = pOp;
+
+  // Territory
+  document.getElementById('v-territory').textContent = document.getElementById('r-territory').value;
+
+  // Roughness/bowing
+  document.getElementById('v-roughness').textContent = document.getElementById('r-roughness').value;
+  document.getElementById('v-bowing').textContent = document.getElementById('r-bowing').value;
+}
+
+// ══════════════════════════════════════════════
+// Event binding
+// ══════════════════════════════════════════════
+// Sliders that only need CSS/attr changes (no re-render)
+['r-terrain', 'r-filter', 'r-parchment'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applySliderValues);
+});
+
+// Controls that need full re-render
+['r-roughness', 'r-bowing', 'r-territory'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    drawTerritories(); drawRivers(); drawTerrainHints(); drawLocations(); drawCompass(); drawContours(); drawCoastline();
+    applySliderValues();
+  });
+});
+
+['c-hachure'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { drawTerritories(); });
+});
+
+['c-coastline'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { drawCoastline(); drawContours(); });
+});
+['c-contours'].forEach(id => {
+  document.getElementById(id).addEventListener('change', drawContours);
+});
+['c-compass'].forEach(id => {
+  document.getElementById(id).addEventListener('change', drawCompass);
+});
+['c-vignette'].forEach(id => {
+  document.getElementById(id).addEventListener('change', drawVignette);
+});
+
+// Initial render
+renderAll();
+</script>
+</body>
+</html>

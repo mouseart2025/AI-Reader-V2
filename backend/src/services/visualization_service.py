@@ -10,10 +10,12 @@ import asyncio
 import json
 import logging
 from collections import Counter, defaultdict
+from pathlib import Path
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
 from src.db import world_structure_store
+from src.infra.config import DATA_DIR
 from src.services.map_layout_service import (
     CANVAS_HEIGHT,
     CANVAS_WIDTH,
@@ -595,7 +597,11 @@ async def get_map_data(
     if cached_layer is not None:
         layout_data = cached_layer["layout"]
         layout_mode = cached_layer["layout_mode"]
-        terrain_url = None
+        # Check if terrain.png exists on disk for non-geographic modes
+        terrain_png = Path(DATA_DIR) / "maps" / novel_id / "terrain.png"
+        terrain_url = f"/api/novels/{novel_id}/map/terrain" if (
+            layout_mode != "geographic" and terrain_png.is_file()
+        ) else None
         # Restore geo_coords for cached geographic layouts (coords are not in cache)
         if layout_mode == "geographic" and target_layer == "overworld" and ws:
             try:
@@ -734,7 +740,19 @@ async def get_map_data(
                 # Get the requested layer's data
                 layout_data = layer_layouts.get(target_layer, [])
                 layout_mode = "layered" if layout_data else "hierarchy"
+                # Generate terrain for layered mode too
                 terrain_url = None
+                if layout_data and len(layout_data) >= 3:
+                    layer_coords = {
+                        item["name"]: (item["x"], item["y"])
+                        for item in layout_data
+                        if not item.get("is_portal")
+                    }
+                    if len(layer_coords) >= 3:
+                        t_path = await asyncio.to_thread(
+                            generate_terrain, locations, layer_coords, novel_id
+                        )
+                        terrain_url = f"/api/novels/{novel_id}/map/terrain" if t_path else None
             else:
                 # Global solve (backward compatible path)
                 layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
@@ -794,9 +812,9 @@ async def get_map_data(
         _ws_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
     ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
 
-    # Generate river network (constraint mode with 3+ locations, non-geographic)
+    # Generate river network (non-geographic modes with 3+ locations)
     rivers: list[dict] = []
-    if layout_mode == "constraint" and len(layout_data) >= 3 and not layer_id:
+    if layout_mode != "geographic" and len(layout_data) >= 3 and not layer_id:
         rivers = generate_rivers(
             locations, layout_data, novel_id,
             canvas_width=_resp_cw, canvas_height=_resp_ch,
@@ -1011,9 +1029,9 @@ async def _compute_or_load_layout(
     layout_coords, layout_mode = await asyncio.to_thread(solver.solve)
     layout_data = layout_to_list(layout_coords, locations)
 
-    # Generate terrain image in thread pool (only for constraint mode with enough locations)
+    # Generate terrain image in thread pool (all non-geographic modes)
     terrain_path = None
-    if layout_mode == "constraint" and len(layout_coords) >= 3:
+    if len(layout_coords) >= 3:
         terrain_path = await asyncio.to_thread(
             generate_terrain, locations, layout_coords, novel_id
         )

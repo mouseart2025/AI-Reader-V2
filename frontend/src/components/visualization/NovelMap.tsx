@@ -21,9 +21,18 @@ import type {
   RegionBoundary,
   TrajectoryPoint,
 } from "@/api/types"
+import rough from "roughjs"
+import type { RoughSVG } from "roughjs/bin/svg"
 import { generateHullTerritories } from "@/lib/hullTerritoryGenerator"
 import { generateTerrainHints } from "@/lib/terrainHints"
-import { distortPolygonEdges, type Point } from "@/lib/edgeDistortion"
+import type { Point } from "@/lib/edgeDistortion"
+import {
+  convexHull,
+  expandHull,
+  distortCoastline,
+  coastlineToPath,
+  type Point as CoastPoint,
+} from "@/lib/coastlineGenerator"
 
 // ── Canvas defaults ────────────────────────────────
 const DEFAULT_CANVAS = { width: 1600, height: 900 }
@@ -350,6 +359,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       regionBoundaries,
       portals,
       rivers,
+      terrainUrl,
       trajectoryPoints,
       allTrajectoryPoints,
       currentLocation,
@@ -369,6 +379,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
   ) {
     const containerRef = useRef<HTMLDivElement>(null)
     const svgRef = useRef<SVGSVGElement | null>(null)
+    const roughCanvasRef = useRef<RoughSVG | null>(null)
     const zoomRef = useRef<d3Zoom.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
     const transformRef = useRef<d3Zoom.ZoomTransform>(d3Zoom.zoomIdentity)
     const [currentScale, setCurrentScale] = useState(1)
@@ -512,6 +523,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("xChannelSelector", "R")
         .attr("yChannelSelector", "G")
 
+      // Vignette radial gradient
+      const vignetteGrad = defs.append("radialGradient")
+        .attr("id", "vignette")
+        .attr("cx", "50%").attr("cy", "50%").attr("r", "65%")
+      vignetteGrad.append("stop").attr("offset", "0%").attr("stop-color", "transparent")
+      vignetteGrad.append("stop").attr("offset", "75%").attr("stop-color", "transparent")
+      vignetteGrad.append("stop").attr("offset", "100%")
+        .attr("stop-color", darkBg ? "rgba(0,0,0,0.7)" : "rgba(10,8,5,0.55)")
+
       // Viewport group (transformed by zoom)
       const viewport = svg.append("g").attr("id", "viewport")
 
@@ -553,6 +573,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       // Terrain image placeholder
       viewport.append("g").attr("id", "terrain")
+      viewport.append("g").attr("id", "coastline-ocean")
+      viewport.append("g").attr("id", "coastline")
       viewport.append("g").attr("id", "rivers")
 
       // Layer groups (Z-order)
@@ -585,27 +607,61 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       svg.on("dblclick.zoom", null) // disable double-click zoom
       zoomRef.current = zoom
 
+      // Initialize rough.js canvas
+      roughCanvasRef.current = rough.svg(svg.node()!)
+
+      // Vignette overlay (outside viewport, fixed position — not affected by zoom)
+      svg.append("rect")
+        .attr("id", "vignette-overlay")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("fill", "url(#vignette)")
+        .style("pointer-events", "none")
+        .style("opacity", darkBg ? "0.3" : "0.5")
+
       setMapReady(true)
 
       return () => {
         container.selectAll("svg").remove()
         svgRef.current = null
+        roughCanvasRef.current = null
         zoomRef.current = null
         setMapReady(false)
         setPopup(null)
       }
     }, [canvasW, canvasH, layoutMode, layerType, bgColor, darkBg])
 
-    // ── Terrain image (disabled: Voronoi boundary darkening conflicts with
-    //    territory/region layers, causing visual clutter) ──────────────
-    // Pure SVG parchment texture (bg + bg-texture) provides a cleaner base.
+    // ── Terrain image (Whittaker biome bottom layer) ──────────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady || !terrainUrl) return
+      const svg = d3Selection.select(svgRef.current)
+      const terrainG = svg.select("#terrain")
+      // Remove previous terrain image if any (keep hint symbols via class check)
+      terrainG.selectAll("image.terrain-img").remove()
+
+      // Higher opacity on dark backgrounds where colors get washed out
+      const terrainOpacity = darkBg ? 0.55 : 0.40
+
+      // Insert terrain PNG as first child (below terrain hint symbols)
+      terrainG
+        .insert("image", ":first-child")
+        .attr("class", "terrain-img")
+        .attr("href", terrainUrl)
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", canvasW)
+        .attr("height", canvasH)
+        .attr("opacity", terrainOpacity)
+        .attr("preserveAspectRatio", "none")
+        .style("pointer-events", "none")
+    }, [mapReady, terrainUrl, canvasW, canvasH, darkBg])
 
     // ── Render terrain texture hints ─────────────────
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
       const terrainG = svg.select("#terrain")
-      terrainG.selectAll("*").remove()
+      terrainG.selectAll("use").remove()
 
       const { symbolDefs, hints } = terrainHints
       if (hints.length === 0) return
@@ -652,7 +708,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, terrainHints])
 
-    // ── Render rivers ──────────────────────────────────
+    // ── Render rivers (rough.js hand-drawn) ──────────────
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
@@ -660,29 +716,80 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       riversG.selectAll("*").remove()
 
       if (!rivers || rivers.length === 0) return
+      const rc = roughCanvasRef.current
+      if (!rc) return
 
-      const line = d3Shape
-        .line<number[]>()
-        .x((d) => d[0])
-        .y((d) => d[1])
-        .curve(d3Shape.curveBasis)
-
-      const riverColor = darkBg ? "#7eb8d8" : "#6b9bc3"
+      const riverColor = darkBg
+        ? "rgba(126,184,216,0.65)"
+        : "rgba(80,120,155,0.65)"
 
       for (const river of rivers) {
         if (river.points.length < 2) continue
-        riversG
-          .append("path")
-          .attr("d", line(river.points))
-          .attr("fill", "none")
-          .attr("stroke", riverColor)
-          .attr("stroke-width", river.width)
-          .attr("stroke-linecap", "round")
-          .attr("stroke-linejoin", "round")
-          .attr("opacity", 0.6)
-          .style("pointer-events", "none")
+        const pts = river.points
+        // Build smooth quadratic bezier path (matching demo)
+        let d = `M ${pts[0][0]} ${pts[0][1]}`
+        for (let i = 1; i < pts.length - 1; i++) {
+          const xc = (pts[i][0] + pts[i + 1][0]) / 2
+          const yc = (pts[i][1] + pts[i + 1][1]) / 2
+          d += ` Q ${pts[i][0]} ${pts[i][1]} ${xc} ${yc}`
+        }
+        d += ` L ${pts[pts.length - 1][0]} ${pts[pts.length - 1][1]}`
+
+        const node = rc.path(d, {
+          roughness: 0.8,
+          bowing: 2.0,
+          seed: 42,
+          stroke: riverColor,
+          strokeWidth: river.width * 1.5,
+          fill: "none",
+        })
+        node.style.pointerEvents = "none"
+        ;(riversG.node() as Element).appendChild(node)
       }
     }, [mapReady, rivers, darkBg])
+
+    // ── Render coastline + ocean fill (rough.js) ──────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady || !roughCanvasRef.current) return
+      const svg = d3Selection.select(svgRef.current)
+      const oceanG = svg.select("#coastline-ocean")
+      const coastG = svg.select("#coastline")
+      oceanG.selectAll("*").remove()
+      coastG.selectAll("*").remove()
+
+      const allPoints: CoastPoint[] = layout
+        .filter((item) => !item.is_portal)
+        .map((item) => [item.x, item.y] as CoastPoint)
+      if (allPoints.length < 3) return
+
+      // Generate coastline
+      const hull = convexHull(allPoints)
+      const expanded = expandHull(hull, Math.min(canvasW, canvasH) * 0.08)
+      const noisy = distortCoastline(expanded, 42)
+      const pathD = coastlineToPath(noisy)
+
+      // Ocean fill (outside coastline, using evenodd fill rule)
+      const oceanPath = `M 0 0 L ${canvasW} 0 L ${canvasW} ${canvasH} L 0 ${canvasH} Z ${pathD}`
+      oceanG
+        .append("path")
+        .attr("d", oceanPath)
+        .attr("fill", darkBg ? "rgba(20,30,50,0.3)" : "rgba(140,170,195,0.20)")
+        .attr("fill-rule", "evenodd")
+        .style("pointer-events", "none")
+
+      // Rough.js coastline border
+      const rc = roughCanvasRef.current
+      const coastNode = rc.path(pathD, {
+        roughness: 1.5,
+        bowing: 1.0,
+        seed: 42,
+        stroke: darkBg ? "rgba(100,130,160,0.4)" : "#6B5B3E",
+        strokeWidth: 2,
+        fill: "none",
+      })
+      coastNode.style.pointerEvents = "none"
+      ;(coastG.node() as Element).appendChild(coastNode)
+    }, [mapReady, layout, canvasW, canvasH, darkBg])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
@@ -742,6 +849,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("font-size", `${fontSize}px`)
           .attr("font-weight", "300")
           .attr("letter-spacing", `${letterSpacing}px`)
+          .attr("filter", "url(#hand-drawn)")
           .style("pointer-events", "none")
 
         text
@@ -756,7 +864,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       }
     }, [mapReady, regionBoundaries, canvasW, canvasH, darkBg])
 
-    // ── Render territories (nested convex hulls) ──────
+    // ── Render territories (rough.js hand-drawn hulls) ──────
     useEffect(() => {
       if (!svgRef.current || !mapReady) return
       const svg = d3Selection.select(svgRef.current)
@@ -771,16 +879,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (territories.length === 0) return
 
+      const rc = roughCanvasRef.current
       const isDense = territories.length > 15
 
       // Per-level rendering parameters
       const STROKE_WIDTH = [3.0, 2.2, 1.5, 1.0]
-      const STROKE_OP = isDense
-        ? [0.20, 0.12, 0.08, 0.06]
-        : [0.40, 0.30, 0.20, 0.15]
-      const FILL_OP = [0.05, 0.04, 0.03, 0.02]
-      const DASH = ["12,6", "8,4", "6,3", "4,3"]
-      const DISTORT_SEGS = [20, 16, 12, 10]
+      const FILL_OP = darkBg
+        ? [0.22, 0.15, 0.10, 0.06]
+        : [0.15, 0.10, 0.07, 0.04]
       const LABEL_SIZE = [16, 13, 11, 10]
       const LABEL_OP = isDense
         ? [0.20, 0.12, 0.08, 0.06]
@@ -791,32 +897,39 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       for (const terr of territories) {
         const li = clamp(terr.level)
-
-        // Deterministic seed per territory name for unique hand-drawn ripple
-        const seed = hashString(terr.name) % 100
-
-        const distorted = distortPolygonEdges(
-          terr.polygon,
-          canvasW,
-          canvasH,
-          DISTORT_SEGS[li],
-          seed,
-        )
-        const pathData = polygonToPath(distorted)
+        const pathData = polygonToPath(terr.polygon)
 
         const strokeColor = darkBg ? terr.color : "#8b7355"
         const fillColor = darkBg ? terr.color : "#c4a97d"
 
-        terrG
-          .append("path")
-          .attr("d", pathData)
-          .attr("fill", fillColor)
-          .attr("fill-opacity", FILL_OP[li])
-          .attr("stroke", strokeColor)
-          .attr("stroke-opacity", STROKE_OP[li])
-          .attr("stroke-width", STROKE_WIDTH[li])
-          .attr("stroke-dasharray", DASH[li])
-          .attr("stroke-linejoin", "round")
+        if (rc) {
+          // Rough.js hand-drawn territory
+          const node = rc.path(pathData, {
+            roughness: 1.2,
+            bowing: 1.0,
+            seed: hashString(terr.name) % 100,
+            stroke: strokeColor,
+            strokeWidth: STROKE_WIDTH[li],
+            fill: fillColor,
+            fillStyle: "hachure",
+            fillWeight: 0.6,
+            hachureAngle: -41 + li * 30,
+            hachureGap: 6 + li * 2,
+          })
+          // rough.js hachure is inherently sparse — boost opacity
+          node.style.opacity = String(FILL_OP[li] * 3)
+          ;(terrG.node() as Element).appendChild(node)
+        } else {
+          // Fallback: plain path (no rough.js)
+          terrG
+            .append("path")
+            .attr("d", pathData)
+            .attr("fill", fillColor)
+            .attr("fill-opacity", FILL_OP[li])
+            .attr("stroke", strokeColor)
+            .attr("stroke-width", STROKE_WIDTH[li])
+            .attr("stroke-linejoin", "round")
+        }
 
         // Label at centroid — curved arc for level 0-1, flat for deeper levels
         const centroid = polygonCentroid(terr.polygon)
@@ -857,6 +970,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("font-size", `${tFontSize}px`)
             .attr("font-weight", "300")
             .attr("letter-spacing", `${tLetterSpacing}px`)
+            .attr("filter", "url(#hand-drawn)")
             .style("pointer-events", "none")
 
           tText
@@ -880,6 +994,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("font-size", `${LABEL_SIZE[li]}px`)
             .attr("font-weight", "300")
             .attr("letter-spacing", LABEL_SPACING[li])
+            .attr("filter", "url(#hand-drawn)")
             .style("pointer-events", "none")
             .text(terr.name)
         }
@@ -1875,16 +1990,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       <div className="relative h-full w-full">
         <div ref={containerRef} className="h-full w-full" />
 
-        {/* Parchment vignette — only on light overworld background */}
-        {!darkBg && (
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, transparent 50%, rgba(120,90,50,0.28) 100%)",
-            }}
-          />
-        )}
+        {/* Vignette is now rendered as SVG overlay (#vignette-overlay) for both light and dark modes */}
 
         {/* Zoom indicator (bottom-left) */}
         <div
