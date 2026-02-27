@@ -44,6 +44,17 @@ _SKELETON_SCHEMA: dict = {
                 "required": ["child", "parent", "confidence"],
             },
         },
+        "synonyms": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "canonical": {"type": "string"},
+                    "alias": {"type": "string"},
+                },
+                "required": ["canonical", "alias"],
+            },
+        },
     },
     "required": ["uber_root", "skeleton"],
 }
@@ -66,7 +77,7 @@ class MacroSkeletonGenerator:
         novel_genre_hint: str | None,
         location_tiers: dict[str, str],
         current_parents: dict[str, str],
-    ) -> dict[str, Counter]:
+    ) -> tuple[dict[str, Counter], list[tuple[str, str]]]:
         """Generate skeleton votes from LLM.
 
         Args:
@@ -76,12 +87,14 @@ class MacroSkeletonGenerator:
             current_parents: ``{child: parent}`` current parent assignments.
 
         Returns:
-            ``{child: Counter({parent: weight})}`` — votes to inject.
+            Tuple of (skeleton_votes, synonym_pairs) where:
+            - skeleton_votes: ``{child: Counter({parent: weight})}`` — votes to inject.
+            - synonym_pairs: ``[(canonical, alias), ...]`` — synonym location pairs.
         """
         all_locs = set(location_tiers.keys())
         if len(all_locs) < 3:
             logger.debug("Too few locations (%d), skipping skeleton", len(all_locs))
-            return {}
+            return {}, []
 
         # --- Build prompt inputs ---
 
@@ -129,7 +142,7 @@ class MacroSkeletonGenerator:
 
         if not tiered_lines and not orphans:
             logger.debug("No skeleton-relevant locations found")
-            return {}
+            return {}, []
 
         # --- Build prompt ---
         template = _load_prompt_template()
@@ -157,14 +170,14 @@ class MacroSkeletonGenerator:
             )
         except Exception:
             logger.warning("Macro skeleton LLM call failed", exc_info=True)
-            return {}
+            return {}, []
 
         if isinstance(result, str):
             try:
                 result = json.loads(result)
             except json.JSONDecodeError:
                 logger.warning("Failed to parse macro skeleton result as JSON")
-                return {}
+                return {}, []
 
         # --- Parse and validate ---
         votes: dict[str, Counter] = {}
@@ -194,8 +207,23 @@ class MacroSkeletonGenerator:
                 child, parent, confidence, weight,
             )
 
+        # --- Parse synonyms ---
+        synonym_pairs: list[tuple[str, str]] = []
+        for syn in result.get("synonyms", []):
+            canonical = syn.get("canonical", "")
+            alias = syn.get("alias", "")
+            if canonical and alias and canonical != alias:
+                if canonical in all_locs and alias in all_locs:
+                    synonym_pairs.append((canonical, alias))
+                    logger.debug("Skeleton synonym: %s ← %s", canonical, alias)
+                else:
+                    logger.debug(
+                        "Skeleton synonym skipped (not in known locs): %s ← %s",
+                        canonical, alias,
+                    )
+
         logger.info(
-            "Macro skeleton: %d suggestions, %d valid votes for novel %s",
-            len(suggestions), len(votes), novel_title,
+            "Macro skeleton: %d suggestions, %d valid votes, %d synonyms for novel %s",
+            len(suggestions), len(votes), len(synonym_pairs), novel_title,
         )
-        return votes
+        return votes, synonym_pairs
