@@ -334,6 +334,20 @@ Scene/screenplay functionality is integrated into ReadingPage as a right-side pa
 
 `GET /model-benchmark/history` returns the last 50 records. `DELETE /model-benchmark/history/{id}` removes a record. Frontend `SettingsPage.tsx` shows a collapsible history table with time/model/speed/estimated chapter time/quality score, with color coding (green ≥80, yellow ≥60, red <60).
 
+### Timeline Data Aggregation (N35)
+
+`get_timeline_data()` in `visualization_service.py` aggregates events from 6 sources: original events (战斗/成长/社交/旅行/其他), character first appearances (角色登场), item events (物品交接), org events (组织变动), **relationship changes** (关系变化), and scene emotional tone linking.
+
+**Noise filtering**: Item events with `action` in `_ITEM_NOISE_ACTIONS` ("出现"/"存在"/"提及") are skipped — these account for ~83% of item events in typical novels. Character first appearances require the character to appear in ≥ `_MIN_APPEARANCE_CHAPTERS` (3) chapters, filtering out one-time walk-on characters. `_MAJOR_PARTICIPANT_THRESHOLD` raised from 3 to 5.
+
+**Relationship change events**: Generated from `ChapterFact.relationships`. Two triggers: (1) `is_new=True` and no prior relation → "建立关系" event (medium importance), (2) `previous_type` differs from current `relation_type` → "关系变化" event (high importance). Tracked via `prev_relations` dict keyed by canonical pair `(min(a,b), max(a,b))`.
+
+**Scene emotional tone linking**: Loads all scenes via `chapter_fact_store.get_all_scenes()`, builds `scene_tone_map[chapter] → [{characters, tone, location}]`. `_match_scene_tone()` finds the scene with the highest participant overlap for each event. Tone is injected as `emotional_tone` field on events that match.
+
+**Suggested defaults**: API response includes `suggested_hidden_types` (["角色登场", "物品交接"]), `suggested_min_swimlane` (auto-scaled: 5 for >100 swimlanes, 3 for >30, 1 otherwise), `total_swimlanes`.
+
+**Frontend** (`TimelinePage.tsx`): Default filter hides "角色登场" and "物品交接" (togglable). New "关系变化" event type (cyan #06b6d4). Swimlane sidebar has min-event threshold buttons (1/3/5/10). Auto-collapse: chapters with only low-importance events are collapsed by default (yellow "(低)" marker), controlled by "自动折叠" toggle. Emotional tone displayed as colored badges (9 tones: 紧张/悲伤/欢乐/温馨/愤怒/平静/神秘/恐惧/搞笑).
+
 ### Two Databases Only
 
 - **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, benchmark_records (14 tables)
