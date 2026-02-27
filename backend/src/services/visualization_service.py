@@ -1059,6 +1059,11 @@ async def _compute_or_load_layout(
 # ── Timeline (Events) ────────────────────────────
 
 
+_ITEM_NOISE_ACTIONS = {"出现", "存在", "提及"}
+_MIN_APPEARANCE_CHAPTERS = 3  # characters must appear in ≥ N chapters to get a 登场 event
+_MAJOR_PARTICIPANT_THRESHOLD = 5  # ≥ N participants → is_major
+
+
 async def get_timeline_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
@@ -1071,12 +1076,13 @@ async def get_timeline_data(
     event_id = 0
 
     def _add(summary: str, etype: str, importance: str,
-             participants: list[str], location: str | None, ch: int) -> None:
+             participants: list[str], location: str | None, ch: int,
+             extra: dict | None = None) -> None:
         nonlocal event_id
-        is_major = len(participants) >= 3
+        is_major = len(participants) >= _MAJOR_PARTICIPANT_THRESHOLD
         if is_major and importance == "medium":
             importance = "high"
-        events.append({
+        entry: dict = {
             "id": event_id,
             "chapter": ch,
             "summary": summary,
@@ -1085,29 +1091,80 @@ async def get_timeline_data(
             "participants": participants,
             "location": location,
             "is_major": is_major,
-        })
+        }
+        if extra:
+            entry.update(extra)
+        events.append(entry)
         for p in participants:
             swimlanes[p].append(event_id)
         event_id += 1
+
+    # ── Pre-compute character chapter counts (for 登场 filtering) ──
+    char_chapters: dict[str, set[int]] = defaultdict(set)
+    for fact in facts:
+        for char in fact.characters:
+            char_chapters[char.name].add(fact.chapter_id)
+
+    # ── Pre-compute relationship history for change detection ──
+    prev_relations: dict[tuple[str, str], str] = {}  # (a, b) → last relation_type
+
+    # ── Load scene data for emotional_tone linking ──
+    from src.db import chapter_fact_store
+    scene_tone_map: dict[int, list[dict]] = {}  # chapter → [{characters, tone}]
+    try:
+        all_scenes = await chapter_fact_store.get_all_scenes(novel_id)
+        for scene in all_scenes:
+            ch_id = scene.get("chapter", 0)
+            if ch_id < chapter_start or ch_id > chapter_end:
+                continue
+            scene_tone_map.setdefault(ch_id, []).append({
+                "characters": set(scene.get("characters", [])),
+                "tone": scene.get("emotional_tone", ""),
+                "location": scene.get("location", ""),
+            })
+    except Exception:
+        pass  # scene data unavailable, continue without
+
+    def _match_scene_tone(ch: int, participants: list[str]) -> str | None:
+        """Find best-matching scene emotional_tone for an event."""
+        scenes = scene_tone_map.get(ch)
+        if not scenes:
+            return None
+        p_set = set(participants)
+        best_overlap = 0
+        best_tone = None
+        for s in scenes:
+            overlap = len(p_set & s["characters"])
+            if overlap > best_overlap and s["tone"]:
+                best_overlap = overlap
+                best_tone = s["tone"]
+        return best_tone
 
     for fact in facts:
         ch = fact.chapter_id
 
         # ── Original events (战斗/成长/社交/旅行/其他) ──
         for ev in fact.events:
+            tone = _match_scene_tone(ch, ev.participants)
             _add(ev.summary, ev.type, ev.importance,
-                 ev.participants, ev.location, ch)
+                 ev.participants, ev.location, ch,
+                 {"emotional_tone": tone} if tone else None)
 
         # ── Derived: 角色登场 (character first appearance) ──
+        # Only emit for characters appearing in ≥ N chapters (filters one-timers)
         for char in fact.characters:
             if char.name not in seen_characters:
                 seen_characters.add(char.name)
-                loc = char.locations_in_chapter[0] if char.locations_in_chapter else None
-                _add(f"{char.name} 首次登场", "角色登场", "medium",
-                     [char.name], loc, ch)
+                if len(char_chapters.get(char.name, set())) >= _MIN_APPEARANCE_CHAPTERS:
+                    loc = char.locations_in_chapter[0] if char.locations_in_chapter else None
+                    _add(f"{char.name} 首次登场", "角色登场", "medium",
+                         [char.name], loc, ch)
 
         # ── Derived: 物品交接 (item events) ──
+        # Filter noise actions (出现/存在/提及)
         for ie in fact.item_events:
+            if ie.action in _ITEM_NOISE_ACTIONS:
+                continue
             participants = [ie.actor]
             if ie.recipient:
                 participants.append(ie.recipient)
@@ -1126,7 +1183,35 @@ async def get_timeline_data(
                 summary += f" ({oe.role})"
             _add(summary, "组织变动", "medium", participants, None, ch)
 
-    return {"events": events, "swimlanes": dict(swimlanes)}
+        # ── Derived: 关系变化 (relationship changes) ──
+        for rel in fact.relationships:
+            key = (min(rel.person_a, rel.person_b), max(rel.person_a, rel.person_b))
+            old_type = prev_relations.get(key)
+            prev_relations[key] = rel.relation_type
+            # Only emit when explicitly new or changed
+            if rel.is_new and old_type is None:
+                summary = f"{rel.person_a} 与 {rel.person_b} 建立{rel.relation_type}关系"
+                if rel.evidence:
+                    summary += f"（{rel.evidence[:30]}）"
+                _add(summary, "关系变化", "medium",
+                     [rel.person_a, rel.person_b], None, ch)
+            elif rel.previous_type and rel.previous_type != rel.relation_type:
+                summary = f"{rel.person_a} 与 {rel.person_b} 关系变化：{rel.previous_type}→{rel.relation_type}"
+                _add(summary, "关系变化", "high",
+                     [rel.person_a, rel.person_b], None, ch)
+
+    # ── Compute suggested defaults ──
+    total = len(events)
+    suggested_hidden_types = ["角色登场", "物品交接"]
+    suggested_min_swimlane = 5 if len(swimlanes) > 100 else 3 if len(swimlanes) > 30 else 1
+
+    return {
+        "events": events,
+        "swimlanes": dict(swimlanes),
+        "suggested_hidden_types": suggested_hidden_types,
+        "suggested_min_swimlane": suggested_min_swimlane,
+        "total_swimlanes": len(swimlanes),
+    }
 
 
 # ── Factions (Organization Network) ──────────────

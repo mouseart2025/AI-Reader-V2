@@ -19,6 +19,7 @@ interface TimelineEvent {
   participants: string[]
   location: string | null
   is_major?: boolean
+  emotional_tone?: string | null
 }
 
 // Color by event type
@@ -31,8 +32,21 @@ function eventColor(type: string): string {
     case "角色登场": return "#8b5cf6"
     case "物品交接": return "#eab308"
     case "组织变动": return "#ec4899"
+    case "关系变化": return "#06b6d4"
     default: return "#6b7280"
   }
+}
+
+const TONE_COLORS: Record<string, string> = {
+  "紧张": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  "悲伤": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  "欢乐": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+  "温馨": "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
+  "愤怒": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  "平静": "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
+  "神秘": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  "恐惧": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  "搞笑": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
 }
 
 function importanceSize(importance: string, isMajor?: boolean): number {
@@ -45,7 +59,8 @@ function importanceSize(importance: string, isMajor?: boolean): number {
   }
 }
 
-type FilterType = "all" | "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "其他"
+type FilterType = "all" | "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "关系变化" | "其他"
+const DEFAULT_HIDDEN: FilterType[] = ["角色登场", "物品交接"]
 
 export default function TimelinePage() {
   const { novelId } = useParams<{ novelId: string }>()
@@ -55,23 +70,37 @@ export default function TimelinePage() {
   const [events, setEvents] = useState<TimelineEvent[]>([])
   const [swimlanes, setSwimlanes] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
+  const [, setSuggestedMinSwimlane] = useState(1)
 
-  // Filters
-  const [filterTypes, setFilterTypes] = useState<Set<FilterType>>(new Set(["all"]))
+  // Filters — default: hide 角色登场 + 物品交接
+  const [filterTypes, setFilterTypes] = useState<Set<FilterType>>(() => {
+    const s = new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
+    return s
+  })
   const [filterImportance, setFilterImportance] = useState<"all" | "high" | "medium">("all")
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [showSwimlanes, setShowSwimlanes] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<string[]>([])
   const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
+  const [minSwimlaneEvents, setMinSwimlaneEvents] = useState(5)
+  const [autoCollapseLow, setAutoCollapseLow] = useState(true)
 
   const toggleTypeFilter = useCallback((type: FilterType) => {
     setFilterTypes((prev) => {
       const next = new Set(prev)
-      if (type === "all") return new Set(["all"])
-      next.delete("all")
+      if (type === "all") {
+        // "all" toggles everything on
+        const allTypes: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
+        const isAll = allTypes.every((t) => prev.has(t))
+        if (isAll) {
+          // already all selected → revert to smart default
+          return new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
+        }
+        return new Set<FilterType>(allTypes)
+      }
       if (next.has(type)) {
         next.delete(type)
-        return next.size === 0 ? new Set(["all"]) : next
+        return next.size === 0 ? new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"]) : next
       }
       next.add(type)
       return next
@@ -107,6 +136,9 @@ export default function TimelinePage() {
         }
         setEvents((data.events as TimelineEvent[]) ?? [])
         setSwimlanes((data.swimlanes as Record<string, string[]>) ?? {})
+        const minSl = (data.suggested_min_swimlane as number) ?? 5
+        setSuggestedMinSwimlane(minSl)
+        setMinSwimlaneEvents(minSl)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -118,7 +150,7 @@ export default function TimelinePage() {
   // Filtered events
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
-      if (!filterTypes.has("all") && !filterTypes.has(e.type as FilterType)) return false
+      if (!filterTypes.has(e.type as FilterType)) return false
       if (filterImportance === "high" && e.importance !== "high") return false
       if (filterImportance === "medium" && e.importance === "low") return false
       if (selectedPersons.length > 0 && !e.participants.some((p) => selectedPersons.includes(p))) return false
@@ -136,20 +168,39 @@ export default function TimelinePage() {
     return Array.from(groups.entries()).sort((a, b) => a[0] - b[0])
   }, [filteredEvents])
 
+  // Auto-collapse chapters that only have low-importance events
+  const autoCollapsedChapters = useMemo(() => {
+    if (!autoCollapseLow) return new Set<number>()
+    const auto = new Set<number>()
+    for (const [ch, evts] of chapterGroups) {
+      if (evts.every((e) => e.importance === "low" && !e.is_major)) {
+        auto.add(ch)
+      }
+    }
+    return auto
+  }, [chapterGroups, autoCollapseLow])
+
+  const effectiveCollapsed = useMemo(() => {
+    const merged = new Set(collapsedChapters)
+    for (const ch of autoCollapsedChapters) merged.add(ch)
+    return merged
+  }, [collapsedChapters, autoCollapsedChapters])
+
   const collapseAll = useCallback(() => {
     setCollapsedChapters(new Set(chapterGroups.map(([ch]) => ch)))
   }, [chapterGroups])
 
   // Flatten chapter groups into virtual list items
   type FlatItem =
-    | { kind: "chapter"; chapter: number; eventCount: number; isCollapsed: boolean }
+    | { kind: "chapter"; chapter: number; eventCount: number; isCollapsed: boolean; isAutoCollapsed: boolean }
     | { kind: "event"; event: TimelineEvent }
 
   const flatItems = useMemo((): FlatItem[] => {
     const items: FlatItem[] = []
     for (const [chapter, evts] of chapterGroups) {
-      const isCollapsed = collapsedChapters.has(chapter)
-      items.push({ kind: "chapter", chapter, eventCount: evts.length, isCollapsed })
+      const isCollapsed = effectiveCollapsed.has(chapter)
+      const isAutoCollapsed = autoCollapsedChapters.has(chapter) && !collapsedChapters.has(chapter)
+      items.push({ kind: "chapter", chapter, eventCount: evts.length, isCollapsed, isAutoCollapsed })
       if (!isCollapsed) {
         const sorted = [...evts].sort((a, b) => {
           const imp = { high: 3, medium: 2, low: 1 }
@@ -161,7 +212,7 @@ export default function TimelinePage() {
       }
     }
     return items
-  }, [chapterGroups, collapsedChapters])
+  }, [chapterGroups, effectiveCollapsed, autoCollapsedChapters, collapsedChapters])
 
   const timelineContainerRef = useRef<HTMLDivElement>(null)
   const timelineVirtualizer = useVirtualizer({
@@ -171,11 +222,15 @@ export default function TimelinePage() {
     overscan: 15,
   })
 
-  // All persons across swimlanes
-  const allPersons = useMemo(
-    () => Object.keys(swimlanes).sort((a, b) => (swimlanes[b]?.length ?? 0) - (swimlanes[a]?.length ?? 0)),
-    [swimlanes],
+  // Filtered swimlane persons (above min threshold)
+  const filteredPersons = useMemo(
+    () => Object.keys(swimlanes)
+      .filter((p) => (swimlanes[p]?.length ?? 0) >= minSwimlaneEvents)
+      .sort((a, b) => (swimlanes[b]?.length ?? 0) - (swimlanes[a]?.length ?? 0)),
+    [swimlanes, minSwimlaneEvents],
   )
+
+  const totalPersons = useMemo(() => Object.keys(swimlanes).length, [swimlanes])
 
   const handlePersonClick = useCallback(
     (name: string) => openEntityCard(name, "person"),
@@ -188,7 +243,12 @@ export default function TimelinePage() {
     )
   }, [])
 
-  const EVENT_TYPES: FilterType[] = ["all", "战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "其他"]
+  const EVENT_TYPES: FilterType[] = ["all", "战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"]
+
+  const isAllSelected = useMemo(() => {
+    const contentTypes: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
+    return contentTypes.every((t) => filterTypes.has(t))
+  }, [filterTypes])
 
   return (
     <VisualizationLayout>
@@ -198,20 +258,21 @@ export default function TimelinePage() {
           {/* Type filter (multi-select) */}
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs text-muted-foreground mr-1">类型</span>
-            {EVENT_TYPES.map((t) => (
-              <Button
-                key={t}
-                variant={
-                  t === "all"
-                    ? filterTypes.has("all") ? "default" : "outline"
-                    : filterTypes.has(t) ? "default" : "outline"
-                }
-                size="xs"
-                onClick={() => toggleTypeFilter(t)}
-              >
-                {t === "all" ? "全部" : t}
-              </Button>
-            ))}
+            {EVENT_TYPES.map((t) => {
+              const isActive = t === "all" ? isAllSelected : filterTypes.has(t)
+              const isHiddenDefault = DEFAULT_HIDDEN.includes(t)
+              return (
+                <Button
+                  key={t}
+                  variant={isActive ? "default" : "outline"}
+                  size="xs"
+                  onClick={() => toggleTypeFilter(t)}
+                  className={cn(!isActive && isHiddenDefault && "opacity-60")}
+                >
+                  {t === "all" ? "全部" : t}
+                </Button>
+              )
+            })}
           </div>
 
           <div className="w-px h-5 bg-border" />
@@ -230,6 +291,18 @@ export default function TimelinePage() {
               </Button>
             ))}
           </div>
+
+          <div className="w-px h-5 bg-border" />
+
+          {/* Auto-collapse toggle */}
+          <Button
+            variant={autoCollapseLow ? "default" : "outline"}
+            size="xs"
+            onClick={() => setAutoCollapseLow(!autoCollapseLow)}
+            title="自动折叠仅有低重要度事件的章节"
+          >
+            自动折叠
+          </Button>
 
           <div className="flex-1" />
 
@@ -277,6 +350,7 @@ export default function TimelinePage() {
                     { label: "成长", color: "#3b82f6" },
                     { label: "社交", color: "#10b981" },
                     { label: "旅行", color: "#f97316" },
+                    { label: "关系变化", color: "#06b6d4" },
                     { label: "角色登场", color: "#8b5cf6" },
                     { label: "物品交接", color: "#eab308" },
                     { label: "组织变动", color: "#ec4899" },
@@ -323,6 +397,9 @@ export default function TimelinePage() {
                           <div className="size-2.5 rounded-full bg-border z-10" />
                           <span className="text-[10px] text-muted-foreground">
                             {item.eventCount} 事件 {item.isCollapsed ? "▸" : "▾"}
+                            {item.isAutoCollapsed && (
+                              <span className="ml-1 text-yellow-600 dark:text-yellow-400">(低)</span>
+                            )}
                           </span>
                         </div>
                       )
@@ -383,6 +460,14 @@ export default function TimelinePage() {
                                   重要
                                 </span>
                               )}
+                              {evt.emotional_tone && (
+                                <span className={cn(
+                                  "text-[10px] px-1.5 py-0.5 rounded",
+                                  TONE_COLORS[evt.emotional_tone] ?? "bg-muted text-muted-foreground",
+                                )}>
+                                  {evt.emotional_tone}
+                                </span>
+                              )}
                               {evt.location && (
                                 <span className="text-[10px] text-muted-foreground">
                                   @ {evt.location}
@@ -418,12 +503,33 @@ export default function TimelinePage() {
             <div className="w-64 flex-shrink-0 border-l overflow-auto">
               <div className="p-3">
                 <h3 className="text-sm font-medium mb-2">人物泳道</h3>
-                <p className="text-[10px] text-muted-foreground mb-3">
+                <p className="text-[10px] text-muted-foreground mb-2">
                   选择人物筛选其相关事件
                 </p>
 
+                {/* Min event threshold */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-muted-foreground">最少事件</span>
+                  <div className="flex items-center gap-1">
+                    {[1, 3, 5, 10].map((n) => (
+                      <Button
+                        key={n}
+                        variant={minSwimlaneEvents === n ? "default" : "outline"}
+                        size="xs"
+                        onClick={() => setMinSwimlaneEvents(n)}
+                      >
+                        {n}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  {filteredPersons.length} / {totalPersons} 人物
+                </p>
+
                 <div className="space-y-1">
-                  {allPersons.map((person) => (
+                  {filteredPersons.map((person) => (
                     <button
                       key={person}
                       className={cn(
