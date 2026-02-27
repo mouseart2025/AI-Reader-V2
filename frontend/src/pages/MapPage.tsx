@@ -763,6 +763,8 @@ export default function MapPage() {
                 ref={mapHandle}
                 locations={filteredLocations}
                 layout={filteredLayout}
+                allLocations={locations}
+                allLayout={layout}
                 layoutMode={layoutMode}
                 layerType={activeLayerType}
                 terrainUrl={terrainUrl}
