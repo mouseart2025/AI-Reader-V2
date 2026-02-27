@@ -79,6 +79,24 @@ _VEHICLE_WORDS = frozenset({
     "车厢", "船舱", "轿内",
 })
 
+# Furniture / object names — these are never locations
+_FURNITURE_OBJECT_NAMES = frozenset({
+    # 家具
+    "炕", "炕上", "炕桌", "板床", "板床上", "榻上", "床上",
+    "桌上", "桌下", "书桌", "书案", "案上",
+    "椅上", "凳上", "柜中", "柜内", "箱中", "箱内",
+    "抽屉", "抽屉内", "小匣", "匣内",
+    # 陈设/器物
+    "火盆", "炉内", "灯下", "烛下",
+    "屏风", "帘子", "帘内", "帘外",
+    "镜壁", "镜前",
+    # 建筑微构件
+    "门槛", "窗下", "窗前", "窗外",
+    "石碣", "碑前",
+    "墙角", "墙根",
+    "台阶", "阶上",
+})
+
 # Generic facility/building names — shared across many chapters, not specific places
 _GENERIC_FACILITY_NAMES = frozenset({
     # Lodging
@@ -198,6 +216,10 @@ def _is_generic_location(name: str) -> str | None:
     if name in _VEHICLE_WORDS:
         return "vehicle/object"
 
+    # Rule 17: Furniture / object names — never locations
+    if name in _FURNITURE_OBJECT_NAMES:
+        return "furniture/object"
+
     # Rule 4: Generic facility/building names (酒店, 客店, 后堂, 书房, ...)
     if name in _GENERIC_FACILITY_NAMES:
         return "generic facility name"
@@ -313,6 +335,12 @@ def _is_generic_location(name: str) -> str | None:
             if tail in _GENERIC_TAILS:
                 return f"descriptive adj + generic tail ({adj}+{tail})"
             break
+
+    # Rule 18: "角色名 + 房间后缀" patterns (宝玉屋内, 贾母房中, 紫鹃房里)
+    # These are character rooms, too specific / ephemeral to be useful locations.
+    _ROOM_ENDINGS = ("屋内", "屋里", "屋中", "房内", "房里", "房中", "室中", "室内", "室里")
+    if n >= 4 and any(name.endswith(e) for e in _ROOM_ENDINGS):
+        return "character room suffix"
 
     return None
 

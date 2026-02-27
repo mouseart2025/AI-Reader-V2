@@ -261,11 +261,12 @@ async def rebuild_hierarchy(novel_id: str):
 
             # 1.5 Macro-skeleton generation
             yield _sse("skeleton", "正在生成宏观地理骨架...")
+            skeleton_synonyms: list[tuple[str, str]] = []
             try:
                 import asyncio as _asyncio_skel
                 from src.services.macro_skeleton_generator import MacroSkeletonGenerator
                 skel_gen = MacroSkeletonGenerator()
-                skeleton_votes = await _asyncio_skel.wait_for(
+                skeleton_votes, skeleton_synonyms = await _asyncio_skel.wait_for(
                     skel_gen.generate(
                         novel_title=novel.get("title", ""),
                         novel_genre_hint=ws.novel_genre_hint,
@@ -274,9 +275,14 @@ async def rebuild_hierarchy(novel_id: str):
                     ),
                     timeout=45.0,
                 )
+                parts = []
                 if skeleton_votes:
                     agent.inject_external_votes(skeleton_votes)
-                    yield _sse("skeleton", f"骨架生成完成，{len(skeleton_votes)} 个地点获得锚定")
+                    parts.append(f"{len(skeleton_votes)} 个地点获得锚定")
+                if skeleton_synonyms:
+                    parts.append(f"{len(skeleton_synonyms)} 组同义合并")
+                if parts:
+                    yield _sse("skeleton", f"骨架生成完成，{'，'.join(parts)}")
                 else:
                     yield _sse("skeleton", "骨架生成无建议")
             except _asyncio_skel.TimeoutError:
@@ -361,6 +367,7 @@ async def rebuild_hierarchy(novel_id: str):
                 novel_genre_hint=ws.novel_genre_hint,
                 parent_votes=agent._parent_votes,
                 saved_parents=dict(ws.location_parents),
+                synonym_pairs=skeleton_synonyms,
             )
 
             # 4.5. LLM hierarchy validation (post-consolidation)

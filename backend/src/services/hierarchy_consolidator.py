@@ -528,6 +528,7 @@ def consolidate_hierarchy(
     novel_genre_hint: str | None = None,
     parent_votes: dict[str, Counter] | None = None,
     saved_parents: dict[str, str] | None = None,
+    synonym_pairs: list[tuple[str, str]] | None = None,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Consolidate location hierarchy to reduce roots to single digits.
 
@@ -538,6 +539,8 @@ def consolidate_hierarchy(
         parent_votes: Vote counters for diagnostics (optional, read-only).
         saved_parents: Previously saved parent mapping (optional). Used as fallback
             for orphan roots — prefer saved parent over 天下 to prevent regressions.
+        synonym_pairs: List of (canonical, alias) pairs from macro skeleton.
+            Alias locations are merged into canonical: children transferred, alias removed.
 
     Returns:
         Updated (location_parents, location_tiers) tuple.
@@ -583,6 +586,31 @@ def consolidate_hierarchy(
             cycles_broken += 1
     if cycles_broken:
         logger.info("Broke %d pre-existing cycle(s) in location_parents", cycles_broken)
+
+    # ── Step 0.5: Merge synonym locations ──
+    # When the macro skeleton identifies two hub names as synonyms (e.g.,
+    # 神京/都中), merge the alias into the canonical name: transfer all
+    # children, update all parent references, remove alias from tiers.
+    if synonym_pairs:
+        for canonical, alias in synonym_pairs:
+            if canonical not in all_known or alias not in all_known:
+                continue
+            if canonical == alias:
+                continue
+            # Transfer children: any node whose parent is alias → canonical
+            for child, parent in list(location_parents.items()):
+                if parent == alias:
+                    location_parents[child] = canonical
+            # If alias itself has a parent, remove that entry
+            location_parents.pop(alias, None)
+            # If canonical had alias as parent, remove it
+            if location_parents.get(canonical) == alias:
+                del location_parents[canonical]
+            # Remove alias from tiers (keep canonical's tier)
+            location_tiers.pop(alias, None)
+            all_known.discard(alias)
+            changes_made += 1
+            logger.info("Synonym merge: %s → %s", alias, canonical)
 
 # Snapshot input parents for oscillation damping at the end
     input_parents = dict(location_parents)

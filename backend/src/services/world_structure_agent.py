@@ -2165,6 +2165,47 @@ class WorldStructureAgent:
             else:
                 validated[child] = parent
 
+        # ── Same-suffix sibling promotion ──
+        # When child has the same suffix rank as its parent (e.g., both "府"),
+        # they are likely siblings, not parent-child. Search for a common
+        # third-party parent and reassign both.
+        # This catches single-direction cases (e.g., 宁国府→荣国府) that the
+        # bidirectional conflict resolution above does not trigger for.
+        _SIBLING_CANDIDATE_SUFFIXES = {"府", "城", "寨", "庄", "镇", "村", "国", "州"}
+        sibling_promoted = 0
+        for child in list(validated):
+            parent = validated.get(child)
+            if not parent:
+                continue
+            child_suf = _get_suffix_rank(child)
+            parent_suf = _get_suffix_rank(parent)
+            if child_suf is None or parent_suf is None:
+                continue
+            if child_suf != parent_suf:
+                continue
+            # Check if suffix is a notable one (avoid 门/路 etc.)
+            child_suffix_char = None
+            for suffix, _tier in _NAME_SUFFIX_TIER:
+                if child.endswith(suffix):
+                    child_suffix_char = suffix
+                    break
+            if child_suffix_char not in _SIBLING_CANDIDATE_SUFFIXES:
+                continue
+            # Search for common parent
+            common = _find_common_parent(
+                child, parent, self._parent_votes, known_locs,
+            )
+            if common and common != child and common != parent:
+                validated[child] = common
+                validated[parent] = common
+                sibling_promoted += 1
+                logger.debug(
+                    "Same-suffix sibling: %s ↔ %s → parent %s (suffix=%s)",
+                    child, parent, common, child_suffix_char,
+                )
+        if sibling_promoted:
+            logger.info("Same-suffix sibling promotion: %d pairs", sibling_promoted)
+
         # Skip user-overridden entries
         result: dict[str, str] = {}
         for child, parent in validated.items():
