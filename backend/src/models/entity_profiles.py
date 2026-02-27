@@ -96,6 +96,7 @@ class LocationProfile(BaseModel):
     location_type: str = ""
     parent: str | None = None
     children: list[str] = []
+    siblings: list[str] = []
     descriptions: list[LocationDescription] = []
     visitors: list[LocationVisitor] = []
     events: list[LocationEvent] = []

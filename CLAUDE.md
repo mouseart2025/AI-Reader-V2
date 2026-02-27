@@ -288,6 +288,24 @@ Three-layer defense against common single-character nouns extracted as entities 
 2. **entity_aggregator**: Single-char person names kept only if a multi-char person name starting with that character exists (surname cross-reference)
 3. **ReadingPage**: Frontend safety net `entities.filter(e => e.name.length >= 2)`
 
+### Encyclopedia Enhancement (N34)
+
+`encyclopedia_service.py` provides the data layer; `EncyclopediaPage.tsx` renders the UI. N34 adds 13 improvements across 3 tiers:
+
+**Entry enrichment**: Each entry carries `chapter_count` (number of distinct chapters mentioning the entity) and location entries carry `tier`/`icon` from WorldStructure. Search matches both name and definition text. Sort modes: name, chapter, hierarchy, **mentions** (descending chapter_count).
+
+**Entity card enhancements**: All four card components (`PersonCard`, `LocationCard`, `ItemCard`, `OrgCard`) accept optional `novelId` prop. `EntityCardDrawer` passes `novelId` to all cards and renders cross-page navigation buttons at the bottom (location→地图/百科, person→时间线/关系图/百科, org→组织/百科, item→百科). `PersonCard` adds a "足迹" section extracted from experiences. `OrgCard` adds "当前成员" section (filters out leave/death actions) and colored relation type badges. `LocationCard` adds spatial relationship summary (lazy-loaded via `GET /{name}/spatial`), `LocationMiniMap` SVG component (parent + siblings layout), and scene index.
+
+**Scene index**: `EntityScenes.tsx` shared component fetches `GET /{name}/scenes` and renders scene cards with emotional tone colors and role badges. Integrated into all four entity card types before the stats section. Backend `get_entity_scenes()` scans `chapter_fact_store.get_all_scenes()` for character/location/summary matches, capped at 30.
+
+**Location conflicts**: `GET /location-conflicts` (registered before `/{name}` wildcard route) returns conflicts grouped by location name via `conflict_detector._detect_location_conflicts()`. Hierarchy tree view shows red dots on conflicting locations with hover tooltip.
+
+**World view tab**: "世界观" special entry in category sidebar. When selected, main area displays WorldStructure data: layer list with types and region counts, portal connections, spatial scale, genre hint, and location parent/tier counts.
+
+**Location siblings**: `LocationProfile.siblings` field added to Pydantic model. `aggregate_location()` computes siblings from `ws.location_parents` (locations sharing the same parent). `LocationMiniMap.tsx` renders a small SVG (200×120px) with parent node on top and sibling nodes below, current location highlighted.
+
+**Route registration order** in `encyclopedia.py`: `/location-conflicts` before `/{name}`, then `/{name}/spatial` and `/{name}/scenes` as sub-paths.
+
 ### Scene Panel — Reading Page Integration
 
 Scene/screenplay functionality is integrated into ReadingPage as a right-side panel (`ScenePanel.tsx`), not a standalone page. The toolbar "剧本" toggle button opens/closes the panel. When open: scenes are fetched via `fetchChapterScenes()`, the text switches from whole-block to paragraph-level rendering with colored left borders (`border-l-3 + SCENE_BORDER_COLORS[sceneIdx]`) marking scene boundaries, and the active scene's paragraphs get `bg-accent/30` highlighting. Clicking a SceneCard scrolls the text to the corresponding paragraph. Shared components (`SceneCard`, `SCENE_BORDER_COLORS`, `TONE_STYLES`, `EVENT_TYPE_STYLES`) are exported from `components/shared/ScenePanel.tsx`.

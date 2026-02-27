@@ -378,6 +378,7 @@ export interface LocationProfile {
   location_type: string
   parent: string | null
   children: string[]
+  siblings?: string[]
   descriptions: { chapter: number; description: string }[]
   visitors: { name: string; chapters: number[]; is_resident: boolean }[]
   events: { chapter: number; summary: string; type: string }[]

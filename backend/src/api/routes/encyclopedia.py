@@ -32,6 +32,15 @@ async def get_entries(
     return {"entries": entries}
 
 
+@router.get("/location-conflicts")
+async def get_location_conflicts(novel_id: str):
+    """Get location hierarchy conflicts grouped by location name."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+    return await encyclopedia_service.get_location_conflicts_summary(novel_id)
+
+
 @router.get("/{name}")
 async def get_concept(novel_id: str, name: str):
     """Get concept detail by name."""
@@ -42,3 +51,21 @@ async def get_concept(novel_id: str, name: str):
     if detail is None:
         raise HTTPException(status_code=404, detail="概念不存在")
     return detail
+
+
+@router.get("/{name}/spatial")
+async def get_spatial_summary(novel_id: str, name: str):
+    """Get spatial relationships for a location."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+    return await encyclopedia_service.get_location_spatial_summary(novel_id, name)
+
+
+@router.get("/{name}/scenes")
+async def get_entity_scenes(novel_id: str, name: str):
+    """Get scenes involving an entity."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+    return await encyclopedia_service.get_entity_scenes(novel_id, name)

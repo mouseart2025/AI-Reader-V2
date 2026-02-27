@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import {
   fetchChapterContent,
   fetchChapterScenes,
@@ -286,6 +286,7 @@ function ReadingTourBubble({ isSample, hasContent }: { isSample: boolean; hasCon
 export default function ReadingPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [novel, setNovel] = useState<Novel | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -517,6 +518,18 @@ export default function ReadingPage() {
     },
     [novelId, savePosition, setCurrentChapter, setCurrentChapterNum],
   )
+
+  // Handle ?chapter=N query parameter (from entity card chapter clicks)
+  useEffect(() => {
+    const chParam = searchParams.get("chapter")
+    if (!chParam || !chapters.length) return
+    const ch = parseInt(chParam, 10)
+    if (isNaN(ch) || ch < 1 || ch > chapters.length) return
+    // Clear the param first to prevent re-trigger on refresh
+    searchParams.delete("chapter")
+    setSearchParams(searchParams, { replace: true })
+    goToChapter(ch)
+  }, [searchParams, chapters.length, goToChapter, setSearchParams])
 
   const handleSearch = useCallback(
     async (q: string) => {

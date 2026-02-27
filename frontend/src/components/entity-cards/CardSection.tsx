@@ -50,7 +50,23 @@ export function CardSection({
   )
 }
 
-export function ChapterTag({ chapter }: { chapter: number }) {
+export function ChapterTag({
+  chapter,
+  onClick,
+}: {
+  chapter: number
+  onClick?: (ch: number) => void
+}) {
+  if (onClick) {
+    return (
+      <button
+        className="text-muted-foreground inline-block cursor-pointer rounded bg-muted px-1.5 py-0.5 text-[10px] hover:underline"
+        onClick={() => onClick(chapter)}
+      >
+        Ch.{chapter}
+      </button>
+    )
+  }
   return (
     <span className="text-muted-foreground inline-block rounded bg-muted px-1.5 py-0.5 text-[10px]">
       Ch.{chapter}
