@@ -690,7 +690,22 @@ class FactValidator:
                 if is_hallucinated:
                     continue
             valid.append(loc.model_copy(update={"name": name}))
-        return valid
+
+        # Validate peers field
+        cleaned_valid = []
+        for loc in valid:
+            if loc.peers:
+                valid_peers = [
+                    p for p in loc.peers
+                    if p and p != loc.name and not _is_generic_location(p)
+                ]
+                cleaned_valid.append(
+                    loc.model_copy(update={"peers": valid_peers if valid_peers else None})
+                )
+            else:
+                cleaned_valid.append(loc)
+
+        return cleaned_valid
 
     def _validate_spatial_relationships(
         self, rels: list[SpatialRelationship], locations: list

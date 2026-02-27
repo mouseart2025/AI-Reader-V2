@@ -370,6 +370,63 @@ async def rebuild_hierarchy(novel_id: str):
                 synonym_pairs=skeleton_synonyms,
             )
 
+            # 4.2. LLM Reflection on suspicious parent-child pairs
+            try:
+                import asyncio as _asyncio_reflect
+                from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer as _ReflReviewer
+                suspicious = agent._suspicious_pairs
+                if suspicious:
+                    yield _sse("reflection", f"LLM 反思验证 {len(suspicious)} 对可疑关系...")
+                    _reflect_reviewer = _ReflReviewer()
+                    reflections = await _asyncio_reflect.wait_for(
+                        _reflect_reviewer.reflect_suspicious(
+                            novel.get("title", ""), suspicious,
+                        ),
+                        timeout=60.0,
+                    )
+                    reflection_applied = 0
+                    for r in reflections:
+                        child = r.get("child", "")
+                        parent = r.get("parent", "")
+                        verdict = r.get("verdict", "")
+                        if not child or not parent:
+                            continue
+                        if verdict == "sibling":
+                            from src.services.world_structure_agent import _find_common_parent
+                            known_locs = set(new_tiers.keys())
+                            common = _find_common_parent(
+                                child, parent, agent._parent_votes, known_locs,
+                            )
+                            if common:
+                                new_parents[child] = common
+                                new_parents[parent] = common
+                                reflection_applied += 1
+                                logger.info(
+                                    "Reflection sibling: %s ↔ %s → common parent %s",
+                                    child, parent, common,
+                                )
+                        elif verdict == "reverse":
+                            if child in new_parents:
+                                new_parents[parent] = child
+                                del new_parents[child]
+                                reflection_applied += 1
+                                logger.info(
+                                    "Reflection reverse: %s → %s (was %s → %s)",
+                                    parent, child, child, parent,
+                                )
+                    yield _sse(
+                        "reflection",
+                        f"反思完成：{len(reflections)} 条建议，{reflection_applied} 条应用",
+                    )
+                else:
+                    yield _sse("reflection", "无可疑关系，跳过反思")
+            except _asyncio_reflect.TimeoutError:
+                logger.warning("LLM reflection timed out for %s", novel_id)
+                yield _sse("reflection", "LLM 反思超时，已跳过")
+            except Exception:
+                logger.warning("LLM reflection failed for %s", novel_id, exc_info=True)
+                yield _sse("reflection", "LLM 反思失败，已跳过")
+
             # 4.5. LLM hierarchy validation (post-consolidation)
             try:
                 import asyncio as _asyncio

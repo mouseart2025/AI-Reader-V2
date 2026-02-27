@@ -62,6 +62,138 @@ class LocationHierarchyReviewer:
     _BATCH_SIZE = 70
     _MAX_BATCHES = 3
 
+    # ── Reflection constants ──
+    _REFLECTION_BATCH_SIZE = 10
+    _REFLECTION_MAX_BATCHES = 2
+    _REFLECTION_TIMEOUT = 30.0  # seconds per batch
+
+    _REFLECTION_SCHEMA: dict = {
+        "type": "object",
+        "properties": {
+            "results": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "child": {"type": "string"},
+                        "parent": {"type": "string"},
+                        "verdict": {
+                            "type": "string",
+                            "enum": ["correct", "sibling", "reverse"],
+                        },
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["child", "parent", "verdict"],
+                },
+            },
+        },
+        "required": ["results"],
+    }
+
+    async def reflect_suspicious(
+        self, title: str, suspicious: list[dict],
+    ) -> list[dict]:
+        """LLM reflection on suspicious parent-child pairs.
+
+        Returns list of ``{child, parent, verdict, reason}`` for non-correct pairs.
+        Verdicts: ``"sibling"`` (peers, not parent-child),
+        ``"reverse"`` (direction inverted), ``"correct"`` (relationship is valid).
+
+        Batches: up to 10 pairs per batch, max 2 batches.
+        Timeout: 30s per batch. Failure returns empty list (graceful fallback).
+        """
+        if not suspicious:
+            return []
+
+        template_path = _PROMPTS_DIR / "hierarchy_reflection.txt"
+        template = template_path.read_text(encoding="utf-8")
+
+        _REASON_LABELS = {
+            "same_suffix": "同后缀",
+            "close_votes": "票数接近",
+            "name_contained": "名称包含",
+        }
+
+        all_results: list[dict] = []
+        remaining = list(suspicious)
+
+        for batch_idx in range(self._REFLECTION_MAX_BATCHES):
+            if not remaining:
+                break
+            batch = remaining[:self._REFLECTION_BATCH_SIZE]
+            remaining = remaining[self._REFLECTION_BATCH_SIZE:]
+
+            # Format pairs text
+            lines = []
+            for pair in batch:
+                reason_str = ", ".join(
+                    _REASON_LABELS.get(r, r) for r in pair.get("reasons", [])
+                )
+                lines.append(
+                    f"  子: {pair['child']} [{pair.get('child_tier', '?')}] "
+                    f"→ 父: {pair['parent']} [{pair.get('parent_tier', '?')}] "
+                    f"(原因: {reason_str})"
+                )
+            pairs_text = "\n".join(lines)
+
+            prompt = template.format(title=title, pairs_text=pairs_text)
+            system = "你是一个小说地理分析专家。请严格按照 JSON 格式输出。"
+            budget = get_budget()
+
+            try:
+                result, _usage = await asyncio.wait_for(
+                    self.llm.generate(
+                        system=system,
+                        prompt=prompt,
+                        format=self._REFLECTION_SCHEMA,
+                        temperature=0.1,
+                        max_tokens=2048,
+                        timeout=budget.hierarchy_timeout,
+                        num_ctx=min(budget.context_window, 8192),
+                    ),
+                    timeout=self._REFLECTION_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Reflection batch %d timed out (%.0fs)",
+                    batch_idx + 1, self._REFLECTION_TIMEOUT,
+                )
+                continue
+            except Exception:
+                logger.warning(
+                    "Reflection batch %d failed", batch_idx + 1, exc_info=True,
+                )
+                continue
+
+            if isinstance(result, str):
+                try:
+                    result = json.loads(result)
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse reflection batch %d as JSON", batch_idx + 1)
+                    continue
+
+            for item in result.get("results", []):
+                verdict = item.get("verdict", "")
+                if verdict in ("sibling", "reverse"):
+                    all_results.append({
+                        "child": item.get("child", ""),
+                        "parent": item.get("parent", ""),
+                        "verdict": verdict,
+                        "reason": item.get("reason", ""),
+                    })
+
+            logger.info(
+                "Reflection batch %d: %d pairs → %d non-correct verdicts",
+                batch_idx + 1, len(batch),
+                sum(1 for r in result.get("results", []) if r.get("verdict") != "correct"),
+            )
+
+        logger.info(
+            "Reflection complete: %d suspicious pairs → %d corrections",
+            len(suspicious), len(all_results),
+        )
+        return all_results
+
     async def review(
         self,
         location_tiers: dict[str, str],

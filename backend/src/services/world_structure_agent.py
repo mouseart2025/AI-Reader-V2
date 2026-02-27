@@ -447,6 +447,8 @@ class WorldStructureAgent:
         self._llm_call_count: int = 0
         self._overridden_keys: set[tuple[str, str]] = set()
         self._parent_votes: dict[str, Counter] = {}  # child → Counter({parent: count})
+        self._peer_pairs: set[frozenset[str]] = set()  # known peer/sibling pairs
+        self._suspicious_pairs: list[dict] = []  # suspicious parent-child pairs for LLM reflection
 
     async def load_or_init(self) -> None:
         """Load existing WorldStructure from DB, or create default."""
@@ -1184,15 +1186,29 @@ class WorldStructureAgent:
                 icon = self._classify_icon(name, loc_type)
                 self.structure.location_icons[name] = icon
 
+            # ── Peer pair accumulation ──
+            if loc.peers:
+                for peer_name in loc.peers:
+                    if peer_name and peer_name != loc.name and (
+                        peer_name in self.structure.location_tiers
+                        or peer_name in self._parent_votes
+                    ):
+                        self._peer_pairs.add(frozenset({loc.name, peer_name}))
+
             # ── Parent vote accumulation ──
             # Skip generic locations — they pollute hierarchy with noise.
             # Exempt uber-root both as child name and as parent (so locations
             # like 维扬 with only parent=天下 don't become orphans).
             # Uber-root votes are capped later to avoid drowning specific parents.
+            # Peer vote suppression: if child and parent are known peers, weight ÷ 3.
             if loc.parent and loc.name != loc.parent:
                 if (not _is_generic_location(loc.name) or loc.name == uber_root_name) and \
                    (not _is_generic_location(loc.parent) or loc.parent == uber_root_name):
-                    self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
+                    pair_key = frozenset({loc.name, loc.parent})
+                    if pair_key in self._peer_pairs:
+                        self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 0.33
+                    else:
+                        self._parent_votes.setdefault(loc.name, Counter())[loc.parent] += 1
 
         # ── Chapter primary setting → parent inference ──
         # Identify the "primary setting" of this chapter (the highest-tier setting
@@ -1819,6 +1835,21 @@ class WorldStructureAgent:
                 )
 
         tiers = self.structure.location_tiers if self.structure else {}
+        all_known = set(tiers.keys())
+
+        # Rebuild peer pairs from chapter facts
+        self._peer_pairs.clear()
+        for row in rows:
+            data = _json.loads(row["fact_json"])
+            for loc in data.get("locations", []):
+                peers = loc.get("peers")
+                name = loc.get("name", "")
+                if peers and name:
+                    for peer_name in peers:
+                        if peer_name and peer_name != name:
+                            self._peer_pairs.add(frozenset({name, peer_name}))
+        if self._peer_pairs:
+            logger.info("Rebuilt %d peer pairs from chapter facts", len(self._peer_pairs))
 
         # Collect spatial neighbor pairs for post-loop propagation (A.1)
         spatial_neighbors: list[tuple[str, str]] = []
@@ -1847,7 +1878,12 @@ class WorldStructureAgent:
                 if parent and name and name != parent:
                     if (not _is_generic_location(name) or name == uber_root_name) and \
                        (not _is_generic_location(parent) or parent == uber_root_name):
-                        votes.setdefault(name, Counter())[parent] += 1
+                        # Peer vote suppression: weight ÷ 3 when child-parent are known peers
+                        pair_key = frozenset({name, parent})
+                        if pair_key in self._peer_pairs:
+                            votes.setdefault(name, Counter())[parent] += 0.33
+                        else:
+                            votes.setdefault(name, Counter())[parent] += 1
             for sr in data.get("spatial_relationships", []):
                 rel_type = sr.get("relation_type", "")
                 source = sr.get("source", "")
@@ -2076,6 +2112,30 @@ class WorldStructureAgent:
         # ── Name containment heuristic ──
         raw = self._apply_name_containment_heuristic(raw)
 
+        # ── Peer-aware sibling detection ──
+        # When A→B exists and {A, B} is a known peer pair (from extraction),
+        # treat as siblings directly — find common parent for both.
+        peer_promoted = 0
+        for child in list(raw):
+            parent = raw.get(child)
+            if not parent:
+                continue
+            pair = frozenset({child, parent})
+            if pair in self._peer_pairs:
+                common = _find_common_parent(
+                    child, parent, self._parent_votes, known_locs,
+                )
+                if common and common != child and common != parent:
+                    raw[child] = common
+                    raw[parent] = common
+                    peer_promoted += 1
+                    logger.debug(
+                        "Peer sibling: %s ↔ %s → parent %s (peer evidence)",
+                        child, parent, common,
+                    )
+        if peer_promoted:
+            logger.info("Peer-aware sibling promotion: %d pairs", peer_promoted)
+
         # ── Bidirectional conflict resolution ──
         # When both A→B and B→A exist in raw (both claim the other as parent),
         # resolve deterministically to prevent oscillation across rebuilds.
@@ -2234,6 +2294,41 @@ class WorldStructureAgent:
                 # Remove the edge with the lowest vote count
                 weakest = min(cycle_edges, key=lambda e: e[2])
                 del result[weakest[0]]
+
+        # ── Collect suspicious pairs for LLM reflection ──
+        location_tiers = self.structure.location_tiers if self.structure else {}
+        suspicious: list[dict] = []
+        for child, parent in result.items():
+            if not parent:
+                continue
+            reasons = []
+            # Rule 1: Same suffix rank
+            c_rank = _get_suffix_rank(child)
+            p_rank = _get_suffix_rank(parent)
+            if c_rank is not None and p_rank is not None and c_rank == p_rank:
+                reasons.append("same_suffix")
+            # Rule 2: Close vote counts (ratio < 2.0)
+            child_votes = self._parent_votes.get(child, Counter())
+            parent_as_vote = child_votes.get(parent, 0)
+            runner_up = max((v for k, v in child_votes.items() if k != parent), default=0)
+            if parent_as_vote > 0 and runner_up > 0 and parent_as_vote / runner_up < 2.0:
+                reasons.append("close_votes")
+            # Rule 3: Name containment (parent name inside child name)
+            if len(parent) >= 2 and parent in child and parent != child:
+                reasons.append("name_contained")
+            if reasons:
+                suspicious.append({
+                    "child": child, "parent": parent,
+                    "reasons": reasons,
+                    "child_tier": location_tiers.get(child, "unknown"),
+                    "parent_tier": location_tiers.get(parent, "unknown"),
+                })
+        self._suspicious_pairs = suspicious[:20]  # Cap at 20
+        if suspicious:
+            logger.info(
+                "Suspicious pairs for reflection: %d (capped to %d)",
+                len(suspicious), len(self._suspicious_pairs),
+            )
 
         return result
 
