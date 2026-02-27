@@ -592,11 +592,37 @@ def consolidate_hierarchy(
     # 神京/都中), merge the alias into the canonical name: transfer all
     # children, update all parent references, remove alias from tiers.
     if synonym_pairs:
+        # Realm/fantasy keywords — reject merges targeting dreamworlds
+        _REALM_KW = frozenset("幻梦仙灵冥虚魔妖鬼")
+
         for canonical, alias in synonym_pairs:
             if canonical not in all_known or alias not in all_known:
                 continue
             if canonical == alias:
                 continue
+            # Safety: reject if canonical is a realm/fantasy name
+            if any(kw in canonical for kw in _REALM_KW):
+                logger.info(
+                    "Synonym merge rejected (realm name): %s ← %s", canonical, alias,
+                )
+                continue
+            # Safety: if alias has many more children, swap direction
+            # (the one with more children is the established hub)
+            canon_children = sum(1 for p in location_parents.values() if p == canonical)
+            alias_children = sum(1 for p in location_parents.values() if p == alias)
+            if alias_children > canon_children * 3 and alias_children > 5:
+                canonical, alias = alias, canonical
+                # Re-check realm safety after swap
+                if any(kw in canonical for kw in _REALM_KW):
+                    logger.info(
+                        "Synonym merge rejected after swap (realm name): %s ← %s",
+                        canonical, alias,
+                    )
+                    continue
+                logger.info(
+                    "Synonym merge: swapped direction (children %d vs %d): %s ← %s",
+                    alias_children, canon_children, canonical, alias,
+                )
             # Transfer children: any node whose parent is alias → canonical
             for child, parent in list(location_parents.items()):
                 if parent == alias:
