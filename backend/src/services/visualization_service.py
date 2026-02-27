@@ -111,6 +111,8 @@ async def get_analyzed_range(novel_id: str) -> tuple[int, int]:
 async def get_graph_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
+    from src.services.relation_utils import classify_relation_category
+
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
     alias_map = await build_alias_map(novel_id)
 
@@ -123,6 +125,11 @@ async def get_graph_data(
     # Collect edges (person_a, person_b) -> relation info
     edge_map: dict[tuple[str, str], dict] = {}
 
+    # ── Org attribution: collect from org_events + org-type locations ──
+    _ORG_ACTION_JOIN = {"加入", "晋升", "出现", "创建", "成立"}
+    org_locations: set[str] = set()  # location names that are org-like
+    person_org_visits: dict[str, Counter] = defaultdict(Counter)  # person → org → visit count
+
     for fact in facts:
         ch = fact.chapter_id
 
@@ -132,12 +139,26 @@ async def get_graph_data(
             if char.name != canonical:
                 person_aliases[canonical].add(char.name)
 
-        # Track org membership
+        # Track org membership from org_events
         for oe in fact.org_events:
-            if oe.member and oe.action in ("加入", "晋升"):
+            if oe.member and oe.action in _ORG_ACTION_JOIN:
                 member = alias_map.get(oe.member, oe.member)
                 org = alias_map.get(oe.org_name, oe.org_name)
                 person_org[member] = org
+
+        # Identify org-type locations
+        for loc in fact.locations:
+            loc_canonical = alias_map.get(loc.name, loc.name)
+            if _is_org_type(loc.type):
+                org_locations.add(loc_canonical)
+
+        # Track character visits to org-type locations
+        for char in fact.characters:
+            canonical = alias_map.get(char.name, char.name)
+            for loc_name in char.locations_in_chapter:
+                loc_canonical = alias_map.get(loc_name, loc_name)
+                if loc_canonical in org_locations:
+                    person_org_visits[canonical][loc_canonical] += 1
 
         for rel in fact.relationships:
             a = alias_map.get(rel.person_a, rel.person_a)
@@ -156,6 +177,14 @@ async def get_graph_data(
             normalized = normalize_relation_type(rel.relation_type)
             edge_map[key]["type_counts"][normalized] += 1
 
+    # ── Fallback org attribution from location visits ──
+    for person, org_counts in person_org_visits.items():
+        if person not in person_org and org_counts:
+            # Assign to the org-location visited most frequently
+            best_org = org_counts.most_common(1)[0][0]
+            if org_counts[best_org] >= 2:  # require ≥ 2 visits
+                person_org[person] = best_org
+
     nodes = [
         {
             "id": name,
@@ -169,31 +198,42 @@ async def get_graph_data(
     ]
     nodes.sort(key=lambda n: -n["chapter_count"])
 
-    edges = [
-        {
+    edges_out: list[dict] = []
+    category_counts: Counter = Counter()
+    for e in edge_map.values():
+        primary_type = e["type_counts"].most_common(1)[0][0]
+        category = classify_relation_category(primary_type)
+        category_counts[category] += 1
+        edges_out.append({
             "source": e["source"],
             "target": e["target"],
-            "relation_type": e["type_counts"].most_common(1)[0][0],
+            "relation_type": primary_type,
             "all_types": [t for t, _ in e["type_counts"].most_common()],
             "weight": len(e["chapters"]),
             "chapters": sorted(e["chapters"]),
-        }
-        for e in edge_map.values()
-    ]
+            "category": category,
+        })
 
     # Compute a suggested min_edge_weight for large graphs
-    max_weight = max((e["weight"] for e in edges), default=1)
+    max_weight = max((e["weight"] for e in edges_out), default=1)
     suggested_min_edge = 1
-    if len(edges) > 500:
+    if len(edges_out) > 500:
         suggested_min_edge = 2
-    if len(edges) > 2000:
+    if len(edges_out) > 2000:
         suggested_min_edge = max(3, max_weight // 10)
+
+    # Relation type stats for frontend display
+    type_counts: Counter = Counter()
+    for e in edges_out:
+        type_counts[e["relation_type"]] += 1
 
     return {
         "nodes": nodes,
-        "edges": edges,
+        "edges": edges_out,
         "max_edge_weight": max_weight,
         "suggested_min_edge_weight": suggested_min_edge,
+        "category_counts": dict(category_counts),
+        "type_counts": dict(type_counts.most_common(20)),
     }
 
 

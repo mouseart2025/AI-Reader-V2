@@ -9,6 +9,7 @@ import { VisualizationLayout } from "@/components/visualization/VisualizationLay
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 
 interface GraphNode {
   id: string
@@ -28,6 +29,7 @@ interface GraphEdge {
   all_types?: string[]
   weight: number
   chapters: number[]
+  category?: string
 }
 
 // Color palette for organizations
@@ -36,30 +38,29 @@ const ORG_COLORS = [
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ]
 
-// Exact-match sets for normalized relation types
-const _INTIMATE_TYPES = new Set(["夫妻", "恋人"])
-const _FAMILY_TYPES = new Set([
-  "父子", "父女", "母子", "母女", "兄弟", "兄妹", "姐弟", "姐妹",
-  "叔侄", "祖孙", "婆媳", "表亲", "堂亲",
-])
-const _SOCIAL_TYPES = new Set([
-  "朋友", "同门", "同学", "同事", "搭档", "盟友", "邻居", "同僚",
-])
-const _HIERARCHICAL_TYPES = new Set(["师徒", "主仆", "君臣", "上下级"])
+// Category → color mapping (matches backend classify_relation_category)
+const CATEGORY_COLORS: Record<string, string> = {
+  family: "#f59e0b",
+  intimate: "#ec4899",
+  hierarchical: "#8b5cf6",
+  social: "#10b981",
+  hostile: "#ef4444",
+  other: "#6b7280",
+}
 
-function edgeColor(type: string): string {
-  if (_INTIMATE_TYPES.has(type)) return "#ec4899"
-  if (_FAMILY_TYPES.has(type)) return "#f59e0b"
-  if (_SOCIAL_TYPES.has(type)) return "#10b981"
-  if (type === "敌对") return "#ef4444"
-  if (_HIERARCHICAL_TYPES.has(type)) return "#8b5cf6"
-  const t = type
-  if (t.includes("夫") || t.includes("妻") || t.includes("恋") || t.includes("情")) return "#ec4899"
-  if (t.includes("父") || t.includes("母") || t.includes("兄") || t.includes("姐") || t.includes("弟") || t.includes("妹")) return "#f59e0b"
-  if (t.includes("友") || t.includes("盟") || t.includes("同门")) return "#10b981"
-  if (t.includes("敌") || t.includes("仇")) return "#ef4444"
-  if (t.includes("师") || t.includes("主") || t.includes("君") || t.includes("臣")) return "#8b5cf6"
-  return "#6b7280"
+const CATEGORY_LABELS: Record<string, string> = {
+  family: "亲属",
+  intimate: "亲密",
+  hierarchical: "主从",
+  social: "友好",
+  hostile: "敌对",
+  other: "其他",
+}
+
+const ALL_CATEGORIES = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
+
+function categoryColor(category: string): string {
+  return CATEGORY_COLORS[category] ?? "#6b7280"
 }
 
 /**
@@ -112,12 +113,15 @@ export default function GraphPage() {
   const [edges, setEdges] = useState<GraphEdge[]>([])
   const [loading, setLoading] = useState(true)
   const [hoverNode, setHoverNode] = useState<string | null>(null)
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({})
 
   // Filters
   const [minChapters, setMinChapters] = useState(1)
   const [minEdgeWeight, setMinEdgeWeight] = useState(1)
   const [maxEdgeWeight, setMaxEdgeWeight] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
+  // Category filter — all enabled by default
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set())
 
   // Path finding state
   const [pathStart, setPathStart] = useState<string | null>(null)
@@ -142,6 +146,15 @@ export default function GraphPage() {
     return () => clearTimeout(t)
   }, [minEdgeWeight])
 
+  const toggleCategory = useCallback((cat: string) => {
+    setHiddenCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
+  }, [])
+
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge>>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
@@ -149,6 +162,16 @@ export default function GraphPage() {
   // Label collision detection state
   const labelRectsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([])
   const lastFrameRef = useRef(0)
+
+  // Dark mode detection
+  const isDarkRef = useRef(false)
+  useEffect(() => {
+    const check = () => { isDarkRef.current = document.documentElement.classList.contains("dark") }
+    check()
+    const obs = new MutationObserver(check)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return () => obs.disconnect()
+  }, [])
 
   // Resize observer
   useEffect(() => {
@@ -178,6 +201,7 @@ export default function GraphPage() {
         }
         setNodes((data.nodes as GraphNode[]) ?? [])
         setEdges((data.edges as GraphEdge[]) ?? [])
+        setCategoryCounts((data.category_counts as Record<string, number>) ?? {})
         // Apply smart defaults from backend
         const suggested = (data.suggested_min_edge_weight as number) ?? 1
         const maxW = (data.max_edge_weight as number) ?? 1
@@ -209,9 +233,10 @@ export default function GraphPage() {
     const chapterFiltered = nodes.filter((n) => n.chapter_count >= debouncedMinChapters)
     const chapterIds = new Set(chapterFiltered.map((n) => n.id))
 
-    // Filter edges by BOTH node presence and edge weight
+    // Filter edges by node presence, edge weight, AND category
     const validEdges = edges.filter((e) => {
       if (e.weight < debouncedMinEdgeWeight) return false
+      if (e.category && hiddenCategories.has(e.category)) return false
       const src = typeof e.source === "string" ? e.source : e.source.id
       const tgt = typeof e.target === "string" ? e.target : e.target.id
       return chapterIds.has(src) && chapterIds.has(tgt)
@@ -240,7 +265,7 @@ export default function GraphPage() {
       filteredNodeIds: connectedIds,
       degreeMap: deg,
     }
-  }, [nodes, edges, debouncedMinChapters, debouncedMinEdgeWeight])
+  }, [nodes, edges, debouncedMinChapters, debouncedMinEdgeWeight, hiddenCategories])
 
   // Highlight connected nodes on hover
   const connectedNodes = useMemo(() => {
@@ -396,8 +421,8 @@ export default function GraphPage() {
           </div>
         )}
 
-        {/* Filter panel toggle */}
-        <div className="absolute top-3 left-3 z-10 flex gap-1">
+        {/* Top-left controls */}
+        <div className="absolute top-3 left-3 z-10 flex gap-1 flex-wrap items-start">
           <Button
             variant="outline"
             size="xs"
@@ -412,6 +437,26 @@ export default function GraphPage() {
           >
             路径查找
           </Button>
+
+          {/* Category filter chips */}
+          <div className="w-px h-5 bg-border mx-0.5" />
+          {ALL_CATEGORIES.map((cat) => {
+            const count = categoryCounts[cat] ?? 0
+            if (count === 0) return null
+            const hidden = hiddenCategories.has(cat)
+            return (
+              <Button
+                key={cat}
+                variant={hidden ? "outline" : "default"}
+                size="xs"
+                onClick={() => toggleCategory(cat)}
+                className={cn(hidden && "opacity-50")}
+                style={hidden ? undefined : { backgroundColor: CATEGORY_COLORS[cat], borderColor: CATEGORY_COLORS[cat] }}
+              >
+                {CATEGORY_LABELS[cat]} {count}
+              </Button>
+            )
+          })}
 
           {showFilters && (
             <div className="absolute top-8 left-0 w-56 rounded-lg border bg-background p-3 shadow-lg space-y-3">
@@ -443,6 +488,11 @@ export default function GraphPage() {
               </div>
               <p className="text-muted-foreground text-[10px] border-t pt-2">
                 {filteredNodes.length}/{nodes.length} 人物，{filteredEdges.length}/{edges.length} 关系
+                {hiddenCategories.size > 0 && (
+                  <span className="ml-1 text-amber-600">
+                    ({hiddenCategories.size} 类隐藏)
+                  </span>
+                )}
               </p>
             </div>
           )}
@@ -511,23 +561,28 @@ export default function GraphPage() {
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
           <div className="rounded-lg border bg-background/90 p-2">
             <p className="text-muted-foreground mb-1 text-[10px]">关系线</p>
-            {[
-              { label: "亲密", color: "#ec4899", desc: "夫妻/恋人" },
-              { label: "亲属", color: "#f59e0b", desc: "父母/兄弟/叔侄" },
-              { label: "师承", color: "#8b5cf6", desc: "师徒/主仆/君臣" },
-              { label: "友好", color: "#10b981", desc: "朋友/同门/盟友" },
-              { label: "敌对", color: "#ef4444", desc: "仇人/对手" },
-              { label: "其他", color: "#6b7280", desc: "一般关系" },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-1.5 text-xs">
-                <span
-                  className="inline-block h-0.5 w-4 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span>{item.label}</span>
-                <span className="text-muted-foreground text-[10px]">{item.desc}</span>
-              </div>
-            ))}
+            {ALL_CATEGORIES.map((cat) => {
+              const count = categoryCounts[cat] ?? 0
+              if (count === 0) return null
+              const hidden = hiddenCategories.has(cat)
+              return (
+                <div
+                  key={cat}
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted/50 rounded px-0.5",
+                    hidden && "opacity-40",
+                  )}
+                  onClick={() => toggleCategory(cat)}
+                >
+                  <span
+                    className="inline-block h-0.5 w-4 rounded-full"
+                    style={{ backgroundColor: CATEGORY_COLORS[cat] }}
+                  />
+                  <span>{CATEGORY_LABELS[cat]}</span>
+                  <span className="text-muted-foreground text-[10px]">{count}</span>
+                </div>
+              )
+            })}
           </div>
 
           {orgColorMap.size > 0 && (
@@ -612,6 +667,7 @@ export default function GraphPage() {
             const showLabel = alwaysShow || node.chapter_count >= chapterThreshold
 
             if (showLabel) {
+              const dark = isDarkRef.current
               const fontSize = 13 / globalScale
               const isBold = isOnPath || isHovered
               ctx.font = isBold
@@ -666,10 +722,10 @@ export default function GraphPage() {
                 if (!overlaps) {
                   labelRectsRef.current.push(rect)
 
-                  // Background pill for readability
+                  // Background pill — theme-aware
                   const padX = 2 / globalScale
                   const padY = 1 / globalScale
-                  ctx.fillStyle = "rgba(255,255,255,0.85)"
+                  ctx.fillStyle = dark ? "rgba(30,30,30,0.85)" : "rgba(255,255,255,0.85)"
                   ctx.beginPath()
                   const rx = labelX - padX
                   const ry = labelY - padY
@@ -687,7 +743,7 @@ export default function GraphPage() {
                   ctx.quadraticCurveTo(rx, ry, rx + cr, ry)
                   ctx.fill()
 
-                  // Text color: high contrast
+                  // Text color: theme-aware high contrast
                   ctx.textAlign = "center"
                   ctx.textBaseline = "top"
                   ctx.fillStyle = isOnPath || isPathStart
@@ -696,7 +752,7 @@ export default function GraphPage() {
                       ? "#9ca3af"
                       : hoverNode && !connectedNodes.has(node.id)
                         ? "#9ca3af"
-                        : "#111827"
+                        : dark ? "#e5e7eb" : "#111827"
                   ctx.fillText(node.name, node.x!, labelY)
                 }
               }
@@ -706,14 +762,16 @@ export default function GraphPage() {
             const ek = edgeKey(edge)
             if (hasPath) {
               if (pathEdges.has(ek)) return "#f59e0b"
-              return "#f3f4f6"
+              return isDarkRef.current ? "#374151" : "#f3f4f6"
             }
             if (hoverNode) {
               const src = typeof edge.source === "string" ? edge.source : edge.source.id
               const tgt = typeof edge.target === "string" ? edge.target : edge.target.id
-              if (!connectedNodes.has(src) || !connectedNodes.has(tgt)) return "#e5e7eb"
+              if (!connectedNodes.has(src) || !connectedNodes.has(tgt)) {
+                return isDarkRef.current ? "#374151" : "#e5e7eb"
+              }
             }
-            return edgeColor(edge.relation_type)
+            return categoryColor(edge.category ?? "other")
           }}
           linkWidth={(edge: GraphEdge) => {
             if (hasPath && pathEdges.has(edgeKey(edge))) return 3
@@ -725,10 +783,12 @@ export default function GraphPage() {
             return []
           }}
           linkLabel={(edge: GraphEdge) => {
-            if (edge.all_types && edge.all_types.length > 1) {
-              return `${edge.relation_type} (${edge.all_types.join("/")})`
+            const types = edge.all_types ?? [edge.relation_type]
+            const cat = edge.category ? ` [${CATEGORY_LABELS[edge.category] ?? edge.category}]` : ""
+            if (types.length > 1) {
+              return `${types.join("/")} (${edge.weight}章)${cat}`
             }
-            return edge.relation_type
+            return `${edge.relation_type} (${edge.weight}章)${cat}`
           }}
           linkDirectionalParticles={0}
           onNodeClick={handleNodeClick}

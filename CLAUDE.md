@@ -150,7 +150,7 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 
 ### Relation Normalization and Classification
 
-`relation_utils.py` — shared module consumed by `entity_aggregator` and `visualization_service`. `normalize_relation_type()` maps LLM-generated relation type variants to canonical forms (e.g., "师生"→"师徒", "情侣"→"恋人", "仇人"→"敌对") via exact-match then substring-match. `classify_relation_category()` assigns each normalized type to one of 6 categories: family, intimate, hierarchical, social, hostile, other. Used for PersonCard relation grouping and graph edge coloring.
+`relation_utils.py` — shared module consumed by `entity_aggregator`, `visualization_service`, and `encyclopedia_service`. `_RELATION_TYPE_NORM` (70+ entries, N36 expanded) maps LLM-generated relation type variants to canonical forms via exact-match then substring-match. Covers: blood relations (父子/母子/兄弟/姐妹 + 养/继/义 variants), extended family (叔侄/甥舅/姑侄/翁媳/婆媳/妯娌/姑嫂/连襟/嫡庶/表亲/堂亲/亲家/族人), intimate (夫妻/恋人/情敌), hierarchical (师徒/主仆/君臣/上下级), social (朋友/同门/同学/同事/邻居/搭档/同僚/盟友/世交/恩人/奇遇), hostile (敌对). `classify_relation_category()` assigns each normalized type to one of 6 categories: family, intimate, hierarchical, social, hostile, other. Keyword fallback covers 17 family keywords (父/母/兄/姐/弟/妹/叔/侄/祖/孙/婆/媳/嫂/舅/姑/族/亲). Used for PersonCard relation grouping, graph edge coloring, and encyclopedia org relation badges.
 
 ### Entity Aggregation — Relations
 
@@ -158,7 +158,7 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 
 ### Graph Edge Aggregation
 
-`visualization_service.py` — graph edges use `Counter`-based type frequency tracking instead of "latest chapter wins". Each edge outputs `relation_type` (most frequent normalized type) and `all_types` (all types sorted by frequency). Edge colors in the frontend match on exact normalized types with keyword fallback. Hierarchical relations (师徒/主仆/君臣) get a distinct purple color.
+`visualization_service.py` — graph edges use `Counter`-based type frequency tracking instead of "latest chapter wins". Each edge outputs `relation_type` (most frequent normalized type), `all_types` (all types sorted by frequency), and `category` (from `classify_relation_category()`). **Organization attribution** (N36): when `org_events` don't provide org membership, falls back to counting character visits to org-type locations (reusing `_is_org_type()` logic from factions). `_ORG_ACTION_JOIN = {"加入", "晋升", "出现", "创建", "成立"}`, minimum 2 visits required. API response includes `category_counts` (Counter by category) and `type_counts` (top 20 normalized relation types).
 
 ### GeoResolver — Real-World Coordinate Matching
 
@@ -205,6 +205,9 @@ Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and 
 - **Force spacing**: Charge strength and link distance scale with graph density (stronger repulsion for dense graphs)
 - **Collision detection**: Label rects tracked per frame, only non-overlapping labels rendered
 - **Dashed weak edges**: `linkLineDash` for weight ≤ 1
+- **Category filter chips** (N36): `hiddenCategories: Set<string>` controls per-category edge visibility. Six colored toggle buttons (family=blue, intimate=pink, hierarchical=purple, social=green, hostile=red, other=gray) with count badges. Integrated into `filteredEdges` useMemo pipeline
+- **Dark mode adaptation** (N36): `isDarkRef` via MutationObserver on `document.documentElement.classList`. Theme-aware label backgrounds (`rgba(30,30,30,0.85)` dark / `rgba(255,255,255,0.85)` light), text colors, dimmed edge colors
+- **Interactive legend** (N36): Category legend entries are clickable to toggle filtering. Shows per-category counts and relation type labels
 
 ### Force-Directed Pre-Layout Seeding
 
