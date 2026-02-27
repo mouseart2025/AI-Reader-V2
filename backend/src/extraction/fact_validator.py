@@ -649,6 +649,31 @@ class FactValidator:
         Uses _is_generic_location() for structural pattern matching (replaces
         hardcoded blocklists) and character-name + suffix detection for hallucinations.
         """
+        # Pre-processing: split compound location names joined by conjunctions
+        # E.g., "新房与西院" → "新房" + "西院" as separate entries
+        from src.models.chapter_fact import LocationFact
+        expanded_locs = []
+        for loc in locs:
+            split_parts = None
+            for conj in ("与", "和", "及"):
+                if conj in loc.name:
+                    idx = loc.name.index(conj)
+                    left = loc.name[:idx].strip()
+                    right = loc.name[idx + 1:].strip()
+                    if len(left) >= 2 and len(right) >= 2:
+                        split_parts = [left, right]
+                        break
+            if split_parts:
+                logger.debug(
+                    "Splitting compound location: '%s' → %s",
+                    loc.name, split_parts,
+                )
+                for part in split_parts:
+                    expanded_locs.append(loc.model_copy(update={"name": part}))
+            else:
+                expanded_locs.append(loc)
+        locs = expanded_locs
+
         # Build character name set for hallucination detection
         char_names: set[str] = set()
         if characters:
