@@ -259,6 +259,33 @@ async def rebuild_hierarchy(novel_id: str):
             yield _sse("votes", "正在从章节事实重建投票数据...")
             agent._parent_votes = await agent._rebuild_parent_votes()
 
+            # 1.5 Macro-skeleton generation
+            yield _sse("skeleton", "正在生成宏观地理骨架...")
+            try:
+                import asyncio as _asyncio_skel
+                from src.services.macro_skeleton_generator import MacroSkeletonGenerator
+                skel_gen = MacroSkeletonGenerator()
+                skeleton_votes = await _asyncio_skel.wait_for(
+                    skel_gen.generate(
+                        novel_title=novel.get("title", ""),
+                        novel_genre_hint=ws.novel_genre_hint,
+                        location_tiers=ws.location_tiers,
+                        current_parents=ws.location_parents,
+                    ),
+                    timeout=45.0,
+                )
+                if skeleton_votes:
+                    agent.inject_external_votes(skeleton_votes)
+                    yield _sse("skeleton", f"骨架生成完成，{len(skeleton_votes)} 个地点获得锚定")
+                else:
+                    yield _sse("skeleton", "骨架生成无建议")
+            except _asyncio_skel.TimeoutError:
+                logger.warning("Macro skeleton generation timed out for %s", novel_id)
+                yield _sse("skeleton", "骨架生成超时，已跳过")
+            except Exception:
+                logger.warning("Macro skeleton generation failed for %s", novel_id, exc_info=True)
+                yield _sse("skeleton", "骨架生成失败，已跳过")
+
             # 2. Scene transition analysis
             scene_analysis_used = False
             scene_analysis: dict = {}
