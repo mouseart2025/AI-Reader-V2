@@ -303,6 +303,8 @@ const ICON_NAMES = [
 export interface NovelMapProps {
   locations: MapLocation[]
   layout: MapLayoutItem[]
+  allLocations?: MapLocation[]   // unfiltered, for stable coastline/territories
+  allLayout?: MapLayoutItem[]    // unfiltered, for stable coastline/territories
   layoutMode: "constraint" | "hierarchy" | "layered" | "geographic"
   layerType?: string
   terrainUrl: string | null
@@ -352,6 +354,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     {
       locations,
       layout,
+      allLocations,
+      allLayout,
       layoutMode,
       layerType,
       visibleLocationNames,
@@ -416,16 +420,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       return m
     }, [locations])
 
-    // Territory generation
+    // Territory generation (uses filtered data — territories represent visible groupings)
     const territories = useMemo(
       () => generateHullTerritories(locations, layout, { width: canvasW, height: canvasH }),
       [locations, layout, canvasW, canvasH],
     )
 
-    // Terrain texture hints
+    // Terrain texture hints (use full data for stable decorations)
     const terrainHints = useMemo(
-      () => generateTerrainHints(locations, layout, { width: canvasW, height: canvasH }, darkBg),
-      [locations, layout, canvasW, canvasH, darkBg],
+      () => generateTerrainHints(allLocations ?? locations, allLayout ?? layout, { width: canvasW, height: canvasH }, darkBg),
+      [allLocations, locations, allLayout, layout, canvasW, canvasH, darkBg],
     )
 
     // ── Load SVG icons ──────────────────────────────
@@ -757,7 +761,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       oceanG.selectAll("*").remove()
       coastG.selectAll("*").remove()
 
-      const allPoints: CoastPoint[] = layout
+      const stableLayout = allLayout ?? layout
+      const allPoints: CoastPoint[] = stableLayout
         .filter((item) => !item.is_portal)
         .map((item) => [item.x, item.y] as CoastPoint)
       if (allPoints.length < 3) return
@@ -789,7 +794,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       })
       coastNode.style.pointerEvents = "none"
       ;(coastG.node() as Element).appendChild(coastNode)
-    }, [mapReady, layout, canvasW, canvasH, darkBg])
+    }, [mapReady, allLayout, layout, canvasW, canvasH, darkBg])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
@@ -895,12 +900,25 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       const clamp = (level: number) => Math.min(level, 3)
 
+      const canvasArea = canvasW * canvasH
+
       for (const terr of territories) {
         const li = clamp(terr.level)
         const pathData = polygonToPath(terr.polygon)
 
         const strokeColor = darkBg ? terr.color : "#8b7355"
         const fillColor = darkBg ? terr.color : "#c4a97d"
+
+        // Detect large territories: hachure fill on big hulls creates
+        // long diagonal lines that dominate the map. Stroke-only for those.
+        let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity
+        for (const [px, py] of terr.polygon) {
+          if (px < bMinX) bMinX = px
+          if (px > bMaxX) bMaxX = px
+          if (py < bMinY) bMinY = py
+          if (py > bMaxY) bMaxY = py
+        }
+        const isLarge = (bMaxX - bMinX) * (bMaxY - bMinY) > canvasArea * 0.15
 
         if (rc) {
           // Rough.js hand-drawn territory
@@ -910,21 +928,20 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             seed: hashString(terr.name) % 100,
             stroke: strokeColor,
             strokeWidth: STROKE_WIDTH[li],
-            fill: fillColor,
+            fill: isLarge ? "none" : fillColor,
             fillStyle: "hachure",
             fillWeight: 0.6,
             hachureAngle: -41 + li * 30,
-            hachureGap: 6 + li * 2,
+            hachureGap: isLarge ? 14 : 6 + li * 2,
           })
-          // rough.js hachure is inherently sparse — boost opacity
-          node.style.opacity = String(FILL_OP[li] * 3)
+          node.style.opacity = String(isLarge ? FILL_OP[li] * 2 : FILL_OP[li] * 3)
           ;(terrG.node() as Element).appendChild(node)
         } else {
           // Fallback: plain path (no rough.js)
           terrG
             .append("path")
             .attr("d", pathData)
-            .attr("fill", fillColor)
+            .attr("fill", isLarge ? "none" : fillColor)
             .attr("fill-opacity", FILL_OP[li])
             .attr("stroke", strokeColor)
             .attr("stroke-width", STROKE_WIDTH[li])

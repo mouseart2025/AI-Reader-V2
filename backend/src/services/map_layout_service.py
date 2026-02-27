@@ -1578,7 +1578,11 @@ class ConstraintSolver:
                 # fills the circular area organically instead of a ring perimeter
                 golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
                 frac = (idx + 0.5) / n_children  # 0..1
-                r = base_jitter * (0.3 + 0.7 * math.sqrt(frac)) + 8 * loc.get("level", 0)
+                # Adaptive radius: scale with sqrt(n_children) for better spread
+                adaptive_r = base_jitter * max(1.0, math.sqrt(n_children / 5))
+                max_r = min(canvas_w, canvas_h) * 0.3
+                adaptive_r = min(adaptive_r, max_r)
+                r = adaptive_r * (0.3 + 0.7 * math.sqrt(frac)) + 8 * loc.get("level", 0)
                 angle = idx * golden_angle
                 x = max(self._canvas_min_x, min(self._canvas_max_x, px + r * math.cos(angle)))
                 y = max(self._canvas_min_y, min(self._canvas_max_y, py + r * math.sin(angle)))
@@ -1969,18 +1973,23 @@ class ConstraintSolver:
     ) -> None:
         """Recursively place children around their parent positions."""
         golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+        canvas_w = self._canvas_max_x - self._canvas_min_x
+        canvas_h = self._canvas_max_y - self._canvas_min_y
         for parent in parents:
             children = self.children.get(parent, [])
             if not children:
                 continue
             px, py = layout.get(parent, (self._canvas_cx, self._canvas_cy))
             n = len(children)
+            # Adaptive radius: scale with sqrt(n_children) for better spread
+            effective_radius = child_radius * max(1.0, math.sqrt(n / 5))
+            effective_radius = min(effective_radius, min(canvas_w, canvas_h) * 0.3)
             for i, child in enumerate(children):
                 if child in layout:
                     continue
                 # Sunflower seed distribution: fills circle area organically
                 frac = (i + 0.5) / n
-                r = child_radius * (0.3 + 0.7 * math.sqrt(frac))
+                r = effective_radius * (0.3 + 0.7 * math.sqrt(frac))
                 angle = i * golden_angle
                 cx = px + r * math.cos(angle)
                 cy = py + r * math.sin(angle)
