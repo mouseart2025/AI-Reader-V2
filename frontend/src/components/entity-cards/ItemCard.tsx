@@ -1,13 +1,16 @@
 import { memo } from "react"
 import type { ItemProfile } from "@/api/types"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
+import { EntityScenes } from "./EntityScenes"
 
 interface ItemCardProps {
   profile: ItemProfile
   onEntityClick: (name: string, type: string) => void
+  onChapterClick?: (ch: number) => void
+  novelId?: string
 }
 
-export const ItemCard = memo(function ItemCard({ profile, onEntityClick }: ItemCardProps) {
+export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapterClick, novelId }: ItemCardProps) {
   const { flow, related_items, stats } = profile
 
   return (
@@ -31,7 +34,7 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick }: ItemC
       <CardSection title="持有流转" defaultLimit={10}>
         {flow.map((f, i) => (
           <div key={i} className="text-sm">
-            <ChapterTag chapter={f.chapter} />
+            <ChapterTag chapter={f.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">
               <EntityLink name={f.actor} type="person" onClick={onEntityClick} />
               <span className="mx-1">{f.action}</span>
@@ -57,6 +60,9 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick }: ItemC
           </div>
         ))}
       </CardSection>
+
+      {/* Scenes */}
+      {novelId && <EntityScenes novelId={novelId} entityName={profile.name} onChapterClick={onChapterClick} />}
 
       {/* Stats */}
       <div className="py-3">

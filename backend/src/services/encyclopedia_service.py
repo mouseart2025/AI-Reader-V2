@@ -66,6 +66,8 @@ async def get_encyclopedia_entries(
 
     # Collect entries with first chapter and definition
     entries: dict[str, dict] = {}
+    # Track chapters per entity for chapter_count
+    entry_chapters: dict[str, set[int]] = {}
 
     for fact_row in facts:
         fact = fact_row["fact"]
@@ -76,6 +78,7 @@ async def get_encyclopedia_entries(
                 name = ch.get("name", "")
                 if not name:
                     continue
+                entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
                         "name": name,
@@ -99,6 +102,7 @@ async def get_encyclopedia_entries(
                 name = loc.get("name", "")
                 if not name:
                     continue
+                entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
                         "name": name,
@@ -114,6 +118,7 @@ async def get_encyclopedia_entries(
                 name = ie.get("item_name", "")
                 if not name:
                     continue
+                entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
                         "name": name,
@@ -128,6 +133,7 @@ async def get_encyclopedia_entries(
                 name = oe.get("org_name", "")
                 if not name:
                     continue
+                entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
                         "name": name,
@@ -149,6 +155,7 @@ async def get_encyclopedia_entries(
                 if category and category not in ("concept", "person", "location", "item", "org"):
                     if cat != category:
                         continue
+                entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
                         "name": name,
@@ -158,12 +165,27 @@ async def get_encyclopedia_entries(
                         "first_chapter": chapter_id,
                     }
 
+    # Inject chapter_count into every entry
+    for name, entry in entries.items():
+        entry["chapter_count"] = len(entry_chapters.get(name, set()))
+
     result = list(entries.values())
+
+    # Load WorldStructure for tier/icon enrichment and hierarchy sort
+    from src.db import world_structure_store
+    ws = await world_structure_store.load(novel_id)
+
+    # Enrich location entries with tier and icon
+    if ws:
+        tiers = ws.location_tiers or {}
+        icons = ws.location_icons or {}
+        for entry in result:
+            if entry.get("type") == "location":
+                entry["tier"] = tiers.get(entry["name"], "")
+                entry["icon"] = icons.get(entry["name"], "")
 
     if sort_by == "hierarchy" and (category is None or category == "location"):
         # Override parents with authoritative WorldStructure data
-        from src.db import world_structure_store
-        ws = await world_structure_store.load(novel_id)
         if ws and ws.location_parents:
             for entry in result:
                 if entry.get("type") == "location":
@@ -177,17 +199,22 @@ async def get_encyclopedia_entries(
             for vp in parent_names - existing_names:
                 auth_parent = ws.location_parents.get(vp)
                 tier = (ws.location_tiers or {}).get(vp, "")
+                icon = (ws.location_icons or {}).get(vp, "")
                 result.append({
                     "name": vp,
                     "type": "location",
                     "category": "location",
                     "definition": "",
                     "first_chapter": 0,
+                    "chapter_count": 0,
                     "parent": auth_parent or "",
                     "tier": tier,
+                    "icon": icon,
                     "virtual": True,
                 })
         result = _sort_by_hierarchy(result)
+    elif sort_by == "mentions":
+        result.sort(key=lambda e: -len(entry_chapters.get(e["name"], set())))
     elif sort_by == "chapter":
         result.sort(key=lambda e: e["first_chapter"])
     else:
@@ -306,3 +333,100 @@ async def get_concept_detail(novel_id: str, name: str) -> dict | None:
     concept_info["related_entities"] = unique_entities[:10]
 
     return concept_info
+
+
+async def get_location_spatial_summary(novel_id: str, name: str) -> list[dict]:
+    """Get spatial relationships involving a location, aggregated across chapters."""
+    facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+
+    # (source, target, relation_type, value) → set of chapter_ids
+    agg: dict[tuple[str, str, str, str], set[int]] = {}
+
+    for fact_row in facts:
+        fact = fact_row["fact"]
+        chapter_id = fact.get("chapter_id", 0)
+        for sr in fact.get("spatial_relationships", []):
+            source = sr.get("source", "")
+            target = sr.get("target", "")
+            if name not in (source, target):
+                continue
+            key = (source, target, sr.get("relation_type", ""), sr.get("value", ""))
+            agg.setdefault(key, set()).add(chapter_id)
+
+    result = []
+    for (source, target, relation_type, value), chapters in agg.items():
+        result.append({
+            "source": source,
+            "target": target,
+            "relation_type": relation_type,
+            "value": value,
+            "chapters": sorted(chapters),
+        })
+    result.sort(key=lambda r: -len(r["chapters"]))
+    return result
+
+
+async def get_entity_scenes(novel_id: str, entity_name: str) -> list[dict]:
+    """Get scenes involving an entity, capped at 30."""
+    scenes = await chapter_fact_store.get_all_scenes(novel_id)
+
+    result: list[dict] = []
+    for scene in scenes:
+        # Check if entity appears in characters, location, or summary
+        characters = scene.get("characters", [])
+        char_names = [c if isinstance(c, str) else c.get("name", "") for c in characters]
+        location = scene.get("location", "")
+        summary = scene.get("summary", "") or scene.get("description", "")
+
+        if entity_name in char_names or entity_name == location or entity_name in summary:
+            # Determine the entity's role in this scene
+            role = "提及"
+            if entity_name == location:
+                role = "场所"
+            elif entity_name in char_names:
+                # Check character_roles for richer info
+                for cr in scene.get("character_roles", []):
+                    if cr.get("name") == entity_name:
+                        role = cr.get("role", "配")
+                        break
+                else:
+                    role = "出场"
+
+            result.append({
+                "chapter": scene.get("chapter", 0),
+                "index": scene.get("index", 0),
+                "title": scene.get("title", "") or scene.get("heading", ""),
+                "location": location,
+                "emotional_tone": scene.get("emotional_tone", ""),
+                "summary": (summary or "")[:80],
+                "role": role,
+            })
+            if len(result) >= 30:
+                break
+
+    return result
+
+
+async def get_location_conflicts_summary(novel_id: str) -> dict[str, list[dict]]:
+    """Get location conflicts grouped by location name."""
+    from src.services.conflict_detector import _detect_location_conflicts
+    facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+
+    parsed: list[tuple[int, dict]] = []
+    for fact_row in facts:
+        chapter_id = fact_row["fact"].get("chapter_id", 0)
+        parsed.append((chapter_id, fact_row["fact"]))
+
+    conflicts = _detect_location_conflicts(parsed)
+
+    result: dict[str, list[dict]] = {}
+    for c in conflicts:
+        entity = c.entity
+        result.setdefault(entity, []).append({
+            "type": c.type,
+            "severity": c.severity,
+            "description": c.description,
+            "chapters": c.chapters,
+        })
+
+    return result

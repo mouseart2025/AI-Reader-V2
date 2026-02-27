@@ -328,6 +328,7 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
                 )
 
     # Override parent and children with authoritative WorldStructure data
+    ws = None
     try:
         from src.db import world_structure_store
         ws = await world_structure_store.load(novel_id)
@@ -355,11 +356,24 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
     ]
     visitors.sort(key=lambda v: len(v.chapters), reverse=True)
 
+    # Compute siblings: locations sharing the same parent
+    siblings: list[str] = []
+    if parent:
+        try:
+            if ws and ws.location_parents:
+                siblings = sorted(
+                    child for child, p in ws.location_parents.items()
+                    if p == parent and child != location_name
+                )
+        except Exception:
+            pass
+
     profile = LocationProfile(
         name=location_name,
         location_type=location_type,
         parent=parent,
         children=sorted(children_set),
+        siblings=siblings,
         descriptions=descriptions,
         visitors=visitors,
         events=events,

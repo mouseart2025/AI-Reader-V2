@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { fetchEntityProfile } from "@/api/client"
 import type { EntityProfile, EntityType } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
@@ -28,6 +29,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     closeConceptPopup,
   } = useEntityCardStore()
 
+  const navigate = useNavigate()
   const aliasMap = useReadingStore((s) => s.aliasMap)
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1]
 
@@ -67,6 +69,14 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
       navigateTo(name, type as EntityType)
     },
     [navigateTo],
+  )
+
+  const handleChapterClick = useCallback(
+    (ch: number) => {
+      close()
+      navigate(`/read/${novelId}?chapter=${ch}`)
+    },
+    [close, navigate, novelId],
   )
 
   // Close on Escape
@@ -128,17 +138,59 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
           {!loading && profile && (
             <>
               {profile.type === "person" && (
-                <PersonCard profile={profile} onEntityClick={handleEntityClick} />
+                <PersonCard profile={profile} onEntityClick={handleEntityClick} onChapterClick={handleChapterClick} novelId={novelId} />
               )}
               {profile.type === "location" && (
-                <LocationCard profile={profile} onEntityClick={handleEntityClick} />
+                <LocationCard profile={profile} onEntityClick={handleEntityClick} onChapterClick={handleChapterClick} novelId={novelId} />
               )}
               {profile.type === "item" && (
-                <ItemCard profile={profile} onEntityClick={handleEntityClick} />
+                <ItemCard profile={profile} onEntityClick={handleEntityClick} onChapterClick={handleChapterClick} novelId={novelId} />
               )}
               {profile.type === "org" && (
-                <OrgCard profile={profile} onEntityClick={handleEntityClick} />
+                <OrgCard profile={profile} onEntityClick={handleEntityClick} onChapterClick={handleChapterClick} novelId={novelId} />
               )}
+
+              {/* Cross-page navigation */}
+              <div className="border-t py-3 flex flex-wrap gap-2">
+                {profile.type === "location" && (
+                  <>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/map/${novelId}`) }}>
+                      地图
+                    </Button>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                      百科
+                    </Button>
+                  </>
+                )}
+                {profile.type === "person" && (
+                  <>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/timeline/${novelId}`) }}>
+                      时间线
+                    </Button>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/graph/${novelId}`) }}>
+                      关系图
+                    </Button>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                      百科
+                    </Button>
+                  </>
+                )}
+                {profile.type === "org" && (
+                  <>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/factions/${novelId}`) }}>
+                      组织
+                    </Button>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                      百科
+                    </Button>
+                  </>
+                )}
+                {profile.type === "item" && (
+                  <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                    百科
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </div>

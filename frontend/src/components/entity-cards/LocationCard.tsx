@@ -1,17 +1,37 @@
-import { memo } from "react"
+import { memo, useEffect, useState } from "react"
 import type { LocationProfile } from "@/api/types"
+import { fetchLocationSpatialSummary } from "@/api/client"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
+import { EntityScenes } from "./EntityScenes"
+import { LocationMiniMap } from "./LocationMiniMap"
 
 interface LocationCardProps {
   profile: LocationProfile
   onEntityClick: (name: string, type: string) => void
+  onChapterClick?: (ch: number) => void
+  novelId?: string
 }
 
-export const LocationCard = memo(function LocationCard({ profile, onEntityClick }: LocationCardProps) {
+interface SpatialRelation {
+  source: string
+  target: string
+  relation_type: string
+  value: string
+  chapters: number[]
+}
+
+export const LocationCard = memo(function LocationCard({ profile, onEntityClick, onChapterClick, novelId }: LocationCardProps) {
   const { descriptions, visitors, events, stats } = profile
 
   const residents = visitors.filter((v) => v.is_resident)
   const passersby = visitors.filter((v) => !v.is_resident)
+
+  // Lazy-load spatial relationships
+  const [spatialRels, setSpatialRels] = useState<SpatialRelation[]>([])
+  useEffect(() => {
+    if (!novelId) return
+    fetchLocationSpatialSummary(novelId, profile.name).then(setSpatialRels)
+  }, [novelId, profile.name])
 
   return (
     <div className="space-y-0">
@@ -29,6 +49,9 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick 
           </div>
         </div>
       </div>
+
+      {/* Mini position map */}
+      <LocationMiniMap profile={profile} onEntityClick={onEntityClick} />
 
       {/* B. Spatial Hierarchy */}
       <div className="border-b py-3">
@@ -59,11 +82,28 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick 
         </div>
       </div>
 
+      {/* B2. Spatial Relationships */}
+      {spatialRels.length > 0 && (
+        <CardSection title="空间关系" defaultLimit={5}>
+          {spatialRels.map((rel, i) => {
+            const other = rel.source === profile.name ? rel.target : rel.source
+            return (
+              <div key={i} className="text-sm">
+                <span className="text-muted-foreground text-xs mr-1">{rel.relation_type}</span>
+                <EntityLink name={other} type="location" onClick={onEntityClick} />
+                {rel.value && <span className="text-muted-foreground text-xs ml-1">({rel.value})</span>}
+                <span className="text-muted-foreground text-[10px] ml-1">{rel.chapters.length}章</span>
+              </div>
+            )
+          })}
+        </CardSection>
+      )}
+
       {/* C. Descriptions */}
       <CardSection title="环境描写" defaultLimit={3}>
         {descriptions.map((d, i) => (
           <div key={i} className="text-sm">
-            <ChapterTag chapter={d.chapter} />
+            <ChapterTag chapter={d.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">{d.description}</span>
           </div>
         ))}
@@ -90,13 +130,16 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick 
       <CardSection title="发生事件" defaultLimit={5}>
         {events.map((ev, i) => (
           <div key={i} className="text-sm">
-            <ChapterTag chapter={ev.chapter} />
+            <ChapterTag chapter={ev.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">{ev.summary}</span>
           </div>
         ))}
       </CardSection>
 
-      {/* F. Stats */}
+      {/* F. Scenes */}
+      {novelId && <EntityScenes novelId={novelId} entityName={profile.name} onChapterClick={onChapterClick} />}
+
+      {/* G. Stats */}
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">

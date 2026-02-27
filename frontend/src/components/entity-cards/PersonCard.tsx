@@ -1,10 +1,13 @@
 import { memo } from "react"
 import type { PersonProfile } from "@/api/types"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
+import { EntityScenes } from "./EntityScenes"
 
 interface PersonCardProps {
   profile: PersonProfile
   onEntityClick: (name: string, type: string) => void
+  onChapterClick?: (ch: number) => void
+  novelId?: string
 }
 
 // Category labels and ordering
@@ -18,7 +21,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 const CATEGORY_ORDER = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
 
-export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: PersonCardProps) {
+export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onChapterClick, novelId }: PersonCardProps) {
   const { aliases, appearances, abilities, relations, items, experiences, stats } = profile
 
   // Group abilities by dimension
@@ -44,7 +47,16 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
                 {aliases.map((a) => (
                   <span key={a.name} className="mr-2">
                     {a.name}
-                    <span className="text-muted-foreground/50 ml-0.5">(Ch.{a.first_chapter})</span>
+                    {onChapterClick ? (
+                      <button
+                        className="text-muted-foreground/50 ml-0.5 cursor-pointer hover:underline"
+                        onClick={() => onChapterClick(a.first_chapter)}
+                      >
+                        (Ch.{a.first_chapter})
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground/50 ml-0.5">(Ch.{a.first_chapter})</span>
+                    )}
                   </span>
                 ))}
               </div>
@@ -60,14 +72,28 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
           const chs: number[] = a.chapters ?? ((a as any).chapter != null ? [(a as any).chapter] : [])
           return (
             <div key={i} className="text-sm">
-              <span className="text-muted-foreground text-xs">
-                {chs.length === 1
-                  ? `Ch.${chs[0]}`
-                  : chs.length <= 3
-                    ? `Ch.${chs.join(",")}`
-                    : `Ch.${chs[0]}–${chs[chs.length - 1]}(${chs.length}次)`
-                }
-              </span>
+              {onChapterClick ? (
+                <button
+                  className="text-muted-foreground cursor-pointer text-xs hover:underline"
+                  onClick={() => onChapterClick(chs[0])}
+                >
+                  {chs.length === 1
+                    ? `Ch.${chs[0]}`
+                    : chs.length <= 3
+                      ? `Ch.${chs.join(",")}`
+                      : `Ch.${chs[0]}–${chs[chs.length - 1]}(${chs.length}次)`
+                  }
+                </button>
+              ) : (
+                <span className="text-muted-foreground text-xs">
+                  {chs.length === 1
+                    ? `Ch.${chs[0]}`
+                    : chs.length <= 3
+                      ? `Ch.${chs.join(",")}`
+                      : `Ch.${chs[0]}–${chs[chs.length - 1]}(${chs.length}次)`
+                  }
+                </span>
+              )}
               <span className="ml-1.5">{a.description}</span>
             </div>
           )
@@ -100,14 +126,28 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
                     <span>{latest?.relation_type ?? "未知"}</span>
                     {rel.stages.length > 1 && (
                       <span className="text-muted-foreground ml-1 text-xs">
-                        ({rel.stages.map((s) => {
+                        ({rel.stages.map((s, si) => {
                           const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
-                          if (chs.length === 0) return s.relation_type
+                          if (chs.length === 0) return <span key={si}>{s.relation_type}</span>
                           const tag = chs.length === 1
                             ? `Ch.${chs[0]}`
                             : `Ch.${chs[0]}–${chs[chs.length - 1]}`
-                          return `${s.relation_type}(${tag})`
-                        }).join(" → ")})
+                          return (
+                            <span key={si}>
+                              {si > 0 && " → "}
+                              {s.relation_type}(
+                              {onChapterClick ? (
+                                <button
+                                  className="cursor-pointer hover:underline"
+                                  onClick={() => onChapterClick(chs[0])}
+                                >
+                                  {tag}
+                                </button>
+                              ) : tag}
+                              )
+                            </span>
+                          )
+                        })})
                       </span>
                     )}
                     {totalEvidences > 0 && (
@@ -121,7 +161,16 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
                               .map((ev, ei) => (
                                 <div key={`${si}-${ei}`} className="text-[11px] text-muted-foreground">
                                   「{ev}」
-                                  <span className="ml-1 opacity-60">Ch.{s.chapters[0]}</span>
+                                  {onChapterClick ? (
+                                    <button
+                                      className="ml-1 cursor-pointer opacity-60 hover:underline"
+                                      onClick={() => onChapterClick(s.chapters[0])}
+                                    >
+                                      Ch.{s.chapters[0]}
+                                    </button>
+                                  ) : (
+                                    <span className="ml-1 opacity-60">Ch.{s.chapters[0]}</span>
+                                  )}
                                 </div>
                               ))
                           )}
@@ -142,7 +191,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
           </div>,
           ...abs.map((ab, i) => (
             <div key={`${dim}-${i}`} className="text-sm pl-2">
-              <ChapterTag chapter={ab.chapter} />
+              <ChapterTag chapter={ab.chapter} onClick={onChapterClick} />
               <span className="ml-1.5 font-medium">{ab.name}</span>
               {ab.description && (
                 <span className="text-muted-foreground ml-1">{ab.description}</span>
@@ -156,7 +205,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
       <CardSection title="物品关系" defaultLimit={5}>
         {items.map((it, i) => (
           <div key={i} className="text-sm">
-            <ChapterTag chapter={it.chapter} />
+            <ChapterTag chapter={it.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">{it.action}</span>
             <EntityLink
               name={it.item_name}
@@ -172,11 +221,32 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
         ))}
       </CardSection>
 
-      {/* F. Experiences */}
+      {/* F. Footprint */}
+      {(() => {
+        const footprintMap = new Map<string, number>()
+        for (const exp of experiences) {
+          if (exp.location && !footprintMap.has(exp.location)) {
+            footprintMap.set(exp.location, exp.chapter)
+          }
+        }
+        if (footprintMap.size === 0) return null
+        return (
+          <CardSection title="足迹" defaultLimit={8}>
+            {Array.from(footprintMap.entries()).map(([loc, ch]) => (
+              <div key={loc} className="text-sm flex items-center gap-1.5">
+                <ChapterTag chapter={ch} onClick={onChapterClick} />
+                <EntityLink name={loc} type="location" onClick={onEntityClick} />
+              </div>
+            ))}
+          </CardSection>
+        )
+      })()}
+
+      {/* G. Experiences */}
       <CardSection title="经历" defaultLimit={5}>
         {[...experiences].reverse().map((exp, i) => (
           <div key={i} className="text-sm">
-            <ChapterTag chapter={exp.chapter} />
+            <ChapterTag chapter={exp.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">{exp.summary}</span>
             {exp.location && (
               <span className="text-muted-foreground ml-1">
@@ -191,7 +261,10 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick }: P
         ))}
       </CardSection>
 
-      {/* G. Stats */}
+      {/* H. Scenes */}
+      {novelId && <EntityScenes novelId={novelId} entityName={profile.name} onChapterClick={onChapterClick} />}
+
+      {/* I. Stats */}
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">

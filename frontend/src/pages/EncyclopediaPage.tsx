@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
+import { fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, fetchLocationConflicts, fetchWorldStructure, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
+import type { WorldStructureData } from "@/api/types"
 import type { HierarchyRebuildResult } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
@@ -27,8 +28,11 @@ interface EncEntry {
   category: string
   definition: string
   first_chapter: number
+  chapter_count?: number
   parent?: string | null
   depth?: number
+  tier?: string
+  icon?: string
 }
 
 interface ConceptDetail {
@@ -57,15 +61,36 @@ const TYPE_LABELS: Record<string, string> = {
   concept: "概念",
 }
 
+const TIER_LABELS: Record<string, string> = {
+  world: "世界",
+  continent: "大陆",
+  kingdom: "国",
+  region: "区域",
+  city: "城",
+  site: "场所",
+  building: "建筑",
+}
+
+const TIER_COLORS: Record<string, string> = {
+  world: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  continent: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  kingdom: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  region: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
+  city: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  site: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  building: "bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300",
+}
+
 export default function EncyclopediaPage() {
   const { novelId } = useParams<{ novelId: string }>()
+  const navigate = useNavigate()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
   const [stats, setStats] = useState<CategoryStats | null>(null)
   const [entries, setEntries] = useState<EncEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<"name" | "chapter" | "hierarchy">("name")
+  const [sortBy, setSortBy] = useState<"name" | "chapter" | "hierarchy" | "mentions">("name")
   const [search, setSearch] = useState("")
   const [conceptDetail, setConceptDetail] = useState<ConceptDetail | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
@@ -75,10 +100,13 @@ export default function EncyclopediaPage() {
   const [rebuildResult, setRebuildResult] = useState<HierarchyRebuildResult | null>(null)
   const [selectedChanges, setSelectedChanges] = useState<Set<number>>(new Set())
   const [applying, setApplying] = useState(false)
+  const [conflictMap, setConflictMap] = useState<Record<string, { type: string; severity: string; description: string; chapters: number[] }[]>>({})
+  const [worldStructure, setWorldStructure] = useState<WorldStructureData | null>(null)
 
   // Reset hierarchy sort when leaving location category
   useEffect(() => {
     if (activeCategory !== "location" && sortBy === "hierarchy") setSortBy("name")
+    if (activeCategory === "location" && sortBy === "hierarchy") return // keep hierarchy
   }, [activeCategory, sortBy])
 
   // Load stats
@@ -86,6 +114,12 @@ export default function EncyclopediaPage() {
     if (!novelId) return
     fetchEncyclopediaStats(novelId).then((data) => setStats(data as unknown as CategoryStats))
   }, [novelId])
+
+  // Load location conflicts when hierarchy view is active
+  useEffect(() => {
+    if (!novelId || sortBy !== "hierarchy") return
+    fetchLocationConflicts(novelId).then(setConflictMap)
+  }, [novelId, sortBy])
 
   // Load entries when category or sort changes
   useEffect(() => {
@@ -102,7 +136,7 @@ export default function EncyclopediaPage() {
   const filteredEntries = useMemo(() => {
     if (!search.trim()) return entries
     const q = search.toLowerCase()
-    return entries.filter((e) => e.name.toLowerCase().includes(q))
+    return entries.filter((e) => e.name.toLowerCase().includes(q) || (e.definition ?? "").toLowerCase().includes(q))
   }, [entries, search])
 
   // Build tree entries for hierarchy view
@@ -235,8 +269,16 @@ export default function EncyclopediaPage() {
     for (const [cat, count] of Object.entries(stats.concept_categories)) {
       items.push({ key: cat, label: cat, count, indent: 2 })
     }
+    // World view special entry
+    items.push({ key: "__worldview__", label: "世界观", count: 0, indent: 0 })
     return items
   }, [stats])
+
+  // Load world structure when worldview tab is selected
+  useEffect(() => {
+    if (!novelId || activeCategory !== "__worldview__") return
+    fetchWorldStructure(novelId).then(setWorldStructure)
+  }, [novelId, activeCategory])
 
   return (
     <div className="flex h-full flex-col">
@@ -282,7 +324,7 @@ export default function EncyclopediaPage() {
         {/* Middle: Entry list */}
         <div ref={listContainerRef} className="flex-1 overflow-auto">
           {/* Sort controls */}
-          <div className="flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10">
+          <div className={cn("flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10", activeCategory === "__worldview__" && "hidden")}>
             <span className="text-xs text-muted-foreground">排序</span>
             <Button
               variant={sortBy === "name" ? "default" : "outline"}
@@ -297,6 +339,13 @@ export default function EncyclopediaPage() {
               onClick={() => setSortBy("chapter")}
             >
               章节
+            </Button>
+            <Button
+              variant={sortBy === "mentions" ? "default" : "outline"}
+              size="xs"
+              onClick={() => setSortBy("mentions")}
+            >
+              热度
             </Button>
             {activeCategory === "location" && (
               <Button
@@ -351,7 +400,80 @@ export default function EncyclopediaPage() {
             </span>
           </div>
 
-          {loading ? (
+          {activeCategory === "__worldview__" ? (
+            <div className="p-4 space-y-4">
+              {!worldStructure ? (
+                <p className="text-muted-foreground text-sm">加载中...</p>
+              ) : (
+                <>
+                  {/* Layers */}
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">世界层级</h4>
+                    <div className="space-y-2">
+                      {worldStructure.layers.map((layer) => (
+                        <div key={layer.layer_id} className="rounded border p-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium">{layer.name}</span>
+                            <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">{layer.layer_type}</span>
+                          </div>
+                          {layer.description && <p className="text-xs text-muted-foreground">{layer.description}</p>}
+                          {layer.regions.length > 0 && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {layer.regions.length} 区域: {layer.regions.map((r) => r.name).join("、")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Portals */}
+                  {worldStructure.portals.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">传送门 ({worldStructure.portals.length})</h4>
+                      <div className="space-y-1">
+                        {worldStructure.portals.map((p, i) => (
+                          <div key={i} className="text-xs">
+                            <span className="font-medium">{p.name}</span>
+                            <span className="text-muted-foreground"> {p.source_location} → {p.target_location}</span>
+                            {p.is_bidirectional && <span className="text-muted-foreground"> (双向)</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Spatial scale */}
+                  {worldStructure.spatial_scale && (
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">空间尺度</h4>
+                      <span className="text-sm">{worldStructure.spatial_scale}</span>
+                    </div>
+                  )}
+
+                  {/* Genre */}
+                  {worldStructure.novel_genre_hint && (
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">类型</h4>
+                      <span className="text-sm">{worldStructure.novel_genre_hint}</span>
+                    </div>
+                  )}
+
+                  {/* Location stats */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded bg-muted/50 p-2 text-sm">
+                      <span className="text-muted-foreground text-xs block">父子关系</span>
+                      <span className="font-medium">{Object.keys(worldStructure.location_parents).length}</span>
+                    </div>
+                    <div className="rounded bg-muted/50 p-2 text-sm">
+                      <span className="text-muted-foreground text-xs block">层级分类</span>
+                      <span className="font-medium">{Object.keys(worldStructure.location_tiers).length}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center h-40">
               <p className="text-muted-foreground text-sm">加载中...</p>
             </div>
@@ -398,6 +520,17 @@ export default function EncyclopediaPage() {
                         style={{ backgroundColor: TYPE_COLORS.location }}
                       />
                       <span className="text-sm font-medium truncate">{entry.name}</span>
+                      {conflictMap[entry.name] && (
+                        <span
+                          className="inline-block size-2 rounded-full bg-red-500 flex-shrink-0"
+                          title={conflictMap[entry.name].map((c) => c.description).join("; ")}
+                        />
+                      )}
+                      {entry.tier && TIER_LABELS[entry.tier] && (
+                        <span className={cn("text-[10px] px-1 py-0.5 rounded flex-shrink-0", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
+                          {TIER_LABELS[entry.tier]}
+                        </span>
+                      )}
                       {entry.definition && (
                         <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
                           {entry.definition}
@@ -433,6 +566,16 @@ export default function EncyclopediaPage() {
                           <span className="text-[10px] text-muted-foreground px-1 py-0.5 rounded bg-muted">
                             {TYPE_LABELS[entry.type] ?? entry.category}
                           </span>
+                          {entry.type === "location" && entry.tier && TIER_LABELS[entry.tier] && (
+                            <span className={cn("text-[10px] px-1 py-0.5 rounded", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
+                              {TIER_LABELS[entry.tier]}
+                            </span>
+                          )}
+                          {(entry.chapter_count ?? 0) > 0 && (
+                            <span className="text-[10px] text-muted-foreground/70">
+                              {entry.chapter_count}章
+                            </span>
+                          )}
                         </div>
                         {entry.definition && (
                           <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -472,9 +615,12 @@ export default function EncyclopediaPage() {
                   <span className="text-xs px-1.5 py-0.5 rounded bg-muted">
                     {conceptDetail.category}
                   </span>
-                  <span className="text-xs text-muted-foreground ml-2">
+                  <button
+                    className="text-xs text-muted-foreground ml-2 hover:text-primary hover:underline cursor-pointer"
+                    onClick={() => navigate(`/read/${novelId}?chapter=${conceptDetail.first_chapter}`)}
+                  >
                     首次出现: 第{conceptDetail.first_chapter}章
-                  </span>
+                  </button>
                 </div>
 
                 {/* Definition */}
@@ -493,9 +639,12 @@ export default function EncyclopediaPage() {
                       {conceptDetail.excerpts.map((ex, i) => (
                         <div key={i} className="text-xs border-l-2 border-muted pl-2">
                           <p>{ex.text}</p>
-                          <span className="text-[10px] text-muted-foreground">
+                          <button
+                            className="text-[10px] text-muted-foreground hover:text-primary hover:underline cursor-pointer"
+                            onClick={() => navigate(`/read/${novelId}?chapter=${ex.chapter}`)}
+                          >
                             — 第{ex.chapter}章
-                          </span>
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -535,18 +684,22 @@ export default function EncyclopediaPage() {
                     </span>
                     <div className="space-y-1">
                       {conceptDetail.related_entities.map((e) => (
-                        <button
-                          key={e.name}
-                          className="block text-xs text-blue-600 hover:underline"
-                          onClick={() =>
-                            openEntityCard(e.name, e.type as "person" | "location" | "item" | "org")
-                          }
-                        >
-                          {e.name}
-                          <span className="text-muted-foreground ml-1">
+                        <div key={e.name} className="text-xs flex items-center gap-1">
+                          <button
+                            className="text-blue-600 hover:underline"
+                            onClick={() =>
+                              openEntityCard(e.name, e.type as "person" | "location" | "item" | "org")
+                            }
+                          >
+                            {e.name}
+                          </button>
+                          <button
+                            className="text-muted-foreground hover:text-primary hover:underline cursor-pointer"
+                            onClick={() => navigate(`/read/${novelId}?chapter=${e.chapter}`)}
+                          >
                             (Ch.{e.chapter})
-                          </span>
-                        </button>
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>

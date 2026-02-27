@@ -672,6 +672,26 @@ export function fetchConceptDetail(
   return apiFetch(`/novels/${novelId}/encyclopedia/${encodeURIComponent(name)}`)
 }
 
+export function fetchLocationSpatialSummary(
+  novelId: string,
+  name: string,
+): Promise<{ source: string; target: string; relation_type: string; value: string; chapters: number[] }[]> {
+  return apiFetch(`/novels/${novelId}/encyclopedia/${encodeURIComponent(name)}/spatial`)
+}
+
+export function fetchEntityScenes(
+  novelId: string,
+  name: string,
+): Promise<{ chapter: number; index: number; title: string; location: string; emotional_tone: string; summary: string; role: string }[]> {
+  return apiFetch(`/novels/${novelId}/encyclopedia/${encodeURIComponent(name)}/scenes`)
+}
+
+export function fetchLocationConflicts(
+  novelId: string,
+): Promise<Record<string, { type: string; severity: string; description: string; chapters: number[] }[]>> {
+  return apiFetch(`/novels/${novelId}/encyclopedia/location-conflicts`)
+}
+
 // ── Series Bible ────────────────────────────────
 
 export async function exportSeriesBible(
