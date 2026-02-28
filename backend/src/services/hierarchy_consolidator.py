@@ -737,6 +737,36 @@ def consolidate_hierarchy(
     if inversions_fixed:
         logger.info("Fixed %d tier inversions", inversions_fixed)
 
+    # ── Step 2b+: Same-tier sibling separation ──
+    # When both child and parent have no recognizable suffix and the same
+    # LLM-classified tier (e.g., both "kingdom" for 挪威→丹麦), they are
+    # likely siblings, not parent-child. Remove the false relationship.
+    # This is a safety net for foreign/transliterated names that bypass
+    # suffix-based sibling detection in _resolve_parents().
+    _SIBLING_TIERS = {"kingdom", "region", "continent", "city"}
+    same_tier_fixed = 0
+    for child, parent in list(location_parents.items()):
+        child_suf = _get_suffix_rank(child)
+        parent_suf = _get_suffix_rank(parent)
+        if child_suf is not None or parent_suf is not None:
+            continue  # has suffix → handled by suffix-based logic
+        child_tier = location_tiers.get(child, "city")
+        parent_tier = location_tiers.get(parent, "city")
+        if child_tier != parent_tier:
+            continue
+        if child_tier not in _SIBLING_TIERS:
+            continue
+        # Same tier, no suffix, sibling-candidate tier → break relationship
+        del location_parents[child]
+        same_tier_fixed += 1
+        changes_made += 1
+        logger.debug(
+            "Same-tier sibling separation: %s ↔ %s (both %s, no suffix)",
+            child, parent, child_tier,
+        )
+    if same_tier_fixed:
+        logger.info("Same-tier sibling separation: %d pairs", same_tier_fixed)
+
     # ── Step 2c: Rescue remaining noise roots ──
     # Some roots are clearly sub-locations (粪窖边, 后门, etc.) that shouldn't
     # be roots. If they have geographic children, reverse the relationship.

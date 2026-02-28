@@ -267,7 +267,7 @@ async def confirm_import(
 
     cached = _upload_cache.get(file_hash)
     if not cached:
-        raise ValueError("上传数据已过期或不存在，请重新上传文件")
+        raise ValueError("上传数据已过期，请重新上传文件 (expired)")
 
     novel_id = str(uuid.uuid4())
 
@@ -277,16 +277,26 @@ async def confirm_import(
 
     excluded_set = set(excluded_chapters) if excluded_chapters else None
 
-    # Persist to DB
-    await novel_store.insert_novel(
-        novel_id=novel_id,
-        title=title,
-        author=author,
-        file_hash=file_hash,
-        total_chapters=total_chapters,
-        total_words=total_words,
-    )
-    await novel_store.insert_chapters(novel_id, chapters, excluded_nums=excluded_set)
+    # Persist to DB with transaction protection
+    from src.db.sqlite_db import get_connection
+    conn = await get_connection()
+    try:
+        await novel_store.insert_novel(
+            novel_id=novel_id,
+            title=title,
+            author=author,
+            file_hash=file_hash,
+            total_chapters=total_chapters,
+            total_words=total_words,
+            conn=conn,
+        )
+        await novel_store.insert_chapters(novel_id, chapters, excluded_nums=excluded_set, conn=conn)
+        await conn.commit()
+    except Exception:
+        await conn.rollback()
+        raise
+    finally:
+        await conn.close()
 
     # Remove from cache after successful import
     del _upload_cache[file_hash]
@@ -326,7 +336,7 @@ async def re_split(
 
     cached = _upload_cache.get(file_hash)
     if not cached:
-        raise ValueError("上传数据已过期或不存在，请重新上传文件")
+        raise ValueError("上传数据已过期，请重新上传文件 (expired)")
 
     text = cached.raw_text
 
@@ -365,7 +375,7 @@ async def clean_and_resplit(
 
     cached = _upload_cache.get(file_hash)
     if not cached:
-        raise ValueError("上传数据已过期或不存在，请重新上传文件")
+        raise ValueError("上传数据已过期，请重新上传文件 (expired)")
 
     from src.utils.text_sanitizer import clean_text, detect_noise
 

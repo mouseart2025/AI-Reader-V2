@@ -1254,8 +1254,8 @@ class WorldStructureAgent:
                 _c_suf = _get_suffix_rank(name)
                 c_rank = _c_suf if _c_suf is not None else TIER_ORDER.get(
                     self.structure.location_tiers.get(name, "city"), 4)
-                if c_rank < p_rank:
-                    continue  # child should not be bigger than primary setting
+                if c_rank <= p_rank:
+                    continue  # child should not be bigger or same tier as primary setting
                 self._parent_votes.setdefault(name, Counter())[primary_setting] += 2
 
         # Accumulate contains relationships as parent votes
@@ -1969,8 +1969,8 @@ class WorldStructureAgent:
                     _c_suf = _get_suffix_rank(loc_name)
                     c_rank = _c_suf if _c_suf is not None else TIER_ORDER.get(
                         tiers.get(loc_name, "city"), 4)
-                    if c_rank < p_rank:
-                        continue
+                    if c_rank <= p_rank:
+                        continue  # same or larger tier → sibling, not child
                     votes.setdefault(loc_name, Counter())[primary_setting] += 2
 
         # ── Spatial neighbor propagation (adjacent/direction/in_between) ──
@@ -2225,13 +2225,15 @@ class WorldStructureAgent:
             else:
                 validated[child] = parent
 
-        # ── Same-suffix sibling promotion ──
-        # When child has the same suffix rank as its parent (e.g., both "府"),
-        # they are likely siblings, not parent-child. Search for a common
-        # third-party parent and reassign both.
-        # This catches single-direction cases (e.g., 宁国府→荣国府) that the
-        # bidirectional conflict resolution above does not trigger for.
+        # ── Same-tier sibling promotion ──
+        # When child has the same scale as its parent (e.g., both "府" or
+        # both kingdom-tier foreign names), they are likely siblings, not
+        # parent-child. Search for a common third-party parent and reassign.
+        # This catches single-direction cases (e.g., 宁国府→荣国府, 挪威→丹麦)
+        # that the bidirectional conflict resolution above does not trigger for.
         _SIBLING_CANDIDATE_SUFFIXES = {"府", "城", "寨", "庄", "镇", "村", "国", "州"}
+        # Tiers where same-tier locations are very likely siblings (not nested)
+        _SIBLING_CANDIDATE_TIERS = {"kingdom", "region", "continent", "city"}
         sibling_promoted = 0
         for child in list(validated):
             parent = validated.get(child)
@@ -2239,18 +2241,40 @@ class WorldStructureAgent:
                 continue
             child_suf = _get_suffix_rank(child)
             parent_suf = _get_suffix_rank(parent)
-            if child_suf is None or parent_suf is None:
+
+            is_sibling_candidate = False
+            sibling_label = ""
+
+            if child_suf is not None and parent_suf is not None:
+                # Both have suffix → require same rank and notable suffix
+                if child_suf != parent_suf:
+                    continue
+                child_suffix_char = None
+                for suffix, _tier in _NAME_SUFFIX_TIER:
+                    if child.endswith(suffix):
+                        child_suffix_char = suffix
+                        break
+                if child_suffix_char not in _SIBLING_CANDIDATE_SUFFIXES:
+                    continue
+                is_sibling_candidate = True
+                sibling_label = f"suffix={child_suffix_char}"
+            elif child_suf is None and parent_suf is None:
+                # Both unknown suffix (e.g., transliterated foreign names)
+                # → check if same LLM-classified tier
+                child_tier = self.structure.location_tiers.get(child, "city")
+                parent_tier = self.structure.location_tiers.get(parent, "city")
+                if child_tier != parent_tier:
+                    continue
+                if child_tier not in _SIBLING_CANDIDATE_TIERS:
+                    continue
+                is_sibling_candidate = True
+                sibling_label = f"tier={child_tier}"
+            else:
+                continue  # mixed → skip
+
+            if not is_sibling_candidate:
                 continue
-            if child_suf != parent_suf:
-                continue
-            # Check if suffix is a notable one (avoid 门/路 etc.)
-            child_suffix_char = None
-            for suffix, _tier in _NAME_SUFFIX_TIER:
-                if child.endswith(suffix):
-                    child_suffix_char = suffix
-                    break
-            if child_suffix_char not in _SIBLING_CANDIDATE_SUFFIXES:
-                continue
+
             # Search for common parent
             common = _find_common_parent(
                 child, parent, self._parent_votes, known_locs,
@@ -2260,11 +2284,20 @@ class WorldStructureAgent:
                 validated[parent] = common
                 sibling_promoted += 1
                 logger.debug(
-                    "Same-suffix sibling: %s ↔ %s → parent %s (suffix=%s)",
-                    child, parent, common, child_suffix_char,
+                    "Same-tier sibling: %s ↔ %s → parent %s (%s)",
+                    child, parent, common, sibling_label,
+                )
+            elif is_sibling_candidate and child_suf is None:
+                # No common parent found for foreign names — just remove the
+                # wrong parent-child relationship (orphan is better than wrong)
+                del validated[child]
+                sibling_promoted += 1
+                logger.debug(
+                    "Same-tier sibling orphaned: %s ↔ %s (no common parent, %s)",
+                    child, parent, sibling_label,
                 )
         if sibling_promoted:
-            logger.info("Same-suffix sibling promotion: %d pairs", sibling_promoted)
+            logger.info("Same-tier sibling promotion: %d pairs", sibling_promoted)
 
         # Skip user-overridden entries
         result: dict[str, str] = {}
