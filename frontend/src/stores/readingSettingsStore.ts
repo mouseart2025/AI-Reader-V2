@@ -7,8 +7,12 @@ export type LineHeight = "compact" | "normal" | "loose"
 interface ReadingSettingsState {
   fontSize: FontSize
   lineHeight: LineHeight
+  highlightEnabled: boolean
+  hiddenEntityTypes: string[]
   setFontSize: (size: FontSize) => void
   setLineHeight: (height: LineHeight) => void
+  setHighlightEnabled: (enabled: boolean) => void
+  toggleEntityType: (type: string) => void
 }
 
 export const FONT_SIZE_MAP: Record<FontSize, string> = {
@@ -29,8 +33,17 @@ export const useReadingSettingsStore = create<ReadingSettingsState>()(
     (set) => ({
       fontSize: "medium",
       lineHeight: "normal",
+      highlightEnabled: true,
+      hiddenEntityTypes: [],
       setFontSize: (fontSize) => set({ fontSize }),
       setLineHeight: (lineHeight) => set({ lineHeight }),
+      setHighlightEnabled: (highlightEnabled) => set({ highlightEnabled }),
+      toggleEntityType: (type) =>
+        set((s) => ({
+          hiddenEntityTypes: s.hiddenEntityTypes.includes(type)
+            ? s.hiddenEntityTypes.filter((t) => t !== type)
+            : [...s.hiddenEntityTypes, type],
+        })),
     }),
     { name: "ai-reader-reading-settings" },
   ),

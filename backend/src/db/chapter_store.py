@@ -240,6 +240,93 @@ async def set_chapters_excluded(
         await conn.close()
 
 
+async def get_bookmarks(novel_id: str) -> list[dict]:
+    """List all bookmarks for a novel."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                novel_id TEXT NOT NULL,
+                chapter_num INTEGER NOT NULL,
+                scroll_position REAL DEFAULT 0,
+                note TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now')),
+                UNIQUE(novel_id, chapter_num, scroll_position)
+            )
+            """
+        )
+        cursor = await conn.execute(
+            """
+            SELECT id, novel_id, chapter_num, scroll_position, note, created_at
+            FROM bookmarks
+            WHERE novel_id = ?
+            ORDER BY created_at DESC
+            """,
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        await conn.close()
+
+
+async def add_bookmark(
+    novel_id: str,
+    chapter_num: int,
+    scroll_position: float = 0.0,
+    note: str = "",
+) -> dict:
+    """Add a bookmark. Returns the created bookmark."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                novel_id TEXT NOT NULL,
+                chapter_num INTEGER NOT NULL,
+                scroll_position REAL DEFAULT 0,
+                note TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now')),
+                UNIQUE(novel_id, chapter_num, scroll_position)
+            )
+            """
+        )
+        cursor = await conn.execute(
+            """
+            INSERT INTO bookmarks (novel_id, chapter_num, scroll_position, note)
+            VALUES (?, ?, ?, ?)
+            """,
+            (novel_id, chapter_num, round(scroll_position, 4), note),
+        )
+        await conn.commit()
+        bookmark_id = cursor.lastrowid
+        cursor2 = await conn.execute(
+            "SELECT id, novel_id, chapter_num, scroll_position, note, created_at FROM bookmarks WHERE id = ?",
+            (bookmark_id,),
+        )
+        row = await cursor2.fetchone()
+        return dict(row) if row else {}
+    finally:
+        await conn.close()
+
+
+async def delete_bookmark(bookmark_id: int) -> bool:
+    """Delete a bookmark by ID."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "DELETE FROM bookmarks WHERE id = ?",
+            (bookmark_id,),
+        )
+        await conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        await conn.close()
+
+
 async def delete_chapter_facts(
     novel_id: str,
     chapter_nums: list[int],

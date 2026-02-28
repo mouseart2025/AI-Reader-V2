@@ -1,6 +1,8 @@
+import { useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 import type { Scene } from "@/api/types"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 // ── Scene border colors (one per scene, cycling) ─
 
@@ -157,24 +159,47 @@ export function SceneCard({
 
 // ── Scene Panel (right sidebar for ReadingPage) ─
 
+const FILTER_TONES = ["战斗", "紧张", "悲伤", "欢乐", "平静"] as const
+
 export function ScenePanel({
   scenes,
   activeSceneIndex,
   analysisStatus,
   loading,
+  error,
   onSceneClick,
   onClose,
   onGoAnalysis,
+  onRetry,
 }: {
   scenes: Scene[]
   activeSceneIndex: number
   analysisStatus?: string
   loading?: boolean
+  error?: boolean
   onSceneClick: (scene: Scene, index: number) => void
   onClose: () => void
   onGoAnalysis?: () => void
+  onRetry?: () => void
 }) {
   const isAnalyzed = analysisStatus === "completed"
+  const [filterChar, setFilterChar] = useState("")
+  const [filterTone, setFilterTone] = useState<string | null>(null)
+
+  const filteredScenes = useMemo(() => {
+    let result = scenes
+    if (filterChar.trim()) {
+      const q = filterChar.trim()
+      result = result.filter((s) =>
+        s.characters.some((c) => c.includes(q)) ||
+        s.character_roles?.some((cr) => cr.name.includes(q)),
+      )
+    }
+    if (filterTone) {
+      result = result.filter((s) => s.emotional_tone === filterTone)
+    }
+    return result
+  }, [scenes, filterChar, filterTone])
 
   return (
     <div className="flex h-full w-72 shrink-0 flex-col border-l">
@@ -186,8 +211,18 @@ export function ScenePanel({
         </Button>
       </div>
 
-      {/* Not analyzed prompt */}
-      {!isAnalyzed && !loading ? (
+      {/* Error state */}
+      {error ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+          <p className="text-sm text-destructive">场景加载失败</p>
+          {onRetry && (
+            <Button size="sm" variant="outline" onClick={onRetry}>
+              重试
+            </Button>
+          )}
+        </div>
+      ) : !isAnalyzed && !loading ? (
+        /* Not analyzed prompt */
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
           <div className="rounded-full bg-muted p-3">
             <AnalysisIcon className="size-5 text-muted-foreground" />
@@ -203,27 +238,55 @@ export function ScenePanel({
         </div>
       ) : (
         <>
-          {/* Scene count */}
-          <div className="border-b px-3 py-1.5">
+          {/* Scene count + filter */}
+          <div className="space-y-1.5 border-b px-3 py-1.5">
             <span className="text-xs text-muted-foreground">
-              {loading ? "加载中..." : `${scenes.length} 个场景`}
+              {loading ? "加载中..." : `${filteredScenes.length}/${scenes.length} 个场景`}
             </span>
+            {!loading && scenes.length > 0 && (
+              <>
+                <Input
+                  placeholder="搜索角色..."
+                  value={filterChar}
+                  onChange={(e) => setFilterChar(e.target.value)}
+                  className="h-6 text-xs"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {FILTER_TONES.map((tone) => (
+                    <button
+                      key={tone}
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] transition-colors",
+                        filterTone === tone
+                          ? TONE_STYLES[tone] ?? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-accent",
+                      )}
+                      onClick={() => setFilterTone(filterTone === tone ? null : tone)}
+                    >
+                      {tone}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Scene list */}
           <div className="flex-1 overflow-y-auto p-2">
             {loading ? (
               <p className="text-sm text-muted-foreground">加载场景...</p>
-            ) : scenes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">未检测到场景</p>
+            ) : filteredScenes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {scenes.length === 0 ? "未检测到场景" : "无匹配场景"}
+              </p>
             ) : (
-              scenes.map((scene, i) => (
+              filteredScenes.map((scene) => (
                 <SceneCard
-                  key={i}
+                  key={scene.index}
                   scene={scene}
-                  active={i === activeSceneIndex}
-                  borderColor={SCENE_BORDER_COLORS[i % SCENE_BORDER_COLORS.length]}
-                  onClick={() => onSceneClick(scene, i)}
+                  active={scene.index === activeSceneIndex}
+                  borderColor={SCENE_BORDER_COLORS[scene.index % SCENE_BORDER_COLORS.length]}
+                  onClick={() => onSceneClick(scene, scene.index)}
                 />
               ))
             )}

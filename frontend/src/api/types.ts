@@ -42,6 +42,15 @@ export interface UserState {
   updated_at?: string
 }
 
+export interface Bookmark {
+  id: number
+  novel_id: string
+  chapter_num: number
+  scroll_position: number
+  note: string
+  created_at: string
+}
+
 export interface EntitySummary {
   name: string
   type: string

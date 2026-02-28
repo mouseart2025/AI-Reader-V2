@@ -10,8 +10,11 @@ import {
   saveUserState,
   searchChapters,
   type SearchResult,
+  fetchBookmarks,
+  addBookmark,
+  deleteBookmark,
 } from "@/api/client"
-import type { Chapter, ChapterEntity, EntityType, Novel, Scene } from "@/api/types"
+import type { Bookmark, Chapter, ChapterEntity, EntityType, Novel, Scene } from "@/api/types"
 import { useReadingStore } from "@/stores/readingStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import {
@@ -29,6 +32,15 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { highlightText } from "@/lib/entityHighlight"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
+
+// ── Entity type colors for filter chips ──────────
+const ENTITY_TYPE_LABELS: { type: string; label: string; color: string }[] = [
+  { type: "person", label: "人物", color: "bg-blue-500" },
+  { type: "location", label: "地点", color: "bg-green-500" },
+  { type: "item", label: "物品", color: "bg-orange-500" },
+  { type: "org", label: "组织", color: "bg-purple-500" },
+  { type: "concept", label: "概念", color: "bg-gray-500" },
+]
 
 // ── Analysis status icon ─────────────────────────
 
@@ -75,12 +87,16 @@ function groupByVolume(chapters: Chapter[]): VolumeGroup[] {
 
 function TocSidebar({
   currentChapterNum,
+  bookmarks,
   onSelect,
   onClose,
+  onBookmarkDelete,
 }: {
   currentChapterNum: number
+  bookmarks: Bookmark[]
   onSelect: (num: number) => void
   onClose: () => void
+  onBookmarkDelete: (id: number) => void
 }) {
   const chapters = useReadingStore((s) => s.chapters)
   const search = useReadingStore((s) => s.tocSearch)
@@ -103,6 +119,7 @@ function TocSidebar({
   const [expandedVolumes, setExpandedVolumes] = useState<Set<number | null>>(
     new Set(),
   )
+  const [showBookmarks, setShowBookmarks] = useState(false)
 
   // Auto-expand volume of current chapter
   useEffect(() => {
@@ -126,6 +143,11 @@ function TocSidebar({
     currentRef.current?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [currentChapterNum])
 
+  // Reading progress
+  const readProgress = chapters.length > 0
+    ? Math.round((currentChapterNum / chapters.length) * 100)
+    : 0
+
   return (
     <div className="flex h-full flex-col border-r">
       {/* Header */}
@@ -140,6 +162,47 @@ function TocSidebar({
           <PanelLeftClose className="size-4" />
         </Button>
       </div>
+
+      {/* Search result count (1.6) */}
+      {search.trim() && (
+        <p className="px-3 py-1 text-xs text-muted-foreground">
+          {filtered.length}/{chapters.length} 章
+        </p>
+      )}
+
+      {/* Bookmarks toggle */}
+      {bookmarks.length > 0 && (
+        <button
+          className="flex items-center gap-1.5 border-b px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+          onClick={() => setShowBookmarks(!showBookmarks)}
+        >
+          <BookmarkIcon className="size-3" />
+          <span>{bookmarks.length} 个书签</span>
+          <ChevronIcon expanded={showBookmarks} />
+        </button>
+      )}
+
+      {/* Bookmark list */}
+      {showBookmarks && (
+        <div className="max-h-40 overflow-y-auto border-b">
+          {bookmarks.map((bm) => (
+            <div key={bm.id} className="flex items-center gap-1 px-3 py-1 text-xs hover:bg-accent">
+              <button
+                className="flex-1 truncate text-left text-primary hover:underline"
+                onClick={() => onSelect(bm.chapter_num)}
+              >
+                第{bm.chapter_num}章 {bm.note && `- ${bm.note}`}
+              </button>
+              <button
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => onBookmarkDelete(bm.id)}
+              >
+                <XSmallIcon className="size-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Chapter list */}
       <div className="flex-1 overflow-y-auto py-1">
@@ -197,6 +260,20 @@ function TocSidebar({
             </div>
           )
         })}
+      </div>
+
+      {/* Reading progress (2.5) */}
+      <div className="border-t px-3 py-2">
+        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+          <span>已读 {readProgress}%</span>
+          <span>{currentChapterNum}/{chapters.length}</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${readProgress}%` }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -308,7 +385,11 @@ export default function ReadingPage() {
   const reset = useReadingStore((s) => s.reset)
 
   const openEntityCard = useEntityCardStore((s) => s.openCard)
-  const { fontSize, lineHeight, setFontSize, setLineHeight } = useReadingSettingsStore()
+  const {
+    fontSize, lineHeight, setFontSize, setLineHeight,
+    highlightEnabled, setHighlightEnabled,
+    hiddenEntityTypes, toggleEntityType,
+  } = useReadingSettingsStore()
   const [showSettings, setShowSettings] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -320,6 +401,19 @@ export default function ReadingPage() {
   const [scenes, setScenes] = useState<Scene[]>([])
   const [activeSceneIndex, setActiveSceneIndex] = useState(0)
   const [scenesLoading, setScenesLoading] = useState(false)
+  const [sceneError, setSceneError] = useState(false)
+
+  // Scene cache (2.3)
+  const sceneCacheRef = useRef(new Map<number, Scene[]>())
+
+  // Chapter preload cache (3.2)
+  const preloadCacheRef = useRef(new Map<number, { title: string; content: string; word_count?: number }>())
+
+  // Scroll progress (1.2)
+  const [scrollProgress, setScrollProgress] = useState(0)
+
+  // Bookmarks (3.1)
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
 
   // Current chapter's analysis status
   const currentAnalysisStatus = useMemo(() => {
@@ -339,6 +433,12 @@ export default function ReadingPage() {
     [openEntityCard, aliasMap],
   )
 
+  // Filtered entities for highlight (2.6)
+  const filteredEntities = useMemo(
+    () => entities.filter((e) => !hiddenEntityTypes.includes(e.type)),
+    [entities, hiddenEntityTypes],
+  )
+
   // Load novel, chapters, and user state on mount
   useEffect(() => {
     if (!novelId) return
@@ -350,23 +450,16 @@ export default function ReadingPage() {
           fetchNovel(novelId!),
           fetchChapters(novelId!),
           fetchUserState(novelId!),
-          // Load ALL entities for the novel once — used for highlighting across all chapters.
-          // This avoids missing highlights for entities not extracted in the current chapter's fact.
           fetchEntities(novelId!),
         ])
         if (cancelled) return
 
         setNovel(n)
         setChapters(chs)
-
-        // Store alias map for click resolution
         setAliasMap(aliasData ?? {})
 
-        // Set all entities for highlighting (name + type from every analyzed chapter)
-        // Also include aliases so they get highlighted with the same color as their canonical entity
         const entityList = allEnts.map((e) => ({ name: e.name, type: e.type as ChapterEntity["type"] }))
         if (aliasData) {
-          // Build canonical→type map for O(1) lookup instead of O(n) find per alias
           const canonicalTypeMap = new Map<string, ChapterEntity["type"]>()
           for (const e of allEnts) {
             canonicalTypeMap.set(e.name, e.type as ChapterEntity["type"])
@@ -380,16 +473,13 @@ export default function ReadingPage() {
         }
         setEntities(entityList)
 
-        // Restore reading position
         const startChapter = userState.last_chapter ?? 1
         setCurrentChapterNum(startChapter)
 
-        // Load chapter content
         const content = await fetchChapterContent(novelId!, startChapter)
         if (cancelled) return
         setCurrentChapter(content)
 
-        // Restore scroll position
         if (userState.scroll_position && contentRef.current) {
           requestAnimationFrame(() => {
             if (contentRef.current) {
@@ -399,6 +489,11 @@ export default function ReadingPage() {
             }
           })
         }
+
+        // Load bookmarks
+        fetchBookmarks(novelId!).then((bms) => {
+          if (!cancelled) setBookmarks(bms)
+        }).catch(() => {})
       } catch (err) {
         if (!cancelled) setError(String(err))
       } finally {
@@ -419,26 +514,40 @@ export default function ReadingPage() {
     }
   }, [reset])
 
-  // Load scenes when panel is opened or chapter changes
-  useEffect(() => {
-    if (!novelId || !scenePanelOpen || !currentChapterNum) return
-    let cancelled = false
+  // Load scenes when panel is opened or chapter changes (with cache)
+  const loadScenes = useCallback(() => {
+    if (!novelId || !currentChapterNum) return
     setScenesLoading(true)
+    setSceneError(false)
+
+    const cached = sceneCacheRef.current.get(currentChapterNum)
+    if (cached) {
+      setScenes(cached)
+      setActiveSceneIndex(0)
+      setScenesLoading(false)
+      return
+    }
+
     fetchChapterScenes(novelId, currentChapterNum)
       .then((resp) => {
-        if (!cancelled) {
-          setScenes(resp.scenes)
-          setActiveSceneIndex(0)
-        }
+        setScenes(resp.scenes)
+        setActiveSceneIndex(0)
+        setSceneError(false)
+        sceneCacheRef.current.set(currentChapterNum, resp.scenes)
       })
       .catch(() => {
-        if (!cancelled) setScenes([])
+        setSceneError(true)
+        setScenes([])
       })
       .finally(() => {
-        if (!cancelled) setScenesLoading(false)
+        setScenesLoading(false)
       })
-    return () => { cancelled = true }
-  }, [novelId, scenePanelOpen, currentChapterNum])
+  }, [novelId, currentChapterNum])
+
+  useEffect(() => {
+    if (!scenePanelOpen) return
+    loadScenes()
+  }, [scenePanelOpen, loadScenes])
 
   // Build paragraph -> scene index map
   const paraSceneMap = useMemo(() => {
@@ -494,29 +603,41 @@ export default function ReadingPage() {
       setLoading(true)
       setError(null)
       try {
-        const content = await fetchChapterContent(novelId, chapterNum)
+        // Check preload cache first (3.2)
+        const preloaded = preloadCacheRef.current.get(chapterNum)
+        const content = preloaded ?? await fetchChapterContent(novelId, chapterNum)
+        if (preloaded) preloadCacheRef.current.delete(chapterNum)
+
         setCurrentChapter(content)
         setCurrentChapterNum(chapterNum)
 
-        // Entities are already loaded for the whole novel — no per-chapter fetch needed
-
-        // Scroll to top
         if (contentRef.current) {
           contentRef.current.scrollTop = 0
         }
 
-        // Save new position
         saveUserState(novelId, {
           last_chapter: chapterNum,
           scroll_position: 0,
         }).catch(() => {})
+
+        // Preload next chapter (3.2)
+        const next = chapterNum + 1
+        if (next <= chapters.length && !preloadCacheRef.current.has(next)) {
+          if (typeof requestIdleCallback !== "undefined") {
+            requestIdleCallback(() => {
+              fetchChapterContent(novelId, next)
+                .then((c) => preloadCacheRef.current.set(next, c))
+                .catch(() => {})
+            })
+          }
+        }
       } catch (err) {
         setError(String(err))
       } finally {
         setLoading(false)
       }
     },
-    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum],
+    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, chapters.length],
   )
 
   // Handle ?chapter=N query parameter (from entity card chapter clicks)
@@ -525,7 +646,6 @@ export default function ReadingPage() {
     if (!chParam || !chapters.length) return
     const ch = parseInt(chParam, 10)
     if (isNaN(ch) || ch < 1 || ch > chapters.length) return
-    // Clear the param first to prevent re-trigger on refresh
     searchParams.delete("chapter")
     setSearchParams(searchParams, { replace: true })
     goToChapter(ch)
@@ -554,6 +674,75 @@ export default function ReadingPage() {
   const canPrev = currentChapterNum > 1
   const canNext = currentChapterNum < totalChapters
 
+  // Scroll progress handler (1.2)
+  const handleContentScroll = useCallback(() => {
+    if (!contentRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = contentRef.current
+    const max = scrollHeight - clientHeight
+    setScrollProgress(max > 0 ? scrollTop / max : 0)
+  }, [])
+
+  // Keyboard shortcuts (2.4)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      if (e.key === "ArrowLeft" && canPrev) {
+        e.preventDefault()
+        goToChapter(currentChapterNum - 1)
+      } else if (e.key === "ArrowRight" && canNext) {
+        e.preventDefault()
+        goToChapter(currentChapterNum + 1)
+      } else if (e.key === "Escape") {
+        if (scenePanelOpen) setScenePanelOpen(false)
+        else if (showSettings) setShowSettings(false)
+        else if (showSearch) {
+          setShowSearch(false)
+          setSearchQuery("")
+          setSearchResults([])
+        }
+      } else if (e.code === "KeyS" && !showSearch && !showSettings) {
+        e.preventDefault()
+        setScenePanelOpen((v) => !v)
+      } else if (e.code === "KeyH" && !showSearch && !showSettings) {
+        e.preventDefault()
+        setHighlightEnabled(!highlightEnabled)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [canPrev, canNext, currentChapterNum, goToChapter, scenePanelOpen, showSettings, showSearch, highlightEnabled, setHighlightEnabled])
+
+  // Bookmark handlers (3.1)
+  const handleAddBookmark = useCallback(async () => {
+    if (!novelId) return
+    const scrollPos = contentRef.current
+      ? contentRef.current.scrollTop / (contentRef.current.scrollHeight || 1)
+      : 0
+    try {
+      const bm = await addBookmark(novelId, currentChapterNum, scrollPos)
+      setBookmarks((prev) => [...prev, bm])
+    } catch { /* ignore duplicate */ }
+  }, [novelId, currentChapterNum])
+
+  const handleDeleteBookmark = useCallback(async (id: number) => {
+    try {
+      await deleteBookmark(id)
+      setBookmarks((prev) => prev.filter((b) => b.id !== id))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Helper to render text with optional highlighting
+  const renderText = useCallback(
+    (text: string) => {
+      if (highlightEnabled) {
+        return highlightText(text, filteredEntities, handleEntityClick)
+      }
+      return text
+    },
+    [highlightEnabled, filteredEntities, handleEntityClick],
+  )
+
   if (loading && !currentChapter) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -580,8 +769,10 @@ export default function ReadingPage() {
         <div className="w-64 shrink-0">
           <TocSidebar
             currentChapterNum={currentChapterNum}
+            bookmarks={bookmarks}
             onSelect={goToChapter}
             onClose={() => setSidebarOpen(false)}
+            onBookmarkDelete={handleDeleteBookmark}
           />
         </div>
       )}
@@ -604,7 +795,7 @@ export default function ReadingPage() {
           <div className="flex-1" />
 
           <span className="text-muted-foreground text-xs">
-            {currentChapterNum} / {totalChapters}
+            第 {currentChapterNum}/{totalChapters} 回
           </span>
 
           <div className="flex gap-1">
@@ -626,11 +817,31 @@ export default function ReadingPage() {
             </Button>
           </div>
 
+          {/* Highlight toggle (1.1) */}
+          <Button
+            variant={highlightEnabled ? "default" : "ghost"}
+            size="icon-xs"
+            onClick={() => setHighlightEnabled(!highlightEnabled)}
+            title={highlightEnabled ? "关闭高亮 (H)" : "开启高亮 (H)"}
+          >
+            <HighlighterIcon className="size-4" />
+          </Button>
+
+          {/* Bookmark button (3.1) */}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={handleAddBookmark}
+            title="添加书签"
+          >
+            <BookmarkIcon className="size-4" />
+          </Button>
+
           <Button
             variant={scenePanelOpen ? "default" : "ghost"}
             size="xs"
             onClick={() => setScenePanelOpen(!scenePanelOpen)}
-            title={scenePanelOpen ? "收起剧本面板" : "展开剧本面板"}
+            title={scenePanelOpen ? "收起剧本面板 (S)" : "展开剧本面板 (S)"}
           >
             <ClapperboardIcon className="mr-1 size-3.5" />
             剧本
@@ -665,8 +876,10 @@ export default function ReadingPage() {
               <ReadingSettingsPanel
                 fontSize={fontSize}
                 lineHeight={lineHeight}
+                hiddenEntityTypes={hiddenEntityTypes}
                 onFontSizeChange={setFontSize}
                 onLineHeightChange={setLineHeight}
+                onToggleEntityType={toggleEntityType}
                 onClose={() => setShowSettings(false)}
               />
             )}
@@ -727,16 +940,30 @@ export default function ReadingPage() {
           </div>
         )}
 
+        {/* Scroll progress bar (1.2) */}
+        <div className="relative h-0.5 w-full bg-transparent">
+          <div
+            className="absolute top-0 left-0 h-full bg-primary transition-[width] duration-150"
+            style={{ width: `${scrollProgress * 100}%` }}
+          />
+        </div>
+
         {/* Chapter content */}
-        <div ref={contentRef} className="flex-1 overflow-y-auto">
+        <div ref={contentRef} className="flex-1 overflow-y-auto" onScroll={handleContentScroll}>
           <article className="mx-auto max-w-3xl px-8 py-8">
             {/* Guided tour bubble — Step 1: entity highlight */}
             <ReadingTourBubble isSample={!!novel?.is_sample} hasContent={!!currentChapter} />
             {currentChapter && (
               <>
-                <h2 className="mb-6 text-center text-xl font-bold">
+                <h2 className="mb-2 text-center text-xl font-bold">
                   {currentChapter.title}
                 </h2>
+                {/* Word count (1.3) */}
+                {currentChapter.word_count != null && (
+                  <p className="mb-6 text-center text-sm text-muted-foreground">
+                    {currentChapter.word_count.toLocaleString()} 字
+                  </p>
+                )}
                 {scenePanelOpen && scenes.length > 0 ? (
                   /* Paragraph-level rendering with scene border markers */
                   <div className={cn(FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
@@ -759,7 +986,7 @@ export default function ReadingPage() {
                               isActive && "bg-accent/30 rounded-r",
                             )}
                           >
-                            {highlightText(p, entities, handleEntityClick)}
+                            {renderText(p)}
                           </p>
                         )
                       })
@@ -768,7 +995,7 @@ export default function ReadingPage() {
                 ) : (
                   /* Normal whole-block rendering */
                   <div className={cn("whitespace-pre-wrap", FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
-                    {highlightText(currentChapter.content, entities, handleEntityClick)}
+                    {renderText(currentChapter.content)}
                   </div>
                 )}
               </>
@@ -804,9 +1031,11 @@ export default function ReadingPage() {
           activeSceneIndex={activeSceneIndex}
           analysisStatus={currentAnalysisStatus}
           loading={scenesLoading}
+          error={sceneError}
           onSceneClick={scrollToScene}
           onClose={() => setScenePanelOpen(false)}
           onGoAnalysis={handleGoAnalysis}
+          onRetry={loadScenes}
         />
       )}
 
@@ -821,14 +1050,18 @@ export default function ReadingPage() {
 function ReadingSettingsPanel({
   fontSize,
   lineHeight,
+  hiddenEntityTypes,
   onFontSizeChange,
   onLineHeightChange,
+  onToggleEntityType,
   onClose,
 }: {
   fontSize: FontSize
   lineHeight: LineHeight
+  hiddenEntityTypes: string[]
   onFontSizeChange: (s: FontSize) => void
   onLineHeightChange: (h: LineHeight) => void
+  onToggleEntityType: (type: string) => void
   onClose: () => void
 }) {
   const fontSizes: { value: FontSize; label: string }[] = [
@@ -846,7 +1079,7 @@ function ReadingSettingsPanel({
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute top-full right-0 z-40 mt-1 w-56 rounded-lg border bg-background p-3 shadow-lg">
+      <div className="absolute top-full right-0 z-40 mt-1 w-64 rounded-lg border bg-background p-3 shadow-lg">
         <h4 className="mb-2 text-sm font-medium">阅读设置</h4>
 
         <div className="mb-3">
@@ -869,7 +1102,7 @@ function ReadingSettingsPanel({
           </div>
         </div>
 
-        <div>
+        <div className="mb-3">
           <span className="text-muted-foreground mb-1 block text-xs">行距</span>
           <div className="flex gap-1">
             {lineHeights.map((l) => (
@@ -886,6 +1119,31 @@ function ReadingSettingsPanel({
                 {l.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Entity type filter (2.6) */}
+        <div>
+          <span className="text-muted-foreground mb-1 block text-xs">实体高亮</span>
+          <div className="flex flex-wrap gap-1">
+            {ENTITY_TYPE_LABELS.map(({ type, label, color }) => {
+              const hidden = hiddenEntityTypes.includes(type)
+              return (
+                <button
+                  key={type}
+                  className={cn(
+                    "flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
+                    hidden
+                      ? "bg-muted text-muted-foreground line-through"
+                      : "bg-accent text-foreground",
+                  )}
+                  onClick={() => onToggleEntityType(type)}
+                >
+                  <span className={cn("inline-block size-2 rounded-full", color)} />
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -945,6 +1203,59 @@ function SettingsIcon({ className }: { className?: string }) {
     >
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function HighlighterIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m9 11-6 6v3h9l3-3" />
+      <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
+    </svg>
+  )
+}
+
+function BookmarkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  )
+}
+
+function XSmallIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
     </svg>
   )
 }

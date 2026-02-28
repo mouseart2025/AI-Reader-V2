@@ -19,14 +19,18 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     open,
     loading,
     profile,
+    error: cardError,
     breadcrumbs,
     conceptPopup,
     setProfile,
     setLoading,
+    setError,
     navigateTo,
     goBack,
     close,
     closeConceptPopup,
+    getCachedProfile,
+    setCachedProfile,
   } = useEntityCardStore()
 
   const navigate = useNavigate()
@@ -38,19 +42,28 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     if (!open || !currentCrumb) return
     let cancelled = false
 
+    const resolvedName = aliasMap[currentCrumb.name] ?? currentCrumb.name
+    // Check cache first
+    const cached = getCachedProfile(currentCrumb.type, resolvedName)
+    if (cached) {
+      setProfile(cached)
+      return
+    }
+
     async function load() {
       try {
-        const resolvedName = aliasMap[currentCrumb.name] ?? currentCrumb.name
         const data = await fetchEntityProfile(
           novelId,
           resolvedName,
           currentCrumb.type,
         )
         if (!cancelled) {
-          setProfile(data as unknown as EntityProfile)
+          const p = data as unknown as EntityProfile
+          setProfile(p)
+          setCachedProfile(currentCrumb.type, resolvedName, p)
         }
       } catch {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setError("加载失败，请重试")
       }
     }
 
@@ -58,7 +71,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => {
       cancelled = true
     }
-  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, setProfile, setLoading])
+  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
@@ -100,7 +113,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
       />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 z-50 flex h-screen w-[420px] flex-col border-l bg-background shadow-lg">
+      <div className="fixed top-0 right-0 z-50 flex h-screen w-full flex-col border-l bg-background shadow-lg sm:w-[420px]">
         {/* Header with breadcrumbs */}
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <div className="flex-1 overflow-hidden">
@@ -135,7 +148,23 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
             </div>
           )}
 
-          {!loading && profile && (
+          {!loading && cardError && (
+            <div className="flex h-32 flex-col items-center justify-center gap-2">
+              <p className="text-sm text-destructive">{cardError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setError(null)
+                  setLoading(true)
+                }}
+              >
+                重试
+              </Button>
+            </div>
+          )}
+
+          {!loading && !cardError && profile && (
             <>
               {profile.type === "person" && (
                 <PersonCard profile={profile} onEntityClick={handleEntityClick} onChapterClick={handleChapterClick} novelId={novelId} />

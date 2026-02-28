@@ -351,9 +351,29 @@ Scene/screenplay functionality is integrated into ReadingPage as a right-side pa
 
 **Frontend** (`TimelinePage.tsx`): Default filter hides "角色登场" and "物品交接" (togglable). New "关系变化" event type (cyan #06b6d4). Swimlane sidebar has min-event threshold buttons (1/3/5/10). Auto-collapse: chapters with only low-importance events are collapsed by default (yellow "(低)" marker), controlled by "自动折叠" toggle. Emotional tone displayed as colored badges (9 tones: 紧张/悲伤/欢乐/温馨/愤怒/平静/神秘/恐惧/搞笑).
 
+### Reading Page Enhancement (N37)
+
+`ReadingPage.tsx` is the primary reading interface with 16 integrated improvements across 3 priority batches:
+
+**Highlight control**: `readingSettingsStore.ts` persists `highlightEnabled` (boolean, default true) and `hiddenEntityTypes` (string[], default empty). Toolbar has a dedicated highlight toggle button (Highlighter icon, `H` shortcut). Entity type filter chips (5 types: person/location/item/org/concept with matching colors) in the settings panel allow selective highlighting. `filteredEntities` useMemo filters entities before passing to `highlightText()`. The `renderText()` helper conditionally applies highlighting.
+
+**Reading progress**: Dual indicators — (1) thin progress bar (2px, bg-primary) at the top of the content area, driven by `scrollProgress` state updated via `onScroll` handler on `contentRef`, (2) progress bar + percentage in the TocSidebar footer showing `currentChapterNum/chapters.length`.
+
+**Scene panel improvements**: `sceneError` state + `loadScenes()` callback with cache (`sceneCacheRef: Map<number, Scene[]>`). ScenePanel accepts `error?: boolean` and `onRetry?: () => void` props. Scene filter UI in panel: character name search input + 5 emotional tone toggle buttons (战斗/紧张/悲伤/欢乐/平静), applied via `filteredScenes` useMemo.
+
+**Entity card improvements**: `entityCardStore.ts` adds `error: string | null`, `profileCache: Map<string, EntityProfile>` (max 50, FIFO eviction), `getCachedProfile()`, `setCachedProfile()`. `EntityCardDrawer.tsx` checks cache before fetching; shows error + retry button on failure; responsive width (`w-full sm:w-[420px]`).
+
+**Keyboard shortcuts**: `useEffect` on `keydown` — `ArrowLeft`/`ArrowRight` for chapter navigation, `Escape` to close panels (scene → settings → search priority), `S` to toggle scene panel, `H` to toggle highlight. Excluded when focus is in `HTMLInputElement` or `HTMLTextAreaElement`.
+
+**Bookmark system**: Backend `bookmarks` table (auto-created via `CREATE TABLE IF NOT EXISTS`). Three endpoints: `GET /api/novels/{id}/bookmarks`, `POST /api/novels/{id}/bookmarks` (chapter_num + scroll_position + note), `DELETE /api/bookmarks/{id}`. Frontend: `fetchBookmarks()`, `addBookmark()`, `deleteBookmark()` in client.ts. TocSidebar shows collapsible bookmark list with jump-to-chapter and delete actions. Toolbar bookmark button adds current position.
+
+**Chapter preload**: `preloadCacheRef: Map<number, ChapterContent>`. After `goToChapter()` succeeds, `requestIdleCallback` preloads next chapter. `goToChapter()` checks preload cache before fetching.
+
+**Backend cache**: `entity_aggregator.py` `_MAX_CACHE` raised from 200 to 500.
+
 ### Two Databases Only
 
-- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, benchmark_records (14 tables)
+- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, benchmark_records, bookmarks (15 tables)
 - **ChromaDB**: chapter embeddings + entity embeddings for semantic search
 
 ## Code Conventions
@@ -424,7 +444,7 @@ uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 
 ## Database Schema (SQLite)
 
-14 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`. See `_bmad-output/architecture.md` section 5.1 for core DDL.
+15 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`, `bookmarks`. See `_bmad-output/architecture.md` section 5.1 for core DDL.
 
 ## Important Notes
 
