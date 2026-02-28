@@ -1,20 +1,41 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowDownAZ,
   BookOpen,
+  CheckCircle,
+  Database,
+  Download,
   Library,
+  MoreHorizontal,
   Search,
   Trash2,
   Upload,
   User,
 } from "lucide-react"
-import { fetchNovels, deleteNovel, checkEnvironment, fetchActiveAnalyses } from "@/api/client"
+import {
+  deleteNovel,
+  checkEnvironment,
+  fetchActiveAnalyses,
+  exportNovelUrl,
+  previewImport,
+  confirmDataImport,
+  backupExportUrl,
+  previewBackupImport,
+  confirmBackupImport,
+} from "@/api/client"
 import type { Novel } from "@/api/types"
 import { useNovelStore } from "@/stores/novelStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Card,
   CardContent,
@@ -43,7 +64,7 @@ import { SetupGuide } from "@/components/shared/SetupGuide"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { UploadDialog } from "@/components/shared/UploadDialog"
 
-type SortKey = "recent" | "title" | "chapters"
+type SortKey = "recent" | "title" | "chapters" | "words"
 
 function formatWordCount(count: number): string {
   if (count >= 10000) return `${(count / 10000).toFixed(1)}万字`
@@ -146,21 +167,34 @@ function NovelCard({
         </div>
 
         {/* Analysis progress */}
-        <div className="space-y-1">
-          <div className="text-muted-foreground flex justify-between text-xs">
-            <span>分析进度</span>
-            <span>{Math.round(novel.analysis_progress * 100)}%</span>
+        {novel.analysis_progress >= 1 ? (
+          <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span>分析完成</span>
           </div>
-          <Progress value={novel.analysis_progress * 100} className="h-1.5" />
-        </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="text-muted-foreground flex justify-between text-xs">
+              <span>分析进度</span>
+              <span>{Math.round(novel.analysis_progress * 100)}%</span>
+            </div>
+            <Progress value={novel.analysis_progress * 100} className="h-1.5" />
+          </div>
+        )}
 
         {/* Reading progress */}
         <div className="space-y-1">
           <div className="text-muted-foreground flex justify-between text-xs">
             <span>阅读进度</span>
-            <span>{Math.round(novel.reading_progress * 100)}%</span>
+            {novel.reading_progress > 0 ? (
+              <span>第 {Math.round(novel.reading_progress * novel.total_chapters)}/{novel.total_chapters} 章</span>
+            ) : (
+              <span className="opacity-60">尚未开始阅读</span>
+            )}
           </div>
-          <Progress value={novel.reading_progress * 100} className="h-1.5" />
+          {novel.reading_progress > 0 && (
+            <Progress value={novel.reading_progress * 100} className="h-1.5" />
+          )}
         </div>
       </CardContent>
 
@@ -191,8 +225,8 @@ function NovelCard({
         <div className="flex w-full items-center justify-between">
           <span className="text-muted-foreground text-xs">
             {novel.last_opened
-              ? formatDate(novel.last_opened)
-              : formatDate(novel.created_at)}
+              ? `${formatDate(novel.last_opened)}阅读`
+              : `导入于${formatDate(novel.created_at)}`}
           </span>
           <Button
             variant="ghost"
@@ -231,15 +265,23 @@ function EmptyState({ onUpload }: { onUpload: () => void }) {
 
 export default function BookshelfPage() {
   const navigate = useNavigate()
-  const { novels, setNovels } = useNovelStore()
+  const { novels, loading, fetchNovels, removeNovel } = useNovelStore()
   const [search, setSearch] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("recent")
-  const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
   const [activeAnalysisMap, setActiveAnalysisMap] = useState<Map<string, "running" | "paused">>(new Map())
+
+  // Drag-to-upload state
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragFile, setDragFile] = useState<File | undefined>(undefined)
+
+  // Refs
+  const searchRef = useRef<HTMLInputElement>(null)
+  const importFileRef = useRef<HTMLInputElement>(null)
+  const backupImportRef = useRef<HTMLInputElement>(null)
 
   // Check Ollama environment on first load
   useEffect(() => {
@@ -251,13 +293,13 @@ export default function BookshelfPage() {
     checkEnvironment()
       .then((env) => {
         if (env.llm_provider === "openai") {
-          setSetupNeeded(false) // Cloud mode — no local setup needed
+          setSetupNeeded(false)
         } else {
           setSetupNeeded(!env.ollama_running || !env.model_available)
         }
       })
       .catch(() => {
-        setSetupNeeded(false) // Backend unreachable, skip setup guide
+        setSetupNeeded(false)
       })
   }, [])
 
@@ -267,20 +309,13 @@ export default function BookshelfPage() {
   }, [])
 
   const loadNovels = useCallback(async () => {
-    try {
-      setLoading(true)
-      const [data, active] = await Promise.all([
-        fetchNovels(),
-        fetchActiveAnalyses().catch(() => ({ items: [] })),
-      ])
-      setNovels(data.novels)
-      setActiveAnalysisMap(new Map(active.items.map((a) => [a.novel_id, a.status])))
-    } catch (err) {
-      console.error("Failed to load novels:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [setNovels])
+    await Promise.all([
+      fetchNovels(),
+      fetchActiveAnalyses()
+        .then((active) => setActiveAnalysisMap(new Map(active.items.map((a) => [a.novel_id, a.status]))))
+        .catch(() => {}),
+    ])
+  }, [fetchNovels])
 
   useEffect(() => {
     loadNovels()
@@ -296,13 +331,14 @@ export default function BookshelfPage() {
           (n.author && n.author.toLowerCase().includes(q))
       )
     }
-    // Sort
     return [...result].sort((a, b) => {
       switch (sortKey) {
         case "title":
           return a.title.localeCompare(b.title, "zh-CN")
         case "chapters":
           return b.total_chapters - a.total_chapters
+        case "words":
+          return b.total_words - a.total_words
         case "recent":
         default: {
           const ta = a.last_opened ?? a.updated_at
@@ -322,7 +358,7 @@ export default function BookshelfPage() {
     try {
       setDeleting(true)
       await deleteNovel(deleteTarget.id)
-      setNovels(novels.filter((n) => n.id !== deleteTarget.id))
+      removeNovel(deleteTarget.id)
     } catch (err) {
       console.error("Failed to delete novel:", err)
     } finally {
@@ -330,6 +366,108 @@ export default function BookshelfPage() {
       setDeleteTarget(null)
     }
   }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault()
+        setUploadOpen(true)
+      } else if (e.key === "/") {
+        e.preventDefault()
+        searchRef.current?.focus()
+      } else if (e.key === "Escape") {
+        if (search) {
+          setSearch("")
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [search])
+
+  // Drag-to-upload handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only set false if we're leaving the container (not entering a child)
+    if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    const ext = file.name.includes(".") ? "." + file.name.split(".").pop()!.toLowerCase() : ""
+    if (ext !== ".txt" && ext !== ".md") return
+    setDragFile(file)
+    setUploadOpen(true)
+  }, [])
+
+  // Clear dragFile after dialog closes
+  const handleUploadOpenChange = useCallback((open: boolean) => {
+    setUploadOpen(open)
+    if (!open) setDragFile(undefined)
+  }, [])
+
+  // Import/Export handlers
+  const handleExportNovel = useCallback(() => {
+    if (novels.length === 0) return
+    // If only one novel, export it directly
+    if (novels.length === 1) {
+      window.open(exportNovelUrl(novels[0].id), "_blank")
+      return
+    }
+    // For multiple novels, let user pick (using a simple prompt for now)
+    const names = novels.map((n, i) => `${i + 1}. ${n.title}`).join("\n")
+    const choice = window.prompt(`选择要导出的小说（输入序号）：\n${names}`)
+    if (!choice) return
+    const idx = parseInt(choice) - 1
+    if (idx >= 0 && idx < novels.length) {
+      window.open(exportNovelUrl(novels[idx].id), "_blank")
+    }
+  }, [novels])
+
+  const handleImportData = useCallback(async (file: File) => {
+    try {
+      const preview = await previewImport(file)
+      const hasConflict = !!preview.existing_novel_id
+      const msg = `即将导入小说「${preview.title}」(${preview.total_chapters} 章)\n${hasConflict ? "检测到同名小说，将覆盖已有数据" : "确认导入？"}`
+      if (!window.confirm(msg)) return
+      await confirmDataImport(file, hasConflict)
+      await loadNovels()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "导入失败")
+    }
+  }, [loadNovels])
+
+  const handleBackupExport = useCallback(() => {
+    window.open(backupExportUrl(), "_blank")
+  }, [])
+
+  const handleBackupImport = useCallback(async (file: File) => {
+    try {
+      const preview = await previewBackupImport(file)
+      const msg = `备份包含 ${preview.novel_count} 本小说\n${preview.conflict_count > 0 ? `其中 ${preview.conflict_count} 本与现有数据冲突` : ""}\n确认恢复？`
+      if (!window.confirm(msg)) return
+      const result = await confirmBackupImport(file, "skip")
+      alert(`恢复完成：导入 ${result.imported} 本，跳过 ${result.skipped} 本`)
+      await loadNovels()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "恢复失败")
+    }
+  }, [loadNovels])
 
   // Show setup guide if environment not ready
   if (setupNeeded === null) {
@@ -344,7 +482,22 @@ export default function BookshelfPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div
+      className="relative mx-auto max-w-6xl px-6 py-8"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <Upload className="h-12 w-12" />
+            <p className="text-lg font-medium">松开文件以上传</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -363,6 +516,55 @@ export default function BookshelfPage() {
             <Upload className="mr-2 h-4 w-4" />
             上传小说
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportNovel} disabled={novels.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                导出小说数据
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => importFileRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                导入小说数据
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleBackupExport}>
+                <Database className="mr-2 h-4 w-4" />
+                备份全部数据
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => backupImportRef.current?.click()}>
+                <Database className="mr-2 h-4 w-4" />
+                恢复备份
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* Hidden file inputs for import */}
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json,.zip"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleImportData(file)
+              e.target.value = ""
+            }}
+          />
+          <input
+            ref={backupImportRef}
+            type="file"
+            accept=".zip"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleBackupImport(file)
+              e.target.value = ""
+            }}
+          />
         </div>
       </div>
 
@@ -372,7 +574,8 @@ export default function BookshelfPage() {
           <div className="relative flex-1">
             <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
-              placeholder="搜索书名或作者..."
+              ref={searchRef}
+              placeholder="搜索书名或作者... (按 / 聚焦)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -390,6 +593,7 @@ export default function BookshelfPage() {
               <SelectItem value="recent">最近打开</SelectItem>
               <SelectItem value="title">按书名</SelectItem>
               <SelectItem value="chapters">按章节数</SelectItem>
+              <SelectItem value="words">按字数</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -403,9 +607,10 @@ export default function BookshelfPage() {
       ) : novels.length === 0 ? (
         <EmptyState onUpload={() => setUploadOpen(true)} />
       ) : filtered.length === 0 ? (
-        <div className="text-muted-foreground flex flex-col items-center py-32 text-sm">
-          <Search className="text-muted-foreground/40 mb-4 h-12 w-12" />
-          <p>没有找到匹配的小说</p>
+        <div className="col-span-full flex flex-col items-center gap-2 py-12 text-muted-foreground">
+          <Search className="size-8 opacity-40" />
+          <p className="text-sm">没有找到匹配的小说</p>
+          <Button variant="ghost" size="sm" onClick={() => setSearch("")}>清除搜索</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -425,8 +630,9 @@ export default function BookshelfPage() {
       {/* Upload Dialog */}
       <UploadDialog
         open={uploadOpen}
-        onOpenChange={setUploadOpen}
+        onOpenChange={handleUploadOpenChange}
         onImported={loadNovels}
+        initialFile={dragFile}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -439,9 +645,15 @@ export default function BookshelfPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除《{deleteTarget?.title}
-              》吗？删除后将移除该小说及所有关联的分析数据，此操作不可撤销。
+            <AlertDialogDescription asChild>
+              <div>
+                <p>确定要删除《{deleteTarget?.title}》吗？此操作不可撤销。</p>
+                <p className="mt-1 text-xs">
+                  将同时删除：{deleteTarget?.total_chapters} 章内容
+                  {deleteTarget && deleteTarget.analysis_progress > 0 ? "、分析数据" : ""}
+                  、对话记录、书签等所有关联数据
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

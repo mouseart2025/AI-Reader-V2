@@ -11,8 +11,11 @@ async def insert_novel(
     file_hash: str,
     total_chapters: int,
     total_words: int,
+    conn=None,
 ) -> None:
-    conn = await get_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = await get_connection()
     try:
         await conn.execute(
             """
@@ -21,17 +24,22 @@ async def insert_novel(
             """,
             (novel_id, title, author, file_hash, total_chapters, total_words),
         )
-        await conn.commit()
+        if own_conn:
+            await conn.commit()
     finally:
-        await conn.close()
+        if own_conn:
+            await conn.close()
 
 
 async def insert_chapters(
     novel_id: str,
     chapters: list[ChapterInfo],
     excluded_nums: set[int] | None = None,
+    conn=None,
 ) -> None:
-    conn = await get_connection()
+    own_conn = conn is None
+    if own_conn:
+        conn = await get_connection()
     try:
         await conn.executemany(
             """
@@ -52,9 +60,11 @@ async def insert_chapters(
                 for ch in chapters
             ],
         )
-        await conn.commit()
+        if own_conn:
+            await conn.commit()
     finally:
-        await conn.close()
+        if own_conn:
+            await conn.close()
 
 
 async def list_novels() -> list[dict]:

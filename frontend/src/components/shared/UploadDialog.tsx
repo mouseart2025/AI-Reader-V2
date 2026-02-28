@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -13,7 +13,7 @@ import {
   Upload,
 } from "lucide-react"
 import {
-  uploadNovel,
+  uploadNovelWithProgress,
   confirmImport,
   fetchNovel,
   deleteNovel,
@@ -25,6 +25,7 @@ import type { Novel, UploadPreviewResponse } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
   DialogContent,
@@ -78,10 +79,12 @@ export function UploadDialog({
   open,
   onOpenChange,
   onImported,
+  initialFile,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onImported: () => void
+  initialFile?: File
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stage, setStage] = useState<Stage>("select")
@@ -105,6 +108,9 @@ export function UploadDialog({
   const [hygieneOpen, setHygieneOpen] = useState(false)
   const [cleaning, setCleaning] = useState(false)
 
+  // Upload progress
+  const [uploadProgress, setUploadProgress] = useState(0)
+
   const reset = useCallback(() => {
     setStage("select")
     setError(null)
@@ -120,6 +126,7 @@ export function UploadDialog({
     setReSplitting(false)
     setHygieneOpen(false)
     setCleaning(false)
+    setUploadProgress(0)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }, [])
 
@@ -127,6 +134,15 @@ export function UploadDialog({
     if (!nextOpen) reset()
     onOpenChange(nextOpen)
   }
+
+  // Auto-trigger upload when initialFile is provided (drag-to-upload)
+  useEffect(() => {
+    if (open && initialFile && stage === "select") {
+      handleFileSelect(initialFile)
+    }
+    // Only run when dialog opens with an initialFile
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFile])
 
   const handleFileSelect = async (file: File) => {
     setError(null)
@@ -142,8 +158,9 @@ export function UploadDialog({
 
     // Upload
     setStage("uploading")
+    setUploadProgress(0)
     try {
-      const data = await uploadNovel(file)
+      const data = await uploadNovelWithProgress(file, setUploadProgress)
       setPreview(data)
       setTitle(data.title)
       setAuthor(data.author ?? "")
@@ -184,8 +201,14 @@ export function UploadDialog({
       onImported()
       handleOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "导入失败")
-      setStage("preview")
+      const msg = err instanceof Error ? err.message : "导入失败"
+      if (msg.includes("过期") || msg.includes("expired")) {
+        setStage("select")
+        setError("上传数据已过期（超过30分钟），请重新选择文件")
+      } else {
+        setError(msg)
+        setStage("preview")
+      }
     }
   }
 
@@ -204,8 +227,14 @@ export function UploadDialog({
       onImported()
       handleOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "覆盖导入失败")
-      setStage("duplicate")
+      const msg = err instanceof Error ? err.message : "覆盖导入失败"
+      if (msg.includes("过期") || msg.includes("expired")) {
+        setStage("select")
+        setError("上传数据已过期（超过30分钟），请重新选择文件")
+      } else {
+        setError(msg)
+        setStage("duplicate")
+      }
     }
   }
 
@@ -243,7 +272,13 @@ export function UploadDialog({
         data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
       ))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "重新切分失败")
+      const msg = err instanceof Error ? err.message : "重新切分失败"
+      if (msg.includes("过期") || msg.includes("expired")) {
+        setStage("select")
+        setError("上传数据已过期（超过30分钟），请重新选择文件")
+      } else {
+        setError(msg)
+      }
     } finally {
       setReSplitting(false)
     }
@@ -263,7 +298,13 @@ export function UploadDialog({
         data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
       ))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "重新切分失败")
+      const msg = err instanceof Error ? err.message : "重新切分失败"
+      if (msg.includes("过期") || msg.includes("expired")) {
+        setStage("select")
+        setError("上传数据已过期（超过30分钟），请重新选择文件")
+      } else {
+        setError(msg)
+      }
     } finally {
       setReSplitting(false)
     }
@@ -283,7 +324,13 @@ export function UploadDialog({
         data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
       ))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "清理失败")
+      const msg = err instanceof Error ? err.message : "清理失败"
+      if (msg.includes("过期") || msg.includes("expired")) {
+        setStage("select")
+        setError("上传数据已过期（超过30分钟），请重新选择文件")
+      } else {
+        setError(msg)
+      }
     } finally {
       setCleaning(false)
     }
@@ -359,9 +406,15 @@ export function UploadDialog({
 
         {/* Stage: Uploading */}
         {stage === "uploading" && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="text-primary mb-3 h-10 w-10 animate-spin" />
-            <p className="text-muted-foreground text-sm">正在解析文件...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <Loader2 className="text-primary h-10 w-10 animate-spin" />
+            <p className="text-muted-foreground text-sm">
+              {uploadProgress < 100 ? "正在上传文件..." : "正在解析文件..."}
+            </p>
+            <div className="w-48 space-y-1">
+              <Progress value={uploadProgress} className="h-2" />
+              <p className="text-center text-xs text-muted-foreground">{uploadProgress}%</p>
+            </div>
           </div>
         )}
 
