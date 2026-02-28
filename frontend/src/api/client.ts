@@ -311,6 +311,29 @@ export function saveUserState(
   })
 }
 
+// ── Bookmarks ─────────────────────────────────
+
+export function fetchBookmarks(novelId: string): Promise<import("./types").Bookmark[]> {
+  return apiFetch<{ bookmarks: import("./types").Bookmark[] }>(`/novels/${novelId}/bookmarks`)
+    .then((r) => r.bookmarks)
+}
+
+export function addBookmark(
+  novelId: string,
+  chapterNum: number,
+  scrollPosition: number,
+  note?: string,
+): Promise<import("./types").Bookmark> {
+  return apiFetch(`/novels/${novelId}/bookmarks`, {
+    method: "POST",
+    body: JSON.stringify({ chapter_num: chapterNum, scroll_position: scrollPosition, note: note ?? "" }),
+  })
+}
+
+export function deleteBookmark(bookmarkId: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/bookmarks/${bookmarkId}`, { method: "DELETE" })
+}
+
 // ── Entities ─────────────────────────────────────
 
 export function fetchEntities(

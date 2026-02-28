@@ -114,3 +114,48 @@ async def save_user_state(novel_id: str, req: UserStateRequest):
         chapter_range=req.chapter_range,
     )
     return {"ok": True}
+
+
+# ── Bookmarks ─────────────────────────────────
+
+
+@router.get("/bookmarks")
+async def list_bookmarks(novel_id: str):
+    """List all bookmarks for a novel."""
+    bookmarks = await chapter_store.get_bookmarks(novel_id)
+    return {"bookmarks": bookmarks}
+
+
+class BookmarkRequest(BaseModel):
+    chapter_num: int
+    scroll_position: float = 0.0
+    note: str = ""
+
+
+@router.post("/bookmarks")
+async def create_bookmark(novel_id: str, req: BookmarkRequest):
+    """Add a bookmark."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    bookmark = await chapter_store.add_bookmark(
+        novel_id=novel_id,
+        chapter_num=req.chapter_num,
+        scroll_position=req.scroll_position,
+        note=req.note,
+    )
+    return bookmark
+
+
+# Separate router for bookmark delete (no novel_id prefix needed)
+bookmark_router = APIRouter(prefix="/api", tags=["bookmarks"])
+
+
+@bookmark_router.delete("/bookmarks/{bookmark_id}")
+async def remove_bookmark(bookmark_id: int):
+    """Delete a bookmark by ID."""
+    deleted = await chapter_store.delete_bookmark(bookmark_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="书签不存在")
+    return {"ok": True}

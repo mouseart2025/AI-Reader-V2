@@ -108,6 +108,7 @@ app.add_middleware(
 # REST routes
 app.include_router(novels.router)
 app.include_router(chapters.router)
+app.include_router(chapters.bookmark_router)
 app.include_router(entities.router)
 app.include_router(graph.router)
 app.include_router(map.router)
