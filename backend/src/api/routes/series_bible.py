@@ -36,11 +36,20 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    tpl_name = TEMPLATES[template]["name"]
+
+    # Build filename with optional chapter range suffix
+    range_suffix = ""
+    if body.chapter_start is not None or body.chapter_end is not None:
+        cs = body.chapter_start or data.chapter_range[0]
+        ce = body.chapter_end or data.chapter_range[1]
+        range_suffix = f"_Ch{cs}-{ce}"
+
     if body.format == "docx":
         from src.services.docx_renderer import render_docx
 
-        buf = render_docx(data)
-        filename = f"{data.novel_title}_设定集.docx"
+        buf = render_docx(data, template=template)
+        filename = f"{data.novel_title}_{tpl_name}{range_suffix}.docx"
         return Response(
             content=buf.read(),
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -52,8 +61,8 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
     if body.format == "xlsx":
         from src.services.xlsx_renderer import render_xlsx
 
-        buf = render_xlsx(data)
-        filename = f"{data.novel_title}_设定集.xlsx"
+        buf = render_xlsx(data, template=template)
+        filename = f"{data.novel_title}_{tpl_name}{range_suffix}.xlsx"
         return Response(
             content=buf.read(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -65,8 +74,8 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
     if body.format == "pdf":
         from src.services.pdf_renderer import render_pdf
 
-        buf = render_pdf(data)
-        filename = f"{data.novel_title}_设定集.pdf"
+        buf = render_pdf(data, template=template)
+        filename = f"{data.novel_title}_{tpl_name}{range_suffix}.pdf"
         return Response(
             content=buf.read(),
             media_type="application/pdf",
@@ -76,8 +85,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
         )
 
     md_content = render_markdown(data, template=template)
-    tpl_name = TEMPLATES[template]["name"]
-    filename = f"{data.novel_title}_{tpl_name}.md"
+    filename = f"{data.novel_title}_{tpl_name}{range_suffix}.md"
 
     return Response(
         content=md_content.encode("utf-8"),

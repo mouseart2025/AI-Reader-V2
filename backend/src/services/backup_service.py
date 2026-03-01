@@ -18,6 +18,27 @@ from src.services.export_service import export_novel, import_novel
 BACKUP_FORMAT_VERSION = 1
 
 
+def _get_app_version() -> str:
+    """Get app version from package metadata, fallback to unknown."""
+    try:
+        from importlib.metadata import version
+        return version("ai-reader-v2-backend")
+    except Exception:
+        try:
+            import importlib.resources
+            import tomllib
+            # Fallback: read pyproject.toml
+            import pathlib
+            pyproject = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
+            if pyproject.exists():
+                with open(pyproject, "rb") as f:
+                    data = tomllib.load(f)
+                return data.get("project", {}).get("version", "unknown")
+        except Exception:
+            pass
+    return "unknown"
+
+
 async def export_all() -> io.BytesIO:
     """Export all novels and settings as a ZIP archive.
 
@@ -55,7 +76,7 @@ async def export_all() -> io.BytesIO:
         manifest = {
             "backup_format_version": BACKUP_FORMAT_VERSION,
             "exported_at": datetime.now().isoformat(),
-            "app_version": "1.0.0",
+            "app_version": _get_app_version(),
             "novel_count": len(exported_novels),
             "novels": exported_novels,
         }

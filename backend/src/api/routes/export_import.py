@@ -46,15 +46,24 @@ async def preview_import(file: UploadFile):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    # Check if a novel with the same title exists
+    # Check if a novel with the same title or file_hash exists
     from src.db.sqlite_db import get_connection
+
+    novel_data = data.get("novel", {})
+    file_hash = novel_data.get("file_hash")
 
     conn = await get_connection()
     try:
-        cur = await conn.execute(
-            "SELECT id, title FROM novels WHERE title = ?",
-            (data.get("novel", {}).get("title"),),
-        )
+        if file_hash:
+            cur = await conn.execute(
+                "SELECT id, title FROM novels WHERE title = ? OR file_hash = ?",
+                (novel_data.get("title"), file_hash),
+            )
+        else:
+            cur = await conn.execute(
+                "SELECT id, title FROM novels WHERE title = ?",
+                (novel_data.get("title"),),
+            )
         existing = await cur.fetchone()
         preview["existing_novel_id"] = existing["id"] if existing else None
     finally:

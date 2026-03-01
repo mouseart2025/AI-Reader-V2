@@ -794,6 +794,10 @@ export function exportNovelUrl(novelId: string): string {
   return `${BASE}/novels/${novelId}/export`
 }
 
+export function exportAllConversationsUrl(novelId: string): string {
+  return `${BASE}/novels/${novelId}/conversations/export`
+}
+
 export async function previewImport(file: File): Promise<ImportPreview> {
   const form = new FormData()
   form.append("file", file)

@@ -1,5 +1,7 @@
 """Chat conversation management REST endpoints."""
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
@@ -88,4 +90,56 @@ async def export_conversation(conversation_id: str):
         content=md,
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{title}.md"'},
+    )
+
+
+@router.get("/api/novels/{novel_id}/conversations/export")
+async def export_all_conversations(novel_id: str):
+    """Export all conversations of a novel as a single Markdown file."""
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    convs = await conversation_store.list_conversations(novel_id)
+    if not convs:
+        raise HTTPException(status_code=404, detail="该小说没有对话记录")
+
+    lines: list[str] = []
+    lines.append(f"# {novel['title']} — 全部对话记录")
+    lines.append("")
+    lines.append(f"> 共 {len(convs)} 个对话")
+    lines.append("")
+
+    for conv in convs:
+        lines.append("---")
+        lines.append("")
+        lines.append(f"## {conv['title']}")
+        lines.append("")
+        lines.append(f"> 创建于 {conv['created_at']}")
+        lines.append("")
+
+        messages = await conversation_store.list_messages(conv["id"], limit=10000)
+        for msg in messages:
+            role_label = "**用户**" if msg["role"] == "user" else "**AI**"
+            lines.append(f"### {role_label}")
+            lines.append("")
+            lines.append(msg["content"])
+            if msg.get("sources") and len(msg["sources"]) > 0:
+                chapters_str = ", ".join(f"第{ch}章" for ch in msg["sources"])
+                lines.append("")
+                lines.append(f"*来源: {chapters_str}*")
+            lines.append("")
+
+    lines.append("---")
+    lines.append("")
+    lines.append("*由 AI Reader V2 导出*")
+
+    md = "\n".join(lines)
+    filename = f"{novel['title']}_全部对话.md"
+    return PlainTextResponse(
+        content=md,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+        },
     )

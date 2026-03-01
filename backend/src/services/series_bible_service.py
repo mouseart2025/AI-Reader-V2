@@ -21,6 +21,16 @@ from src.services.visualization_service import (
 
 logger = logging.getLogger(__name__)
 
+# ── Noise filters ────────────────────────────────
+
+_ITEM_NOISE_NAMES = frozenset({
+    "银子", "荷包", "头发", "燕窝", "帕子", "衣服", "鞋子", "茶",
+    "酒", "饭", "药", "信", "银两", "轿子", "马", "书", "花",
+    "礼物", "手帕", "扇子",
+})
+
+_TIMELINE_NOISE_TYPES = frozenset({"角色登场", "物品交接"})
+
 # Available export modules
 MODULES = [
     "characters",   # 人物档案
@@ -126,7 +136,8 @@ async def collect_data(
     # ── Items ───────────────────────────────────
     if "items" in selected_modules:
         items = [e for e in all_entities if e.type == "item"]
-        items = sorted(items, key=lambda e: e.chapter_count, reverse=True)[:30]
+        items = sorted(items, key=lambda e: e.chapter_count, reverse=True)
+        items = [e for e in items if e.name not in _ITEM_NOISE_NAMES and len(e.name) >= 2][:30]
         for entity in items:
             try:
                 profile = await aggregate_item(novel_id, entity.name)
@@ -149,7 +160,8 @@ async def collect_data(
     if "timeline" in selected_modules:
         try:
             tl = await get_timeline_data(novel_id, ch_start, ch_end)
-            data.timeline = tl.get("events", [])
+            raw_events = tl.get("events", [])
+            data.timeline = [e for e in raw_events if e.get("type") not in _TIMELINE_NOISE_TYPES]
         except Exception as e:
             logger.warning("Failed to get timeline data: %s", e)
 

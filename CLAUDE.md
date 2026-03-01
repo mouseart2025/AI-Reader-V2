@@ -395,6 +395,34 @@ Scene/screenplay functionality is integrated into ReadingPage as a right-side pa
 
 **DB transaction protection**: `novel_store.insert_novel()` and `insert_chapters()` accept optional `conn` parameter. When `conn` is provided, they skip self-commit/close (caller manages transaction). `novel_service.confirm_import()` gets a single connection, passes it to both functions, commits after both succeed or rolls back on failure.
 
+### Export Enhancement (N40)
+
+`ExportPage.tsx` is the Series Bible export interface with 12 improvements across 3 priority batches:
+
+**Relation chain dedup**: `_compress_chain()` helper added to all 4 renderers (markdown/docx/pdf/xlsx). Removes consecutive duplicate relation types from stage chains: `表亲→恋人→表亲→恋人→...` (21 stages) → `表亲→恋人→表亲→恋人` (≤4 unique transitions). Applied in both full character profiles and author card compact format.
+
+**Export format v3**: `export_service.py` `CURRENT_FORMAT_VERSION = 3`, `SUPPORTED_FORMAT_VERSIONS = {1, 2, 3}`. New tables exported: `bookmarks` (chapter_num, scroll_position, note, created_at), `map_user_overrides` (location_name, x, y, lat, lng, constraint_type, locked_parent), `world_structure_overrides` (override_type, override_key, override_json). Import uses `.get()` with default `[]` for backward compatibility with v1/v2 files.
+
+**file_hash conflict detection**: `import_novel()` and preview route query `WHERE title = ? OR file_hash = ?` instead of title-only, catching same-book-different-title reimports.
+
+**app_version dynamic**: `backup_service.py` `_get_app_version()` reads from `importlib.metadata.version()` with pyproject.toml fallback, replacing hardcoded `"1.0.0"`.
+
+**Entity dictionary noise filter**: Export SQL adds `AND entity_type != 'unknown'`, reducing 红楼梦 from 514→189 entries (-63%).
+
+**Item noise filter**: `series_bible_service.py` `_ITEM_NOISE_NAMES` frozenset (20 generic items: 银子/荷包/茶/酒/书 etc.) + `len(name) >= 2` filter applied before top-30 cutoff.
+
+**Timeline noise filter**: `_TIMELINE_NOISE_TYPES = {"角色登场", "物品交接"}` filtered from collected events. Limits raised: MD/DOCX/PDF 100→500, outline 50→100, XLSX 200→1000.
+
+**Template all-format**: `ExportPage.tsx` template selector shown for all formats (not just Markdown). `render_docx()`, `render_xlsx()`, `render_pdf()` accept `template: str = "complete"` parameter. DOCX header and PDF title page reflect template name.
+
+**Chapter range selector**: `ExportPage.tsx` adds `chapterStart`/`chapterEnd` state, `totalChapters` from `fetchNovel()`, two number inputs with "共 N 章" hint. Passed to `exportSeriesBible()` API call.
+
+**Export progress feedback**: `progress` state shows "正在收集数据..." with animated pulse progress bar during export.
+
+**Batch conversation export**: `GET /api/novels/{novel_id}/conversations/export` merges all conversations into a single Markdown download. `exportAllConversationsUrl(novelId)` client function.
+
+**Filename enhancement**: `series_bible.py` builds filenames with template name + optional chapter range suffix: `{title}_{tpl_name}_Ch{start}-{end}.{ext}`. Applied to all 4 formats.
+
 ### Two Databases Only
 
 - **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, benchmark_records, bookmarks (15 tables)
