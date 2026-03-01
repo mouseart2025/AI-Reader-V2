@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import { exportSeriesBible } from "@/api/client"
+import { exportSeriesBible, fetchNovel } from "@/api/client"
 import { SERIES_BIBLE_MODULES, SERIES_BIBLE_TEMPLATES } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -22,6 +22,17 @@ export default function ExportPage() {
   )
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [totalChapters, setTotalChapters] = useState(0)
+  const [chapterStart, setChapterStart] = useState<number | null>(null)
+  const [chapterEnd, setChapterEnd] = useState<number | null>(null)
+  const [progress, setProgress] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!novelId) return
+    fetchNovel(novelId).then((novel) => {
+      setTotalChapters(novel.total_chapters)
+    }).catch(() => {})
+  }, [novelId])
 
   const toggleModule = useCallback((id: string) => {
     setSelectedModules((prev) =>
@@ -37,18 +48,22 @@ export default function ExportPage() {
     if (!novelId || selectedModules.length === 0) return
     setExporting(true)
     setError(null)
+    setProgress("正在收集数据...")
     try {
       await exportSeriesBible(novelId, {
-        template: format === "markdown" ? template : undefined,
+        template,
         modules: selectedModules,
         format: format === "word" ? "docx" : format === "excel" ? "xlsx" : format === "pdf" ? "pdf" : undefined,
+        chapter_start: chapterStart || undefined,
+        chapter_end: chapterEnd || undefined,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : "导出失败")
     } finally {
       setExporting(false)
+      setProgress(null)
     }
-  }, [novelId, format, template, selectedModules])
+  }, [novelId, format, template, selectedModules, chapterStart, chapterEnd])
 
   return (
     <div className="flex-1 overflow-auto">
@@ -83,30 +98,28 @@ export default function ExportPage() {
         </section>
 
         {/* Template selection */}
-        {format === "markdown" && (
-          <section>
-            <h2 className="text-sm font-medium mb-3">选择模板</h2>
-            <div className="space-y-2">
-              {SERIES_BIBLE_TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  className={cn(
-                    "w-full text-left border rounded-lg p-3 transition-colors",
-                    template === t.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                      : "hover:border-blue-300",
-                  )}
-                  onClick={() => setTemplate(t.id)}
-                >
-                  <span className="text-sm font-medium">{t.name}</span>
-                  <span className="text-xs text-muted-foreground ml-2">
-                    {t.description}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+        <section>
+          <h2 className="text-sm font-medium mb-3">选择模板</h2>
+          <div className="space-y-2">
+            {SERIES_BIBLE_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                className={cn(
+                  "w-full text-left border rounded-lg p-3 transition-colors",
+                  template === t.id
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                    : "hover:border-blue-300",
+                )}
+                onClick={() => setTemplate(t.id)}
+              >
+                <span className="text-sm font-medium">{t.name}</span>
+                <span className="text-xs text-muted-foreground ml-2">
+                  {t.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {/* Module selection */}
         {(format === "markdown" || format === "word" || format === "excel" || format === "pdf") && (
@@ -144,8 +157,47 @@ export default function ExportPage() {
           </section>
         )}
 
+        {/* Chapter range */}
+        {totalChapters > 0 && (
+          <section>
+            <h2 className="text-sm font-medium mb-3">章节范围</h2>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={totalChapters}
+                placeholder="起始章"
+                value={chapterStart ?? ""}
+                onChange={(e) => setChapterStart(e.target.value ? Number(e.target.value) : null)}
+                className="w-24 border rounded-md px-2 py-1.5 text-sm"
+              />
+              <span className="text-muted-foreground">~</span>
+              <input
+                type="number"
+                min={1}
+                max={totalChapters}
+                placeholder="结束章"
+                value={chapterEnd ?? ""}
+                onChange={(e) => setChapterEnd(e.target.value ? Number(e.target.value) : null)}
+                className="w-24 border rounded-md px-2 py-1.5 text-sm"
+              />
+              <span className="text-xs text-muted-foreground">
+                共 {totalChapters} 章（留空导出全部）
+              </span>
+            </div>
+          </section>
+        )}
+
         {/* Export button */}
         <section className="pt-2">
+          {progress && (
+            <div className="mb-3">
+              <p className="text-xs text-muted-foreground mb-1">{progress}</p>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full animate-pulse w-2/3" />
+              </div>
+            </div>
+          )}
           <Button
             onClick={handleExport}
             disabled={exporting || selectedModules.length === 0}

@@ -170,8 +170,12 @@ def _render_character_cards(lines: list[str], characters: list[dict]) -> None:
             for rel in relations[:5]:
                 other = rel.get("other_person", "")
                 stages = rel.get("stages", [])
-                rel_type = stages[-1].get("relation_type", "") if stages else ""
-                rel_parts.append(f"{other}({rel_type})" if rel_type else other)
+                if len(stages) > 1:
+                    chain = " → ".join(_compress_chain(stages))
+                    rel_parts.append(f"{other}({chain})")
+                else:
+                    rel_type = stages[-1].get("relation_type", "") if stages else ""
+                    rel_parts.append(f"{other}({rel_type})" if rel_type else other)
             lines.append(f"- **关系:** {', '.join(rel_parts)}")
 
         experiences = ch.get("experiences", [])
@@ -221,8 +225,8 @@ def _render_characters_full(lines: list[str], characters: list[dict]) -> None:
                 category = rel.get("category", "other")
                 stages = rel.get("stages", [])
                 if len(stages) > 1:
-                    # Show evolution chain
-                    chain = " → ".join(s.get("relation_type", "") for s in stages)
+                    # Show evolution chain (compressed: remove consecutive duplicates)
+                    chain = " → ".join(_compress_chain(stages))
                     lines.append(f"- {other} — {chain} ({_cat_label(category)})")
                 elif stages:
                     rel_type = stages[0].get("relation_type", "")
@@ -373,7 +377,7 @@ def _render_orgs(lines: list[str], orgs: list[dict]) -> None:
 def _render_timeline_full(lines: list[str], events: list[dict]) -> None:
     """Complete template: full timeline with all events."""
     current_chapter = -1
-    for ev in events[:100]:
+    for ev in events[:500]:
         ch_num = ev.get("chapter", 0)
         if ch_num != current_chapter:
             current_chapter = ch_num
@@ -401,7 +405,7 @@ def _render_timeline_outline(lines: list[str], events: list[dict]) -> None:
         high_events = events[:30]  # Fallback: first 30 events
 
     current_chapter = -1
-    for ev in high_events[:50]:
+    for ev in high_events[:100]:
         ch_num = ev.get("chapter", 0)
         if ch_num != current_chapter:
             current_chapter = ch_num
@@ -411,6 +415,18 @@ def _render_timeline_outline(lines: list[str], events: list[dict]) -> None:
         p_str = f" [{', '.join(participants[:2])}]" if participants else ""
         lines.append(f"- {summary}{p_str}")
     lines.append("")
+
+
+def _compress_chain(stages: list[dict]) -> list[str]:
+    """Remove consecutive duplicate relation types from a stage chain."""
+    if not stages:
+        return []
+    result = [stages[0].get("relation_type", "")]
+    for s in stages[1:]:
+        rt = s.get("relation_type", "")
+        if rt != result[-1]:
+            result.append(rt)
+    return result
 
 
 def _escape_pipe(text: str) -> str:

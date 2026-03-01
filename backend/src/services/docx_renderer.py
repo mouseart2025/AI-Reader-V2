@@ -16,7 +16,7 @@ from docx.oxml.ns import qn
 from src.services.series_bible_service import SeriesBibleData
 
 
-def render_docx(data: SeriesBibleData) -> io.BytesIO:
+def render_docx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
     """Render SeriesBibleData as a Word document. Returns BytesIO buffer."""
     doc = Document()
 
@@ -38,7 +38,8 @@ def render_docx(data: SeriesBibleData) -> io.BytesIO:
     for section in doc.sections:
         # Header: novel title
         header_para = section.header.paragraphs[0]
-        header_para.text = f"{data.novel_title} — 设定集"
+        header_label = "网文作者套件" if template == "author" else "设定集"
+        header_para.text = f"{data.novel_title} — {header_label}"
         header_para.style = doc.styles["Header"]
         header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = header_para.runs[0] if header_para.runs else header_para.add_run()
@@ -163,7 +164,7 @@ def _render_characters(doc: Document, characters: list[dict]) -> None:
                 category = rel.get("category", "other")
                 stages = rel.get("stages", [])
                 if len(stages) > 1:
-                    chain = " → ".join(s.get("relation_type", "") for s in stages)
+                    chain = " → ".join(_compress_chain(stages))
                     doc.add_paragraph(
                         f"{other} — {chain} ({_cat_label(category)})",
                         style="List Bullet",
@@ -333,7 +334,7 @@ def _render_orgs(doc: Document, orgs: list[dict]) -> None:
 
 def _render_timeline(doc: Document, events: list[dict]) -> None:
     current_chapter = -1
-    for ev in events[:100]:
+    for ev in events[:500]:
         ch_num = ev.get("chapter", 0)
         if ch_num != current_chapter:
             current_chapter = ch_num
@@ -358,6 +359,18 @@ def _render_timeline(doc: Document, events: list[dict]) -> None:
 
 
 # ── Helpers ───────────────────────────────────────
+
+
+def _compress_chain(stages: list[dict]) -> list[str]:
+    """Remove consecutive duplicate relation types from a stage chain."""
+    if not stages:
+        return []
+    result = [stages[0].get("relation_type", "")]
+    for s in stages[1:]:
+        rt = s.get("relation_type", "")
+        if rt != result[-1]:
+            result.append(rt)
+    return result
 
 
 def _add_field(doc: Document, label: str, value: str) -> None:

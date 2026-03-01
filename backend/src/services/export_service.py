@@ -5,8 +5,8 @@ import uuid
 
 from src.db.sqlite_db import get_connection
 
-CURRENT_FORMAT_VERSION = 2
-SUPPORTED_FORMAT_VERSIONS = {1, 2}
+CURRENT_FORMAT_VERSION = 3
+SUPPORTED_FORMAT_VERSIONS = {1, 2, 3}
 
 
 async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
@@ -59,9 +59,9 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
         user_state_row = await cur.fetchone()
         user_state = dict(user_state_row) if user_state_row else None
 
-        # v2: Entity dictionary
+        # v2: Entity dictionary (filter out noise 'unknown' type)
         cur = await conn.execute(
-            "SELECT name, entity_type, frequency, confidence, aliases, source, sample_context FROM entity_dictionary WHERE novel_id = ? ORDER BY frequency DESC",
+            "SELECT name, entity_type, frequency, confidence, aliases, source, sample_context FROM entity_dictionary WHERE novel_id = ? AND entity_type != 'unknown' ORDER BY frequency DESC",
             (novel_id,),
         )
         entity_dictionary = [dict(r) for r in await cur.fetchall()]
@@ -74,6 +74,27 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
         ws_row = await cur.fetchone()
         world_structures = dict(ws_row) if ws_row else None
 
+        # v3: Bookmarks
+        cur = await conn.execute(
+            "SELECT chapter_num, scroll_position, note, created_at FROM bookmarks WHERE novel_id = ? ORDER BY created_at",
+            (novel_id,),
+        )
+        bookmarks = [dict(r) for r in await cur.fetchall()]
+
+        # v3: Map user overrides
+        cur = await conn.execute(
+            "SELECT location_name, x, y, lat, lng, constraint_type, locked_parent, updated_at FROM map_user_overrides WHERE novel_id = ?",
+            (novel_id,),
+        )
+        map_user_overrides = [dict(r) for r in await cur.fetchall()]
+
+        # v3: World structure overrides
+        cur = await conn.execute(
+            "SELECT override_type, override_key, override_json, created_at FROM world_structure_overrides WHERE novel_id = ?",
+            (novel_id,),
+        )
+        ws_overrides = [dict(r) for r in await cur.fetchall()]
+
         return {
             "format_version": CURRENT_FORMAT_VERSION,
             "novel": novel,
@@ -82,6 +103,9 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
             "user_state": user_state,
             "entity_dictionary": entity_dictionary,
             "world_structures": world_structures,
+            "bookmarks": bookmarks,
+            "map_user_overrides": map_user_overrides,
+            "world_structure_overrides": ws_overrides,
         }
     finally:
         await conn.close()
@@ -103,13 +127,23 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
     user_state = data.get("user_state")
     entity_dict = data.get("entity_dictionary", [])
     world_struct = data.get("world_structures")
+    bookmarks = data.get("bookmarks", [])
+    map_overrides = data.get("map_user_overrides", [])
+    ws_overrides = data.get("world_structure_overrides", [])
 
     conn = await get_connection()
     try:
-        # Check for existing novel by title
-        cur = await conn.execute(
-            "SELECT id FROM novels WHERE title = ?", (novel_meta["title"],)
-        )
+        # Check for existing novel by title or file_hash
+        file_hash = novel_meta.get("file_hash")
+        if file_hash:
+            cur = await conn.execute(
+                "SELECT id FROM novels WHERE title = ? OR file_hash = ?",
+                (novel_meta["title"], file_hash),
+            )
+        else:
+            cur = await conn.execute(
+                "SELECT id FROM novels WHERE title = ?", (novel_meta["title"],)
+            )
         existing = await cur.fetchone()
 
         if existing and overwrite:
@@ -221,6 +255,58 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ),
             )
 
+        # v3: Import bookmarks
+        if bookmarks:
+            await conn.executemany(
+                "INSERT INTO bookmarks (novel_id, chapter_num, scroll_position, note, created_at) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        novel_id,
+                        b["chapter_num"],
+                        b.get("scroll_position", 0),
+                        b.get("note", ""),
+                        b.get("created_at"),
+                    )
+                    for b in bookmarks
+                ],
+            )
+
+        # v3: Import map user overrides
+        if map_overrides:
+            await conn.executemany(
+                "INSERT INTO map_user_overrides (novel_id, location_name, x, y, lat, lng, constraint_type, locked_parent, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        novel_id,
+                        o["location_name"],
+                        o.get("x"),
+                        o.get("y"),
+                        o.get("lat"),
+                        o.get("lng"),
+                        o.get("constraint_type", "position"),
+                        o.get("locked_parent"),
+                        o.get("updated_at"),
+                    )
+                    for o in map_overrides
+                ],
+            )
+
+        # v3: Import world structure overrides
+        if ws_overrides:
+            await conn.executemany(
+                "INSERT INTO world_structure_overrides (novel_id, override_type, override_key, override_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        novel_id,
+                        o["override_type"],
+                        o["override_key"],
+                        o["override_json"],
+                        o.get("created_at"),
+                    )
+                    for o in ws_overrides
+                ],
+            )
+
         await conn.commit()
 
         return {
@@ -234,6 +320,9 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
             "has_user_state": user_state is not None,
             "entity_dict_imported": len(entity_dict),
             "has_world_structures": world_struct is not None,
+            "bookmarks_imported": len(bookmarks),
+            "map_overrides_imported": len(map_overrides),
+            "ws_overrides_imported": len(ws_overrides),
             "existing_overwritten": existing is not None and overwrite,
         }
     finally:
@@ -251,6 +340,9 @@ def preview_import(data: dict) -> dict:
     facts = data.get("chapter_facts", [])
     entity_dict = data.get("entity_dictionary", [])
     world_struct = data.get("world_structures")
+    bookmarks = data.get("bookmarks", [])
+    map_overrides = data.get("map_user_overrides", [])
+    ws_overrides = data.get("world_structure_overrides", [])
 
     total_words = sum(ch.get("word_count", 0) for ch in chapters)
     analyzed_count = sum(1 for ch in chapters if ch.get("analysis_status") == "completed")
@@ -267,5 +359,8 @@ def preview_import(data: dict) -> dict:
         "has_user_state": data.get("user_state") is not None,
         "entity_dict_count": len(entity_dict),
         "has_world_structures": world_struct is not None,
+        "bookmarks_count": len(bookmarks),
+        "map_overrides_count": len(map_overrides),
+        "ws_overrides_count": len(ws_overrides),
         "data_size_bytes": data_size,
     }

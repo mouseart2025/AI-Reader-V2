@@ -22,7 +22,7 @@ _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True
 _CELL_ALIGN = Alignment(vertical="top", wrap_text=True)
 
 
-def render_xlsx(data: SeriesBibleData) -> io.BytesIO:
+def render_xlsx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
     """Render SeriesBibleData as an Excel workbook. Returns BytesIO buffer."""
     wb = Workbook()
     # Remove default sheet
@@ -200,7 +200,7 @@ def _render_timeline(wb: Workbook, events: list[dict]) -> None:
     headers = ["章节", "事件摘要", "类型", "重要度", "参与者", "地点"]
     _write_header(ws, headers)
 
-    for ev in events[:200]:
+    for ev in events[:1000]:
         participants = ev.get("participants", [])
         ws.append([
             ev.get("chapter", 0),

@@ -778,6 +778,9 @@ export interface ImportPreview {
   has_user_state: boolean
   data_size_bytes: number
   existing_novel_id: string | null
+  bookmarks_count?: number
+  map_overrides_count?: number
+  ws_overrides_count?: number
 }
 
 // ── Backup (full data) ──────────────────────────

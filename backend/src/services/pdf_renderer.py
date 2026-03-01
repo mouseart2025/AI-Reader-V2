@@ -172,7 +172,7 @@ def _build_styles() -> dict[str, ParagraphStyle]:
 # ── Main render function ──────────────────────────
 
 
-def render_pdf(data: SeriesBibleData) -> io.BytesIO:
+def render_pdf(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
     """Render SeriesBibleData as a PDF document. Returns BytesIO buffer."""
     buf = io.BytesIO()
     styles = _build_styles()
@@ -184,7 +184,7 @@ def render_pdf(data: SeriesBibleData) -> io.BytesIO:
         bottomMargin=2 * cm,
         leftMargin=2 * cm,
         rightMargin=2 * cm,
-        title=f"{data.novel_title} - 设定集",
+        title=f"{data.novel_title} - {'网文作者套件' if template == 'author' else '设定集'}",
         author="AI Reader V2",
     )
 
@@ -290,7 +290,7 @@ def _render_characters(story: list, styles: dict, characters: list[dict]) -> Non
                 category = rel.get("category", "other")
                 stages = rel.get("stages", [])
                 if len(stages) > 1:
-                    chain = " → ".join(s.get("relation_type", "") for s in stages)
+                    chain = " → ".join(_compress_chain(stages))
                     story.append(
                         Paragraph(
                             f"• {_esc(other)} — {_esc(chain)} ({_cat_label(category)})",
@@ -489,7 +489,7 @@ def _render_orgs(story: list, styles: dict, orgs: list[dict]) -> None:
 
 def _render_timeline(story: list, styles: dict, events: list[dict]) -> None:
     current_chapter = -1
-    for ev in events[:100]:
+    for ev in events[:500]:
         ch_num = ev.get("chapter", 0)
         if ch_num != current_chapter:
             current_chapter = ch_num
@@ -515,6 +515,18 @@ def _render_timeline(story: list, styles: dict, events: list[dict]) -> None:
 
 
 # ── Helpers ───────────────────────────────────────
+
+
+def _compress_chain(stages: list[dict]) -> list[str]:
+    """Remove consecutive duplicate relation types from a stage chain."""
+    if not stages:
+        return []
+    result = [stages[0].get("relation_type", "")]
+    for s in stages[1:]:
+        rt = s.get("relation_type", "")
+        if rt != result[-1]:
+            result.append(rt)
+    return result
 
 
 def _header_footer(canvas, doc):
