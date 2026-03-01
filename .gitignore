@@ -25,3 +25,21 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Internal / private content
+_bmad/
+_bmad-output/
+_bmad-custom-backup-temp/
+_bmad-custom*/
+PRD.md
+PRD-v1.0.md
+interaction-design/
+docs/
+
+# Chinese research reports (root level)
+AI驱动的小说地理关系提取与地图可视化重构*.md
+LLM驱动的小说世界地图生成系统*.md
+自动文学制图学*.md
+
+# BMAD claude commands
+.claude/commands/bmad*

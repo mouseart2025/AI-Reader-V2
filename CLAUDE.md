@@ -69,9 +69,7 @@ AI-Reader-V2/
 │       ├── api/                    # REST client + types
 │       ├── hooks/
 │       └── lib/
-├── PRD.md                          # Product requirements (Chinese, 60KB)
-├── _bmad-output/architecture.md    # Architecture decisions document
-└── interaction-design/             # Excalidraw UI design specs
+└── scripts/                        # Utility scripts (demo export, data tools)
 ```
 
 ## Key Architecture Concepts
@@ -82,9 +80,9 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 ### Entity Pre-Scan (Optional, Before Analysis)
 
-`EntityPreScanner` — Phase 1: jieba word segmentation + n-gram frequency stats + dialogue attribution regex + suffix pattern matching + **naming pattern extraction** (regex for "叫作/名叫/绰号" patterns) → candidate list. Phase 2: LLM classifies candidates into entity types with aliases. Output: `entity_dictionary` table. The dictionary is injected into the extraction prompt to improve entity recognition quality.
+`EntityPreScanner` — Phase 1: jieba word segmentation + n-gram frequency stats + dialogue attribution regex + suffix pattern matching + naming pattern extraction (regex for "叫作/名叫/绰号" patterns) → candidate list. Phase 2: LLM classifies candidates into entity types with aliases. Output: `entity_dictionary` table. The dictionary is injected into the extraction prompt to improve entity recognition quality.
 
-**Numeric-prefix name recovery**: jieba often misclassifies Chinese nicknames starting with numerals (e.g., "二愣子", "三太子") as verbs. `_scan_word_freq()` includes a POS recovery path that keeps words with `_NUM_PREFIXES` ("一二三四五六七八九十") regardless of POS tag. `_merge_candidates()` detects when both short form ("愣子") and long form ("二愣子") exist, removes the short form and transfers its frequency to the long form. Naming-source entries bypass the top-500 candidate cutoff to ensure explicitly introduced names are always included.
+Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS recovery and candidate merging. Naming-source entries bypass the frequency cutoff to ensure explicitly introduced names are always included.
 
 ### Analysis Pipeline
 
@@ -92,336 +90,149 @@ The system's central concept. Each chapter produces one `ChapterFact` JSON conta
 
 ### Token Budget Auto-Scaling
 
-`context_budget.py` (`TokenBudget` dataclass + `compute_budget()` + `get_budget()`) — all LLM budget parameters (chapter truncation length, context summary limits, num_ctx, timeouts) are derived from the model's context window size via linear interpolation: 8K context → conservative "local" values, 128K+ context → generous "cloud" values, intermediate models get proportional values. Replaces the old binary `LLM_PROVIDER == "openai"` budget switching.
+`context_budget.py` (`TokenBudget` dataclass + `compute_budget()` + `get_budget()`) — all LLM budget parameters (chapter truncation length, context summary limits, num_ctx, timeouts) are derived from the model's context window size via linear interpolation: 8K context → conservative "local" values, 128K+ context → generous "cloud" values, intermediate models get proportional values.
 
-**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama `POST /api/show` → `model_info.*.context_length`. Cloud OpenAI-compatible mode defaults to 131072; Anthropic (`LLM_PROVIDER_FORMAT == "anthropic"`) defaults to 200000 (all Claude 3.x/4.x have 200K context). Failure falls back to 8192. Result stored in `config.CONTEXT_WINDOW_SIZE`. Local Ollama models are capped at `_OLLAMA_CTX_CAP = 16384` to prevent KV cache bloat on consumer hardware (4B models on 8-16GB machines drop from ~10 tok/s to ~2-3 tok/s at 32K context, causing timeouts).
-
-**Consumers**: `ChapterFactExtractor` (max_chapter_len, retry_len, segment_enabled, extraction_num_ctx, **few-shot example count** — only 1 example for context_window ≤ 16K, 2 examples above), `ContextSummaryBuilder` (context_max_chars, char/rel/loc/item limits, hierarchy chains, world summary chars), `SceneLLMExtractor` (scene_max_chapter_len), `WorldStructureAgent` (ws_max_tokens, ws_timeout), `LocationHierarchyReviewer` (hierarchy_timeout). `ChapterFactExtractor._is_cloud` and `SceneLLMExtractor._is_cloud` are set via `isinstance(llm, (OpenAICompatibleClient, AnthropicClient))` — controls JSON schema injection into system prompt and max_tokens budget.
+**Detection**: At startup and on model/mode switches, `detect_and_update_context_window()` queries Ollama or uses cloud defaults. Local Ollama models are capped to prevent KV cache bloat on consumer hardware. **Consumers**: `ChapterFactExtractor`, `ContextSummaryBuilder`, `SceneLLMExtractor`, `WorldStructureAgent`, `LocationHierarchyReviewer`. `_is_cloud` flag (set via `isinstance(llm, (OpenAICompatibleClient, AnthropicClient))`) controls JSON schema injection and max_tokens budget.
 
 ### Entity Alias Resolution
 
-`AliasResolver` (`alias_resolver.py`) — builds `alias → canonical_name` mapping using Union-Find to merge overlapping alias groups. Merges BOTH sources: `entity_dictionary.aliases` (pre-scan) and `ChapterFact.characters[].new_aliases` (per-chapter extraction). Canonical name selection uses `_pick_canonical()`: among candidates with frequency >= 50% of max, picks the shortest name (formal Chinese names are typically 2-3 chars, shorter than nicknames). The mapping is consumed by `entity_aggregator`, `visualization_service`, and the entities API.
+`AliasResolver` (`alias_resolver.py`) — builds `alias → canonical_name` mapping using Union-Find to merge overlapping alias groups. Merges BOTH sources: `entity_dictionary.aliases` (pre-scan) and `ChapterFact.characters[].new_aliases` (per-chapter extraction). Canonical name selection picks the shortest name among high-frequency candidates. Consumed by `entity_aggregator`, `visualization_service`, and the entities API.
 
-**Three-tier alias safety filtering**: `_alias_safety_level()` returns 0 (hard-block), 1 (soft-block), or 2 (safe). Level 0: kinship terms (大哥/妈妈), possessive phrases (的), trailing kinship suffixes. Level 1: generic person refs (老人/少年/妖精/那怪), pure titles (堂主/长老), length > 8, collective markers (众/群/们). Level 2: safe to use as Union-Find keys. **Passthrough logic**: when an entity_dictionary name or ChapterFact character name is unsafe, it is NOT registered as a UF node (preventing bridge pollution), but its safe aliases are still unioned among themselves (preserving legitimate groups). This prevents generic terms like "妖精"/"那怪" from bridging unrelated character groups (e.g., merging 孙悟空 with 猪八戒 through shared "妖精" references).
+**Safety filtering**: Multi-tier system (`_alias_safety_level()`) prevents generic terms (kinship terms, titles, collective references like "妖精"/"那怪") from becoming Union-Find nodes and bridging unrelated character groups. Unsafe names pass through their safe aliases without registering as UF nodes.
 
 ### Fact Validation — Morphological Filtering
 
-`FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with 18 structural rules based on Chinese place name morphology (专名+通名 structure) instead of exhaustive blocklists, including descriptive adjective + generic tail patterns (Rule 16, e.g., "偏僻地方"、"荒凉之地"), furniture/object exact-match filtering (Rule 17, e.g., "炕桌"、"抽屉"、"火盆"), and character room suffix filtering (Rule 18, e.g., "宝玉屋内"、"贾母房中" — 4+ char names ending with 屋内/房中/室内 etc.). Person validation uses `_is_generic_person()` to filter pure titles and generic references. Auto-created parent/region locations use `_infer_type_from_name()` to derive type from Chinese name suffix (e.g., "越国"→"国", "乱星海"→"海") instead of hardcoded "区域". See `_bmad-output/spatial-entity-quality-research.md` for the research basis.
+`FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with structural rules based on Chinese place name morphology (专名+通名 structure). Person validation uses `_is_generic_person()` to filter pure titles and generic references. Auto-created parent/region locations use `_infer_type_from_name()` to derive type from Chinese name suffix.
 
-**Dictionary-driven name corrections**: `FactValidator` accepts a `name_corrections` mapping (set by `AnalysisService` at analysis start) that fixes LLM extraction errors where numeric-prefix names are truncated (e.g., "愣子" → "二愣子"). Built from entity dictionary: for each person entity starting with a Chinese numeral, if the short form (without prefix) is not itself a legitimate dictionary entity, a correction rule is created. Applied in `_validate_characters()` before deduplication.
-
-**Alias-based character merge**: After name deduplication, when character A explicitly lists character B as an alias and B exists as a separate character entry, B is merged into A (combining aliases, locations, abilities). This handles cases where the LLM correctly identifies alias relationships but also extracts both names as separate characters (e.g., 韩立 listing "二愣子" as alias while "二愣子" also exists as independent character).
-
-**Homonym location disambiguation** (N29.3): `_disambiguate_homonym_locations()` renames generic architectural names (夹道, 后门, 角门, etc.) by prepending the parent location with a middle-dot separator: `"夹道"` → `"大观园·夹道"`. Only applies to names in `HOMONYM_PRONE_NAMES` (shared set in `utils/location_names.py`, also used by `conflict_detector.py`) that have a non-empty parent. Runs as the final post-processing step in `validate()`, after all other validation is complete and parent fields are finalized. Also syncs the rename across `characters[].locations_in_chapter`, `events[].location`, `spatial_relationships[].source/target`, and `locations[].parent`. Only affects new analyses; existing data is not retroactively modified. Frontend substring search (`.includes()`) naturally matches original names within disambiguated names (searching "夹道" finds "大观园·夹道").
+**Dictionary-driven name corrections**: Fixes LLM extraction errors where numeric-prefix names are truncated (e.g., "愣子" → "二愣子"). **Alias-based character merge**: When character A lists character B as an alias and B exists separately, B is merged into A. **Homonym location disambiguation**: Generic architectural names (夹道, 后门, etc.) are prepended with parent location using middle-dot separator. Syncs across all cross-references in the ChapterFact.
 
 ### Context Summary Builder — Coreference Resolution
 
-`ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations (sorted by mention frequency, not just recent window) with an explicit coreference instruction, enabling the LLM to resolve anaphoric references like "小城" → "青牛镇" instead of extracting them as separate locations. **Always injects entity dictionary and world structure** even for early chapters (chapter 1-2) with no preceding facts — the `build()` method no longer returns early when preceding chapter facts are empty, ensuring pre-scan results are available from the first chapter. Naming-source entities (from explicit "叫作/名叫" patterns) are displayed in a separate emphasized section at the top of the dictionary injection, ahead of frequency-sorted entries, to maximize visibility for small local models.
+`ContextSummaryBuilder` (`context_summary_builder.py`) — builds prior-chapter context for LLM extraction. Injects ALL known locations with coreference instructions, enabling the LLM to resolve anaphoric references (e.g., "小城" → "青牛镇"). Always injects entity dictionary and world structure even for early chapters with no preceding facts. Naming-source entities are displayed in a separate emphasized section.
 
-**Macro hub anchoring** (N32): `_build_macro_hub_section()` injects a top-down view of major geographic areas into the LLM prompt, solving the "都中隐身" problem where the LLM doesn't know about macro regions and fails to assign correct intermediate parents. Identifies the uber-root, collects its direct children with ≥3 descendants, displays top 8 hubs with tier info and up to 5 sub-children. Inserted between scene focus and hierarchy chains. `build()` accepts an optional `location_tiers` parameter for hub display. Callers in `AnalysisService` (3 call sites: main loop, auto-retry, manual retry) pass `location_tiers` from `WorldStructureAgent.structure`.
+**Macro hub anchoring**: `_build_macro_hub_section()` injects a top-down view of major geographic areas into the LLM prompt, solving the problem where the LLM doesn't know about macro regions and fails to assign correct intermediate parents.
 
 ### Location Parent Voting — Authoritative Hierarchy
 
-`WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent` (+1 per mention), `spatial_relationships[relation_type=="contains"]` (weighted by confidence: high=2, medium=1, low=1), and **chapter primary setting inference** (weight=2 per co-occurrence). The winner for each child is stored in `WorldStructure.location_parents` (a `dict[str, str]`). Cycle detection (DFS) breaks the weakest link. User overrides (`location_parent` type) take precedence.
+`WorldStructureAgent` accumulates parent votes across all chapters for each location. Sources: `ChapterFact.locations[].parent`, `spatial_relationships[relation_type=="contains"]` (weighted by confidence), and chapter primary setting inference. The winner for each child is stored in `WorldStructure.location_parents`. Cycle detection (DFS) breaks the weakest link. User overrides take precedence.
 
-**Chapter Primary Setting Inference**: Each chapter identifies a "primary setting" — the `role="setting"` location with the highest tier rank (largest geographic scale). Co-occurring orphan locations (no parent, not referenced/boundary, not bigger than the primary setting) receive a parent vote (weight=2) pointing to the primary setting. Across many chapters, these votes accumulate (e.g., "百药园" appearing with "七玄门" in 10 chapters → 20 votes). Fallback for old data without `role`: uses the first non-generic location in the chapter. Applied in both `_apply_heuristic_updates()` (live analysis) and `_rebuild_parent_votes()` (hierarchy rebuild).
+**Suffix Rank System**: Chinese location name suffixes encode geographic scale (界>国>城>谷>洞>殿). `_resolve_parents()` uses suffix rank as the PRIMARY signal for parent-child direction validation, falling back to LLM-classified tiers only when both names lack recognizable suffixes.
 
-**Suffix Rank System** (`_get_suffix_rank()`, `_NAME_SUFFIX_TIER`): Chinese location name suffixes encode geographic scale (界>国>城>谷>洞>殿). `_resolve_parents()` uses suffix rank as the PRIMARY signal for parent-child direction validation, falling back to LLM-classified `location_tiers` only when both names lack recognizable suffixes. This fixes ~35% of parent-child inversions caused by LLM extraction confusion (e.g., 元化国 incorrectly placed under 黄枫谷 → flipped because 国 rank 2 > 谷 rank 3). The same suffix rank is used in contains-relationship direction validation during vote accumulation. `_NAME_SUFFIX_TIER` (101 entries) also serves `_classify_tier()` Layer 1, providing reliable tier classification from name morphology for administrative, fantasy, natural feature, and building suffixes. v0.25.0 added 14 micro-scale suffixes (沟/街/巷/墓/陵/桥/坝/堡/哨/弄/码头/渡口/胡同/居).
+**Sibling clustering**: Bidirectional conflict resolution detects sibling pairs (same suffix rank, close vote ratios) and reassigns both to a common parent via `_find_common_parent()`. Peer-aware detection uses explicit `LocationFact.peers` evidence. Same-tier sibling promotion catches single-direction same-scale pairs.
 
-**Rebuild stability**: `_rebuild_parent_votes()` injects existing `location_parents` as baseline votes (weight=2) before adding chapter_fact evidence, preventing parent wipeout when chapter_facts are sparse. `consolidate_hierarchy()` runs tier inversion fixes (Step 2b) and noise root rescue (Step 2c) for ALL genres (previously skipped for fantasy/urban). Oscillation damping detects direction flips between input and output parents; reverts flips not justified by clear suffix rank or tier difference.
+**Hierarchy consolidation**: `consolidate_hierarchy()` handles tier inversion fixes, noise root rescue, oscillation damping, and tiered catch-all orphan adoption (prefix matching → dominant intermediate node → tier-gated uber_root fallback). Micro-location pruning skips low-vote sub-locations.
 
-**Micro-location pruning** (N32): `_resolve_parents()` Phase 3 skips sub-locations (matching `_is_sub_location_name()` patterns like 门外/墙下/粪窖边) with total vote count < `_MIN_MICRO_VOTES` (3). These noise locations with 1-2 mentions across the entire novel are excluded from parent resolution, direction validation, and cycle detection. Pruning happens at resolution stage (not collection), preserving vote data integrity. Reduces `_resolve_parents()` workload by ~10-15% for novels like 红楼梦 and prevents micro-locations from becoming direct children of uber-root.
+**LLM-assisted quality**: `MacroSkeletonGenerator` pre-generates a 2-3 level geographic skeleton via LLM. `LocationHierarchyReviewer` provides self-reflection (validates suspicious pairs) and subtree partition validation (independent LLM validation per subtree). Synonym location detection merges aliases.
 
-**Sibling clustering** (N32): `_resolve_parents()` bidirectional conflict resolution detects sibling pairs — when A→B and B→A both exist with same suffix rank (or both unknown) and vote ratio < 2:1, they are identified as siblings rather than parent-child. `_find_common_parent(a, b, parent_votes, known_locs)` searches both locations' vote candidates for a shared third-party parent (priority) or highest-voted non-sibling parent (fallback). If found, both locations are assigned to the common parent; if not, falls through to existing suffix rank / alphabetical tiebreak. Example: 宁国府↔荣国府 (same "府" suffix, close votes) → sibling → common parent "都中". **Same-tier sibling promotion** (N32 P3, N38 extended): a post-direction-validation scan catches single-direction same-scale pairs. Two paths: (1) Both have recognized suffix with same rank + notable suffix (`_SIBLING_CANDIDATE_SUFFIXES`: 府/城/寨/庄/镇/村/国/州) — e.g., 宁国府→荣国府. (2) Both have NO recognizable suffix (transliterated foreign names like 挪威→丹麦) + same LLM-classified tier from `_SIBLING_CANDIDATE_TIERS` (kingdom/region/continent/city). Reuses `_find_common_parent()` — for foreign names with no common parent found, orphans the child (better than wrong parent-child). **Primary setting same-tier guard** (N38): `_apply_heuristic_updates()` and `_rebuild_parent_votes()` use `c_rank <= p_rank` (was `<`) to skip same-tier locations in the chapter primary setting inference, preventing countries from being voted as children of other countries just because they co-occur. **Consolidation safety net** (N38): `consolidate_hierarchy()` Step 2b+ "Same-tier sibling separation" breaks parent-child relationships where both locations have no recognizable suffix and the same LLM-classified tier from `_SIBLING_TIERS` (kingdom/region/continent/city). **Peer-aware sibling detection** (N32 P4): when `LocationFact.peers` evidence exists, `_resolve_parents()` checks known `_peer_pairs` before bidirectional conflict resolution — if A→B exists and {A,B} is a known peer pair from extraction, treats them as siblings directly and searches for a common parent. This triggers earlier and more reliably than vote-ratio heuristics because it uses explicit LLM peer evidence. Parent vote suppression: when child and parent are known peers, parent vote weight is divided by 3 (0.33 instead of 1.0), reducing false parent-child signals from co-occurrence.
+**Two-step hierarchy rebuild**: `POST /rebuild-hierarchy` streams SSE progress events and returns a diff without saving. `POST /apply-hierarchy-changes` applies user-selected changes and auto-clears map overrides for repositioning. Three layers of cycle detection defense (resolve, consolidate, save).
 
-**Cycle detection**: Three layers of defense against cycles in `location_parents`: (1) `_resolve_parents()` walks each parent chain, breaks cycles at the weakest-voted edge; (2) `consolidate_hierarchy()` Step 0 breaks any pre-existing cycles before processing; (3) `world_structure_store.save()` runs `_break_cycles()` as a safety net before persisting. Frontend `WorldStructureEditor.tsx` tree building also detects and breaks cycles in a copy of the parents dict, preventing orphan nodes from appearing as flat depth-0 items.
-
-**Tiered catch-all & micro-scale filtering** (`_tiered_catchall` in `hierarchy_consolidator.py`): Orphan adoption uses a 3-step cascade: (1) prefix matching (orphan name starts with a known node), (2) **dominant intermediate node matching** — site/building orphans (rank ≥ 5) are adopted by the uber_root's direct child with the most descendants (≥3 required), preventing micro-locations from becoming direct children of 天下, (3) **tier-gated uber_root fallback** — only city-level and above (rank ≤ 4) are adopted by uber_root; site/building orphans with no match remain as independent roots rather than polluting 天下's children. `_classify_tier()` Layer 4 fallback defaults to `site` (not `city`) for truly unclassifiable names, since all recognizable city patterns are caught by earlier layers.
-
-**LLM self-reflection** (N32 P4): `reflect_suspicious()` in `LocationHierarchyReviewer` validates suspicious parent-child pairs via LLM. Suspicious pairs are collected at the end of `_resolve_parents()` based on three rules: (1) same suffix rank, (2) close vote counts (ratio < 2.0), (3) name containment. Capped at 20 pairs. The LLM returns verdicts (`correct`/`sibling`/`reverse`) per pair. Sibling verdicts trigger `_find_common_parent()` to reassign both; reverse verdicts swap direction. Batched: 10 pairs/batch, max 2 batches, 30s timeout per batch. Integrated into rebuild pipeline as "reflection" SSE stage between consolidation and validation. Prompt template: `hierarchy_reflection.txt`.
-
-**Subtree partition validation** (N32): `validate_hierarchy()` in `LocationHierarchyReviewer` splits the hierarchy into subtrees rooted at each uber-root direct child via BFS. Subtrees ≥ `_SUBTREE_MIN_SIZE` (5) nodes get independent LLM validation calls; smaller subtrees are batched together. Cloud mode (`isinstance(llm, (OpenAICompatibleClient, AnthropicClient))`) runs subtrees concurrently via `asyncio.gather()`; local mode runs sequentially. Each subtree has independent `_SUBTREE_TIMEOUT` (45s) — one timeout doesn't affect others. `_validate_subtree()` handles per-slice prompt construction and result parsing, limited to `_SUBTREE_MAX_DETAIL` (30) detail lines per slice.
-
-**Macro-skeleton pre-generation** (N32): `MacroSkeletonGenerator` (`macro_skeleton_generator.py`) generates a 2-3 level core geographic skeleton via LLM before scene analysis, providing top-down structural anchoring for the bottom-up per-chapter extraction system. Constructs a prompt with novel title, genre, uber-root children, tier-grouped locations (city-level+), and orphan list. LLM returns `{child, parent, confidence}` tuples filtered against known locations (no hallucinated names). Confidence weights: `high` → 5, `medium` → 3. Injected via `agent.inject_external_votes()`. Timeout 45s, graceful fallback on failure. Also detects **synonym locations** (e.g., 神京/都中 referring to the same city) via `synonyms` array in LLM response; synonym pairs are passed to `consolidate_hierarchy()` Step 0.5 which merges alias into canonical (transfers children, removes alias from tiers).
-
-**Two-step hierarchy rebuild**: `POST /rebuild-hierarchy` streams SSE progress events (genre re-detection → vote rebuild → **macro skeleton** → scene transition analysis → LLM review → consolidation → **LLM reflection** → LLM validation) and returns a diff of `old_parent → new_parent` changes without saving. Each change includes `auto_select` (default checked or unchecked based on heuristics: removals default off, name-containment relationships default off, non-location parents default off). `POST /apply-hierarchy-changes` applies user-selected changes and auto-clears `map_user_overrides` for affected locations so they get repositioned by the constraint solver. The LLM review step is wrapped with `asyncio.wait_for(timeout=90)` to prevent slow cloud API responses from blocking the SSE stream indefinitely.
-
-Consumers: `visualization_service.get_map_data()` overrides `loc["parent"]` and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` uses it for hierarchy sort and injects virtual parent nodes (uber-roots like "天下"/"地球" that exist only in `location_parents` values but not in ChapterFact extractions) so the encyclopedia hierarchy tree matches WorldStructureEditor. Virtual entries are marked with `virtual: True`. This replaces the old "first-to-arrive wins" strategy that caused duplicate location placements on the map.
+**Consumers**: `visualization_service.get_map_data()` overrides parents and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` injects virtual parent nodes (uber-roots like "天下" that exist only in `location_parents`).
 
 ### Relation Normalization and Classification
 
-`relation_utils.py` — shared module consumed by `entity_aggregator`, `visualization_service`, and `encyclopedia_service`. `_RELATION_TYPE_NORM` (70+ entries, N36 expanded) maps LLM-generated relation type variants to canonical forms via exact-match then substring-match. Covers: blood relations (父子/母子/兄弟/姐妹 + 养/继/义 variants), extended family (叔侄/甥舅/姑侄/翁媳/婆媳/妯娌/姑嫂/连襟/嫡庶/表亲/堂亲/亲家/族人), intimate (夫妻/恋人/情敌), hierarchical (师徒/主仆/君臣/上下级), social (朋友/同门/同学/同事/邻居/搭档/同僚/盟友/世交/恩人/奇遇), hostile (敌对). `classify_relation_category()` assigns each normalized type to one of 6 categories: family, intimate, hierarchical, social, hostile, other. Keyword fallback covers 17 family keywords (父/母/兄/姐/弟/妹/叔/侄/祖/孙/婆/媳/嫂/舅/姑/族/亲). Used for PersonCard relation grouping, graph edge coloring, and encyclopedia org relation badges.
+`relation_utils.py` — shared module consumed by `entity_aggregator`, `visualization_service`, and `encyclopedia_service`. `_RELATION_TYPE_NORM` (70+ entries) maps LLM-generated relation type variants to canonical forms via exact-match then substring-match. `classify_relation_category()` assigns each normalized type to one of 6 categories: family, intimate, hierarchical, social, hostile, other. Used for PersonCard relation grouping, graph edge coloring, and encyclopedia org relation badges.
 
 ### Entity Aggregation — Relations
 
-`entity_aggregator.py` — when building `PersonProfile.relations`, relation types are normalized before stage merging. Each `RelationStage` collects multiple `evidences` (deduplicated) instead of keeping only the longest one. Each `RelationChain` gets a `category` assignment. `RelationStage.evidence` (str) is preserved as a Pydantic `computed_field` for backward compatibility.
+`entity_aggregator.py` — when building `PersonProfile.relations`, relation types are normalized before stage merging. Each `RelationStage` collects multiple `evidences` (deduplicated). Each `RelationChain` gets a `category` assignment.
 
 ### Graph Edge Aggregation
 
-`visualization_service.py` — graph edges use `Counter`-based type frequency tracking instead of "latest chapter wins". Each edge outputs `relation_type` (most frequent normalized type), `all_types` (all types sorted by frequency), and `category` (from `classify_relation_category()`). **Organization attribution** (N36): when `org_events` don't provide org membership, falls back to counting character visits to org-type locations (reusing `_is_org_type()` logic from factions). `_ORG_ACTION_JOIN = {"加入", "晋升", "出现", "创建", "成立"}`, minimum 2 visits required. API response includes `category_counts` (Counter by category) and `type_counts` (top 20 normalized relation types).
+`visualization_service.py` — graph edges use `Counter`-based type frequency tracking instead of "latest chapter wins". Each edge outputs `relation_type` (most frequent), `all_types` (sorted by frequency), and `category`. Organization attribution falls back to counting character visits to org-type locations when `org_events` don't provide membership. API response includes `category_counts` and `type_counts`.
 
 ### GeoResolver — Real-World Coordinate Matching
 
-`GeoResolver` (`geo_resolver.py`) — matches novel location names to real-world GeoNames coordinates for realistic geographic map layouts. Supports multiple datasets via `GeoDatasetConfig` registry:
+`GeoResolver` (`geo_resolver.py`) — matches novel location names to real-world GeoNames coordinates. Two datasets: `cn` (Chinese locations, ~140K entries) and `world` (global cities with pop > 5000, ~50K entries). Chinese alternate name index (`backend/data/zh_geonames.tsv`) provides CJK matching for world dataset.
 
-- **`cn`**: GeoNames CN.zip — comprehensive Chinese locations (~140K entries), used for historical/wuxia novels
-- **`world`**: GeoNames cities5000.zip — global cities with pop > 5000 (~50K entries), used for international novels
+**Auto-detection**: `detect_geo_scope()` determines dataset based on genre + CJK ratio → `detect_geo_type()` uses quality-weighted notable matching → returns `"realistic"`, `"mixed"`, or `"fantasy"`. Fantasy/xianxia genres skip geo resolution. CN dataset fallback to world dataset for translated foreign names. Cached `geo_type` prevents chapter-range oscillation.
 
-**Chinese alternate name index** (`_zh_alias_index`): Pre-built from GeoNames `alternateNamesV2` Chinese entries joined with `cities5000` coordinates. Stored as `backend/data/zh_geonames.tsv` (~26K entries, 1.3MB). Lazy-loaded on first world-dataset resolve. Includes both traditional and simplified Chinese variants (via opencc t2s conversion at build time). Built by `scripts/build_zh_geonames.py`.
+**Name resolution** uses 4-level matching: curated supplement → Chinese alternate name index → exact GeoNames match → Chinese suffix stripping + disambiguation by population.
 
-**Auto-detection pipeline** (`auto_resolve()`): `detect_geo_scope()` determines dataset based on genre_hint + location name CJK ratio → loads appropriate dataset → `detect_geo_type()` uses quality-weighted notable matching → returns `"realistic"` (≥20%), `"mixed"` (≥5%), or `"fantasy"` (<5%). **Fallback logic**: if CN dataset matches poorly (e.g., translated foreign place names like 伦敦/巴黎), automatically retries with world dataset. Accepts optional `known_geo_type` parameter to skip detection and only resolve coordinates (used when geo_type is already cached). `_FANTASY_GENRES = {"fantasy", "xianxia"}` — xianxia novels have entirely fictional geography (灵界、修真界) and skip geo resolution entirely.
+### Map Layout
 
-**Quality-weighted detection** (`_count_notable_matches()`): Only counts matches to places with population ≥ 5000 or county-level+ administrative codes (`_NOTABLE_FEATURE_CODES`: ADM1-3, PPLA-PPLA3, PPLC). Curated supplement entries and zh alias index entries always count as notable. Exact match only (no suffix stripping) for detection. This prevents false positives from tiny villages (pop=0) that share names with common Chinese words — e.g., 红楼梦's 上房/后门/角门/稻香村 all match real villages in GeoNames CN, but none are notable enough to count toward detection.
-
-**Name resolution** uses 4-level matching: curated supplement → Chinese alternate name index (world dataset only, with parent-proximity disambiguation) → exact GeoNames match → Chinese suffix stripping (城/府/州/县/镇/村/山/河/湖 etc.) + disambiguation by population + admin feature codes. Two-pass parent-proximity validation discards suffix-stripped matches >1000km from parent.
-
-**Integration**: `visualization_service.get_map_data()` uses cached `ws.geo_type` when available, skipping re-detection to prevent oscillation when chapter range or hierarchy changes alter the location subset (small subsets can accidentally exceed the 20% realistic threshold). Only runs full detection when `ws.geo_type is None` (first access after analysis). For realistic/mixed novels, still calls `auto_resolve(known_geo_type=...)` to resolve coordinates without re-detecting type. `apply-hierarchy-changes` does NOT reset `geo_type` — geographic nature is a property of the novel, not of its hierarchy structure. Result cached as `layout_mode="geographic"`.
-
-`WorldStructure.geo_type` caches the detection result to avoid redundant computation and chapter-range/hierarchy oscillation. Once set, it persists until the novel is re-analyzed or manually reset.
-
-### Map Layout — Sunflower Seed Distribution
-
-`map_layout_service.py` — for locations exceeding `MAX_SOLVER_LOCATIONS=40`, overflow locations are placed by `_place_remaining()`, `_place_children()`, and `_hierarchy_layout()`. These methods use **sunflower seed distribution** (golden angle ≈137.5° + radius `r = base × (0.3 + 0.7 × √(i/n))`) instead of uniform circular placement (`angle = 2π*i/n, r = constant`), which caused visible ring patterns. The golden angle ensures successive points are maximally spread, while the sqrt-scaled radius fills the circular area organically from center outward. **Adaptive spread radius** (N33): `_place_remaining()` and `_place_children()` scale the distribution radius by `max(1.0, √(n_children/5))`, capped at 30% of canvas min dimension. This prevents high-density parent nodes (e.g., 都中 with 200+ children) from clustering all children in a fixed 36px radius — 5 children → 36px (unchanged), 50 → ~114px, 200 → ~228px.
+`map_layout_service.py` — uses **sunflower seed distribution** (golden angle) for organic location placement instead of uniform circular placement. Adaptive spread radius scales with child count to prevent clustering. `ConstraintSolver` uses differential evolution with force-directed pre-layout seeding for primary layout computation.
 
 ### GeoMap — Leaflet Real-World Map
 
-`GeoMap.tsx` — React-Leaflet component for geographic layout mode. Renders location markers on a real-world tile map (CartoDB Positron). Features:
-
-- **CircleMarker** with size scaled by mention_count, color by location type
-- **Trajectory polylines** showing character travel routes
-- **Click-to-navigate**: Geography panel clicks fly to + highlight the location (persistent tooltip)
-- **Drag-to-reposition**: Edit mode with crosshair DivIcon marker for manual lat/lng adjustment, saved to `map_user_overrides` (lat/lng columns)
-- **Auto fitBounds** to all markers on load
-
-`MapPage.tsx` switches between `GeoMap` (layout_mode="geographic") and `NovelMap` (all other modes).
+`GeoMap.tsx` — React-Leaflet component for geographic layout mode with CircleMarkers (size by mention_count, color by type), trajectory polylines, click-to-navigate from Geography panel, drag-to-reposition in edit mode, and auto fitBounds. `MapPage.tsx` switches between `GeoMap` (geographic) and `NovelMap` (all other modes).
 
 ### Graph Readability — Dense Network Optimization
 
 `GraphPage.tsx` — relationship graph with readability features for complex novels (400+ characters):
 
-- **Edge weight filtering**: `minEdgeWeight` slider with backend-computed `suggested_min_edge_weight` (auto-raises for >500 edges)
-- **Smart auto-defaults**: `minChapters` auto-set to 3 for >200 nodes, 2 for >100 nodes
-- **Label-inside-circle**: Large nodes render names centered inside (white text + dark stroke) when circle diameter > text width at current zoom; smaller nodes keep below-node labels with background pill
-- **Force spacing**: Charge strength and link distance scale with graph density (stronger repulsion for dense graphs)
-- **Collision detection**: Label rects tracked per frame, only non-overlapping labels rendered
-- **Dashed weak edges**: `linkLineDash` for weight ≤ 1
-- **Category filter chips** (N36): `hiddenCategories: Set<string>` controls per-category edge visibility. Six colored toggle buttons (family=blue, intimate=pink, hierarchical=purple, social=green, hostile=red, other=gray) with count badges. Integrated into `filteredEdges` useMemo pipeline
-- **Dark mode adaptation** (N36): `isDarkRef` via MutationObserver on `document.documentElement.classList`. Theme-aware label backgrounds (`rgba(30,30,30,0.85)` dark / `rgba(255,255,255,0.85)` light), text colors, dimmed edge colors
-- **Interactive legend** (N36): Category legend entries are clickable to toggle filtering. Shows per-category counts and relation type labels
+- Edge weight filtering with backend-computed suggested minimum
+- Smart auto-defaults for minChapters based on node count
+- Label-inside-circle for large nodes, below-node labels for small nodes
+- Force spacing scales with graph density
+- Label collision detection (per-frame rect tracking)
+- Dashed weak edges for weight <= 1
+- Category filter chips (6 categories with colored toggle buttons)
+- Dark mode adaptation via MutationObserver
+- Interactive legend with clickable category entries
 
-### Force-Directed Pre-Layout Seeding
+### Location Semantic Role & Peers
 
-`ConstraintSolver._force_directed_seed()` generates a physics-simulated initial population for `differential_evolution`, replacing random initialization. Uses `_hierarchy_layout()` as starting positions, then runs 80 iterations of spring-force simulation (constraint attraction + pairwise repulsion). User-overridden positions are fixed during simulation. Row 0 of the seed population = force-directed result; remaining rows = random (preserving DE diversity). Energy comparison logged: `Force-directed seed energy=X.XX, random sample energy=Y.YY`.
+`LocationFact.role` (`"setting"` | `"referenced"` | `"boundary"` | `None`) distinguishes narrative function. Frontend renders referenced/boundary locations with reduced opacity. `LocationFact.peers` captures same-level adjacent entities (e.g., 宁国府 → peers: ["荣国府"]). Peers are used for parent vote suppression and sibling detection in hierarchy resolution.
 
-### Location Semantic Role
+### Map Features
 
-`LocationFact.role` (optional field: `"setting"` | `"referenced"` | `"boundary"` | `None`) distinguishes narrative function of each location in a chapter. `setting` = character physically present; `referenced` = mentioned in dialogue/narration; `boundary` = directional landmark. Default `None` for backward compatibility. Frontend renders `referenced` locations at 50% opacity and 70% icon scale; `boundary` locations at 60% opacity with dashed border ring.
+**Conflict markers**: `conflict_detector.py` detects parent disagreements across chapters. Frontend renders animated red pulse rings on conflicting locations. Filters out homonym-prone names and requires multi-chapter minority evidence.
 
-### Location Peers Field
+**Dense location optimization**: Two-stage filtering pipeline — mention count slider + tier collapse/expand (site/building tiers hidden by default with "+N" expand badges on parents).
 
-`LocationFact.peers` (optional field: `list[str] | None`) captures same-level spatially adjacent or parallel entities explicitly mentioned in the text. Example: 宁国府 → peers: ["荣国府"] (两府并列). The extraction prompt distinguishes `parent` (strict physical containment) from `peers` (parallel/adjacent same-level entities). `FactValidator` filters out self-references, empty strings, and generic locations from peers. `WorldStructureAgent` accumulates `_peer_pairs: set[frozenset[str]]` from extraction and uses them for: (1) parent vote suppression (weight ÷ 3 for known peer pairs), (2) peer-aware sibling detection in `_resolve_parents()`. Backward compatible — default `None`, old data without peers works unchanged.
+**Terrain texture layer**: `terrainHints.ts` generates decorative SVG symbols (mountains, water, forest, desert, cave) around terrain-type locations. Tier-dependent sizing, deterministic placement, collision-aware.
 
-### Map Conflict Markers
+**Label layout**: `computeLabelLayout()` tries 8 candidate anchor positions per label (multi-anchor collision detection). `labelAnnealing.ts` provides simulated annealing optimization for HD map export.
 
-`get_map_data()` calls `_detect_location_conflicts()` (from `conflict_detector.py`) on loaded facts and includes `location_conflicts` array in the API response. Frontend `NovelMap.tsx` builds a `conflictIndex` (location name → descriptions), renders animated red dashed pulse rings on conflicting locations, and shows conflict details in the location popup. Conflict display is toggled via `showConflicts` state in `MapPage.tsx` (default off). `conflict_detector.py` filters out homonym-prone location names (`is_homonym_prone()` from shared `utils/location_names.py`) and requires minority parent to appear in ≥2 chapters (`_MIN_MINORITY_CHAPTERS`), reducing false-positive conflicts by ~85%.
+**River network**: `generate_rivers()` in backend uses gradient descent on OpenSimplex elevation field from water-type location sources. Frontend renders via d3 curveBasis.
 
-### Map Readability — Dense Location Optimization (N29)
+**Whittaker biome matrix**: 5x5 elevation x moisture grid with bilinear interpolation for smooth terrain coloring. Lloyd relaxation for uniform Voronoi cells.
 
-`MapPage.tsx` implements a two-stage filtering pipeline for maps with many locations (e.g., 红楼梦 760 locations):
+**Trajectory animation**: Dual-path progressive drawing with waypoint stay-duration scaling, pulse marker at current position, chapter labels, auto-pan following playback, adjustable speed.
 
-- **Mention count filter** (N29.1): `minMentions` slider filters locations by `mention_count`. Backend provides `max_mention_count` and `suggested_min_mentions` (3 for >300 locations, 2 for >150, 1 otherwise). 150ms debounce prevents excessive re-renders. Effect: 760→107 at threshold 3.
-- **Tier collapse/expand** (N29.2): `COLLAPSED_TIERS = {site, building}` hides lower-tier locations within their parent nodes by default. `expandedNodes` Set tracks which parents have been expanded. `collapsedChildCount` Map provides badge counts. `NovelMap.tsx` renders blue "+N" badges on parent nodes; double-click toggles expand/collapse. Expand All / Collapse All buttons in controls. Effect: 107→19 visible + 88 collapsed.
-- **Combined pipeline**: `useMemo` chains mention filter → tier collapse before passing `filteredLocations` + `filteredLayout` to NovelMap/GeoMap.
+**Hand-drawn style**: `roughjs` renders territories, rivers, and coastline with sketch aesthetics. Coastline uses convex hull + radial expansion + multi-octave noise. Area-based fill gating for large territories. Vignette and displacement map filter for region labels.
 
-### Terrain Semantic Texture Layer
-
-`terrainHints.ts` (`generateTerrainHints()`) — generates decorative SVG symbols around terrain-type locations to fill empty parchment space with hand-drawn map ambiance. Pure frontend, no backend changes.
-
-**Icon → terrain mapping**: `mountain`→mountain, `water`/`island`→water, `forest`→forest, `desert`→desert, `cave`→cave. All other icons (city, temple, palace, etc.) produce no terrain hints.
-
-**Symbol definitions**: 3 variants per major category (mountain/water/forest), 2 for desert/cave. Includes "cluster" variants: mountain ridge (3 overlapping peaks), tree cluster (3 trees), triple wave (3 parallel wavy lines). Cluster variants appear ~35% of the time.
-
-**Tier-dependent sizing**: Each tier has independent count, spread radius, and base symbol size (continent: 22 symbols, 160px radius, 38px base; building: 3 symbols, 24px radius, 12px base). Size varies ×0.5–1.0 per symbol. Global cap `MAX_HINTS=900` with proportional scale-down.
-
-**Placement**: Deterministic sin-hash pseudo-random, sqrt-distributed polar coordinates (golden-angle-like spread avoiding center clustering). Collision filter skips symbols within 18px of any location center. Canvas boundary clipping at 20px margin.
-
-**Rendering** (in `NovelMap.tsx`): SVG `<symbol>` definitions in `<defs>`, `<use>` elements in existing `#terrain` group (z-order: below regions/territories, above parchment). `pointer-events: none`. Water symbols use `stroke` + `fill="none"`; others use `fill`. Colors: warm earthy tones (light bg) / brighter variants (dark bg). Opacity range ~0.11–0.22.
-
-### Label Multi-Anchor Collision Detection (N30.1)
-
-`computeLabelLayout()` in `NovelMap.tsx` replaces the previous `computeLabelCollisions()` hide-on-collision strategy with a multi-anchor try system. Returns `Map<string, LabelPlacement>` instead of `Set<string>`. For each label (sorted by priority), tries 8 candidate positions: bottom → right → top-right → top → top-left → left → bottom-left → bottom-right. Each anchor has specific `textAnchor` ("middle"/"start"/"end") and offset calculations. Only hides if all 8 positions collide. Grid spatial index (cell size 60px) provides O(1) collision checks. Zoom callback applies `offsetX/k, offsetY/k` to convert screen-space offsets to world-space (counter-scaled labels).
-
-### Simulated Annealing Label Export (N30.2)
-
-`labelAnnealing.ts` — standalone SA optimizer for HD map export. 8 anchor definitions matching NovelMap's candidates. `annealLabels()` async function: greedy warm start → 5000 SA iterations with incremental delta energy computation. Energy: `W_OVERLAP=10` (label-label overlap area), `W_OCCLUSION=5` (label-icon overlap), `W_OFFSET=0.5` (distance from default anchor). Chunked async (500 iterations/chunk) with setTimeout(0) for UI responsiveness. Export pipeline in MapPage: clone SVG → reset transforms → remove counter-scale → show all tiers → extract AnnealItems → run annealing → apply positions → set viewBox 3x → watermark → SVG→PNG download.
-
-### River Network Generation (N30.3)
-
-`generate_rivers()` in `map_layout_service.py` — gradient descent on OpenSimplex elevation field. Water-type locations serve as river sources. `_trace_river()` follows negative elevation gradient with lateral noise perturbation (±15° wiggle), terminating at canvas edge or elevation minimum. River width tapers from source (3-5px) to mouth. Returns `[{points: [[x,y],...], width: float}]`. Frontend renders in `#rivers` SVG group (after terrain, before regions) using `d3Shape.curveBasis` for smooth curves, blue color (#6b9bc3 light / #7eb8d8 dark), opacity 0.6.
-
-### Whittaker Biome Matrix (N30.4)
-
-`_WHITTAKER_GRID` — 5×5 grid (elevation × moisture) of RGB biome colors. `_biome_color_at()` uses bilinear interpolation for smooth transitions between biomes (no hard boundaries). `_elevation_at_img()` and `_moisture_at_img()` compute environmental fields influenced by mountain/water location proximity. `_lloyd_relax()` performs Voronoi centroid iteration with clamped movement (±30px max total displacement) for location seed points. `generate_terrain()` refactored to use Whittaker matrix instead of per-type biome colors, with Lloyd relaxation for more uniform cell shapes.
-
-### Trajectory Animation Enhancement (N30.5)
-
-NovelMap trajectory rendering uses dual-path progressive drawing: background dashed path (full trajectory, opacity 0.2) + foreground solid path (visible slice, opacity 0.85). Waypoint circle radius scales with stay duration: `r = min(4 + stay * 1.5, 12)`. Current playback position shows pulse marker (SVG `<animate>` for radius 10→18→10 and opacity 0.6→0.1→0.6, 1.5s loop). Chapter labels ("Ch.N") at first occurrence of each location. Counter-scale in zoom callback: stroke-width `3/k`, circle radius `baseR/k`, label font-size `9/k`. Auto-pan follows playback when current point is within 20% of viewport edge, using `d3Zoom.translateTo` with 300ms transition. MapPage adds `playSpeed` state (1200/800/400ms) with three-speed toggle buttons (×0.5/×1/×2).
-
-### Rough.js Hand-Drawn Map Style (N31.2)
-
-`NovelMap.tsx` uses `roughjs` for hand-drawn aesthetic rendering of territories, rivers, and coastline. `roughCanvasRef` holds a `RoughSVG` instance initialized during SVG setup. **Territories**: `rc.path()` with hachure fill (roughness 1.2, bowing 1.0, per-territory seed from `hashString(name)`, hachure angle/gap vary by level). **Area-based fill gating** (N33): territories whose bounding box area > 15% of canvas area render stroke-only (`fill: "none"`) to prevent long diagonal hachure lines from dominating the map; smaller territories retain hachure fill for hand-drawn aesthetics. **Rivers**: quadratic Bezier path built manually (`Q` commands between waypoints), rendered via `rc.path()` (roughness 0.8, bowing 2.0, stroke-only). **Coastline** (`coastlineGenerator.ts`): Graham scan convex hull of all locations → radial expansion (8% of canvas min dimension) → multi-octave sinusoidal noise (3 frequencies: 7×, 13×, 23× angle) → 4× subdivision with sub-noise → closed SVG path. **Coastline + terrain stability** (N33): coastline and terrain hints use `allLayout`/`allLocations` (full unfiltered data) so their shape remains stable when the mention-count filter changes; territories use filtered data (they represent visible groupings). Ocean fill uses evenodd compound path (viewport rect + coastline cutout). Coastline border rendered via rough.js (roughness 1.5). **Vignette**: SVG radial gradient (`#vignette`) with transparent center → edge darkening, applied as a `<rect>` outside viewport (zoom-independent). Region and territory labels use `filter="url(#hand-drawn)"` SVG displacement map for subtle tremor.
-
-### Map Location Click-to-Card
-
-Clicking a location on `NovelMap.tsx` directly opens the `EntityCardDrawer` via `onLocationClick` → `openEntityCard(name, "location")`, without showing a popup tooltip. Each location `<g>` has a transparent hit-area circle (`class="loc-hitarea"`, `fill="transparent"`, `r >= 14px`) as the first child to ensure reliable pointer detection regardless of icon SVG shape/size. The d3-drag behavior uses `.clickDistance(5)` and a `hasDragged` guard so that clicks (< 5px movement) fire the click handler while actual drags (≥ 5px) trigger position save via `onDragEndRef`. Conflict markers retain their own popup click handlers independently.
-
-### Region Label Curved Text
-
-Region labels (`#region-labels` group) render text along SVG `<textPath>` arcs when `regionBoundaries` data is available (from `WorldStructure.layers[].regions` → Voronoi boundaries). Arc paths are defined in `<defs>` as quadratic Bezier curves (`M...Q...`), with bend direction based on vertical position (top-half bends down, bottom-half bends up). `href` is set via both `setAttributeNS(xlink namespace)` and `setAttribute("href")` for browser compatibility. Territory labels (`#territory-labels`) use the same technique for level 0-1 territories.
-
-### Override Constraint Locking
-
-`map_user_overrides` table extended with `constraint_type` (`"position"` default | `"locked"`) and `locked_parent` columns. When `constraint_type='locked'`, the override survives `apply-hierarchy-changes` (not deleted). `locked_parent` overrides voted parent with highest priority in `get_map_data()`. Locked locations display a lock indicator on the map.
+**Other map features**: Click-to-card (location click opens EntityCardDrawer), curved region labels via SVG textPath, override constraint locking (survives hierarchy changes).
 
 ### Entity Quality — Single-Character Filtering
 
-Three-layer defense against common single-character nouns extracted as entities (书/饭/茶/龙):
+Three-layer defense: (1) FactValidator minimum length for non-person entities, (2) entity_aggregator surname cross-reference for single-char persons, (3) frontend safety net filter.
 
-1. **FactValidator** (`fact_validator.py`): `_NAME_MIN_LEN_OTHER = 2` for items/concepts/orgs/locations (persons keep min=1 for valid single-char names like 薛)
-2. **entity_aggregator**: Single-char person names kept only if a multi-char person name starting with that character exists (surname cross-reference)
-3. **ReadingPage**: Frontend safety net `entities.filter(e => e.name.length >= 2)`
+### Encyclopedia
 
-### Encyclopedia Enhancement (N34)
-
-`encyclopedia_service.py` provides the data layer; `EncyclopediaPage.tsx` renders the UI. N34 adds 13 improvements across 3 tiers:
-
-**Entry enrichment**: Each entry carries `chapter_count` (number of distinct chapters mentioning the entity) and location entries carry `tier`/`icon` from WorldStructure. Search matches both name and definition text. Sort modes: name, chapter, hierarchy, **mentions** (descending chapter_count).
-
-**Entity card enhancements**: All four card components (`PersonCard`, `LocationCard`, `ItemCard`, `OrgCard`) accept optional `novelId` prop. `EntityCardDrawer` passes `novelId` to all cards and renders cross-page navigation buttons at the bottom (location→地图/百科, person→时间线/关系图/百科, org→组织/百科, item→百科). `PersonCard` adds a "足迹" section extracted from experiences. `OrgCard` adds "当前成员" section (filters out leave/death actions) and colored relation type badges. `LocationCard` adds spatial relationship summary (lazy-loaded via `GET /{name}/spatial`), `LocationMiniMap` SVG component (parent + siblings layout), and scene index.
-
-**Scene index**: `EntityScenes.tsx` shared component fetches `GET /{name}/scenes` and renders scene cards with emotional tone colors and role badges. Integrated into all four entity card types before the stats section. Backend `get_entity_scenes()` scans `chapter_fact_store.get_all_scenes()` for character/location/summary matches, capped at 30.
-
-**Location conflicts**: `GET /location-conflicts` (registered before `/{name}` wildcard route) returns conflicts grouped by location name via `conflict_detector._detect_location_conflicts()`. Hierarchy tree view shows red dots on conflicting locations with hover tooltip.
-
-**World view tab**: "世界观" special entry in category sidebar. When selected, main area displays WorldStructure data: layer list with types and region counts, portal connections, spatial scale, genre hint, and location parent/tier counts.
-
-**Location siblings**: `LocationProfile.siblings` field added to Pydantic model. `aggregate_location()` computes siblings from `ws.location_parents` (locations sharing the same parent). `LocationMiniMap.tsx` renders a small SVG (200×120px) with parent node on top and sibling nodes below, current location highlighted.
-
-**Route registration order** in `encyclopedia.py`: `/location-conflicts` before `/{name}`, then `/{name}/spatial` and `/{name}/scenes` as sub-paths.
+`encyclopedia_service.py` + `EncyclopediaPage.tsx`. Entry enrichment with chapter_count, tier/icon. Four entity card types (Person/Location/Item/Org) with cross-page navigation, scene index (`EntityScenes.tsx`), and novelId prop. LocationCard includes spatial relationships, LocationMiniMap (parent + siblings SVG), and scene index. Location conflict display in hierarchy tree. "世界观" world view tab shows WorldStructure data. Route order: `/location-conflicts` before `/{name}` wildcard.
 
 ### Scene Panel — Reading Page Integration
 
-Scene/screenplay functionality is integrated into ReadingPage as a right-side panel (`ScenePanel.tsx`), not a standalone page. The toolbar "剧本" toggle button opens/closes the panel. When open: scenes are fetched via `fetchChapterScenes()`, the text switches from whole-block to paragraph-level rendering with colored left borders (`border-l-3 + SCENE_BORDER_COLORS[sceneIdx]`) marking scene boundaries, and the active scene's paragraphs get `bg-accent/30` highlighting. Clicking a SceneCard scrolls the text to the corresponding paragraph. Shared components (`SceneCard`, `SCENE_BORDER_COLORS`, `TONE_STYLES`, `EVENT_TYPE_STYLES`) are exported from `components/shared/ScenePanel.tsx`.
+Scene/screenplay as right-side panel (`ScenePanel.tsx`) in ReadingPage. Toolbar toggle, paragraph-level rendering with colored scene borders, scene card click-to-scroll. Shared components exported from `components/shared/ScenePanel.tsx`.
 
 ### Analysis Timing & Quality Tracking
 
-`AnalysisService` tracks per-chapter timing and quality metrics during analysis. `_chapter_times` accumulates elapsed_ms per chapter, enabling real-time ETA via WebSocket (`timing.eta_ms = avg_ms * remaining`). `ExtractionMeta` (from `ChapterFactExtractor`) reports `is_truncated` (chapter exceeded budget.max_chapter_len) and `segment_count` (number of segments for long chapters). These are persisted to `chapter_facts` columns and surfaced in the analysis progress UI. On completion, a `timing_summary` JSON (total_ms, avg/min/max_chapter_ms, chapters_processed) is saved to `analysis_tasks.timing_summary`.
+Per-chapter timing with real-time ETA via WebSocket. `ExtractionMeta` reports truncation and segment count. Live timing persists in memory (survives page navigation) and via REST. Auto-retry for failed chapters (skipping content_policy failures).
 
-**Live timing persistence**: `AnalysisService._live_timing` (dict keyed by novel_id) stores the latest timing snapshot in memory, surviving page navigation. Updated after every chapter (success or failure). The `processing` WS message includes `timing` so the frontend receives timing even before the first `progress` message. REST `GET /novels/{id}/analysis/latest` returns `timing` when the task is running/paused. Frontend `analysisStore._pollTaskStatus()`, `AnalysisPage` mount load, and `visibilitychange` handler all restore `timingStats` from REST. Cleaned up on task completion/cancel; preserved on pause.
+### Analysis Failure Resilience
 
-**Auto-retry**: After the main loop, failed chapters get one automatic retry attempt. Success broadcasts `"retry_success"` status via WebSocket. `content_policy` chapters are **skipped** during retry (same content will always be rejected by the provider's safety filter).
+**Error persistence**: `analysis_error` and `error_type` columns on chapters table. Five error types: timeout, parse_error, content_policy, http_error, unknown. **Task state recovery**: `recover_stale_tasks()` at startup resets stuck "running" tasks to "paused". **Post-analysis LLM timeout**: Hierarchy review wrapped with timeout, continues non-fatally on failure.
 
-### Analysis Failure Resilience (N28)
+### Model Benchmark
 
-**Error persistence** (`chapters` table): `analysis_error TEXT` and `error_type TEXT` columns store the failure reason per chapter. `_classify_error(exc)` maps exceptions to five types: `timeout` (LLMTimeoutError), `parse_error` (LLMParseError / ExtractionError), `content_policy` (LLMError with safety keywords like "content_filter"/"违规"/"审核"), `http_error` (other LLMError), `unknown`. Frontend `AnalysisPage` shows a colored badge per failed chapter (orange=内容审核, yellow=超时, red=其他) with hover tooltip.
+`POST /model-benchmark` runs extraction against golden standard. Quality scoring via string matching (entity_recall * 0.6 + relation_recall * 0.4). Results saved to `benchmark_records` table. History view in SettingsPage.
 
-**Task state recovery** (`recover_stale_tasks()`): Called at server startup (`lifespan` in `main.py`). Any task stuck in `"running"` is auto-reset to `"paused"` so the user can resume. Prevents permanently-stuck tasks caused by `uvicorn --reload` killing asyncio tasks mid-execution.
+### Timeline Data Aggregation
 
-**content_policy skip** (N28.3): `_failed_in_run` entries carry `error_type`; retry loop skips chapters with `error_type == "content_policy"`. Saves time and tokens on content that will always be rejected.
+`get_timeline_data()` aggregates events from 6 sources: original events, character first appearances, item events, org events, relationship changes, and scene emotional tone linking. Noise filtering removes trivial item actions and one-time walk-on characters. Relationship change events detect new relations and type changes. Scene tone matching via participant overlap. Frontend: type filters, swimlane threshold, auto-collapse for low-importance chapters, emotional tone badges.
 
-**Post-analysis LLM timeout** (N28.4): `LocationHierarchyReviewer.review()` is wrapped with `asyncio.wait_for(timeout=60.0)`. On `asyncio.TimeoutError`: logs a warning, broadcasts stage message "地点层级优化超时，已跳过", sets `review_votes = None`, and continues non-fatally to task completion.
+### Reading Page
 
-### Model Benchmark — Quality Evaluation & History
+`ReadingPage.tsx` — primary reading interface. Entity highlight control (toggle + per-type filter, `H` shortcut). Reading progress indicators (top bar + sidebar). Scene panel with error handling, cache, character/tone filters. Entity card drawer with profile cache. Keyboard shortcuts (arrows, Escape, S, H). Bookmark system (backend `bookmarks` table + 3 endpoints). Chapter preload via requestIdleCallback.
 
-`POST /model-benchmark` runs a fixed extraction prompt against the current LLM and evaluates output quality against a golden standard (`_GOLDEN_STANDARD` in `settings.py`). Quality scoring uses pure string matching (no extra LLM call): `entity_recall` = fraction of golden entities found in output text, `relation_recall` = fraction of golden relations where both endpoints appear. `overall_score = entity_recall * 0.6 + relation_recall * 0.4` (0-100). Results auto-save to `benchmark_records` table. The response includes `benchmark.estimated_chapter_chars` (default 3000) so the frontend can display what the time estimate is based on.
+### Bookshelf
 
-`GET /model-benchmark/history` returns the last 50 records. `DELETE /model-benchmark/history/{id}` removes a record. Frontend `SettingsPage.tsx` shows a collapsible history table with time/model/speed/estimated chapter time/quality score, with color coding (green ≥80, yellow ≥60, red <60).
+`BookshelfPage.tsx` — app landing page. Search & sort (recent/title/chapters/words). Card info density (analysis progress, reading progress, relative timestamps). Delete confirmation with associated data counts. Upload: drag-to-upload, upload progress via XHR, cache expiry handling. Keyboard shortcuts (N, /, Escape). Import/Export dropdown menu. DB transaction protection for imports.
 
-### Timeline Data Aggregation (N35)
+### Export (Series Bible)
 
-`get_timeline_data()` in `visualization_service.py` aggregates events from 6 sources: original events (战斗/成长/社交/旅行/其他), character first appearances (角色登场), item events (物品交接), org events (组织变动), **relationship changes** (关系变化), and scene emotional tone linking.
-
-**Noise filtering**: Item events with `action` in `_ITEM_NOISE_ACTIONS` ("出现"/"存在"/"提及") are skipped — these account for ~83% of item events in typical novels. Character first appearances require the character to appear in ≥ `_MIN_APPEARANCE_CHAPTERS` (3) chapters, filtering out one-time walk-on characters. `_MAJOR_PARTICIPANT_THRESHOLD` raised from 3 to 5.
-
-**Relationship change events**: Generated from `ChapterFact.relationships`. Two triggers: (1) `is_new=True` and no prior relation → "建立关系" event (medium importance), (2) `previous_type` differs from current `relation_type` → "关系变化" event (high importance). Tracked via `prev_relations` dict keyed by canonical pair `(min(a,b), max(a,b))`.
-
-**Scene emotional tone linking**: Loads all scenes via `chapter_fact_store.get_all_scenes()`, builds `scene_tone_map[chapter] → [{characters, tone, location}]`. `_match_scene_tone()` finds the scene with the highest participant overlap for each event. Tone is injected as `emotional_tone` field on events that match.
-
-**Suggested defaults**: API response includes `suggested_hidden_types` (["角色登场", "物品交接"]), `suggested_min_swimlane` (auto-scaled: 5 for >100 swimlanes, 3 for >30, 1 otherwise), `total_swimlanes`.
-
-**Frontend** (`TimelinePage.tsx`): Default filter hides "角色登场" and "物品交接" (togglable). New "关系变化" event type (cyan #06b6d4). Swimlane sidebar has min-event threshold buttons (1/3/5/10). Auto-collapse: chapters with only low-importance events are collapsed by default (yellow "(低)" marker), controlled by "自动折叠" toggle. Emotional tone displayed as colored badges (9 tones: 紧张/悲伤/欢乐/温馨/愤怒/平静/神秘/恐惧/搞笑).
-
-### Reading Page Enhancement (N37)
-
-`ReadingPage.tsx` is the primary reading interface with 16 integrated improvements across 3 priority batches:
-
-**Highlight control**: `readingSettingsStore.ts` persists `highlightEnabled` (boolean, default true) and `hiddenEntityTypes` (string[], default empty). Toolbar has a dedicated highlight toggle button (Highlighter icon, `H` shortcut). Entity type filter chips (5 types: person/location/item/org/concept with matching colors) in the settings panel allow selective highlighting. `filteredEntities` useMemo filters entities before passing to `highlightText()`. The `renderText()` helper conditionally applies highlighting.
-
-**Reading progress**: Dual indicators — (1) thin progress bar (2px, bg-primary) at the top of the content area, driven by `scrollProgress` state updated via `onScroll` handler on `contentRef`, (2) progress bar + percentage in the TocSidebar footer showing `currentChapterNum/chapters.length`.
-
-**Scene panel improvements**: `sceneError` state + `loadScenes()` callback with cache (`sceneCacheRef: Map<number, Scene[]>`). ScenePanel accepts `error?: boolean` and `onRetry?: () => void` props. Scene filter UI in panel: character name search input + 5 emotional tone toggle buttons (战斗/紧张/悲伤/欢乐/平静), applied via `filteredScenes` useMemo.
-
-**Entity card improvements**: `entityCardStore.ts` adds `error: string | null`, `profileCache: Map<string, EntityProfile>` (max 50, FIFO eviction), `getCachedProfile()`, `setCachedProfile()`. `EntityCardDrawer.tsx` checks cache before fetching; shows error + retry button on failure; responsive width (`w-full sm:w-[420px]`).
-
-**Keyboard shortcuts**: `useEffect` on `keydown` — `ArrowLeft`/`ArrowRight` for chapter navigation, `Escape` to close panels (scene → settings → search priority), `S` to toggle scene panel, `H` to toggle highlight. Excluded when focus is in `HTMLInputElement` or `HTMLTextAreaElement`.
-
-**Bookmark system**: Backend `bookmarks` table (auto-created via `CREATE TABLE IF NOT EXISTS`). Three endpoints: `GET /api/novels/{id}/bookmarks`, `POST /api/novels/{id}/bookmarks` (chapter_num + scroll_position + note), `DELETE /api/bookmarks/{id}`. Frontend: `fetchBookmarks()`, `addBookmark()`, `deleteBookmark()` in client.ts. TocSidebar shows collapsible bookmark list with jump-to-chapter and delete actions. Toolbar bookmark button adds current position.
-
-**Chapter preload**: `preloadCacheRef: Map<number, ChapterContent>`. After `goToChapter()` succeeds, `requestIdleCallback` preloads next chapter. `goToChapter()` checks preload cache before fetching.
-
-**Backend cache**: `entity_aggregator.py` `_MAX_CACHE` raised from 200 to 500.
-
-### Bookshelf Enhancement (N39)
-
-`BookshelfPage.tsx` is the app landing page with 13 improvements across 3 priority batches:
-
-**Search & sort**: Empty search shows "没有找到匹配的小说" with "清除搜索" button. Sort options: recent/title/chapters/words. Search input has `/` keyboard shortcut hint.
-
-**Card information density**: Analysis progress shows green checkmark "分析完成" when 100%, percentage text when in-progress. Reading progress shows "第 X/N 章" or "尚未开始阅读" (no progress bar when 0). Card footer: last_opened → "X天前阅读", no last_opened → "导入于X天前".
-
-**novelStore enhancement**: `novelStore.ts` expanded with `fetchNovels()`, `removeNovel(id)`, `loading`, `error`. `BookshelfPage` uses store instead of local state for novels and loading. Store calls `fetchNovels` API internally.
-
-**Delete confirmation**: Shows associated data counts — "将同时删除：N 章内容、分析数据、对话记录、书签等所有关联数据". Uses `AlertDialogDescription asChild` with nested `<div>` for multi-paragraph content.
-
-**Upload cache expiry**: Backend `novel_service.py` error messages include `"(expired)"` keyword. Frontend `UploadDialog` catches `"过期"` or `"expired"` in error messages → resets to `"select"` stage with user-friendly message. Applied to all 5 catch handlers (confirm, overwrite, re-split, fixed-size split, clean-and-resplit).
-
-**Drag-to-upload**: `BookshelfPage` outer `<div>` has `onDragOver`/`onDragLeave`/`onDrop` handlers. `isDragOver` state shows full-screen overlay "松开文件以上传". Drop validates `.txt`/`.md` extension → sets `dragFile` state → opens `UploadDialog`. `UploadDialog` accepts `initialFile?: File` prop; `useEffect` auto-triggers `handleFileSelect` when dialog opens with an initialFile.
-
-**Upload progress**: `uploadNovelWithProgress(file, onProgress)` in `client.ts` uses `XMLHttpRequest` for `upload.progress` events. `UploadDialog` shows `Progress` bar + percentage during upload stage. Switches message from "正在上传文件..." to "正在解析文件..." at 100%.
-
-**Keyboard shortcuts**: `N` → open upload dialog, `/` → focus search input, `Escape` → clear search. Excluded when focus is in `HTMLInputElement` or `HTMLTextAreaElement`.
-
-**Import/Export entry**: DropdownMenu (shadcn `dropdown-menu.tsx`) with 4 items: export novel data, import novel data, backup all data, restore backup. Uses existing API functions (`exportNovelUrl`, `previewImport`, `confirmDataImport`, `backupExportUrl`, `previewBackupImport`, `confirmBackupImport`). Hidden `<input type="file">` refs for import file selection.
-
-**DB transaction protection**: `novel_store.insert_novel()` and `insert_chapters()` accept optional `conn` parameter. When `conn` is provided, they skip self-commit/close (caller manages transaction). `novel_service.confirm_import()` gets a single connection, passes it to both functions, commits after both succeed or rolls back on failure.
-
-### Export Enhancement (N40)
-
-`ExportPage.tsx` is the Series Bible export interface with 12 improvements across 3 priority batches:
-
-**Relation chain dedup**: `_compress_chain()` helper added to all 4 renderers (markdown/docx/pdf/xlsx). Removes consecutive duplicate relation types from stage chains: `表亲→恋人→表亲→恋人→...` (21 stages) → `表亲→恋人→表亲→恋人` (≤4 unique transitions). Applied in both full character profiles and author card compact format.
-
-**Export format v3**: `export_service.py` `CURRENT_FORMAT_VERSION = 3`, `SUPPORTED_FORMAT_VERSIONS = {1, 2, 3}`. New tables exported: `bookmarks` (chapter_num, scroll_position, note, created_at), `map_user_overrides` (location_name, x, y, lat, lng, constraint_type, locked_parent), `world_structure_overrides` (override_type, override_key, override_json). Import uses `.get()` with default `[]` for backward compatibility with v1/v2 files.
-
-**file_hash conflict detection**: `import_novel()` and preview route query `WHERE title = ? OR file_hash = ?` instead of title-only, catching same-book-different-title reimports.
-
-**app_version dynamic**: `backup_service.py` `_get_app_version()` reads from `importlib.metadata.version()` with pyproject.toml fallback, replacing hardcoded `"1.0.0"`.
-
-**Entity dictionary noise filter**: Export SQL adds `AND entity_type != 'unknown'`, reducing 红楼梦 from 514→189 entries (-63%).
-
-**Item noise filter**: `series_bible_service.py` `_ITEM_NOISE_NAMES` frozenset (20 generic items: 银子/荷包/茶/酒/书 etc.) + `len(name) >= 2` filter applied before top-30 cutoff.
-
-**Timeline noise filter**: `_TIMELINE_NOISE_TYPES = {"角色登场", "物品交接"}` filtered from collected events. Limits raised: MD/DOCX/PDF 100→500, outline 50→100, XLSX 200→1000.
-
-**Template all-format**: `ExportPage.tsx` template selector shown for all formats (not just Markdown). `render_docx()`, `render_xlsx()`, `render_pdf()` accept `template: str = "complete"` parameter. DOCX header and PDF title page reflect template name.
-
-**Chapter range selector**: `ExportPage.tsx` adds `chapterStart`/`chapterEnd` state, `totalChapters` from `fetchNovel()`, two number inputs with "共 N 章" hint. Passed to `exportSeriesBible()` API call.
-
-**Export progress feedback**: `progress` state shows "正在收集数据..." with animated pulse progress bar during export.
-
-**Batch conversation export**: `GET /api/novels/{novel_id}/conversations/export` merges all conversations into a single Markdown download. `exportAllConversationsUrl(novelId)` client function.
-
-**Filename enhancement**: `series_bible.py` builds filenames with template name + optional chapter range suffix: `{title}_{tpl_name}_Ch{start}-{end}.{ext}`. Applied to all 4 formats.
+`ExportPage.tsx` — 4 formats (markdown/docx/pdf/xlsx). Relation chain dedup via `_compress_chain()`. Export format v3 (adds bookmarks, map overrides, world structure overrides). file_hash conflict detection for imports. Noise filters for entity dictionary (remove unknown type) and items (generic items). Timeline noise filter. Template selector for all formats. Chapter range selector. Batch conversation export. Dynamic filename with template + chapter range.
 
 ### Two Databases Only
 
@@ -496,7 +307,7 @@ uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 
 ## Database Schema (SQLite)
 
-15 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`, `bookmarks`. See `_bmad-output/architecture.md` section 5.1 for core DDL.
+15 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`, `bookmarks`.
 
 ## Important Notes
 
