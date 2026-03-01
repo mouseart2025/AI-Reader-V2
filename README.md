@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 本地部署的智能小说阅读理解系统。利用 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化视图，以及基于原文的自然语言问答。
 
@@ -76,12 +76,7 @@ V5 针对实际使用中发现的多个问题进行了系统性改进：
 
 ### 研究参考
 
-| 文档 | 说明 |
-|------|------|
-| [`_bmad-output/world-map-v2-architecture.md`](./_bmad-output/world-map-v2-architecture.md) | **V2 架构设计文档**。多层级世界结构数据模型、WorldStructureAgent 信号扫描与 LLM 增量更新、分层布局引擎、前端多层交互设计。 |
-| [`LLM驱动的小说世界地图生成系统_技术研究报告.md`](./LLM驱动的小说世界地图生成系统_技术研究报告.md) | 工程导向的技术方案。PlotMap 约束求解、MapLibre GL JS 渲染、CHGIS 中文历史地名等关键技术分析。**V1 地图实现主要基于此文档。** |
-| [`自动文学制图学：利用本地大语言模型从叙事文本构建交互式地理空间系统的技术框架研究报告.md`](./自动文学制图学：利用本地大语言模型从叙事文本构建交互式地理空间系统的技术框架研究报告.md) | 学术导向的综合研究。旅行时间→距离换算公式和小说类型策略表被本项目采纳。 |
-| [`_bmad-output/spatial-entity-quality-research.md`](./_bmad-output/spatial-entity-quality-research.md) | **空间实体提取质量研究**。中文地名形态学分析、SpatialML/ISO-Space 标注体系、三层防御架构设计。V5 提取质量改进基于此文档。 |
+世界地图技术方案基于多篇技术研究，包括：PlotMap 约束求解（Autodesk AI Research, 2024）、中文地名形态学分析（专名+通名结构）、SpatialML/ISO-Space 空间标注体系、以及旅行时间→距离换算的文学制图学框架。
 
 ## 技术栈
 
@@ -189,8 +184,7 @@ AI-Reader-V2/
 │       ├── stores/           # Zustand 状态 (chapterRange, entityCard, ...)
 │       ├── api/              # 类型定义 + API 客户端
 │       └── lib/
-├── _bmad-output/             # BMad 架构文档 + Story 规划 + Sprint 状态
-└── *.md                      # 研究报告文档
+└── scripts/                  # 工具脚本
 ```
 
 ## 数据存储
@@ -254,4 +248,10 @@ AI-Reader-V2/
 
 ## License
 
-本项目采用 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可证。允许非商业用途的分享和改编，需署名并以相同协议分发。
+本项目采用 [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0) 许可证。
+
+- 个人、教育和研究用途免费使用
+- 修改和分发需以相同协议开源
+- 网络服务部署需向用户提供完整源代码
+
+商业许可（闭源集成/SaaS 部署）请参阅 [LICENSE-COMMERCIAL.md](./LICENSE-COMMERCIAL.md)。
