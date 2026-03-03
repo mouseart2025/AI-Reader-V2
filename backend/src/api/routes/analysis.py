@@ -80,7 +80,7 @@ async def estimate_analysis_cost(
     conn = await get_connection()
     try:
         row = await conn.execute(
-            "SELECT status FROM entity_dictionary WHERE novel_id = ? LIMIT 1",
+            "SELECT 1 FROM entity_dictionary WHERE novel_id = ? LIMIT 1",
             (novel_id,),
         )
         result = await row.fetchone()

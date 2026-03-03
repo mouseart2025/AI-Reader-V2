@@ -80,4 +80,4 @@ cd frontend && npm install && npm run dev
 
 个人、教育和研究用途免费。商业闭源部署请参阅 [商业许可](./LICENSE-COMMERCIAL.md)。
 
-当前版本：**v0.42.0** · 40 个 Epic · 208 个 Story · 全部完成
+当前版本：**v0.43.0** · 40 个 Epic · 208 个 Story · 全部完成

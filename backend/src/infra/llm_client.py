@@ -55,10 +55,21 @@ class LLMParseError(LLMError):
     """Raised when JSON parsing of LLM response fails."""
 
 
+def _strip_thinking(text: str) -> str:
+    """Strip <think>...</think> blocks, including unclosed ones (truncated responses)."""
+    # First strip closed <think>...</think> blocks
+    result = re.sub(r"<think>[\s\S]*?</think>", "", text)
+    # Then strip unclosed <think> blocks (response truncated before </think>)
+    result = re.sub(r"<think>[\s\S]*$", "", result)
+    return result
+
+
 def _extract_json(text: str) -> dict:
     """Try to extract JSON from text that may contain markdown fences or extra text."""
+    # Strip <think>...</think> blocks (reasoning/thinking mode output from some LLMs)
+    cleaned = _strip_thinking(text)
     # Strip markdown code fences
-    cleaned = re.sub(r"```(?:json)?\s*", "", text)
+    cleaned = re.sub(r"```(?:json)?\s*", "", cleaned)
     cleaned = cleaned.strip()
     try:
         return json.loads(cleaned)
@@ -159,6 +170,8 @@ class LLMClient:
         )
 
         if format is not None:
+            # Strip thinking blocks before parsing (qwen3 may emit <think> despite think:false)
+            content = _strip_thinking(content).strip()
             try:
                 return json.loads(content), usage
             except json.JSONDecodeError:

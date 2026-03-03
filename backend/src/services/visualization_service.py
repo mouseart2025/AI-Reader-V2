@@ -35,6 +35,7 @@ from src.services.geo_resolver import (
     auto_resolve as geo_auto_resolve,
     place_unresolved_geo_coords,
 )
+from src.extraction.fact_validator import _LOCATION_NAME_NORMALIZE
 from src.services.conflict_detector import _detect_location_conflicts
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
@@ -251,11 +252,17 @@ _VALID_DIRECTION_VALUES = {
 # Chinese direction → English enum
 _CHINESE_DIRECTION_MAP = {
     "北": "north_of", "北方": "north_of", "北边": "north_of", "以北": "north_of",
+    "北面": "north_of", "北侧": "north_of", "北向": "north_of", "在北": "north_of",
     "南": "south_of", "南方": "south_of", "南边": "south_of", "以南": "south_of",
+    "南面": "south_of", "南侧": "south_of", "南向": "south_of", "在南": "south_of",
     "东": "east_of", "东方": "east_of", "东边": "east_of", "以东": "east_of",
+    "东面": "east_of", "东侧": "east_of", "东向": "east_of", "在东": "east_of",
     "西": "west_of", "西方": "west_of", "西边": "west_of", "以西": "west_of",
+    "西面": "west_of", "西侧": "west_of", "西向": "west_of", "在西": "west_of",
     "东北": "northeast_of", "西北": "northwest_of",
     "东南": "southeast_of", "西南": "southwest_of",
+    "东北方": "northeast_of", "西北方": "northwest_of",
+    "东南方": "southeast_of", "西南方": "southwest_of",
 }
 
 
@@ -463,9 +470,28 @@ async def get_map_data(
     try:
         ws = await world_structure_store.load(novel_id)
         if ws is not None:
+            # Normalize variant location names in WorldStructure maps so they
+            # match the canonical forms used in region definitions (e.g.,
+            # 南瞻部洲 → 南赡部洲 matches the overworld region).
+            if _LOCATION_NAME_NORMALIZE:
+                for variant, canonical in _LOCATION_NAME_NORMALIZE.items():
+                    # Fix location_region_map: variant key → remap to canonical region
+                    if variant in ws.location_region_map:
+                        # If canonical region exists, point variant there
+                        overworld_region_names = set()
+                        for layer in ws.layers:
+                            if layer.layer_id == "overworld":
+                                overworld_region_names = {r.name for r in layer.regions}
+                                break
+                        if canonical in overworld_region_names:
+                            ws.location_region_map[variant] = canonical
+
             # Update location tier/icon from WorldStructure (with heuristic fallback)
             _tier_map = ws.location_tiers if ws else {}
             _icon_map = ws.location_icons if ws else {}
+            # _classify_tier is an instance method — create a temporary agent to
+            # use it for locations not already in the tier map.
+            _agent: WorldStructureAgent | None = None
             for loc in locations:
                 name = loc["name"]
                 loc_type = loc.get("type", "")
@@ -473,7 +499,10 @@ async def get_map_data(
                 level = loc.get("level", 0)
                 tier = _tier_map.get(name, "")
                 if not tier:
-                    tier = WorldStructureAgent._classify_tier(name, loc_type, parent, level)
+                    if _agent is None:
+                        _agent = WorldStructureAgent.__new__(WorldStructureAgent)
+                        _agent.structure = ws
+                    tier = _agent._classify_tier(name, loc_type, parent, level)
                 loc["tier"] = tier
                 icon = _icon_map.get(name, "")
                 if not icon or icon == "generic":

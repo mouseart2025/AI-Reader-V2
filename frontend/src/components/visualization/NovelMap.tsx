@@ -1799,10 +1799,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         if (placement) {
           const x = parseFloat(g.attr("data-x"))
           const y = parseFloat(g.attr("data-y"))
-          // Convert screen-space offset to world-space (labels are counter-scaled by 1/k)
+          // offsetX/Y are screen-space constants; counter-scale at (x,y) maps
+          // label offset (labelX - x) → (labelX - x)/k in canvas, then zoom
+          // restores it to (labelX - x) in screen-space — constant regardless of k.
           label
-            .attr("x", x + placement.offsetX / k)
-            .attr("y", y + placement.offsetY / k)
+            .attr("x", x + placement.offsetX)
+            .attr("y", y + placement.offsetY)
             .attr("text-anchor", placement.textAnchor)
             .style("display", "")
         } else {

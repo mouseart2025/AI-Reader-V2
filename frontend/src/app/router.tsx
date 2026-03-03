@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react"
-import { createBrowserRouter } from "react-router-dom"
+import { createBrowserRouter, Navigate } from "react-router-dom"
 import { NovelLayout } from "./NovelLayout"
 
 const BookshelfPage = lazy(() => import("@/pages/BookshelfPage"))
@@ -14,6 +14,13 @@ const AnalysisPage = lazy(() => import("@/pages/AnalysisPage"))
 const ConflictsPage = lazy(() => import("@/pages/ConflictsPage"))
 const ExportPage = lazy(() => import("@/pages/ExportPage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
+
+// Demo pages (lazy-loaded, only included when visiting /demo routes)
+const DemoLayout = lazy(() => import("@/app/DemoLayout"))
+const DemoGraphPage = lazy(() => import("@/pages/demo/DemoGraphPage"))
+const DemoMapPage = lazy(() => import("@/pages/demo/DemoMapPage"))
+const DemoTimelinePage = lazy(() => import("@/pages/demo/DemoTimelinePage"))
+const DemoEncyclopediaPage = lazy(() => import("@/pages/demo/DemoEncyclopediaPage"))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -47,4 +54,18 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "/settings", element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },
+  // Demo routes — standalone interactive demo with static JSON data
+  {
+    path: "/demo/:novelSlug",
+    element: <SuspenseWrapper><DemoLayout /></SuspenseWrapper>,
+    children: [
+      { index: true, element: <Navigate to="graph" replace /> },
+      { path: "graph", element: <SuspenseWrapper><DemoGraphPage /></SuspenseWrapper> },
+      { path: "map", element: <SuspenseWrapper><DemoMapPage /></SuspenseWrapper> },
+      { path: "timeline", element: <SuspenseWrapper><DemoTimelinePage /></SuspenseWrapper> },
+      { path: "encyclopedia", element: <SuspenseWrapper><DemoEncyclopediaPage /></SuspenseWrapper> },
+    ],
+  },
+  // Redirect bare /demo to default novel
+  { path: "/demo", element: <Navigate to="/demo/honglou/graph" replace /> },
 ])

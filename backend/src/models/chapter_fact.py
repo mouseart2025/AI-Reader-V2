@@ -72,7 +72,7 @@ class EventFact(BaseModel):
 class ConceptFact(BaseModel):
     name: str
     category: str  # 修炼体系/种族/货币/功法/...
-    definition: str = ""
+    definition: str | None = ""
     related: list[str] = []
 
 

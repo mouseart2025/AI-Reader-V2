@@ -88,33 +88,33 @@ _CELESTIAL_KEYWORDS = ("天宫", "天庭", "天门", "天界", "三十三天", "
 _UNDERWORLD_KEYWORDS = ("地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
                         "奈何桥", "阎罗殿", "森罗殿", "枉死城")
 
-# Celestial locations placed in top zone, underworld in bottom zone
-_CELESTIAL_Y_RANGE = (CANVAS_MAX_Y - 30, CANVAS_MAX_Y)
-_UNDERWORLD_Y_RANGE = (CANVAS_MIN_Y, CANVAS_MIN_Y + 30)
+# Celestial locations placed in top zone (small Y in SVG), underworld in bottom
+_CELESTIAL_Y_RANGE = (CANVAS_MIN_Y, CANVAS_MIN_Y + 30)
+_UNDERWORLD_Y_RANGE = (CANVAS_MAX_Y - 30, CANVAS_MAX_Y)
 
 # ── Direction mapping ───────────────────────────────
 
 _DIRECTION_VECTORS: dict[str, tuple[int, int]] = {
-    # (dx_sign, dy_sign): +x = east, +y = north (screen y inverted later)
-    "north_of": (0, 1),
-    "south_of": (0, -1),
+    # (dx_sign, dy_sign): +x = east (right), -y = north (up in SVG)
+    "north_of": (0, -1),
+    "south_of": (0, 1),
     "east_of": (1, 0),
     "west_of": (-1, 0),
-    "northeast_of": (1, 1),
-    "northwest_of": (-1, 1),
-    "southeast_of": (1, -1),
-    "southwest_of": (-1, -1),
+    "northeast_of": (1, -1),
+    "northwest_of": (-1, -1),
+    "southeast_of": (1, 1),
+    "southwest_of": (-1, 1),
 }
 
 # ── Region layout ─────────────────────────────────
 
 # Direction → bounding box zone (x1, y1, x2, y2) on 1600×900 canvas.
-# Convention: +x = east (right), +y = north (up).
+# SVG convention: +x = east (right), +y = south (down). North = small Y.
 DIRECTION_ZONES: dict[str, tuple[float, float, float, float]] = {
     "east":   (960, 180, 1550, 720),
     "west":   (50, 180, 640, 720),
-    "south":  (320, 50, 1280, 315),
-    "north":  (320, 585, 1280, 850),
+    "north":  (320, 50, 1280, 315),
+    "south":  (320, 585, 1280, 850),
     "center": (480, 270, 1120, 630),
 }
 
@@ -144,8 +144,8 @@ def _compute_region_seeds(
     _DIR_BASE: dict[str, tuple[float, float]] = {
         "east":   (0.75, 0.50),
         "west":   (0.25, 0.50),
-        "north":  (0.50, 0.75),
-        "south":  (0.50, 0.25),
+        "north":  (0.50, 0.25),   # top of canvas (small Y in SVG)
+        "south":  (0.50, 0.75),   # bottom of canvas (large Y in SVG)
         "center": (0.50, 0.50),
     }
 
@@ -894,24 +894,164 @@ def _solve_overworld_by_region(
     Locations assigned to a region are solved within that region's bounding box.
     Unassigned locations go through a global fallback solve.
     """
-    # Compute region bounding boxes
+    # ── Prune & deduplicate regions for Voronoi ──
+    # Too many regions (e.g., 152 for 西游记) creates tiny Voronoi cells.
+    # Strategy:
+    # 1. Deduplicate variant names (南赡部洲 / 南瞻部洲 / 南赡养部洲 → keep best)
+    # 2. Score by location count + continent bonus
+    # 3. Only continent-scale names (洲 suffix) keep their cardinal_direction for
+    #    Voronoi seeding; sub-regions lose it to avoid crowding direction sectors
+    _CONTINENT_SUFFIX = "洲"
+
+    # Count locations per region for importance ranking
+    region_loc_count: dict[str, int] = {}
+    all_region_names = {r.get("name", "") for r in regions}
+    for loc in locations:
+        name = loc["name"]
+        if name in all_region_names:
+            region_loc_count[name] = region_loc_count.get(name, 0) + 1
+            continue
+        rn = location_region_map.get(name)
+        if rn:
+            region_loc_count[rn] = region_loc_count.get(rn, 0) + 1
+
+    # Import normalization for deduplication
+    try:
+        from src.extraction.fact_validator import _LOCATION_NAME_NORMALIZE
+    except ImportError:
+        _LOCATION_NAME_NORMALIZE = {}
+
+    # Deduplicate: group by canonical name, keep the variant with most locations
+    canonical_groups: dict[str, list[dict]] = {}
+    for r in regions:
+        rname = r.get("name", "")
+        canon = _LOCATION_NAME_NORMALIZE.get(rname, rname)
+        canonical_groups.setdefault(canon, []).append(r)
+
+    deduped: list[dict] = []
+    for canon, group in canonical_groups.items():
+        # Pick the variant with the most locations
+        best = max(group, key=lambda g: region_loc_count.get(g.get("name", ""), 0))
+        # Merge cardinal_direction from any variant
+        direction = best.get("cardinal_direction")
+        if not direction:
+            for g in group:
+                if g.get("cardinal_direction"):
+                    direction = g["cardinal_direction"]
+                    break
+        # Sum location counts across all variants
+        total_locs = sum(region_loc_count.get(g.get("name", ""), 0) for g in group)
+        deduped.append({
+            "name": best.get("name", ""),
+            "cardinal_direction": direction,
+            "_loc_count": total_locs,
+        })
+
+    def _region_score(r: dict) -> float:
+        rname = r.get("name", "")
+        score = float(r.get("_loc_count", region_loc_count.get(rname, 0)))
+        # Continent-scale names (ends with 洲) → always include
+        if rname.endswith(_CONTINENT_SUFFIX):
+            score += 20000
+        return score
+
+    scored = sorted(deduped, key=_region_score, reverse=True)
+    pruned_regions = scored[:MAX_SOLVER_REGIONS]
+
+    logger.info(
+        "Pruned overworld regions from %d (deduped %d) to %d (top: %s)",
+        len(regions), len(deduped), len(pruned_regions),
+        ", ".join(f"{r.get('name','')}({r.get('cardinal_direction','-')})"
+                  for r in pruned_regions[:6]),
+    )
+
+    # Build Voronoi inputs: only continent-scale (洲) regions keep cardinal
+    # direction for seeding. Sub-regions use None to avoid crowding sectors.
     region_dicts = [
         {
             "name": r.get("name", ""),
-            "cardinal_direction": r.get("cardinal_direction"),
+            "cardinal_direction": (
+                r.get("cardinal_direction")
+                if r.get("name", "").endswith(_CONTINENT_SUFFIX)
+                else None
+            ),
         }
-        for r in regions
+        for r in pruned_regions
     ]
     region_layout = _layout_regions(region_dicts, canvas_width=canvas_width, canvas_height=canvas_height)
 
-    # Partition locations by region
+    # Build a region name lookup for the pruned set
+    pruned_region_name_set = {r["name"] for r in region_dicts}
+
+    # Build parent chain for walking up to an ancestor region in the pruned set.
+    # location_region_map maps locations to their direct region, but if that
+    # region was pruned, we need to find its parent region. We build this by
+    # treating location_region_map transitively: if "花果山" → "傲来国" and
+    # "傲来国" → "东胜神洲", then 花果山 should inherit 东胜神洲's bounds.
+    def _find_pruned_region(name: str) -> str | None:
+        """Walk up the region chain to find an ancestor in the pruned set."""
+        visited: set[str] = set()
+        current = name
+        for _ in range(10):  # max depth to avoid infinite loops
+            rn = location_region_map.get(current)
+            if rn is None or rn in visited:
+                return None
+            if rn in pruned_region_name_set:
+                return rn
+            visited.add(rn)
+            current = rn
+        return None
+
+    # Identify continent-scale regions (these get cardinal-direction Voronoi cells)
+    continent_region_names = {
+        r["name"] for r in region_dicts
+        if r["name"].endswith(_CONTINENT_SUFFIX)
+    }
+
+    def _find_continent_ancestor(name: str) -> str | None:
+        """Walk up region chain to find a continent-scale ancestor (洲)."""
+        visited: set[str] = set()
+        current = name
+        for _ in range(10):
+            rn = location_region_map.get(current)
+            if rn is None or rn in visited:
+                return None
+            if rn in continent_region_names:
+                return rn
+            visited.add(rn)
+            current = rn
+        return None
+
+    # Partition locations by region.
+    # Strategy: prefer continent-scale ancestors over intermediate sub-regions
+    # so that locations end up in the correct cardinal-direction cell.
     region_locs: dict[str, list[dict]] = {r["name"]: [] for r in region_dicts}
     unassigned_locs: list[dict] = []
 
     for loc in locations:
-        region_name = location_region_map.get(loc["name"])
+        name = loc["name"]
+        # Priority 1: continent-scale self-match (e.g., 东胜神洲)
+        if name in continent_region_names:
+            region_locs[name].append(loc)
+            continue
+
+        # Priority 2: find a continent-scale ancestor via parent chain
+        # (e.g., 花果山 → 傲来国 → 东胜神洲)
+        continent_anc = _find_continent_ancestor(name)
+        if continent_anc:
+            region_locs[continent_anc].append(loc)
+            continue
+
+        # Priority 3: direct region lookup (for locations without continent ancestry)
+        region_name = location_region_map.get(name)
         if region_name and region_name in region_locs:
             region_locs[region_name].append(loc)
+            continue
+
+        # Priority 4: walk up to any pruned region
+        ancestor = _find_pruned_region(name)
+        if ancestor:
+            region_locs[ancestor].append(loc)
         else:
             unassigned_locs.append(loc)
 
@@ -926,14 +1066,28 @@ def _solve_overworld_by_region(
 
     if non_empty_count > MAX_SOLVER_REGIONS:
         # ── Many regions: use a SINGLE global solver with per-location region bounds ──
-        # This avoids creating hundreds of ConstraintSolver instances (each with
-        # scipy differential_evolution overhead).
-        all_locs = locations  # all locations go into one solver
+        all_locs = locations
         loc_region_bounds: dict[str, tuple[float, float, float, float]] = {}
         for loc in all_locs:
-            rn = location_region_map.get(loc["name"])
+            name = loc["name"]
+            # Priority 1: continent-scale self-match
+            if name in continent_region_names and name in region_layout:
+                loc_region_bounds[name] = region_layout[name]["bounds"]
+                continue
+            # Priority 2: continent ancestor via parent chain
+            ca = _find_continent_ancestor(name)
+            if ca and ca in region_layout:
+                loc_region_bounds[name] = region_layout[ca]["bounds"]
+                continue
+            # Priority 3: direct region lookup
+            rn = location_region_map.get(name)
             if rn and rn in region_layout:
-                loc_region_bounds[loc["name"]] = region_layout[rn]["bounds"]
+                loc_region_bounds[name] = region_layout[rn]["bounds"]
+                continue
+            # Priority 4: any pruned ancestor
+            ancestor = _find_pruned_region(name)
+            if ancestor and ancestor in region_layout:
+                loc_region_bounds[name] = region_layout[ancestor]["bounds"]
 
         logger.info(
             "Using global solver for %d locations across %d regions "
@@ -968,9 +1122,17 @@ def _solve_overworld_by_region(
         if unassigned_locs:
             loc_region_bounds_ua: dict[str, tuple[float, float, float, float]] = {}
             for loc in unassigned_locs:
-                rn = location_region_map.get(loc["name"])
-                if rn and rn in region_layout:
-                    loc_region_bounds_ua[loc["name"]] = region_layout[rn]["bounds"]
+                name = loc["name"]
+                if name in region_layout:
+                    loc_region_bounds_ua[name] = region_layout[name]["bounds"]
+                else:
+                    rn = location_region_map.get(name)
+                    if rn and rn in region_layout:
+                        loc_region_bounds_ua[name] = region_layout[rn]["bounds"]
+                    else:
+                        ancestor = _find_pruned_region(name)
+                        if ancestor and ancestor in region_layout:
+                            loc_region_bounds_ua[name] = region_layout[ancestor]["bounds"]
 
             solver = ConstraintSolver(
                 unassigned_locs, constraints,
@@ -1425,11 +1587,16 @@ class ConstraintSolver:
             if name in self.user_overrides:
                 score += 5000
             # Bonus for root/high-level locations (they anchor the layout)
+            # Continent-tier roots get very high priority — they define the
+            # macro structure and must always be included in the solver.
             level = loc.get("level", 0)
-            if level == 0:
-                score += 100
+            tier = loc.get("tier", "")
+            if level == 0 and tier == "continent":
+                score += 20000  # always include continent roots
+            elif level == 0:
+                score += 2000   # roots anchor the layout
             elif level == 1:
-                score += 50
+                score += 500
             scored.append((score, loc))
 
         scored.sort(key=lambda x: -x[0])
@@ -1647,24 +1814,24 @@ class ConstraintSolver:
     def _place_non_geographic(self, layout: dict[str, tuple[float, float]]) -> None:
         """Place celestial and underworld locations in dedicated zones."""
         w = self._canvas_max_x - self._canvas_min_x
-        # Celestial: top of map
+        # Celestial: top of map (small Y in SVG)
         for i, loc in enumerate(self._celestial):
             name = loc["name"]
             if name in self.user_overrides:
                 layout[name] = self.user_overrides[name]
                 continue
             x = self._canvas_min_x + (i + 1) * w / (len(self._celestial) + 1)
-            y = self._canvas_max_y - 15
+            y = self._canvas_min_y + 15
             layout[name] = (x, y)
 
-        # Underworld: bottom of map
+        # Underworld: bottom of map (large Y in SVG)
         for i, loc in enumerate(self._underworld):
             name = loc["name"]
             if name in self.user_overrides:
                 layout[name] = self.user_overrides[name]
                 continue
             x = self._canvas_min_x + (i + 1) * w / (len(self._underworld) + 1)
-            y = self._canvas_min_y + 15
+            y = self._canvas_max_y - 15
             layout[name] = (x, y)
 
     def _energy(self, coords_flat: np.ndarray, constraints: list[dict]) -> float:
@@ -1797,12 +1964,12 @@ class ConstraintSolver:
             return 0.0
 
         # Map direction to expected normalized position (0-1)
-        # x: 0=west, 1=east; y: 0=south, 1=north
+        # x: 0=west, 1=east; y: 0=north (top), 1=south (bottom) — SVG convention
         _HINT_TARGETS: dict[str, tuple[float, float]] = {
             "east": (0.75, 0.5),
             "west": (0.25, 0.5),
-            "south": (0.5, 0.25),
-            "north": (0.5, 0.75),
+            "north": (0.5, 0.25),
+            "south": (0.5, 0.75),
             "center": (0.5, 0.5),
         }
 
@@ -1918,6 +2085,14 @@ class ConstraintSolver:
         violations = np.maximum(0.0, self._min_spacing - dist[triu_idx])
         return float(np.sum(violations ** 2))
 
+    # Cardinal direction → canvas position (normalized 0-1 coords)
+    _CARDINAL_POS: dict[str, tuple[float, float]] = {
+        "east":  (0.80, 0.50),
+        "west":  (0.20, 0.50),
+        "north": (0.50, 0.20),
+        "south": (0.50, 0.80),
+    }
+
     def _hierarchy_layout(self) -> dict[str, tuple[float, float]]:
         """Fallback: concentric circle layout based on parent-child hierarchy."""
         layout: dict[str, tuple[float, float]] = {}
@@ -1938,10 +2113,32 @@ class ConstraintSolver:
 
         w = self._canvas_max_x - self._canvas_min_x
         h = self._canvas_max_y - self._canvas_min_y
+
+        # Cardinal direction-aware placement: roots with direction hints
+        # (e.g., 东胜神洲→east) are placed at cardinal canvas positions
+        # instead of a tight sunflower circle.
+        cardinal_roots: list[str] = []
+        non_cardinal_roots: list[str] = []
+        for name in unplaced_roots:
+            hint = self._direction_hints.get(name)
+            if hint in self._CARDINAL_POS:
+                cardinal_roots.append(name)
+            else:
+                non_cardinal_roots.append(name)
+
+        for name in cardinal_roots:
+            hint = self._direction_hints[name]
+            fx, fy = self._CARDINAL_POS[hint]
+            layout[name] = (
+                self._canvas_min_x + fx * w,
+                self._canvas_min_y + fy * h,
+            )
+
+        # Remaining roots: sunflower seed around center
         radius = min(w, h) * 0.2
         golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
-        n_roots = max(len(unplaced_roots), 1)
-        for i, name in enumerate(unplaced_roots):
+        n_roots = max(len(non_cardinal_roots), 1)
+        for i, name in enumerate(non_cardinal_roots):
             frac = (i + 0.5) / n_roots
             r = radius * (0.3 + 0.7 * math.sqrt(frac))
             angle = i * golden_angle

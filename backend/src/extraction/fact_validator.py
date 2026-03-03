@@ -30,6 +30,15 @@ _VALID_SPATIAL_RELATION_TYPES = {
 }
 _VALID_CONFIDENCE = {"high", "medium", "low"}
 
+# ── Location name normalization (variant → canonical) ────────────────
+# LLMs sometimes output different character variants for the same place.
+# Map all known variants to a single canonical form.
+_LOCATION_NAME_NORMALIZE: dict[str, str] = {
+    "南瞻部洲": "南赡部洲",
+    "南赡养部洲": "南赡部洲",
+    "南瞻养部洲": "南赡部洲",
+}
+
 _NAME_MIN_LEN = 1       # persons: keep single-char (handled by aggregator)
 _NAME_MIN_LEN_OTHER = 2  # items, concepts, orgs: require ≥2 chars
 _NAME_MAX_LEN = 20
@@ -688,6 +697,8 @@ class FactValidator:
         seen_names: set[str] = set()
         for loc in locs:
             name = _clamp_name(loc.name)
+            # Normalize known variant spellings
+            name = _LOCATION_NAME_NORMALIZE.get(name, name)
             if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
             # Deduplicate locations
@@ -742,6 +753,9 @@ class FactValidator:
         for rel in rels:
             source = _clamp_name(rel.source)
             target = _clamp_name(rel.target)
+            # Normalize known variant spellings
+            source = _LOCATION_NAME_NORMALIZE.get(source, source)
+            target = _LOCATION_NAME_NORMALIZE.get(target, target)
             if len(source) < _NAME_MIN_LEN or len(target) < _NAME_MIN_LEN:
                 continue
             if source == target:
@@ -953,7 +967,9 @@ class FactValidator:
         # 1. Collect parent references from existing locations
         for loc in locations:
             parent = loc.parent
-            if parent and parent.strip() and parent not in existing_names and parent not in to_add:
+            if parent:
+                parent = _LOCATION_NAME_NORMALIZE.get(parent.strip(), parent.strip())
+            if parent and parent not in existing_names and parent not in to_add:
                 to_add[parent] = LocationFact(
                     name=parent,
                     type=_infer_type_from_name(parent),
