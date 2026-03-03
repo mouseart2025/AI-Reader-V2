@@ -30,7 +30,7 @@ A commercial license is required if you want to:
 For commercial licensing inquiries:
 
 - Email: **[coming soon]**
-- GitHub: [File an issue](https://github.com/leonfeng/AI-Reader-V2/issues) with the `licensing` label
+- GitHub: [File an issue](https://github.com/mouseart2025/AI-Reader-V2/issues) with the `licensing` label
 
 ## FAQ
 
