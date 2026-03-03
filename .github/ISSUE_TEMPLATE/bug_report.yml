@@ -1,0 +1,85 @@
+name: "Bug Report / 报告 Bug"
+description: "报告问题或错误 / Report a bug or issue"
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: "Bug Description / Bug 描述"
+      description: "请清楚描述遇到的问题 / Describe the bug clearly"
+      placeholder: "发生了什么？预期应该是什么？"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to Reproduce / 复现步骤"
+      description: "列出复现步骤 / Steps to reproduce the behavior"
+      placeholder: |
+        1. 打开书架页面
+        2. 上传一本小说
+        3. 点击开始分析
+        4. 出现错误...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected vs Actual / 期望与实际"
+      description: "期望的行为和实际的行为 / What you expected and what actually happened"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Component / 功能模块"
+      options:
+        - "Bookshelf / 书架"
+        - "Analysis / 分析流水线"
+        - "Reading / 阅读页"
+        - "Graph / 关系图"
+        - "Map / 世界地图"
+        - "Timeline / 时间线"
+        - "Encyclopedia / 百科"
+        - "Chat / 智能问答"
+        - "Export / 导出"
+        - "Settings / 设置"
+        - "Other / 其他"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: llm_provider
+    attributes:
+      label: "LLM Provider / LLM 提供商"
+      options:
+        - "Ollama (local / 本地)"
+        - "Cloud API / 云端 API"
+        - "N/A / 不相关"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment / 环境信息"
+      description: "操作系统、浏览器、Node/Python 版本等"
+      placeholder: |
+        - OS: macOS 15 / Windows 11 / Ubuntu 24
+        - Browser: Chrome 130
+        - Node: 22.x
+        - Python: 3.12
+        - Ollama model: qwen3:8b
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Screenshots / Logs / 截图或日志"
+      description: "如有，请附上截图或终端日志"
+    validations:
+      required: false

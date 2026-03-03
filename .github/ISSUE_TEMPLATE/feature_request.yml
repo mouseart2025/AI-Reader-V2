@@ -1,0 +1,56 @@
+name: "Feature Request / 功能建议"
+description: "建议新功能或改进 / Suggest a new feature or improvement"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem / 问题描述"
+      description: "你希望解决什么问题？/ What problem does this solve?"
+      placeholder: "我在使用 ... 时经常遇到 ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution / 建议方案"
+      description: "你期望的解决方式 / How would you like this to work?"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Component / 功能模块"
+      options:
+        - "Bookshelf / 书架"
+        - "Analysis / 分析流水线"
+        - "Reading / 阅读页"
+        - "Graph / 关系图"
+        - "Map / 世界地图"
+        - "Timeline / 时间线"
+        - "Encyclopedia / 百科"
+        - "Chat / 智能问答"
+        - "Export / 导出"
+        - "Settings / 设置"
+        - "New Feature / 全新功能"
+        - "Other / 其他"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives / 替代方案"
+      description: "你考虑过的其他方案 / Other approaches you've considered"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Additional Context / 补充说明"
+      description: "截图、参考链接、使用场景等 / Screenshots, references, use cases"
+    validations:
+      required: false
