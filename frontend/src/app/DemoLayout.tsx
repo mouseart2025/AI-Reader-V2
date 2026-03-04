@@ -24,6 +24,9 @@ export default function DemoLayout() {
   const location = useLocation()
   const novels = getAllDemoNovels()
 
+  // Embed mode: render only the page content, no chrome
+  const isEmbed = new URLSearchParams(location.search).get("embed") === "1"
+
   // Determine active tab from URL path
   const pathParts = location.pathname.split("/")
   const activeTab = pathParts[pathParts.length - 1] || "graph"
@@ -53,6 +56,16 @@ export default function DemoLayout() {
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
   }, [showUpgradeBanner, dismissBanner])
+
+  if (isEmbed) {
+    return (
+      <DemoProvider slug={novelSlug}>
+        <div className="h-screen w-screen">
+          <Outlet />
+        </div>
+      </DemoProvider>
+    )
+  }
 
   return (
     <DemoProvider slug={novelSlug}>

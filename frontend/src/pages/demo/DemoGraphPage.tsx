@@ -3,6 +3,7 @@
  * Reuses react-force-graph-2d with category filtering and path finding.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d"
 import { useDemoData } from "@/app/DemoContext"
 import { useEntityCardStore } from "@/stores/entityCardStore"
@@ -46,6 +47,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 const ALL_CATEGORIES = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
 
 export default function DemoGraphPage() {
+  const [searchParams] = useSearchParams()
+  const isEmbed = searchParams.get("embed") === "1"
   const { data } = useDemoData()
   const graphData = data.graph as {
     nodes: GraphNode[]
@@ -153,53 +156,55 @@ export default function DemoGraphPage() {
   }, [])
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3 border-b bg-white/80 px-4 py-2">
-        <span className="text-xs text-gray-500">
-          {filtered.nodes.length} 人物 / {filtered.links.length} 关系
-        </span>
-        <label className="flex items-center gap-1 text-xs">
-          <span className="text-gray-500">出场≥</span>
-          <input
-            type="range"
-            min={1}
-            max={Math.min(30, Math.max(...graphData.nodes.map((n) => n.chapter_count), 1))}
-            value={minChapters}
-            onChange={(e) => setMinChapters(Number(e.target.value))}
-            className="w-20"
-          />
-          <span className="w-6 text-center font-mono">{minChapters}</span>
-        </label>
-        <label className="flex items-center gap-1 text-xs">
-          <span className="text-gray-500">关系≥</span>
-          <input
-            type="range"
-            min={1}
-            max={graphData.max_edge_weight ?? 10}
-            value={minEdgeWeight}
-            onChange={(e) => setMinEdgeWeight(Number(e.target.value))}
-            className="w-20"
-          />
-          <span className="w-6 text-center font-mono">{minEdgeWeight}</span>
-        </label>
-        <div className="flex gap-1">
-          {ALL_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => toggleCategory(cat)}
-              className="rounded px-2 py-0.5 text-xs font-medium transition"
-              style={{
-                backgroundColor: hiddenCategories.has(cat) ? "#f3f4f6" : CATEGORY_COLORS[cat] + "20",
-                color: hiddenCategories.has(cat) ? "#9ca3af" : CATEGORY_COLORS[cat],
-                border: `1px solid ${hiddenCategories.has(cat) ? "#e5e7eb" : CATEGORY_COLORS[cat] + "40"}`,
-              }}
-            >
-              {CATEGORY_LABELS[cat]}
-            </button>
-          ))}
+    <div className={`flex h-full flex-col ${isEmbed ? "bg-slate-950" : ""}`}>
+      {/* Filter bar — hidden in embed mode */}
+      {!isEmbed && (
+        <div className="flex flex-wrap items-center gap-3 border-b bg-white/80 px-4 py-2">
+          <span className="text-xs text-gray-500">
+            {filtered.nodes.length} 人物 / {filtered.links.length} 关系
+          </span>
+          <label className="flex items-center gap-1 text-xs">
+            <span className="text-gray-500">出场≥</span>
+            <input
+              type="range"
+              min={1}
+              max={Math.min(30, Math.max(...graphData.nodes.map((n) => n.chapter_count), 1))}
+              value={minChapters}
+              onChange={(e) => setMinChapters(Number(e.target.value))}
+              className="w-20"
+            />
+            <span className="w-6 text-center font-mono">{minChapters}</span>
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <span className="text-gray-500">关系≥</span>
+            <input
+              type="range"
+              min={1}
+              max={graphData.max_edge_weight ?? 10}
+              value={minEdgeWeight}
+              onChange={(e) => setMinEdgeWeight(Number(e.target.value))}
+              className="w-20"
+            />
+            <span className="w-6 text-center font-mono">{minEdgeWeight}</span>
+          </label>
+          <div className="flex gap-1">
+            {ALL_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => toggleCategory(cat)}
+                className="rounded px-2 py-0.5 text-xs font-medium transition"
+                style={{
+                  backgroundColor: hiddenCategories.has(cat) ? "#f3f4f6" : CATEGORY_COLORS[cat] + "20",
+                  color: hiddenCategories.has(cat) ? "#9ca3af" : CATEGORY_COLORS[cat],
+                  border: `1px solid ${hiddenCategories.has(cat) ? "#e5e7eb" : CATEGORY_COLORS[cat] + "40"}`,
+                }}
+              >
+                {CATEGORY_LABELS[cat]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Graph canvas */}
       <div ref={containerRef} className="relative flex-1">
@@ -208,6 +213,7 @@ export default function DemoGraphPage() {
           width={dimensions.width}
           height={dimensions.height}
           graphData={filtered}
+          backgroundColor={isEmbed ? "#020617" : undefined}
           nodeLabel={(n: GraphNode) => `${n.name}${n.aliases?.length ? ` (${n.aliases.join(", ")})` : ""} — 出场 ${n.chapter_count} 回`}
           nodeVal={nodeVal}
           nodeColor={nodeColor}
@@ -243,14 +249,14 @@ export default function DemoGraphPage() {
               ctx.font = `${Math.max(10 / globalScale, 3)}px sans-serif`
               ctx.textAlign = "center"
               ctx.textBaseline = "top"
-              ctx.fillStyle = "#374151"
+              ctx.fillStyle = isEmbed ? "#e2e8f0" : "#374151"
               ctx.fillText(node.name, node.x!, node.y! + r + 2)
             }
           }}
         />
 
-        {/* Hover info */}
-        {hoverNode && (() => {
+        {/* Hover info — hidden in embed mode */}
+        {!isEmbed && hoverNode && (() => {
           const node = graphData.nodes.find((n) => n.id === hoverNode)
           if (!node) return null
           const nodeEdges = graphData.edges.filter((e) => {
