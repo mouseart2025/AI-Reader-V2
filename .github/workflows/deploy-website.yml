@@ -1,0 +1,46 @@
+name: Deploy Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - 'frontend/src/pages/demo/**'
+      - 'frontend/src/app/DemoLayout.tsx'
+      - 'frontend/src/app/DemoContext.tsx'
+      - 'frontend/src/api/demoDataAdapter.ts'
+      - 'frontend/src/api/demoNovelMap.ts'
+      - 'frontend/src/components/entity-cards/DemoEntityCardDrawer.tsx'
+      - 'frontend/public/demo-data/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build demo SPA
+        run: npm run build:demo
+        working-directory: frontend
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy landing --project-name=ai-reader --branch=main --commit-dirty=true
