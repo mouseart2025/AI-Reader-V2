@@ -41,5 +41,8 @@ AI驱动的小说地理关系提取与地图可视化重构*.md
 LLM驱动的小说世界地图生成系统*.md
 自动文学制图学*.md
 
+# Wrangler (Cloudflare CLI)
+.wrangler/
+
 # BMAD claude commands
 .claude/commands/bmad*

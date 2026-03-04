@@ -449,6 +449,20 @@ class ChapterFactExtractor:
         if isinstance(result, str):
             raise ExtractionError(f"Expected dict from structured output, got str")
 
+        # Handle LLM returning array [...] instead of object {...}
+        if isinstance(result, list):
+            dict_items = [item for item in result if isinstance(item, dict)]
+            if dict_items:
+                logger.warning(
+                    "LLM returned array instead of object for chapter %d, using first dict element",
+                    chapter_id,
+                )
+                result = dict_items[0]
+            else:
+                raise ExtractionError(
+                    f"Expected dict from structured output, got list with no dict elements"
+                )
+
         # Override novel_id and chapter_id to ensure correctness
         result["novel_id"] = novel_id
         result["chapter_id"] = chapter_id

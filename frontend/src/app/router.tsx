@@ -21,6 +21,9 @@ const DemoGraphPage = lazy(() => import("@/pages/demo/DemoGraphPage"))
 const DemoMapPage = lazy(() => import("@/pages/demo/DemoMapPage"))
 const DemoTimelinePage = lazy(() => import("@/pages/demo/DemoTimelinePage"))
 const DemoEncyclopediaPage = lazy(() => import("@/pages/demo/DemoEncyclopediaPage"))
+const DemoFactionsPage = lazy(() => import("@/pages/demo/DemoFactionsPage"))
+const DemoReadingPage = lazy(() => import("@/pages/demo/DemoReadingPage"))
+const DemoExportPage = lazy(() => import("@/pages/demo/DemoExportPage"))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -64,6 +67,9 @@ export const router = createBrowserRouter([
       { path: "map", element: <SuspenseWrapper><DemoMapPage /></SuspenseWrapper> },
       { path: "timeline", element: <SuspenseWrapper><DemoTimelinePage /></SuspenseWrapper> },
       { path: "encyclopedia", element: <SuspenseWrapper><DemoEncyclopediaPage /></SuspenseWrapper> },
+      { path: "factions", element: <SuspenseWrapper><DemoFactionsPage /></SuspenseWrapper> },
+      { path: "reading", element: <SuspenseWrapper><DemoReadingPage /></SuspenseWrapper> },
+      { path: "export", element: <SuspenseWrapper><DemoExportPage /></SuspenseWrapper> },
     ],
   },
   // Redirect bare /demo to default novel
