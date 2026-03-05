@@ -110,21 +110,19 @@
 
         <!-- Interactive graph (65%) -->
         <div class="w-full lg:w-[65%]">
-          <div class="float-animation rounded-xl border border-slate-700/50 overflow-hidden shadow-2xl shadow-blue-500/10 aspect-video relative">
+          <div class="rounded-xl border border-slate-700/50 overflow-hidden shadow-2xl shadow-blue-500/10 aspect-video relative">
             <iframe
-              src="/demo/honglou/graph?embed=1"
+              src="/demo/honglou/graph?embed=1&v=2"
               class="w-full h-full border-0"
               loading="eager"
               title="红楼梦人物关系图 — 交互式 Demo"
             ></iframe>
-            <!-- Click overlay — redirects to full demo -->
+            <!-- Corner button — doesn't block iframe interaction -->
             <a
               href="/demo/honglou/graph"
-              class="absolute inset-0 z-10 flex items-end justify-center pb-4 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
+              class="absolute bottom-3 right-3 z-10 rounded-full bg-blue-500/90 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur hover:bg-blue-600 transition shadow-lg"
             >
-              <span class="rounded-full bg-blue-500/90 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur">
-                点击进入完整 Demo →
-              </span>
+              进入完整 Demo →
             </a>
           </div>
         </div>
@@ -170,7 +168,7 @@
             </div>
             <p class="text-slate-400 mb-4">力导向人物关系图，自动识别 70+ 种关系类型，六大分类着色（血亲/亲密/师承/社交/敌对/其他），实体别名自动合并。</p>
             <div class="rounded-lg border border-slate-700/50 overflow-hidden aspect-video">
-              <iframe src="/demo/honglou/graph?embed=1" class="w-full h-full border-0" loading="lazy" title="关系图 Demo"></iframe>
+              <iframe src="/demo/honglou/graph?embed=1&v=2" class="w-full h-full border-0" loading="lazy" title="关系图 Demo"></iframe>
             </div>
           </div>
 
@@ -182,7 +180,7 @@
             </div>
             <p class="text-slate-400 mb-4">从小说文本全自动生成交互式地图。宏观区域划分、多空间层、传送门连接、程序化地形生成、人物轨迹动画、手绘风格渲染。</p>
             <div class="rounded-lg border border-slate-700/50 overflow-hidden aspect-video">
-              <iframe src="/demo/honglou/map?embed=1" class="w-full h-full border-0" loading="lazy" title="世界地图 Demo"></iframe>
+              <iframe src="/demo/honglou/map?embed=1&v=2" class="w-full h-full border-0" loading="lazy" title="世界地图 Demo"></iframe>
             </div>
           </div>
 
@@ -194,7 +192,7 @@
             </div>
             <p class="text-slate-400 mb-4">多泳道事件线，智能降噪，关系变化事件追踪，情绪基调标签，按章节浏览和按类型过滤。</p>
             <div class="rounded-lg border border-slate-700/50 overflow-hidden aspect-video">
-              <iframe src="/demo/honglou/timeline?embed=1" class="w-full h-full border-0" loading="lazy" title="时间线 Demo"></iframe>
+              <iframe src="/demo/honglou/timeline?embed=1&v=2" class="w-full h-full border-0" loading="lazy" title="时间线 Demo"></iframe>
             </div>
           </div>
 
@@ -206,7 +204,7 @@
             </div>
             <p class="text-slate-400 mb-4">分类浏览人物/地点/物品/组织/概念，全文搜索，地点层级树，空间关系面板，场景索引回溯原文。</p>
             <div class="rounded-lg border border-slate-700/50 overflow-hidden aspect-video">
-              <iframe src="/demo/honglou/encyclopedia?embed=1" class="w-full h-full border-0" loading="lazy" title="百科全书 Demo"></iframe>
+              <iframe src="/demo/honglou/encyclopedia?embed=1&v=2" class="w-full h-full border-0" loading="lazy" title="百科全书 Demo"></iframe>
             </div>
           </div>
         </div>
