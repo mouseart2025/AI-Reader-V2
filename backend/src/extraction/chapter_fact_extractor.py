@@ -463,8 +463,42 @@ class ChapterFactExtractor:
                     f"Expected dict from structured output, got list with no dict elements"
                 )
 
+        # Normalize LLM field name variants before Pydantic validation
+        _normalize_field_names(result)
+
         # Override novel_id and chapter_id to ensure correctness
         result["novel_id"] = novel_id
         result["chapter_id"] = chapter_id
 
         return ChapterFact.model_validate(result), usage
+
+
+def _normalize_field_names(data: dict) -> None:
+    """Fix common LLM field name variants in-place before Pydantic validation.
+
+    LLMs sometimes use shorter field names (e.g. 'name' instead of 'item_name')
+    or return non-dict items in array fields. This normalizes them.
+    """
+    # Array fields that must contain dicts
+    array_fields = (
+        "characters", "relationships", "locations", "item_events",
+        "org_events", "events", "spatial_relationships", "new_concepts",
+    )
+    for field in array_fields:
+        if field in data and isinstance(data[field], list):
+            # Filter out non-dict items (strings, nulls, etc.)
+            data[field] = [item for item in data[field] if isinstance(item, dict)]
+
+    # item_events: LLM may use 'name'/'type' instead of 'item_name'/'item_type'
+    for item in data.get("item_events", []):
+        if "item_name" not in item and "name" in item:
+            item["item_name"] = item.pop("name")
+        if "item_type" not in item and "type" in item:
+            item["item_type"] = item.pop("type")
+
+    # org_events: LLM may use 'name'/'type' instead of 'org_name'/'org_type'
+    for item in data.get("org_events", []):
+        if "org_name" not in item and "name" in item:
+            item["org_name"] = item.pop("name")
+        if "org_type" not in item and "type" in item:
+            item["org_type"] = item.pop("type")

@@ -1,9 +1,10 @@
 /**
  * DemoLayout — wraps demo pages with navigation bar + CTA conversion bar.
  * Provides novel selector, 7 visualization tabs, mobile gate, and upgrade banner.
+ * Dark theme to match the landing page design (slate-950 + blue-500).
  */
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Outlet, useParams, useNavigate, useLocation, Link } from "react-router-dom"
+import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom"
 import { DemoProvider } from "./DemoContext"
 import { DemoEntityCardDrawer } from "@/components/entity-cards/DemoEntityCardDrawer"
 import { getAllDemoNovels } from "@/api/demoNovelMap"
@@ -17,6 +18,9 @@ const TABS = [
   { key: "reading", label: "阅读", icon: "📃" },
   { key: "export", label: "导出", icon: "💾" },
 ] as const
+
+/** Compute landing page URL from Vite base path */
+const LANDING_URL = (import.meta.env.BASE_URL ?? "/").replace(/\/demo\/?$/, "/") || "/"
 
 export default function DemoLayout() {
   const { novelSlug = "honglou" } = useParams<{ novelSlug: string }>()
@@ -70,25 +74,25 @@ export default function DemoLayout() {
   return (
     <DemoProvider slug={novelSlug}>
       {/* Story 4.3: Mobile gate — shown on < md screens instead of full demo */}
-      <div className="flex h-screen flex-col items-center justify-center bg-gray-50 p-6 text-center md:hidden">
+      <div className="flex h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center md:hidden">
         <span className="mb-4 text-5xl">📚</span>
-        <h1 className="mb-2 text-xl font-bold text-gray-800">AI Reader V2 Demo</h1>
-        <p className="mb-6 text-sm text-gray-500">
+        <h1 className="mb-2 text-xl font-bold text-white">AI Reader V2 Demo</h1>
+        <p className="mb-6 text-sm text-slate-400">
           交互式分析 Demo 需要桌面浏览器获得最佳体验
         </p>
         {/* Screenshot placeholders */}
         <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
-          <div className="flex-shrink-0 rounded-lg border-2 border-dashed border-gray-300 bg-white p-4 w-48 h-32 flex items-center justify-center">
-            <span className="text-xs text-gray-400">🕸️ 关系图</span>
+          <div className="flex-shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 p-4 w-48 h-32 flex items-center justify-center">
+            <span className="text-xs text-slate-500">🕸️ 关系图</span>
           </div>
-          <div className="flex-shrink-0 rounded-lg border-2 border-dashed border-gray-300 bg-white p-4 w-48 h-32 flex items-center justify-center">
-            <span className="text-xs text-gray-400">🗺️ 世界地图</span>
+          <div className="flex-shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 p-4 w-48 h-32 flex items-center justify-center">
+            <span className="text-xs text-slate-500">🗺️ 世界地图</span>
           </div>
-          <div className="flex-shrink-0 rounded-lg border-2 border-dashed border-gray-300 bg-white p-4 w-48 h-32 flex items-center justify-center">
-            <span className="text-xs text-gray-400">⏳ 时间线</span>
+          <div className="flex-shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 p-4 w-48 h-32 flex items-center justify-center">
+            <span className="text-xs text-slate-500">⏳ 时间线</span>
           </div>
         </div>
-        <p className="mb-4 text-xs text-gray-400">在桌面浏览器打开此链接获得完整交互体验</p>
+        <p className="mb-4 text-xs text-slate-500">在桌面浏览器打开此链接获得完整交互体验</p>
         <div className="flex gap-3">
           <a
             href="https://github.com/mouseart2025/AI-Reader-V2"
@@ -99,8 +103,8 @@ export default function DemoLayout() {
             GitHub 下载
           </a>
           <a
-            href={import.meta.env.BASE_URL?.replace(/\/demo\/?$/, "/") || "/"}
-            className="rounded-md border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
+            href={LANDING_URL}
+            className="rounded-md border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-300 hover:border-blue-500 hover:text-white transition"
           >
             返回首页
           </a>
@@ -108,27 +112,23 @@ export default function DemoLayout() {
       </div>
 
       {/* Full demo layout — hidden on mobile, shown on md+ */}
-      <div className="hidden md:flex h-screen flex-col">
+      <div className="hidden md:flex h-screen flex-col bg-slate-950">
         {/* Top Navigation */}
-        <header className="flex items-center gap-2 border-b bg-white px-3 py-2 shadow-sm sm:gap-4 sm:px-4">
-          {/* Logo */}
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-blue-600"
-            onClick={(e) => {
-              e.preventDefault()
-              window.location.href = import.meta.env.BASE_URL?.replace(/\/demo\/?$/, "/") || "/"
-            }}
+        <header className="flex items-center gap-2 border-b border-slate-800 bg-slate-900/80 px-3 py-2 backdrop-blur sm:gap-4 sm:px-4">
+          {/* Logo — links to landing page */}
+          <a
+            href={LANDING_URL}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-blue-400 transition"
           >
             <span className="text-lg">📚</span>
             <span>AI Reader Demo</span>
-          </Link>
+          </a>
 
           {/* Novel Selector */}
           <select
             value={novelSlug}
             onChange={(e) => navigate(`/demo/${e.target.value}/${activeTab}`)}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            className="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 focus:border-blue-500 focus:outline-none"
           >
             {novels.map((n) => (
               <option key={n.slug} value={n.slug}>
@@ -145,8 +145,8 @@ export default function DemoLayout() {
                 onClick={() => navigate(`/demo/${novelSlug}/${tab.key}`)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                   activeTab === tab.key
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    ? "bg-blue-500/20 text-blue-400"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                 }`}
               >
                 <span className="mr-1">{tab.icon}</span>
@@ -162,7 +162,7 @@ export default function DemoLayout() {
             href="https://github.com/mouseart2025/AI-Reader-V2"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-gray-400 hover:text-gray-600"
+            className="text-sm text-slate-500 hover:text-slate-300 transition"
           >
             GitHub ↗
           </a>
@@ -181,9 +181,9 @@ export default function DemoLayout() {
           <div
             role="complementary"
             aria-label="安装引导"
-            className="flex items-center justify-between border-t bg-slate-800 px-4 py-3 text-white animate-slide-up"
+            className="flex items-center justify-between border-t border-slate-700/50 bg-slate-900 px-4 py-3 text-white animate-slide-up"
           >
-            <p className="text-sm">
+            <p className="text-sm text-slate-300">
               <span className="mr-1">💡</span>
               想分析自己的小说？下载 AI Reader V2，5 分钟开始使用
             </p>
@@ -197,14 +197,14 @@ export default function DemoLayout() {
                 免费下载
               </a>
               <a
-                href={import.meta.env.BASE_URL?.replace(/\/demo\/?$/, "/#download") || "/#download"}
-                className="hidden rounded-md border border-gray-600 px-4 py-1.5 text-sm text-gray-300 hover:text-white hover:border-gray-400 transition lg:block"
+                href={LANDING_URL.replace(/\/$/, "") + "/#download"}
+                className="hidden rounded-md border border-slate-600 px-4 py-1.5 text-sm text-slate-300 hover:text-white hover:border-slate-400 transition lg:block"
               >
                 快速开始
               </a>
               <button
                 onClick={dismissBanner}
-                className="ml-2 text-gray-400 hover:text-white transition"
+                className="ml-2 text-slate-500 hover:text-white transition"
                 aria-label="关闭"
               >
                 ✕

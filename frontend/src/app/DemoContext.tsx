@@ -51,10 +51,10 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
 
   if (!novelInfo) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
-          <p className="text-lg font-semibold text-red-600">未知的 Demo 小说</p>
-          <p className="text-muted-foreground mt-2 text-sm">「{slug}」不是有效的 Demo 标识</p>
+          <p className="text-lg font-semibold text-red-400">未知的 Demo 小说</p>
+          <p className="mt-2 text-sm text-slate-400">「{slug}」不是有效的 Demo 标识</p>
         </div>
       </div>
     )
@@ -62,10 +62,10 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
-          <div className="border-primary mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-          <p className="text-muted-foreground text-sm">正在加载「{novelInfo.title}」Demo 数据...</p>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+          <p className="text-sm text-slate-400">正在加载「{novelInfo.title}」Demo 数据...</p>
         </div>
       </div>
     )
@@ -73,10 +73,10 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
-          <p className="text-lg font-semibold text-red-600">加载失败</p>
-          <p className="text-muted-foreground mt-2 text-sm">{error}</p>
+          <p className="text-lg font-semibold text-red-400">加载失败</p>
+          <p className="mt-2 text-sm text-slate-400">{error}</p>
         </div>
       </div>
     )

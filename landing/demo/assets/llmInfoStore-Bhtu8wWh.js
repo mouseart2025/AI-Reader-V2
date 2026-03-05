@@ -1,1 +1,0 @@
-import{a,d as i}from"./index-CyaWCllh.js";const f=a((l,n)=>({model:null,provider:null,loading:!1,fetch:async(e=!1)=>{const o=n();if(!(!e&&o.model)&&!o.loading){l({loading:!0});try{const r=await i();l({model:r.llm_model||null,provider:r.llm_provider||null,loading:!1})}catch{l({loading:!1})}}}}));function s(l,n){return l?`${l}${n==="openai"?"（云端）":"（本地）"}`:""}export{s as f,f as u};

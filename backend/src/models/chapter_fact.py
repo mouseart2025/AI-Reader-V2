@@ -41,7 +41,7 @@ class ItemEventFact(BaseModel):
     item_name: str
     item_type: str
     action: str  # 出现/获得/使用/赠予/消耗/丢失/损毁
-    actor: str
+    actor: str | None = None
     recipient: str | None = None
     description: str | None = None
 
