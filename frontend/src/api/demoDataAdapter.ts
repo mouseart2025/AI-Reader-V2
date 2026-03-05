@@ -117,6 +117,67 @@ export async function preloadAllDemoData(slug: string): Promise<DemoDataBundle> 
   return { novel, chapters, graph, map, timeline, encyclopedia, encyclopediaStats, factions, worldStructure }
 }
 
+/** Chapter content + entities + scenes returned from individual chapter files */
+export interface DemoChapterContent {
+  chapter_num: number
+  title: string
+  content: string
+  word_count: number
+  entities: { name: string; type: string }[]
+  scenes?: import("@/api/types").Scene[]
+}
+
+/**
+ * Load a single chapter's content + entities on demand.
+ * Files are stored as chapters/ch-001.json.gz, ch-002.json.gz, etc.
+ */
+export async function loadDemoChapterContent(
+  slug: string,
+  chapterNum: number,
+): Promise<DemoChapterContent> {
+  const cacheKey = `${slug}/chapter/${chapterNum}`
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey) as DemoChapterContent
+  }
+
+  const novel = getDemoNovel(slug)
+  if (!novel) {
+    throw new Error(`Unknown demo novel: ${slug}`)
+  }
+
+  const paddedNum = String(chapterNum).padStart(3, "0")
+  const basePath = import.meta.env.BASE_URL ?? "/"
+  const url = `${basePath}${novel.dataPath.replace(/^\//, "")}/chapters/ch-${paddedNum}.json.gz`
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to load chapter ${chapterNum}: ${url} (${response.status})`)
+  }
+
+  const data = await decompressGzipResponse<DemoChapterContent>(response)
+  cache.set(cacheKey, data)
+
+  // Preload next chapter via requestIdleCallback
+  if (chapterNum < novel.totalChapters) {
+    const nextNum = chapterNum + 1
+    const nextKey = `${slug}/chapter/${nextNum}`
+    if (!cache.has(nextKey)) {
+      const preload = () => {
+        loadDemoChapterContent(slug, nextNum).catch(() => {
+          /* silent preload failure */
+        })
+      }
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(preload)
+      } else {
+        setTimeout(preload, 200)
+      }
+    }
+  }
+
+  return data
+}
+
 /** Clear cached data (useful when switching novels) */
 export function clearDemoCache(): void {
   cache.clear()

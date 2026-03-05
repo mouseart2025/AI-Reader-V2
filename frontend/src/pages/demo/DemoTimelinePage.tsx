@@ -107,10 +107,10 @@ export default function DemoTimelinePage() {
   })
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-slate-950">
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 border-b bg-white/80 px-4 py-2">
-        <span className="text-xs text-gray-500">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
+        <span className="text-xs text-slate-400">
           {flatItems.filter((i) => i.kind === "event").length} 事件
         </span>
         <div className="flex gap-1">
@@ -120,24 +120,24 @@ export default function DemoTimelinePage() {
               onClick={() => toggleType(type)}
               className="rounded px-2 py-0.5 text-xs font-medium transition"
               style={{
-                backgroundColor: hiddenTypes.has(type) ? "#f3f4f6" : EVENT_TYPE_COLORS[type] + "15",
-                color: hiddenTypes.has(type) ? "#9ca3af" : EVENT_TYPE_COLORS[type],
-                border: `1px solid ${hiddenTypes.has(type) ? "#e5e7eb" : EVENT_TYPE_COLORS[type] + "30"}`,
+                backgroundColor: hiddenTypes.has(type) ? "#1e293b" : EVENT_TYPE_COLORS[type] + "15",
+                color: hiddenTypes.has(type) ? "#64748b" : EVENT_TYPE_COLORS[type],
+                border: `1px solid ${hiddenTypes.has(type) ? "#334155" : EVENT_TYPE_COLORS[type] + "30"}`,
               }}
             >
               {type}
             </button>
           ))}
         </div>
-        <div className="flex gap-1 border-l pl-2">
+        <div className="flex gap-1 border-l border-slate-700 pl-2">
           {(["all", "medium", "high"] as const).map((level) => (
             <button
               key={level}
               onClick={() => setImportanceFilter(level)}
               className={`rounded px-2 py-0.5 text-xs transition ${
                 importanceFilter === level
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : "text-gray-400 hover:text-gray-600"
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
               {level === "all" ? "全部" : level === "medium" ? "中+" : "仅高"}
@@ -153,7 +153,7 @@ export default function DemoTimelinePage() {
           className="mx-auto max-w-3xl px-4"
         >
           {/* Vertical line */}
-          <div className="absolute left-[60px] top-0 bottom-0 w-px bg-gray-200" />
+          <div className="absolute left-[60px] top-0 bottom-0 w-px bg-slate-800" />
 
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const item = flatItems[virtualItem.index]
@@ -170,22 +170,22 @@ export default function DemoTimelinePage() {
               >
                 {item.kind === "chapter" ? (
                   <div className="flex items-center gap-2 py-1">
-                    <span className="w-[52px] text-right text-xs font-semibold text-gray-700">
+                    <span className="w-[52px] text-right text-xs font-semibold text-slate-300">
                       第{item.chapter}回
                     </span>
-                    <div className="h-2.5 w-2.5 rounded-full border-2 border-gray-400 bg-white" />
-                    <span className="text-xs text-gray-400">{item.eventCount} 事件</span>
+                    <div className="h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-slate-900" />
+                    <span className="text-xs text-slate-500">{item.eventCount} 事件</span>
                   </div>
                 ) : (
-                  <div className="ml-[72px] mr-2 rounded-lg border bg-white p-2.5 shadow-sm">
+                  <div className="ml-[72px] mr-2 rounded-lg border border-slate-700/50 bg-slate-900 p-2.5">
                     <div className="flex items-start gap-2">
                       <span
                         className="mt-0.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
                         style={{ backgroundColor: EVENT_TYPE_COLORS[item.event.type] ?? "#6b7280" }}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm leading-snug text-gray-800">{item.event.summary}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                        <p className="text-sm leading-snug text-slate-200">{item.event.summary}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                           <span
                             className="rounded px-1.5 py-0.5"
                             style={{
@@ -196,7 +196,7 @@ export default function DemoTimelinePage() {
                             {item.event.type}
                           </span>
                           {item.event.is_major && (
-                            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-600">重要</span>
+                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">重要</span>
                           )}
                           {item.event.emotional_tone && (
                             <span

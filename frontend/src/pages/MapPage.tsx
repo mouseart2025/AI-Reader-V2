@@ -705,7 +705,7 @@ export default function MapPage() {
                     {ICON_LEGEND.filter((item) => usedIcons.has(item.icon)).map((item) => (
                       <div key={item.icon} className="flex items-center gap-1.5 text-xs">
                         <img
-                          src={`/map-icons/${item.icon}.svg`}
+                          src={`${import.meta.env.BASE_URL ?? "/"}map-icons/${item.icon}.svg`}
                           alt={item.label}
                           className="size-3.5 opacity-60"
                           style={{ filter: "invert(0.4)" }}

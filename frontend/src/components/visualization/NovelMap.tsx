@@ -440,7 +440,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       Promise.all(
         ICON_NAMES.map(async (name) => {
           try {
-            const resp = await fetch(`/map-icons/${name}.svg`)
+            const base = import.meta.env.BASE_URL ?? "/"
+            const resp = await fetch(`${base}map-icons/${name}.svg`)
             const text = await resp.text()
             // Extract inner SVG content
             const match = text.match(/<svg[^>]*>([\s\S]*)<\/svg>/i)

@@ -279,6 +279,10 @@ class OpenAICompatibleClient:
                 )
                 content = _repair_truncated_json(content)
 
+            # Strip <think> blocks that some models emit despite not being requested
+            from src.infra.llm_client import _strip_thinking
+            content = _strip_thinking(content).strip()
+
             try:
                 return json.loads(content), usage
             except json.JSONDecodeError:

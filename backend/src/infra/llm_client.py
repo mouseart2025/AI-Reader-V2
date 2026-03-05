@@ -84,7 +84,8 @@ def _extract_json(text: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    raise LLMParseError(f"Failed to extract JSON from LLM response: {text[:200]}...")
+    # Show cleaned text in error (not raw <think> output which is useless noise)
+    raise LLMParseError(f"Failed to extract JSON from LLM response: {cleaned[:200]}...")
 
 
 class LLMClient:

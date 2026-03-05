@@ -204,8 +204,14 @@ export function DemoEntityCardDrawer() {
     [navigateTo],
   )
 
-  // No-op in demo mode — there's no reading page
-  const handleChapterClick = useCallback(() => {}, [])
+  // Navigate to reading page at the specified chapter
+  const handleChapterClick = useCallback(
+    (chapter: number) => {
+      close()
+      navigate(`/demo/${novelSlug}/reading?chapter=${chapter}`)
+    },
+    [close, navigate, novelSlug],
+  )
 
   // Close on Escape
   useEffect(() => {
@@ -225,29 +231,29 @@ export function DemoEntityCardDrawer() {
       <div className="fixed inset-0 z-40 bg-black/20" onClick={close} />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 z-50 flex h-screen w-full flex-col border-l bg-white shadow-lg sm:w-[420px]">
+      <div className="fixed top-0 right-0 z-50 flex h-screen w-full flex-col border-l border-slate-700 bg-slate-900 text-slate-200 shadow-lg sm:w-[420px]">
         {/* Header with breadcrumbs */}
-        <div className="flex items-center gap-2 border-b px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-slate-700 px-4 py-3">
           <div className="flex-1 overflow-hidden">
             <div className="flex items-center gap-1 text-sm">
               {breadcrumbs.map((crumb, i) => (
                 <span key={i} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-gray-400">&gt;</span>}
+                  {i > 0 && <span className="text-slate-500">&gt;</span>}
                   {i < breadcrumbs.length - 1 ? (
                     <button
-                      className="truncate text-blue-600 hover:underline"
+                      className="truncate text-blue-400 hover:underline"
                       onClick={() => goBack(i)}
                     >
                       {crumb.name}
                     </button>
                   ) : (
-                    <span className="truncate font-medium">{crumb.name}</span>
+                    <span className="truncate font-medium text-white">{crumb.name}</span>
                   )}
                 </span>
               ))}
             </div>
           </div>
-          <button onClick={close} className="text-gray-400 hover:text-gray-600">
+          <button onClick={close} className="text-slate-400 hover:text-white">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
@@ -258,13 +264,13 @@ export function DemoEntityCardDrawer() {
         <div className="flex-1 overflow-y-auto px-4">
           {loading && (
             <div className="flex h-32 items-center justify-center">
-              <p className="text-sm text-gray-400">加载中...</p>
+              <p className="text-sm text-slate-400">加载中...</p>
             </div>
           )}
 
           {!loading && cardError && (
             <div className="flex h-32 flex-col items-center justify-center gap-2">
-              <p className="text-sm text-red-500">{cardError}</p>
+              <p className="text-sm text-red-400">{cardError}</p>
             </div>
           )}
 
@@ -285,39 +291,39 @@ export function DemoEntityCardDrawer() {
               )}
 
               {/* Demo CTA */}
-              <div className="my-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
-                <p className="text-sm text-blue-700">
-                  下载完整版体验场景索引、阅读页跳转等更多功能
+              <div className="my-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-center">
+                <p className="text-sm text-blue-300">
+                  下载完整版体验场景索引等更多功能
                 </p>
               </div>
 
               {/* Cross-page navigation — points to demo routes */}
-              <div className="flex flex-wrap gap-2 border-t py-3">
+              <div className="flex flex-wrap gap-2 border-t border-slate-700 py-3">
                 {profile.type === "person" && (
                   <>
-                    <button className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50" onClick={() => { close(); navigate(`/demo/${novelSlug}/graph`) }}>
+                    <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/graph`) }}>
                       关系图
                     </button>
-                    <button className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50" onClick={() => { close(); navigate(`/demo/${novelSlug}/timeline`) }}>
+                    <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/timeline`) }}>
                       时间线
                     </button>
-                    <button className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
+                    <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
                       百科
                     </button>
                   </>
                 )}
                 {profile.type === "location" && (
                   <>
-                    <button className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50" onClick={() => { close(); navigate(`/demo/${novelSlug}/map`) }}>
+                    <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/map`) }}>
                       地图
                     </button>
-                    <button className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
+                    <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
                       百科
                     </button>
                   </>
                 )}
                 {(profile.type === "item" || profile.type === "org") && (
-                  <button className="rounded border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
+                  <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
                     百科
                   </button>
                 )}
@@ -330,16 +336,16 @@ export function DemoEntityCardDrawer() {
       {/* Concept Popup */}
       {conceptPopup && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={closeConceptPopup}>
-          <div className="w-80 rounded-lg border bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-80 rounded-lg border border-slate-700 bg-slate-800 p-4 text-slate-200 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="font-bold">{conceptPopup.name}</h4>
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400">
+              <h4 className="font-bold text-white">{conceptPopup.name}</h4>
+              <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">
                 {conceptPopup.category}
               </span>
             </div>
             <p className="mb-3 text-sm">{conceptPopup.definition}</p>
             {conceptPopup.related.length > 0 && (
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-slate-400">
                 <span>相关：</span>{conceptPopup.related.join("、")}
               </div>
             )}

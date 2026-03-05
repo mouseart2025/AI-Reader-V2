@@ -1,6 +1,7 @@
 /**
  * DemoGraphPage — interactive force-directed graph using static demo data.
- * Reuses react-force-graph-2d with category filtering and path finding.
+ * Features: category filtering, path finding (BFS), hover dim, node search,
+ * label collision detection.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
@@ -46,6 +47,52 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const ALL_CATEGORIES = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
 
+// ── BFS path finding ─────────────────────────────
+
+function edgeKey(e: GraphEdge): string {
+  const src = typeof e.source === "string" ? e.source : e.source.id
+  const tgt = typeof e.target === "string" ? e.target : e.target.id
+  return `${src}--${tgt}`
+}
+
+function bfsPath(nodeIds: Set<string>, edges: GraphEdge[], startId: string, endId: string): string[] {
+  if (startId === endId) return [startId]
+  if (!nodeIds.has(startId) || !nodeIds.has(endId)) return []
+
+  const adj = new Map<string, string[]>()
+  for (const id of nodeIds) adj.set(id, [])
+  for (const e of edges) {
+    const src = typeof e.source === "string" ? e.source : e.source.id
+    const tgt = typeof e.target === "string" ? e.target : e.target.id
+    adj.get(src)?.push(tgt)
+    adj.get(tgt)?.push(src)
+  }
+
+  const visited = new Set<string>([startId])
+  const parent = new Map<string, string>()
+  const queue = [startId]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const neighbor of adj.get(current) ?? []) {
+      if (visited.has(neighbor)) continue
+      visited.add(neighbor)
+      parent.set(neighbor, current)
+      if (neighbor === endId) {
+        const path: string[] = []
+        let node: string | undefined = endId
+        while (node !== undefined) {
+          path.unshift(node)
+          node = parent.get(node)
+        }
+        return path
+      }
+      queue.push(neighbor)
+    }
+  }
+  return []
+}
+
 export default function DemoGraphPage() {
   const [searchParams] = useSearchParams()
   const isEmbed = searchParams.get("embed") === "1"
@@ -65,6 +112,26 @@ export default function DemoGraphPage() {
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge>>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Path finding state
+  const [pathStart, setPathStart] = useState<string | null>(null)
+  const [pathNodes, setPathNodes] = useState<Set<string>>(new Set())
+  const [pathEdges, setPathEdges] = useState<Set<string>>(new Set())
+  const [pathInfo, setPathInfo] = useState<string[]>([])
+  const [showPathPanel, setShowPathPanel] = useState(false)
+  const [pathSearchA, setPathSearchA] = useState("")
+  const [pathSearchB, setPathSearchB] = useState("")
+  const [searchFocused, setSearchFocused] = useState<"a" | "b" | null>(null)
+
+  // Node search state
+  const [nodeSearch, setNodeSearch] = useState("")
+  const [showSearchPanel, setShowSearchPanel] = useState(false)
+
+  // Label collision detection refs
+  const labelRectsRef = useRef<{ x: number; y: number; w: number; h: number }[]>([])
+  const lastFrameRef = useRef(0)
+
+  const hasPath = pathNodes.size > 1
 
   // Set smart defaults based on data size
   useEffect(() => {
@@ -109,7 +176,6 @@ export default function DemoGraphPage() {
       if (e.category && hiddenCategories.has(e.category)) return false
       return true
     })
-    // Remove isolated nodes
     const connected = new Set<string>()
     edges.forEach((e) => {
       connected.add(typeof e.source === "string" ? e.source : e.source.id)
@@ -119,32 +185,152 @@ export default function DemoGraphPage() {
     return { nodes, links: edges }
   }, [graphData, minChapters, minEdgeWeight, hiddenCategories])
 
-  const nodeColor = useCallback(
-    (node: GraphNode) => orgColorMap.get(node.org) || "#6b7280",
-    [orgColorMap],
+  const filteredNodeIds = useMemo(() => new Set(filtered.nodes.map((n) => n.id)), [filtered.nodes])
+
+  // Connected nodes for hover dim
+  const connectedNodes = useMemo(() => {
+    if (!hoverNode) return new Set<string>()
+    const connected = new Set<string>([hoverNode])
+    for (const e of filtered.links) {
+      const src = typeof e.source === "string" ? e.source : e.source.id
+      const tgt = typeof e.target === "string" ? e.target : e.target.id
+      if (src === hoverNode) connected.add(tgt)
+      if (tgt === hoverNode) connected.add(src)
+    }
+    return connected
+  }, [hoverNode, filtered.links])
+
+  // Autocomplete suggestions for path search
+  const searchSuggestions = useMemo(() => {
+    const query = searchFocused === "a" ? pathSearchA : searchFocused === "b" ? pathSearchB : nodeSearch
+    if (!query || query.length < 1) return []
+    const q = query.toLowerCase()
+    return filtered.nodes
+      .filter((n) => n.name.toLowerCase().includes(q))
+      .sort((a, b) => b.chapter_count - a.chapter_count)
+      .slice(0, 8)
+  }, [searchFocused, pathSearchA, pathSearchB, nodeSearch, filtered.nodes])
+
+  // Node search suggestions
+  const nodeSearchSuggestions = useMemo(() => {
+    if (!nodeSearch || nodeSearch.length < 1 || !showSearchPanel) return []
+    const q = nodeSearch.toLowerCase()
+    return filtered.nodes
+      .filter((n) => n.name.toLowerCase().includes(q))
+      .sort((a, b) => b.chapter_count - a.chapter_count)
+      .slice(0, 8)
+  }, [nodeSearch, showSearchPanel, filtered.nodes])
+
+  const getNodeColor = useCallback(
+    (node: GraphNode) => {
+      if (hasPath) {
+        if (pathNodes.has(node.id)) return "#f59e0b"
+        return "#4b5563"
+      }
+      if (pathStart === node.id) return "#f59e0b"
+      if (hoverNode && !connectedNodes.has(node.id)) return "#4b5563"
+      return orgColorMap.get(node.org) || "#6b7280"
+    },
+    [orgColorMap, hasPath, pathNodes, pathStart, hoverNode, connectedNodes],
   )
 
   const nodeVal = useCallback((node: GraphNode) => Math.sqrt(node.chapter_count) * 1.5, [])
 
-  const linkColor = useCallback((edge: GraphEdge) => {
+  const getLinkColor = useCallback((edge: GraphEdge) => {
+    const ek = edgeKey(edge)
+    if (hasPath) {
+      if (pathEdges.has(ek)) return "#f59e0b"
+      return "#1e293b"
+    }
+    if (hoverNode) {
+      const src = typeof edge.source === "string" ? edge.source : edge.source.id
+      const tgt = typeof edge.target === "string" ? edge.target : edge.target.id
+      if (!connectedNodes.has(src) || !connectedNodes.has(tgt)) return "#1e293b"
+    }
     const cat = edge.category ?? "other"
     const base = CATEGORY_COLORS[cat] ?? "#6b7280"
     return edge.weight <= 1 ? base + "40" : base + "80"
-  }, [])
+  }, [hasPath, pathEdges, hoverNode, connectedNodes])
 
-  const linkWidth = useCallback((edge: GraphEdge) => Math.min(edge.weight * 0.5, 4), [])
+  const linkWidth = useCallback((edge: GraphEdge) => {
+    if (hasPath && pathEdges.has(edgeKey(edge))) return 3
+    return Math.min(edge.weight * 0.5, 4)
+  }, [hasPath, pathEdges])
 
   const linkLineDash = useCallback(
-    (edge: GraphEdge) => (edge.weight <= 1 ? [4, 2] : null),
-    [],
+    (edge: GraphEdge) => (edge.weight <= 1 && !(hasPath && pathEdges.has(edgeKey(edge))) ? [4, 2] : null),
+    [hasPath, pathEdges],
   )
 
   const openCard = useEntityCardStore((s) => s.openCard)
 
-  const handleNodeClick = useCallback((node: GraphNode) => {
-    setHoverNode(node.id)
+  // Path finding
+  const findPath = useCallback((startId: string, endId: string) => {
+    const path = bfsPath(filteredNodeIds, filtered.links, startId, endId)
+    if (path.length === 0) {
+      setPathNodes(new Set())
+      setPathEdges(new Set())
+      setPathInfo([])
+      return
+    }
+    const pNodes = new Set(path)
+    const pEdges = new Set<string>()
+    for (let i = 0; i < path.length - 1; i++) {
+      pEdges.add(`${path[i]}--${path[i + 1]}`)
+      pEdges.add(`${path[i + 1]}--${path[i]}`)
+    }
+    const nodeMap = new Map(filtered.nodes.map((n) => [n.id, n.name]))
+    setPathNodes(pNodes)
+    setPathEdges(pEdges)
+    setPathInfo(path.map((id) => nodeMap.get(id) ?? id))
+  }, [filteredNodeIds, filtered.links, filtered.nodes])
+
+  const clearPath = useCallback(() => {
+    setPathStart(null)
+    setPathNodes(new Set())
+    setPathEdges(new Set())
+    setPathInfo([])
+    setPathSearchA("")
+    setPathSearchB("")
+  }, [])
+
+  const handleNodeClick = useCallback((node: GraphNode, event: MouseEvent) => {
+    if (event.shiftKey) {
+      if (!pathStart) {
+        setPathStart(node.id)
+        setPathNodes(new Set([node.id]))
+        setPathEdges(new Set())
+        setPathInfo([node.name])
+      } else {
+        findPath(pathStart, node.id)
+        setPathStart(null)
+      }
+      return
+    }
+    clearPath()
     openCard(node.name, "person")
-  }, [openCard])
+  }, [openCard, pathStart, findPath, clearPath])
+
+  const handleSearchPath = useCallback(() => {
+    const a = pathSearchA.trim()
+    const b = pathSearchB.trim()
+    if (!a || !b) return
+    const nodeA = filtered.nodes.find((n) => n.name === a)
+    const nodeB = filtered.nodes.find((n) => n.name === b)
+    if (!nodeA || !nodeB) return
+    findPath(nodeA.id, nodeB.id)
+  }, [pathSearchA, pathSearchB, filtered.nodes, findPath])
+
+  const handleNodeSearch = useCallback((node: GraphNode) => {
+    setNodeSearch("")
+    setShowSearchPanel(false)
+    // Zoom to node
+    graphRef.current?.centerAt(node.x, node.y, 500)
+    graphRef.current?.zoom(4, 500)
+    setHoverNode(node.id)
+    // Clear highlight after 3s
+    setTimeout(() => setHoverNode(null), 3000)
+  }, [])
 
   const toggleCategory = useCallback((cat: string) => {
     setHiddenCategories((prev) => {
@@ -156,36 +342,36 @@ export default function DemoGraphPage() {
   }, [])
 
   return (
-    <div className={`flex h-full flex-col ${isEmbed ? "bg-slate-950" : ""}`}>
+    <div className="flex h-full flex-col bg-slate-950">
       {/* Filter bar — hidden in embed mode */}
       {!isEmbed && (
-        <div className="flex flex-wrap items-center gap-3 border-b bg-white/80 px-4 py-2">
-          <span className="text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
+          <span className="text-xs text-slate-400">
             {filtered.nodes.length} 人物 / {filtered.links.length} 关系
           </span>
           <label className="flex items-center gap-1 text-xs">
-            <span className="text-gray-500">出场≥</span>
+            <span className="text-slate-400">出场≥</span>
             <input
               type="range"
               min={1}
               max={Math.min(30, Math.max(...graphData.nodes.map((n) => n.chapter_count), 1))}
               value={minChapters}
               onChange={(e) => setMinChapters(Number(e.target.value))}
-              className="w-20"
+              className="w-20 accent-blue-500"
             />
-            <span className="w-6 text-center font-mono">{minChapters}</span>
+            <span className="w-6 text-center font-mono text-slate-300">{minChapters}</span>
           </label>
           <label className="flex items-center gap-1 text-xs">
-            <span className="text-gray-500">关系≥</span>
+            <span className="text-slate-400">关系≥</span>
             <input
               type="range"
               min={1}
               max={graphData.max_edge_weight ?? 10}
               value={minEdgeWeight}
               onChange={(e) => setMinEdgeWeight(Number(e.target.value))}
-              className="w-20"
+              className="w-20 accent-blue-500"
             />
-            <span className="w-6 text-center font-mono">{minEdgeWeight}</span>
+            <span className="w-6 text-center font-mono text-slate-300">{minEdgeWeight}</span>
           </label>
           <div className="flex gap-1">
             {ALL_CATEGORIES.map((cat) => (
@@ -194,14 +380,127 @@ export default function DemoGraphPage() {
                 onClick={() => toggleCategory(cat)}
                 className="rounded px-2 py-0.5 text-xs font-medium transition"
                 style={{
-                  backgroundColor: hiddenCategories.has(cat) ? "#f3f4f6" : CATEGORY_COLORS[cat] + "20",
-                  color: hiddenCategories.has(cat) ? "#9ca3af" : CATEGORY_COLORS[cat],
-                  border: `1px solid ${hiddenCategories.has(cat) ? "#e5e7eb" : CATEGORY_COLORS[cat] + "40"}`,
+                  backgroundColor: hiddenCategories.has(cat) ? "#1e293b" : CATEGORY_COLORS[cat] + "20",
+                  color: hiddenCategories.has(cat) ? "#64748b" : CATEGORY_COLORS[cat],
+                  border: `1px solid ${hiddenCategories.has(cat) ? "#334155" : CATEGORY_COLORS[cat] + "40"}`,
                 }}
               >
                 {CATEGORY_LABELS[cat]}
               </button>
             ))}
+          </div>
+
+          <div className="flex-1" />
+
+          {/* Node search button */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowSearchPanel((v) => !v); setShowPathPanel(false) }}
+              className={`rounded px-2 py-0.5 text-xs transition ${showSearchPanel ? "bg-blue-500/20 text-blue-400" : "text-slate-400 hover:text-white"}`}
+            >
+              搜索
+            </button>
+            {showSearchPanel && (
+              <div className="absolute right-0 top-8 z-20 w-56 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-lg">
+                <input
+                  autoFocus
+                  placeholder="输入人物名..."
+                  value={nodeSearch}
+                  onChange={(e) => setNodeSearch(e.target.value)}
+                  className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+                />
+                {nodeSearchSuggestions.length > 0 && (
+                  <div className="mt-1 max-h-48 overflow-y-auto">
+                    {nodeSearchSuggestions.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => handleNodeSearch(n)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-slate-300 hover:bg-slate-800"
+                      >
+                        <span className="size-2 rounded-full" style={{ backgroundColor: orgColorMap.get(n.org) || "#6b7280" }} />
+                        <span>{n.name}</span>
+                        <span className="ml-auto text-slate-500">{n.chapter_count}回</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Path finding button */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowPathPanel((v) => !v); setShowSearchPanel(false) }}
+              className={`rounded px-2 py-0.5 text-xs transition ${showPathPanel || hasPath ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:text-white"}`}
+            >
+              路径
+            </button>
+            {showPathPanel && (
+              <div className="absolute right-0 top-8 z-20 w-64 rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-lg space-y-2">
+                <p className="text-[10px] text-slate-500">
+                  Shift+点击两个节点，或输入名字搜索
+                </p>
+                <div className="relative">
+                  <input
+                    placeholder="人物 A"
+                    value={pathSearchA}
+                    onChange={(e) => setPathSearchA(e.target.value)}
+                    onFocus={() => setSearchFocused("a")}
+                    onBlur={() => setTimeout(() => setSearchFocused(null), 150)}
+                    className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+                  />
+                  {searchFocused === "a" && searchSuggestions.length > 0 && (
+                    <div className="absolute left-0 top-7 z-30 max-h-32 w-full overflow-y-auto rounded border border-slate-700 bg-slate-800 shadow-lg">
+                      {searchSuggestions.map((n) => (
+                        <button key={n.id} className="w-full px-2 py-1 text-left text-xs text-slate-300 hover:bg-slate-700" onMouseDown={() => setPathSearchA(n.name)}>
+                          {n.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    placeholder="人物 B"
+                    value={pathSearchB}
+                    onChange={(e) => setPathSearchB(e.target.value)}
+                    onFocus={() => setSearchFocused("b")}
+                    onBlur={() => setTimeout(() => setSearchFocused(null), 150)}
+                    className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+                  />
+                  {searchFocused === "b" && searchSuggestions.length > 0 && (
+                    <div className="absolute left-0 top-7 z-30 max-h-32 w-full overflow-y-auto rounded border border-slate-700 bg-slate-800 shadow-lg">
+                      {searchSuggestions.map((n) => (
+                        <button key={n.id} className="w-full px-2 py-1 text-left text-xs text-slate-300 hover:bg-slate-700" onMouseDown={() => setPathSearchB(n.name)}>
+                          {n.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={handleSearchPath} className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500 transition">
+                    查找
+                  </button>
+                  <button onClick={clearPath} className="rounded border border-slate-600 px-3 py-1 text-xs text-slate-400 hover:text-white transition">
+                    清除
+                  </button>
+                </div>
+                {pathStart && !hasPath && (
+                  <p className="text-[10px] text-amber-400">已选起点，请 Shift+点击终点</p>
+                )}
+                {pathInfo.length > 1 && (
+                  <div className="border-t border-slate-700 pt-2">
+                    <p className="text-[10px] text-slate-400 mb-1">最短路径 ({pathInfo.length - 1} 步)</p>
+                    <p className="text-xs text-amber-300">{pathInfo.join(" → ")}</p>
+                  </div>
+                )}
+                {pathInfo.length === 0 && pathSearchA && pathSearchB && (
+                  <p className="text-[10px] text-red-400">未找到路径</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -213,11 +512,11 @@ export default function DemoGraphPage() {
           width={dimensions.width}
           height={dimensions.height}
           graphData={filtered}
-          backgroundColor={isEmbed ? "#020617" : undefined}
-          nodeLabel={(n: GraphNode) => `${n.name}${n.aliases?.length ? ` (${n.aliases.join(", ")})` : ""} — 出场 ${n.chapter_count} 回`}
+          backgroundColor="#020617"
+          nodeLabel=""
           nodeVal={nodeVal}
-          nodeColor={nodeColor}
-          linkColor={linkColor}
+          nodeColor={getNodeColor}
+          linkColor={getLinkColor}
           linkWidth={linkWidth}
           linkLineDash={linkLineDash}
           linkLabel={(e: GraphEdge) => `${e.relation_type} (${e.weight})`}
@@ -227,30 +526,133 @@ export default function DemoGraphPage() {
           d3AlphaDecay={0.02}
           d3VelocityDecay={0.3}
           nodeCanvasObject={(node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-            const size = Math.sqrt(node.chapter_count) * 1.5
-            const r = Math.max(size, 3)
-            const isHover = hoverNode === node.id
+            // Reset collision rects at start of each frame (8ms throttle)
+            const now = performance.now()
+            if (now - lastFrameRef.current > 8) {
+              labelRectsRef.current = []
+              lastFrameRef.current = now
+            }
 
+            const isOnPath = hasPath && pathNodes.has(node.id)
+            const isPathStartNode = pathStart === node.id
+            const isHovered = hoverNode === node.id
+            const isConnected = hoverNode != null && connectedNodes.has(node.id)
+
+            const size = isOnPath
+              ? Math.max(5, Math.sqrt(node.chapter_count) * 2)
+              : Math.max(3, Math.sqrt(node.chapter_count) * 1.5)
+
+            const color = getNodeColor(node)
+
+            // Draw circle
             ctx.beginPath()
-            ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI)
-            ctx.fillStyle = nodeColor(node)
-            ctx.globalAlpha = isHover ? 1 : 0.85
+            ctx.arc(node.x!, node.y!, size, 0, 2 * Math.PI)
+            ctx.fillStyle = color
+            ctx.globalAlpha = isHovered || isOnPath || isPathStartNode ? 1 : 0.85
             ctx.fill()
             ctx.globalAlpha = 1
 
-            if (isHover) {
-              ctx.strokeStyle = nodeColor(node)
+            // Path/hover ring
+            if (isOnPath || isPathStartNode) {
+              ctx.beginPath()
+              ctx.arc(node.x!, node.y!, size + 2, 0, 2 * Math.PI)
+              ctx.strokeStyle = "#d97706"
+              ctx.lineWidth = 1.5
+              ctx.stroke()
+            } else if (isHovered) {
+              ctx.strokeStyle = color
               ctx.lineWidth = 2
+              ctx.beginPath()
+              ctx.arc(node.x!, node.y!, size, 0, 2 * Math.PI)
               ctx.stroke()
             }
 
-            // Label for visible nodes
-            if (globalScale > 0.5 && r > 4) {
-              ctx.font = `${Math.max(10 / globalScale, 3)}px sans-serif`
-              ctx.textAlign = "center"
-              ctx.textBaseline = "top"
-              ctx.fillStyle = isEmbed ? "#e2e8f0" : "#374151"
-              ctx.fillText(node.name, node.x!, node.y! + r + 2)
+            // Label rendering with collision detection
+            const alwaysShow = isOnPath || isPathStartNode || isHovered || isConnected
+            const chapterThreshold = Math.max(2, Math.round(20 / globalScale))
+            const showLabel = alwaysShow || node.chapter_count >= chapterThreshold
+
+            if (showLabel) {
+              const fontSize = 13 / globalScale
+              const isBold = isOnPath || isHovered
+              ctx.font = isBold
+                ? `bold ${fontSize}px system-ui, sans-serif`
+                : `${fontSize}px system-ui, sans-serif`
+              const labelW = ctx.measureText(node.name).width
+              const labelH = fontSize * 1.3
+              const labelPad = 4 / globalScale
+
+              const isDimmed = (hasPath && !isOnPath && !isPathStartNode) ||
+                               (hoverNode !== null && !connectedNodes.has(node.id))
+              const fitsInside = !isDimmed && (labelW + labelPad) < size * 2 && labelH < size * 1.6
+
+              if (fitsInside) {
+                // Label inside circle
+                labelRectsRef.current.push({
+                  x: node.x! - size, y: node.y! - size,
+                  w: size * 2, h: size * 2,
+                })
+                ctx.font = `600 ${fontSize}px system-ui, sans-serif`
+                ctx.textAlign = "center"
+                ctx.textBaseline = "middle"
+                ctx.strokeStyle = "rgba(0,0,0,0.35)"
+                ctx.lineWidth = 2.5 / globalScale
+                ctx.lineJoin = "round"
+                ctx.strokeText(node.name, node.x!, node.y!)
+                ctx.fillStyle = "#ffffff"
+                ctx.fillText(node.name, node.x!, node.y!)
+              } else {
+                // Below-node label with pill background
+                const labelX = node.x! - labelW / 2
+                const labelY = node.y! + size + 2 / globalScale
+
+                const rect = { x: labelX, y: labelY, w: labelW, h: labelH }
+                let overlaps = false
+                if (!alwaysShow) {
+                  for (const p of labelRectsRef.current) {
+                    if (rect.x < p.x + p.w && rect.x + rect.w > p.x &&
+                        rect.y < p.y + p.h && rect.y + rect.h > p.y) {
+                      overlaps = true
+                      break
+                    }
+                  }
+                }
+
+                if (!overlaps) {
+                  labelRectsRef.current.push(rect)
+
+                  // Background pill
+                  const padX = 2 / globalScale
+                  const padY = 1 / globalScale
+                  ctx.fillStyle = "rgba(15,23,42,0.9)"
+                  const rx = labelX - padX
+                  const ry = labelY - padY
+                  const rw = labelW + padX * 2
+                  const rh = labelH + padY * 2
+                  const cr = 2 / globalScale
+                  ctx.beginPath()
+                  ctx.moveTo(rx + cr, ry)
+                  ctx.lineTo(rx + rw - cr, ry)
+                  ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + cr)
+                  ctx.lineTo(rx + rw, ry + rh - cr)
+                  ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - cr, ry + rh)
+                  ctx.lineTo(rx + cr, ry + rh)
+                  ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - cr)
+                  ctx.lineTo(rx, ry + cr)
+                  ctx.quadraticCurveTo(rx, ry, rx + cr, ry)
+                  ctx.fill()
+
+                  // Text
+                  ctx.textAlign = "center"
+                  ctx.textBaseline = "top"
+                  ctx.fillStyle = isOnPath || isPathStartNode
+                    ? "#fbbf24"
+                    : hasPath || (hoverNode && !connectedNodes.has(node.id))
+                      ? "#6b7280"
+                      : "#e5e7eb"
+                  ctx.fillText(node.name, node.x!, labelY)
+                }
+              }
             }
           }}
         />
@@ -265,16 +667,23 @@ export default function DemoGraphPage() {
             return src === hoverNode || tgt === hoverNode
           })
           return (
-            <div className="pointer-events-none absolute right-4 top-4 w-64 rounded-lg border bg-white/95 p-3 shadow-lg backdrop-blur">
-              <p className="font-semibold">{node.name}</p>
-              {node.org && <p className="text-xs text-gray-500">{node.org}</p>}
-              <p className="mt-1 text-xs text-gray-500">出场 {node.chapter_count} 回 · {nodeEdges.length} 条关系</p>
+            <div className="pointer-events-none absolute right-4 top-4 w-64 rounded-lg border border-slate-700/50 bg-slate-900/95 p-3 shadow-lg backdrop-blur">
+              <p className="font-semibold text-white">{node.name}</p>
+              {node.org && <p className="text-xs text-slate-400">{node.org}</p>}
+              <p className="mt-1 text-xs text-slate-400">出场 {node.chapter_count} 回 · {nodeEdges.length} 条关系</p>
               {node.aliases && node.aliases.length > 0 && (
-                <p className="mt-1 text-xs text-gray-400">别名：{node.aliases.join("、")}</p>
+                <p className="mt-1 text-xs text-slate-500">别名：{node.aliases.join("、")}</p>
               )}
             </div>
           )
         })()}
+
+        {/* Shift-click hint */}
+        {!isEmbed && !hasPath && !pathStart && (
+          <div className="pointer-events-none absolute bottom-4 left-4 text-[10px] text-slate-600">
+            Shift+点击两个节点查找最短路径
+          </div>
+        )}
       </div>
     </div>
   )
