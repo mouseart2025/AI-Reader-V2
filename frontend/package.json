@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:demo": "vite build --outDir ../landing/demo --base /demo/"
+    "build:demo": "vite build --outDir ../landing/demo --base /demo/ && cp ../landing/demo/index.html ../landing/demo-spa.html"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
