@@ -1,7 +1,11 @@
 /**
  * Cloudflare Pages Advanced Mode worker.
  * Handles SPA routing for /demo/:novelSlug/* routes.
- * Serves demo/index.html for SPA routes while passing static assets through.
+ *
+ * Problem: env.ASSETS.fetch('/demo/index.html') triggers Pretty URLs 308 redirect
+ * to /demo/, losing the original URL and query params.
+ * Solution: Fetch /demo/ directly (serves index.html without redirect), then
+ * return the response body with the original request URL preserved.
  */
 export default {
   async fetch(request, env) {
@@ -9,9 +13,15 @@ export default {
 
     // Demo SPA routes: /demo/honglou/*, /demo/xiyouji/*
     if (/^\/demo\/(honglou|xiyouji)(\/|$)/.test(url.pathname)) {
-      // Serve the demo SPA entry point
-      const spaRequest = new Request(new URL('/demo/index.html', url.origin), request);
-      return env.ASSETS.fetch(spaRequest);
+      // Fetch /demo/ (trailing slash) to get index.html content without 308
+      const assetResponse = await env.ASSETS.fetch(
+        new Request(new URL('/demo/', url.origin), { headers: request.headers })
+      );
+      // Return the HTML body but keep the original URL (no redirect)
+      return new Response(assetResponse.body, {
+        status: 200,
+        headers: assetResponse.headers,
+      });
     }
 
     // Everything else: serve static files normally
