@@ -10,12 +10,12 @@ import { DemoEntityCardDrawer } from "@/components/entity-cards/DemoEntityCardDr
 import { getAllDemoNovels } from "@/api/demoNovelMap"
 
 const TABS = [
+  { key: "reading", label: "阅读", icon: "📃" },
   { key: "graph", label: "图谱", icon: "🕸️" },
   { key: "map", label: "地图", icon: "🗺️" },
   { key: "timeline", label: "时间线", icon: "⏳" },
   { key: "encyclopedia", label: "百科", icon: "📖" },
   { key: "factions", label: "势力", icon: "⚔️" },
-  { key: "reading", label: "阅读", icon: "📃" },
   { key: "export", label: "导出", icon: "💾" },
 ] as const
 
@@ -33,7 +33,7 @@ export default function DemoLayout() {
 
   // Determine active tab from URL path
   const pathParts = location.pathname.split("/")
-  const activeTab = pathParts[pathParts.length - 1] || "graph"
+  const activeTab = pathParts[pathParts.length - 1] || "reading"
 
   // Story 4.1: Track tab switches for upgrade banner
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
