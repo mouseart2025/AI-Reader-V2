@@ -1,43 +1,59 @@
 # AI Reader V2
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/node-≥22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/react-19-61dafb?logo=react&logoColor=white)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.9-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Ollama](https://img.shields.io/badge/ollama-supported-FF6B35)](https://ollama.com/)
 
-**本地部署的智能小说阅读理解系统。** 利用 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化，以及基于原文的智能问答。数据全部存储在本机。
+**本地部署的智能小说阅读理解系统** — 利用 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化，以及基于原文的智能问答。数据全部存储在本机。
 
-<!-- TODO: 在线体验 Demo（Epic C2 完成后启用）-->
-<!-- [在线体验 Demo](https://demo.ai-reader.com) -->
+**LLM-powered novel analysis system** — transforms novels into structured knowledge graphs with relationship maps, multi-layer world maps, timelines, and RAG-based Q&A. All data stays local.
 
-## 核心亮点 Highlights
+<p align="center">
+  <a href="https://ai-reader.cc"><strong>官网 Website</strong></a> ·
+  <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>在线体验 Live Demo</strong></a> ·
+  <a href="#快速开始-quick-start"><strong>快速开始 Quick Start</strong></a>
+</p>
 
-**🗺️ 多层级世界地图** — 从小说文本全自动生成交互式地图。宏观区域划分、天界/冥界/洞府多空间层、传送门连接、程序化地形生成（生物群落 + 河流水系）、人物轨迹动画、rough.js 手绘风格渲染。
+## 核心功能 Features
 
-**🕸️ 智能知识图谱** — 力导向人物关系图，自动识别 70+ 种关系类型，六大分类着色（血亲/亲密/师承/社交/敌对/其他），实体别名自动合并（孙悟空 = 美猴王 = 行者 = 齐天大圣）。
+### 🕸️ 智能知识图谱
 
-**🤖 多 LLM 后端** — 支持本地 Ollama 和 10 大云端供应商（DeepSeek、Anthropic/Claude、OpenAI、Google Gemini 等），Token 预算根据模型上下文窗口自动缩放。
+力导向人物关系图，自动识别 70+ 种关系类型，六大分类着色（血亲/亲密/师承/社交/敌对/其他），实体别名自动合并（孙悟空 = 美猴王 = 行者 = 齐天大圣）。
 
-**📊 全链路分析** — 实体预扫描词典 → 章节结构化提取 → 关系/地点/事件聚合 → 多维可视化，全程异步、可暂停恢复、失败自动重试。
+<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="知识图谱 Knowledge Graph" />
 
-<!-- TODO: 功能截图展示 -->
-<!-- ![功能截图](docs/screenshots/overview.png) -->
+### 🗺️ 多层级世界地图
 
-## 功能列表 Features
+从小说文本全自动生成交互式地图。宏观区域划分、天界/冥界/洞府多空间层、传送门连接、程序化地形生成（生物群落 + 河流水系）、人物轨迹动画、rough.js 手绘风格渲染。
+
+<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="世界地图 World Map" />
+
+### ⏳ 多泳道时间线
+
+多源事件聚合（角色登场、物品流转、关系变迁、组织变动），智能降噪过滤，情绪基调标签，章节自动折叠。
+
+<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="时间线 Timeline" />
+
+### 📖 百科全书
+
+五类实体分类浏览（人物/地点/物品/组织/概念），地点层级树与空间关系面板，场景索引，世界观总览。
+
+<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="百科全书 Encyclopedia" />
+
+### 更多功能
 
 - 📚 **书架管理** — 拖拽上传 .txt/.md，自动章节切分，搜索排序，导入/导出/全量备份
 - 🔍 **实体预扫描** — jieba 统计 + LLM 分类，生成高频实体词典提升提取质量
-- 📖 **智能阅读** — 实体高亮（5 类着色），别名解析，书签系统，场景面板，快捷键导航
-- 🕸️ **知识图谱** — 力导向关系图，关系分类过滤，组织归属推断，暗色模式适配
-- 🗺️ **世界地图** — 多层级结构，约束求解布局，手绘风格渲染，轨迹动画，高清导出
-- ⏳ **时间线** — 多泳道事件线，智能降噪，关系变化事件，情绪基调标签
+- 📖 **智能阅读** — 实体高亮（5 类着色），别名解析，书签系统，场景/剧本面板，快捷键导航
 - ⚔️ **势力图** — 组织架构与势力关系网络
-- 📖 **百科全书** — 分类浏览，全文搜索，地点层级树，空间关系面板，场景索引
 - 💬 **智能问答** — RAG 检索增强，流式对话，答案来源溯源
 - 📤 **设定集导出** — Markdown / Word / Excel / PDF 四种格式，两种模板
-- 📊 **质量监控** — 实时 ETA，性能测试，模型质量对比
+- 🤖 **多 LLM 后端** — 本地 Ollama + 10 大云端供应商（DeepSeek、Claude、OpenAI、Gemini 等），Token 预算自动缩放
+- 📊 **全链路分析** — 实体预扫描 → 章节提取 → 聚合 → 可视化，异步执行、暂停恢复、失败重试
 
 ## 快速开始 Quick Start
 
@@ -55,6 +71,8 @@ cd frontend && npm install && npm run dev
 ```
 
 打开 http://localhost:5173 即可使用。
+
+> 不想本地部署？试试 [在线 Demo](https://ai-reader.cc/demo/honglou/graph?v=3)，含红楼梦和西游记完整分析数据。
 
 ## 技术栈 Tech Stack
 
@@ -79,5 +97,3 @@ cd frontend && npm install && npm run dev
 [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0)
 
 个人、教育和研究用途免费。商业闭源部署请参阅 [商业许可](./LICENSE-COMMERCIAL.md)。
-
-当前版本：**v0.43.0** · 40 个 Epic · 208 个 Story · 全部完成
