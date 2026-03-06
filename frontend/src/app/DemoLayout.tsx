@@ -35,6 +35,13 @@ export default function DemoLayout() {
   const pathParts = location.pathname.split("/")
   const activeTab = pathParts[pathParts.length - 1] || "reading"
 
+  // Dynamic document title
+  const novelTitle = novels.find((n) => n.slug === novelSlug)?.title ?? novelSlug
+  const tabLabel = TABS.find((t) => t.key === activeTab)?.label ?? ""
+  useEffect(() => {
+    document.title = `${novelTitle} · ${tabLabel} — AI Reader Demo`
+  }, [novelTitle, tabLabel])
+
   // Story 4.1: Track tab switches for upgrade banner
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [bannerDismissed, setBannerDismissed] = useState(false)
