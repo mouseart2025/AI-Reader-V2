@@ -27,6 +27,7 @@ import {
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { ScenePanel, SCENE_BORDER_COLORS } from "@/components/shared/ScenePanel"
 import { GuidedTourBubble } from "@/components/shared/GuidedTourBubble"
+import { NovelOverviewCard } from "@/components/shared/NovelOverviewCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -402,12 +403,13 @@ export default function ReadingPage() {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0)
   const [scenesLoading, setScenesLoading] = useState(false)
   const [sceneError, setSceneError] = useState(false)
+  const scenePanelDefaultedRef = useRef(false)
 
   // Scene cache (2.3)
   const sceneCacheRef = useRef(new Map<number, Scene[]>())
 
   // Chapter preload cache (3.2)
-  const preloadCacheRef = useRef(new Map<number, { title: string; content: string; word_count?: number }>())
+  const preloadCacheRef = useRef(new Map<number, import("@/api/types").ChapterContent>())
 
   // Scroll progress (1.2)
   const [scrollProgress, setScrollProgress] = useState(0)
@@ -420,6 +422,18 @@ export default function ReadingPage() {
     const ch = chapters.find((c) => c.chapter_num === currentChapterNum)
     return ch?.analysis_status ?? "pending"
   }, [chapters, currentChapterNum])
+
+  // Default scene panel open when novel is fully analyzed
+  useEffect(() => {
+    if (scenePanelDefaultedRef.current || chapters.length === 0) return
+    const allAnalyzed = chapters.every(
+      (ch) => ch.is_excluded || ch.analysis_status === "completed",
+    )
+    if (allAnalyzed) {
+      scenePanelDefaultedRef.current = true
+      setScenePanelOpen(true)
+    }
+  }, [chapters])
 
   const handleGoAnalysis = useCallback(() => {
     if (novelId) navigate(`/analysis/${novelId}`)
@@ -953,6 +967,10 @@ export default function ReadingPage() {
           <article className="mx-auto max-w-3xl px-8 py-8">
             {/* Guided tour bubble — Step 1: entity highlight */}
             <ReadingTourBubble isSample={!!novel?.is_sample} hasContent={!!currentChapter} />
+            {/* Novel overview card — collapsible synopsis + stats (first chapter only) */}
+            {novel && novelId && currentChapterNum === 1 && (
+              <NovelOverviewCard novel={novel} novelId={novelId} />
+            )}
             {currentChapter && (
               <>
                 <h2 className="mb-2 text-center text-xl font-bold">

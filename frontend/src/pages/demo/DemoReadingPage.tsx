@@ -86,8 +86,8 @@ export default function DemoReadingPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [readProgress, setReadProgress] = useState(0)
 
-  // Scene panel state
-  const [scenePanelOpen, setScenePanelOpen] = useState(false)
+  // Scene panel state — default open since demo data is always fully analyzed
+  const [scenePanelOpen, setScenePanelOpen] = useState(true)
   const [activeSceneIndex, setActiveSceneIndex] = useState(-1)
   const [filterChar, setFilterChar] = useState("")
   const [filterTone, setFilterTone] = useState<string | null>(null)

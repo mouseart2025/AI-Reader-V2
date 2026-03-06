@@ -15,13 +15,15 @@ import {
 import {
   uploadNovelWithProgress,
   confirmImport,
+  confirmDataImport,
+  previewImport as previewDataImport,
   fetchNovel,
   deleteNovel,
   fetchSplitModes,
   reSplitChapters,
   cleanAndResplit,
 } from "@/api/client"
-import type { Novel, UploadPreviewResponse } from "@/api/types"
+import type { ImportPreview, Novel, UploadPreviewResponse } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,7 +44,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-const ALLOWED_EXTENSIONS = [".txt", ".md"]
+const ALLOWED_EXTENSIONS = [".txt", ".md", ".air", ".json"]
+const DATA_IMPORT_EXTENSIONS = [".air", ".json"]
 
 const MODE_LABELS: Record<string, string> = {
   chapter_zh: "第X章 / 番外",
@@ -63,7 +66,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   repeated: "重复尾注",
 }
 
-type Stage = "select" | "uploading" | "preview" | "duplicate" | "confirming"
+type Stage = "select" | "uploading" | "preview" | "duplicate" | "confirming" | "import-preview" | "import-confirming"
 
 function formatWordCount(count: number): string {
   if (count >= 10000) return `${(count / 10000).toFixed(1)}万字`
@@ -111,6 +114,10 @@ export function UploadDialog({
   // Upload progress
   const [uploadProgress, setUploadProgress] = useState(0)
 
+  // Data import state (.air / .json)
+  const [dataImportPreview, setDataImportPreview] = useState<ImportPreview | null>(null)
+  const [dataImportFile, setDataImportFile] = useState<File | null>(null)
+
   const reset = useCallback(() => {
     setStage("select")
     setError(null)
@@ -127,6 +134,8 @@ export function UploadDialog({
     setHygieneOpen(false)
     setCleaning(false)
     setUploadProgress(0)
+    setDataImportPreview(null)
+    setDataImportFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }, [])
 
@@ -152,11 +161,41 @@ export function UploadDialog({
       ? "." + file.name.split(".").pop()!.toLowerCase()
       : ""
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      setError("仅支持 .txt / .md 格式")
+      setError("仅支持 .txt / .md / .air / .json 格式")
       return
     }
 
-    // Upload
+    // Data import flow (.air / .json)
+    if (DATA_IMPORT_EXTENSIONS.includes(ext)) {
+      // For .json files, quick-check if it's an export file (has format_version)
+      if (ext === ".json") {
+        try {
+          const text = await file.slice(0, 200).text()
+          if (!text.includes("format_version")) {
+            setError("该 .json 文件不是 AI Reader 导出的分析数据")
+            return
+          }
+        } catch {
+          setError("无法读取文件")
+          return
+        }
+      }
+
+      setStage("uploading")
+      setUploadProgress(50) // Indeterminate
+      try {
+        const previewData = await previewDataImport(file)
+        setDataImportPreview(previewData)
+        setDataImportFile(file)
+        setStage("import-preview")
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "预览失败")
+        setStage("select")
+      }
+      return
+    }
+
+    // Novel upload flow (.txt / .md)
     setStage("uploading")
     setUploadProgress(0)
     try {
@@ -241,6 +280,20 @@ export function UploadDialog({
   const handleImportAsNew = () => {
     setExistingNovel(null)
     setStage("preview")
+  }
+
+  const handleDataImportConfirm = async () => {
+    if (!dataImportFile || !dataImportPreview) return
+    setStage("import-confirming")
+    try {
+      const overwrite = !!dataImportPreview.existing_novel_id
+      await confirmDataImport(dataImportFile, overwrite)
+      onImported()
+      handleOpenChange(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导入失败")
+      setStage("import-preview")
+    }
   }
 
   const handleToggleSplit = async () => {
@@ -336,7 +389,7 @@ export function UploadDialog({
     }
   }
 
-  const isWorking = stage === "confirming"
+  const isWorking = stage === "confirming" || stage === "import-confirming"
   const diagnosis = preview?.diagnosis
   const hygieneReport = preview?.hygiene_report
 
@@ -349,14 +402,18 @@ export function UploadDialog({
               ? "上传小说"
               : stage === "duplicate"
                 ? "检测到重复文件"
-                : "确认导入"}
+                : stage === "import-preview" || stage === "import-confirming"
+                  ? "导入分析数据"
+                  : "确认导入"}
           </DialogTitle>
           <DialogDescription>
             {stage === "select" || stage === "uploading"
-              ? "选择 .txt 或 .md 文件"
+              ? "选择 .txt / .md 小说文件，或 .air 分析数据包"
               : stage === "duplicate"
                 ? "该文件已导入过，请选择处理方式"
-                : "检查章节切分结果，编辑书名和作者后确认导入"}
+                : stage === "import-preview" || stage === "import-confirming"
+                  ? "确认导入分析数据，将包含完整的章节、实体和分析结果"
+                  : "检查章节切分结果，编辑书名和作者后确认导入"}
           </DialogDescription>
         </DialogHeader>
 
@@ -389,12 +446,12 @@ export function UploadDialog({
               点击或拖拽文件到此处
             </p>
             <p className="text-muted-foreground/60 mt-1 text-xs">
-              支持 .txt / .md 格式
+              支持 .txt / .md 小说文件，或 .air 分析数据包
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.md"
+              accept=".txt,.md,.air,.json"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0]
@@ -799,6 +856,92 @@ export function UploadDialog({
               </table>
             </div>
           </div>
+        )}
+
+        {/* Stage: Data Import Preview (.air / .json) */}
+        {(stage === "import-preview" || stage === "import-confirming") && dataImportPreview && (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">{dataImportPreview.title}</h3>
+              {dataImportPreview.author && (
+                <p className="text-sm text-muted-foreground">
+                  作者：{dataImportPreview.author}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-md border bg-muted/30 p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">章节</span>
+                <span>
+                  {dataImportPreview.total_chapters} 章
+                  <span className="text-muted-foreground ml-1">
+                    · 已分析 {dataImportPreview.analyzed_chapters} 章
+                  </span>
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">字数</span>
+                <span>{formatWordCount(dataImportPreview.total_words)}</span>
+              </div>
+              {(dataImportPreview.entity_dict_count ?? 0) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">实体词典</span>
+                  <span>{dataImportPreview.entity_dict_count} 个</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">格式版本</span>
+                <span>v{dataImportPreview.format_version}</span>
+              </div>
+              {dataImportPreview.llm_models && dataImportPreview.llm_models.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">分析模型</span>
+                  <span>{dataImportPreview.llm_models.join(", ")}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-2 mt-2">
+                <span className="text-muted-foreground">数据大小</span>
+                <span>{(dataImportPreview.data_size_bytes / 1024 / 1024).toFixed(1)} MB</span>
+              </div>
+            </div>
+
+            {dataImportPreview.existing_novel_id && (
+              <div className="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                已存在同名小说，导入将覆盖现有数据
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer: Data Import actions */}
+        {(stage === "import-preview" || stage === "import-confirming") && (
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => reset()}
+              disabled={stage === "import-confirming"}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleDataImportConfirm}
+              disabled={stage === "import-confirming"}
+            >
+              {stage === "import-confirming" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  导入中...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  确认导入
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         )}
 
         {/* Footer: Duplicate actions */}

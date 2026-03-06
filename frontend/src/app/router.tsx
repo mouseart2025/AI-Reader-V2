@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
     element: <SuspenseWrapper><DemoLayout /></SuspenseWrapper>,
     errorElement: <DemoErrorBoundary />,
     children: [
-      { index: true, element: <Navigate to="graph" replace /> },
+      { index: true, element: <Navigate to="reading" replace /> },
       { path: "graph", element: <SuspenseWrapper><DemoGraphPage /></SuspenseWrapper> },
       { path: "map", element: <SuspenseWrapper><DemoMapPage /></SuspenseWrapper> },
       { path: "timeline", element: <SuspenseWrapper><DemoTimelinePage /></SuspenseWrapper> },
@@ -103,5 +103,5 @@ export const router = createBrowserRouter([
     ],
   },
   // Redirect bare /demo to default novel
-  { path: "/demo", element: <Navigate to="/demo/honglou/graph" replace /> },
+  { path: "/demo", element: <Navigate to="/demo/honglou/reading" replace /> },
 ])

@@ -374,6 +374,36 @@ export function deleteBookmark(bookmarkId: number): Promise<{ ok: boolean }> {
   return apiFetch(`/bookmarks/${bookmarkId}`, { method: "DELETE" })
 }
 
+// ── Novel Stats ─────────────────────────────────
+
+export interface NovelStats {
+  novel_id: string
+  chapters: { total: number; analyzed: number; excluded: number }
+  entities: { person: number; location: number; item: number; org: number; concept: number; total: number }
+  llm_models: string[]
+  total_extraction_ms: number
+  synopsis: string | null
+}
+
+export function fetchNovelStats(novelId: string): Promise<NovelStats> {
+  return apiFetch<NovelStats>(`/novels/${novelId}/stats`)
+}
+
+export function fetchSynopsis(novelId: string): Promise<{ synopsis: string | null }> {
+  return apiFetch(`/novels/${novelId}/synopsis`)
+}
+
+export function updateSynopsis(novelId: string, synopsis: string): Promise<{ synopsis: string | null }> {
+  return apiFetch(`/novels/${novelId}/synopsis`, {
+    method: "PUT",
+    body: JSON.stringify({ synopsis }),
+  })
+}
+
+export function generateSynopsis(novelId: string): Promise<{ synopsis: string | null }> {
+  return apiFetch(`/novels/${novelId}/synopsis/generate`, { method: "POST" })
+}
+
 // ── Entities ─────────────────────────────────────
 
 export function fetchEntities(
@@ -792,6 +822,10 @@ export async function exportSeriesBible(
 
 export function exportNovelUrl(novelId: string): string {
   return `${BASE}/novels/${novelId}/export`
+}
+
+export function exportNovelAirUrl(novelId: string): string {
+  return `${BASE}/novels/${novelId}/export?format=air`
 }
 
 export function exportAllConversationsUrl(novelId: string): string {

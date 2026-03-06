@@ -102,7 +102,7 @@ async def get_novel(novel_id: str) -> dict | None:
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT id, title, author, file_hash, total_chapters, total_words, is_sample, created_at, updated_at FROM novels WHERE id = ?",
+            "SELECT id, title, author, file_hash, total_chapters, total_words, is_sample, synopsis, created_at, updated_at FROM novels WHERE id = ?",
             (novel_id,),
         )
         row = await cursor.fetchone()
