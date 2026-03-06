@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import logging
+import re
 
 from src.infra.llm_client import get_llm_client
-from src.infra.context_budget import get_budget
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,11 @@ _SYSTEM_PROMPT = """你是一位专业的文学编辑。请根据提供的小说
 - 侧重世界观和核心冲突
 - 介绍主要人物和核心关系
 - 语言简洁优美，适合作为小说推荐语
-- 只输出简介文本，不要任何标题或前缀"""
+- 只输出简介文本，不要任何标题或前缀
+- 不要输出思考过程"""
+
+# Strip <think>...</think> blocks (qwen3 thinking mode leakage)
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 class SynopsisGenerator:
@@ -58,21 +61,25 @@ class SynopsisGenerator:
                 parts.append(f"- {evt}")
 
         user_prompt = "\n".join(parts)
-        budget = get_budget()
 
         try:
             content, _usage = await self.llm.generate(
                 system=_SYSTEM_PROMPT,
                 prompt=user_prompt,
                 temperature=0.7,
-                max_tokens=budget.max_tokens_scene,
+                max_tokens=1024,
             )
             text = content.strip() if isinstance(content, str) else str(content).strip()
+            # Strip <think>...</think> blocks (qwen3 thinking mode)
+            text = _THINK_RE.sub("", text).strip()
             # Clean up potential quotes or prefixes
-            if text.startswith(("\"", "\"")):
-                text = text.strip("\"\"")
+            if text.startswith(("\"", "\u201c")):
+                text = text.strip("\"\u201c\u201d")
             if text.startswith("简介：") or text.startswith("简介:"):
                 text = text[3:].strip()
+            if not text:
+                logger.warning("Synopsis generation returned empty text after cleanup")
+                return None
             logger.info("Synopsis generated: %d chars", len(text))
             return text
         except Exception as e:
