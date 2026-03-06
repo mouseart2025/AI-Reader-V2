@@ -21,9 +21,9 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
     """
     conn = await get_connection()
     try:
-        # Novel metadata (v2: includes prescan_status)
+        # Novel metadata (v2: includes prescan_status, v3+: includes synopsis)
         cur = await conn.execute(
-            "SELECT id, title, author, file_hash, total_chapters, total_words, prescan_status, created_at, updated_at FROM novels WHERE id = ?",
+            "SELECT id, title, author, file_hash, total_chapters, total_words, prescan_status, synopsis, created_at, updated_at FROM novels WHERE id = ?",
             (novel_id,),
         )
         novel_row = await cur.fetchone()
@@ -151,10 +151,10 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
 
         novel_id = str(uuid.uuid4())
 
-        # Insert novel (v2: includes prescan_status)
+        # Insert novel (v2: includes prescan_status, v3+: includes synopsis)
         prescan_status = novel_meta.get("prescan_status", "pending")
         await conn.execute(
-            "INSERT INTO novels (id, title, author, file_hash, total_chapters, total_words, prescan_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO novels (id, title, author, file_hash, total_chapters, total_words, prescan_status, synopsis, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 novel_id,
                 novel_meta["title"],
@@ -163,6 +163,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 novel_meta.get("total_chapters", len(chapters)),
                 novel_meta.get("total_words", 0),
                 prescan_status,
+                novel_meta.get("synopsis"),
                 novel_meta.get("created_at"),
                 novel_meta.get("updated_at"),
             ),

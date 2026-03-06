@@ -17,6 +17,12 @@ Usage:
 
     # Export without gzip compression:
     python scripts/export_demo_data.py --novel-id <ID> --no-compress
+
+    # Export only chapter text + entities (skip visualization endpoints):
+    python scripts/export_demo_data.py --novel-id <ID> --text-only
+
+    # Export without chapter text (old behavior):
+    python scripts/export_demo_data.py --novel-id <ID> --no-text
 """
 
 from __future__ import annotations
@@ -137,8 +143,92 @@ def _sanitize_dirname(title: str) -> str:
     return safe.strip() or "unknown"
 
 
-def export_demo(
+def export_chapter_texts(
     base_url: str, novel_id: str, output_dir: Path, compress: bool
+) -> tuple[int, int]:
+    """Export individual chapter content + entities as separate .json.gz files.
+
+    Returns (total_size_bytes, chapter_count).
+    """
+    chapters_dir = output_dir / "chapters"
+    chapters_dir.mkdir(parents=True, exist_ok=True)
+
+    # Get chapter list
+    chapters_data = api_get(base_url, f"/api/novels/{novel_id}/chapters")
+    if not chapters_data:
+        print("  ⚠️ Failed to fetch chapters list", file=sys.stderr)
+        return 0, 0
+
+    chapters_list = (
+        chapters_data.get("chapters", chapters_data)
+        if isinstance(chapters_data, dict)
+        else chapters_data
+    )
+
+    total_size = 0
+    exported = 0
+    total = len(chapters_list)
+
+    for ch in chapters_list:
+        if not isinstance(ch, dict):
+            continue
+        num = ch.get("chapter_num")
+        if num is None:
+            continue
+
+        # Fetch chapter content
+        content_data = api_get(
+            base_url, f"/api/novels/{novel_id}/chapters/{num}"
+        )
+        if not content_data or not isinstance(content_data, dict):
+            print(f"  ⚠️ Skipped chapter {num} (no content)")
+            continue
+
+        # Fetch chapter entities — API returns {"entities": [...]}
+        entities_data = api_get(
+            base_url, f"/api/novels/{novel_id}/chapters/{num}/entities"
+        )
+        if isinstance(entities_data, dict) and "entities" in entities_data:
+            entities = entities_data["entities"]
+        elif isinstance(entities_data, list):
+            entities = entities_data
+        else:
+            entities = []
+
+        # Fetch chapter scenes — API returns {"scenes": [...], "scene_count": N}
+        scenes_data = api_get(
+            base_url, f"/api/novels/{novel_id}/scenes/{num}"
+        )
+        if isinstance(scenes_data, dict) and "scenes" in scenes_data:
+            scenes = scenes_data["scenes"]
+        else:
+            scenes = []
+
+        # Build slim chapter record
+        chapter_record = {
+            "chapter_num": num,
+            "title": content_data.get("title", ch.get("title", "")),
+            "content": content_data.get("content", ""),
+            "word_count": content_data.get("word_count", 0),
+            "entities": entities,
+            "scenes": scenes,
+        }
+
+        filename = f"ch-{num:03d}.json"
+        size = save_json(chapter_record, chapters_dir / filename, compress=compress)
+        total_size += size
+        exported += 1
+
+        # Progress indicator (don't spam — every 10 chapters)
+        if exported % 10 == 0 or exported == total:
+            print(f"  📖 章节文本: {exported}/{total}")
+
+    return total_size, exported
+
+
+def export_demo(
+    base_url: str, novel_id: str, output_dir: Path, compress: bool,
+    include_text: bool = True, text_only: bool = False,
 ) -> None:
     """Export all visualization endpoints for a novel."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -153,6 +243,19 @@ def export_demo(
 
     total_size = 0
     stats: dict[str, dict] = {}
+
+    # Text-only mode: just export chapter texts and exit
+    if text_only:
+        print("  📖 Text-only mode: exporting chapter texts...")
+        text_size, text_count = export_chapter_texts(
+            base_url, novel_id, output_dir, compress
+        )
+        total_size += text_size
+        stats["chapter_texts"] = {"count": text_count}
+        total_mb = total_size / (1024 * 1024)
+        print(f"\n  📦 章节文本总量: {total_mb:.2f} MB ({text_count} 章)")
+        print(f"\n✅ 章节文本已导出到: {output_dir / 'chapters'}")
+        return
 
     # Save novel metadata
     size = save_json(novel, output_dir / "novel.json", compress=compress)
@@ -242,6 +345,15 @@ def export_demo(
         total_size += size
         stats["chapters"] = {"count": len(slim_chapters)}
 
+    # Export chapter text + entities (individual files)
+    if include_text:
+        print("  📖 Exporting chapter texts + entities...")
+        text_size, text_count = export_chapter_texts(
+            base_url, novel_id, output_dir, compress
+        )
+        total_size += text_size
+        stats["chapter_texts"] = {"count": text_count, "size_kb": text_size / 1024}
+
     # === Statistics Report ===
     print(f"\n{'=' * 50}")
     print(f"📊 导出统计 — {title}")
@@ -264,6 +376,9 @@ def export_demo(
         )
     if stats.get("chapters"):
         print(f"  章  节: {stats['chapters']['count']} 章")
+    if stats.get("chapter_texts"):
+        ct = stats["chapter_texts"]
+        print(f"  原  文: {ct['count']} 章 ({ct['size_kb']:.0f} KB)")
 
     total_mb = total_size / (1024 * 1024)
     print(f"\n  📦 总数据量: {total_mb:.2f} MB")
@@ -274,7 +389,10 @@ def export_demo(
     print(f"\n✅ Demo 数据已导出到: {output_dir}")
 
 
-def export_all(base_url: str, output_dir: Path, compress: bool) -> None:
+def export_all(
+    base_url: str, output_dir: Path, compress: bool,
+    include_text: bool = True, text_only: bool = False,
+) -> None:
     """Export all analyzed novels, each in its own subdirectory."""
     novels = _get_novels(base_url)
 
@@ -290,7 +408,8 @@ def export_all(base_url: str, output_dir: Path, compress: bool) -> None:
         dirname = _sanitize_dirname(title)
         novel_output = output_dir / dirname / "data"
         print(f"\n{'─' * 50}")
-        export_demo(base_url, novel_id, novel_output, compress)
+        export_demo(base_url, novel_id, novel_output, compress,
+                    include_text=include_text, text_only=text_only)
 
     print(f"\n{'═' * 50}")
     print(f"🎉 All {len(analyzed)} novel(s) exported to: {output_dir}")
@@ -320,14 +439,29 @@ def main() -> None:
         action="store_true",
         help="Save as plain JSON instead of gzip (default: gzip compressed)",
     )
+    parser.add_argument(
+        "--no-text",
+        action="store_true",
+        help="Skip chapter text export (old behavior, metadata only)",
+    )
+    parser.add_argument(
+        "--text-only",
+        action="store_true",
+        help="Export only chapter texts + entities (skip visualization endpoints)",
+    )
     args = parser.parse_args()
 
     if args.list:
         list_novels(args.base_url)
         return
 
+    compress = not args.no_compress
+    include_text = not args.no_text
+    text_only = args.text_only
+
     if args.all:
-        export_all(args.base_url, Path(args.output_dir), compress=not args.no_compress)
+        export_all(args.base_url, Path(args.output_dir), compress=compress,
+                   include_text=include_text, text_only=text_only)
         return
 
     if not args.novel_id:
@@ -340,7 +474,9 @@ def main() -> None:
         base_url=args.base_url,
         novel_id=args.novel_id,
         output_dir=Path(args.output_dir),
-        compress=not args.no_compress,
+        compress=compress,
+        include_text=include_text,
+        text_only=text_only,
     )
 
 

@@ -1,6 +1,7 @@
 """Analysis service: orchestrates chapter-by-chapter analysis with progress broadcasting."""
 
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -8,7 +9,7 @@ import uuid
 from fastapi import WebSocket
 
 from src.db import analysis_task_store, chapter_fact_store, entity_dictionary_store
-from src.db import world_structure_store
+from src.db import novel_store, world_structure_store
 from src.db.sqlite_db import get_connection
 from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError, ExtractionMeta
 from src.extraction.context_summary_builder import ContextSummaryBuilder
@@ -480,6 +481,9 @@ class AnalysisService:
                         chapter_usage.completion_tokens,
                     )
                     cost_stats["monthly_used_cny"] = updated.get("cny", 0.0)
+                    # Refresh budget from DB (user may have changed it mid-analysis)
+                    _monthly_budget = await get_monthly_budget()
+                    cost_stats["monthly_budget_cny"] = _monthly_budget
 
                 # Validate
                 await self._broadcast_stage(novel_id, chapter_num, "验证数据")
@@ -773,6 +777,57 @@ class AnalysisService:
         except Exception as e:
             logger.warning("Post-analysis hierarchy enhancement failed: %s", e)
             # Non-fatal: continue to mark completed
+
+        # Auto-generate synopsis if not already present
+        try:
+            novel_row = await novel_store.get_novel(novel_id)
+            if novel_row and not novel_row.get("synopsis"):
+                from src.extraction.synopsis_generator import SynopsisGenerator
+
+                conn_syn = await get_connection()
+                try:
+                    cur = await conn_syn.execute(
+                        "SELECT fact_json FROM chapter_facts WHERE novel_id = ?",
+                        (novel_id,),
+                    )
+                    fact_rows = await cur.fetchall()
+                    events, characters, locations = [], set(), set()
+                    for r in fact_rows:
+                        try:
+                            fact = json.loads(r["fact_json"]) if isinstance(r["fact_json"], str) else r["fact_json"]
+                        except Exception:
+                            continue
+                        for evt in fact.get("events", []):
+                            if evt.get("importance") in ("high", "medium"):
+                                events.append(evt.get("summary", ""))
+                        for ch in fact.get("characters", []):
+                            name = ch.get("name", "")
+                            if name:
+                                characters.add(name)
+                        for loc in fact.get("locations", []):
+                            name = loc.get("name", "")
+                            if name:
+                                locations.add(name)
+
+                    gen = SynopsisGenerator(llm=self.extractor.llm)
+                    synopsis = await gen.generate(
+                        title=novel_row["title"],
+                        author=novel_row.get("author"),
+                        high_importance_events=events,
+                        main_characters=sorted(characters)[:20],
+                        main_locations=sorted(locations)[:15],
+                    )
+                    if synopsis:
+                        await conn_syn.execute(
+                            "UPDATE novels SET synopsis = ? WHERE id = ?",
+                            (synopsis, novel_id),
+                        )
+                        await conn_syn.commit()
+                        logger.info("Synopsis auto-generated for novel %s", novel_id)
+                finally:
+                    await conn_syn.close()
+        except Exception as e:
+            logger.warning("Synopsis auto-generation failed: %s", e)
 
         # All chapters processed
         await analysis_task_store.update_task_status(task_id, "completed")

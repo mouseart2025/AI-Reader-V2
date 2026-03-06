@@ -197,7 +197,7 @@ function TreeNodeView({
 export default function DemoEncyclopediaPage() {
   const { data } = useDemoData()
   const encyclopediaData = data.encyclopedia as { entries: EncEntry[] }
-  const worldStructure = data.worldStructure as WorldStructure | null
+  const worldStructure = data.worldStructure as unknown as WorldStructure | null
 
   const entries = encyclopediaData?.entries ?? []
 

@@ -769,6 +769,7 @@ export interface ChapterScenesResponse {
 // ── Export / Import ──────────────────────────────
 
 export interface ImportPreview {
+  format_version: number
   title: string
   author: string | null
   total_chapters: number
@@ -781,6 +782,8 @@ export interface ImportPreview {
   bookmarks_count?: number
   map_overrides_count?: number
   ws_overrides_count?: number
+  entity_dict_count?: number
+  llm_models?: string[]
 }
 
 // ── Backup (full data) ──────────────────────────

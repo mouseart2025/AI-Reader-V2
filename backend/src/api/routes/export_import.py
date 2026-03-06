@@ -1,10 +1,11 @@
 """Export / import novel data endpoints."""
 
+import gzip
 import json
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query, UploadFile
+from fastapi.responses import JSONResponse, Response
 
 from src.db import novel_store
 from src.services import export_service
@@ -12,14 +13,47 @@ from src.services import export_service
 router = APIRouter(prefix="/api", tags=["export-import"])
 
 
+def _decode_import_content(raw: bytes) -> dict:
+    """Decode import file content — auto-detects gzip (.air) vs plain JSON."""
+    # Detect gzip via magic bytes (1f 8b)
+    if raw[:2] == b"\x1f\x8b":
+        try:
+            raw = gzip.decompress(raw)
+        except Exception:
+            raise HTTPException(400, "无法解压 .air 文件")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "无效的 JSON 文件")
+
+
 @router.get("/novels/{novel_id}/export")
-async def export_novel(novel_id: str):
-    """Export a novel with all analysis data as JSON."""
+async def export_novel(novel_id: str, format: str = Query("json")):
+    """Export a novel with all analysis data.
+
+    format=json (default): plain JSON response
+    format=air: gzip-compressed JSON with .air extension
+    """
     novel = await novel_store.get_novel(novel_id)
     if not novel:
         raise HTTPException(404, "Novel not found")
     try:
         data = await export_service.export_novel(novel_id)
+
+        if format == "air":
+            json_bytes = json.dumps(data, ensure_ascii=False).encode("utf-8")
+            compressed = gzip.compress(json_bytes, compresslevel=6)
+            filename = f'{novel["title"]}.air'
+            encoded = quote(filename)
+            return Response(
+                content=compressed,
+                media_type="application/x-air+gzip",
+                headers={
+                    "Content-Disposition": f"attachment; filename=\"export.air\"; filename*=UTF-8''{encoded}",
+                },
+            )
+
+        # Default: plain JSON
         filename = f'{novel["title"]}_export.json'
         encoded = quote(filename)
         return JSONResponse(
@@ -34,17 +68,22 @@ async def export_novel(novel_id: str):
 
 @router.post("/novels/import/preview")
 async def preview_import(file: UploadFile):
-    """Upload an export file and return a preview of what will be imported."""
+    """Upload an export file (.air or .json) and return a preview of what will be imported."""
     content = await file.read()
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid JSON file")
+    data = _decode_import_content(content)
 
     try:
         preview = export_service.preview_import(data)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+    # Enrich with LLM model info from chapter_facts
+    facts = data.get("chapter_facts", [])
+    if facts:
+        models = set(f.get("llm_model") for f in facts if f.get("llm_model"))
+        preview["llm_models"] = sorted(models) if models else []
+    else:
+        preview["llm_models"] = []
 
     # Check if a novel with the same title or file_hash exists
     from src.db.sqlite_db import get_connection
@@ -74,12 +113,9 @@ async def preview_import(file: UploadFile):
 
 @router.post("/novels/import/confirm")
 async def confirm_import(file: UploadFile, overwrite: bool = False):
-    """Import a novel from an exported JSON file."""
+    """Import a novel from an exported file (.air or .json)."""
     content = await file.read()
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid JSON file")
+    data = _decode_import_content(content)
 
     try:
         result = await export_service.import_novel(data, overwrite=overwrite)
