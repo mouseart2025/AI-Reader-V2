@@ -718,8 +718,8 @@ class GeoResolver:
 
         Returns:
           - "realistic": >= 20% notable matches (travel/adventure novels)
-          - "mixed": >= 5% notable matches (historical/wuxia with real geography)
-          - "fantasy": < 5% notable matches (mansion/xianxia/pure fiction)
+          - "mixed": >= 15% notable matches (historical/wuxia with real geography)
+          - "fantasy": < 15% notable matches (mansion/xianxia/pure fiction)
         """
         if not names:
             return "fantasy"
@@ -735,7 +735,7 @@ class GeoResolver:
 
         if ratio >= 0.20:
             geo_type = "realistic"
-        elif ratio >= 0.05:
+        elif ratio >= 0.15:
             geo_type = "mixed"
         else:
             geo_type = "fantasy"

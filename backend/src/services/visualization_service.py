@@ -737,6 +737,21 @@ async def get_map_data(
                     await world_structure_store.save(novel_id, ws)
 
                 if resolver and resolved and geo_type in ("realistic", "mixed"):
+                    # Guard: for "mixed" novels, if too few locations actually
+                    # resolve to real coordinates, the geographic layout is
+                    # misleading (fictional locations cluster near the few real
+                    # ones). Fall back to hierarchy layout instead.
+                    if geo_type == "mixed":
+                        resolve_ratio = len(resolved) / max(len(all_names), 1)
+                        if resolve_ratio < 0.30:
+                            logger.info(
+                                "geo_type=mixed but only %d/%d (%.0f%%) locations "
+                                "resolved — falling back to hierarchy layout",
+                                len(resolved), len(all_names), resolve_ratio * 100,
+                            )
+                            resolver, resolved = None, None
+
+                if resolver and resolved and geo_type in ("realistic", "mixed"):
                     # Store raw lat/lng for Leaflet frontend
                     geo_coords_raw = {
                         name: {"lat": coord[0], "lng": coord[1]}

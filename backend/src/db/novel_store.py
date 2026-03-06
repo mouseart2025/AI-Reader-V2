@@ -77,7 +77,7 @@ async def list_novels() -> list[dict]:
                 n.created_at, n.updated_at, n.is_sample,
                 COALESCE(
                     CAST(SUM(CASE WHEN c.analysis_status = 'completed' THEN 1 ELSE 0 END) AS REAL)
-                    / NULLIF(COUNT(c.id), 0),
+                    / NULLIF(SUM(CASE WHEN c.is_excluded = 0 THEN 1 ELSE 0 END), 0),
                     0
                 ) AS analysis_progress,
                 COALESCE(
