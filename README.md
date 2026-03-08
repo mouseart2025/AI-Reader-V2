@@ -1,5 +1,6 @@
 # AI Reader V2
 
+[![Version](https://img.shields.io/badge/version-0.44.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -88,6 +89,21 @@ cd frontend && npm install && npm run dev
 | 数据库 | SQLite + ChromaDB |
 | LLM | Ollama（本地）或 OpenAI 兼容 API（云端，支持 10 大供应商） |
 | 中文 NLP | jieba |
+
+## 版本记录 Changelog
+
+| 版本 | 日期 | 主要更新 |
+|------|------|---------|
+| v0.44.0 | 2026-03-08 | Tauri 2 桌面应用 + Python sidecar 集成，自定义图标，全功能离线运行 |
+| v0.43.0 | 2026-03-06 | .air 分析数据导出/导入，小说概览卡片，LLM 自动生成简介，Demo 阅读模式 |
+| v0.42.0 | 2026-02-28 | 导出功能升级 — 4 格式 (MD/Word/PDF/Excel)，章节范围选择，模板选择器 |
+| v0.41.0 | 2026-02-26 | 书架升级 — 搜索排序、拖拽上传、进度指示、.air 导入导出 |
+| v0.40.0 | 2026-02-24 | 阅读页升级 — 实体高亮、场景面板、书签系统、快捷键导航 |
+| v0.39.0 | 2026-02-22 | 关系图升级 — 分类过滤、边权重、标签碰撞检测、暗色适配 |
+| v0.38.0 | 2026-02-20 | 时间线升级 — 智能降噪、关系变化事件、情绪基调链接 |
+| v0.37.0 | 2026-02-18 | 百科升级 — 实体卡片、场景索引、世界观 Tab、地点层级树 |
+| v0.36.0 | 2026-02-16 | 地图绘制优化 — 海岸线稳定、子节点分散、大领地去填充 |
+| v0.35.0 | 2026-02-14 | 地图层级 — LLM 自我反思验证 + Container/Peers 分离 |
 
 ## 文档 Documentation
 
