@@ -90,6 +90,7 @@ export default function AnalysisPage() {
 
   // Retry state
   const [retrying, setRetrying] = useState(false)
+  const prevRetryProgressRef = useRef<typeof retryProgress>(null)
 
   // Budget alert state
   const [budgetToast, setBudgetToast] = useState<string | null>(null)
@@ -118,6 +119,7 @@ export default function AnalysisPage() {
     llmModel: wsLlmModel,
     llmProvider: wsLlmProvider,
     failedChapters,
+    retryProgress,
     setTask,
     setQualitySummary,
     resetProgress,
@@ -135,7 +137,8 @@ export default function AnalysisPage() {
 
   const isRunning = task?.status === "running"
   const isPaused = task?.status === "paused"
-  const isCompleted = task?.status === "completed"
+  const isCompleted = task?.status === "completed" || task?.status === "completed_with_errors"
+  const isCompletedWithErrors = task?.status === "completed_with_errors"
   const isCancelled = task?.status === "cancelled"
   const isActive = isRunning || isPaused
 
@@ -153,6 +156,30 @@ export default function AnalysisPage() {
       setTimeout(() => setBudgetToast(null), 5000)
     }
   }, [costStats])
+
+  // Reload data when retry completes (retryProgress: non-null → null)
+  useEffect(() => {
+    const wasRetrying = prevRetryProgressRef.current !== null
+    prevRetryProgressRef.current = retryProgress
+    if (wasRetrying && retryProgress === null && novelId) {
+      // Retry finished — reload task & failed chapters
+      getLatestAnalysisTask(novelId).then(({ task: t, stats: s, quality: q, failed_chapters: fc }) => {
+        if (t) {
+          setTask(t)
+          setQualitySummary(q ?? null)
+          if (s) useAnalysisStore.setState({ stats: s })
+        }
+        useAnalysisStore.setState({
+          failedChapters: (fc ?? []).map((f) => ({
+            chapter: f.chapter_num,
+            title: f.title,
+            error: f.analysis_error ?? "Unknown error",
+            error_type: f.error_type,
+          })),
+        })
+      }).catch(() => {})
+    }
+  }, [retryProgress, novelId, setTask, setQualitySummary])
 
   // Reset budget warning refs when starting new analysis
   useEffect(() => {
@@ -224,7 +251,7 @@ export default function AnalysisPage() {
 
     async function load() {
       try {
-        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming }] = await Promise.all([
+        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming, failed_chapters: latestFailed, retry_progress: latestRetry }] = await Promise.all([
           fetchNovel(novelId!),
           getLatestAnalysisTask(novelId!),
         ])
@@ -234,6 +261,17 @@ export default function AnalysisPage() {
         if (latestTask) {
           setTask(latestTask)
           setQualitySummary(latestQuality ?? null)
+          // Load failed chapters from REST
+          if (latestFailed && latestFailed.length > 0) {
+            useAnalysisStore.setState({
+              failedChapters: latestFailed.map((fc) => ({
+                chapter: fc.chapter_num,
+                title: fc.title,
+                error: fc.analysis_error ?? "Unknown error",
+                error_type: fc.error_type,
+              })),
+            })
+          }
           if (latestTask.status === "running" || latestTask.status === "paused") {
             // Initialize progress + stats from REST before WS connects
             const total = latestTask.chapter_end - latestTask.chapter_start + 1
@@ -252,7 +290,7 @@ export default function AnalysisPage() {
               ...(latestTiming ? { timingStats: latestTiming } : {}),
             })
             connectWs(novelId!)
-          } else if (latestTask.status === "completed" && latestStats) {
+          } else if ((latestTask.status === "completed" || latestTask.status === "completed_with_errors") && latestStats) {
             // Show final stats for completed tasks
             const total = latestTask.chapter_end - latestTask.chapter_start + 1
             useAnalysisStore.setState({
@@ -261,6 +299,17 @@ export default function AnalysisPage() {
               progress: 100,
               stats: latestStats,
             })
+            // Restore retry progress from REST and reconnect WS
+            if (latestRetry) {
+              useAnalysisStore.setState({
+                retryProgress: {
+                  total: latestRetry.total,
+                  done: latestRetry.done,
+                  currentChapter: latestRetry.current_chapter,
+                },
+              })
+              connectWs(novelId!)
+            }
           }
         } else if (novelChanged) {
           // No task exists for this novel — ensure clean state
@@ -638,8 +687,8 @@ export default function AnalysisPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <span className="inline-block size-2 rounded-full bg-blue-500" />
-              分析完成
+              <span className={`inline-block size-2 rounded-full ${isCompletedWithErrors ? "bg-yellow-500" : "bg-blue-500"}`} />
+              {isCompletedWithErrors ? "分析完成（部分章节失败）" : "分析完成"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -736,9 +785,10 @@ export default function AnalysisPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={retrying}
+                  disabled={retrying || retryProgress !== null}
                   onClick={async () => {
                     setRetrying(true)
+                    connectWs(novelId)
                     try {
                       await retryFailedChapters(novelId)
                     } catch {
@@ -748,7 +798,9 @@ export default function AnalysisPage() {
                     }
                   }}
                 >
-                  {retrying ? "重试中..." : "重试失败章节"}
+                  {retryProgress
+                    ? `重试中 ${retryProgress.done}/${retryProgress.total} (第${retryProgress.currentChapter}章)`
+                    : retrying ? "重试中..." : "重试失败章节"}
                 </Button>
               )}
             </CardTitle>

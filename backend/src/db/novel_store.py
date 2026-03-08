@@ -80,6 +80,7 @@ async def list_novels() -> list[dict]:
                     / NULLIF(SUM(CASE WHEN c.is_excluded = 0 THEN 1 ELSE 0 END), 0),
                     0
                 ) AS analysis_progress,
+                SUM(CASE WHEN c.analysis_status = 'failed' THEN 1 ELSE 0 END) AS failed_count,
                 COALESCE(
                     CAST(us.last_chapter AS REAL) / NULLIF(n.total_chapters, 0),
                     0

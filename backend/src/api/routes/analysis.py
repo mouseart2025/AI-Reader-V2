@@ -32,7 +32,7 @@ class PatchTaskRequest(BaseModel):
 
 @router.get("/analysis/active")
 async def get_active_analyses():
-    """Return novel IDs with their active analysis status (running/paused)."""
+    """Return novel IDs with their active analysis status (running/paused/retrying)."""
     conn = await get_connection()
     try:
         cursor = await conn.execute(
@@ -44,6 +44,11 @@ async def get_active_analyses():
         for novel_id, status in rows:
             if novel_id not in result or status == "running":
                 result[novel_id] = status
+        # Also include novels with active retries
+        service = get_analysis_service()
+        for novel_id in service.get_retrying_novel_ids():
+            if novel_id not in result:
+                result[novel_id] = "running"
         return {"items": [{"novel_id": k, "status": v} for k, v in result.items()]}
     finally:
         await conn.close()
@@ -198,7 +203,7 @@ async def get_latest_task(novel_id: str):
     # range filtering to avoid a chapter_id vs chapter_num mismatch.
     stats = {"entities": 0, "relations": 0, "events": 0}
     quality = {"truncated_chapters": 0, "segmented_chapters": 0, "total_segments": 0}
-    if task["status"] in ("running", "paused", "completed"):
+    if task["status"] in ("running", "paused", "completed", "completed_with_errors"):
         all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
         for ef in all_facts:
             fact = ef.get("fact", {})
@@ -213,9 +218,11 @@ async def get_latest_task(novel_id: str):
             quality["total_segments"] += seg
 
     timing = None
+    retry_progress = None
+    service = get_analysis_service()
     if task["status"] in ("running", "paused"):
-        service = get_analysis_service()
         timing = service.get_live_timing(novel_id)
+    retry_progress = service.get_retry_progress(novel_id)
 
     failed_chapters = await analysis_task_store.get_failed_chapters(novel_id)
 
@@ -225,6 +232,7 @@ async def get_latest_task(novel_id: str):
         "quality": quality,
         "timing": timing,
         "failed_chapters": failed_chapters,
+        "retry_progress": retry_progress,
     }
 
 

@@ -95,8 +95,10 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 _MIN_PROLOGUE_CHARS = 100  # Minimum chars to keep a prologue
 
 # Volume/part markers — detected as secondary markers within chapter content
+# Group 'vol_name' captures the volume marker itself (e.g. "第一部")
+# Group 1 captures any trailing subtitle text
 _VOLUME_PATTERN = re.compile(
-    r"^\s*(?:#{1,3}\s+)?第[零〇一二两三四五六七八九十百千万\d]+[卷部集][\s：:]*(.*)$",
+    r"^\s*(?:#{1,3}\s+)?(?P<vol_name>第[零〇一二两三四五六七八九十百千万\d]+[卷部集])[\s：:]*(.*)$",
     re.MULTILINE,
 )
 
@@ -153,6 +155,7 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
         if len(matches) >= 2:
             chapters = _split_by_matches(text, "custom", matches)
             _assign_volumes(text, chapters)
+            chapters = _dedup_adjacent_chapters(chapters)
             _detect_volume_resets(chapters)
             chapters = _subsplit_oversized(chapters)
             return SplitResult(chapters=chapters, matched_mode="custom")
@@ -170,6 +173,7 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
             chapters = _heuristic_title_split(text)
             if chapters:
                 _assign_volumes(text, chapters)
+                chapters = _dedup_adjacent_chapters(chapters)
                 _detect_volume_resets(chapters)
                 chapters = _subsplit_oversized(chapters)
                 return SplitResult(chapters=chapters, matched_mode="heuristic_title")
@@ -189,6 +193,7 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
                 if len(matches) >= 2:
                     chapters = _split_by_matches(text, mode_name, matches)
                     _assign_volumes(text, chapters)
+                    chapters = _dedup_adjacent_chapters(chapters)
                     _detect_volume_resets(chapters)
                     chapters = _subsplit_oversized(chapters)
                     return SplitResult(chapters=chapters, matched_mode=mode_name)
@@ -215,6 +220,7 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
         chapters = _heuristic_title_split(text)
         if chapters:
             _assign_volumes(text, chapters)
+            chapters = _dedup_adjacent_chapters(chapters)
             _detect_volume_resets(chapters)
             chapters = _subsplit_oversized(chapters)
             return SplitResult(chapters=chapters, matched_mode="heuristic_title", is_fallback=True)
@@ -234,6 +240,7 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
             return SplitResult(chapters=fallback, matched_mode="fixed_size", is_fallback=True)
 
     _assign_volumes(text, chapters)
+    chapters = _dedup_adjacent_chapters(chapters)
     _detect_volume_resets(chapters)
 
     # Sub-split any oversized chapters (>50k chars) to keep all chunks manageable
@@ -330,10 +337,17 @@ def _assign_volumes(text: str, chapters: list[ChapterInfo]) -> None:
         return
 
     # Build volume list sorted by position: (start_pos, vol_num, vol_title)
-    volumes = [
-        (m.start(), i + 1, m.group(1).strip() if m.group(1) else "")
-        for i, m in enumerate(vol_matches)
-    ]
+    # Use the volume marker name (第X部) as title; append subtitle if it's not
+    # a chapter header (avoid "第一部 第一章" → title "第一部 第一章")
+    _ch_header_re = re.compile(r"^第[零〇一二两三四五六七八九十百千万\d]+[章回节]")
+    volumes = []
+    for i, m in enumerate(vol_matches):
+        vol_name = m.group("vol_name")
+        subtitle = (m.group(2) or "").strip()
+        if subtitle and _ch_header_re.match(subtitle):
+            subtitle = ""  # trailing text is a chapter header, not a subtitle
+        title = f"{vol_name} {subtitle}".strip() if subtitle else vol_name
+        volumes.append((m.start(), i + 1, title))
 
     # Assign each chapter to the most recent volume before its position
     for ch in chapters:
@@ -352,6 +366,38 @@ def _assign_volumes(text: str, chapters: list[ChapterInfo]) -> None:
 
 # Pattern for extracting chapter numbers from titles (e.g., "第一章", "第3回")
 _CH_NUM_PATTERN = re.compile(r"第([零〇一二两三四五六七八九十百千万\d]+)[章回节]")
+
+
+def _dedup_adjacent_chapters(chapters: list[ChapterInfo]) -> list[ChapterInfo]:
+    """Merge adjacent chapters whose titles are identical after whitespace normalization.
+
+    Some TXT sources contain duplicate chapter headers (e.g., full-width vs half-width
+    spaces). When two consecutive chapters have the same normalized title, merge the
+    second chapter's content into the first and drop the duplicate.
+    """
+    if len(chapters) < 2:
+        return chapters
+
+    def _norm(title: str) -> str:
+        # Collapse all whitespace variants (full-width space, tabs, etc.) into single space
+        return re.sub(r"[\s\u3000]+", " ", title).strip()
+
+    result: list[ChapterInfo] = [chapters[0]]
+    for ch in chapters[1:]:
+        prev = result[-1]
+        if _norm(prev.title) == _norm(ch.title):
+            # Merge: append content, update word count
+            merged_content = prev.content + "\n\n" + ch.content
+            prev.content = merged_content
+            prev.word_count = len(merged_content)
+        else:
+            result.append(ch)
+
+    # Renumber chapters sequentially
+    for i, ch in enumerate(result):
+        ch.chapter_num = i + 1
+
+    return result
 
 
 def _detect_volume_resets(chapters: list[ChapterInfo]) -> None:

@@ -18,6 +18,12 @@ interface FailedChapter {
   error_type?: ApiFailedChapter["error_type"]
 }
 
+interface RetryProgress {
+  total: number
+  done: number
+  currentChapter: number
+}
+
 interface AnalysisState {
   task: AnalysisTask | null
   progress: number // 0-100
@@ -31,6 +37,7 @@ interface AnalysisState {
   llmModel: string | null
   llmProvider: string | null // "ollama" | "openai"
   failedChapters: FailedChapter[]
+  retryProgress: RetryProgress | null
   ws: WebSocket | null
   /** Internal: track connected novelId for reconnect */
   _novelId: string | null
@@ -65,6 +72,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   llmModel: null,
   llmProvider: null,
   failedChapters: [],
+  retryProgress: null,
   ws: null,
   _novelId: null,
   _reconnectAttempt: 0,
@@ -87,6 +95,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       llmModel: null,
       llmProvider: null,
       failedChapters: [],
+      retryProgress: null,
     }),
 
   connectWs: (novelId: string) => {
@@ -153,14 +162,15 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         } else if (msg.type === "chapter_done") {
           set({ stageLabel: null })
           if (msg.status === "failed") {
+            const updated: FailedChapter = {
+              chapter: msg.chapter,
+              error: msg.error ?? "Unknown error",
+              error_type: (msg as { error_type?: FailedChapter["error_type"] }).error_type,
+            }
             set({
               failedChapters: [
-                ...s.failedChapters,
-                {
-                  chapter: msg.chapter,
-                  error: msg.error ?? "Unknown error",
-                  error_type: (msg as { error_type?: FailedChapter["error_type"] }).error_type,
-                },
+                ...s.failedChapters.filter((fc) => fc.chapter !== msg.chapter),
+                updated,
               ],
             })
           } else if (msg.status === "retry_success") {
@@ -170,6 +180,20 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
               ),
             })
           }
+        } else if (msg.type === "retry_start") {
+          set({
+            retryProgress: { total: msg.total, done: 0, currentChapter: 0 },
+          })
+        } else if (msg.type === "retry_progress") {
+          set({
+            retryProgress: {
+              total: msg.total,
+              done: msg.done,
+              currentChapter: msg.chapter,
+            },
+          })
+        } else if (msg.type === "retry_done") {
+          set({ retryProgress: null })
         } else if (msg.type === "task_status") {
           const task = s.task
           if (task) {
@@ -197,9 +221,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ ws: null })
       const s = get()
 
-      // Don't reconnect if task is no longer active
+      // Don't reconnect if task is no longer active (unless retry in progress)
       const taskStatus = s.task?.status
-      if (taskStatus !== "running" && taskStatus !== "paused") return
+      if (taskStatus !== "running" && taskStatus !== "paused" && !s.retryProgress) return
 
       // Auto-reconnect with exponential backoff
       const attempt = s._reconnectAttempt
