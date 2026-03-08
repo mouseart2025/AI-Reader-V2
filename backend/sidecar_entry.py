@@ -21,10 +21,14 @@ def main() -> None:
 
         multiprocessing.freeze_support()
 
+    # Signal the port to the parent process (Tauri reads this line from stdout)
+    print(f"PORT:{args.port}", flush=True)
+
     import uvicorn
+    from src.api.main import app  # Direct import for PyInstaller tracing
 
     uvicorn.run(
-        "src.api.main:app",
+        app,
         host=args.host,
         port=args.port,
         log_level="info",

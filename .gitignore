@@ -47,5 +47,14 @@ landing/
 # Wrangler (Cloudflare CLI)
 .wrangler/
 
+# PyInstaller
+backend/build/
+backend/dist/
+backend/*.spec
+
+# Tauri
+frontend/src-tauri/target/
+frontend/src-tauri/binaries/
+
 # BMAD claude commands
 .claude/commands/bmad*

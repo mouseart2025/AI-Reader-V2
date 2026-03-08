@@ -26,11 +26,15 @@ import type {
   WorldStructureData,
   WorldStructureOverride,
 } from "./types"
+import { isTauri, getSidecarBaseUrl } from "./sidecarBridge"
 
-const BASE = "/api"
+function getBase(): string {
+  if (isTauri) return `${getSidecarBaseUrl()}/api`
+  return "/api"
+}
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${getBase()}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   })
@@ -55,7 +59,7 @@ export function deleteNovel(novelId: string): Promise<{ ok: boolean }> {
 export async function uploadNovel(file: File): Promise<UploadPreviewResponse> {
   const form = new FormData()
   form.append("file", file)
-  const res = await fetch(`${BASE}/novels/upload`, {
+  const res = await fetch(`${getBase()}/novels/upload`, {
     method: "POST",
     body: form,
   })
@@ -101,7 +105,7 @@ export function uploadNovelWithProgress(
     xhr.addEventListener("error", () => reject(new Error("网络错误")))
     xhr.addEventListener("abort", () => reject(new Error("上传已取消")))
 
-    xhr.open("POST", `${BASE}/novels/upload`)
+    xhr.open("POST", `${getBase()}/novels/upload`)
     xhr.send(form)
   })
 }
@@ -134,7 +138,7 @@ export function pullOllamaModel(
   onError: (error: string) => void,
 ): () => void {
   const controller = new AbortController()
-  fetch(`/api/settings/ollama/pull`, {
+  fetch(`${getBase()}/settings/ollama/pull`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model }),
@@ -489,7 +493,7 @@ export function rebuildHierarchy(
   onProgress?: (message: string) => void,
 ): Promise<HierarchyRebuildResult> {
   return new Promise((resolve, reject) => {
-    fetch(`${BASE}/novels/${novelId}/world-structure/rebuild-hierarchy`, {
+    fetch(`${getBase()}/novels/${novelId}/world-structure/rebuild-hierarchy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
@@ -669,7 +673,7 @@ export function fetchCostDetail(
 }
 
 export function costDetailCsvUrl(novelId: string): string {
-  return `/api/novels/${novelId}/analysis/cost-detail/csv`
+  return `${getBase()}/novels/${novelId}/analysis/cost-detail/csv`
 }
 
 export function fetchAnalysisRecords(): Promise<{
@@ -735,7 +739,7 @@ export function fetchMessages(
 }
 
 export function exportConversationUrl(conversationId: string): string {
-  return `${BASE}/conversations/${conversationId}/export`
+  return `${getBase()}/conversations/${conversationId}/export`
 }
 
 // ── Encyclopedia ─────────────────────────────
@@ -791,7 +795,7 @@ export async function exportSeriesBible(
   novelId: string,
   req?: import("./types").SeriesBibleRequest,
 ): Promise<void> {
-  const res = await fetch(`${BASE}/novels/${novelId}/series-bible/export`, {
+  const res = await fetch(`${getBase()}/novels/${novelId}/series-bible/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req ?? {}),
@@ -821,21 +825,21 @@ export async function exportSeriesBible(
 // ── Export / Import ─────────────────────────────
 
 export function exportNovelUrl(novelId: string): string {
-  return `${BASE}/novels/${novelId}/export`
+  return `${getBase()}/novels/${novelId}/export`
 }
 
 export function exportNovelAirUrl(novelId: string): string {
-  return `${BASE}/novels/${novelId}/export?format=air`
+  return `${getBase()}/novels/${novelId}/export?format=air`
 }
 
 export function exportAllConversationsUrl(novelId: string): string {
-  return `${BASE}/novels/${novelId}/conversations/export`
+  return `${getBase()}/novels/${novelId}/conversations/export`
 }
 
 export async function previewImport(file: File): Promise<ImportPreview> {
   const form = new FormData()
   form.append("file", file)
-  const res = await fetch(`${BASE}/novels/import/preview`, {
+  const res = await fetch(`${getBase()}/novels/import/preview`, {
     method: "POST",
     body: form,
   })
@@ -853,7 +857,7 @@ export async function confirmDataImport(
   const form = new FormData()
   form.append("file", file)
   const res = await fetch(
-    `${BASE}/novels/import/confirm?overwrite=${overwrite}`,
+    `${getBase()}/novels/import/confirm?overwrite=${overwrite}`,
     { method: "POST", body: form },
   )
   if (!res.ok) {
@@ -866,7 +870,7 @@ export async function confirmDataImport(
 // ── Full Backup ──────────────────────────────────
 
 export function backupExportUrl(): string {
-  return `${BASE}/backup/export`
+  return `${getBase()}/backup/export`
 }
 
 export async function previewBackupImport(
@@ -874,7 +878,7 @@ export async function previewBackupImport(
 ): Promise<import("./types").BackupPreview> {
   const form = new FormData()
   form.append("file", file)
-  const res = await fetch(`${BASE}/backup/import/preview`, {
+  const res = await fetch(`${getBase()}/backup/import/preview`, {
     method: "POST",
     body: form,
   })
@@ -892,7 +896,7 @@ export async function confirmBackupImport(
   const form = new FormData()
   form.append("file", file)
   const res = await fetch(
-    `${BASE}/backup/import/confirm?conflict_mode=${conflictMode}`,
+    `${getBase()}/backup/import/confirm?conflict_mode=${conflictMode}`,
     { method: "POST", body: form },
   )
   if (!res.ok) {

@@ -4,6 +4,7 @@ import { fetchEntityProfile } from "@/api/client"
 import type { EntityProfile, EntityType } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useReadingStore } from "@/stores/readingStore"
+import { novelPath } from "@/lib/novelPaths"
 import { Button } from "@/components/ui/button"
 import { PersonCard } from "./PersonCard"
 import { LocationCard } from "./LocationCard"
@@ -87,7 +88,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
   const handleChapterClick = useCallback(
     (ch: number) => {
       close()
-      navigate(`/read/${novelId}?chapter=${ch}`)
+      navigate(`${novelPath(novelId, "read")}?chapter=${ch}`)
     },
     [close, navigate, novelId],
   )
@@ -183,39 +184,39 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
               <div className="border-t py-3 flex flex-wrap gap-2">
                 {profile.type === "location" && (
                   <>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/map/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "map")) }}>
                       地图
                     </Button>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
                       百科
                     </Button>
                   </>
                 )}
                 {profile.type === "person" && (
                   <>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/timeline/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "timeline")) }}>
                       时间线
                     </Button>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/graph/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "graph")) }}>
                       关系图
                     </Button>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
                       百科
                     </Button>
                   </>
                 )}
                 {profile.type === "org" && (
                   <>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/factions/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "factions")) }}>
                       组织
                     </Button>
-                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                    <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
                       百科
                     </Button>
                   </>
                 )}
                 {profile.type === "item" && (
-                  <Button variant="outline" size="xs" onClick={() => { close(); navigate(`/encyclopedia/${novelId}`) }}>
+                  <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
                     百科
                   </Button>
                 )}

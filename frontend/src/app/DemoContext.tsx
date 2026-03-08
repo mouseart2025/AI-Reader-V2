@@ -2,17 +2,19 @@
  * DemoContext — provides preloaded demo data to all demo child routes.
  * Data is loaded once when a novel slug changes, then shared via context.
  */
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { preloadAllDemoData, clearDemoCache, type DemoDataBundle } from "@/api/demoDataAdapter"
+import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react"
+import { preloadAllDemoData, clearDemoCache, loadDemoChapterContent, type DemoDataBundle, type DemoChapterContent } from "@/api/demoDataAdapter"
 import { getDemoNovel, type DemoNovelInfo } from "@/api/demoNovelMap"
 
-interface DemoContextValue {
+export interface DemoContextValue {
   slug: string
   novelInfo: DemoNovelInfo
   data: DemoDataBundle
+  /** Load a single chapter's content (lazy, with cache + preload-next) */
+  loadChapterContent: (chapterNum: number) => Promise<DemoChapterContent>
 }
 
-const DemoCtx = createContext<DemoContextValue | null>(null)
+export const DemoCtx = createContext<DemoContextValue | null>(null)
 
 export function useDemoData(): DemoContextValue {
   const ctx = useContext(DemoCtx)
@@ -82,5 +84,10 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
     )
   }
 
-  return <DemoCtx.Provider value={{ slug, novelInfo, data }}>{children}</DemoCtx.Provider>
+  const loadChapter = useCallback(
+    (chapterNum: number) => loadDemoChapterContent(slug, chapterNum),
+    [slug],
+  )
+
+  return <DemoCtx.Provider value={{ slug, novelInfo, data, loadChapterContent: loadChapter }}>{children}</DemoCtx.Provider>
 }

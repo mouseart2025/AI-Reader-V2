@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useDemoData } from "@/app/DemoContext"
-import { loadDemoChapterContent, type DemoChapterContent } from "@/api/demoDataAdapter"
+import type { DemoChapterContent } from "@/api/demoDataAdapter"
 import { highlightText } from "@/lib/entityHighlight"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import type { ChapterEntity, Scene } from "@/api/types"
@@ -64,7 +64,7 @@ const EVENT_TYPE_STYLES: Record<string, string> = {
 const FILTER_TONES = ["战斗", "紧张", "悲伤", "欢乐", "平静"] as const
 
 export default function DemoReadingPage() {
-  const { data, novelInfo, slug } = useDemoData()
+  const { data, novelInfo, slug, loadChapterContent } = useDemoData()
   const chapters = data.chapters as ChapterMeta[]
   const [searchParams, setSearchParams] = useSearchParams()
   const openCard = useEntityCardStore((s) => s.openCard)
@@ -150,7 +150,7 @@ export default function DemoReadingPage() {
     setLoading(true)
     setError(null)
 
-    loadDemoChapterContent(slug, currentChapterNum)
+    loadChapterContent(currentChapterNum)
       .then((content) => {
         if (!cancelled) {
           setChapterContent(content)
@@ -485,7 +485,7 @@ export default function DemoReadingPage() {
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-center">
                 <p className="text-sm text-red-400">{error}</p>
                 <button
-                  onClick={() => { setLoading(true); loadDemoChapterContent(slug, currentChapterNum).then(setChapterContent).catch(() => setError("重试失败")) }}
+                  onClick={() => { setLoading(true); loadChapterContent(currentChapterNum).then(setChapterContent).catch(() => setError("重试失败")) }}
                   className="mt-2 text-xs text-blue-400 hover:underline"
                 >
                   重试

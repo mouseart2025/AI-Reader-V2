@@ -7,6 +7,7 @@
 [![React](https://img.shields.io/badge/react-19-61dafb?logo=react&logoColor=white)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.9-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Ollama](https://img.shields.io/badge/ollama-supported-FF6B35)](https://ollama.com/)
+[![Tauri](https://img.shields.io/badge/tauri-2-FFC131?logo=tauri&logoColor=white)](https://v2.tauri.app/)
 
 **本地部署的智能小说阅读理解系统** — 利用 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化，以及基于原文的智能问答。数据全部存储在本机。
 
@@ -46,6 +47,7 @@
 
 ### 更多功能
 
+- 🖥️ **桌面应用** — Tauri 2 原生桌面客户端，Python sidecar 自动启动，全功能离线运行
 - 📚 **书架管理** — 拖拽上传 .txt/.md，自动章节切分，搜索排序，导入/导出/全量备份
 - 🔍 **实体预扫描** — jieba 统计 + LLM 分类，生成高频实体词典提升提取质量
 - 📖 **智能阅读** — 实体高亮（5 类着色），别名解析，书签系统，场景/剧本面板，快捷键导航
@@ -79,6 +81,7 @@ cd frontend && npm install && npm run dev
 | 层 | 技术 |
 |----|------|
 | 前端 | React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui |
+| 桌面 | Tauri 2（Rust）+ Python sidecar（PyInstaller 打包） |
 | 可视化 | D3.js + SVG（地图）/ react-force-graph-2d（图谱）/ react-leaflet（地理） |
 | 状态管理 | Zustand 5 |
 | 后端 | Python + FastAPI + aiosqlite |
