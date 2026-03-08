@@ -8,6 +8,7 @@ export interface Novel {
   updated_at: string
   is_sample: boolean
   analysis_progress: number
+  failed_count: number
   reading_progress: number
   last_opened: string | null
 }
@@ -275,7 +276,7 @@ export interface FailedChapter {
 export interface AnalysisTask {
   id: string
   novel_id: string
-  status: "pending" | "running" | "paused" | "completed" | "cancelled"
+  status: "pending" | "running" | "paused" | "completed" | "completed_with_errors" | "cancelled"
   chapter_start: number
   chapter_end: number
   current_chapter: number
@@ -354,7 +355,26 @@ export interface WsStage extends WsBase {
   llm_provider?: string // "ollama" | "openai"
 }
 
-export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage
+export interface WsRetryStart extends WsBase {
+  type: "retry_start"
+  total: number
+}
+
+export interface WsRetryProgress extends WsBase {
+  type: "retry_progress"
+  chapter: number
+  done: number
+  total: number
+}
+
+export interface WsRetryDone extends WsBase {
+  type: "retry_done"
+  total: number
+  succeeded: number
+  failed: number
+}
+
+export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage | WsRetryStart | WsRetryProgress | WsRetryDone
 
 // ── Entity Profiles ──────────────────────────────
 

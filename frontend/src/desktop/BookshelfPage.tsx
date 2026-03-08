@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ensureSidecar } from "@/api/sidecarBridge"
-import { fetchNovels, uploadNovelWithProgress, confirmImport } from "@/api/client"
+import { fetchNovels, fetchActiveAnalyses, uploadNovelWithProgress, confirmImport } from "@/api/client"
 import type { Novel, UploadPreviewResponse } from "@/api/types"
 import { DragDropOverlay } from "./DragDropOverlay"
 import { SecurityGuide } from "./SecurityGuide"
@@ -36,6 +36,7 @@ export default function DesktopBookshelfPage() {
   const [novels, setNovels] = useState<Novel[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeAnalysisMap, setActiveAnalysisMap] = useState<Map<string, "running" | "paused">>(new Map())
   const [sidecarReady, setSidecarReady] = useState(false)
   const [sidecarError, setSidecarError] = useState<string | null>(null)
   const [showGuide, setShowGuide] = useState(false)
@@ -74,8 +75,12 @@ export default function DesktopBookshelfPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchNovels()
-      setNovels(res.novels)
+      await Promise.all([
+        fetchNovels().then((res) => setNovels(res.novels)),
+        fetchActiveAnalyses()
+          .then((active) => setActiveAnalysisMap(new Map(active.items.map((a) => [a.novel_id, a.status]))))
+          .catch(() => {}),
+      ])
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载小说列表失败")
     } finally {
@@ -328,8 +333,20 @@ export default function DesktopBookshelfPage() {
               <button
                 key={novel.id}
                 onClick={() => navigate(`/novel/${novel.id}/reading`)}
-                className="group rounded-lg border border-border bg-card p-4 text-left transition hover:border-blue-500/50 hover:shadow-lg"
+                className="group relative rounded-lg border border-border bg-card p-4 text-left transition hover:border-blue-500/50 hover:shadow-lg"
               >
+                {activeAnalysisMap.get(String(novel.id)) === "running" && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-green-500/20 px-2 py-0.5">
+                    <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />
+                    <span className="text-[10px] font-medium text-green-400">分析中</span>
+                  </div>
+                )}
+                {activeAnalysisMap.get(String(novel.id)) === "paused" && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-2 py-0.5">
+                    <span className="inline-block size-1.5 rounded-full bg-yellow-400" />
+                    <span className="text-[10px] font-medium text-yellow-400">已暂停</span>
+                  </div>
+                )}
                 <h3 className="font-semibold text-foreground group-hover:text-blue-400 transition">
                   {novel.title}
                 </h3>
@@ -341,8 +358,16 @@ export default function DesktopBookshelfPage() {
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
-                    {novel.analysis_progress >= 100 ? "分析完成" :
-                     novel.analysis_progress > 0 ? `分析 ${Math.round(novel.analysis_progress)}%` :
+                    {novel.analysis_progress >= 1 && !novel.failed_count ? "分析完成" :
+                     novel.analysis_progress >= 1 && novel.failed_count > 0
+                       ? <span className="text-yellow-400">分析完成（{novel.failed_count} 章失败）</span> :
+                     novel.analysis_progress > 0
+                       ? <>
+                           分析 {Math.round(novel.analysis_progress * 100)}%
+                           {novel.failed_count > 0 && (
+                             <span className="text-yellow-400 ml-1">({novel.failed_count} 章失败)</span>
+                           )}
+                         </> :
                      "未分析"}
                   </span>
                   <button

@@ -644,6 +644,7 @@ export function getLatestAnalysisTask(
   quality: import("./types").AnalysisQualitySummary | null
   timing: import("./types").AnalysisTimingStats | null
   failed_chapters: import("./types").FailedChapter[]
+  retry_progress: { total: number; done: number; current_chapter: number } | null
 }> {
   return apiFetch(`/novels/${novelId}/analysis/latest`)
 }

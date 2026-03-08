@@ -167,16 +167,28 @@ function NovelCard({
         </div>
 
         {/* Analysis progress */}
-        {novel.analysis_progress >= 1 ? (
+        {novel.analysis_progress >= 1 && !novel.failed_count ? (
           <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
             <CheckCircle className="h-3.5 w-3.5" />
             <span>分析完成</span>
+          </div>
+        ) : novel.analysis_progress >= 1 && novel.failed_count > 0 ? (
+          <div className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-400">
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span>分析完成（{novel.failed_count} 章失败）</span>
           </div>
         ) : (
           <div className="space-y-1">
             <div className="text-muted-foreground flex justify-between text-xs">
               <span>分析进度</span>
-              <span>{Math.round(novel.analysis_progress * 100)}%</span>
+              <span>
+                {Math.round(novel.analysis_progress * 100)}%
+                {novel.failed_count > 0 && (
+                  <span className="text-yellow-600 dark:text-yellow-400 ml-1">
+                    ({novel.failed_count} 章失败)
+                  </span>
+                )}
+              </span>
             </div>
             <Progress value={novel.analysis_progress * 100} className="h-1.5" />
           </div>

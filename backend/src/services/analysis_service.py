@@ -97,10 +97,20 @@ class AnalysisService:
         self._active_loops: set[str] = set()  # task_ids with currently-running loops
         # Live timing stats per novel (survives page navigation)
         self._live_timing: dict[str, dict] = {}
+        # Retry progress per novel (survives page navigation)
+        self._retry_progress: dict[str, dict] = {}  # novel_id -> {total, done, current_chapter}
 
     def get_live_timing(self, novel_id: str) -> dict | None:
         """Return live timing stats for a running analysis, or None."""
         return self._live_timing.get(novel_id)
+
+    def get_retry_progress(self, novel_id: str) -> dict | None:
+        """Return retry progress for a novel, or None."""
+        return self._retry_progress.get(novel_id)
+
+    def get_retrying_novel_ids(self) -> list[str]:
+        """Return novel IDs with active retries."""
+        return list(self._retry_progress.keys())
 
     @staticmethod
     async def _broadcast_stage(novel_id: str, chapter: int, label: str) -> None:
@@ -829,11 +839,13 @@ class AnalysisService:
         except Exception as e:
             logger.warning("Synopsis auto-generation failed: %s", e)
 
-        # All chapters processed
-        await analysis_task_store.update_task_status(task_id, "completed")
+        # All chapters processed — check for remaining failures
+        remaining_failures = await analysis_task_store.get_failed_chapters(novel_id)
+        final_status = "completed_with_errors" if remaining_failures else "completed"
+        await analysis_task_store.update_task_status(task_id, final_status)
         completed_msg: dict = {
             "type": "task_status",
-            "status": "completed",
+            "status": final_status,
             "stats": stats,
         }
         if is_cloud:
@@ -859,37 +871,59 @@ class AnalysisService:
         }
 
     async def retry_failed_chapters(self, novel_id: str) -> dict:
-        """Retry all failed chapters for the latest task of a novel."""
+        """Start retrying failed chapters in the background. Returns immediately."""
         # Get failed chapters
         conn = await get_connection()
         try:
             cursor = await conn.execute(
                 """
-                SELECT c.id, c.chapter_number, c.content
-                FROM chapters c
-                JOIN chapter_facts cf ON c.id = cf.chapter_id AND c.novel_id = cf.novel_id
-                WHERE c.novel_id = ? AND cf.analysis_status = 'failed'
-                ORDER BY c.chapter_number
+                SELECT id, chapter_num, content
+                FROM chapters
+                WHERE novel_id = ? AND analysis_status = 'failed'
+                ORDER BY chapter_num
                 """,
                 (novel_id,),
             )
-            rows = await cursor.fetchall()
+            rows = [dict(r) for r in await cursor.fetchall()]
         finally:
             await conn.close()
 
         if not rows:
-            return {"retried": 0, "succeeded": 0, "failed": 0}
+            return {"retried": 0, "total": 0}
 
-        ws = await world_structure_store.load(novel_id)
-        loc_parents = ws.location_parents if ws else None
-        loc_tiers = dict(ws.location_tiers) if ws and ws.location_tiers else None
+        # Launch retry in background
+        asyncio.create_task(self._retry_failed_bg(novel_id, rows))
+        return {"retried": len(rows), "total": len(rows)}
+
+    async def _retry_failed_bg(self, novel_id: str, rows: list[dict]) -> None:
+        """Background coroutine: retry failed chapters with WS progress."""
+        from src.infra import config as _cfg
+        ws_struct = await world_structure_store.load(novel_id)
+        loc_parents = ws_struct.location_parents if ws_struct else None
+        loc_tiers = dict(ws_struct.location_tiers) if ws_struct and ws_struct.location_tiers else None
+        total = len(rows)
         succeeded = 0
-        failed = 0
+        failed_count = 0
 
-        for row in rows:
+        self._retry_progress[novel_id] = {"total": total, "done": 0, "current_chapter": 0}
+
+        await manager.broadcast(novel_id, {
+            "type": "retry_start",
+            "total": total,
+        })
+
+        for i, row in enumerate(rows):
             ch_id = row["id"]
-            ch_num = row["chapter_number"]
+            ch_num = row["chapter_num"]
             ch_content = row["content"]
+
+            self._retry_progress[novel_id] = {"total": total, "done": i, "current_chapter": ch_num}
+            await manager.broadcast(novel_id, {
+                "type": "retry_progress",
+                "chapter": ch_num,
+                "done": i,
+                "total": total,
+            })
 
             try:
                 ctx = await self.context_builder.build(
@@ -897,21 +931,20 @@ class AnalysisService:
                     location_parents=loc_parents,
                     location_tiers=loc_tiers,
                 )
-                fact, usage = await self.extractor.extract(
+                fact, usage, _meta = await self.extractor.extract(
                     novel_id=novel_id,
                     chapter_id=ch_num,
                     chapter_text=ch_content,
                     context_summary=ctx,
                 )
                 fact = self.validator.validate(fact)
-                elapsed_ms = 0  # Not timing individual retries here
 
                 await chapter_fact_store.insert_chapter_fact(
                     novel_id=novel_id,
                     chapter_id=ch_id,
                     fact=fact,
                     llm_model=_cfg.get_model_name(),
-                    extraction_ms=elapsed_ms,
+                    extraction_ms=0,
                     input_tokens=usage.prompt_tokens,
                     output_tokens=usage.completion_tokens,
                     cost_usd=0.0,
@@ -927,10 +960,38 @@ class AnalysisService:
                 })
                 succeeded += 1
             except Exception as e:
-                logger.warning("Manual retry failed for chapter %d: %s", ch_num, e)
-                failed += 1
+                err_type, err_msg = _classify_error(e)
+                logger.warning("Manual retry failed for chapter %d [%s]: %s", ch_num, err_type, e)
+                await analysis_task_store.update_chapter_analysis_status(
+                    novel_id, ch_num, "failed",
+                    error_msg=err_msg, error_type=err_type,
+                )
+                await manager.broadcast(novel_id, {
+                    "type": "chapter_done",
+                    "chapter": ch_num,
+                    "status": "failed",
+                    "error": err_msg,
+                    "error_type": err_type,
+                })
+                failed_count += 1
 
-        return {"retried": len(rows), "succeeded": succeeded, "failed": failed}
+        # Update task status: if all failures resolved → completed
+        latest_task = await analysis_task_store.get_latest_task(novel_id)
+        if latest_task and latest_task["status"] == "completed_with_errors":
+            still_failed = await analysis_task_store.get_failed_chapters(novel_id)
+            if not still_failed:
+                await analysis_task_store.update_task_status(
+                    latest_task["id"], "completed"
+                )
+
+        self._retry_progress.pop(novel_id, None)
+
+        await manager.broadcast(novel_id, {
+            "type": "retry_done",
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed_count,
+        })
 
 
 def _count_orphan_roots(structure: WorldStructure) -> int:
