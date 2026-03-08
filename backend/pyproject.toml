@@ -27,6 +27,7 @@ dependencies = [
 dev = [
     "aiosqlite>=0.22.1",
     "opencc-python-reimplemented>=0.1.7",
+    "pyinstaller>=6.19.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
 ]

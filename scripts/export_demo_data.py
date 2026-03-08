@@ -389,9 +389,53 @@ def export_demo(
     print(f"\n✅ Demo 数据已导出到: {output_dir}")
 
 
+def _fetch_novel_stats(base_url: str, novel_id: str) -> dict:
+    """Fetch encyclopedia stats for manifest generation."""
+    data = api_get(base_url, f"/api/novels/{novel_id}/encyclopedia")
+    if not data or not isinstance(data, dict):
+        return {}
+    return {
+        "characters": data.get("person", 0),
+        "relations": data.get("relation_count", 0),
+        "locations": data.get("location", 0),
+        "events": data.get("event_count", 0),
+    }
+
+
+def generate_manifest(
+    base_url: str, output_dir: Path, novel_entries: list[dict],
+) -> None:
+    """Generate manifest.json listing all exported novels."""
+    from datetime import date
+    novels = []
+    for entry in novel_entries:
+        novel_id = entry["id"]
+        slug = entry.get("slug", _sanitize_dirname(entry.get("title", novel_id)))
+        stats = _fetch_novel_stats(base_url, novel_id)
+        novels.append({
+            "slug": slug,
+            "title": entry.get("title", ""),
+            "author": entry.get("author"),
+            "totalChapters": entry.get("total_chapters", 0),
+            "stats": stats,
+        })
+
+    manifest = {
+        "version": 1,
+        "generated": date.today().isoformat(),
+        "novels": novels,
+    }
+    manifest_path = output_dir / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"\n📋 manifest.json generated: {manifest_path}")
+
+
 def export_all(
     base_url: str, output_dir: Path, compress: bool,
     include_text: bool = True, text_only: bool = False,
+    include_manifest: bool = False,
 ) -> None:
     """Export all analyzed novels, each in its own subdirectory."""
     novels = _get_novels(base_url)
@@ -406,10 +450,13 @@ def export_all(
         novel_id = novel["id"]
         title = novel.get("title", novel_id)
         dirname = _sanitize_dirname(title)
-        novel_output = output_dir / dirname / "data"
+        novel_output = output_dir / dirname
         print(f"\n{'─' * 50}")
         export_demo(base_url, novel_id, novel_output, compress,
                     include_text=include_text, text_only=text_only)
+
+    if include_manifest:
+        generate_manifest(base_url, output_dir, analyzed)
 
     print(f"\n{'═' * 50}")
     print(f"🎉 All {len(analyzed)} novel(s) exported to: {output_dir}")
@@ -449,6 +496,15 @@ def main() -> None:
         action="store_true",
         help="Export only chapter texts + entities (skip visualization endpoints)",
     )
+    parser.add_argument(
+        "--slug",
+        help="Directory name for the novel (e.g., 'honglou'). Used as subdirectory under output-dir.",
+    )
+    parser.add_argument(
+        "--include-manifest",
+        action="store_true",
+        help="Generate manifest.json listing all novels in output-dir (for desktop app)",
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -461,7 +517,8 @@ def main() -> None:
 
     if args.all:
         export_all(args.base_url, Path(args.output_dir), compress=compress,
-                   include_text=include_text, text_only=text_only)
+                   include_text=include_text, text_only=text_only,
+                   include_manifest=args.include_manifest)
         return
 
     if not args.novel_id:
@@ -470,14 +527,28 @@ def main() -> None:
             "or --all to export all)"
         )
 
+    # When --slug is provided, use it as subdirectory under output-dir
+    output_dir = Path(args.output_dir)
+    if args.slug:
+        output_dir = output_dir / args.slug
+
     export_demo(
         base_url=args.base_url,
         novel_id=args.novel_id,
-        output_dir=Path(args.output_dir),
+        output_dir=output_dir,
         compress=compress,
         include_text=include_text,
         text_only=text_only,
     )
+
+    # Generate manifest for single-novel export
+    if args.include_manifest:
+        novel = api_get(args.base_url, f"/api/novels/{args.novel_id}")
+        if novel and isinstance(novel, dict):
+            if args.slug:
+                novel["slug"] = args.slug
+            manifest_dir = Path(args.output_dir)
+            generate_manifest(args.base_url, manifest_dir, [novel])
 
 
 if __name__ == "__main__":

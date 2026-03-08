@@ -2,6 +2,9 @@ import { lazy, Suspense } from "react"
 import { createBrowserRouter, Navigate, useRouteError, Link } from "react-router-dom"
 import { NovelLayout } from "./NovelLayout"
 
+// Platform detection at module level (not a hook — used by createBrowserRouter)
+const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)
+
 const BookshelfPage = lazy(() => import("@/pages/BookshelfPage"))
 const ReadingPage = lazy(() => import("@/pages/ReadingPage"))
 const GraphPage = lazy(() => import("@/pages/GraphPage"))
@@ -14,6 +17,10 @@ const AnalysisPage = lazy(() => import("@/pages/AnalysisPage"))
 const ConflictsPage = lazy(() => import("@/pages/ConflictsPage"))
 const ExportPage = lazy(() => import("@/pages/ExportPage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
+
+// Desktop pages (lazy-loaded, only included in Tauri)
+const DesktopBookshelfPage = lazy(() => import("@/desktop/BookshelfPage"))
+const DesktopLayout = lazy(() => import("@/app/DesktopLayout"))
 
 // Demo pages (lazy-loaded, only included when visiting /demo routes)
 const DemoLayout = lazy(() => import("@/app/DemoLayout"))
@@ -69,24 +76,53 @@ function DemoErrorBoundary() {
 }
 
 export const router = createBrowserRouter([
-  { path: "/", element: <SuspenseWrapper><BookshelfPage /></SuspenseWrapper> },
-  {
-    element: <NovelLayout />,
-    children: [
-      { path: "/analysis/:novelId", element: <SuspenseWrapper><AnalysisPage /></SuspenseWrapper> },
-      { path: "/read/:novelId", element: <SuspenseWrapper><ReadingPage /></SuspenseWrapper> },
-      { path: "/graph/:novelId", element: <SuspenseWrapper><GraphPage /></SuspenseWrapper> },
-      { path: "/map/:novelId", element: <SuspenseWrapper><MapPage /></SuspenseWrapper> },
-      { path: "/timeline/:novelId", element: <SuspenseWrapper><TimelinePage /></SuspenseWrapper> },
-      { path: "/factions/:novelId", element: <SuspenseWrapper><FactionsPage /></SuspenseWrapper> },
-      { path: "/encyclopedia/:novelId", element: <SuspenseWrapper><EncyclopediaPage /></SuspenseWrapper> },
-      { path: "/chat/:novelId", element: <SuspenseWrapper><ChatPage /></SuspenseWrapper> },
-      { path: "/conflicts/:novelId", element: <SuspenseWrapper><ConflictsPage /></SuspenseWrapper> },
-      { path: "/export/:novelId", element: <SuspenseWrapper><ExportPage /></SuspenseWrapper> },
-    ],
-  },
-  { path: "/settings", element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },
-  // Demo routes — standalone interactive demo with static JSON data
+  // Platform-specific routes
+  ...(isTauri
+    ? [
+        // Desktop: bookshelf at root
+        { path: "/", element: <SuspenseWrapper><DesktopBookshelfPage /></SuspenseWrapper> },
+        // Desktop: novel detail with production pages (full backend via sidecar)
+        {
+          path: "/novel/:novelId",
+          element: <SuspenseWrapper><DesktopLayout /></SuspenseWrapper>,
+          children: [
+            { index: true, element: <Navigate to="reading" replace /> },
+            { path: "analysis", element: <SuspenseWrapper><AnalysisPage /></SuspenseWrapper> },
+            { path: "reading", element: <SuspenseWrapper><ReadingPage /></SuspenseWrapper> },
+            { path: "graph", element: <SuspenseWrapper><GraphPage /></SuspenseWrapper> },
+            { path: "map", element: <SuspenseWrapper><MapPage /></SuspenseWrapper> },
+            { path: "timeline", element: <SuspenseWrapper><TimelinePage /></SuspenseWrapper> },
+            { path: "encyclopedia/*", element: <SuspenseWrapper><EncyclopediaPage /></SuspenseWrapper> },
+            { path: "factions", element: <SuspenseWrapper><FactionsPage /></SuspenseWrapper> },
+            { path: "chat", element: <SuspenseWrapper><ChatPage /></SuspenseWrapper> },
+            { path: "conflicts", element: <SuspenseWrapper><ConflictsPage /></SuspenseWrapper> },
+            { path: "export", element: <SuspenseWrapper><ExportPage /></SuspenseWrapper> },
+          ],
+        },
+        // Desktop: settings page
+        { path: "/settings", element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },
+      ]
+    : [
+        // Web: existing routes
+        { path: "/", element: <SuspenseWrapper><BookshelfPage /></SuspenseWrapper> },
+        {
+          element: <NovelLayout />,
+          children: [
+            { path: "/analysis/:novelId", element: <SuspenseWrapper><AnalysisPage /></SuspenseWrapper> },
+            { path: "/read/:novelId", element: <SuspenseWrapper><ReadingPage /></SuspenseWrapper> },
+            { path: "/graph/:novelId", element: <SuspenseWrapper><GraphPage /></SuspenseWrapper> },
+            { path: "/map/:novelId", element: <SuspenseWrapper><MapPage /></SuspenseWrapper> },
+            { path: "/timeline/:novelId", element: <SuspenseWrapper><TimelinePage /></SuspenseWrapper> },
+            { path: "/factions/:novelId", element: <SuspenseWrapper><FactionsPage /></SuspenseWrapper> },
+            { path: "/encyclopedia/:novelId", element: <SuspenseWrapper><EncyclopediaPage /></SuspenseWrapper> },
+            { path: "/chat/:novelId", element: <SuspenseWrapper><ChatPage /></SuspenseWrapper> },
+            { path: "/conflicts/:novelId", element: <SuspenseWrapper><ConflictsPage /></SuspenseWrapper> },
+            { path: "/export/:novelId", element: <SuspenseWrapper><ExportPage /></SuspenseWrapper> },
+          ],
+        },
+        { path: "/settings", element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },
+      ]),
+  // Demo routes — shared across both modes
   {
     path: "/demo/:novelSlug",
     element: <SuspenseWrapper><DemoLayout /></SuspenseWrapper>,

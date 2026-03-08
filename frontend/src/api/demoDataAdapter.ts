@@ -12,7 +12,7 @@ const cache = new Map<string, unknown>()
  *  - Browser already decompressed (Vite dev server / CDN Content-Encoding: gzip)
  *  - Raw .gz file that needs manual decompression
  */
-async function decompressGzipResponse<T>(response: Response): Promise<T> {
+export async function decompressGzipResponse<T>(response: Response): Promise<T> {
   const arrayBuffer = await response.arrayBuffer()
   const bytes = new Uint8Array(arrayBuffer)
 

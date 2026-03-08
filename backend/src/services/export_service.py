@@ -1,19 +1,72 @@
 """Export / import novel data as JSON for migration between machines."""
 
 import json
+import logging
 import uuid
 
 from src.db.sqlite_db import get_connection
 
-CURRENT_FORMAT_VERSION = 3
-SUPPORTED_FORMAT_VERSIONS = {1, 2, 3}
+logger = logging.getLogger(__name__)
+
+CURRENT_FORMAT_VERSION = 4
+SUPPORTED_FORMAT_VERSIONS = {1, 2, 3, 4}
+
+
+async def _build_precomputed(novel_id: str) -> dict | None:
+    """Build precomputed visualization data for desktop .air import.
+
+    Calls visualization_service, encyclopedia_service, etc. to generate
+    pre-aggregated data so the Tauri desktop app can directly write .json.gz
+    files without reimplementing Python aggregation logic in Rust.
+    """
+    try:
+        from src.services.visualization_service import (
+            get_analyzed_range,
+            get_graph_data,
+            get_map_data,
+            get_timeline_data,
+            get_factions_data,
+        )
+        from src.services.encyclopedia_service import (
+            get_category_stats,
+            get_encyclopedia_entries,
+        )
+        from src.db.world_structure_store import load_with_overrides
+
+        ch_start, ch_end = await get_analyzed_range(novel_id)
+        if ch_start == 0 and ch_end == 0:
+            logger.warning("Novel %s has no analyzed chapters, skipping precomputed", novel_id)
+            return None
+
+        graph = await get_graph_data(novel_id, ch_start, ch_end)
+        map_data = await get_map_data(novel_id, ch_start, ch_end)
+        timeline = await get_timeline_data(novel_id, ch_start, ch_end)
+        factions = await get_factions_data(novel_id, ch_start, ch_end)
+
+        encyclopedia = await get_encyclopedia_entries(novel_id)
+        encyclopedia_stats = await get_category_stats(novel_id)
+
+        ws = await load_with_overrides(novel_id)
+        world_structure = ws.model_dump() if ws else None
+
+        return {
+            "graph": graph,
+            "map": map_data,
+            "timeline": timeline,
+            "encyclopedia": encyclopedia,
+            "encyclopedia_stats": encyclopedia_stats,
+            "factions": factions,
+            "world_structure": world_structure,
+        }
+    except Exception as e:
+        logger.error("Failed to build precomputed data for %s: %s", novel_id, e)
+        raise RuntimeError(f"生成预计算数据失败: {e}") from e
 
 
 async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
     """Export a novel with all associated data.
 
-    Format v2 includes: novel, chapters, chapter_facts, user_state,
-    entity_dictionary, world_structures.
+    Format v4 adds: precomputed visualization data for desktop import.
 
     Args:
         novel_id: The novel to export.
@@ -95,7 +148,10 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
         )
         ws_overrides = [dict(r) for r in await cur.fetchall()]
 
-        return {
+        # v4: Build precomputed visualization data for desktop import
+        precomputed = await _build_precomputed(novel_id)
+
+        result = {
             "format_version": CURRENT_FORMAT_VERSION,
             "novel": novel,
             "chapters": chapters,
@@ -107,6 +163,9 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
             "map_user_overrides": map_user_overrides,
             "world_structure_overrides": ws_overrides,
         }
+        if precomputed:
+            result["precomputed"] = precomputed
+        return result
     finally:
         await conn.close()
 

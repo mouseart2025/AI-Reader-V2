@@ -16,12 +16,18 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
   build: {
+    target: process.env.TAURI_ENV_PLATFORM === "windows"
+      ? "chrome105"
+      : process.env.TAURI_ENV_PLATFORM
+        ? "safari13"
+        : undefined,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -37,6 +43,15 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
+    strictPort: true,
+    host: process.env.TAURI_DEV_HOST || false,
+    hmr: process.env.TAURI_DEV_HOST
+      ? { protocol: "ws" as const, host: process.env.TAURI_DEV_HOST, port: 5174 }
+      : undefined,
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
     proxy: {
       "/api": {
         target: "http://localhost:8000",

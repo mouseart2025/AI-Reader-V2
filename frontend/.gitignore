@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+# Preloaded novel data (generated, not source-controlled)
+src-tauri/resources/novels/**/*.json.gz
+src-tauri/resources/novels/*/chapters/
