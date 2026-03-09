@@ -42,11 +42,13 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             re.MULTILINE,
         ),
     ),
-    # Mode 2: 第X回/节/卷/幕/场
+    # Mode 2: 第X回/节/卷/幕/场/部
+    # Lookahead prevents false matches like 第二回你... (meaning "second time")
+    # or 第三部分 (meaning "part 3") where the suffix is part of a word
     (
         "section_zh",
         re.compile(
-            r"^\s*第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷][\s：:]*(.*)$",
+            r"^\s*第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])[\s：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
@@ -98,7 +100,7 @@ _MIN_PROLOGUE_CHARS = 100  # Minimum chars to keep a prologue
 # Group 'vol_name' captures the volume marker itself (e.g. "第一部")
 # Group 1 captures any trailing subtitle text
 _VOLUME_PATTERN = re.compile(
-    r"^\s*(?:#{1,3}\s+)?(?P<vol_name>第[零〇一二两三四五六七八九十百千万\d]+[卷部集])[\s：:]*(.*)$",
+    r"^\s*(?:#{1,3}\s+)?(?P<vol_name>(?:第[零〇一二两三四五六七八九十百千万\d]+[卷部集]|卷[零〇一二两三四五六七八九十百千万\d]+))(?:[\s：:·・]+(.*))?$",
     re.MULTILINE,
 )
 
@@ -113,6 +115,65 @@ _OVERSIZED_THRESHOLD = 50_000  # chars: chapters larger than this get sub-split
 
 # Punctuation that disqualifies a line from being a heuristic title
 _BODY_PUNCTUATION = set("。，；：！？…、》）」』】")
+
+# URL detection for filtering obfuscated URLs (spaces + fullwidth chars)
+_URL_LIKE_RE = re.compile(
+    r'(?:https?://|www\.|\.com|\.cn|\.net|\.org|\.txt)',
+    re.IGNORECASE,
+)
+
+_FW_TO_HW = str.maketrans(
+    'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ．',
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.',
+)
+
+
+def _is_url_like(text: str) -> bool:
+    """Check if text looks like an obfuscated URL after normalizing spaces/fullwidth."""
+    normalized = text.replace(' ', '').translate(_FW_TO_HW)
+    return bool(_URL_LIKE_RE.search(normalized))
+
+
+# Paragraph restoration for single-line content (some TXT sources collapse
+# paragraphs into one line, using a space after sentence-ending punctuation)
+_PARA_BREAK_RE = re.compile(r'([。！？…）】」』\u201d]) ')
+
+
+def _restore_paragraphs(content: str) -> str:
+    """Restore paragraph breaks in content that lacks newlines.
+
+    Some TXT file sources (e.g., from novel aggregator sites) encode each chapter
+    as a single long line, with spaces after sentence-ending punctuation as the
+    only paragraph separator.  This function detects such content and restores
+    newlines at those points.
+    """
+    if len(content) < 1000:
+        return content
+    # Only apply when content has very low newline density
+    newline_count = content.count("\n")
+    expected_min = len(content) / 2000  # at least 1 newline per 2000 chars
+    if newline_count >= expected_min:
+        return content
+    restored = _PARA_BREAK_RE.sub(r"\1\n", content)
+    return restored
+
+
+def _augment_with_volume_markers(text: str, matches: list[re.Match]) -> list[re.Match]:
+    """Add 卷X lines as additional split points alongside section_zh matches.
+
+    When section_zh matches 第X部/回/节 but the text also contains 卷X lines
+    (e.g., 卷六 安多纳德, 卷八·女朋友们), those lines are structurally identical
+    chapter boundaries that section_zh misses.  Merge them to avoid losing content.
+    """
+    vol_matches = [m for m in _VOLUME_PATTERN.finditer(text)
+                   if m.group("vol_name").startswith("卷")]
+    if not vol_matches:
+        return matches
+    existing_starts = {m.start() for m in matches}
+    extra = [m for m in vol_matches if m.start() not in existing_starts]
+    if not extra:
+        return matches
+    return sorted(matches + extra, key=lambda m: m.start())
 
 
 def split_chapters(text: str, mode: str | None = None, custom_regex: str | None = None) -> list[ChapterInfo]:
@@ -191,6 +252,8 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
             if mode_name == mode:
                 matches = list(pattern.finditer(text))
                 if len(matches) >= 2:
+                    if mode_name == "section_zh":
+                        matches = _augment_with_volume_markers(text, matches)
                     chapters = _split_by_matches(text, mode_name, matches)
                     _assign_volumes(text, chapters)
                     chapters = _dedup_adjacent_chapters(chapters)
@@ -231,6 +294,9 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
             is_fallback=True,
         )
 
+    if best_mode == "section_zh":
+        best_matches = _augment_with_volume_markers(text, best_matches)
+
     chapters = _split_by_matches(text, best_mode, best_matches)
 
     # If result is a single huge chapter, try fixed_size as secondary fallback
@@ -257,7 +323,7 @@ def _split_by_matches(
     chapter_num = 0
 
     # Handle prologue (text before first match)
-    prologue_text = text[: matches[0].start()].strip()
+    prologue_text = _restore_paragraphs(text[: matches[0].start()].strip())
     if len(prologue_text) >= _MIN_PROLOGUE_CHARS:
         chapter_num += 1
         chapters.append(
@@ -277,7 +343,7 @@ def _split_by_matches(
         # Content runs from after the title line to the next match (or end)
         content_start = match.end()
         content_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        content = text[content_start:content_end].strip()
+        content = _restore_paragraphs(text[content_start:content_end].strip())
 
         # Skip empty chapters (duplicate markers or formatting artifacts)
         if not content:
@@ -316,7 +382,11 @@ def _extract_title(mode: str, match: re.Match) -> str:
             pass
         return match.group(0).strip()
 
-    # For chapter_zh, section_zh, markdown: group 1 is the title
+    # section_zh: always include the marker prefix (第X部/回/节 etc.) for clarity
+    if mode == "section_zh":
+        return match.group(0).strip()
+
+    # For chapter_zh, markdown: group 1 is the title (subtitle after marker)
     title = match.group(1).strip() if match.group(1) else ""
     if title:
         return title
@@ -336,18 +406,33 @@ def _assign_volumes(text: str, chapters: list[ChapterInfo]) -> None:
     if not vol_matches:
         return
 
+    # If both 卷X and 第X部 exist, prefer 卷X for volume splitting
+    juan_matches = [m for m in vol_matches if m.group('vol_name').startswith('卷')]
+    if juan_matches and len(juan_matches) < len(vol_matches):
+        vol_matches = juan_matches
+
     # Build volume list sorted by position: (start_pos, vol_num, vol_title)
+    # Deduplicate: same vol_name appearing multiple times gets the same vol_num
     # Use the volume marker name (第X部) as title; append subtitle if it's not
     # a chapter header (avoid "第一部 第一章" → title "第一部 第一章")
     _ch_header_re = re.compile(r"^第[零〇一二两三四五六七八九十百千万\d]+[章回节]")
     volumes = []
-    for i, m in enumerate(vol_matches):
+    vol_name_to_num: dict[str, int] = {}
+    vol_counter = 0
+    for m in vol_matches:
         vol_name = m.group("vol_name")
         subtitle = (m.group(2) or "").strip()
         if subtitle and _ch_header_re.match(subtitle):
             subtitle = ""  # trailing text is a chapter header, not a subtitle
+        if len(subtitle) > 50:
+            subtitle = ""  # subtitle too long, likely captured prose
+        # Assign vol_num: same vol_name reuses the same number
+        if vol_name not in vol_name_to_num:
+            vol_counter += 1
+            vol_name_to_num[vol_name] = vol_counter
+        vol_num = vol_name_to_num[vol_name]
         title = f"{vol_name} {subtitle}".strip() if subtitle else vol_name
-        volumes.append((m.start(), i + 1, title))
+        volumes.append((m.start(), vol_num, title))
 
     # Assign each chapter to the most recent volume before its position
     for ch in chapters:
@@ -458,6 +543,8 @@ def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
         # Must not be pure digits or pure symbols
         if stripped.isdigit():
             continue
+        if _is_url_like(stripped):
+            continue
         if all(not c.isalnum() for c in stripped):
             continue
         # Preceded by blank line or at file start
@@ -502,7 +589,7 @@ def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
 
     # Prologue (text before first candidate)
     prologue_lines = lines[: filtered[0]]
-    prologue_text = "\n".join(prologue_lines).strip()
+    prologue_text = _restore_paragraphs("\n".join(prologue_lines).strip())
     if len(prologue_text) >= _MIN_PROLOGUE_CHARS:
         chapter_num += 1
         chapters.append(
@@ -520,7 +607,7 @@ def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
         content_start = line_idx + 1
         content_end = filtered[i + 1] if i + 1 < len(filtered) else len(lines)
         # Walk back to exclude trailing blank lines before next title
-        content_text = "\n".join(lines[content_start:content_end]).strip()
+        content_text = _restore_paragraphs("\n".join(lines[content_start:content_end]).strip())
         if not content_text:
             continue
         chapter_num += 1

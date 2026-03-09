@@ -26,9 +26,10 @@ _VALID_EVENT_TYPES = {"战斗", "成长", "社交", "旅行", "其他"}
 _VALID_IMPORTANCE = {"high", "medium", "low"}
 _VALID_SPATIAL_RELATION_TYPES = {
     "direction", "distance", "contains", "adjacent", "separated_by", "terrain",
-    "in_between",
+    "in_between", "travel_path", "relative_scale", "cluster",
 }
 _VALID_CONFIDENCE = {"high", "medium", "low"}
+_VALID_DISTANCE_CLASS = {"near", "medium", "far", "very_far"}
 
 # ── Location name normalization (variant → canonical) ────────────────
 # LLMs sometimes output different character variants for the same place.
@@ -780,6 +781,14 @@ class FactValidator:
                     source, target,
                 )
             evidence = rel.narrative_evidence[:50] if rel.narrative_evidence else ""
+            # Validate distance_class enum
+            distance_class = rel.distance_class
+            if distance_class and distance_class not in _VALID_DISTANCE_CLASS:
+                distance_class = None
+            # Clamp confidence_score to 0.0-1.0
+            confidence_score = rel.confidence_score
+            if confidence_score is not None:
+                confidence_score = max(0.0, min(1.0, confidence_score))
             valid.append(SpatialRelationship(
                 source=source,
                 target=target,
@@ -787,6 +796,9 @@ class FactValidator:
                 value=rel.value,
                 confidence=confidence,
                 narrative_evidence=evidence,
+                distance_class=distance_class,
+                confidence_score=confidence_score,
+                waypoints=rel.waypoints,
             ))
         return valid
 

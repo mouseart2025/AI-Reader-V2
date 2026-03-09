@@ -71,8 +71,8 @@
 10. **概念不算地名**："江湖""天下""世界""人间""凡间"是抽象概念，不是具体地点
 
 ## 空间关系提取规则（spatial_relationships）
-1. 提取地点之间的所有空间信息：方位、距离、包含、相邻、分隔、地形、夹在中间
-2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain, in_between
+1. 提取地点之间的所有空间信息：方位、距离、包含、相邻、分隔、地形、夹在中间、移动路径、规模对比、聚类
+2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain, in_between, travel_path, relative_scale, cluster
 3. direction 的 value 使用英文方位：north_of, south_of, east_of, west_of, northeast_of, northwest_of, southeast_of, southwest_of
 4. distance 的 value 描述距离信息，如 "三天路程（步行）"、"百里"、"very_near"
 5. contains: **source 包含 target**（source 是更大的地理实体，target 在 source 内部）。正确示例: source="东京" target="开封府"（东京包含开封府）。错误示例: source="开封府" target="东京"（❌ 小地方不能包含大地方）。判断方法: 如果 A 在 B 里面，则 source=B, target=A
@@ -80,10 +80,16 @@
 7. separated_by 的 value 描述分隔物：如 "大河"、"山脉"、"荒漠"
 8. terrain 的 value 描述地形特征：on_coast, in_forest, on_mountain, in_desert, by_river, in_plains
 9. in_between：表示"A在B和C之间"。source=A（中间地点），target=B（端点之一），value 填另一个端点C的名称
-10. confidence: high=原文明确描述, medium=可推断, low=模糊暗示
-11. narrative_evidence: 摘录原文依据，不超过50字
-12. 只提取文中有依据的关系，不要推测
-13. source 和 target 必须是本章或之前出现过的地点名
+10. travel_path：角色从 source 移动到 target 的路径。value 描述移动过程，waypoints 列出途经地点序列。示例：source="涿郡", target="洛阳", value="刘备前往洛阳途经定州", waypoints=["定州"], distance_class="far"
+11. relative_scale：source 与 target 的规模对比。value 为 "larger"（source 更大）、"smaller"（source 更小）或 "comparable"（规模相当）
+12. cluster：source 和 target 属于同一地理集群。value 填写集群名或描述。示例：source="怡红院", target="潇湘馆", value="大观园内诸院"
+13. confidence: high=原文明确描述, medium=可推断, low=模糊暗示
+14. narrative_evidence: 摘录原文依据，不超过50字
+15. distance_class（可选）：对空间关系的距离分类，枚举值为 near（近距离）、medium（中等距离）、far（远距离）、very_far（极远距离）。适用于所有类型
+16. confidence_score（可选）：0.0-1.0 的数值化置信度，与 confidence 文本字段互补。1.0=原文直接描述，0.8=强推断，0.5=弱推断，0.3=模糊暗示
+17. waypoints（仅 travel_path 类型）：途经地点名称的有序列表，如 ["定州", "邺城"]。非 travel_path 类型不需要此字段
+18. 只提取文中有依据的关系，不要推测
+19. source 和 target 必须是本章或之前出现过的地点名
 
 ## 事件提取规则（events）⚠️ participants 和 location 必填
 1. **participants 必须列出所有参与者的名字**，不可为空列表

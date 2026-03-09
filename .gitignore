@@ -55,6 +55,7 @@ backend/*.spec
 # Tauri
 frontend/src-tauri/target/
 frontend/src-tauri/binaries/
+frontend/src-tauri/resources/
 
 # BMAD claude commands
 .claude/commands/bmad*
