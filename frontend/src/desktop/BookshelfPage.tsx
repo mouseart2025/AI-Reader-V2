@@ -260,7 +260,10 @@ export default function DesktopBookshelfPage() {
       {/* Header */}
       <div className="mx-auto mb-8 flex max-w-5xl items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">AI Reader</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">AI Reader</h1>
+            <span className="text-[10px] text-muted-foreground/50 tabular-nums self-end mb-0.5">v{__APP_VERSION__}</span>
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">中文小说智能分析平台</p>
         </div>
         <div className="flex items-center gap-3">
