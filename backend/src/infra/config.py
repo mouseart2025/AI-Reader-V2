@@ -33,6 +33,11 @@ _ENV_LLM_BASE_URL = LLM_BASE_URL
 _ENV_LLM_MODEL = LLM_MODEL
 
 
+# VoT (Visualization-of-Thought) spatial reasoning guide injection.
+# When True, a spatial reasoning guide is injected into the extraction prompt
+# to improve spatial relationship extraction quality.
+VOT_SPATIAL_ENABLED: bool = True
+
 # Context window size (tokens). Auto-detected at startup; 8192 = conservative default.
 CONTEXT_WINDOW_SIZE: int = 8192
 

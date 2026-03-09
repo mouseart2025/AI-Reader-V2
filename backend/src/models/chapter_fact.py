@@ -79,10 +79,13 @@ class ConceptFact(BaseModel):
 class SpatialRelationship(BaseModel):
     source: str
     target: str
-    relation_type: str  # direction/distance/contains/adjacent/separated_by/terrain/in_between
+    relation_type: str  # direction/distance/contains/adjacent/separated_by/terrain/in_between/travel_path/relative_scale/cluster
     value: str  # e.g. "north_of", "三天路程（步行）", "河流", "on_coast"
     confidence: str = "medium"  # high/medium/low
     narrative_evidence: str = ""
+    distance_class: str | None = None  # "near"/"medium"/"far"/"very_far"
+    confidence_score: float | None = None  # 0.0-1.0, numeric confidence for solver
+    waypoints: list[str] | None = None  # travel_path only: intermediate locations
 
 
 class WorldDeclaration(BaseModel):

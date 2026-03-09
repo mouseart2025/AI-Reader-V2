@@ -49,7 +49,7 @@ const DATA_IMPORT_EXTENSIONS = [".air", ".json"]
 
 const MODE_LABELS: Record<string, string> = {
   chapter_zh: "第X章 / 番外",
-  section_zh: "第X回/节/卷/幕/场",
+  section_zh: "第X回/节/卷/幕/场/部",
   numbered: "数字编号 (1. / 001)",
   chapter_en: "英文章节 (Chapter / Part)",
   markdown: "Markdown 标题",

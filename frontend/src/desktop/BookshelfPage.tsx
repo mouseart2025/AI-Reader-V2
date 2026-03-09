@@ -11,7 +11,7 @@ import { fetchNovels, fetchActiveAnalyses, uploadNovelWithProgress, confirmImpor
 import type { Novel, UploadPreviewResponse } from "@/api/types"
 import { DragDropOverlay } from "./DragDropOverlay"
 import { SecurityGuide } from "./SecurityGuide"
-import { HelpCircle, Upload, Settings, FileUp } from "lucide-react"
+import { HelpCircle, Upload, Settings, FileUp, BookOpen } from "lucide-react"
 
 interface PreviewResult {
   title: string
@@ -286,6 +286,15 @@ export default function DesktopBookshelfPage() {
           >
             <Settings className="size-5" />
           </button>
+          <a
+            href="https://ai-reader.cc/docs/"
+            target="_blank"
+            rel="noopener"
+            className="text-muted-foreground hover:text-foreground transition"
+            title="使用文档"
+          >
+            <BookOpen className="size-4" />
+          </a>
           <button
             onClick={() => setShowGuide(true)}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"

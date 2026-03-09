@@ -182,6 +182,14 @@ def _load_system_prompt() -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _load_vot_guide() -> str:
+    """Load VoT spatial reasoning guide. Returns empty string if file missing."""
+    vot_path = _PROMPTS_DIR / "vot_spatial_guide.txt"
+    if vot_path.exists():
+        return vot_path.read_text(encoding="utf-8")
+    return ""
+
+
 def _load_examples() -> list[dict]:
     path = _PROMPTS_DIR / "extraction_examples.json"
     return json.loads(path.read_text(encoding="utf-8"))
@@ -221,6 +229,7 @@ class ChapterFactExtractor:
     def __init__(self, llm=None):
         self.llm = llm or get_llm_client()
         self.system_template = _load_system_prompt()
+        self._vot_guide = _load_vot_guide()
         self.examples = _load_examples()
         self._schema = _build_extraction_schema()
         self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
@@ -253,7 +262,7 @@ class ChapterFactExtractor:
             "2. relationships：任何两个人物有互动或提及关系都必须提取，evidence 引用原文。命令/差遣/听令也是关系\n"
             "3. locations：宁多勿漏！所有具体地名都必须提取，即使只被简短提及也不可跳过\n"
             "4. events：每个事件的 participants 列出参与者姓名，location 填写地点，都不可为空\n"
-            "5. spatial_relationships：提取地点间的方位(direction)、距离(distance)、包含(contains)、相邻(adjacent)、分隔(separated_by)、地形(terrain)、夹在中间(in_between)关系\n"
+            "5. spatial_relationships：提取地点间的方位(direction)、距离(distance)、包含(contains)、相邻(adjacent)、分隔(separated_by)、地形(terrain)、夹在中间(in_between)、移动路径(travel_path)、规模对比(relative_scale)、聚类(cluster)关系。可选填 distance_class(near/medium/far/very_far) 和 confidence_score(0.0-1.0)\n"
             "6. world_declarations：当文中有世界宏观结构描述时必须提取（区域划分region_division、区域方位region_position、空间层layer_exists如天界/地府/海底、传送通道portal），没有则输出空列表\n"
             "7. new_concepts：功法、丹药、修炼体系、世界观规则等首次出现或有详细介绍的概念，definition 必须详细（2-5句话）\n"
             "8. 只提取原文明确出现的内容，禁止编造\n"
@@ -274,12 +283,36 @@ class ChapterFactExtractor:
         system = self.system_template.replace("{context}", context_summary or "（无前序上下文）")
 
         budget = get_budget()
+        vot_injected = False
+
+        # Inject VoT spatial reasoning guide — gated by context window size
+        from src.infra.config import VOT_SPATIAL_ENABLED
+        if VOT_SPATIAL_ENABLED and self._vot_guide:
+            if budget.context_window <= 8192:
+                logger.info("VoT spatial guide skipped: context window %d <= 8192", budget.context_window)
+            else:
+                marker = "## 空间关系提取规则"
+                if marker in system:
+                    system = system.replace(
+                        marker,
+                        self._vot_guide + "\n\n" + marker,
+                    )
+                    vot_injected = True
+                else:
+                    logger.warning("VoT injection skipped: marker %r not found in system prompt", marker)
+
         original_len = len(chapter_text)
         meta = ExtractionMeta(original_len=original_len)
 
+        # VoT-aware chapter truncation: subtract VoT guide chars from budget
+        effective_max_len = budget.max_chapter_len
+        if vot_injected:
+            effective_max_len = max(budget.max_chapter_len - len(self._vot_guide), budget.max_chapter_len // 2)
+            logger.debug("VoT-aware truncation: max_chapter_len %d -> effective %d", budget.max_chapter_len, effective_max_len)
+
         # Truncate very long chapters to avoid token overflow
-        if len(chapter_text) > budget.max_chapter_len:
-            chapter_text = chapter_text[:budget.max_chapter_len]
+        if len(chapter_text) > effective_max_len:
+            chapter_text = chapter_text[:effective_max_len]
             meta.is_truncated = True
             meta.truncated_len = len(chapter_text)
 

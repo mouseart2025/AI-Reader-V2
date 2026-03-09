@@ -34,6 +34,11 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
 
   const novelInfo = getDemoNovel(slug)
 
+  const loadChapter = useCallback(
+    (chapterNum: number) => loadDemoChapterContent(slug, chapterNum),
+    [slug],
+  )
+
   useEffect(() => {
     if (!novelInfo) return
     setLoading(true)
@@ -83,11 +88,6 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
       </div>
     )
   }
-
-  const loadChapter = useCallback(
-    (chapterNum: number) => loadDemoChapterContent(slug, chapterNum),
-    [slug],
-  )
 
   return <DemoCtx.Provider value={{ slug, novelInfo, data, loadChapterContent: loadChapter }}>{children}</DemoCtx.Provider>
 }

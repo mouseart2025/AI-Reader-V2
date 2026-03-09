@@ -1815,8 +1815,13 @@ export default function SettingsPage() {
           </section>
 
           {/* Version info */}
-          <section className="text-center text-[10px] text-muted-foreground pb-8">
-            AI Reader v{__APP_VERSION__} · 本地运行 · 完全隐私
+          <section className="text-center text-[10px] text-muted-foreground pb-8 space-y-1">
+            <p>AI Reader v{__APP_VERSION__} · 本地运行 · 完全隐私</p>
+            <p>
+              <a href="https://ai-reader.cc/docs/" target="_blank" rel="noopener" className="text-blue-500 hover:text-blue-400 transition">使用文档</a>
+              {" · "}
+              <a href="https://ai-reader.cc/docs/faq" target="_blank" rel="noopener" className="text-blue-500 hover:text-blue-400 transition">常见问题</a>
+            </p>
           </section>
         </div>
       </div>
