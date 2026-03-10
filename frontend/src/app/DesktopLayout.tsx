@@ -21,6 +21,7 @@ import {
   Settings,
   FlaskConical,
   MessageCircle,
+  AlertTriangle,
 } from "lucide-react"
 
 const TABS = [
@@ -32,6 +33,7 @@ const TABS = [
   { key: "encyclopedia", label: "百科", Icon: BookMarked },
   { key: "factions", label: "势力", Icon: Users },
   { key: "chat", label: "问答", Icon: MessageCircle },
+  { key: "conflicts", label: "冲突", Icon: AlertTriangle },
   { key: "export", label: "导出", Icon: Download },
 ] as const
 
