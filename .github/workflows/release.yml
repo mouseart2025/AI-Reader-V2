@@ -166,9 +166,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for f in frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg; do
-            gh release upload "$GITHUB_REF_NAME" "$f" --clobber || true
-          done
+          ls -la "frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/" || true
+          find frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg -name "*.dmg" -exec gh release upload "$GITHUB_REF_NAME" {} --clobber \;
 
       - name: Upload NSIS to release
         if: runner.os == 'Windows'
@@ -176,9 +175,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          for f in frontend/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe; do
-            gh release upload "$GITHUB_REF_NAME" "$f" --clobber || true
-          done
+          ls -la "frontend/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/" || true
+          find "frontend/src-tauri/target/${{ matrix.target }}/release/bundle/nsis" -name "*.exe" -exec gh release upload "$GITHUB_REF_NAME" {} --clobber \;
 
   # ═══════════════════════════════════════════════
   # Publish release (undraft)
