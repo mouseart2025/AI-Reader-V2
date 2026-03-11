@@ -17,7 +17,8 @@
 <p align="center">
   <a href="https://ai-reader.cc"><strong>官网 Website</strong></a> ·
   <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>在线体验 Live Demo</strong></a> ·
-  <a href="#快速开始-quick-start"><strong>快速开始 Quick Start</strong></a>
+  <a href="#快速开始-quick-start"><strong>快速开始 Quick Start</strong></a> ·
+  <a href="#桌面应用下载-desktop-download"><strong>桌面下载 Download</strong></a>
 </p>
 
 ## 核心功能 Features
@@ -57,6 +58,17 @@
 - 📤 **设定集导出** — Markdown / Word / Excel / PDF 四种格式，两种模板
 - 🤖 **多 LLM 后端** — 本地 Ollama + 10 大云端供应商（DeepSeek、Claude、OpenAI、Gemini 等），Token 预算自动缩放
 - 📊 **全链路分析** — 实体预扫描 → 章节提取 → 聚合 → 可视化，异步执行、暂停恢复、失败重试
+
+## 桌面应用下载 Desktop Download
+
+无需配置开发环境，下载即用。内置 Python 后端，只需安装 [Ollama](https://ollama.com/) 或配置云端 API。
+
+| 平台 | 下载 | 架构 |
+|------|------|------|
+| macOS | [AI Reader_0.49.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.49.0/AI.Reader_0.49.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.49.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.49.0/AI.Reader_0.49.0_x64-setup.exe) | x86_64 |
+
+> 更多版本请查看 [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) 页面。
 
 ## 快速开始 Quick Start
 
