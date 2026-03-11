@@ -2,7 +2,7 @@
 
 Usage:
     python sidecar_entry.py --port 12345
-    ./ai-reader-backend --port 12345   (after PyInstaller bundling)
+    ./ai-reader-sidecar --port 12345   (after PyInstaller bundling)
 """
 
 import argparse

@@ -50,8 +50,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
-          key: rust-${{ matrix.target }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+            frontend/src-tauri/target
+          key: rust-${{ matrix.target }}-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
 
       # ── Frontend build ──────────────────────
       - name: Install frontend deps
@@ -101,7 +101,7 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          projectPath: src-tauri
+          projectPath: frontend/src-tauri
           args: --target ${{ matrix.target }}
 
       # ── Upload artifact ─────────────────────
@@ -110,5 +110,5 @@ jobs:
         with:
           name: ai-reader-v2-${{ matrix.target }}
           path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
           retention-days: 30

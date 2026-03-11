@@ -39,6 +39,7 @@ export default function DesktopBookshelfPage() {
   const [activeAnalysisMap, setActiveAnalysisMap] = useState<Map<string, "running" | "paused">>(new Map())
   const [sidecarReady, setSidecarReady] = useState(false)
   const [sidecarError, setSidecarError] = useState<string | null>(null)
+  const [sidecarElapsed, setSidecarElapsed] = useState(0)
   const [showGuide, setShowGuide] = useState(false)
   const [importing, setImporting] = useState(false)
   const importingRef = useRef(false)
@@ -69,6 +70,8 @@ export default function DesktopBookshelfPage() {
     ensureSidecar()
       .then(() => setSidecarReady(true))
       .catch((err) => setSidecarError(err instanceof Error ? err.message : String(err)))
+    const timer = setInterval(() => setSidecarElapsed((t) => t + 1), 1000)
+    return () => clearInterval(timer)
   }, [])
 
   // Check for new version on GitHub (silent, non-blocking)
@@ -259,6 +262,11 @@ export default function DesktopBookshelfPage() {
           <div className="text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
             <p className="text-sm text-muted-foreground">正在启动分析引擎...</p>
+            {sidecarElapsed > 5 && (
+              <p className="mt-2 text-xs text-muted-foreground/60">
+                首次启动需要约 30-60 秒，请耐心等待 ({sidecarElapsed}s)
+              </p>
+            )}
           </div>
         )}
       </div>

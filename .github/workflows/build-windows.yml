@@ -40,8 +40,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
-          key: rust-x86_64-pc-windows-msvc-${{ hashFiles('src-tauri/Cargo.lock') }}
+            frontend/src-tauri/target
+          key: rust-x86_64-pc-windows-msvc-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
 
       # ── Frontend ────────────────────────────
       - name: Install frontend deps
@@ -69,7 +69,7 @@ jobs:
           $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
           $certPath = "$env:RUNNER_TEMP\certificate.pfx"
           [IO.File]::WriteAllBytes($certPath, $certBytes)
-          $binary = "src-tauri\binaries\ai-reader-backend-x86_64-pc-windows-msvc.exe"
+          $binary = "frontend\src-tauri\binaries\ai-reader-sidecar-x86_64-pc-windows-msvc.exe"
           & signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
             /fd sha256 /tr http://timestamp.digicert.com /td sha256 $binary
           Remove-Item $certPath
@@ -80,7 +80,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: src-tauri
+          projectPath: frontend/src-tauri
           args: --target x86_64-pc-windows-msvc
 
       # ── Upload artifact ─────────────────────
@@ -89,5 +89,5 @@ jobs:
         with:
           name: ai-reader-v2-x86_64-pc-windows-msvc
           path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           retention-days: 30

@@ -108,12 +108,12 @@ async fn sidecar_start(
     );
   }
 
-  // Health check: poll GET /api/health up to 60 times (1s apart, ~60s max)
-  // PyInstaller single-file binary needs ~25-30s on cold start (extract + import)
+  // Health check: poll GET /api/health up to 120 times (1s apart, ~120s max)
+  // PyInstaller single-file binary needs ~50-60s on cold start (extract + scipy/numpy import)
   let health_url = format!("http://127.0.0.1:{}/api/health", reported_port);
   let client = reqwest::Client::new();
   let mut healthy = false;
-  for _ in 0..60 {
+  for _ in 0..120 {
     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
     match client.get(&health_url).send().await {
       Ok(resp) if resp.status().is_success() => {
@@ -129,7 +129,7 @@ async fn sidecar_start(
     let _ = child.kill();
     let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
     s.starting = false;
-    return Err("Sidecar failed health check after 60s".to_string());
+    return Err("Sidecar failed health check after 120s".to_string());
   }
 
   // Store state
@@ -900,13 +900,11 @@ pub fn run() {
       sidecar_status,
     ])
     .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
+      app.handle().plugin(
+        tauri_plugin_log::Builder::default()
+          .level(log::LevelFilter::Info)
+          .build(),
+      )?;
 
       // Handle file association: when app is launched via double-clicking a .air file,
       // the file path is passed as a CLI argument
