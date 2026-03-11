@@ -85,7 +85,7 @@ jobs:
 
       - name: Build Tauri app
         working-directory: frontend/src-tauri
-        run: cargo tauri build --target x86_64-pc-windows-msvc
+        run: cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis
 
       # ── Upload artifact ─────────────────────
       - name: Upload NSIS installer
