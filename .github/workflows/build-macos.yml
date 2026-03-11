@@ -85,19 +85,12 @@ jobs:
         run: ./scripts/sign-macos.sh
 
       # ── Tauri build ─────────────────────────
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
+
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          projectPath: frontend/src-tauri
-          args: --target aarch64-apple-darwin
+        working-directory: frontend/src-tauri
+        run: cargo tauri build --target aarch64-apple-darwin
 
       # ── Upload artifact ─────────────────────
       - name: Upload DMG

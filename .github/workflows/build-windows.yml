@@ -80,13 +80,12 @@ jobs:
           Remove-Item $certPath
 
       # ── Tauri build ─────────────────────────
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
+
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: frontend/src-tauri
-          args: --target x86_64-pc-windows-msvc
+        working-directory: frontend/src-tauri
+        run: cargo tauri build --target x86_64-pc-windows-msvc
 
       # ── Upload artifact ─────────────────────
       - name: Upload NSIS installer
