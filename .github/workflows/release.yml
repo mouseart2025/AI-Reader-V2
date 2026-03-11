@@ -146,25 +146,39 @@ jobs:
             /fd sha256 /tr http://timestamp.digicert.com /td sha256 $binary
           Remove-Item $certPath
 
-      # ── Tauri build + publish ───────────────
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+      # ── Tauri build ───────────────────────
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
+
+      - name: Build Tauri app (macOS)
+        if: runner.os == 'macOS'
+        working-directory: frontend/src-tauri
+        run: cargo tauri build --target ${{ matrix.target }}
+
+      - name: Build Tauri app (Windows)
+        if: runner.os == 'Windows'
+        working-directory: frontend/src-tauri
+        run: cargo tauri build --target ${{ matrix.target }} --bundles nsis
+
+      # ── Upload to GitHub Release ───────────
+      - name: Upload DMG to release
+        if: runner.os == 'macOS'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing + notarization
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Updater signing key
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          projectPath: frontend/src-tauri
-          args: --target ${{ matrix.target }}
-          releaseId: ${{ needs.create-release.outputs.release_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for f in frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg; do
+            gh release upload "$GITHUB_REF_NAME" "$f" --clobber || true
+          done
+
+      - name: Upload NSIS to release
+        if: runner.os == 'Windows'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          for f in frontend/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe; do
+            gh release upload "$GITHUB_REF_NAME" "$f" --clobber || true
+          done
 
   # ═══════════════════════════════════════════════
   # Publish release (undraft)
