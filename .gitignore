@@ -50,7 +50,9 @@ landing/
 # PyInstaller
 backend/build/
 backend/dist/
+# Keep ai-reader-sidecar.spec for CI (negate below)
 backend/*.spec
+!backend/ai-reader-sidecar.spec
 
 # Tauri
 frontend/src-tauri/target/

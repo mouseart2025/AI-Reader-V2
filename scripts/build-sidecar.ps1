@@ -11,7 +11,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 $BackendDir = Join-Path $ProjectRoot "backend"
 $BinariesDir = Join-Path $ProjectRoot "frontend" "src-tauri" "binaries"
 
