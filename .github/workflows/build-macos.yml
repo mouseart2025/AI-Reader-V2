@@ -11,17 +11,8 @@ env:
 
 jobs:
   build-macos:
-    strategy:
-      matrix:
-        include:
-          - runner: macos-14        # Apple Silicon (ARM64)
-            arch: aarch64
-            target: aarch64-apple-darwin
-          - runner: macos-13        # Intel (x64)
-            arch: x86_64
-            target: x86_64-apple-darwin
-
-    runs-on: ${{ matrix.runner }}
+    # Note: x64 Intel builds dropped — macos-13 deprecated, PyInstaller can't cross-compile
+    runs-on: macos-14
 
     steps:
       - name: Checkout
@@ -42,7 +33,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-apple-darwin
 
       - name: Cache Rust
         uses: actions/cache@v4
@@ -51,7 +42,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             frontend/src-tauri/target
-          key: rust-${{ matrix.target }}-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
+          key: rust-aarch64-apple-darwin-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
 
       # ── Frontend build ──────────────────────
       - name: Install frontend deps
@@ -65,7 +56,7 @@ jobs:
           uv pip install pyinstaller
 
       - name: Build sidecar
-        run: ./scripts/build-sidecar.sh --target ${{ matrix.target }}
+        run: ./scripts/build-sidecar.sh --target aarch64-apple-darwin
 
       # ── Sign sidecar ────────────────────────
       - name: Import signing certificate
@@ -102,13 +93,13 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: frontend/src-tauri
-          args: --target ${{ matrix.target }}
+          args: --target aarch64-apple-darwin
 
       # ── Upload artifact ─────────────────────
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
-          name: ai-reader-v2-${{ matrix.target }}
+          name: ai-reader-v2-aarch64-apple-darwin
           path: |
-            frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           retention-days: 30
