@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AI Reader",
-  "version": "0.48.1",
+  "version": "0.49.0",
   "identifier": "cc.ai-reader.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -25,7 +25,7 @@
     ],
     "withGlobalTauri": true,
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost https://asset.localhost http://localhost:* ws://localhost:* https://api.github.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost https://*.basemaps.cartocdn.com; connect-src 'self' ipc: http://ipc.localhost https://asset.localhost http://localhost:* ws://localhost:* https://api.github.com"
     }
   },
   "bundle": {
@@ -53,11 +53,24 @@
       }
     ],
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "entitlements": "entitlements.plist",
+      "minimumSystemVersion": "12.0",
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
+      }
     },
     "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
       }
     }
   },

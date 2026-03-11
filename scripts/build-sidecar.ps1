@@ -4,7 +4,7 @@
 #   .\scripts\build-sidecar.ps1
 #
 # Output:
-#   src-tauri\binaries\ai-reader-backend-x86_64-pc-windows-msvc.exe
+#   src-tauri\binaries\ai-reader-sidecar-x86_64-pc-windows-msvc.exe
 #
 # Prerequisites:
 #   cd backend; uv pip install pyinstaller
@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $BackendDir = Join-Path $ProjectRoot "backend"
-$BinariesDir = Join-Path $ProjectRoot "src-tauri" "binaries"
+$BinariesDir = Join-Path $ProjectRoot "frontend" "src-tauri" "binaries"
 
 $TargetTriple = "x86_64-pc-windows-msvc"
 
@@ -24,9 +24,9 @@ Write-Host ""
 # Build with PyInstaller
 Set-Location $BackendDir
 Write-Host ">> Running PyInstaller..."
-uv run pyinstaller ai-reader-backend.spec --noconfirm --clean
+uv run pyinstaller ai-reader-sidecar.spec --noconfirm --clean
 
-$DistBin = Join-Path $BackendDir "dist" "ai-reader-backend.exe"
+$DistBin = Join-Path $BackendDir "dist" "ai-reader-sidecar.exe"
 
 if (-not (Test-Path $DistBin)) {
     Write-Error "PyInstaller output not found at $DistBin"
@@ -38,7 +38,7 @@ if (-not (Test-Path $BinariesDir)) {
     New-Item -ItemType Directory -Path $BinariesDir | Out-Null
 }
 
-$Dest = Join-Path $BinariesDir "ai-reader-backend-${TargetTriple}.exe"
+$Dest = Join-Path $BinariesDir "ai-reader-sidecar-${TargetTriple}.exe"
 Copy-Item $DistBin $Dest -Force
 
 # Report

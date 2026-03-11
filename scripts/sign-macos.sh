@@ -15,8 +15,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BINARIES_DIR="$PROJECT_ROOT/src-tauri/binaries"
-ENTITLEMENTS="$PROJECT_ROOT/src-tauri/entitlements.plist"
+BINARIES_DIR="$PROJECT_ROOT/frontend/src-tauri/binaries"
+ENTITLEMENTS="$PROJECT_ROOT/frontend/src-tauri/entitlements.plist"
 
 # ── Parse arguments ─────────────────────────────
 IDENTITY="${APPLE_SIGNING_IDENTITY:-}"
@@ -46,7 +46,7 @@ echo ""
 
 # ── Sign each sidecar binary ────────────────────
 SIGNED=0
-for bin in "$BINARIES_DIR"/ai-reader-backend-*; do
+for bin in "$BINARIES_DIR"/ai-reader-sidecar-*; do
     [[ -f "$bin" ]] || continue
     [[ "$(basename "$bin")" == ".gitkeep" ]] && continue
 

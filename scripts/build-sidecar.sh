@@ -6,7 +6,7 @@
 #   ./scripts/build-sidecar.sh --target aarch64-apple-darwin
 #
 # Output:
-#   src-tauri/binaries/ai-reader-backend-<target-triple>
+#   src-tauri/binaries/ai-reader-sidecar-<target-triple>
 #
 # Prerequisites:
 #   cd backend && uv pip install pyinstaller
@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BACKEND_DIR="$PROJECT_ROOT/backend"
-BINARIES_DIR="$PROJECT_ROOT/src-tauri/binaries"
+BINARIES_DIR="$PROJECT_ROOT/frontend/src-tauri/binaries"
 
 # ── Detect target triple ────────────────────────
 detect_target_triple() {
@@ -78,9 +78,9 @@ echo ""
 cd "$BACKEND_DIR"
 
 echo ">> Running PyInstaller..."
-uv run pyinstaller ai-reader-backend.spec --noconfirm --clean 2>&1
+uv run pyinstaller ai-reader-sidecar.spec --noconfirm --clean 2>&1
 
-DIST_BIN="$BACKEND_DIR/dist/ai-reader-backend"
+DIST_BIN="$BACKEND_DIR/dist/ai-reader-sidecar"
 
 if [[ ! -f "$DIST_BIN" ]]; then
     echo "ERROR: PyInstaller output not found at $DIST_BIN"
@@ -89,7 +89,7 @@ fi
 
 # ── Copy to Tauri binaries with target triple ───
 mkdir -p "$BINARIES_DIR"
-DEST="$BINARIES_DIR/ai-reader-backend-${TARGET_TRIPLE}"
+DEST="$BINARIES_DIR/ai-reader-sidecar-${TARGET_TRIPLE}"
 
 cp "$DIST_BIN" "$DEST"
 chmod +x "$DEST"
