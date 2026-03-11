@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, backupExportUrl, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
 import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
+import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [novels, setNovels] = useState<Novel[]>([])
 
   const { fontSize, lineHeight, setFontSize, setLineHeight } = useReadingSettingsStore()
+  const { theme, setTheme } = useThemeStore()
 
   // Import state
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -1411,6 +1413,23 @@ export default function SettingsPage() {
                 <p className="text-[10px] text-muted-foreground mt-1">
                   当前: {{ compact: "1.6x", normal: "2.0x", loose: "2.6x" }[lineHeight]}
                 </p>
+              </div>
+
+              {/* Theme */}
+              <div>
+                <span className="text-sm block mb-2">外观</span>
+                <div className="flex gap-2">
+                  {([["light", "浅色"], ["dark", "深色"], ["system", "跟随系统"]] as const).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      variant={theme === value ? "default" : "outline"}
+                      size="xs"
+                      onClick={() => setTheme(value)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>

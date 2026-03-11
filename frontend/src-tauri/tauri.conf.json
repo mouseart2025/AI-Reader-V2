@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AI Reader",
-  "version": "0.44.0",
+  "version": "0.48.1",
   "identifier": "cc.ai-reader.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -25,7 +25,7 @@
     ],
     "withGlobalTauri": true,
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost https://asset.localhost http://localhost:* ws://localhost:*"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost https://asset.localhost http://localhost:* ws://localhost:* https://api.github.com"
     }
   },
   "bundle": {

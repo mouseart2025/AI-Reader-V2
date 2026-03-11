@@ -9,6 +9,7 @@ import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelM
 import { GeoMap } from "@/components/visualization/GeoMap"
 import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
 import { GeographyPanel } from "@/components/visualization/GeographyPanel"
+import { MapQualityPanel } from "@/components/visualization/MapQualityPanel"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { WorldStructureEditor } from "@/components/visualization/WorldStructureEditor"
 import { Button } from "@/components/ui/button"
@@ -618,6 +619,11 @@ export default function MapPage() {
 
           {/* Bottom-left control stack */}
           <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1.5">
+            {/* Quality metrics panel (constraint mode only, after data loaded) */}
+            {mapData && layoutMode !== "geographic" && (
+              <MapQualityPanel qualityMetrics={mapData.quality_metrics} />
+            )}
+
             {/* Mention count filter slider */}
             {maxMentionCount > 1 && (
               <div className="rounded-lg border bg-background/90 px-2.5 py-2 w-44">

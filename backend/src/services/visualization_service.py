@@ -36,7 +36,11 @@ from src.services.geo_resolver import (
     place_unresolved_geo_coords,
 )
 from src.extraction.fact_validator import _LOCATION_NAME_NORMALIZE
-from src.services.conflict_detector import _detect_location_conflicts
+from src.services.conflict_detector import (
+    _detect_location_conflicts,
+    _detect_direction_conflicts,
+    _detect_distance_conflicts,
+)
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
 
@@ -394,6 +398,9 @@ async def get_map_data(
                     "value": sr.value,
                     "confidence": sr.confidence,
                     "narrative_evidence": sr.narrative_evidence,
+                    "distance_class": sr.distance_class,
+                    "confidence_score": sr.confidence_score,
+                    "waypoints": sr.waypoints,
                 }
 
     # Calculate hierarchy levels
@@ -439,6 +446,39 @@ async def get_map_data(
                 seen.add(key)
                 unique.append(entry)
         trajectories[person] = unique
+
+    # Inject travel_path waypoints into trajectories.
+    # If character moves A→C and a travel_path exists A→C with waypoints=[B],
+    # insert B between A and C so the animation shows the full route.
+    travel_paths: dict[tuple[str, str], list[str]] = {}
+    for c in constraint_map.values():
+        if c["relation_type"] == "travel_path" and c.get("waypoints"):
+            travel_paths[(c["source"], c["target"])] = c["waypoints"]
+            # Also store reverse direction with reversed waypoints
+            travel_paths[(c["target"], c["source"])] = list(reversed(c["waypoints"]))
+
+    if travel_paths:
+        for person in list(trajectories.keys()):
+            entries = trajectories[person]
+            if len(entries) < 2:
+                continue
+            enriched: list[dict] = [entries[0]]
+            for i in range(1, len(entries)):
+                prev_loc = entries[i - 1]["location"]
+                curr_loc = entries[i]["location"]
+                wps = travel_paths.get((prev_loc, curr_loc))
+                if wps:
+                    # Interpolate chapter numbers for waypoints
+                    ch_prev = entries[i - 1]["chapter"]
+                    ch_curr = entries[i]["chapter"]
+                    for wi, wp in enumerate(wps):
+                        # Only insert if waypoint is a known location
+                        if wp in loc_info:
+                            frac = (wi + 1) / (len(wps) + 1)
+                            wp_ch = int(ch_prev + frac * (ch_curr - ch_prev))
+                            enriched.append({"location": wp, "chapter": wp_ch, "waypoint": True})
+                enriched.append(entries[i])
+            trajectories[person] = enriched
 
     # Limit trajectories: only keep characters with meaningful movement (≥2 unique locations)
     # This prevents sending thousands of single-location entries that bloat the response
@@ -653,16 +693,28 @@ async def get_map_data(
 
     # Try layer-level cache first
     cached_layer = await _load_cached_layer_layout(novel_id, target_layer, ch_hash)
-    # Invalidate stale cache: if world_structure says geographic but cache says otherwise
+    # Invalidate stale cache: if world_structure says geographic but cache says otherwise.
+    # Also handle historical/wuxia genre override: geo_type may be cached as "fantasy"
+    # but the genre override will upgrade it to "mixed".
+    _effective_geo_type = ws.geo_type if ws else None
+    if (
+        _effective_geo_type
+        and _effective_geo_type not in ("realistic", "mixed")
+        and ws
+        and ws.novel_genre_hint
+        and ws.novel_genre_hint.lower() in ("historical", "wuxia")
+    ):
+        _effective_geo_type = "mixed"
     if (
         cached_layer is not None
         and target_layer == "overworld"
-        and ws and ws.geo_type in ("realistic", "mixed")
+        and ws and _effective_geo_type in ("realistic", "mixed")
         and cached_layer["layout_mode"] != "geographic"
     ):
-        logger.info("Invalidating stale overworld cache (geo_type=%s but cached as %s)",
-                     ws.geo_type, cached_layer["layout_mode"])
+        logger.info("Invalidating stale overworld cache (geo_type=%s/%s but cached as %s)",
+                     ws.geo_type, _effective_geo_type, cached_layer["layout_mode"])
         cached_layer = None
+    satisfaction: dict | None = None  # populated only by constraint solver path
     if cached_layer is not None:
         layout_data = cached_layer["layout"]
         layout_mode = cached_layer["layout_mode"]
@@ -719,15 +771,18 @@ async def get_map_data(
                 }
                 if ws.geo_type:
                     # Use cached geo_type — skip re-detection to avoid
-                    # oscillation when chapter range changes the location subset
-                    geo_type = ws.geo_type
-                    if geo_type in ("realistic", "mixed"):
-                        _, _, resolver, resolved = await geo_auto_resolve(
-                            ws.novel_genre_hint, all_names, major_names, loc_parent_map,
-                            known_geo_type=geo_type,
-                        )
-                    else:
-                        resolver, resolved = None, None
+                    # oscillation when chapter range changes the location subset.
+                    # Pass through auto_resolve even for non-realistic types,
+                    # because auto_resolve applies genre-based overrides
+                    # (e.g., historical novels with cached "fantasy" → "mixed").
+                    geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
+                        ws.novel_genre_hint, all_names, major_names, loc_parent_map,
+                        known_geo_type=ws.geo_type,
+                    )
+                    # Persist the (possibly overridden) geo_type back to cache
+                    if geo_type != ws.geo_type:
+                        ws.geo_type = geo_type
+                        await world_structure_store.save(novel_id, ws)
                 else:
                     # First-time detection — run full detection and persist
                     geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
@@ -741,13 +796,20 @@ async def get_map_data(
                     # resolve to real coordinates, the geographic layout is
                     # misleading (fictional locations cluster near the few real
                     # ones). Fall back to hierarchy layout instead.
+                    # Historical/wuxia/adventure novels use a lower threshold
+                    # because they have many micro-locations that dilute the ratio.
+                    # Default 0.15 is lenient: geo_type=mixed already confirms
+                    # real-world signal from detect_geo_type().
                     if geo_type == "mixed":
                         resolve_ratio = len(resolved) / max(len(all_names), 1)
-                        if resolve_ratio < 0.30:
+                        genre = (ws.novel_genre_hint or "").lower() if ws else ""
+                        min_ratio = 0.10 if genre in ("historical", "wuxia", "realistic", "adventure") else 0.15
+                        if resolve_ratio < min_ratio:
                             logger.info(
                                 "geo_type=mixed but only %d/%d (%.0f%%) locations "
-                                "resolved — falling back to hierarchy layout",
+                                "resolved (min %.0f%%) — falling back to hierarchy layout",
                                 len(resolved), len(all_names), resolve_ratio * 100,
+                                min_ratio * 100,
                             )
                             resolver, resolved = None, None
 
@@ -839,7 +901,7 @@ async def get_map_data(
                         terrain_url = f"/api/novels/{novel_id}/map/terrain" if t_path else None
             else:
                 # Global solve (backward compatible path)
-                layout_data, layout_mode, terrain_url = await _compute_or_load_layout(
+                layout_data, layout_mode, terrain_url, satisfaction = await _compute_or_load_layout(
                     novel_id, ch_hash, locations, spatial_constraints,
                     first_chapter_map,
                     location_region_bounds=location_region_bounds,
@@ -879,13 +941,16 @@ async def get_map_data(
         if entries:
             geo_context.append({"chapter": fact.chapter_id, "entries": entries})
 
-    # ── Detect location hierarchy conflicts (reuse loaded facts, no extra DB query) ──
+    # ── Detect location/direction/distance conflicts (reuse loaded facts, no extra DB query) ──
     location_conflicts: list[dict] = []
     try:
         parsed_for_conflicts = [
             (f.chapter_id, f.model_dump()) for f in facts
         ]
+        alias_map = await build_alias_map(novel_id)
         raw_conflicts = _detect_location_conflicts(parsed_for_conflicts)
+        raw_conflicts.extend(_detect_direction_conflicts(parsed_for_conflicts, alias_map))
+        raw_conflicts.extend(_detect_distance_conflicts(parsed_for_conflicts, alias_map))
         location_conflicts = [c.to_dict() for c in raw_conflicts]
     except Exception:
         logger.warning("Failed to detect location conflicts for map", exc_info=True)
@@ -904,12 +969,20 @@ async def get_map_data(
             canvas_width=_resp_cw, canvas_height=_resp_ch,
         )
 
+    # Add placement_confidence to each location
+    constrained_names: set[str] = set()
+    if satisfaction and "constrained_location_names" in satisfaction:
+        constrained_names = set(satisfaction["constrained_location_names"])
+    for loc in locations:
+        loc["placement_confidence"] = "constrained" if loc["name"] in constrained_names else "unconstrained"
+
     result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
         "spatial_constraints": spatial_constraints,
         "layout": layout_data,
         "layout_mode": layout_mode,
+        "quality_metrics": satisfaction,
         "terrain_url": terrain_url if not layer_id else None,
         "rivers": rivers,
         "region_boundaries": region_boundaries,
@@ -1057,12 +1130,32 @@ async def _load_geo_overrides(novel_id: str) -> dict[str, tuple[float, float]]:
 
 
 async def invalidate_layout_cache(novel_id: str) -> None:
-    """Invalidate layout cache when chapter facts are updated."""
+    """Invalidate layout cache when chapter facts are updated.
+
+    Preserves the satisfaction baseline for quality regression comparison.
+    """
     conn = await get_connection()
     try:
+        # Save the old satisfaction as baseline before deleting the cache
+        cursor = await conn.execute(
+            "SELECT satisfaction_json FROM map_layouts WHERE novel_id = ? ORDER BY created_at DESC LIMIT 1",
+            (novel_id,),
+        )
+        row = await cursor.fetchone()
+        old_satisfaction = row["satisfaction_json"] if row and row["satisfaction_json"] else None
+
         await conn.execute(
             "DELETE FROM map_layouts WHERE novel_id = ?", (novel_id,),
         )
+
+        # Store baseline in a sentinel row that will be overwritten on next compute
+        if old_satisfaction:
+            await conn.execute(
+                """INSERT INTO map_layouts (novel_id, chapter_hash, layout_json, layout_mode, satisfaction_json, created_at)
+                   VALUES (?, '__baseline__', '[]', 'baseline', ?, datetime('now'))""",
+                (novel_id, old_satisfaction),
+            )
+
         await conn.commit()
     finally:
         await conn.close()
@@ -1077,16 +1170,16 @@ async def _compute_or_load_layout(
     spatial_constraints: list[dict],
     first_chapter: dict[str, int] | None = None,
     location_region_bounds: dict[str, tuple[float, float, float, float]] | None = None,
-) -> tuple[list[dict], str, str | None]:
+) -> tuple[list[dict], str, str | None, dict | None]:
     """Load cached layout or compute a new one.
 
-    Returns (layout_list, layout_mode, terrain_url).
+    Returns (layout_list, layout_mode, terrain_url, satisfaction_or_None).
     """
     # Try loading from cache
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT layout_json, layout_mode, terrain_path FROM map_layouts WHERE novel_id = ? AND chapter_hash = ?",
+            "SELECT layout_json, layout_mode, terrain_path, satisfaction_json FROM map_layouts WHERE novel_id = ? AND chapter_hash = ?",
             (novel_id, chapter_hash),
         )
         row = await cursor.fetchone()
@@ -1094,12 +1187,18 @@ async def _compute_or_load_layout(
             layout_data = json.loads(row["layout_json"])
             terrain_path = row["terrain_path"]
             terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
-            return layout_data, row["layout_mode"], terrain_url
+            cached_satisfaction = None
+            if row["satisfaction_json"]:
+                try:
+                    cached_satisfaction = json.loads(row["satisfaction_json"])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return layout_data, row["layout_mode"], terrain_url, cached_satisfaction
     finally:
         await conn.close()
 
     if not locations:
-        return [], "hierarchy", None
+        return [], "hierarchy", None, None
 
     # Load user overrides
     user_overrides = await _load_user_overrides(novel_id)
@@ -1110,7 +1209,7 @@ async def _compute_or_load_layout(
         first_chapter=first_chapter,
         location_region_bounds=location_region_bounds,
     )
-    layout_coords, layout_mode = await asyncio.to_thread(solver.solve)
+    layout_coords, layout_mode, satisfaction = await asyncio.to_thread(solver.solve)
     layout_data = layout_to_list(layout_coords, locations)
 
     # Generate terrain image in thread pool (all non-geographic modes)
@@ -1122,22 +1221,55 @@ async def _compute_or_load_layout(
 
     terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
 
-    # Cache the result
+    # Load quality baseline (from previous analysis) and compute diff
+    satisfaction_json = json.dumps(satisfaction, ensure_ascii=False) if satisfaction else None
     conn = await get_connection()
     try:
+        # Check for baseline row saved during invalidation
+        cursor = await conn.execute(
+            "SELECT satisfaction_json FROM map_layouts WHERE novel_id = ? AND chapter_hash = '__baseline__'",
+            (novel_id,),
+        )
+        baseline_row = await cursor.fetchone()
+        if baseline_row and baseline_row["satisfaction_json"] and satisfaction:
+            try:
+                baseline = json.loads(baseline_row["satisfaction_json"])
+                # Compute quality diff
+                old_sat = baseline.get("total_satisfaction", 0)
+                new_sat = satisfaction.get("total_satisfaction", 0)
+                old_cnt = baseline.get("total_constraints", 0)
+                new_cnt = satisfaction.get("total_constraints", 0)
+                satisfaction["quality_baseline"] = {
+                    "previous_satisfaction": old_sat,
+                    "previous_constraints": old_cnt,
+                    "satisfaction_delta": round(new_sat - old_sat, 4),
+                    "constraints_delta": new_cnt - old_cnt,
+                }
+            except (json.JSONDecodeError, TypeError):
+                pass
+            # Clean up baseline row
+            await conn.execute(
+                "DELETE FROM map_layouts WHERE novel_id = ? AND chapter_hash = '__baseline__'",
+                (novel_id,),
+            )
+
+        # Cache the result (including satisfaction for quality baseline tracking)
+        # Re-serialize after adding baseline diff
+        satisfaction_json = json.dumps(satisfaction, ensure_ascii=False) if satisfaction else None
         await conn.execute(
-            """INSERT INTO map_layouts (novel_id, chapter_hash, layout_json, layout_mode, terrain_path, created_at)
-               VALUES (?, ?, ?, ?, ?, datetime('now'))
+            """INSERT INTO map_layouts (novel_id, chapter_hash, layout_json, layout_mode, terrain_path, satisfaction_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
                ON CONFLICT (novel_id, chapter_hash)
                DO UPDATE SET layout_json=excluded.layout_json, layout_mode=excluded.layout_mode,
-                            terrain_path=excluded.terrain_path, created_at=datetime('now')""",
-            (novel_id, chapter_hash, json.dumps(layout_data, ensure_ascii=False), layout_mode, terrain_path),
+                            terrain_path=excluded.terrain_path, satisfaction_json=excluded.satisfaction_json,
+                            created_at=datetime('now')""",
+            (novel_id, chapter_hash, json.dumps(layout_data, ensure_ascii=False), layout_mode, terrain_path, satisfaction_json),
         )
         await conn.commit()
     finally:
         await conn.close()
 
-    return layout_data, layout_mode, terrain_url
+    return layout_data, layout_mode, terrain_url, satisfaction
 
 
 # ── Timeline (Events) ────────────────────────────

@@ -72,6 +72,9 @@ SEPARATION_DIST = 150
 # Adjacent target distance
 ADJACENT_DIST = 80
 
+# Cluster grouping target distance
+CLUSTER_DIST = 100
+
 # Default distance for unquantified "near" references
 DEFAULT_NEAR_DIST = 60
 DEFAULT_FAR_DIST = 300
@@ -672,7 +675,7 @@ def _solve_region(
         first_chapter=first_chapter,
         canvas_bounds=region_bounds,
     )
-    coords, _ = solver.solve()
+    coords, _, _ = solver.solve()
     return coords
 
 
@@ -708,7 +711,7 @@ def _solve_layer(
         first_chapter=first_chapter,
         canvas_bounds=bounds,
     )
-    coords, _ = solver.solve()
+    coords, _, _ = solver.solve()
     return coords
 
 
@@ -836,7 +839,7 @@ def compute_layered_layout(
                     first_chapter=first_chapter,
                     canvas_bounds=overworld_bounds,
                 )
-                layout_coords, _ = solver.solve()
+                layout_coords, _, _ = solver.solve()
 
             layout_list = layout_to_list(layout_coords, locs)
 
@@ -1096,14 +1099,13 @@ def _solve_overworld_by_region(
             len(loc_region_bounds),
         )
 
-        solver = ConstraintSolver(
+        coords, _, _ = ConstraintSolver.progressive_solve(
             all_locs, constraints,
             user_overrides=user_overrides,
             first_chapter=first_chapter,
             location_region_bounds=loc_region_bounds,
             canvas_bounds=fallback_bounds,
         )
-        coords, _ = solver.solve()
         merged_layout.update(coords)
     else:
         # ── Few regions: solve per-region for better quality ──
@@ -1134,14 +1136,13 @@ def _solve_overworld_by_region(
                         if ancestor and ancestor in region_layout:
                             loc_region_bounds_ua[name] = region_layout[ancestor]["bounds"]
 
-            solver = ConstraintSolver(
+            coords, _, _ = ConstraintSolver.progressive_solve(
                 unassigned_locs, constraints,
                 user_overrides=user_overrides,
                 first_chapter=first_chapter,
                 location_region_bounds=loc_region_bounds_ua,
                 canvas_bounds=fallback_bounds,
             )
-            coords, _ = solver.solve()
             merged_layout.update(coords)
 
     return merged_layout
@@ -1488,10 +1489,14 @@ class ConstraintSolver:
         first_chapter: dict[str, int] | None = None,
         location_region_bounds: dict[str, tuple[float, float, float, float]] | None = None,
         canvas_bounds: tuple[float, float, float, float] | None = None,
+        fixed_positions: dict[str, tuple[float, float]] | None = None,
     ):
         self.all_locations = locations
         self.constraints = _detect_and_remove_conflicts(constraints)
-        self.user_overrides = user_overrides or {}
+        # Merge fixed_positions into user_overrides (fixed from previous batch)
+        self.user_overrides = dict(user_overrides or {})
+        if fixed_positions:
+            self.user_overrides.update(fixed_positions)
         self.first_chapter = first_chapter or {}
         # Per-location region bounds: name -> (x1, y1, x2, y2)
         self._location_region_bounds = location_region_bounds or {}
@@ -1618,8 +1623,8 @@ class ConstraintSolver:
             self.n, len(self.all_locations), len(constrained_names), len(self._remaining),
         )
 
-    def solve(self) -> tuple[dict[str, tuple[float, float]], str]:
-        """Solve layout. Returns (name->coords, layout_mode)."""
+    def solve(self) -> tuple[dict[str, tuple[float, float]], str, dict | None]:
+        """Solve layout. Returns (name->coords, layout_mode, satisfaction_or_None)."""
         if len(self.constraints) < 3 or self.n < 2:
             logger.info(
                 "Insufficient constraints (%d) or locations (%d), using hierarchy layout",
@@ -1627,7 +1632,7 @@ class ConstraintSolver:
             )
             layout = self._hierarchy_layout()
             self._place_remaining(layout)
-            return layout, "hierarchy"
+            return layout, "hierarchy", None
 
         logger.info(
             "Solving layout for %d locations with %d constraints",
@@ -1661,7 +1666,7 @@ class ConstraintSolver:
             logger.info("Only %d valid constraints after filtering, using hierarchy", len(valid_constraints))
             layout = self._hierarchy_layout()
             self._place_remaining(layout)
-            return layout, "hierarchy"
+            return layout, "hierarchy", None
 
         # Scale solver budget based on problem size
         # With 40 locations (80 params), keep budget tight for responsiveness
@@ -1694,14 +1699,106 @@ class ConstraintSolver:
                 name: (float(coords[i, 0]), float(coords[i, 1]))
                 for i, name in enumerate(self.loc_names)
             }
-            logger.info("Constraint solver converged: energy=%.2f, iter=%d", result.fun, result.nit)
+            satisfaction = self._calculate_satisfaction(coords)
+            logger.info(
+                "Constraint solver converged: energy=%.2f, iter=%d, satisfaction=%.1f%%",
+                result.fun, result.nit, satisfaction["total_satisfaction"] * 100,
+            )
             self._place_remaining(layout)
-            return layout, "constraint"
+            return layout, "constraint", satisfaction
         except Exception:
             logger.exception("Constraint solver failed, falling back to hierarchy")
             layout = self._hierarchy_layout()
             self._place_remaining(layout)
-            return layout, "hierarchy"
+            return layout, "hierarchy", None
+
+    @staticmethod
+    def progressive_solve(
+        locations: list[dict],
+        constraints: list[dict],
+        user_overrides: dict[str, tuple[float, float]] | None = None,
+        first_chapter: dict[str, int] | None = None,
+        location_region_bounds: dict[str, tuple[float, float, float, float]] | None = None,
+        canvas_bounds: tuple[float, float, float, float] | None = None,
+    ) -> tuple[dict[str, tuple[float, float]], str, dict | None]:
+        """Progressive batched solving for large constraint sets.
+
+        If >MAX_SOLVER_LOCATIONS constrained locations exist, solves in batches:
+        batch 1 (top priority) → lock positions → batch 2 → ... until all
+        constrained locations are solver-optimized.
+        """
+        # Count constrained locations
+        constrained_names: set[str] = set()
+        for c in constraints:
+            constrained_names.add(c["source"])
+            constrained_names.add(c["target"])
+
+        loc_names = {loc["name"] for loc in locations}
+        constrained_in_locs = constrained_names & loc_names
+
+        if len(constrained_in_locs) <= MAX_SOLVER_LOCATIONS:
+            # Single batch is sufficient
+            solver = ConstraintSolver(
+                locations, constraints,
+                user_overrides=user_overrides,
+                first_chapter=first_chapter,
+                location_region_bounds=location_region_bounds,
+                canvas_bounds=canvas_bounds,
+            )
+            return solver.solve()
+
+        logger.info(
+            "Progressive solve: %d constrained locations > cap %d, using batched solving",
+            len(constrained_in_locs), MAX_SOLVER_LOCATIONS,
+        )
+
+        fixed: dict[str, tuple[float, float]] = {}
+        final_layout: dict[str, tuple[float, float]] = {}
+        final_mode = "hierarchy"
+        final_satisfaction = None
+        batch = 0
+
+        while True:
+            batch += 1
+            solver = ConstraintSolver(
+                locations, constraints,
+                user_overrides=user_overrides,
+                first_chapter=first_chapter,
+                location_region_bounds=location_region_bounds,
+                canvas_bounds=canvas_bounds,
+                fixed_positions=fixed if fixed else None,
+            )
+
+            # Check if there are still unsolved constrained locations
+            solved_names = set(fixed.keys())
+            unsolved_constrained = constrained_in_locs - solved_names - set(user_overrides or {})
+            if not unsolved_constrained or batch > 5:
+                # Final batch: solve and break
+                layout, mode, satisfaction = solver.solve()
+                final_layout.update(layout)
+                final_mode = mode
+                final_satisfaction = satisfaction
+                break
+
+            layout, mode, satisfaction = solver.solve()
+            final_layout.update(layout)
+            final_mode = mode
+            final_satisfaction = satisfaction
+
+            # Lock newly solved positions for next batch
+            new_fixed = {
+                name: coords for name, coords in layout.items()
+                if name in constrained_in_locs and name not in fixed
+            }
+            if not new_fixed:
+                break  # No progress — avoid infinite loop
+            fixed.update(new_fixed)
+            logger.info(
+                "Progressive batch %d: solved %d, total fixed %d / %d constrained",
+                batch, len(new_fixed), len(fixed), len(constrained_in_locs),
+            )
+
+        return final_layout, final_mode, final_satisfaction
 
     def _place_remaining(self, layout: dict[str, tuple[float, float]]) -> None:
         """Place locations not included in the solver using chapter-proximity heuristics.
@@ -1847,12 +1944,14 @@ class ConstraintSolver:
 
             rtype = c["relation_type"]
             value = c["value"]
-            weight = _CONF_RANK.get(c.get("confidence", "medium"), 2)
+            # Dual-track confidence: prefer numeric score, fall back to string rank
+            cs = c.get("confidence_score")
+            weight = max(cs * 3.0, 0.3) if cs is not None else _CONF_RANK.get(c.get("confidence", "medium"), 2)
 
             if rtype == "direction":
                 e += self._e_direction(coords, si, ti, value) * weight
             elif rtype == "distance":
-                e += self._e_distance(coords, si, ti, value) * weight
+                e += self._e_distance(coords, si, ti, value, c.get("distance_class")) * weight
             elif rtype == "contains":
                 e += self._e_contains(coords, si, ti) * weight
             elif rtype == "adjacent":
@@ -1864,6 +1963,17 @@ class ConstraintSolver:
                 ci = self.loc_index.get(value)
                 if ci is not None:
                     e += self._e_in_between(coords, si, ti, ci) * weight
+            elif rtype == "travel_path":
+                wps = c.get("waypoints") or []
+                indices = [si]
+                for wp in wps:
+                    wi = self.loc_index.get(wp)
+                    if wi is not None:
+                        indices.append(wi)
+                indices.append(ti)
+                e += self._e_travel_path(coords, indices) * weight
+            elif rtype == "cluster":
+                e += self._e_cluster(coords, si, ti) * weight
 
         # Anti-overlap penalty (vectorized)
         e += self._e_overlap(coords)
@@ -2032,11 +2142,27 @@ class ConstraintSolver:
 
         return penalty
 
+    # distance_class → target canvas distance mapping
+    _DC_TARGET: dict[str, float] = {
+        "near": 60,      # DEFAULT_NEAR_DIST
+        "medium": 150,
+        "far": 300,       # DEFAULT_FAR_DIST
+        "very_far": 400,
+    }
+
     def _e_distance(
-        self, coords: np.ndarray, si: int, ti: int, value: str
+        self, coords: np.ndarray, si: int, ti: int, value: str,
+        distance_class: str | None = None,
     ) -> float:
-        """Distance penalty: actual distance should match parsed target distance."""
-        target_dist = parse_distance(value)
+        """Distance penalty: actual distance should match parsed target distance.
+
+        Prefers structured distance_class when available (near/medium/far/very_far)
+        over free-text parsing, as it's more reliable.
+        """
+        if distance_class and distance_class in self._DC_TARGET:
+            target_dist = self._DC_TARGET[distance_class]
+        else:
+            target_dist = parse_distance(value)
         if target_dist <= 0:
             return 0.0
         actual = np.linalg.norm(coords[si] - coords[ti])
@@ -2072,6 +2198,173 @@ class ConstraintSolver:
         midpoint = (coords[bi] + coords[ci]) / 2.0
         dist = np.linalg.norm(coords[ai] - midpoint)
         return (dist / max(ADJACENT_DIST, 1.0)) ** 2 * 50
+
+    def _e_travel_path(self, coords: np.ndarray, indices: list[int]) -> float:
+        """Travel path penalty: waypoints should maintain topological order.
+
+        Penalizes backward movement along the path: if a segment (pi→pi+1)
+        moves against the overall source→target direction, a quadratic penalty
+        is applied.  Returns 0.0 if fewer than 3 points (no intermediate
+        waypoints to constrain).
+        """
+        k = len(indices)
+        if k < 3:
+            return 0.0
+        pts = coords[indices]
+        v_main = pts[-1] - pts[0]
+        main_len = np.linalg.norm(v_main)
+        if main_len < 1e-6:
+            return 0.0
+        v_norm = v_main / main_len
+        penalty = 0.0
+        for i in range(k - 1):
+            v_seg = pts[i + 1] - pts[i]
+            proj = float(np.dot(v_seg, v_norm))
+            if proj < 0:
+                penalty += (proj / main_len) ** 2
+        return penalty * 50
+
+    def _e_cluster(self, coords: np.ndarray, si: int, ti: int) -> float:
+        """Cluster penalty: grouped locations should stay close together."""
+        dist = float(np.linalg.norm(coords[si] - coords[ti]))
+        if dist <= CLUSTER_DIST:
+            return 0.0
+        return ((dist - CLUSTER_DIST) / CLUSTER_DIST) ** 2 * 50
+
+    # ── Constraint satisfaction checks (bool, for quality metrics) ──
+
+    def _is_satisfied_direction(self, coords: np.ndarray, si: int, ti: int, value: str) -> bool:
+        vec = _DIRECTION_VECTORS.get(value)
+        if vec is None:
+            return True
+        dx = coords[si, 0] - coords[ti, 0]
+        dy = coords[si, 1] - coords[ti, 1]
+        if vec[0] != 0 and vec[0] * dx < -DIRECTION_MARGIN:
+            return False
+        if vec[1] != 0 and vec[1] * dy < -DIRECTION_MARGIN:
+            return False
+        return True
+
+    def _is_satisfied_distance(
+        self, coords: np.ndarray, si: int, ti: int, value: str,
+        distance_class: str | None = None,
+    ) -> bool:
+        if distance_class and distance_class in self._DC_TARGET:
+            target = self._DC_TARGET[distance_class]
+        else:
+            target = parse_distance(value)
+        if target <= 0:
+            return True
+        actual = float(np.linalg.norm(coords[si] - coords[ti]))
+        return abs(actual - target) <= target * 0.3
+
+    def _is_satisfied_contains(self, coords: np.ndarray, si: int, ti: int) -> bool:
+        radius = self._get_parent_radius(si)
+        dist = float(np.linalg.norm(coords[si] - coords[ti]))
+        return dist <= radius * 1.2
+
+    def _is_satisfied_adjacent(self, coords: np.ndarray, si: int, ti: int) -> bool:
+        dist = float(np.linalg.norm(coords[si] - coords[ti]))
+        return ADJACENT_DIST * 0.5 <= dist <= ADJACENT_DIST * 1.5
+
+    def _is_satisfied_separated(self, coords: np.ndarray, si: int, ti: int) -> bool:
+        dist = float(np.linalg.norm(coords[si] - coords[ti]))
+        return dist >= SEPARATION_DIST * 0.8
+
+    def _is_satisfied_in_between(self, coords: np.ndarray, ai: int, bi: int, ci: int) -> bool:
+        midpoint = (coords[bi] + coords[ci]) / 2.0
+        dist = float(np.linalg.norm(coords[ai] - midpoint))
+        return dist <= ADJACENT_DIST
+
+    def _is_satisfied_travel_path(self, coords: np.ndarray, indices: list[int]) -> bool:
+        if len(indices) < 3:
+            return True
+        pts = coords[indices]
+        v_main = pts[-1] - pts[0]
+        main_len = float(np.linalg.norm(v_main))
+        if main_len < 1e-6:
+            return True
+        v_norm = v_main / main_len
+        for i in range(len(indices) - 1):
+            if float(np.dot(pts[i + 1] - pts[i], v_norm)) < 0:
+                return False
+        return True
+
+    def _is_satisfied_cluster(self, coords: np.ndarray, si: int, ti: int) -> bool:
+        dist = float(np.linalg.norm(coords[si] - coords[ti]))
+        return dist <= CLUSTER_DIST * 1.2
+
+    def _calculate_satisfaction(self, coords_2d: np.ndarray) -> dict:
+        """Post-solve constraint satisfaction metrics."""
+        by_type: dict[str, dict] = {}
+        constrained_locs: set[str] = set()
+        satisfied_locs: set[str] = set()
+
+        for c in self.constraints:
+            si = self.loc_index.get(c["source"])
+            ti = self.loc_index.get(c["target"])
+            if si is None or ti is None:
+                continue
+            rtype = c["relation_type"]
+
+            if rtype not in by_type:
+                by_type[rtype] = {"total": 0, "satisfied": 0}
+            by_type[rtype]["total"] += 1
+            constrained_locs.add(c["source"])
+            constrained_locs.add(c["target"])
+
+            # Dispatch satisfaction check by type
+            satisfied = False
+            if rtype == "direction":
+                satisfied = self._is_satisfied_direction(coords_2d, si, ti, c["value"])
+            elif rtype == "distance":
+                satisfied = self._is_satisfied_distance(coords_2d, si, ti, c["value"], c.get("distance_class"))
+            elif rtype == "contains":
+                satisfied = self._is_satisfied_contains(coords_2d, si, ti)
+            elif rtype == "adjacent":
+                satisfied = self._is_satisfied_adjacent(coords_2d, si, ti)
+            elif rtype == "separated_by":
+                satisfied = self._is_satisfied_separated(coords_2d, si, ti)
+            elif rtype == "in_between":
+                ci = self.loc_index.get(c.get("value", ""))
+                if ci is not None:
+                    satisfied = self._is_satisfied_in_between(coords_2d, si, ti, ci)
+                else:
+                    satisfied = True  # missing third point → vacuously satisfied
+            elif rtype == "travel_path":
+                wps = c.get("waypoints") or []
+                indices = [si]
+                for wp in wps:
+                    wi = self.loc_index.get(wp)
+                    if wi is not None:
+                        indices.append(wi)
+                indices.append(ti)
+                satisfied = self._is_satisfied_travel_path(coords_2d, indices)
+            elif rtype == "cluster":
+                satisfied = self._is_satisfied_cluster(coords_2d, si, ti)
+
+            if satisfied:
+                by_type[rtype]["satisfied"] += 1
+                satisfied_locs.add(c["source"])
+                satisfied_locs.add(c["target"])
+
+        total_constraints = sum(v["total"] for v in by_type.values())
+        satisfied_constraints = sum(v["satisfied"] for v in by_type.values())
+
+        for v in by_type.values():
+            v["satisfaction"] = v["satisfied"] / v["total"] if v["total"] > 0 else 1.0
+
+        constrained_in_solver = constrained_locs & set(self.loc_names)
+
+        return {
+            "total_satisfaction": satisfied_constraints / total_constraints if total_constraints > 0 else 1.0,
+            "by_type": by_type,
+            "constrained_locations": len(constrained_in_solver),
+            "unconstrained_locations": self.n - len(constrained_in_solver),
+            "total_constraints": total_constraints,
+            "satisfied_constraints": satisfied_constraints,
+            "constrained_location_names": list(satisfied_locs),
+        }
 
     def _e_overlap(self, coords: np.ndarray) -> float:
         """Anti-overlap: penalize locations that are too close (vectorized)."""
@@ -2235,15 +2528,16 @@ class ConstraintSolver:
         ideal_spacing = math.sqrt(area / max(n, 1)) * 0.8
 
         # Pre-parse constraint pairs with direction vectors
-        parsed_constraints: list[tuple[int, int, str, str, float]] = []
+        parsed_constraints: list[tuple[int, int, str, str, float, list[str] | None]] = []
         for c in constraints:
             si = self.loc_index.get(c["source"])
             ti = self.loc_index.get(c["target"])
             if si is None or ti is None:
                 continue
-            weight = _CONF_RANK.get(c.get("confidence", "medium"), 2)
+            cs = c.get("confidence_score")
+            weight = max(cs * 3.0, 0.3) if cs is not None else _CONF_RANK.get(c.get("confidence", "medium"), 2)
             parsed_constraints.append(
-                (si, ti, c["relation_type"], c.get("value", ""), weight)
+                (si, ti, c["relation_type"], c.get("value", ""), weight, c.get("waypoints"))
             )
 
         # Run 80 iterations of spring-force simulation
@@ -2255,7 +2549,7 @@ class ConstraintSolver:
             forces = np.zeros_like(positions)
 
             # ── Attraction: constraints pull locations toward satisfaction ──
-            for si, ti, rtype, value, weight in parsed_constraints:
+            for si, ti, rtype, value, weight, wps in parsed_constraints:
                 diff = positions[ti] - positions[si]
                 dist = np.linalg.norm(diff)
                 if dist < 1e-6:
@@ -2291,6 +2585,33 @@ class ConstraintSolver:
                         force_mag = (SEPARATION_DIST - dist) * 0.1 * weight
                         forces[si] -= direction * force_mag
                         forces[ti] += direction * force_mag
+                elif rtype == "cluster":
+                    if dist > CLUSTER_DIST:
+                        force_mag = (dist - CLUSTER_DIST) * 0.05 * weight
+                        forces[si] += direction * force_mag
+                        forces[ti] -= direction * force_mag
+                elif rtype == "travel_path" and wps:
+                    # Nudge waypoints to maintain topological order along s→t
+                    indices = [si]
+                    for wp in wps:
+                        wi = self.loc_index.get(wp)
+                        if wi is not None:
+                            indices.append(wi)
+                    indices.append(ti)
+                    if len(indices) >= 3:
+                        s_pos = positions[indices[0]]
+                        t_pos = positions[indices[-1]]
+                        v_main = t_pos - s_pos
+                        ml = np.linalg.norm(v_main)
+                        if ml > 1e-6:
+                            v_n = v_main / ml
+                            for idx_i in range(len(indices) - 1):
+                                seg = positions[indices[idx_i + 1]] - positions[indices[idx_i]]
+                                proj = float(np.dot(seg, v_n))
+                                if proj < 0:
+                                    nudge = v_n * abs(proj) * 0.03 * weight
+                                    forces[indices[idx_i + 1]] += nudge
+                                    forces[indices[idx_i]] -= nudge
 
             # ── Repulsion: O(n²) pairwise repulsion ──
             for i in range(n):

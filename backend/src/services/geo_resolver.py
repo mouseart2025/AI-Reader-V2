@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import logging
 import math
+import random
 import re
 import zipfile
 from dataclasses import dataclass
@@ -255,6 +256,293 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "狄克斯堡": (40.02, -74.58),  # Fort Dix
     "班宁堡": (32.35, -84.95), "乔治亚州班宁堡": (32.35, -84.95),
     "北极": (71.0, -156.0),  # Arctic (use Barrow)
+    # ── City disambiguation overrides (zh_geonames.tsv picks wrong entry) ──
+    "纽约": (40.71, -74.01),       # New York City (NOT Nebraska!)
+    "北极海": (84.0, 0.0),          # Arctic Ocean (alt name for 北冰洋)
+    # ── Maritime / oceanic (海底两万里, 神秘岛, adventure novels) ──
+    "南冰洋": (-65.0, 0.0),          # Southern Ocean
+    "南极海": (-65.0, 0.0),          # Southern Ocean (alt name)
+    "中国海": (18.0, 114.0),         # China Sea (generic)
+    "南中国海": (12.0, 113.0),       # South China Sea
+    "北太平洋": (30.0, -160.0),      # North Pacific
+    "南太平洋": (-20.0, -140.0),     # South Pacific (already exists but ensure)
+    "北大西洋": (40.0, -30.0),       # North Atlantic
+    "合恩角": (-55.98, -67.27),      # Cape Horn
+    "好望角": (-34.36, 18.47),       # Cape of Good Hope
+    "锡兰岛": (7.87, 80.77),        # Ceylon (Sri Lanka)
+    "苏门答腊岛": (0.59, 101.34),    # Sumatra Island
+    "爪哇岛": (-7.61, 110.20),       # Java Island
+    "婆罗洲岛": (0.96, 114.55),      # Borneo Island
+    "马达加斯加": (-18.77, 46.87),   # Madagascar
+    "马达加斯加岛": (-18.77, 46.87), # Madagascar Island
+    "克里特岛": (35.24, 24.90),      # Crete
+    "直布罗陀": (36.14, -5.35),      # Gibraltar
+    "直布罗陀海峡": (35.97, -5.50),  # Strait of Gibraltar
+    "托雷斯海峡": (-10.0, 142.0),    # Torres Strait
+    "白令海峡": (65.77, -169.0),     # Bering Strait
+    "莫桑比克海峡": (-17.0, 42.0),   # Mozambique Channel
+    "德雷克海峡": (-59.0, -62.0),    # Drake Passage
+    "几内亚湾": (3.0, 3.0),          # Gulf of Guinea
+    "哈得逊湾": (60.0, -85.0),       # Hudson Bay
+    "阿拉伯半岛": (23.0, 45.0),      # Arabian Peninsula
+    "安的列斯群岛": (17.0, -62.0),    # Antilles Islands (Caribbean)
+    "克利亚峡": (52.0, -5.0),        # Unclear — Irish Sea area (Clew Bay?)
+    "新赫布里底群岛": (-17.7, 168.3),# New Hebrides (now Vanuatu)
+    "帕摩图群岛": (-17.5, -145.5),   # Tuamotu Archipelago
+    "马贵斯群岛": (-9.0, -139.5),    # Marquesas Islands
+    "克利斯波岛": (18.7, -111.2),    # Clarion Island (Crespo in novel)
+    "格波罗尔岛": (-2.0, 134.0),     # Fictional — placed in Papua area
+    "夏威夷群岛": (20.5, -157.0),    # Hawaiian Islands
+    "瓦尼科罗岛": (-11.7, 166.9),    # Vanikoro Island
+    "桑尼科夫岛": (73.0, 145.0),     # Sannikov Land (legendary Arctic island)
+    "巴布亚": (-6.0, 147.0),         # Papua New Guinea
+    "内布拉斯加": (41.5, -100.0),    # Nebraska
+    "内布拉斯加州": (41.5, -100.0),  # Nebraska state
+    "哈利法克斯": (44.65, -63.57),   # Halifax, Nova Scotia
+    "利物浦": (53.41, -2.98),        # Liverpool
+    "普鲁士": (52.52, 13.41),        # Prussia (Berlin area)
+    "北美": (48.17, -101.85),        # North America
+    "赤道": (0.0, 30.0),             # Equator (generic)
+    "赤道线": (0.0, 30.0),           # Equator line
+    "南极": (-82.86, 135.0),         # South Pole
+    "南极洲": (-82.86, 135.0),       # Antarctica
+    # ── Additional maritime / adventure novel supplements ──
+    "麦哲伦海峡": (-52.5, -70.0),     # Strait of Magellan
+    "日本海": (40.0, 135.0),          # Sea of Japan
+    "托列斯海峡": (-10.0, 142.0),     # Torres Strait (alt transliteration)
+    "珊瑚海": (-18.0, 155.0),        # Coral Sea
+    "爱琴海": (38.5, 25.0),          # Aegean Sea
+    "亚得里亚海": (42.5, 16.0),       # Adriatic Sea
+    "巴芬湾": (73.0, -68.0),         # Baffin Bay
+    "南极圈": (-66.5, 0.0),          # Antarctic Circle
+    "北回归线": (23.5, 0.0),          # Tropic of Cancer
+    "南回归线": (-23.5, 0.0),         # Tropic of Capricorn
+    "维哥湾": (42.24, -8.72),        # Vigo Bay (Spain)
+    "万尼科罗群岛": (-11.6, 166.9),   # Vanikoro Islands
+    "罗夫丹群岛": (68.25, 14.5),      # Lofoten Islands (Norway)
+    "青角群岛": (16.0, -24.0),        # Cape Verde Islands
+    "阿梭尔群岛": (38.72, -27.22),    # Azores Islands
+    "维蒂群岛": (-18.0, 178.0),       # Viti Levu (Fiji)
+    "马露因群岛": (-51.75, -59.0),    # Falkland Islands (Malvinas)
+    "纽芬兰岛": (48.5, -56.0),       # Newfoundland
+    "纽芬兰": (48.5, -56.0),         # Newfoundland (short)
+    "塞得港": (31.25, 32.29),        # Port Said (Egypt)
+    "亚丁港": (12.78, 45.04),        # Aden (Yemen)
+    "摩卡港": (13.32, 43.25),        # Mocha (Yemen)
+    "墨尔本港": (-37.81, 144.96),     # Port Melbourne
+    "斯勃齐堡": (78.0, 16.0),        # Spitsbergen
+    "斯匹次卑尔根": (78.0, 16.0),     # Spitsbergen (alt)
+    "新荷兰岛": (-25.0, 134.0),       # New Holland (old name for Australia)
+    "马达邦角": (36.39, 22.48),       # Cape Matapan (Greece)
+    "马纳尔岛": (9.03, 79.45),        # Mannar Island (Sri Lanka)
+    "巴塔戈尼亚": (-41.0, -68.0),     # Patagonia
+    "科罗曼德尔": (10.5, 79.8),       # Coromandel Coast (India, not Brazil)
+    "台维斯海峡": (66.5, -58.0),      # Davis Strait
+    "哈提拉斯角": (35.22, -75.53),    # Cape Hatteras
+    "圣劳伦斯河": (47.0, -70.0),      # St. Lawrence River
+    "密苏里河": (39.0, -94.5),        # Missouri River (at Kansas City)
+    "魁北克": (46.81, -71.21),        # Quebec City
+    "长岛": (40.79, -73.13),          # Long Island, NY
+    "新泽西": (40.06, -74.41),        # New Jersey
+    "新泽西州": (40.06, -74.41),      # New Jersey state
+    "新泽西州海岸": (40.06, -74.41),   # New Jersey coast
+    "多尔湾": (27.0, 34.0),           # Bay of Tor (Red Sea, Egypt)
+    "巴哈麻水道": (25.0, -77.0),      # Bahamas Channel
+    "捷萨别克湾": (37.5, -76.0),      # Chesapeake Bay
+    "童女峡": (37.4, -75.8),          # (near Chesapeake, mapped contextually)
+    "山德兰港": (54.91, -1.38),       # Sunderland (UK port)
+    # ── Major world cities (missing from GeoNames zh_geonames resolution) ──
+    "上海": (31.23, 121.47),          # Shanghai
+    "伦敦": (51.51, -0.13),           # London
+    "巴黎": (48.86, 2.35),            # Paris
+    "威尼斯": (45.44, 12.34),         # Venice
+    "格拉斯哥": (55.86, -4.25),       # Glasgow
+    "旧金山": (37.78, -122.42),       # San Francisco
+    "亚历山大港": (31.20, 29.92),      # Alexandria
+    "苏伊士": (29.97, 32.55),         # Suez
+    "庞贝城": (40.75, 14.49),         # Pompeii
+    "俄国": (55.75, 37.62),           # Russia (old name, Moscow center)
+    # ── European features ──
+    "不列颠群岛": (54.0, -2.0),        # British Isles
+    "翡翠岛": (53.4, -8.0),           # Ireland (Emerald Isle)
+    "爱尔兰": (53.4, -8.0),           # Ireland
+    "西班牙半岛": (40.0, -4.0),        # Iberian Peninsula
+    "葡萄牙海岸": (39.0, -9.1),        # Portuguese coast
+    "爱尔兰海岸": (53.0, -8.0),        # Irish coast
+    "普罗文沙海岸": (43.3, 5.4),       # Provence coast
+    "欧洲海岸": (43.0, 5.0),           # European coast (generic)
+    "圣文孙特角": (37.0, -9.0),        # Cape St. Vincent
+    "费罗哀群岛": (62.0, -7.0),        # Faroe Islands
+    "哈夫尔港": (49.49, 0.11),         # Le Havre
+    "圣马罗港": (48.65, -2.0),         # Saint-Malo
+    "阿尔": (43.68, 4.63),            # Arles (Provence)
+    "几沿尼群岛": (49.5, -2.5),        # Channel Islands (Guernsey area)
+    # ── Mediterranean seas & islands ──
+    "亚德里亚海": (42.5, 16.0),        # Adriatic Sea
+    "亚德里亚海口": (40.0, 19.0),      # Adriatic entrance (Strait of Otranto)
+    "爱奥尼亚海": (38.0, 19.0),        # Ionian Sea
+    "西西里岛": (37.5, 14.0),          # Sicily
+    "墨西哥海峡": (38.2, 15.6),        # Strait of Messina (old transliteration)
+    "利比亚海峡": (37.0, 11.5),        # Strait of Sicily
+    "利比亚海岸": (32.5, 15.0),        # Libyan coast
+    "利亚沿海": (32.5, 15.0),          # Libyan coast (alt)
+    "叙利亚海岸": (35.0, 35.8),        # Syrian coast
+    "突尼斯": (33.9, 9.5),             # Tunisia
+    "突尼斯海岸": (37.0, 10.0),        # Tunisian coast
+    "北非": (30.0, 10.0),              # North Africa
+    "阿尔及利亚": (28.0, 3.0),         # Algeria
+    "希腊群岛": (37.5, 25.0),          # Greek Archipelago
+    "斯波拉群岛": (39.0, 24.0),        # Sporades
+    "罗得岛": (36.4, 28.2),            # Rhodes
+    "嘉巴托斯岛": (35.6, 27.2),        # Karpathos
+    "桑多休岛": (36.4, 25.4),          # Santorini
+    "列卡岛": (38.7, 20.7),            # Lefkada
+    "佐治岛": (37.6, 24.0),            # Greek island
+    "铁那女神岛": (37.5, 25.2),        # Tinos
+    "阿夫罗沙小岛": (35.9, 23.3),      # Cerigo area
+    "雪利哥海面": (36.2, 23.0),        # Cerigo/Kythera sea
+    "夫利那角": (41.0, 9.3),           # Cap Farina (Tunisia/Corsica area)
+    # ── Red Sea & Arabia ──
+    "亚丁湾": (12.0, 47.0),            # Gulf of Aden
+    "亚喀巴湾": (28.5, 34.5),          # Gulf of Aqaba
+    "苏伊士湾": (28.5, 33.5),          # Gulf of Suez
+    "尤巴尔海峡": (12.6, 43.3),        # Bab el-Mandeb
+    "铁哈马海岸": (15.0, 42.5),        # Tihama coast
+    "丕林岛": (12.65, 43.43),          # Perim Island
+    "北路斯海湾": (28.5, 34.0),        # Gulf area near Red Sea
+    "北路斯城": (31.40, 30.42),        # Rosetta, Egypt
+    "萨依斯城": (30.97, 30.77),        # Sais, ancient Egypt
+    "苏阿京": (19.10, 37.33),          # Suakin, Sudan
+    "光享达": (19.60, 37.20),          # Gondokoro/Red Sea port area
+    "阿拉伯海底地道": (28.0, 33.5),    # Suez isthmus tunnel (fictional)
+    "何烈山": (28.54, 33.97),          # Mount Horeb (=Sinai)
+    "西奈山": (28.54, 33.97),          # Mount Sinai
+    "哈达拉毛": (15.5, 48.0),          # Hadramaut, Yemen
+    "马拉": (28.4, 33.8),              # Marah (biblical, near Sinai)
+    "奇达": (21.49, 39.19),            # Jeddah
+    "埃及海岸": (31.0, 30.0),          # Egyptian coast
+    # ── Indian Ocean ──
+    "印度半岛": (20.0, 78.0),          # Indian Peninsula
+    "印度海": (15.0, 72.0),            # Indian Sea
+    "阿曼海": (24.0, 60.0),            # Sea of Oman
+    "阿曼": (21.5, 56.0),              # Oman
+    "中东": (30.0, 45.0),              # Middle East
+    "马尔代夫群岛": (3.2, 73.2),        # Maldives
+    "拉克代夫群岛": (11.0, 72.5),      # Laccadive Islands
+    "马斯卡林群岛": (-20.5, 57.5),     # Mascarene Islands
+    "波旁岛": (-21.1, 55.5),           # Réunion (Île Bourbon)
+    "吉檀岛": (7.0, 80.0),            # Near Sri Lanka
+    "奶海": (10.0, 75.0),              # "Sea of Milk" (Indian Ocean area)
+    "佐治玉呷": (11.75, 79.77),        # Cape Comorin area (Pondicherry)
+    "马纳尔小岛": (9.03, 79.45),       # Mannar area
+    "马纳尔湾": (8.9, 79.5),           # Gulf of Mannar
+    "马纳尔礁石岩脉": (9.1, 79.4),     # Adam's Bridge reef
+    # ── Southeast Asia / Oceania ──
+    "东印度群岛": (-2.0, 118.0),        # East Indies
+    "摩鹿加群岛": (-2.0, 127.0),        # Moluccas
+    "巴布亚岛": (-5.0, 141.0),          # Papua
+    "日本本土": (36.0, 138.0),          # Japan mainland
+    "三罗格罗": (6.0, 121.0),           # Sulu (Philippines)
+    "卡彭塔里亚海湾": (-14.0, 139.0),  # Gulf of Carpentaria
+    "澳大利亚海岸": (-25.0, 150.0),    # Australian coast
+    "甘伯兰海道": (-10.0, 142.0),      # Cumberland Passage (Torres Strait)
+    "盎波尼岛": (-3.7, 128.2),         # Ambon Island
+    "奥卢岛": (-17.7, 168.3),           # Vanuatu area
+    "西林加巴当": (-13.6, 122.0),       # Seringapatam Reef
+    "崩角": (18.5, 120.6),             # Cape Bojeador (Philippines)
+    "白呷": (8.08, 77.55),             # Cape Comorin / Kanyakumari
+    "尖呷": (1.26, 103.85),            # Singapore area cape
+    # ── Pacific Ocean ──
+    "社会群岛": (-17.5, -149.5),        # Society Islands
+    "阿留申群岛": (52.0, -175.0),      # Aleutian Islands
+    "阿留地安群岛": (52.0, -175.0),    # Aleutian Islands (alt)
+    "东加塔布群岛": (-21.2, -175.2),   # Tongatapu (Tonga)
+    "北加罗林群岛": (7.5, 150.0),      # Caroline Islands
+    "航海家群岛": (-14.0, -171.0),     # Navigator Islands (Samoa)
+    "留力口夷群岛": (7.0, 171.0),      # Marshall Islands area
+    "留加衣群岛": (1.5, 173.0),        # Gilbert Islands (Kiribati)
+    "加利福尼亚湾": (28.0, -112.0),    # Gulf of California
+    "巴拿马湾": (8.0, -79.0),          # Gulf of Panama
+    "火地岛": (-54.8, -68.3),          # Tierra del Fuego
+    "加德路披岛": (29.2, -118.3),      # Guadalupe Island (Mexico)
+    "帝文岛": (75.1, -87.0),           # Devon Island (Arctic)
+    "铁匿利夫岛": (28.3, -16.5),       # Tenerife
+    "嘉斯贡尼海湾": (44.5, -3.0),      # Bay of Biscay (Gascony)
+    "塞内加尔岛": (14.67, -17.43),     # Gorée Island, Senegal
+    "拉·白鲁斯群岛": (45.8, 142.0),   # La Pérouse Strait area
+    "企林岛": (-3.0, 152.0),           # Keelung? / New Ireland area
+    "帝位海": (10.0, 127.0),           # "Throne Sea" — Sulu Sea area
+    "罗地小岛": (-10.5, 123.4),        # Roti Island (Indonesia)
+    "韦塞尔角": (-12.0, 136.8),        # Cape Wessel (Australia)
+    "小纹贝礁石": (-16.5, 145.5),      # Small reef near Barrier Reef
+    "摩宜礁石": (20.8, -156.5),        # Molokai reef (Hawaii)
+    "斯各脱暗礁群": (-14.7, 121.8),    # Scott Reef (Indian Ocean)
+    "维多利亚暗礁": (-10.0, 142.0),    # Victoria Reef (Torres Strait)
+    "依比尼亚": (40.0, -4.0),          # Iberia
+    "嘉地埃": (36.53, -6.28),          # Cadiz
+    "马露因海面": (-51.75, -59.0),     # Falklands sea area
+    # ── Atlantic features ──
+    "佛罗里达海峡": (24.0, -81.0),      # Florida Straits
+    "佛罗里达湾": (25.0, -81.0),        # Florida Bay
+    "加纳里群岛": (28.1, -15.4),        # Canary Islands
+    "马德尔群岛": (32.6, -16.9),        # Madeira
+    "萨尔加斯海": (30.0, -60.0),        # Sargasso Sea
+    "挪威海": (68.0, 0.0),              # Norwegian Sea
+    "桑罗克角": (-5.5, -35.3),          # Cape São Roque
+    "圣·保罗岛": (0.92, -29.35),       # Saint Paul Rocks
+    "阿棱尔群岛": (38.72, -27.22),     # Likely Azores (alt transliteration)
+    "火岛": (40.63, -73.16),            # Fire Island (NY)
+    "圣罗喀角": (-5.5, -35.3),          # Cape São Roque (alt)
+    "佛利奥呷海面": (-23.0, -42.0),     # Cape Frio (Brazil)
+    "美岛峡": (18.0, -67.9),            # Mona Passage
+    "南大西洋": (-15.0, -25.0),         # South Atlantic
+    "大西洋暖流": (35.0, -45.0),        # Gulf Stream area
+    "大西洋洲": (30.0, -40.0),          # Atlantis
+    "大西洋洲平原": (30.0, -40.0),      # Atlantis plain
+    "大西洋海底": (30.0, -40.0),        # Atlantic seabed
+    "纽芬兰岛暗礁脉": (46.0, -48.0),   # Grand Banks
+    "海底电线": (45.0, -30.0),          # Transatlantic cable
+    # ── South America ──
+    "巴塔戈尼亚海岸": (-45.0, -67.0),  # Patagonian coast
+    "巴西海岸": (-15.0, -39.0),         # Brazilian coast
+    "非洲海岸": (0.0, 10.0),            # African coast
+    "美洲联邦海岸": (38.0, -76.0),      # US east coast
+    "日本海岸": (36.0, 136.0),          # Japanese coast
+    "挪威海岸": (62.0, 5.0),            # Norwegian coast
+    # ── Arctic ──
+    "格陵兰岛": (72.0, -40.0),          # Greenland
+    "喀拉海": (75.0, 65.0),             # Kara Sea
+    "白海": (65.0, 38.0),               # White Sea
+    "鄂毕湾": (70.0, 72.0),             # Ob Bay
+    "李亚洛夫群岛": (74.0, 140.0),      # Liakhov Islands
+    "北角": (71.17, 25.78),             # North Cape (Nordkapp)
+    "南奥克内群岛": (-60.6, -45.5),     # South Orkney Islands
+    "南设德兰群岛": (-62.0, -58.0),     # South Shetland Islands
+    # ── Other adventure novel locations ──
+    "圣·约翰港": (47.56, -52.71),       # St. John's, Newfoundland
+    "种族角": (46.63, -53.07),          # Cape Race, Newfoundland
+    "内心港": (47.56, -52.71),          # Heart's Content (telegraph station)
+    "纽藏伯尔": (78.2, 15.6),           # Ny-Ålesund / Svalbard area
+    "斯勃齐堡湾": (78.0, 16.0),        # Spitsbergen bay area
+    # ── 神秘岛 (Jules Verne) — real-world references ──
+    "里士满": (37.54, -77.44),          # Richmond, Virginia
+    "伊利诺斯": (40.0, -89.0),          # Illinois
+    "马萨诸塞": (42.41, -71.38),        # Massachusetts
+    "衣阿华州": (42.0, -93.5),          # Iowa
+    "格林威治": (51.48, 0.0),           # Greenwich
+    "墨尔本": (-37.81, 144.96),         # Melbourne
+    "墨西哥暖流": (30.0, -80.0),        # Gulf Stream
+    "诺福克岛": (-29.03, 167.95),       # Norfolk Island
+    "泰地岛": (-17.5, -149.5),          # Tahiti (old transliteration)
+    "阿姆斯特丹群岛": (-37.85, 77.55),  # Amsterdam Island (Indian Ocean)
+    "玻里尼西亚群岛": (-17.0, -150.0),  # Polynesia
+    "福克兰群岛": (-51.75, -59.0),      # Falkland Islands
+    "卡利松": (43.75, 4.43),            # Callison / Cailloux area
+    "本德尔汗德": (25.5, 80.0),         # Bundelkhand, India
+    "安全岛": (-34.0, -152.0),          # Safety Island (fictional, placed in Pacific)
+    "百老汇大街": (40.76, -73.98),      # Broadway, NYC
+    "西瑞": (36.2, -5.4),              # Ceuta area
+    "罗佛敦群岛": (68.25, 14.5),        # Lofoten (alt transliteration)
 }
 
 # ── Chinese historical / literary geographic supplement ──
@@ -339,6 +627,11 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "函谷关": (34.52, 110.86),     # Hangu Pass
     "潼关": (34.49, 110.24),       # Tong Pass
     "剑门关": (32.29, 105.57),     # Jianmen Pass
+    # Chinese seas (also in SUPPLEMENT_GEO, but needed here for CN-scope novels)
+    "渤海": (38.5, 119.5),         # Bohai Sea
+    "东海": (29.0, 126.0),         # East China Sea
+    "黄海": (35.0, 123.0),         # Yellow Sea
+    "南海": (12.0, 113.0),         # South China Sea
     # Rivers & water bodies
     "洞庭湖": (29.30, 112.80),     # Dongting Lake
     "鄱阳湖": (29.15, 116.27),     # Poyang Lake
@@ -349,12 +642,135 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "钱塘江": (30.20, 120.20),     # Qiantang River
     "大运河": (33.0, 117.0),       # Grand Canal
     "塔克拉玛干": (39.0, 83.0),    # Taklamakan Desert
-    # Historical regions / states
+    # Historical regions / states (西域)
     "高昌": (42.86, 89.53),        # Gaochang (Turpan, Xinjiang)
     "楼兰": (40.52, 89.73),        # Loulan (ancient Xinjiang city)
     "龟兹": (41.72, 82.97),        # Kucha (Xinjiang)
     "于阗": (37.12, 79.92),        # Khotan (Xinjiang)
     "敦煌": (40.14, 94.66),        # Dunhuang
+    # ── Three Kingdoms / historical states & administrative divisions ──
+    # Ancient state names (kingdom-level entities, no modern GeoNames match)
+    "蜀": (30.57, 104.07),         # Shu (Sichuan)
+    "蜀汉": (30.57, 104.07),       # Shu-Han
+    "蜀国": (30.57, 104.07),       # Kingdom of Shu
+    "西蜀": (30.57, 104.07),       # Western Shu
+    "魏": (36.0, 114.0),           # Wei (northern China)
+    "曹魏": (36.0, 114.0),         # Cao-Wei
+    "魏国": (36.0, 114.0),         # Kingdom of Wei
+    "东吴": (31.0, 120.0),         # Eastern Wu (Jiangnan)
+    "吴国": (31.0, 120.0),         # Kingdom of Wu
+    "江东": (31.0, 119.0),         # East of the Yangtze (Wu territory)
+    "西川": (30.5, 104.0),         # Western Sichuan
+    "东川": (31.0, 105.0),         # Eastern Sichuan (Bazhong area)
+    # Ancient 州 (provinces / regions — many differ from modern city of same name)
+    "冀州": (37.5, 115.5),         # Ji Province (Hebei)
+    "兖州": (35.5, 116.8),         # Yan Province (Shandong)
+    "豫州": (33.0, 114.0),         # Yu Province (Henan)
+    "益州": (30.5, 104.0),         # Yi Province (Sichuan)
+    "扬州": (31.5, 119.0),         # Yang Province (historical: Jiangsu/Anhui/Zhejiang)
+    "幽州": (39.9, 116.4),         # You Province (Beijing area)
+    "并州": (37.5, 112.0),         # Bing Province (Taiyuan)
+    "凉州": (37.9, 102.6),         # Liang Province (Wuwei, Gansu)
+    "雍州": (34.3, 108.9),         # Yong Province (Guanzhong)
+    "交州": (21.0, 105.8),         # Jiao Province (Vietnam/Guangxi)
+    "司隶": (34.6, 112.4),         # Sili (capital region, Luoyang area)
+    "西凉": (37.9, 102.6),         # Western Liang (Gansu)
+    # Ancient cities (different names from modern, or too small for GeoNames)
+    "许都": (34.0, 113.8),         # Xu Capital (Xuchang)
+    "许昌": (34.0, 113.8),         # Xuchang
+    "邺城": (36.3, 114.6),         # Ye City (Wei capital, near Handan)
+    "邺郡": (36.3, 114.6),         # Ye Commandery
+    "下邳": (34.3, 117.9),         # Xiapi (northern Jiangsu)
+    "小沛": (34.7, 116.6),         # Xiaopei (near Pei County)
+    "江夏": (30.6, 114.3),         # Jiangxia (Wuhan area)
+    "夏口": (30.6, 114.3),         # Xiakou (Wuhan area)
+    "樊城": (32.0, 112.1),         # Fancheng (north of Xiangyang)
+    "新野": (32.5, 112.4),         # Xinye (Nanyang, Henan)
+    "江陵": (30.3, 112.2),         # Jiangling (Jingzhou core)
+    "南郡": (30.3, 112.2),         # Nan Commandery (Jingzhou)
+    "柴桑": (29.7, 116.0),         # Chaisang (Jiujiang area)
+    "建业": (32.06, 118.80),       # Jianye (Nanjing, Wu capital)
+    "寿春": (32.6, 116.8),         # Shouchun (Anhui)
+    "合淝": (31.8, 117.3),         # Hefei (ancient spelling)
+    "宛城": (33.0, 112.5),         # Wan City (Nanyang)
+    "汝南": (33.0, 114.4),         # Runan (Henan)
+    "陈留": (34.8, 114.3),         # Chenliu (Kaifeng area)
+    "南阳": (33.0, 112.5),         # Nanyang
+    "陇西": (35.0, 104.6),         # Longxi (Gansu)
+    "南郑": (33.0, 106.9),         # Nanzheng (Hanzhong area)
+    "汉中": (33.1, 107.0),         # Hanzhong
+    # Battle sites & strategic locations
+    "官渡": (34.8, 114.0),         # Guandu (Battle of Guandu)
+    "赤壁": (29.7, 113.9),         # Chibi (Battle of Red Cliffs)
+    "长坂坡": (30.8, 111.8),       # Changbanpo (Battle of Changban)
+    "华容道": (29.5, 112.7),       # Huarong Path
+    "虎牢关": (34.8, 113.2),       # Hulao Pass (Tiger Trap Pass)
+    "白帝城": (31.0, 109.5),       # Baidi City (Fengjie, Chongqing)
+    "五丈原": (34.2, 107.6),       # Wuzhangyuan (Zhuge Liang's last campaign)
+    "街亭": (34.7, 105.9),         # Jieting (Ma Su's defeat)
+    "定军山": (33.1, 106.8),       # Mount Dingjun
+    "麦城": (30.7, 111.8),         # Mai City (Guan Yu's death)
+    "阳平关": (33.0, 106.5),       # Yangping Pass
+    "斜谷": (33.9, 107.5),         # Xie Valley (northern Sichuan route)
+    "剑阁": (32.2, 105.5),         # Jiange Pass (Shu gateway)
+    "葭萌关": (32.4, 105.8),       # Jiameng Pass
+    "褒斜道": (33.5, 107.2),       # Baoxie Road (Qinling crossing)
+    # Ancient commanderies / counties (三国演义 + 水浒传 + general historical)
+    "巴西": (31.4, 106.4),         # 巴西郡 in Sichuan (NOT Brazil!)
+    "河内": (35.0, 113.0),         # Henei commandery (NOT Hanoi!)
+    "蓝田": (34.2, 109.3),         # Lantian, Shaanxi (NOT Hong Kong!)
+    "平原": (37.2, 116.4),         # Pingyuan county, Shandong
+    "碣石": (39.9, 119.5),         # Jieshi, Hebei coast
+    "涿郡": (39.5, 115.9),         # Zhuo commandery (Hebei)
+    "涿县": (39.5, 115.9),         # Zhuo county (Hebei)
+    "桃园": (39.5, 115.9),         # Peach Garden (Zhuo, NOT Taiwan!)
+    "广宗": (37.1, 115.1),         # Guangzong (Hebei, Yellow Turban battle)
+    "颍川": (34.2, 113.5),         # Yingchuan commandery (Henan)
+    "陈仓": (34.4, 107.4),         # Chencang (Baoji, Shaanxi)
+    "定军山": (33.1, 106.8),       # Mount Dingjun
+    "上方谷": (34.0, 107.3),       # Shangfang Valley
+    "白马": (35.5, 114.6),         # Baima (Hua county, Henan)
+    "安邑": (35.0, 111.0),         # Anyi (southern Shanxi)
+    "乌林": (29.8, 113.5),         # Wulin (south bank of Red Cliffs)
+    # Other historical place names commonly used across Chinese novels
+    "洛阳": (34.62, 112.45),       # Luoyang (override for correct ancient center)
+    "荆州": (30.33, 112.24),       # Jingzhou (override for historical center)
+    "徐州": (34.26, 117.19),       # Xuzhou
+    "青州": (36.7, 118.5),         # Qingzhou
+    "长沙": (28.23, 112.94),       # Changsha
+    # ── Literary fiction → real prototype mappings ──
+    # 平凡的世界 (路遥) — set in northern Shaanxi (陕北), fictional names map to real places
+    "黄土高原": (36.5, 109.0),     # Loess Plateau (陕北 center, override GeoNames)
+    "原西": (36.58, 110.17),       # 原西县 → 延川县 (Yanchuan, Shaanxi)
+    "原西县": (36.58, 110.17),     # Same as above
+    "黄原": (36.59, 109.49),       # 黄原地区 → 延安 (Yan'an)
+    "黄原地区": (36.59, 109.49),   # Same as above
+    "黄原城": (36.59, 109.49),     # Same — the city center
+    "铜城": (34.90, 108.95),       # 铜城 → 铜川 (Tongchuan, Shaanxi)
+    "双水村": (36.60, 110.20),     # Fictional village near 延川
+    "石圪节": (36.55, 110.15),     # Fictional town near 延川
+    "石圪节公社": (36.55, 110.15), # Same — commune level
+    "大牙湾煤矿": (34.95, 109.00),# Fictional mine near 铜川
+    # 白鹿原 (陈忠实) — set in 关中平原 near Xi'an
+    "白鹿原": (34.20, 109.10),     # Bailuyuan → east of Xi'an (Lantian area)
+    "白鹿村": (34.20, 109.10),     # Same — the village
+    "滋水县": (34.15, 109.05),     # Fictional county near Xi'an
+    # ── 神秘岛 (Jules Verne) — Lincoln Island is in the South Pacific ──
+    # The novel places it at ~34°57'S, 150°30'W. Key island landmarks must be
+    # in the supplement to prevent GeoNames false matches (e.g., 富兰克林山→Tennessee).
+    "林肯岛": (-34.95, -150.50),   # Lincoln Island (South Pacific)
+    "富兰克林山": (-34.93, -150.48),  # Mount Franklin (island volcano, NOT Tennessee)
+    "慈悲河": (-34.97, -150.52),   # Mercy River (flows from Mount Franklin)
+    "红河": (-34.96, -150.53),     # Red Creek / Falls River
+    "格兰特湖": (-34.94, -150.51), # Lake Grant
+    "联合湾": (-34.98, -150.49),   # Union Bay
+    "鲨鱼湾": (-34.99, -150.47),   # Shark Gulf
+    "眺望岗": (-34.92, -150.47),   # Prospect Heights
+    "达卡洞": (-34.96, -150.48),   # Dakkar Grotto (Captain Nemo's base)
+    "盘蛇半岛": (-34.99, -150.52), # Serpentine Peninsula
+    "花岗石宫": (-34.95, -150.49), # Granite House (main dwelling)
+    "壁炉": (-34.95, -150.49),     # The Chimneys (first shelter)
+    "眺望岗高地": (-34.92, -150.46), # Prospect Heights plateau
 }
 
 # Patterns indicating a name is NOT a real geographic place (for detection filtering)
@@ -365,7 +781,44 @@ _NON_GEO_PATTERNS = re.compile(
     r"林间|密林|空[地场]|道上|河滨$|河边$|郊外$|花园$|舞台$|餐厅|烟馆|理发|"
     # Interior / positional — common in mansion/estate novels
     r"房$|房中$|房内$|房里$|门口$|门前$|门外$|"
-    r"前边|后面|外边|里边|隔壁|对门|旁边|前头|外头|里头|上面|下面)"
+    r"前边|后面|外边|里边|隔壁|对门|旁边|前头|外头|里头|上面|下面|"
+    # Generic/directional — matches GeoNames places in wrong locations
+    r"^北方$|^南方$|^东方$|^西方$|^北岸$|^南岸$|^东岸$|^西岸$|^海滨$|"
+    r"^中军帐$|^大寨$|^水寨$|^旱寨$|^蜀营$|^魏寨$|^吴营$|"
+    # Vessels / vehicles / ship interior — not geographic
+    r"号船|号舰|客厅$|图书室$|舱房$|甲板$|^平台$|"
+    r"^小艇$|^潜水船$|^潜水艇$|^牢狱$|楼梯$|铁梯$|^餐厅$|^走廊$|"
+    r"珊瑚墓地|珊瑚王国|海底地道|阿拉伯海底地道|"
+    # Abstract / meta-geographic — matches GeoNames but wrong semantics
+    r"^海洋$|^地球$|^世界$|^冰山$|^大陆$|^黑水$|^海底$|^暖流$|^黑潮$|"
+    # Generic structures — CN GeoNames is very noisy; nearly any 2-3 char word
+    # matches some village. These are common non-geographic references in novels.
+    r"^井下$|^井口$|^井底$|^沟底$|^水库$|^水井$|^池塘$|^鱼池$|"
+    r"^操场$|^体育场$|^阳台$|^院子$|院子里$|^食堂$|小食堂$|^宿舍$|"
+    r"^图书馆$|^大礼堂$|^机场$|^矿区$|^砖场$|砖瓦厂$|"
+    r"^公路$|公路边$|^铁路$|^公社$|^街道$|^小镇$|^二楼$|"
+    r"^窑洞$|石窑洞$|^土窑$|^破庙$|^戏台$|^杂货铺$|^铁匠铺$|"
+    r"^花坛$|^草滩$|^碾盘$|^坟地$|^烟地$|^土场$|"
+    r"^山梁$|^山洼$|^山湾$|山背后$|^对面山$|^小山沟$|"
+    r"^报社$|^学校$|学校院子$|^中学$|^省城$|家属区$|"
+    r"^土台子$|^老坑$|^城门洞$|^彩门$|^风门$|"
+    # Generic natural features — Chinese terms that match Japanese/US GeoNames
+    # entries via kanji/transliteration (e.g., 高山→Takayama, 河流→JP river town)
+    r"^高山$|^河流$|^对岸$|^左岸$|^右岸$|^海岸$|^海角$|^海面$|"
+    r"^悬崖$|^峭壁$|^沙丘$|^岩石$|^山石$|^石穴$|^石窟$|^岩洞$|"
+    r"^火山$|^火山口$|^火山锥$|^高地$|^高原$|^平原$|^陆地$|^通道$|"
+    r"^森林$|^竹林$|^松林$|^矮树林$|^瀑布$|^小湖$|^小岛$|^池子$|"
+    r"^港湾$|^河湾$|^河岸$|^满潮线$|^水平线$|"
+    # Man-made structures / farming / mining — fictional island locations
+    r"^棚屋$|^畜栏$|^兽棚$|^鸽棚$|^猪圈$|^牲口棚$|^菜园$|^家禽场$|"
+    r"^风磨$|^磨坊$|^煤矿$|^铁矿$|^煤层$|^硫磺泉$|^造船所$|^麦田$|"
+    r"^营地$|^营棚$|^广场$|^吊篮$|^气球$|^大车$|^平底船$|"
+    # Geological / terrain descriptors — compound terms
+    r"^花岗石|^玄武岩|^熔岩|^乳香树|灌木地带$|"
+    r"啄木鸟林$|有加利树林$|松柏科森林$|"
+    # Additional terrain / water generics
+    r"^分水岭$|^峡谷$|^山谷$|^山坡$|^山脚$|^山腰$|^礁石$|^暗礁$|"
+    r"^栅栏$|^厩房$|^前仓$|^潜水艇$|^南军$|^北军$)"
 )
 
 
@@ -605,25 +1058,38 @@ class GeoResolver:
         """Resolve a list of place names to (lat, lng) coordinates.
 
         Resolution order (curated data beats noisy data):
-          1. Curated supplement dictionaries (CN historical terms, world entities)
+          1. Curated supplement dictionaries (CN then GEO for cn dataset,
+             GEO then CN for world dataset)
           2. Chinese alternate name index (zh_geonames.tsv, world dataset only)
           3. Exact match from GeoNames index
           4. Suffix stripping (remove common Chinese geographic suffixes)
           5. Disambiguation: prefer higher admin level, then population
 
         Two-pass strategy when parent_map is provided:
-          - Pass 1: resolve all names (exact + supplement matches first)
-          - Pass 2: for suffix-stripped matches, validate against parent's
-            coordinates. If parent is resolved and the match is > 1000km away,
-            discard the dubious match (e.g., 维多利亚港→塞舌尔 when parent 香港
-            is in Hong Kong).
+          - Pass 1: resolve all names (supplement + GeoNames)
+          - Pass 2: validate ALL non-supplement GeoNames matches against
+            parent coordinates. Threshold is dataset-aware: 1000km for CN
+            (tight — catches same-name cities in wrong provinces), 5000km
+            for world (loose — novel parent hierarchies are often wrong or
+            overly broad, and real locations can be far from country centroids).
+            This catches false positives like 桃园→台湾 (should be near
+            涿郡 in Hebei) and 巴西→Brazil (should be in Sichuan).
 
         Returns dict of {name: (lat, lng)} for successfully resolved names.
         """
         index = self._load_index()
         use_zh_alias = self.dataset_key == "world"
         result: dict[str, tuple[float, float]] = {}
-        suffix_stripped_names: set[str] = set()  # track which used suffix stripping
+        supplement_names: set[str] = set()  # supplement matches (trusted, skip validation)
+        geonames_matches: set[str] = set()  # GeoNames matches (need parent validation)
+
+        # Dataset-aware supplement priority: CN dataset checks CN first,
+        # world dataset checks GEO first. This handles ambiguous names like
+        # 巴西 (Sichuan commandery vs Brazil country).
+        if self.dataset_key == "cn":
+            sup_order = (_SUPPLEMENT_CN, _SUPPLEMENT_GEO)
+        else:
+            sup_order = (_SUPPLEMENT_GEO, _SUPPLEMENT_CN)
 
         for name in names:
             if not name or len(name) < 2:
@@ -631,9 +1097,10 @@ class GeoResolver:
 
             # Level 1: curated supplement (highest priority — prevents mismatches
             # like 西域→浙江西域村, 长安→石家庄长安区, 天山→内蒙古天山镇)
-            sup = _SUPPLEMENT_CN.get(name) or _SUPPLEMENT_GEO.get(name)
+            sup = sup_order[0].get(name) or sup_order[1].get(name)
             if sup:
                 result[name] = sup
+                supplement_names.add(name)
                 continue
 
             # Skip obviously non-geographic names before GeoNames lookup.
@@ -652,6 +1119,7 @@ class GeoResolver:
                 zh_coord = _resolve_from_zh_alias(name, parent_coord)
                 if zh_coord:
                     result[name] = zh_coord
+                    geonames_matches.add(name)
                     continue
 
             # Level 3: exact match from GeoNames
@@ -662,18 +1130,25 @@ class GeoResolver:
                 stripped = _GEO_SUFFIXES.sub("", name)
                 if stripped and stripped != name and len(stripped) >= 2:
                     entries = index.get(stripped)
-                    if entries:
-                        suffix_stripped_names.add(name)
 
             if entries:
                 # Disambiguation: pick best entry
                 best = _pick_best_entry(entries)
                 result[name] = (best.lat, best.lng)
+                geonames_matches.add(name)
 
-        # Pass 2: validate suffix-stripped matches against parent proximity
-        if parent_map and suffix_stripped_names:
+        # Pass 2: validate ALL non-supplement matches against parent proximity.
+        # GeoNames is noisy — common Chinese words match real places in wrong
+        # provinces (桃园→台湾, 平原→云南, 海滨→加州). Parent proximity catches these.
+        # Threshold is dataset-aware: CN=1000km (tight), world=5000km (loose).
+        # World dataset needs larger radius because:
+        #   1. Novel parent hierarchies are unreliable (旧金山→内布拉斯加州)
+        #   2. Country centroids can be far from coastal cities (上海→中国=1800km)
+        #   3. zh_geonames.tsv already disambiguates by population, reducing false positives
+        max_dist_km = 1000 if self.dataset_key == "cn" else 5000
+        if parent_map and geonames_matches:
             to_remove: list[str] = []
-            for name in suffix_stripped_names:
+            for name in geonames_matches:
                 if name not in result:
                     continue
                 parent = parent_map.get(name)
@@ -684,9 +1159,9 @@ class GeoResolver:
                     continue
                 child_coord = result[name]
                 dist = _haversine_km(child_coord, parent_coord)
-                if dist > 1000:
+                if dist > max_dist_km:
                     logger.info(
-                        "Discarding suffix-stripped match %s→(%.1f,%.1f): "
+                        "Discarding GeoNames match %s→(%.1f,%.1f): "
                         "%.0fkm from parent %s→(%.1f,%.1f)",
                         name, child_coord[0], child_coord[1],
                         dist, parent, parent_coord[0], parent_coord[1],
@@ -696,9 +1171,10 @@ class GeoResolver:
                 del result[name]
 
         logger.info(
-            "GeoResolver[%s]: resolved %d / %d names (%.0f%%)",
+            "GeoResolver[%s]: resolved %d / %d names (%.0f%%, %d supplement + %d GeoNames)",
             self.dataset_key, len(result), len(names),
             100 * len(result) / max(len(names), 1),
+            len(supplement_names), len(result) - len(supplement_names),
         )
         return result
 
@@ -890,8 +1366,17 @@ def detect_geo_scope(
     if genre in _FANTASY_GENRES:
         return "none"
 
-    # Check world-level signals BEFORE genre-based routing
-    # If the novel mentions multiple countries/continents/oceans, it's world-scope
+    # Known Chinese genre → CN dataset (checked BEFORE world-level signals,
+    # because historical novels reference Chinese seas 渤海/东海/黄海/南海
+    # and places like 巴西 that coincidentally match world-level entries).
+    # "realistic" novels (平凡的世界) are set in China with mixed real/fictional names.
+    # NOTE: "wuxia" is NOT included — some xianxia novels are misclassified
+    # as wuxia; they should go through detect_geo_type() for accurate detection.
+    if genre in ("historical", "realistic"):
+        return "cn"
+
+    # Check world-level signals for unknown/realistic/adventure genres.
+    # If the novel mentions multiple countries/continents/oceans, it's world-scope.
     if location_names:
         world_matches = sum(1 for n in location_names if n in _SUPPLEMENT_GEO)
         if world_matches >= 3:
@@ -900,10 +1385,6 @@ def detect_geo_scope(
                 world_matches,
             )
             return "world"
-
-    # Known Chinese genre → CN dataset
-    if genre in ("historical", "wuxia"):
-        return "cn"
 
     # For unknown/adventure/realistic/urban/other genres: analyze location names
     if not location_names:
@@ -945,6 +1426,22 @@ async def auto_resolve(
     """
     # ── Fast path: caller already knows the geo_type (cached) ──
     if known_geo_type:
+        # Apply genre override even on cached values — historical/realistic novels
+        # may have been incorrectly classified as "fantasy" before the supplement
+        # was expanded.  Upgrade to "mixed" so coordinate resolution runs.
+        # NOTE: "wuxia" excluded — xianxia novels (凡人修仙传) are often
+        # misclassified as wuxia, and the override incorrectly forces geographic mode.
+        if (
+            known_geo_type not in ("realistic", "mixed")
+            and genre_hint
+            and genre_hint.lower() in ("historical", "realistic")
+        ):
+            logger.info(
+                "GeoResolver: cached geo_type '%s' overridden to 'mixed' "
+                "for genre '%s'",
+                known_geo_type, genre_hint,
+            )
+            known_geo_type = "mixed"
         if known_geo_type not in ("realistic", "mixed"):
             return ("", known_geo_type, None, {})
         # Need coordinate resolution — still need a dataset
@@ -966,6 +1463,20 @@ async def auto_resolve(
     await resolver.ensure_ready()
 
     geo_type = resolver.detect_geo_type(major_names)
+
+    # Historical/realistic novels are set in the real world — override fantasy to mixed.
+    # Ancient place names (荆州, 冀州, 许都) often fail modern GeoNames matching,
+    # causing false "fantasy" classification.  Realistic novels (平凡的世界) mix
+    # fictional place names with real geography, also triggering false "fantasy".
+    # NOTE: "wuxia" excluded — xianxia novels are often misclassified as wuxia,
+    # and real wuxia novels have enough real place names for auto-detection.
+    if geo_type == "fantasy" and genre_hint and genre_hint.lower() in ("historical", "realistic"):
+        logger.info(
+            "GeoResolver: genre '%s' overrides geo_type fantasy → mixed "
+            "(historical/wuxia novels use real-world geography)",
+            genre_hint,
+        )
+        geo_type = "mixed"
 
     # If CN dataset matches poorly, try world dataset as fallback
     if geo_type == "fantasy" and geo_scope == "cn":
@@ -1132,6 +1643,32 @@ def _compute_largest_cluster_centroid(
     return (avg_lat, avg_lng)
 
 
+def _estimate_geo_scale(name: str) -> float:
+    """Estimate geographic radius (degrees) from location name suffix.
+
+    Chinese place names encode geographic scale via suffix:
+      省/洲/高原 → large region (~2°)
+      市/地区/盆地 → city/prefecture (~0.5°)
+      县/区 → county (~0.15°)
+      镇/乡/公社 → town (~0.05°)
+      村/寨/屯 → village (~0.02°)
+      街/路/巷/家/铺 → micro (~0.008°)
+    """
+    if re.search(r"省$|洲$|高原$|平原$|山脉$", name):
+        return 2.0
+    if re.search(r"市$|地区$|盆地$|流域$", name):
+        return 0.5
+    if re.search(r"县$|区$|城$", name):
+        return 0.15
+    if re.search(r"镇$|乡$|公社$|矿$", name):
+        return 0.05
+    if re.search(r"村$|寨$|屯$|庄$|坪$|湾$|沟$", name):
+        return 0.02
+    if re.search(r"街$|路$|巷$|铺$|家$|楼$|院$|窑$|窑洞$", name):
+        return 0.008
+    return 0.1  # default: county-ish
+
+
 def place_unresolved_geo_coords(
     unresolved_names: list[str],
     resolved: dict[str, tuple[float, float]],
@@ -1146,13 +1683,17 @@ def place_unresolved_geo_coords(
       4. Largest-cluster centroid → centroid of densest geographic cluster
          (avoids placing orphans in the ocean for multi-continent novels)
 
-    Uses golden-angle (sunflower seed) distribution for scatter placement.
-    Jitter radius ≈ 0.3 degrees (~30km) to keep points close but distinct.
+    Uses golden-angle (sunflower seed) distribution with:
+      - Adaptive radius based on parent's geographic scale (省/市/县/镇/村)
+      - Group-size scaling (more children → slightly larger radius)
+      - Gaussian noise to break geometric ring patterns
 
     Returns {name: (lat, lng)} for each unresolved name that could be placed.
     """
     if not resolved or not unresolved_names:
         return {}
+
+    rng = random.Random(42)  # deterministic but natural-looking
 
     # Build reverse parent map: parent -> [children]
     children_of: dict[str, list[str]] = {}
@@ -1164,11 +1705,11 @@ def place_unresolved_geo_coords(
     fallback_centroid = _compute_largest_cluster_centroid(resolved)
 
     result: dict[str, tuple[float, float]] = {}
-    jitter_radius = 0.3  # degrees (~30km)
 
     # Group unresolved by anchor strategy for better scatter
     groups: dict[str, list[str]] = {}  # anchor_key -> [names]
     anchors: dict[str, tuple[float, float]] = {}  # anchor_key -> (lat, lng)
+    anchor_parents: dict[str, str] = {}  # anchor_key -> parent name (for scale)
 
     for name in unresolved_names:
         if name in resolved:
@@ -1176,6 +1717,7 @@ def place_unresolved_geo_coords(
 
         anchor_coord = None
         anchor_key = None
+        anchor_parent_name = ""
 
         # Strategy 1: walk up parent chain to find ANY resolved ancestor
         ancestor_coord = _find_resolved_ancestor(name, parent_map, resolved)
@@ -1184,12 +1726,14 @@ def place_unresolved_geo_coords(
             direct_parent = parent_map.get(name, "")
             anchor_coord = ancestor_coord
             anchor_key = f"ancestor:{direct_parent or name}"
+            anchor_parent_name = direct_parent or name
         else:
             # Strategy 2: name containment (旧金山机场 → 旧金山)
             containment_coord = _find_name_containment_anchor(name, resolved)
             if containment_coord:
                 anchor_coord = containment_coord
                 anchor_key = f"contain:{name}"
+                anchor_parent_name = name
             else:
                 # Strategy 3: find a resolved sibling (same parent)
                 # Skip when siblings span > 40° (multi-continent parent like "天下"
@@ -1211,23 +1755,43 @@ def place_unresolved_geo_coords(
                             avg_lng = sum(lngs) / len(lngs)
                             anchor_coord = (avg_lat, avg_lng)
                             anchor_key = f"sibling:{parent}"
+                            anchor_parent_name = parent
 
         # Strategy 4: largest-cluster centroid
         if anchor_coord is None:
+            # Skip generic terrain terms (森林, 高山, 河流, etc.) that have no
+            # parent chain — they are not meaningful geographic positions and
+            # placing them at the cluster centroid pollutes the map.
+            if _NON_GEO_PATTERNS.search(name):
+                continue
             anchor_coord = fallback_centroid
             anchor_key = "cluster"
+            anchor_parent_name = "region"
 
         anchors[anchor_key] = anchor_coord
         groups.setdefault(anchor_key, []).append(name)
+        anchor_parents[anchor_key] = anchor_parent_name
 
-    # Place each group using sunflower seed distribution around its anchor
+    # Place each group using sunflower seed + noise around its anchor
     for anchor_key, names in groups.items():
         center = anchors[anchor_key]
         n = len(names)
+
+        # Adaptive radius from parent scale (county=0.15°, village=0.02°, etc.)
+        parent_name = anchor_parents.get(anchor_key, "")
+        base_radius = _estimate_geo_scale(parent_name)
+        # Scale up slightly for large groups to avoid overcrowding
+        group_scale = 1.0 + 0.3 * math.log2(max(n, 1))
+        radius = base_radius * group_scale
+
         for i, name in enumerate(names):
             angle = i * _GOLDEN_ANGLE
             # sqrt scaling fills the circle from center outward
-            r = jitter_radius * (0.3 + 0.7 * math.sqrt((i + 1) / max(n, 1)))
+            frac = (i + 1) / max(n, 1)
+            r = radius * (0.3 + 0.7 * math.sqrt(frac))
+            # Gaussian noise breaks ring pattern (±15% of current radius)
+            r *= 1.0 + rng.gauss(0, 0.15)
+            angle += rng.gauss(0, 0.2)  # ±11° angular jitter
             lat = center[0] + r * math.cos(angle)
             lng = center[1] + r * math.sin(angle)
             result[name] = (lat, lng)

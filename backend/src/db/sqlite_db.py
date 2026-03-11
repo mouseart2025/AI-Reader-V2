@@ -315,6 +315,13 @@ async def init_db() -> None:
                 )
         except Exception:
             pass
+        # Migration: add satisfaction_json to map_layouts for quality baseline tracking
+        try:
+            await conn.execute(
+                "ALTER TABLE map_layouts ADD COLUMN satisfaction_json TEXT"
+            )
+        except Exception:
+            pass  # Column already exists
         await conn.commit()
     finally:
         await conn.close()

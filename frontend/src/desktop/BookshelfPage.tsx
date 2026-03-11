@@ -44,6 +44,7 @@ export default function DesktopBookshelfPage() {
   const importingRef = useRef(false)
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [newVersion, setNewVersion] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-dismiss toast
@@ -68,6 +69,24 @@ export default function DesktopBookshelfPage() {
     ensureSidecar()
       .then(() => setSidecarReady(true))
       .catch((err) => setSidecarError(err instanceof Error ? err.message : String(err)))
+  }, [])
+
+  // Check for new version on GitHub (silent, non-blocking)
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+    fetch("https://api.github.com/repos/mouseart2025/AI-Reader-V2/releases/latest", {
+      signal: controller.signal,
+      headers: { Accept: "application/vnd.github.v3+json" },
+    })
+      .then((r) => r.json())
+      .then((data: { tag_name?: string }) => {
+        clearTimeout(timer)
+        const remote = data.tag_name?.replace(/^v/, "")
+        if (remote && remote !== __APP_VERSION__) setNewVersion(remote)
+      })
+      .catch(() => { clearTimeout(timer) })
+    return () => { controller.abort(); clearTimeout(timer) }
   }, [])
 
   const loadNovels = useCallback(async () => {
@@ -224,7 +243,7 @@ export default function DesktopBookshelfPage() {
   // Sidecar loading screen
   if (!sidecarReady) {
     return (
-      <div className="dark flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
         {sidecarError ? (
           <div className="text-center">
             <p className="text-lg font-semibold text-red-400">后端启动失败</p>
@@ -247,7 +266,7 @@ export default function DesktopBookshelfPage() {
   }
 
   return (
-    <div className="dark min-h-screen bg-background px-6 py-8 text-foreground">
+    <div className="min-h-screen bg-background px-6 py-8 text-foreground">
       {/* Hidden file input for TXT upload */}
       <input
         ref={fileInputRef}
@@ -263,6 +282,16 @@ export default function DesktopBookshelfPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">AI Reader</h1>
             <span className="text-[10px] text-muted-foreground/50 tabular-nums self-end mb-0.5">v{__APP_VERSION__}</span>
+            {newVersion && (
+              <a
+                href={`https://github.com/mouseart2025/AI-Reader-V2/releases/tag/v${newVersion}`}
+                target="_blank"
+                rel="noopener"
+                className="self-end mb-0.5 rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-400 hover:bg-blue-500/30 transition"
+              >
+                v{newVersion} 可用
+              </a>
+            )}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">中文小说智能分析平台</p>
         </div>

@@ -464,6 +464,23 @@ export interface RegionBoundary {
   center: [number, number]
 }
 
+export interface QualityBaseline {
+  previous_satisfaction: number
+  previous_constraints: number
+  satisfaction_delta: number
+  constraints_delta: number
+}
+
+export interface QualityMetrics {
+  total_satisfaction: number
+  by_type: Record<string, { total: number; satisfied: number; satisfaction: number }>
+  constrained_locations: number
+  unconstrained_locations: number
+  total_constraints: number
+  satisfied_constraints: number
+  quality_baseline?: QualityBaseline
+}
+
 export interface MapLocation {
   id: string
   name: string
@@ -475,6 +492,7 @@ export interface MapLocation {
   icon?: string    // "city" | "mountain" | "cave" | "temple" | "generic" | ...
   role?: string | null  // "setting" | "referenced" | "boundary"
   locked?: boolean
+  placement_confidence?: "constrained" | "unconstrained"
 }
 
 export interface MapLayoutItem {
@@ -499,6 +517,7 @@ export interface SpatialConstraint {
 export interface TrajectoryPoint {
   location: string
   chapter: number
+  waypoint?: boolean  // true for travel_path intermediate stops
 }
 
 export interface LocationConflict {
@@ -531,6 +550,7 @@ export interface MapData {
   location_conflicts?: LocationConflict[]
   max_mention_count?: number
   suggested_min_mentions?: number
+  quality_metrics?: QualityMetrics | null
 }
 
 export interface GeographyEntry {

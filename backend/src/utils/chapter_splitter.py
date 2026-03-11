@@ -85,10 +85,11 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
         ),
     ),
     # Mode 6: Separator lines (--- or ===)
+    # Allow leading whitespace (fullwidth \u3000 or regular spaces) before dashes
     (
         "separator",
         re.compile(
-            r"^[-=]{3,}\s*$",
+            r"^\s*[-=]{3,}\s*$",
             re.MULTILINE,
         ),
     ),
@@ -350,6 +351,11 @@ def _split_by_matches(
             continue
 
         chapter_num += 1
+
+        # Separator mode: derive title from content's first sentence
+        if mode == "separator":
+            title = _derive_separator_title(chapter_num, content)
+
         chapters.append(
             ChapterInfo(
                 chapter_num=chapter_num,
@@ -363,10 +369,42 @@ def _split_by_matches(
     return chapters
 
 
+# Sentence-ending punctuation for title truncation
+_SENT_END_RE = re.compile(r'[。！？…」』）\n]')
+
+
+def _derive_separator_title(chapter_num: int, content: str) -> str:
+    """Derive a chapter title from the first sentence of separator-split content.
+
+    For novels that use --- separators without explicit chapter headings,
+    extract the first sentence (up to ~40 chars) as a summary title.
+    """
+    # Take the first non-blank line
+    first_line = ""
+    for line in content.split("\n"):
+        s = line.strip()
+        if s:
+            first_line = s
+            break
+    if not first_line:
+        return f"第 {chapter_num} 章"
+
+    # Truncate at first sentence-ending punctuation, max 40 chars
+    m = _SENT_END_RE.search(first_line)
+    if m and m.start() <= 40:
+        title = first_line[: m.start() + 1]
+    elif len(first_line) <= 40:
+        title = first_line
+    else:
+        title = first_line[:38] + "…"
+
+    return title
+
+
 def _extract_title(mode: str, match: re.Match) -> str:
     """Extract a clean chapter title from a regex match."""
     if mode == "separator":
-        return f"第{match.start()}段"  # Separators have no title
+        return ""  # Placeholder — overridden in _split_by_matches
 
     if mode in ("numbered", "cn_numbered"):
         # Group 2 is the title text after the number

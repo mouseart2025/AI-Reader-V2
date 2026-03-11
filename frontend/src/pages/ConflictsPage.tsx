@@ -32,7 +32,8 @@ const TYPE_CONFIG: Record<string, { label: string; icon: string }> = {
   relation: { label: "关系冲突", icon: "🔗" },
   location: { label: "地点矛盾", icon: "📍" },
   death: { label: "死亡连续性", icon: "💀" },
-  attribute: { label: "属性冲突", icon: "📝" },
+  direction: { label: "方向矛盾", icon: "🧭" },
+  distance: { label: "距离矛盾", icon: "📏" },
 }
 
 type SeverityFilter = "all" | "严重" | "一般" | "提示"

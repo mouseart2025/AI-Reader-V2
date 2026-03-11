@@ -1092,24 +1092,46 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const pt = allPts[i]
         const isVisible = i < visPts.length
         const isCurrent = isPlaying && i === (currentPlayIndex ?? 0)
+        const isWaypoint = !!(pt as TrajectoryPoint & { waypoint?: boolean }).waypoint
         const stay = stayDurations?.get(pt.location) ?? 0
-        const baseR = Math.min(4 + stay * 1.5, 12)
+        const baseR = isWaypoint ? 3 : Math.min(4 + stay * 1.5, 12)
 
-        // Waypoint circle
-        trajG
-          .append("circle")
-          .attr("class", "traj-dot")
-          .attr("cx", coord[0])
-          .attr("cy", coord[1])
-          .attr("r", baseR)
-          .attr("data-base-r", baseR)
-          .attr("fill", isVisible ? "#d97706" : "#f59e0b")
-          .attr("fill-opacity", isVisible ? 1 : 0.25)
-          .attr("stroke", isVisible ? "#fff" : "#f59e0b")
-          .attr("stroke-width", 1.5)
-          .attr("stroke-opacity", isVisible ? 1 : 0.3)
-          .append("title")
-          .text(stay > 1 ? `${pt.location} — 停留 ${stay} 章` : pt.location)
+        if (isWaypoint) {
+          // Waypoint: small diamond (rotated square) to distinguish from chapter stops
+          const s = baseR * 1.4
+          trajG
+            .append("rect")
+            .attr("class", "traj-dot")
+            .attr("x", coord[0] - s)
+            .attr("y", coord[1] - s)
+            .attr("width", s * 2)
+            .attr("height", s * 2)
+            .attr("data-base-r", baseR)
+            .attr("transform", `rotate(45 ${coord[0]} ${coord[1]})`)
+            .attr("fill", isVisible ? "#fb923c" : "#fdba74")
+            .attr("fill-opacity", isVisible ? 0.8 : 0.2)
+            .attr("stroke", isVisible ? "#fff" : "#fdba74")
+            .attr("stroke-width", 1)
+            .attr("stroke-opacity", isVisible ? 0.8 : 0.2)
+            .append("title")
+            .text(`${pt.location}（途经）`)
+        } else {
+          // Regular chapter stop: circle
+          trajG
+            .append("circle")
+            .attr("class", "traj-dot")
+            .attr("cx", coord[0])
+            .attr("cy", coord[1])
+            .attr("r", baseR)
+            .attr("data-base-r", baseR)
+            .attr("fill", isVisible ? "#d97706" : "#f59e0b")
+            .attr("fill-opacity", isVisible ? 1 : 0.25)
+            .attr("stroke", isVisible ? "#fff" : "#f59e0b")
+            .attr("stroke-width", 1.5)
+            .attr("stroke-opacity", isVisible ? 1 : 0.3)
+            .append("title")
+            .text(stay > 1 ? `${pt.location} — 停留 ${stay} 章` : pt.location)
+        }
 
         // Chapter label (only first occurrence at each location)
         if (!labeledLocs.has(pt.location)) {
@@ -1325,6 +1347,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           strokeDasharray = "3 2"
         }
 
+        // Confidence-based styling: unconstrained locations get dashed ring (constraint mode only)
+        const isUnconstrained = layoutMode === "constraint" && isActive && loc?.placement_confidence === "unconstrained"
+        if (isUnconstrained && !strokeDasharray) {
+          strokeDasharray = "4 3"
+          opacity *= 0.85
+        }
+
         const iconName = loc?.icon ?? "generic"
         const baseIconSize = TIER_ICON_SIZE[tier] ?? 20
         const iconSize = baseIconSize * iconScale
@@ -1341,13 +1370,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .style("cursor", "pointer")
 
         // Transparent hit-area circle for reliable click/hover detection
-        locG
+        const hitCircle = locG
           .append("circle")
           .attr("class", "loc-hitarea")
           .attr("cx", item.x)
           .attr("cy", item.y)
           .attr("r", Math.max(iconSize / 2 + 6, 14))
           .attr("fill", "transparent")
+
+        // Tooltip for unconstrained (speculative) placements
+        if (isUnconstrained) {
+          hitCircle.append("title").text("推测放置（无空间约束）")
+        }
 
         // Icon — render as inner SVG group (local coords centered at origin)
         const iconContent = iconDefs.get(iconName)
@@ -1377,7 +1411,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .text("\uD83D\uDD12")  // lock emoji
         }
 
-        // Dashed border ring for boundary-role locations
+        // Dashed border ring (boundary-role or unconstrained confidence)
         if (strokeDasharray && isActive) {
           locG
             .append("circle")
@@ -1638,6 +1672,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const existing = idx.get(c.entity) ?? []
         existing.push(c.description)
         idx.set(c.entity, existing)
+        // Direction/distance conflicts involve a pair — mark the other location too
+        const other = c.details?.other as string | undefined
+        if (other && (c.type === "direction" || c.type === "distance")) {
+          const otherList = idx.get(other) ?? []
+          otherList.push(c.description)
+          idx.set(other, otherList)
+        }
       }
       return idx
     }, [locationConflicts])

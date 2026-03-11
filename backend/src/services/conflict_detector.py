@@ -5,6 +5,8 @@ Scans all chapter facts and identifies:
 2. Relationship logic conflicts (incompatible relation changes)
 3. Location hierarchy conflicts (same location, different parents)
 4. Character death continuity errors (dead characters reappearing)
+5. Direction conflicts (contradictory spatial directions for same location pair)
+6. Distance conflicts (contradictory distance classes for same location pair)
 
 All detection is rule-based (no LLM needed).
 """
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 class Conflict:
     """A detected conflict/inconsistency."""
 
-    type: str  # "ability" | "relation" | "location" | "death" | "attribute"
+    type: str  # "ability" | "relation" | "location" | "death" | "direction" | "distance"
     severity: str  # "严重" | "一般" | "提示"
     description: str
     chapters: list[int]
@@ -80,6 +82,8 @@ async def detect_conflicts(
     conflicts.extend(_detect_relation_conflicts(parsed, alias_map))
     conflicts.extend(_detect_location_conflicts(parsed))
     conflicts.extend(_detect_death_continuity(parsed, alias_map))
+    conflicts.extend(_detect_direction_conflicts(parsed, alias_map))
+    conflicts.extend(_detect_distance_conflicts(parsed, alias_map))
 
     # Sort by severity
     severity_order = {"严重": 0, "一般": 1, "提示": 2}
@@ -378,5 +382,209 @@ def _detect_death_continuity(
                 # Only report once per character
                 del death_chapter[cname]
                 break
+
+    return conflicts
+
+
+# ── Direction conflict detection ─────────────────
+
+
+# Opposite direction pairs — if source→target is "north_of" in ch5
+# but "south_of" in ch20, that's a contradiction.
+_OPPOSITE_DIRECTIONS: dict[str, str] = {
+    "north_of": "south_of",
+    "south_of": "north_of",
+    "east_of": "west_of",
+    "west_of": "east_of",
+    "northeast_of": "southwest_of",
+    "southwest_of": "northeast_of",
+    "northwest_of": "southeast_of",
+    "southeast_of": "northwest_of",
+}
+
+_DIR_LABEL: dict[str, str] = {
+    "north_of": "北方", "south_of": "南方",
+    "east_of": "东方", "west_of": "西方",
+    "northeast_of": "东北方", "northwest_of": "西北方",
+    "southeast_of": "东南方", "southwest_of": "西南方",
+}
+
+
+def _detect_direction_conflicts(
+    parsed: list[tuple[int, dict]], alias_map: dict[str, str]
+) -> list[Conflict]:
+    """Detect contradictory spatial direction claims for the same location pair.
+
+    A conflict is raised when chapter A says "X is north_of Y" but chapter B
+    says "X is south_of Y" (or the reverse pair claims opposite directions).
+    """
+    conflicts: list[Conflict] = []
+
+    # {(canonical_source, canonical_target): [(chapter, direction_value)]}
+    pair_directions: dict[tuple[str, str], list[tuple[int, str]]] = {}
+
+    for ch_id, fact in parsed:
+        for sr in fact.get("spatial_relationships", []):
+            if sr.get("relation_type") != "direction":
+                continue
+            src = _resolve(sr.get("source", ""), alias_map)
+            tgt = _resolve(sr.get("target", ""), alias_map)
+            value = sr.get("value", "")
+            if not src or not tgt or not value:
+                continue
+
+            # Normalize pair order: always store (min, max) with adjusted direction
+            if src > tgt:
+                src, tgt = tgt, src
+                value = _OPPOSITE_DIRECTIONS.get(value, value)
+
+            key = (src, tgt)
+            if key not in pair_directions:
+                pair_directions[key] = []
+            pair_directions[key].append((ch_id, value))
+
+    for (src, tgt), records in pair_directions.items():
+        if len(records) < 2:
+            continue
+
+        # Group by direction value
+        dir_chapters: dict[str, list[int]] = {}
+        for ch, d in records:
+            if d not in dir_chapters:
+                dir_chapters[d] = []
+            dir_chapters[d].append(ch)
+
+        if len(dir_chapters) <= 1:
+            continue
+
+        # Check for opposite pairs
+        reported: set[tuple[str, str]] = set()
+        for d1, chs1 in dir_chapters.items():
+            opposite = _OPPOSITE_DIRECTIONS.get(d1)
+            if opposite and opposite in dir_chapters and (d1, opposite) not in reported:
+                reported.add((d1, opposite))
+                reported.add((opposite, d1))
+                chs2 = dir_chapters[opposite]
+                label1 = _DIR_LABEL.get(d1, d1)
+                label2 = _DIR_LABEL.get(opposite, opposite)
+                conflicts.append(Conflict(
+                    type="direction",
+                    severity="一般",
+                    description=(
+                        f"「{src}」相对「{tgt}」的方向矛盾："
+                        f"第{'/'.join(str(c) for c in chs1[:3])}章为{label1}，"
+                        f"第{'/'.join(str(c) for c in chs2[:3])}章为{label2}"
+                    ),
+                    chapters=sorted(set(chs1[:2] + chs2[:2])),
+                    entity=src,
+                    details={
+                        "other": tgt,
+                        "direction_a": d1,
+                        "direction_b": opposite,
+                        "chapters_a": chs1[:3],
+                        "chapters_b": chs2[:3],
+                    },
+                ))
+
+    return conflicts
+
+
+# ── Distance conflict detection ──────────────────
+
+
+# Distance class ordinal scale
+_DISTANCE_ORDINAL: dict[str, int] = {
+    "near": 0,
+    "medium": 1,
+    "far": 2,
+    "very_far": 3,
+}
+
+_DC_LABEL: dict[str, str] = {"near": "近", "medium": "中等", "far": "远", "very_far": "极远"}
+
+# Minimum ordinal gap to report as conflict (2 = "near" vs "far" or worse)
+_MIN_DISTANCE_GAP = 2
+
+
+def _detect_distance_conflicts(
+    parsed: list[tuple[int, dict]], alias_map: dict[str, str]
+) -> list[Conflict]:
+    """Detect contradictory distance claims for the same location pair.
+
+    A conflict is raised when the distance_class for a pair differs by ≥2
+    ordinal steps (e.g., "near" vs "far", or "near" vs "very_far").
+    Single-step changes ("near" → "medium") are tolerated as narrative
+    variation or measurement imprecision.
+    """
+    conflicts: list[Conflict] = []
+
+    # {(canonical_a, canonical_b): [(chapter, distance_class)]}
+    pair_distances: dict[tuple[str, str], list[tuple[int, str]]] = {}
+
+    for ch_id, fact in parsed:
+        for sr in fact.get("spatial_relationships", []):
+            if sr.get("relation_type") != "distance":
+                continue
+            src = _resolve(sr.get("source", ""), alias_map)
+            tgt = _resolve(sr.get("target", ""), alias_map)
+            dc = sr.get("distance_class") or ""
+            if not src or not tgt or dc not in _DISTANCE_ORDINAL:
+                continue
+
+            # Normalize pair order
+            key = (min(src, tgt), max(src, tgt))
+            if key not in pair_distances:
+                pair_distances[key] = []
+            pair_distances[key].append((ch_id, dc))
+
+    for (loc_a, loc_b), records in pair_distances.items():
+        if len(records) < 2:
+            continue
+
+        # Group by distance_class
+        dc_chapters: dict[str, list[int]] = {}
+        for ch, dc in records:
+            if dc not in dc_chapters:
+                dc_chapters[dc] = []
+            dc_chapters[dc].append(ch)
+
+        if len(dc_chapters) <= 1:
+            continue
+
+        # Find pairs with significant ordinal gap
+        classes = list(dc_chapters.keys())
+        reported: set[tuple[str, str]] = set()
+        for i, c1 in enumerate(classes):
+            for c2 in classes[i + 1:]:
+                gap = abs(_DISTANCE_ORDINAL[c1] - _DISTANCE_ORDINAL[c2])
+                if gap < _MIN_DISTANCE_GAP:
+                    continue
+                pair_key = (min(c1, c2), max(c1, c2))
+                if pair_key in reported:
+                    continue
+                reported.add(pair_key)
+
+                chs1 = dc_chapters[c1]
+                chs2 = dc_chapters[c2]
+                label1 = _DC_LABEL.get(c1, c1)
+                label2 = _DC_LABEL.get(c2, c2)
+                severity = "一般" if gap >= 3 else "提示"
+                conflicts.append(Conflict(
+                    type="distance",
+                    severity=severity,
+                    description=(
+                        f"「{loc_a}」与「{loc_b}」的距离矛盾："
+                        f"第{'/'.join(str(c) for c in chs1[:3])}章为{label1}，"
+                        f"第{'/'.join(str(c) for c in chs2[:3])}章为{label2}"
+                    ),
+                    chapters=sorted(set(chs1[:2] + chs2[:2])),
+                    entity=loc_a,
+                    details={
+                        "other": loc_b,
+                        "distance_a": c1,
+                        "distance_b": c2,
+                        "gap": gap,
+                    },
+                ))
 
     return conflicts

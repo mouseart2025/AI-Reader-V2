@@ -78,7 +78,7 @@ export default function DesktopLayout() {
   // Sidecar loading screen
   if (!sidecarReady) {
     return (
-      <div className="dark flex h-screen flex-col items-center justify-center bg-background text-foreground">
+      <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground">
         {sidecarError ? (
           <div className="text-center">
             <p className="text-lg font-semibold text-red-400">后端启动失败</p>
@@ -101,7 +101,7 @@ export default function DesktopLayout() {
   }
 
   return (
-    <div className="dark flex h-screen flex-col bg-background text-foreground">
+    <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Top Navigation */}
       <header className="flex items-center gap-2 border-b border-border bg-card/80 px-3 py-2 backdrop-blur sm:gap-4 sm:px-4">
         {/* Back to bookshelf */}

@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![Version](https://img.shields.io/badge/version-0.44.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.48.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -94,6 +94,9 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.48.1 | 2026-03-11 | 地理数据质量修复（神秘岛/海底两万里坐标纠偏，GeoNames假阳性过滤，补充词典400+），章节分隔符修复，地图标签可见性修复 |
+| v0.48.0 | 2026-03-10 | 世界地图增强（方向/距离冲突检测，轨迹路径点注入，渐进式求解，质量基线对比） |
+| v0.47.0 | 2026-03-10 | 地图质量透明化（满足度面板+置信度样式），桌面端个性化（主题切换+版本检查） |
 | v0.46.0 | 2026-03-10 | 章节拆分修复（URL过滤+部/卷模式+散文截断），VoT空间推理增强（10种关系类型+token预算适配） |
 | v0.45.0 | 2026-03-08 | 文档系统 — 13页产品文档，侧边栏/ToC/移动端适配，开发版+桌面端文档链接 |
 | v0.44.1 | 2026-03-08 | 章节分卷修复（去重优先+卷名提取），重试进度书架指示，桌面端同步 |

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   MapContainer,
   TileLayer,
@@ -8,6 +8,7 @@ import {
   Tooltip,
   Popup,
   useMap,
+  useMapEvents,
 } from "react-leaflet"
 import L from "leaflet"
 import type { LatLngBoundsExpression } from "leaflet"
@@ -111,6 +112,142 @@ function FlyToLocation({
   return null
 }
 
+// ── Zoom level tracker ────────────────────────────
+function useZoomLevel(): number {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+  useMapEvents({
+    zoomend: () => setZoom(map.getZoom()),
+  })
+  return zoom
+}
+
+// Minimum mention_count for a label to show permanently at each zoom level.
+// Geographic mode: locations are spread across the globe, so thresholds are
+// lower than fantasy-map mode — even at moderate zoom, visible markers are few.
+function labelMentionThreshold(zoom: number): number {
+  if (zoom >= 5) return 1   // show all labels at region level
+  if (zoom >= 4) return 2   // 2+ at continent level
+  if (zoom >= 3) return 3   // 3+ at multi-continent
+  return 5                   // only major locations at full world zoom
+}
+
+// ── Zoom-aware location markers ───────────────────
+function ZoomAwareMarkers({
+  geoLocations,
+  geoCoords,
+  currentLocation,
+  focusLocation,
+  editingLocation,
+  onLocationClick,
+  onEditLocation,
+  handleDragEnd,
+}: {
+  geoLocations: MapLocation[]
+  geoCoords: Record<string, { lat: number; lng: number }>
+  currentLocation: string | null
+  focusLocation: string | null
+  editingLocation: string | null
+  onLocationClick?: (name: string) => void
+  onEditLocation?: (name: string) => void
+  handleDragEnd: (name: string, e: L.DragEndEvent) => void
+}) {
+  const zoom = useZoomLevel()
+  const minMention = labelMentionThreshold(zoom)
+
+  return (
+    <>
+      {geoLocations.map((loc) => {
+        const gc = geoCoords[loc.name]!
+        const mention = loc.mention_count ?? 1
+        const radius = Math.max(5, Math.min(20, 4 + Math.sqrt(mention) * 2))
+        const color = locationColor(loc.type ?? "")
+        const isCurrent = loc.name === currentLocation
+        const isFocused = loc.name === focusLocation
+        const isEditing = loc.name === editingLocation
+
+        // Editing marker: draggable Marker with crosshair icon
+        if (isEditing) {
+          return (
+            <Marker
+              key={`${loc.name}:edit`}
+              position={[gc.lat, gc.lng]}
+              icon={CROSSHAIR_ICON}
+              draggable={true}
+              eventHandlers={{
+                dragend: (e) => handleDragEnd(loc.name, e),
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -20]} permanent>
+                <span className="text-xs font-bold text-red-600">{loc.name}</span>
+              </Tooltip>
+            </Marker>
+          )
+        }
+
+        const showLabel = mention >= minMention || isFocused
+
+        return (
+          <CircleMarker
+            key={`${loc.name}${isFocused ? ":f" : ""}`}
+            center={[gc.lat, gc.lng]}
+            radius={isCurrent || isFocused ? radius + 4 : radius}
+            pathOptions={{
+              color: isCurrent ? "#f59e0b" : isFocused ? "#ef4444" : color,
+              fillColor: color,
+              fillOpacity: editingLocation ? 0.3 : 0.7,
+              weight: isCurrent || isFocused ? 3 : 1.5,
+            }}
+            eventHandlers={{
+              click: () => onLocationClick?.(loc.name),
+            }}
+          >
+            <Tooltip key={showLabel ? "p" : "h"} direction="top" offset={[0, -8]} permanent={showLabel}>
+              <span className="text-xs font-medium">{loc.name}</span>
+            </Tooltip>
+            {!editingLocation && (
+              <Popup>
+                <div className="min-w-[120px]">
+                  <div className="font-semibold">{loc.name}</div>
+                  {loc.type && (
+                    <div className="text-xs text-gray-500">{loc.type}</div>
+                  )}
+                  {loc.parent && (
+                    <div className="text-xs text-gray-400">{loc.parent}</div>
+                  )}
+                  <div className="text-xs text-gray-400">
+                    提及 {loc.mention_count ?? 0} 次
+                  </div>
+                  <div className="mt-1.5 flex gap-2">
+                    <button
+                      className="text-xs text-blue-600 hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onLocationClick?.(loc.name)
+                      }}
+                    >
+                      查看详情
+                    </button>
+                    <button
+                      className="text-xs text-red-500 hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEditLocation?.(loc.name)
+                      }}
+                    >
+                      编辑位置
+                    </button>
+                  </div>
+                </div>
+              </Popup>
+            )}
+          </CircleMarker>
+        )
+      })}
+    </>
+  )
+}
+
 // ── Component ─────────────────────────────────────
 export function GeoMap({
   locations,
@@ -191,92 +328,17 @@ export function GeoMap({
         <FitBounds coords={geoCoords} />
         <FlyToLocation locationName={flyTarget} geoCoords={geoCoords} />
 
-        {/* Location markers */}
-        {geoLocations.map((loc) => {
-          const gc = geoCoords[loc.name]!
-          const mention = loc.mention_count ?? 1
-          const radius = Math.max(5, Math.min(20, 4 + Math.sqrt(mention) * 2))
-          const color = locationColor(loc.type ?? "")
-          const isCurrent = loc.name === currentLocation
-          const isFocused = loc.name === focusLocation
-          const isEditing = loc.name === editingLocation
-
-          // Editing marker: draggable Marker with crosshair icon
-          if (isEditing) {
-            return (
-              <Marker
-                key={`${loc.name}:edit`}
-                position={[gc.lat, gc.lng]}
-                icon={CROSSHAIR_ICON}
-                draggable={true}
-                eventHandlers={{
-                  dragend: (e) => handleDragEnd(loc.name, e),
-                }}
-              >
-                <Tooltip direction="top" offset={[0, -20]} permanent>
-                  <span className="text-xs font-bold text-red-600">{loc.name}</span>
-                </Tooltip>
-              </Marker>
-            )
-          }
-
-          return (
-            <CircleMarker
-              key={`${loc.name}${isFocused ? ":f" : ""}`}
-              center={[gc.lat, gc.lng]}
-              radius={isCurrent || isFocused ? radius + 4 : radius}
-              pathOptions={{
-                color: isCurrent ? "#f59e0b" : isFocused ? "#ef4444" : color,
-                fillColor: color,
-                fillOpacity: editingLocation ? 0.3 : 0.7,
-                weight: isCurrent || isFocused ? 3 : 1.5,
-              }}
-              eventHandlers={{
-                click: () => onLocationClick?.(loc.name),
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -8]} permanent={mention >= 5 || isFocused}>
-                <span className="text-xs font-medium">{loc.name}</span>
-              </Tooltip>
-              {!editingLocation && (
-                <Popup>
-                  <div className="min-w-[120px]">
-                    <div className="font-semibold">{loc.name}</div>
-                    {loc.type && (
-                      <div className="text-xs text-gray-500">{loc.type}</div>
-                    )}
-                    {loc.parent && (
-                      <div className="text-xs text-gray-400">{loc.parent}</div>
-                    )}
-                    <div className="text-xs text-gray-400">
-                      提及 {loc.mention_count ?? 0} 次
-                    </div>
-                    <div className="mt-1.5 flex gap-2">
-                      <button
-                        className="text-xs text-blue-600 hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onLocationClick?.(loc.name)
-                        }}
-                      >
-                        查看详情
-                      </button>
-                      <button
-                        className="text-xs text-red-500 hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onEditLocation?.(loc.name)
-                        }}
-                      >
-                        编辑位置
-                      </button>
-                    </div>
-                  </div>
-                </Popup>
-              )}
-            </CircleMarker>
-          )
-        })}
+        {/* Location markers — rendered inside a zoom-aware wrapper */}
+        <ZoomAwareMarkers
+          geoLocations={geoLocations}
+          geoCoords={geoCoords}
+          currentLocation={currentLocation ?? null}
+          focusLocation={focusLocation ?? null}
+          editingLocation={editingLocation ?? null}
+          onLocationClick={onLocationClick}
+          onEditLocation={onEditLocation}
+          handleDragEnd={handleDragEnd}
+        />
 
         {/* Trajectory line */}
         {trajectoryLatLngs.length >= 2 && (
