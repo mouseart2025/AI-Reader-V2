@@ -928,9 +928,9 @@ pub fn run() {
     .run(|handle, event| {
       match event {
         // Handle file-open when app is already running (macOS "Open With")
+        #[cfg(target_os = "macos")]
         tauri::RunEvent::Opened { urls } => {
           for url in &urls {
-            // H2 fix: Convert URL to filesystem path (url.as_str() returns "file:///..." which is not a valid path)
             if let Ok(path) = url.to_file_path() {
               if let Some(path_str) = path.to_str() {
                 if path_str.ends_with(".air") {
