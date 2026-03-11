@@ -43,6 +43,11 @@ jobs:
             frontend/src-tauri/target
           key: rust-x86_64-pc-windows-msvc-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
 
+      # ── Ensure Tauri resource dirs exist ────
+      - name: Create resource placeholder
+        shell: bash
+        run: mkdir -p frontend/src-tauri/resources/novels && touch frontend/src-tauri/resources/novels/.gitkeep
+
       # ── Frontend ────────────────────────────
       - name: Install frontend deps
         run: cd frontend && npm ci
