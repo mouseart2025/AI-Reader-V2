@@ -80,9 +80,10 @@ async fn sidecar_start(
     }
   });
 
-  // Wait for PORT line asynchronously (up to 60s — PyInstaller cold start extracts 218MB binary)
+  // Wait for PORT line asynchronously (up to 120s — PyInstaller cold start extracts 218MB binary;
+  // Windows is slower due to antivirus scanning during extraction)
   let reported_port = match tokio::time::timeout(
-    std::time::Duration::from_secs(60),
+    std::time::Duration::from_secs(120),
     rx_port,
   ).await {
     Ok(Ok(p)) => p,
