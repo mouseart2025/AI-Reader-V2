@@ -55,6 +55,10 @@ async fn sidecar_start(
   let tx_port = std::sync::Mutex::new(Some(tx_port));
   let expected_port = port;
 
+  // Collect stderr for diagnostics
+  let stderr_lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+  let stderr_clone = stderr_lines.clone();
+
   // Spawn async task to read sidecar output
   tauri::async_runtime::spawn(async move {
     while let Some(event) = rx.recv().await {
@@ -73,14 +77,22 @@ async fn sidecar_start(
           log::info!("[sidecar] {}", line_str.trim());
         }
         tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-          log::info!("[sidecar:err] {}", String::from_utf8_lossy(&line).trim());
+          let text = String::from_utf8_lossy(&line).trim().to_string();
+          log::info!("[sidecar:err] {}", &text);
+          if let Ok(mut lines) = stderr_clone.lock() {
+            lines.push(text);
+            // Keep last 20 lines
+            if lines.len() > 20 {
+              lines.drain(..lines.len() - 20);
+            }
+          }
         }
         _ => {}
       }
     }
   });
 
-  // Wait for PORT line asynchronously (up to 120s — PyInstaller cold start extracts 218MB binary;
+  // Wait for PORT line asynchronously (up to 120s — PyInstaller cold start;
   // Windows is slower due to antivirus scanning during extraction)
   let reported_port = match tokio::time::timeout(
     std::time::Duration::from_secs(120),
@@ -91,13 +103,21 @@ async fn sidecar_start(
       let _ = child.kill();
       let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
       s.starting = false;
-      return Err("Sidecar stdout closed before reporting port".to_string());
+      let stderr_msg = stderr_lines.lock().ok()
+        .map(|lines| lines.join("\n"))
+        .unwrap_or_default();
+      let hint = if stderr_msg.is_empty() {
+        "（无错误输出，可能被杀毒软件拦截。请查看 ~/.ai-reader-v2/sidecar-crash.log）".to_string()
+      } else {
+        format!("\n{}", stderr_msg)
+      };
+      return Err(format!("后端启动失败: 进程异常退出{}", hint));
     }
     Err(_) => {
       let _ = child.kill();
       let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
       s.starting = false;
-      return Err("Sidecar did not report port within 60s".to_string());
+      return Err("后端启动超时（120秒），请检查杀毒软件是否拦截".to_string());
     }
   };
 
