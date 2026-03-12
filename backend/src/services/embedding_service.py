@@ -1,16 +1,16 @@
-"""Embedding service: ChromaDB + BGE-base-zh-v1.5 for semantic search."""
+"""Embedding service: ChromaDB + semantic search.
 
-import json
+Uses BGE-base-zh-v1.5 (via sentence_transformers) when available,
+falls back to ChromaDB's built-in ONNX model (all-MiniLM-L6-v2) for
+desktop/PyInstaller builds where torch is not bundled.
+"""
+
 import logging
 import os
+import sys
 from typing import Any
 
-# Force offline mode — use cached model without contacting HuggingFace
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-
 import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 from src.infra.config import CHROMA_DIR, EMBEDDING_MODEL
 
@@ -28,14 +28,34 @@ def _get_client() -> chromadb.ClientAPI:
     return _client
 
 
-def _get_embed_fn() -> SentenceTransformerEmbeddingFunction:
+def _get_embed_fn() -> Any:
     global _embed_fn
-    if _embed_fn is None:
-        logger.info("Loading embedding model: %s", EMBEDDING_MODEL)
+    if _embed_fn is not None:
+        return _embed_fn
+
+    # Try sentence_transformers (best quality for Chinese, needs torch)
+    try:
+        # Force offline mode when available
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+
+        device = "mps" if sys.platform == "darwin" else "cpu"
         _embed_fn = SentenceTransformerEmbeddingFunction(
             model_name=EMBEDDING_MODEL,
-            device="mps",  # Apple Silicon GPU acceleration
+            device=device,
         )
+        logger.info("Embedding: sentence_transformers (%s, device=%s)", EMBEDDING_MODEL, device)
+        return _embed_fn
+    except Exception:
+        pass
+
+    # Fallback: ChromaDB built-in ONNX model (no torch needed)
+    from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
+
+    _embed_fn = ONNXMiniLM_L6_V2()
+    logger.info("Embedding: ONNX fallback (all-MiniLM-L6-v2)")
     return _embed_fn
 
 

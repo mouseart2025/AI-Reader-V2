@@ -92,7 +92,18 @@ a = Analysis(
     hookspath=[],
     runtime_hooks=[],
     excludes=[
-        # Large unused packages
+        # ── Large ML packages (desktop uses ONNX fallback, not torch) ──
+        "torch",
+        "torchgen",
+        "torchvision",
+        "torchaudio",
+        "sentence_transformers",
+        "transformers",
+        "safetensors",
+        "huggingface_hub",
+        "hf_xet",
+        "sympy",
+        # ── Unused packages ──
         "tkinter",
         "matplotlib",
         "IPython",
@@ -101,6 +112,7 @@ a = Analysis(
         "setuptools",
         "pip",
         "wheel",
+        "kubernetes",
     ],
     noarchive=False,
 )
