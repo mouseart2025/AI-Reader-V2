@@ -82,8 +82,9 @@ async fn sidecar_start(
           if let Ok(mut lines) = stderr_clone.lock() {
             lines.push(text);
             // Keep last 20 lines
-            if lines.len() > 20 {
-              lines.drain(..lines.len() - 20);
+            let len = lines.len();
+            if len > 20 {
+              lines.drain(..len - 20);
             }
           }
         }
