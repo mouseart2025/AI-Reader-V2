@@ -152,8 +152,17 @@ _GENERIC_PERSON_ALIASES = frozenset({
     "大王", "洞主", "小妖", "众妖", "众怪", "群怪",
     "女婿", "上仙", "大仙", "仙长", "真人",
     "孽畜", "畜生",
+    # Xianxia address terms — used for ANY cultivator, major bridge cause
+    "前辈", "晚辈", "小友", "道友", "仙子", "仙师",
+    "公子", "少爷", "大爷", "老大",
+    "老夫", "妾身", "本人", "在下", "小生", "老奴",
+    "仁兄", "兄台", "阁下", "对方",
+    "此子", "此女", "此人", "那人",
+    "逆徒", "小徒", "弟子", "记名弟子",
+    "主人", "夫君", "圣子",
+    "师叔", "师侄", "师伯",
     # Pronouns / deictics — can refer to anyone
-    "我们", "我等", "他们", "她们",
+    "我们", "我等", "他们", "她们", "他", "她",
     # Collective kinship — refer to groups, not individuals
     "儿孙", "子侄",
     # Insults/pejoratives — used for many different characters
@@ -174,11 +183,18 @@ _GENERIC_PERSON_ALIASES = frozenset({
     "后生", "後生", "少年人", "年轻人", "小后生",
     # More generic role terms
     "节级", "都头", "提辖", "制使", "管营", "知寨",
+    # Vague descriptive references — used for different characters per chapter
+    "掌柜", "店家", "店主",
+    "煞星", "神医",
+    "小子", "毛头小子", "黄毛小子", "小兄弟",
+    "乡巴佬", "土包子", "土小子",
+    "傀儡", "巨猿", "骷髅", "鬼头",
 })
 
 _TITLE_PREFIXES = frozenset({
     "堂主", "长老", "弟子", "护法", "掌门", "帮主", "教主",
     "师父", "师兄", "师弟", "师姐", "师妹", "师傅",
+    "师叔", "师侄", "师伯", "师叔祖",
     # Official ranks — shared across many characters in classical novels
     "太尉", "知府", "知县", "县令", "提辖", "都监", "团练",
     "总管", "管营", "差拨", "节级", "牢头", "押司",
@@ -225,6 +241,24 @@ def _alias_safety_level(alias: str) -> int:
     # Pattern: 老/小+role (老兄, 小弟, 老爷, 小人) when in generic sets
     if n == 2 and alias[0] in "老小" and alias[1] in "兄弟爷娘人的儿":
         return 0
+    # Pattern: surname+兄/弟/妹 (陇兄, 曲兄, 蜂兄, 鱼兄) — xianxia courtesy address
+    if n == 2 and alias[1] in "兄弟妹姐":
+        return 0
+
+    # Level 0: surname + generic title pattern (e.g., "韩前辈", "林道友", "王师兄")
+    # These are contextual address forms, not stable aliases.
+    _TITLE_SUFFIXES_2 = frozenset({
+        "前辈", "道友", "师兄", "师弟", "师姐", "师妹", "师叔", "师侄",
+        "师伯", "仙师", "仙子", "公子", "姑娘", "小姐", "夫人",
+        "大人", "老爷", "长老", "掌门", "帮主", "教主", "堂主",
+        "将军", "统领", "元帅", "大哥", "老弟", "兄弟", "先生",
+        "天尊", "老祖", "大长老", "世兄", "世侄", "贤弟", "贤侄",
+        "施主", "领队",
+    })
+    if 3 <= n <= 5:
+        for suffix in _TITLE_SUFFIXES_2:
+            if n > len(suffix) and alias.endswith(suffix):
+                return 0
 
     # Level 1: suspicious — overly long, collectives, numeric prefixes
     if n > 8:
@@ -320,16 +354,28 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
     uf = _UnionFind()
     freq: dict[str, int] = defaultdict(int)
 
+    # Collect all primary entity names from entity_dictionary.
+    # These are known independent entities and should not be merged together.
+    dict_primary_names: set[str] = set()
+
+    _MAX_GROUP_SIZE = 20  # absolute cap — no character should have 20+ aliases
+
     def _safe_union(name: str, alias: str, source: str) -> None:
-        """Union name and alias with conflict detection.
+        """Union name and alias with multi-layer conflict detection.
 
-        If both name and alias already belong to well-formed groups
-        (size >= 3), they're likely independent characters with their
-        own alias networks — skip the union to prevent false merges.
-
-        Threshold is 3 because a group of size 1-2 is barely established
-        and could reasonably be absorbed into another group.
+        Blocks merges when:
+        1. Both are known primary entities in entity_dictionary
+        2. EITHER group is already well-established (size >= 5)
+        3. Combined group would exceed _MAX_GROUP_SIZE
         """
+        # Layer 1: both are known primary entities → never merge
+        if name in dict_primary_names and alias in dict_primary_names:
+            logger.debug(
+                "Both primary entities (%s): '%s' ↔ '%s', skip union",
+                source, name, alias,
+            )
+            return
+
         if alias not in uf.parent:
             uf.union(name, alias)
             return
@@ -340,17 +386,38 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
 
         alias_size = uf.group_size(alias)
         name_size = uf.group_size(name)
-        if alias_size >= 3 and name_size >= 3:
+
+        # Layer 2: either group already well-established → block
+        if alias_size >= 5 or name_size >= 5:
             logger.debug(
                 "Group conflict (%s): '%s' (group=%d) vs '%s' (group=%d), "
-                "skip union — both groups established",
+                "skip union — at least one group well-established",
                 source, alias, alias_size, name, name_size,
             )
             return
+
+        # Layer 3: combined size exceeds cap → block
+        if alias_size + name_size > _MAX_GROUP_SIZE:
+            logger.debug(
+                "Group cap exceeded (%s): '%s' (%d) + '%s' (%d) > %d",
+                source, name, name_size, alias, alias_size, _MAX_GROUP_SIZE,
+            )
+            return
+
         uf.union(name, alias)
 
     # ── Ingest entity_dictionary ──
     # Only use entries with a real entity_type (skip 'unknown' noise like "行者笑", "者道")
+    # First pass: collect all primary entity names for conflict detection
+    for row in dict_rows:
+        entity_type = row["entity_type"] or "unknown"
+        if entity_type == "unknown":
+            continue
+        name = row["name"]
+        if not _is_unsafe_alias(name):
+            dict_primary_names.add(name)
+
+    # Second pass: build Union-Find groups
     for row in dict_rows:
         entity_type = row["entity_type"] or "unknown"
         if entity_type == "unknown":
@@ -363,9 +430,7 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
 
         # If name is a generic/contextual term (妖精, 那怪, etc.):
         # Skip entirely — don't register it or its aliases.
-        name_unsafe = _is_unsafe_alias(name)
-        if name_unsafe:
-            logger.debug("Dict entry unsafe name (skipped): %s", name)
+        if name not in dict_primary_names:
             continue
 
         freq[name] = max(freq.get(name, 0), frequency)
@@ -407,6 +472,13 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                     level = _alias_safety_level(alias)
                     if level < 2:
                         logger.debug("Alias blocked (L%d) from fact: %s → %s", level, name, alias)
+                        continue
+                    # Block if alias is a known primary entity (independent character)
+                    if alias in dict_primary_names and name in dict_primary_names:
+                        logger.debug(
+                            "Alias is primary entity (fact): %s → %s blocked",
+                            name, alias,
+                        )
                         continue
                     freq.setdefault(alias, 0)
                     _safe_union(name, alias, "fact")
