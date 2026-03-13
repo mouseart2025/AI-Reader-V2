@@ -64,10 +64,20 @@ async def re_split_chapters(req: ReSplitRequest):
             file_hash=req.file_hash,
             mode=req.mode,
             custom_regex=req.custom_regex,
+            split_points=req.split_points,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return preview
+
+
+@router.get("/raw-text/{file_hash}")
+async def get_raw_text(file_hash: str):
+    """Return cached raw text for preview panel (available within 30-min upload window)."""
+    text = novel_service.get_cached_raw_text(file_hash)
+    if text is None:
+        raise HTTPException(status_code=404, detail="上传数据已过期，请重新上传文件")
+    return {"text": text}
 
 
 @router.post("/clean-and-resplit", response_model=UploadPreviewResponse)

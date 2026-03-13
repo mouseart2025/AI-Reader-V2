@@ -19,7 +19,6 @@ import {
   fetchActiveAnalyses,
   exportNovelUrl,
   previewImport,
-  confirmDataImport,
   backupExportUrl,
   previewBackupImport,
   confirmBackupImport,
@@ -290,6 +289,10 @@ export default function BookshelfPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragFile, setDragFile] = useState<File | undefined>(undefined)
 
+  // External import state (for .air/.json import via UploadDialog)
+  const [importPreviewData, setImportPreviewData] = useState<import("@/api/types").ImportPreview | null>(null)
+  const [importFile, setImportFile] = useState<File | null>(null)
+
   // Refs
   const searchRef = useRef<HTMLInputElement>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -427,10 +430,14 @@ export default function BookshelfPage() {
     setUploadOpen(true)
   }, [])
 
-  // Clear dragFile after dialog closes
+  // Clear dragFile and import state after dialog closes
   const handleUploadOpenChange = useCallback((open: boolean) => {
     setUploadOpen(open)
-    if (!open) setDragFile(undefined)
+    if (!open) {
+      setDragFile(undefined)
+      setImportPreviewData(null)
+      setImportFile(null)
+    }
   }, [])
 
   // Import/Export handlers
@@ -454,15 +461,13 @@ export default function BookshelfPage() {
   const handleImportData = useCallback(async (file: File) => {
     try {
       const preview = await previewImport(file)
-      const hasConflict = !!preview.existing_novel_id
-      const msg = `即将导入小说「${preview.title}」(${preview.total_chapters} 章)\n${hasConflict ? "检测到同名小说，将覆盖已有数据" : "确认导入？"}`
-      if (!window.confirm(msg)) return
-      await confirmDataImport(file, hasConflict)
-      await loadNovels()
+      setImportPreviewData(preview)
+      setImportFile(file)
+      setUploadOpen(true)
     } catch (err) {
-      alert(err instanceof Error ? err.message : "导入失败")
+      alert(err instanceof Error ? err.message : "导入预览失败")
     }
-  }, [loadNovels])
+  }, [])
 
   const handleBackupExport = useCallback(() => {
     window.open(backupExportUrl(), "_blank")
@@ -558,7 +563,7 @@ export default function BookshelfPage() {
           <input
             ref={importFileRef}
             type="file"
-            accept=".json,.zip"
+            accept=".json,.air,.zip"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]
@@ -645,6 +650,8 @@ export default function BookshelfPage() {
         onOpenChange={handleUploadOpenChange}
         onImported={loadNovels}
         initialFile={dragFile}
+        externalImportPreview={importPreviewData}
+        externalImportFile={importFile}
       />
 
       {/* Delete Confirmation Dialog */}

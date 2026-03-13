@@ -7,6 +7,7 @@ class ChapterPreviewItem(BaseModel):
     chapter_num: int
     title: str
     word_count: int
+    start_offset: int = 0  # character offset in raw text where this chapter starts
     is_suspect: bool = False
     content_preview: str = ""
 
@@ -58,6 +59,7 @@ class ReSplitRequest(BaseModel):
     file_hash: str
     mode: str | None = None
     custom_regex: str | None = None
+    split_points: list[int] | None = None
 
 
 class CleanAndReSplitRequest(BaseModel):

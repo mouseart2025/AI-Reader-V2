@@ -69,6 +69,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Pin Python 3.11 on Windows to avoid PyInstaller bundling wrong DLLs
+      - name: Setup Python 3.11 (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Setup Python (uv)
         uses: astral-sh/setup-uv@v4
         with:
@@ -96,6 +103,12 @@ jobs:
       # ── Frontend ────────────────────────────
       - name: Install frontend deps
         run: cd frontend && npm ci
+
+      # Pin uv to Python 3.11 on Windows so venv isn't recreated with 3.13
+      - name: Pin UV_PYTHON (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "UV_PYTHON=3.11" >> "$GITHUB_ENV"
 
       # ── Backend sidecar ─────────────────────
       - name: Install backend deps + PyInstaller

@@ -67,6 +67,7 @@ export interface ChapterPreview {
   chapter_num: number
   title: string
   word_count: number
+  start_offset?: number
   is_suspect?: boolean
   content_preview?: string
 }
@@ -115,6 +116,7 @@ export interface ReSplitRequest {
   file_hash: string
   mode?: string | null
   custom_regex?: string | null
+  split_points?: number[] | null
 }
 
 export interface CleanAndReSplitRequest {
