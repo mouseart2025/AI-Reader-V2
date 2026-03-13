@@ -441,6 +441,7 @@ export default function ReadingPage() {
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
+      if (type === "concept") return // concepts have no profile card
       const canonical = aliasMap[name] ?? name
       openEntityCard(canonical, type as EntityType)
     },

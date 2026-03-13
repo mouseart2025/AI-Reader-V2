@@ -28,11 +28,21 @@ export function highlightText(
   const sorted = [...filtered].sort((a, b) => b.name.length - a.name.length)
 
   // Build regex pattern escaping special chars
+  const uniqueNames = new Set<string>()
   const pattern = sorted
+    .filter((e) => { if (uniqueNames.has(e.name)) return false; uniqueNames.add(e.name); return true })
     .map((e) => e.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|")
   const regex = new RegExp(`(${pattern})`, "g")
-  const entityMap = new Map(sorted.map((e) => [e.name, e.type]))
+  // For duplicate names across types, prefer: person > org > location > item > concept
+  const TYPE_PRIORITY: Record<string, number> = { person: 5, org: 4, location: 3, item: 2, concept: 1 }
+  const entityMap = new Map<string, string>()
+  for (const e of sorted) {
+    const existing = entityMap.get(e.name)
+    if (!existing || (TYPE_PRIORITY[e.type] ?? 0) > (TYPE_PRIORITY[existing] ?? 0)) {
+      entityMap.set(e.name, e.type)
+    }
+  }
 
   const parts = text.split(regex)
   return parts.map((part, i) => {
