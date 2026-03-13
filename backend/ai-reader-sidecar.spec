@@ -74,7 +74,8 @@ a = Analysis(
         "jieba.analyse",
         # ── Embeddings / Vector DB ──
         "chromadb",
-        "sentence_transformers",
+        "onnxruntime",
+        "tokenizers",
         # ── Multipart upload ──
         "multipart",
         "python_multipart",
@@ -130,6 +131,6 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,
-    upx=True,
+    upx=False,
     console=True,
 )

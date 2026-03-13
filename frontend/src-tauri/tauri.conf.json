@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AI Reader",
-  "version": "0.49.1",
+  "version": "0.50.0",
   "identifier": "cc.ai-reader.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -70,7 +70,8 @@
       "nsis": {
         "languages": ["SimpChinese", "English"],
         "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico"
+        "installerIcon": "icons/icon.ico",
+        "installMode": "both"
       }
     }
   },
