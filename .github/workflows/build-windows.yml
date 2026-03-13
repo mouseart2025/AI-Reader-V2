@@ -24,7 +24,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Setup Python (uv)
+      # ── Python 3.11 MUST be set up BEFORE uv to ensure PyInstaller bundles 3.11 ──
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
@@ -48,12 +54,6 @@ jobs:
         shell: bash
         run: mkdir -p frontend/src-tauri/resources/novels && touch frontend/src-tauri/resources/novels/.gitkeep
 
-      # ── Python version pin (3.11 for broader Windows compat) ──
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       # ── Frontend ────────────────────────────
       - name: Install frontend deps
         run: cd frontend && npm ci
@@ -64,6 +64,23 @@ jobs:
           cd backend
           uv sync --python 3.11
           uv pip install pyinstaller
+
+      - name: Verify Python 3.11 in venv
+        shell: pwsh
+        run: |
+          cd backend
+          $ver = uv run python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+          Write-Host "Venv Python version: $ver"
+          if ($ver -ne "3.11") { Write-Error "Expected Python 3.11, got $ver"; exit 1 }
+
+      - name: Remove non-3.11 Python from PATH
+        shell: pwsh
+        run: |
+          # PyInstaller scans PATH for python3XX.dll — remove any Python != 3.11
+          $newPath = ($env:PATH -split ';' | Where-Object {
+            $_ -notmatch 'Python\\3\.(1[2-9]|[2-9][0-9])' -and $_ -notmatch 'Python3(1[2-9]|[2-9][0-9])'
+          }) -join ';'
+          echo "PATH=$newPath" >> $env:GITHUB_ENV
 
       - name: Build sidecar
         shell: pwsh
