@@ -290,6 +290,10 @@ export function reSplitChapters(req: ReSplitRequest): Promise<UploadPreviewRespo
   })
 }
 
+export function fetchRawText(fileHash: string): Promise<{ text: string }> {
+  return apiFetch<{ text: string }>(`/novels/raw-text/${encodeURIComponent(fileHash)}`)
+}
+
 export function cleanAndResplit(req: CleanAndReSplitRequest): Promise<UploadPreviewResponse> {
   return apiFetch<UploadPreviewResponse>("/novels/clean-and-resplit", {
     method: "POST",

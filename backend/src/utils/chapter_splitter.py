@@ -177,20 +177,31 @@ def _augment_with_volume_markers(text: str, matches: list[re.Match]) -> list[re.
     return sorted(matches + extra, key=lambda m: m.start())
 
 
-def split_chapters(text: str, mode: str | None = None, custom_regex: str | None = None) -> list[ChapterInfo]:
+def split_chapters(
+    text: str,
+    mode: str | None = None,
+    custom_regex: str | None = None,
+    split_points: list[int] | None = None,
+) -> list[ChapterInfo]:
     """Split text into chapters.
 
     Backward-compatible wrapper that returns just the chapter list.
     """
-    result = split_chapters_ex(text, mode=mode, custom_regex=custom_regex)
+    result = split_chapters_ex(text, mode=mode, custom_regex=custom_regex, split_points=split_points)
     return result.chapters
 
 
-def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | None = None) -> SplitResult:
+def split_chapters_ex(
+    text: str,
+    mode: str | None = None,
+    custom_regex: str | None = None,
+    split_points: list[int] | None = None,
+) -> SplitResult:
     """Split text into chapters with metadata about the split.
 
-    If mode is given, uses that specific pattern.
+    If split_points is given, splits at those character offsets (manual mode).
     If custom_regex is given, compiles and uses it.
+    If mode is given, uses that specific pattern.
     Otherwise tries all patterns, picks the one with the most matches (>= 2).
     Falls back to heuristic_title, then fixed_size if nothing works.
     """
@@ -199,6 +210,10 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
 
     # Compress excessive blank lines (3+ → 2)
     text = _BLANK_LINE_RE.sub("\n\n\n", text)
+
+    # Manual split points mode (from user-marked boundaries)
+    if split_points:
+        return _split_by_points(text, sorted(set(split_points)))
 
     # Custom regex mode
     if custom_regex:
@@ -314,6 +329,48 @@ def split_chapters_ex(text: str, mode: str | None = None, custom_regex: str | No
     chapters = _subsplit_oversized(chapters)
 
     return SplitResult(chapters=chapters, matched_mode=best_mode or "none")
+
+
+def _split_by_points(text: str, points: list[int]) -> SplitResult:
+    """Split text at explicit character offsets (manual boundary marking)."""
+    # Filter points to valid range and add boundaries
+    total = len(text)
+    valid = [p for p in points if 0 < p < total]
+    boundaries = [0] + valid + [total]
+
+    chapters: list[ChapterInfo] = []
+    for i in range(len(boundaries) - 1):
+        chunk = text[boundaries[i]:boundaries[i + 1]].strip()
+        if not chunk:
+            continue
+        chapter_num = len(chapters) + 1
+        # Title: first non-blank line, max 40 chars
+        first_line = ""
+        for line in chunk.split("\n"):
+            s = line.strip()
+            if s:
+                first_line = s
+                break
+        if first_line and len(first_line) <= 40:
+            title = first_line
+        elif first_line:
+            title = first_line[:38] + "…"
+        else:
+            title = f"第 {chapter_num} 段"
+        chapters.append(ChapterInfo(
+            chapter_num=chapter_num,
+            title=title,
+            content=chunk,
+            word_count=len(chunk),
+        ))
+
+    if not chapters:
+        chapters = [ChapterInfo(
+            chapter_num=1, title="全文",
+            content=text.strip(), word_count=len(text.strip()),
+        )]
+
+    return SplitResult(chapters=chapters, matched_mode="manual")
 
 
 def _split_by_matches(

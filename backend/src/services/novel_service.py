@@ -117,6 +117,48 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
     return SplitDiagnosis(tag="OK", message="章节切分正常")
 
 
+def _compute_chapter_offsets(
+    chapters: list, raw_text: str
+) -> list[int]:
+    """Compute the character offset in raw_text where each chapter starts.
+
+    Uses ChapterInfo._text_pos if already set (heading-based and custom-regex
+    splitters set it). Otherwise falls back to searching for the chapter's
+    first 80 chars of content in the raw text.
+    """
+    offsets: list[int] = []
+    search_from = 0
+    for ch in chapters:
+        # _text_pos is set by heading-based and custom-regex splitters
+        if ch._text_pos > 0:
+            offsets.append(ch._text_pos)
+            search_from = ch._text_pos + 1
+            continue
+
+        # Fallback: search for chapter title or content in raw text
+        # Try title first (more reliable for heading-based chapters)
+        title = ch.title.strip()
+        if title and len(title) >= 2:
+            idx = raw_text.find(title, search_from)
+            if idx >= 0:
+                offsets.append(idx)
+                search_from = idx + 1
+                continue
+        # Then try first 80 chars of content
+        snippet = ch.content[:80].strip()
+        if snippet:
+            idx = raw_text.find(snippet, search_from)
+            if idx >= 0:
+                offsets.append(idx)
+                search_from = idx + 1
+                continue
+
+        # Last resort: use current search position
+        offsets.append(search_from)
+
+    return offsets
+
+
 def _build_preview(
     title: str,
     author: str | None,
@@ -124,11 +166,15 @@ def _build_preview(
     split_result: SplitResult,
     duplicate_novel_id: str | None,
     extra_warnings: list[str] | None = None,
+    raw_text: str = "",
 ) -> UploadPreviewResponse:
     """Build an UploadPreviewResponse from a split result."""
     chapters = split_result.chapters
     total_chapters = len(chapters)
     total_words = sum(ch.word_count for ch in chapters)
+
+    # Compute chapter offsets in raw text
+    ch_offsets = _compute_chapter_offsets(chapters, raw_text) if raw_text else [0] * total_chapters
 
     # Warnings
     warnings: list[str] = list(extra_warnings) if extra_warnings else []
@@ -147,6 +193,7 @@ def _build_preview(
             chapter_num=ch.chapter_num,
             title=ch.title,
             word_count=ch.word_count,
+            start_offset=ch_offsets[i] if i < len(ch_offsets) else 0,
             is_suspect=suspects[i],
             content_preview=ch.content[:100].replace("\n", " ").strip(),
         )
@@ -190,8 +237,11 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
     # SHA256 hash
     file_hash = _compute_hash(content)
 
-    # Decode text
+    # Decode text and apply the same normalizations as the splitter
+    # so that _text_pos offsets match the cached raw_text exactly
     text = decode_text(content)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"\n{4,}", "\n\n\n", text)  # compress 3+ blank lines, same as splitter
 
     # Extract metadata
     title = _title_from_filename(filename)
@@ -236,6 +286,7 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
         split_result=split_result,
         duplicate_novel_id=duplicate_novel_id,
         extra_warnings=extra_warnings,
+        raw_text=text,
     )
     preview.hygiene_report = hygiene_report
 
@@ -322,10 +373,20 @@ def get_available_modes() -> list[str]:
     return AVAILABLE_MODES
 
 
+def get_cached_raw_text(file_hash: str) -> str | None:
+    """Return cached raw text for a file_hash, or None if expired/missing."""
+    _evict_expired()
+    cached = _upload_cache.get(file_hash)
+    if not cached:
+        return None
+    return cached.raw_text
+
+
 async def re_split(
     file_hash: str,
     mode: str | None = None,
     custom_regex: str | None = None,
+    split_points: list[int] | None = None,
 ) -> UploadPreviewResponse:
     """Re-split a previously uploaded file using a different mode.
 
@@ -341,7 +402,7 @@ async def re_split(
     text = cached.raw_text
 
     # Re-split with specified mode (extended)
-    split_result = split_chapters_ex(text, mode=mode, custom_regex=custom_regex)
+    split_result = split_chapters_ex(text, mode=mode, custom_regex=custom_regex, split_points=split_points)
 
     # Build updated preview
     preview = _build_preview(
@@ -350,6 +411,7 @@ async def re_split(
         file_hash=file_hash,
         split_result=split_result,
         duplicate_novel_id=cached.preview.duplicate_novel_id,
+        raw_text=text,
     )
 
     # Carry over hygiene_report from previous preview if it exists
@@ -413,6 +475,7 @@ async def clean_and_resplit(
         file_hash=file_hash,
         split_result=split_result,
         duplicate_novel_id=cached.preview.duplicate_novel_id,
+        raw_text=cleaned_text,
     )
     preview.hygiene_report = hygiene_report
 

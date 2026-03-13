@@ -12,6 +12,8 @@ env:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      UV_PYTHON: "3.11"
 
     steps:
       - name: Checkout
@@ -62,7 +64,7 @@ jobs:
       - name: Install backend deps + PyInstaller
         run: |
           cd backend
-          uv sync --python 3.11
+          uv sync
           uv pip install pyinstaller
 
       - name: Verify Python 3.11 in venv
