@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, backupExportUrl, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
+import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, downloadBackupExport, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
 import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
+import { useLlmInfoStore } from "@/stores/llmInfoStore"
 import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { isTauri } from "@/api/sidecarBridge"
+
+function openExternal(url: string) {
+  if (isTauri) {
+    import("@tauri-apps/plugin-shell").then(({ open }) => open(url)).catch(() => window.open(url, "_blank"))
+  } else {
+    window.open(url, "_blank")
+  }
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -359,7 +369,11 @@ export default function SettingsPage() {
   const refreshEnv = () => {
     setEnvLoading(true)
     checkEnvironment()
-      .then(setEnvCheck)
+      .then((env) => {
+        setEnvCheck(env)
+        // Sync to global store so AnalysisPage shows updated model
+        useLlmInfoStore.getState().fetch(true)
+      })
       .finally(() => setEnvLoading(false))
   }
 
@@ -588,7 +602,7 @@ export default function SettingsPage() {
                           <Button
                             variant="outline"
                             size="xs"
-                            onClick={() => window.open("https://ollama.com/download", "_blank")}
+                            onClick={() => openExternal("https://ollama.com/download")}
                           >
                             下载安装
                           </Button>
@@ -1575,10 +1589,12 @@ export default function SettingsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    const a = document.createElement("a")
-                    a.href = backupExportUrl()
-                    a.click()
+                  onClick={async () => {
+                    try {
+                      await downloadBackupExport()
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : "备份导出失败")
+                    }
                   }}
                 >
                   导出全部数据 (.zip)

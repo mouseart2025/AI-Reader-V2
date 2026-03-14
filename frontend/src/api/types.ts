@@ -825,6 +825,7 @@ export interface ImportPreview {
   map_overrides_count?: number
   ws_overrides_count?: number
   entity_dict_count?: number
+  conversations_count?: number
   llm_models?: string[]
 }
 
