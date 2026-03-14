@@ -878,6 +878,22 @@ export function backupExportUrl(): string {
   return `${getBase()}/backup/export`
 }
 
+export async function downloadBackupExport(): Promise<void> {
+  const res = await fetch(backupExportUrl())
+  if (!res.ok) throw new Error(`备份导出失败: ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  const cd = res.headers.get("content-disposition")
+  const match = cd?.match(/filename="?([^"]+)"?/)
+  a.download = match?.[1] ?? "ai-reader-v2-backup.zip"
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export async function previewBackupImport(
   file: File,
 ): Promise<import("./types").BackupPreview> {

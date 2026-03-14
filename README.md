@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![Version](https://img.shields.io/badge/version-0.51.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.51.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -108,6 +108,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.51.1 | 2026-03-14 | 全量备份导出修复（Tauri 下载 + 格式 v5 补全 scenes/map/conversations），Windows 无 Ollama 体验优化（LLM 预检 + 模型显示刷新 + 重试错误反馈） |
 | v0.51.0 | 2026-03-14 | 章节切分预览增强（富预览面板 + 正则模板 + 手动分割点 + 虚拟化长文渲染），Windows CI 修复（UV_PYTHON 锁定 3.11） |
 | v0.50.1 | 2026-03-13 | Windows Python DLL 根治（PATH 清理确保 3.11），实体高亮类型优先级修复（concept 不再覆盖 person/location） |
 | v0.50.0 | 2026-03-13 | 别名爆炸修复（Union-Find 安全合并 + 修仙小说称谓过滤），Windows DLL 兼容性修复（Python 3.11 + UPX 禁用） |

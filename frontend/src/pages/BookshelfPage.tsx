@@ -19,7 +19,7 @@ import {
   fetchActiveAnalyses,
   exportNovelUrl,
   previewImport,
-  backupExportUrl,
+  downloadBackupExport,
   previewBackupImport,
   confirmBackupImport,
 } from "@/api/client"
@@ -469,8 +469,12 @@ export default function BookshelfPage() {
     }
   }, [])
 
-  const handleBackupExport = useCallback(() => {
-    window.open(backupExportUrl(), "_blank")
+  const handleBackupExport = useCallback(async () => {
+    try {
+      await downloadBackupExport()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "备份导出失败")
+    }
   }, [])
 
   const handleBackupImport = useCallback(async (file: File) => {

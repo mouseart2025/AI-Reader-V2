@@ -8,8 +8,8 @@ from src.db.sqlite_db import get_connection
 
 logger = logging.getLogger(__name__)
 
-CURRENT_FORMAT_VERSION = 4
-SUPPORTED_FORMAT_VERSIONS = {1, 2, 3, 4}
+CURRENT_FORMAT_VERSION = 5
+SUPPORTED_FORMAT_VERSIONS = {1, 2, 3, 4, 5}
 
 
 async def _build_precomputed(novel_id: str) -> dict | None:
@@ -66,15 +66,12 @@ async def _build_precomputed(novel_id: str) -> dict | None:
 async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
     """Export a novel with all associated data.
 
-    Format v4 adds: precomputed visualization data for desktop import.
-
-    Args:
-        novel_id: The novel to export.
-        skip_content: If True, omit chapters[].content to reduce size.
+    Format v5 adds: scenes_json, cost/quality columns, map_layouts,
+    layer_layouts, conversations + messages.
     """
     conn = await get_connection()
     try:
-        # Novel metadata (v2: includes prescan_status, v3+: includes synopsis)
+        # Novel metadata
         cur = await conn.execute(
             "SELECT id, title, author, file_hash, total_chapters, total_words, prescan_status, synopsis, created_at, updated_at FROM novels WHERE id = ?",
             (novel_id,),
@@ -84,19 +81,22 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
             raise ValueError(f"Novel {novel_id} not found")
         novel = dict(novel_row)
 
-        # Chapters (v2: includes is_excluded)
-        chapter_cols = "chapter_num, volume_num, volume_title, title, word_count, analysis_status, analyzed_at, is_excluded"
+        # Chapters (all columns including error tracking)
+        chapter_cols = "chapter_num, volume_num, volume_title, title, word_count, analysis_status, analyzed_at, is_excluded, analysis_error, error_type"
         if not skip_content:
-            chapter_cols = "chapter_num, volume_num, volume_title, title, content, word_count, analysis_status, analyzed_at, is_excluded"
+            chapter_cols = "chapter_num, volume_num, volume_title, title, content, word_count, analysis_status, analyzed_at, is_excluded, analysis_error, error_type"
         cur = await conn.execute(
             f"SELECT {chapter_cols} FROM chapters WHERE novel_id = ? ORDER BY chapter_num",
             (novel_id,),
         )
         chapters = [dict(r) for r in await cur.fetchall()]
 
-        # Chapter facts
+        # Chapter facts (all columns: scenes, cost, quality)
         cur = await conn.execute(
-            """SELECT cf.chapter_id, c.chapter_num, cf.fact_json, cf.llm_model, cf.extracted_at, cf.extraction_ms
+            """SELECT cf.chapter_id, c.chapter_num, cf.fact_json, cf.scenes_json,
+                      cf.llm_model, cf.extracted_at, cf.extraction_ms,
+                      cf.input_tokens, cf.output_tokens, cf.cost_usd, cf.cost_cny,
+                      cf.is_truncated, cf.segment_count
                FROM chapter_facts cf
                JOIN chapters c ON c.id = cf.chapter_id AND c.novel_id = cf.novel_id
                WHERE cf.novel_id = ?""",
@@ -112,14 +112,14 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
         user_state_row = await cur.fetchone()
         user_state = dict(user_state_row) if user_state_row else None
 
-        # v2: Entity dictionary (filter out noise 'unknown' type)
+        # Entity dictionary (filter out noise 'unknown' type)
         cur = await conn.execute(
             "SELECT name, entity_type, frequency, confidence, aliases, source, sample_context FROM entity_dictionary WHERE novel_id = ? AND entity_type != 'unknown' ORDER BY frequency DESC",
             (novel_id,),
         )
         entity_dictionary = [dict(r) for r in await cur.fetchall()]
 
-        # v2: World structures
+        # World structures
         cur = await conn.execute(
             "SELECT structure_json, source_chapters FROM world_structures WHERE novel_id = ?",
             (novel_id,),
@@ -127,26 +127,57 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
         ws_row = await cur.fetchone()
         world_structures = dict(ws_row) if ws_row else None
 
-        # v3: Bookmarks
+        # Bookmarks
         cur = await conn.execute(
             "SELECT chapter_num, scroll_position, note, created_at FROM bookmarks WHERE novel_id = ? ORDER BY created_at",
             (novel_id,),
         )
         bookmarks = [dict(r) for r in await cur.fetchall()]
 
-        # v3: Map user overrides
+        # Map user overrides
         cur = await conn.execute(
             "SELECT location_name, x, y, lat, lng, constraint_type, locked_parent, updated_at FROM map_user_overrides WHERE novel_id = ?",
             (novel_id,),
         )
         map_user_overrides = [dict(r) for r in await cur.fetchall()]
 
-        # v3: World structure overrides
+        # World structure overrides
         cur = await conn.execute(
             "SELECT override_type, override_key, override_json, created_at FROM world_structure_overrides WHERE novel_id = ?",
             (novel_id,),
         )
         ws_overrides = [dict(r) for r in await cur.fetchall()]
+
+        # v5: Map layouts (computed layout cache + quality baseline)
+        cur = await conn.execute(
+            "SELECT chapter_hash, layout_json, layout_mode, terrain_path, satisfaction_json, created_at FROM map_layouts WHERE novel_id = ?",
+            (novel_id,),
+        )
+        map_layouts = [dict(r) for r in await cur.fetchall()]
+
+        # v5: Layer layouts (multi-layer visualization positions)
+        cur = await conn.execute(
+            "SELECT layer_id, chapter_hash, layout_json, layout_mode, terrain_path, created_at FROM layer_layouts WHERE novel_id = ?",
+            (novel_id,),
+        )
+        layer_layouts = [dict(r) for r in await cur.fetchall()]
+
+        # v5: Conversations + messages (Q&A chat history)
+        cur = await conn.execute(
+            "SELECT id, title, created_at, updated_at FROM conversations WHERE novel_id = ? ORDER BY created_at",
+            (novel_id,),
+        )
+        conversations = [dict(r) for r in await cur.fetchall()]
+
+        messages = []
+        if conversations:
+            conv_ids = [c["id"] for c in conversations]
+            placeholders = ",".join("?" * len(conv_ids))
+            cur = await conn.execute(
+                f"SELECT conversation_id, role, content, sources_json, created_at FROM messages WHERE conversation_id IN ({placeholders}) ORDER BY created_at",
+                conv_ids,
+            )
+            messages = [dict(r) for r in await cur.fetchall()]
 
         # v4: Build precomputed visualization data for desktop import
         precomputed = await _build_precomputed(novel_id)
@@ -162,6 +193,10 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
             "bookmarks": bookmarks,
             "map_user_overrides": map_user_overrides,
             "world_structure_overrides": ws_overrides,
+            "map_layouts": map_layouts,
+            "layer_layouts": layer_layouts,
+            "conversations": conversations,
+            "messages": messages,
         }
         if precomputed:
             result["precomputed"] = precomputed
@@ -171,7 +206,7 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
 
 
 async def import_novel(data: dict, overwrite: bool = False) -> dict:
-    """Import a novel from exported JSON data (supports v1 and v2).
+    """Import a novel from exported JSON data (supports v1-v5).
 
     If overwrite=True and a novel with the same title exists, replace it.
     Otherwise create with a fresh ID.
@@ -189,6 +224,10 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
     bookmarks = data.get("bookmarks", [])
     map_overrides = data.get("map_user_overrides", [])
     ws_overrides = data.get("world_structure_overrides", [])
+    map_layouts = data.get("map_layouts", [])
+    layer_layouts = data.get("layer_layouts", [])
+    conversations = data.get("conversations", [])
+    messages = data.get("messages", [])
 
     conn = await get_connection()
     try:
@@ -210,7 +249,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
 
         novel_id = str(uuid.uuid4())
 
-        # Insert novel (v2: includes prescan_status, v3+: includes synopsis)
+        # Insert novel
         prescan_status = novel_meta.get("prescan_status", "pending")
         await conn.execute(
             "INSERT INTO novels (id, title, author, file_hash, total_chapters, total_words, prescan_status, synopsis, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -228,10 +267,10 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
             ),
         )
 
-        # Insert chapters (v2: includes is_excluded)
+        # Insert chapters (all columns including error tracking)
         if chapters:
             await conn.executemany(
-                "INSERT INTO chapters (novel_id, chapter_num, volume_num, volume_title, title, content, word_count, analysis_status, analyzed_at, is_excluded) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO chapters (novel_id, chapter_num, volume_num, volume_title, title, content, word_count, analysis_status, analyzed_at, is_excluded, analysis_error, error_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
                         novel_id,
@@ -244,6 +283,8 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                         ch.get("analysis_status", "pending"),
                         ch.get("analyzed_at"),
                         ch.get("is_excluded", 0),
+                        ch.get("analysis_error"),
+                        ch.get("error_type"),
                     )
                     for ch in chapters
                 ],
@@ -261,14 +302,25 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 chapter_num = fact.get("chapter_num")
                 if chapter_num is not None and chapter_num in ch_map:
                     await conn.execute(
-                        "INSERT INTO chapter_facts (novel_id, chapter_id, fact_json, llm_model, extracted_at, extraction_ms) VALUES (?, ?, ?, ?, ?, ?)",
+                        """INSERT INTO chapter_facts
+                           (novel_id, chapter_id, fact_json, scenes_json, llm_model,
+                            extracted_at, extraction_ms, input_tokens, output_tokens,
+                            cost_usd, cost_cny, is_truncated, segment_count)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             novel_id,
                             ch_map[chapter_num],
                             fact["fact_json"],
+                            fact.get("scenes_json"),
                             fact.get("llm_model"),
                             fact.get("extracted_at"),
                             fact.get("extraction_ms"),
+                            fact.get("input_tokens"),
+                            fact.get("output_tokens"),
+                            fact.get("cost_usd"),
+                            fact.get("cost_cny"),
+                            fact.get("is_truncated", 0),
+                            fact.get("segment_count", 1),
                         ),
                     )
 
@@ -285,7 +337,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ),
             )
 
-        # v2: Import entity dictionary
+        # Import entity dictionary
         if entity_dict:
             await conn.executemany(
                 "INSERT INTO entity_dictionary (novel_id, name, entity_type, frequency, confidence, aliases, source, sample_context) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -304,7 +356,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ],
             )
 
-        # v2: Import world structures
+        # Import world structures
         if world_struct:
             await conn.execute(
                 "INSERT INTO world_structures (novel_id, structure_json, source_chapters) VALUES (?, ?, ?)",
@@ -315,7 +367,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ),
             )
 
-        # v3: Import bookmarks
+        # Import bookmarks
         if bookmarks:
             await conn.executemany(
                 "INSERT INTO bookmarks (novel_id, chapter_num, scroll_position, note, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -331,7 +383,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ],
             )
 
-        # v3: Import map user overrides
+        # Import map user overrides
         if map_overrides:
             await conn.executemany(
                 "INSERT INTO map_user_overrides (novel_id, location_name, x, y, lat, lng, constraint_type, locked_parent, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -351,7 +403,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ],
             )
 
-        # v3: Import world structure overrides
+        # Import world structure overrides
         if ws_overrides:
             await conn.executemany(
                 "INSERT INTO world_structure_overrides (novel_id, override_type, override_key, override_json, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -364,6 +416,75 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                         o.get("created_at"),
                     )
                     for o in ws_overrides
+                ],
+            )
+
+        # v5: Import map layouts
+        if map_layouts:
+            await conn.executemany(
+                "INSERT INTO map_layouts (novel_id, chapter_hash, layout_json, layout_mode, terrain_path, satisfaction_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        novel_id,
+                        ml["chapter_hash"],
+                        ml["layout_json"],
+                        ml.get("layout_mode", "hierarchy"),
+                        ml.get("terrain_path"),
+                        ml.get("satisfaction_json"),
+                        ml.get("created_at"),
+                    )
+                    for ml in map_layouts
+                ],
+            )
+
+        # v5: Import layer layouts
+        if layer_layouts:
+            await conn.executemany(
+                "INSERT INTO layer_layouts (novel_id, layer_id, chapter_hash, layout_json, layout_mode, terrain_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        novel_id,
+                        ll["layer_id"],
+                        ll["chapter_hash"],
+                        ll["layout_json"],
+                        ll.get("layout_mode", "hierarchy"),
+                        ll.get("terrain_path"),
+                        ll.get("created_at"),
+                    )
+                    for ll in layer_layouts
+                ],
+            )
+
+        # v5: Import conversations + messages
+        conv_id_map: dict[str, str] = {}
+        if conversations:
+            for conv in conversations:
+                new_conv_id = str(uuid.uuid4())
+                conv_id_map[conv["id"]] = new_conv_id
+                await conn.execute(
+                    "INSERT INTO conversations (id, novel_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        new_conv_id,
+                        novel_id,
+                        conv.get("title"),
+                        conv.get("created_at"),
+                        conv.get("updated_at"),
+                    ),
+                )
+
+        if messages and conv_id_map:
+            await conn.executemany(
+                "INSERT INTO messages (conversation_id, role, content, sources_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        conv_id_map[m["conversation_id"]],
+                        m["role"],
+                        m["content"],
+                        m.get("sources_json"),
+                        m.get("created_at"),
+                    )
+                    for m in messages
+                    if m.get("conversation_id") in conv_id_map
                 ],
             )
 
@@ -383,6 +504,10 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
             "bookmarks_imported": len(bookmarks),
             "map_overrides_imported": len(map_overrides),
             "ws_overrides_imported": len(ws_overrides),
+            "map_layouts_imported": len(map_layouts),
+            "layer_layouts_imported": len(layer_layouts),
+            "conversations_imported": len(conversations),
+            "messages_imported": len(messages),
             "existing_overwritten": existing is not None and overwrite,
         }
     finally:
@@ -403,6 +528,7 @@ def preview_import(data: dict) -> dict:
     bookmarks = data.get("bookmarks", [])
     map_overrides = data.get("map_user_overrides", [])
     ws_overrides = data.get("world_structure_overrides", [])
+    conversations = data.get("conversations", [])
 
     total_words = sum(ch.get("word_count", 0) for ch in chapters)
     analyzed_count = sum(1 for ch in chapters if ch.get("analysis_status") == "completed")
@@ -422,5 +548,6 @@ def preview_import(data: dict) -> dict:
         "bookmarks_count": len(bookmarks),
         "map_overrides_count": len(map_overrides),
         "ws_overrides_count": len(ws_overrides),
+        "conversations_count": len(conversations),
         "data_size_bytes": data_size,
     }

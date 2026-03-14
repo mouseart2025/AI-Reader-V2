@@ -1074,6 +1074,12 @@ export function UploadDialog({
                     <span>{dataImportPreview.map_overrides_count} 处</span>
                   </div>
                 )}
+                {(dataImportPreview.conversations_count ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">问答对话</span>
+                    <span>{dataImportPreview.conversations_count} 个</span>
+                  </div>
+                )}
                 <div className="mt-2 flex justify-between border-t pt-2">
                   <span className="text-muted-foreground">数据大小</span>
                   <span>{(dataImportPreview.data_size_bytes / 1024 / 1024).toFixed(1)} MB</span>

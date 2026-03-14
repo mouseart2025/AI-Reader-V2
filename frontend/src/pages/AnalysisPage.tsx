@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
+  checkEnvironment,
   clearAnalysisData,
   fetchCostEstimate,
   fetchEntityDictionary,
@@ -70,6 +71,9 @@ export default function AnalysisPage() {
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
 
+  // LLM availability check
+  const [llmAvailable, setLlmAvailable] = useState<boolean | null>(null)
+
   // Range analysis
   const [rangeStart, setRangeStart] = useState(1)
   const [rangeEnd, setRangeEnd] = useState(1)
@@ -129,7 +133,7 @@ export default function AnalysisPage() {
 
   // LLM info: prefer real-time WS data, fallback to cached health-check
   const llmInfo = useLlmInfoStore()
-  useEffect(() => { llmInfo.fetch() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { llmInfo.fetch(true) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const llmLabel = formatLlmLabel(
     wsLlmModel || llmInfo.model,
     wsLlmProvider || llmInfo.provider,
@@ -251,10 +255,21 @@ export default function AnalysisPage() {
 
     async function load() {
       try {
-        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming, failed_chapters: latestFailed, retry_progress: latestRetry }] = await Promise.all([
+        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming, failed_chapters: latestFailed, retry_progress: latestRetry }, envCheck] = await Promise.all([
           fetchNovel(novelId!),
           getLatestAnalysisTask(novelId!),
+          checkEnvironment().catch(() => null),
         ])
+        if (!cancelled && envCheck) {
+          // Check LLM availability: Ollama mode needs running+model, cloud mode needs api_available
+          if (envCheck.llm_provider === "ollama") {
+            setLlmAvailable(envCheck.ollama_running === true && envCheck.model_available === true)
+          } else {
+            setLlmAvailable(envCheck.api_available !== false)
+          }
+          // Force-refresh LLM info store with latest data
+          useLlmInfoStore.getState().fetch(true)
+        }
         if (cancelled) return
         setNovel(n)
         setRangeEnd(n.total_chapters)
@@ -571,6 +586,19 @@ export default function AnalysisPage() {
         </div>
       )}
 
+      {llmAvailable === false && !isActive && (
+        <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+          <strong>未检测到可用的 LLM</strong>：请先在
+          <button
+            className="mx-1 underline hover:no-underline"
+            onClick={() => navigate("/settings")}
+          >
+            设置页面
+          </button>
+          配置本地 Ollama 或云端 API，否则分析将无法进行。
+        </div>
+      )}
+
       {/* Running / Paused state */}
       {isActive && (
         <Card className="mb-6">
@@ -785,15 +813,14 @@ export default function AnalysisPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={retrying || retryProgress !== null}
+                  disabled={retrying || retryProgress !== null || llmAvailable === false}
                   onClick={async () => {
                     setRetrying(true)
                     connectWs(novelId)
                     try {
                       await retryFailedChapters(novelId)
-                    } catch {
-                      // ignore
-                    } finally {
+                    } catch (err) {
+                      setError(`重试失败: ${String(err)}`)
                       setRetrying(false)
                     }
                   }}
@@ -907,7 +934,7 @@ export default function AnalysisPage() {
             <div className="flex gap-2">
               <Button
                 onClick={() => handleStartAnalysis(false)}
-                disabled={starting || isActive}
+                disabled={starting || isActive || llmAvailable === false}
               >
                 {starting ? "启动中..." : "开始分析"}
               </Button>
