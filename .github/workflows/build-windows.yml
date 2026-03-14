@@ -84,6 +84,11 @@ jobs:
           }) -join ';'
           echo "PATH=$newPath" >> $env:GITHUB_ENV
 
+      - name: Remove heavy packages before PyInstaller
+        run: |
+          cd backend
+          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
+
       - name: Build sidecar
         shell: pwsh
         run: .\scripts\build-sidecar.ps1
