@@ -130,7 +130,7 @@ exe = EXE(
     name="ai-reader-sidecar",
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
+    strip=False,
     upx=False,
     console=True,
 )
