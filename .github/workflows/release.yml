@@ -117,6 +117,12 @@ jobs:
           uv sync
           uv pip install pyinstaller
 
+      - name: Remove heavy packages before PyInstaller
+        if: runner.os == 'Windows'
+        run: |
+          cd backend
+          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
+
       - name: Build sidecar
         run: ${{ matrix.sidecar_script }} --target ${{ matrix.target }}
 

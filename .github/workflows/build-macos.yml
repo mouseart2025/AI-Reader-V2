@@ -59,6 +59,11 @@ jobs:
           uv sync
           uv pip install pyinstaller
 
+      - name: Remove heavy packages before PyInstaller
+        run: |
+          cd backend
+          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
+
       - name: Build sidecar
         run: ./scripts/build-sidecar.sh --target aarch64-apple-darwin
 
