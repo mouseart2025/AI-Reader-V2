@@ -4,22 +4,22 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator
-from pathlib import Path
-
 from src.db import chapter_fact_store, chapter_store, conversation_store
 from src.infra.llm_client import get_llm_client
-from src.services import embedding_service
+from src.services import embedding_service, entity_aggregator
+from src.services.alias_resolver import build_alias_map
 
 logger = logging.getLogger(__name__)
 
 _QA_SYSTEM_PROMPT = """你是一个专业的小说分析助手。你的任务是根据提供的小说知识库信息，回答用户关于小说内容的问题。
 
 ## 规则
-1. **仅基于提供的信息回答**，不要编造不存在的情节或人物
+1. **严格基于提供的知识库信息回答**，绝对不要使用你自己的知识补充任何人物、情节或关系。如果知识库中没有提到，就不要提及。
 2. 回答时引用来源章节，格式为 [第X章]
-3. 如果信息不足以回答问题，诚实说明"根据已分析的内容，暂未找到相关信息"
+3. 如果信息不足以回答问题，诚实说明"根据已分析的内容，暂未找到相关信息"，不要猜测或补充
 4. 回答要简洁明了，重点突出
 5. 在回答中提到人物、地点、物品等实体时，用其原名
+6. 优先使用「人物档案」中的聚合关系数据，它比逐章碎片更准确完整
 
 ## 知识库信息
 {context}
@@ -27,7 +27,25 @@ _QA_SYSTEM_PROMPT = """你是一个专业的小说分析助手。你的任务是
 ## 对话历史
 {history}
 
-请回答用户的问题。"""
+请严格基于以上知识库信息回答用户的问题。不要添加知识库中未提及的内容。"""
+
+
+def _resolve_question_entities(
+    question: str,
+    all_entities: set[str],
+    alias_map: dict[str, str],
+) -> list[str]:
+    """Extract entity names from question, resolving aliases to canonical names."""
+    found: list[str] = []
+    seen_canonical: set[str] = set()
+    # Check longest names first to avoid partial matches
+    for name in sorted(all_entities, key=len, reverse=True):
+        if name in question:
+            canonical = alias_map.get(name, name)
+            if canonical not in seen_canonical:
+                found.append(canonical)
+                seen_canonical.add(canonical)
+    return found
 
 
 def _extract_entities_from_question(question: str, all_entities: set[str]) -> list[str]:
@@ -153,6 +171,137 @@ def _build_keyword_context(
     return "\n".join(chunks), sorted(source_chapters)
 
 
+# Question keywords → relation stage types to search for
+_RELATION_QUERY_KEYWORDS: dict[str, list[str]] = {
+    "亲密": ["恋人", "亲密", "爱慕", "情侣", "道侣", "夫妻", "单相思"],
+    "恋人": ["恋人", "亲密", "爱慕", "情侣", "道侣", "夫妻", "单相思"],
+    "女朋友": ["恋人", "亲密", "爱慕", "情侣", "道侣", "夫妻", "单相思"],
+    "感情": ["恋人", "亲密", "爱慕", "情侣", "道侣", "夫妻", "单相思"],
+    "师徒": ["师徒", "师生", "传授", "拜师"],
+    "师父": ["师徒", "师生", "传授", "拜师"],
+    "敌人": ["敌对", "仇敌", "对手"],
+    "仇人": ["敌对", "仇敌", "仇恨"],
+    "朋友": ["朋友", "同伴", "同门", "知己"],
+    "家人": ["父子", "母子", "兄弟", "兄妹", "姐弟", "夫妻", "叔侄"],
+    "亲属": ["父子", "母子", "兄弟", "兄妹", "姐弟", "夫妻", "叔侄"],
+}
+
+
+def _detect_relation_filter(question: str) -> list[str] | None:
+    """Detect if question asks about specific relation types.
+
+    Returns a list of stage type keywords to match, or None if no filter.
+    """
+    for keyword, stage_types in _RELATION_QUERY_KEYWORDS.items():
+        if keyword in question:
+            return stage_types
+    return None
+
+
+async def _build_profile_context(
+    novel_id: str,
+    person_names: list[str],
+    question: str = "",
+    max_chars: int = 4000,
+) -> tuple[str, list[int]]:
+    """Build structured context from aggregated PersonProfile data.
+
+    Uses EntityAggregator to get cross-chapter merged relations with
+    normalized types and category classification. When the question asks
+    about specific relation types, scans ALL stages (not just category)
+    to find matching relations.
+    """
+    chunks: list[str] = []
+    source_chapters: set[int] = set()
+    total = 0
+    relation_filter = _detect_relation_filter(question)
+
+    for name in person_names[:5]:
+        try:
+            profile = await entity_aggregator.aggregate_person(novel_id, name)
+        except Exception as e:
+            logger.debug("Failed to aggregate person %s: %s", name, e)
+            continue
+
+        parts: list[str] = [f"## 人物「{profile.name}」"]
+
+        if profile.aliases:
+            alias_names = [a.name for a in profile.aliases[:10]]
+            parts.append(f"别名: {', '.join(alias_names)}")
+
+        if profile.relations:
+            if relation_filter:
+                # Question-aware: scan ALL relations for matching stages
+                parts.append(f"【与「{question}」相关的关系】")
+                matched_count = 0
+                for rc in profile.relations:
+                    matching_stages = [
+                        s for s in rc.stages
+                        if any(kw in s.relation_type for kw in relation_filter)
+                    ]
+                    if matching_stages:
+                        for stage in matching_stages:
+                            ch_refs = ", ".join(
+                                f"第{c}章" for c in stage.chapters[:5]
+                            )
+                            ev = stage.evidences[0][:100] if stage.evidences else ""
+                            parts.append(
+                                f"  {rc.other_person}: {stage.relation_type} "
+                                f"[{ch_refs}] {ev}"
+                            )
+                            source_chapters.update(stage.chapters)
+                        matched_count += 1
+                    if matched_count >= 20:
+                        break
+            else:
+                # General: group by category, show top relations per category
+                cat_groups: dict[str, list[str]] = {}
+                for rc in profile.relations:
+                    cat = rc.category or "other"
+                    # Only include the most recent / representative stage
+                    stage = rc.stages[-1] if rc.stages else None
+                    if stage:
+                        ch_refs = ", ".join(
+                            f"第{c}章" for c in stage.chapters[:3]
+                        )
+                        ev = stage.evidences[0][:80] if stage.evidences else ""
+                        line = (
+                            f"  {rc.other_person}: {stage.relation_type} "
+                            f"[{ch_refs}] {ev}"
+                        )
+                        cat_groups.setdefault(cat, []).append(line)
+
+                cat_labels = {
+                    "family": "亲属关系",
+                    "intimate": "亲密关系",
+                    "hierarchical": "师从/主从关系",
+                    "social": "社交关系",
+                    "hostile": "敌对关系",
+                    "other": "其他关系",
+                }
+                for cat in ["family", "intimate", "hierarchical",
+                            "social", "hostile", "other"]:
+                    lines = cat_groups.get(cat, [])
+                    if lines:
+                        label = cat_labels[cat]
+                        parts.append(f"【{label}】({len(lines)}条)")
+                        parts.extend(lines[:8])
+
+        if profile.abilities:
+            ab_strs = [
+                f"{a.name}({a.dimension})" for a in profile.abilities[:5]
+            ]
+            parts.append(f"能力: {', '.join(ab_strs)}")
+
+        block = "\n".join(parts)
+        if total + len(block) > max_chars:
+            break
+        chunks.append(block)
+        total += len(block)
+
+    return "\n\n".join(chunks), sorted(source_chapters)
+
+
 async def _build_text_context(
     novel_id: str,
     keywords: list[str],
@@ -239,17 +388,38 @@ async def query_stream(
         yield {"type": "done"}
         return
 
-    # 2. Extract entities from question
+    # 2. Extract entities from question (with alias resolution)
     all_entity_names = _collect_all_entity_names(all_facts)
-    question_entities = _extract_entities_from_question(question, all_entity_names)
+    try:
+        alias_map = await build_alias_map(novel_id)
+    except Exception:
+        alias_map = {}
+    # Add alias keys to entity name pool so aliases in questions get matched
+    all_entity_names.update(alias_map.keys())
+    question_entities = _resolve_question_entities(
+        question, all_entity_names, alias_map,
+    )
 
     # 3. Build context from multiple sources
     context_parts: list[str] = []
     all_source_chapters: set[int] = set()
 
-    # Entity-based retrieval (weight: high)
+    # Aggregated profile retrieval (highest priority — cross-chapter merged)
+    profiled_names: set[str] = set()
     if question_entities:
-        entity_ctx, entity_chs = _build_entity_context(all_facts, question_entities)
+        profile_ctx, profile_chs = await _build_profile_context(
+            novel_id, question_entities, question=question,
+        )
+        if profile_ctx:
+            context_parts.append("### 人物档案（跨章节聚合）\n" + profile_ctx)
+            all_source_chapters.update(profile_chs)
+            profiled_names.update(question_entities)
+
+    # Entity-based retrieval from raw chapter facts (supplementary)
+    # Skip entities already covered by profile context to reduce noise
+    remaining_entities = [e for e in question_entities if e not in profiled_names]
+    if remaining_entities:
+        entity_ctx, entity_chs = _build_entity_context(all_facts, remaining_entities)
         if entity_ctx:
             context_parts.append("### 实体相关信息\n" + entity_ctx)
             all_source_chapters.update(entity_chs)

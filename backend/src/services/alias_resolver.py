@@ -359,6 +359,10 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
     dict_primary_names: set[str] = set()
 
     _MAX_GROUP_SIZE = 20  # absolute cap — no character should have 20+ aliases
+    # Track deferred merge evidence for large-group and primary-entity conflicts.
+    # Pairs with >= _MIN_CHAPTER_EVIDENCE chapters are merged in a second pass.
+    _primary_pair_evidence: dict[tuple[str, str], int] = defaultdict(int)
+    _MIN_CHAPTER_EVIDENCE = 3
 
     def _safe_union(name: str, alias: str, source: str) -> None:
         """Union name and alias with multi-layer conflict detection.
@@ -368,8 +372,10 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         2. EITHER group is already well-established (size >= 5)
         3. Combined group would exceed _MAX_GROUP_SIZE
         """
-        # Layer 1: both are known primary entities → never merge
-        if name in dict_primary_names and alias in dict_primary_names:
+        # Layer 1: both are known primary entities → block in fact stage only.
+        # Dictionary stage declares explicit alias groups (e.g., 行者↔孙行者↔大圣),
+        # so merging primary entities from the same dict entry is intentional.
+        if source != "dict" and name in dict_primary_names and alias in dict_primary_names:
             logger.debug(
                 "Both primary entities (%s): '%s' ↔ '%s', skip union",
                 source, name, alias,
@@ -387,11 +393,17 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         alias_size = uf.group_size(alias)
         name_size = uf.group_size(name)
 
-        # Layer 2: either group already well-established → block
-        if alias_size >= 5 or name_size >= 5:
+        # Layer 2: either group already well-established → block (fact stage only).
+        # Dictionary-declared aliases are authoritative and should merge even
+        # into large groups (e.g., 孙悟空 has 7+ aliases in 西游记).
+        # Blocked pairs are tracked in _primary_pair_evidence for deferred
+        # merging when sufficient chapter evidence accumulates.
+        if source != "dict" and (alias_size >= 5 or name_size >= 5):
+            pair = (min(name, alias), max(name, alias))
+            _primary_pair_evidence[pair] += 1
             logger.debug(
                 "Group conflict (%s): '%s' (group=%d) vs '%s' (group=%d), "
-                "skip union — at least one group well-established",
+                "deferred to evidence check",
                 source, alias, alias_size, name, name_size,
             )
             return
@@ -473,15 +485,42 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                     if level < 2:
                         logger.debug("Alias blocked (L%d) from fact: %s → %s", level, name, alias)
                         continue
-                    # Block if alias is a known primary entity (independent character)
+                    # Track evidence for primary-entity pairs instead of blocking
                     if alias in dict_primary_names and name in dict_primary_names:
-                        logger.debug(
-                            "Alias is primary entity (fact): %s → %s blocked",
-                            name, alias,
-                        )
+                        pair = (min(name, alias), max(name, alias))
+                        _primary_pair_evidence[pair] += 1
                         continue
                     freq.setdefault(alias, 0)
                     _safe_union(name, alias, "fact")
+
+    # Second pass: merge deferred pairs with strong chapter evidence.
+    # Direct uf.union() bypasses all layers — the chapter evidence threshold
+    # is sufficient quality control. Sort by evidence count (descending) so
+    # the strongest pairs merge first and establish canonical names early.
+    for (a, b), count in sorted(
+        _primary_pair_evidence.items(), key=lambda x: -x[1]
+    ):
+        if count >= _MIN_CHAPTER_EVIDENCE:
+            a_root = uf.find(a) if a in uf.parent else a
+            b_root = uf.find(b) if b in uf.parent else b
+            if a_root == b_root:
+                continue  # already merged
+            combined = uf.group_size(a) + uf.group_size(b)
+            if combined > 50:  # generous cap for evidence-backed merges
+                logger.debug(
+                    "Evidence merge skipped (combined=%d > 50): '%s' ↔ '%s'",
+                    combined, a, b,
+                )
+                continue
+            logger.info(
+                "Evidence merge (evidence=%d chapters): '%s' ↔ '%s'",
+                count, a, b,
+            )
+            freq.setdefault(a, 0)
+            freq.setdefault(b, 0)
+            uf.find(a)  # ensure registered
+            uf.find(b)
+            uf.union(a, b)
 
     return _groups_to_map(uf, freq)
 
