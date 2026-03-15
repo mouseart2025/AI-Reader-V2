@@ -59,5 +59,11 @@ frontend/src-tauri/target/
 frontend/src-tauri/binaries/
 frontend/src-tauri/resources/
 
+# Marketing system
+marketing/config.yaml
+marketing/output/
+marketing/*.db
+marketing/logs/
+
 # BMAD claude commands
 .claude/commands/bmad*
