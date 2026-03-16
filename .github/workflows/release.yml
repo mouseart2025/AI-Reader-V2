@@ -93,8 +93,12 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # Pin Python 3.11 to avoid PyInstaller bundling wrong DLLs / macOS Team ID signing errors
-      - name: Setup Python 3.11
+      # Pin Python 3.11 on Windows to avoid PyInstaller bundling wrong DLLs
+      # NOTE: macOS must NOT use setup-python — Python.org framework builds carry
+      # a Team ID signature that conflicts with ad-hoc signed PyInstaller sidecar.
+      # macOS relies on UV_PYTHON=3.11 which downloads uv-managed Python (no Team ID).
+      - name: Setup Python 3.11 (Windows)
+        if: runner.os == 'Windows'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
