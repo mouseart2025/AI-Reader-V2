@@ -50,9 +50,12 @@ jobs:
         run: cd frontend && npm ci
 
       # ── Backend sidecar build ───────────────
+      # Force uv-managed Python to avoid Python.org framework builds
+      # that carry Team ID signatures conflicting with PyInstaller ad-hoc signing
       - name: Install backend deps + PyInstaller
         env:
           UV_PYTHON: "3.11"
+          UV_PYTHON_PREFERENCE: only-managed
         run: |
           cd backend
           uv sync
@@ -61,6 +64,7 @@ jobs:
       - name: Remove heavy packages before PyInstaller
         env:
           UV_PYTHON: "3.11"
+          UV_PYTHON_PREFERENCE: only-managed
         run: |
           cd backend
           uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
@@ -68,6 +72,7 @@ jobs:
       - name: Build sidecar
         env:
           UV_PYTHON: "3.11"
+          UV_PYTHON_PREFERENCE: only-managed
         run: ./scripts/build-sidecar.sh --target aarch64-apple-darwin
 
       # ── Sign sidecar ────────────────────────

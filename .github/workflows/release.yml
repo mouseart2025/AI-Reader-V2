@@ -132,9 +132,16 @@ jobs:
         run: cd frontend && npm ci
 
       # Pin uv to Python 3.11 so venv isn't recreated with 3.13
+      # macOS: force uv-managed (python-build-standalone) Python to avoid
+      # Python.org framework builds that carry Team ID signatures, which
+      # conflict with PyInstaller's ad-hoc codesigning.
       - name: Pin UV_PYTHON
         shell: bash
-        run: echo "UV_PYTHON=3.11" >> "$GITHUB_ENV"
+        run: |
+          echo "UV_PYTHON=3.11" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
+          fi
 
       # ── Verify Python version before installing deps (fail-fast) ──
       - name: Verify Python version (pre-sync)
