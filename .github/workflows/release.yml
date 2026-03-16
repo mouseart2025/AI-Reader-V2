@@ -156,6 +156,25 @@ jobs:
           uv sync
           uv pip install pyinstaller
 
+      - name: Verify Python 3.11 in venv (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd backend
+          $ver = uv run python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+          Write-Host "Venv Python version: $ver"
+          if ($ver -ne "3.11") { Write-Error "Expected Python 3.11, got $ver"; exit 1 }
+
+      - name: Remove non-3.11 Python from PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # PyInstaller scans PATH for python3XX.dll — remove any Python != 3.11
+          $newPath = ($env:PATH -split ';' | Where-Object {
+            $_ -notmatch 'Python\\3\.(1[2-9]|[2-9][0-9])' -and $_ -notmatch 'Python3(1[2-9]|[2-9][0-9])'
+          }) -join ';'
+          echo "PATH=$newPath" >> $env:GITHUB_ENV
+
       - name: Remove heavy packages before PyInstaller
         shell: bash
         run: |
@@ -164,6 +183,23 @@ jobs:
 
       - name: Build sidecar
         run: ${{ matrix.sidecar_script }} --target ${{ matrix.target }}
+
+      # Verify sidecar was built with Python 3.11 (not 3.13)
+      - name: Verify sidecar Python version (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $binary = "frontend\src-tauri\binaries\ai-reader-sidecar-x86_64-pc-windows-msvc.exe"
+          $bytes = [System.IO.File]::ReadAllBytes($binary)
+          $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+          if ($text -match "python311\.dll") {
+            Write-Host "✅ Sidecar contains python311.dll reference"
+          } elseif ($text -match "python3(\d+)\.dll") {
+            Write-Error "❌ Sidecar contains python3$($Matches[1]).dll — expected python311.dll"
+            exit 1
+          } else {
+            Write-Warning "⚠️ Could not detect Python DLL reference in sidecar binary"
+          }
 
       # ── macOS: import cert + sign sidecar ───
       - name: Import macOS signing certificate
