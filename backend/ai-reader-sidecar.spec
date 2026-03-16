@@ -11,6 +11,7 @@ Copy to src-tauri/binaries/ with target-triple suffix — handled by scripts/bui
 """
 
 import importlib
+import sys
 from pathlib import Path
 
 backend_dir = Path(SPECPATH)
@@ -120,6 +121,8 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data)
 
+_is_macos = sys.platform == "darwin"
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -133,4 +136,8 @@ exe = EXE(
     strip=False,
     upx=False,
     console=True,
+    # macOS: ad-hoc sign all embedded binaries so extracted frameworks
+    # have matching Team ID with the sidecar process (fixes Python 3.13+ framework signing)
+    codesign_identity="-" if _is_macos else None,
+    entitlements_file=str(Path(SPECPATH).parent / "frontend" / "src-tauri" / "entitlements.plist") if _is_macos else None,
 )
