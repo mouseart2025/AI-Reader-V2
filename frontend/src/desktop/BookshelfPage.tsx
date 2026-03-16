@@ -46,6 +46,7 @@ export default function DesktopBookshelfPage() {
   const importingRef = useRef(false)
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [dragTxtFile, setDragTxtFile] = useState<File | null>(null)
   const [newVersion, setNewVersion] = useState<string | null>(null)
 
   // Auto-dismiss toast
@@ -196,6 +197,27 @@ export default function DesktopBookshelfPage() {
     }
   }, [handleAirImport])
 
+  /** HTML5 drag-and-drop .txt/.md files → auto-open UploadDialog */
+  const handleNativeDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    if (uploadOpen) {
+      setToast({ message: "正在处理上一个文件，请关闭后重试", type: "error" })
+      return
+    }
+    const files = Array.from(e.dataTransfer.files)
+    // Filter: only .txt/.md, skip .air (handled by DragDropOverlay)
+    const txtFiles = files.filter((f) => {
+      const ext = f.name.split(".").pop()?.toLowerCase()
+      return ext === "txt" || ext === "md"
+    })
+    if (txtFiles.length === 0) return
+    if (txtFiles.length > 1) {
+      setToast({ message: "一次只能上传一本小说", type: "error" })
+    }
+    setDragTxtFile(txtFiles[0])
+    setUploadOpen(true)
+  }, [uploadOpen])
+
   // Listen for file association: .air file opened via double-click
   useEffect(() => {
     let unlisten: (() => void) | undefined
@@ -245,7 +267,11 @@ export default function DesktopBookshelfPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-6 py-8 text-foreground">
+    <div
+      className="min-h-screen bg-background px-6 py-8 text-foreground"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleNativeDrop}
+    >
       {/* Header */}
       <div className="mx-auto mb-8 flex max-w-5xl items-start justify-between">
         <div>
@@ -415,8 +441,12 @@ export default function DesktopBookshelfPage() {
       {/* Upload Dialog (chapter split preview) */}
       <UploadDialog
         open={uploadOpen}
-        onOpenChange={setUploadOpen}
+        onOpenChange={(open) => {
+          setUploadOpen(open)
+          if (!open) setDragTxtFile(null)
+        }}
         onImported={loadNovels}
+        initialFile={dragTxtFile ?? undefined}
       />
 
       {/* SecurityGuide Dialog */}
