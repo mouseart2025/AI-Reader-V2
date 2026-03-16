@@ -7,10 +7,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ensureSidecar } from "@/api/sidecarBridge"
-import { fetchNovels, fetchActiveAnalyses, uploadNovelWithProgress, confirmImport } from "@/api/client"
-import type { Novel, UploadPreviewResponse } from "@/api/types"
+import { fetchNovels, fetchActiveAnalyses } from "@/api/client"
+import type { Novel } from "@/api/types"
 import { DragDropOverlay } from "./DragDropOverlay"
 import { SecurityGuide } from "./SecurityGuide"
+import { UploadDialog } from "@/components/shared/UploadDialog"
 import { HelpCircle, Upload, Settings, FileUp, BookOpen } from "lucide-react"
 
 interface PreviewResult {
@@ -44,9 +45,8 @@ export default function DesktopBookshelfPage() {
   const [importing, setImporting] = useState(false)
   const importingRef = useRef(false)
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const [newVersion, setNewVersion] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -114,39 +114,10 @@ export default function DesktopBookshelfPage() {
     loadNovels()
   }, [loadNovels])
 
-  /** TXT upload via REST API */
+  /** TXT upload via UploadDialog */
   const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click()
+    setUploadOpen(true)
   }, [])
-
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    // Reset input so same file can be selected again
-    e.target.value = ""
-
-    try {
-      setUploadProgress(0)
-      const preview: UploadPreviewResponse = await uploadNovelWithProgress(file, (pct) => {
-        setUploadProgress(pct)
-      })
-      setUploadProgress(null)
-
-      // Auto-confirm with default settings
-      await confirmImport({
-        file_hash: preview.file_hash,
-        title: preview.title,
-        author: preview.author,
-      })
-
-      await loadNovels()
-      setToast({ message: `「${preview.title}」上传成功`, type: "success" })
-    } catch (err) {
-      setUploadProgress(null)
-      const msg = err instanceof Error ? err.message : String(err)
-      setToast({ message: msg, type: "error" })
-    }
-  }, [loadNovels])
 
   /** .air file import via Tauri IPC */
   const handleAirImport = useCallback(async (filePath: string) => {
@@ -275,15 +246,6 @@ export default function DesktopBookshelfPage() {
 
   return (
     <div className="min-h-screen bg-background px-6 py-8 text-foreground">
-      {/* Hidden file input for TXT upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".txt"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
-
       {/* Header */}
       <div className="mx-auto mb-8 flex max-w-5xl items-start justify-between">
         <div>
@@ -306,11 +268,10 @@ export default function DesktopBookshelfPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleUploadClick}
-            disabled={uploadProgress !== null}
-            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500"
           >
             <FileUp className="size-4" />
-            {uploadProgress !== null ? `上传 ${uploadProgress}%` : "上传小说"}
+            上传小说
           </button>
           <button
             onClick={handleImportClick}
@@ -450,6 +411,13 @@ export default function DesktopBookshelfPage() {
           {toast.message}
         </div>
       )}
+
+      {/* Upload Dialog (chapter split preview) */}
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onImported={loadNovels}
+      />
 
       {/* SecurityGuide Dialog */}
       {showGuide && (
