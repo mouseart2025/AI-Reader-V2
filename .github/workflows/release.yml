@@ -140,10 +140,11 @@ jobs:
       - name: Verify Python version (pre-sync)
         shell: bash
         run: |
-          PYVER=$(uv python find 2>/dev/null || echo "")
-          echo "uv will use Python: ${PYVER:-not found}"
+          # Use UV_PYTHON constraint to find the correct interpreter
+          PYVER=$(uv python find "$UV_PYTHON" 2>/dev/null || echo "")
+          echo "uv will use Python: ${PYVER:-not found (uv will download)}"
           if [ -z "$PYVER" ]; then
-            echo "::warning::uv python find returned nothing — uv will download Python 3.11 via UV_PYTHON"
+            echo "::notice::No local Python $UV_PYTHON found — uv will auto-download it during sync"
           elif [[ "$PYVER" != *"3.11"* ]]; then
             echo "::error::Expected Python 3.11 but uv found $PYVER. Check UV_PYTHON and setup-python."
             exit 1
