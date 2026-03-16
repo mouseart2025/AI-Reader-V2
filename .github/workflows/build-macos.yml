@@ -54,17 +54,23 @@ jobs:
 
       # ── Backend sidecar build ───────────────
       - name: Install backend deps + PyInstaller
+        env:
+          UV_PYTHON: "3.11"
         run: |
           cd backend
           uv sync
           uv pip install pyinstaller
 
       - name: Remove heavy packages before PyInstaller
+        env:
+          UV_PYTHON: "3.11"
         run: |
           cd backend
           uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
 
       - name: Build sidecar
+        env:
+          UV_PYTHON: "3.11"
         run: ./scripts/build-sidecar.sh --target aarch64-apple-darwin
 
       # ── Sign sidecar ────────────────────────
