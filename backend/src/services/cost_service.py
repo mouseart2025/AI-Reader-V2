@@ -6,20 +6,24 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 
-from src.infra.config import LLM_MODEL, LLM_PROVIDER
+from src.infra import config as _config
 
 _DEFAULT_MONTHLY_BUDGET_CNY = 50.0
 
 # ── Pricing per 1M tokens (USD) ─────────────────────
 
 _PRICING: dict[str, tuple[float, float]] = {
-    # (input_per_1m, output_per_1m)
+    # (input_per_1m, output_per_1m) in USD
     "deepseek-chat": (0.27, 1.10),
     "deepseek-reasoner": (0.55, 2.19),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4o": (2.50, 10.00),
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4.1-nano": (0.10, 0.40),
+    "MiniMax-M2.5": (0.14, 1.10),
+    "qwen-plus": (0.28, 0.83),
+    "moonshot-v1-auto": (0.69, 0.69),
+    "glm-4-flash": (0.0, 0.0),
 }
 
 _DEFAULT_PRICING = (0.50, 1.50)  # conservative fallback
@@ -90,8 +94,8 @@ def estimate_analysis_cost(
         provider: LLM provider override (default: current config).
         model: Model name override (default: current config).
     """
-    effective_provider = provider or LLM_PROVIDER
-    effective_model = model or LLM_MODEL
+    effective_provider = provider or _config.LLM_PROVIDER
+    effective_model = model or _config.LLM_MODEL
 
     input_price, output_price = get_pricing(effective_model)
 

@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![Version](https://img.shields.io/badge/version-0.52.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.52.2-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -65,8 +65,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.52.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.52.1/AI.Reader_0.52.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.52.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.52.1/AI.Reader_0.52.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.52.2_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.52.2/AI.Reader_0.52.2_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.52.2_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.52.2/AI.Reader_0.52.2_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 这是因为应用未经 Apple 签名。请在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -108,6 +108,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.52.2 | 2026-03-17 | 双平台构建修复（macOS Team ID 签名冲突修复 + Windows PATH 清理 + sidecar Python 版本验证），CI release.yml 与 build-windows.yml 步骤对齐 |
 | v0.52.1 | 2026-03-16 | 跨平台一致性修复（版本同步脚本 + CI macOS Python pinning + Remove heavy packages 全平台化 + CI 触发分离），桌面端功能补齐（FloatingChatPanel + .txt 拖拽上传） |
 | v0.52.0 | 2026-03-15 | 智能问答增强（关系数据注入 + 问题感知过滤 + 别名解析 + 防幻觉约束），别名合并修复（dict 阶段主实体合并 + 大组延迟合并 + 西游记别名全合并） |
 | v0.51.1 | 2026-03-14 | 全量备份导出修复（Tauri 下载 + 格式 v5 补全 scenes/map/conversations），Windows 无 Ollama 体验优化（LLM 预检 + 模型显示刷新 + 重试错误反馈） |
