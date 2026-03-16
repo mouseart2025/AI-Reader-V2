@@ -3,12 +3,17 @@
  * 通过 sidecar 连接本地 FastAPI 后端，直接复用生产页面
  */
 
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom"
 import { fetchNovels } from "@/api/client"
 import { ensureSidecar } from "@/api/sidecarBridge"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import type { Novel } from "@/api/types"
+
+const FloatingChatPanel = lazy(() =>
+  import("@/components/chat/FloatingChatPanel").then((m) => ({ default: m.FloatingChatPanel })),
+)
+
 import {
   BookOpen,
   GitBranch,
@@ -166,6 +171,9 @@ export default function DesktopLayout() {
       <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
+
+      {/* Floating Chat Panel — hidden on dedicated chat tab to avoid duplication */}
+      {novelId && activeTab !== "chat" && <Suspense><FloatingChatPanel /></Suspense>}
 
       {/* Entity Card Drawer */}
       <EntityCardDrawer novelId={novelId} />
