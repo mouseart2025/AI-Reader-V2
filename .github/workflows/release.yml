@@ -257,6 +257,28 @@ jobs:
         working-directory: frontend/src-tauri
         run: cargo tauri build --target ${{ matrix.target }}
 
+      # Tauri's linker-signed adhoc signature is malformed (claims sealed
+      # resources but has none). Re-sign the .app and rebuild DMG.
+      - name: Re-sign app and rebuild DMG (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP_DIR="frontend/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          DMG_DIR="frontend/src-tauri/target/${{ matrix.target }}/release/bundle/dmg"
+          APP_PATH="$APP_DIR/AI Reader.app"
+
+          echo ">> Re-signing app bundle..."
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign --verify --deep --strict "$APP_PATH"
+          echo "✅ App signature verified"
+
+          echo ">> Rebuilding DMG..."
+          rm -f "$DMG_DIR"/*.dmg
+          VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
+          DMG_NAME="AI.Reader_${VERSION}_aarch64.dmg"
+          hdiutil create -volname "AI Reader" -srcfolder "$APP_PATH" \
+            -ov -format UDZO "$DMG_DIR/$DMG_NAME"
+          echo "✅ DMG rebuilt: $DMG_NAME"
+
       - name: Build Tauri app (Windows)
         if: runner.os == 'Windows'
         working-directory: frontend/src-tauri

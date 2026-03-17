@@ -105,6 +105,18 @@ jobs:
         working-directory: frontend/src-tauri
         run: cargo tauri build --target aarch64-apple-darwin
 
+      # Tauri's linker-signed adhoc signature is malformed — re-sign and rebuild DMG
+      - name: Re-sign app and rebuild DMG
+        run: |
+          APP_PATH="frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AI Reader.app"
+          DMG_DIR="frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg"
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign --verify --deep --strict "$APP_PATH"
+          rm -f "$DMG_DIR"/*.dmg
+          VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
+          hdiutil create -volname "AI Reader" -srcfolder "$APP_PATH" \
+            -ov -format UDZO "$DMG_DIR/AI.Reader_${VERSION}_aarch64.dmg"
+
       # ── Upload artifact ─────────────────────
       - name: Upload DMG
         uses: actions/upload-artifact@v4
