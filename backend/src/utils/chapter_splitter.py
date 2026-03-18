@@ -45,13 +45,17 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             re.MULTILINE,
         ),
     ),
-    # Mode 2: 第X回/节/卷/幕/场/部 OR 卷X (reversed order, e.g. 卷一 01标题)
+    # Mode 2: 第X回/节/卷/幕/场/部 OR 卷X (reversed order) OR (第X部)/(第X卷) (parenthesized)
     # Lookahead prevents false matches like 第二回你... (meaning "second time")
     # or 第三部分 (meaning "part 3") where the suffix is part of a word
     (
         "section_zh",
         re.compile(
-            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d]))[^\S\n：:]*(.*)$",
+            r"^\s*(?:"
+            r"[(（]第[零〇一二两三四五六七八九十百千万\d]+[卷部][)）]"  # (第X卷) / (第X部)
+            r"|第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])"  # 第X回/节/卷/部
+            r"|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d])"  # 卷X
+            r")[^\S\n：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
@@ -343,10 +347,18 @@ def infer_pattern_from_points(text: str, split_points: list[int]) -> str | None:
     if len(headings) < 2:
         return None
 
-    # Check against existing patterns first
+    # Pre-clean: strip leading parentheses/brackets for consistency
+    # e.g. "(第一部)芳汀" → "第一部)芳汀" — helps find common structure
+    def _strip_brackets(s: str) -> str:
+        return s.lstrip("(（[【〖")
+
+    # Check against existing patterns (on both raw and cleaned headings)
     for _, pattern in _PATTERNS:
         if all(pattern.match(h) for h in headings):
             return None  # Already covered by built-in mode
+        cleaned = [_strip_brackets(h) for h in headings]
+        if all(pattern.match(h) for h in cleaned):
+            return None  # Covered after bracket stripping
 
     # Tokenize headings into typed segments
     # Order matters: Chinese numbers first, then digits, then CJK single chars, then ASCII words
@@ -378,6 +390,14 @@ def infer_pattern_from_points(text: str, split_points: list[int]) -> str | None:
         return tokens
 
     tokenized = [_tokenize(h) for h in headings]
+
+    # If first tokens diverge (e.g. "(" vs "第"), try bracket-stripped versions
+    if len(set(t[0][1] for t in tokenized if t)) > 1:
+        cleaned = [_strip_brackets(h) for h in headings]
+        cleaned_tokens = [_tokenize(c) for c in cleaned]
+        if len(set(t[0][1] for t in cleaned_tokens if t)) < len(set(t[0][1] for t in tokenized if t)):
+            headings = cleaned
+            tokenized = cleaned_tokens
 
     # Find the minimum token count — align up to that length
     min_len = min(len(t) for t in tokenized)
