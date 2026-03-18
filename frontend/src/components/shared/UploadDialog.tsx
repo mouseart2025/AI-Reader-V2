@@ -72,6 +72,13 @@ const MODE_LABELS: Record<string, string> = {
   fixed_size: "按字数切分 (~8000字/段)",
 }
 
+const GENRE_LABELS: Record<string, string> = {
+  novel: "长篇小说",
+  short_collection: "短篇集",
+  essay: "散文",
+  poetry: "诗集",
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   url: "链接",
   promo: "推广",
@@ -82,6 +89,115 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 /** Diagnosis tags that trigger automatic expansion to split-pane mode */
 const EXPAND_TAGS = new Set(["FALLBACK_USED", "NO_HEADING_MATCH", "SINGLE_HUGE_CHAPTER"])
+
+/** Friendly user-facing messages for each diagnosis tag (fallback when backend doesn't provide user_message) */
+const DIAGNOSIS_USER_MESSAGES: Record<string, string> = {
+  NO_HEADING_MATCH: "未能自动识别章节格式，请尝试选择切分模式或手动标记",
+  FALLBACK_USED: "已使用备选方式切分，建议确认章节划分是否正确",
+  SINGLE_HUGE_CHAPTER: "整本书被识别为一个章节，可能需要选择其他切分方式",
+  HEADING_TOO_SPARSE: "检测到的章节较少，可能遗漏了部分章节",
+  HEADING_TOO_DENSE: "检测到的章节过多，可能有内容被误识别为标题",
+  MODE_MISMATCH: "检测到两种可能的切分方式，请确认",
+}
+
+function DiagnosisBanner({
+  diagnosis,
+  reSplitting,
+  onFixedSizeSplit,
+}: {
+  diagnosis: import("@/api/types").SplitDiagnosis
+  reSplitting: boolean
+  onFixedSizeSplit: () => void
+}) {
+  const [showDetail, setShowDetail] = useState(false)
+
+  const userMessage =
+    diagnosis.user_message || DIAGNOSIS_USER_MESSAGES[diagnosis.tag] || diagnosis.message
+  const technicalDetail = diagnosis.technical_detail || diagnosis.message
+  // Only show expand toggle when technical detail differs from user message
+  const hasTechnicalDetail = technicalDetail !== userMessage
+
+  // Auto-optimized: show green success banner
+  if (diagnosis.auto_optimized) {
+    return (
+      <div className="flex items-start gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="flex-1 space-y-1">
+          <p>{userMessage}</p>
+          {hasTechnicalDetail && (
+            <button
+              type="button"
+              className="text-xs underline opacity-60 hover:opacity-100"
+              onClick={() => setShowDetail(!showDetail)}
+            >
+              {showDetail ? "收起详情" : "技术详情"}
+            </button>
+          )}
+          {showDetail && hasTechnicalDetail && (
+            <div className="rounded bg-black/5 px-2 py-1.5 font-mono text-xs dark:bg-white/5">
+              <p>{technicalDetail}</p>
+              {diagnosis.original_mode && (
+                <p className="mt-1 opacity-75">原始模式: {diagnosis.original_mode}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const bgClass =
+    diagnosis.tag === "FALLBACK_USED"
+      ? "bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+      : diagnosis.tag === "SINGLE_HUGE_CHAPTER" || diagnosis.tag === "NO_HEADING_MATCH"
+        ? "bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-200"
+        : "bg-yellow-50 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
+
+  return (
+    <div className={`flex items-start gap-2 rounded-md px-3 py-2 text-sm ${bgClass}`}>
+      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="flex-1 space-y-1">
+        <p>{userMessage}</p>
+        {hasTechnicalDetail && (
+          <button
+            type="button"
+            className="text-xs underline opacity-60 hover:opacity-100"
+            onClick={() => setShowDetail(!showDetail)}
+          >
+            {showDetail ? "收起详情" : "技术详情"}
+          </button>
+        )}
+        {showDetail && hasTechnicalDetail && (
+          <div className="rounded bg-black/5 px-2 py-1.5 font-mono text-xs dark:bg-white/5">
+            <p>{technicalDetail}</p>
+            {diagnosis.suggestion && (
+              <p className="mt-1 opacity-75">{diagnosis.suggestion}</p>
+            )}
+          </div>
+        )}
+        {!showDetail && !hasTechnicalDetail && diagnosis.suggestion && (
+          <p className="text-xs opacity-75">{diagnosis.suggestion}</p>
+        )}
+        {(diagnosis.tag === "SINGLE_HUGE_CHAPTER" || diagnosis.tag === "NO_HEADING_MATCH") && (
+          <Button
+            variant="outline"
+            size="xs"
+            className="mt-1"
+            onClick={onFixedSizeSplit}
+            disabled={reSplitting}
+          >
+            {reSplitting ? (
+              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="mr-1.5 h-3 w-3" />
+            )}
+            一键按字数切分
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 type Stage = "select" | "uploading" | "preview" | "duplicate" | "confirming" | "import-preview" | "import-confirming"
 
@@ -680,6 +796,11 @@ export function UploadDialog({
                       模式: {MODE_LABELS[preview.matched_mode] ?? preview.matched_mode}
                     </span>
                   )}
+                  {diagnosis?.detected_genre && diagnosis.detected_genre !== "unknown" && (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                      {GENRE_LABELS[diagnosis.detected_genre] ?? diagnosis.detected_genre}
+                    </span>
+                  )}
                   {splitPoints.length > 0 && (
                     <span className="text-xs text-red-500">
                       + {splitPoints.length} 个手动标记
@@ -687,39 +808,13 @@ export function UploadDialog({
                   )}
                 </div>
 
-                {/* Diagnosis banner */}
+                {/* Diagnosis banner — two-layer display */}
                 {diagnosis && diagnosis.tag !== "OK" && (
-                  <div className={`flex items-start gap-2 rounded-md px-3 py-2 text-sm ${
-                    diagnosis.tag === "FALLBACK_USED"
-                      ? "bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
-                      : diagnosis.tag === "SINGLE_HUGE_CHAPTER" || diagnosis.tag === "NO_HEADING_MATCH"
-                        ? "bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-200"
-                        : "bg-yellow-50 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200"
-                  }`}>
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="flex-1 space-y-1">
-                      <p>{diagnosis.message}</p>
-                      {diagnosis.suggestion && (
-                        <p className="text-xs opacity-75">{diagnosis.suggestion}</p>
-                      )}
-                      {(diagnosis.tag === "SINGLE_HUGE_CHAPTER" || diagnosis.tag === "NO_HEADING_MATCH") && (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          className="mt-1"
-                          onClick={handleFixedSizeSplit}
-                          disabled={reSplitting}
-                        >
-                          {reSplitting ? (
-                            <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                          ) : (
-                            <Sparkles className="mr-1.5 h-3 w-3" />
-                          )}
-                          一键按字数切分
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  <DiagnosisBanner
+                    diagnosis={diagnosis}
+                    reSplitting={reSplitting}
+                    onFixedSizeSplit={handleFixedSizeSplit}
+                  />
                 )}
 
                 {/* Hygiene report banner */}

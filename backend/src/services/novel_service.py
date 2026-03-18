@@ -74,6 +74,18 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
     chapter_count = len(chapters)
     max_words = max((ch.word_count for ch in chapters), default=0)
     avg_words = total_words // chapter_count if chapter_count > 0 else 0
+    genre = getattr(split_result, "detected_genre", "unknown")
+
+    # Genre-based early returns (essay/poetry are intentional, not failures)
+    if genre in ("essay", "poetry"):
+        genre_label = "散文" if genre == "essay" else "诗集"
+        return SplitDiagnosis(
+            tag="OK",
+            message=f"文本被识别为{genre_label}，当前切分已适配",
+            user_message=f"此文本为{genre_label}，无需章节划分",
+            technical_detail=f"detected_genre={genre}, matched_mode={split_result.matched_mode}",
+            detected_genre=genre,
+        )
 
     # Fallback used (heuristic or fixed_size as auto-fallback)
     if split_result.is_fallback:
@@ -82,12 +94,18 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
                 tag="NO_HEADING_MATCH",
                 message="未检测到标准章节标题，已按段落/字数自动切分",
                 suggestion="您也可以尝试自定义正则表达式",
+                user_message="未能自动识别章节格式，请尝试选择切分模式或手动标记",
+                technical_detail=f"matched_mode=fixed_size (fallback), genre={genre}",
+                detected_genre=genre,
             )
         if split_result.matched_mode == "heuristic_title":
             return SplitDiagnosis(
                 tag="FALLBACK_USED",
                 message="未检测到标准章节格式，已通过启发式标题检测自动切分",
                 suggestion="如果切分结果不理想，可以尝试其他模式或自定义正则",
+                user_message="已使用备选方式切分，建议确认章节划分是否正确",
+                technical_detail=f"matched_mode=heuristic_title (fallback), genre={genre}",
+                detected_genre=genre,
             )
 
     # Single huge chapter
@@ -96,6 +114,9 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             tag="SINGLE_HUGE_CHAPTER",
             message=f"仅检测到 1 个章节（{max_words} 字），可能章节切分未生效",
             suggestion="建议使用「按字数切分」模式",
+            user_message="整本书被识别为一个章节，可能需要选择其他切分方式",
+            technical_detail=f"chapter_count=1, max_words={max_words}, mode={split_result.matched_mode}",
+            detected_genre=genre,
         )
 
     # Headings too sparse
@@ -104,6 +125,9 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             tag="HEADING_TOO_SPARSE",
             message=f"检测到的章节较少（{chapter_count} 章 / {total_words} 字），可能遗漏了部分章节标题",
             suggestion="可以尝试切换切分模式或使用自定义正则",
+            user_message="检测到的章节较少，可能遗漏了部分章节",
+            technical_detail=f"chapter_count={chapter_count}, total_words={total_words}, mode={split_result.matched_mode}",
+            detected_genre=genre,
         )
 
     # Headings too dense
@@ -112,9 +136,17 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             tag="HEADING_TOO_DENSE",
             message=f"章节过多过短（{chapter_count} 章，章均 {avg_words} 字），可能误将正文识别为标题",
             suggestion="建议切换到其他切分模式",
+            user_message="检测到的章节过多，可能有内容被误识别为标题",
+            technical_detail=f"chapter_count={chapter_count}, avg_words={avg_words}, mode={split_result.matched_mode}",
+            detected_genre=genre,
         )
 
-    return SplitDiagnosis(tag="OK", message="章节切分正常")
+    return SplitDiagnosis(
+        tag="OK",
+        message="章节切分正常",
+        user_message="章节切分正常",
+        detected_genre=genre,
+    )
 
 
 def _compute_chapter_offsets(

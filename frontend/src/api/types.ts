@@ -76,6 +76,13 @@ export interface SplitDiagnosis {
   tag: string
   message: string
   suggestion?: string
+  // Sprint C backend fields — optional for forward compatibility
+  auto_optimized?: boolean
+  user_message?: string
+  technical_detail?: string
+  detected_genre?: string
+  original_mode?: string | null
+  alternatives_tried?: string[]
 }
 
 export interface SuspectLine {
