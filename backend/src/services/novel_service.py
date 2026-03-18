@@ -16,7 +16,7 @@ from src.api.schemas.novels import (
 )
 from src.db import novel_store
 from src.utils.chapter_classifier import classify_chapters
-from src.utils.chapter_splitter import AVAILABLE_MODES, ChapterInfo, SplitResult, split_chapters, split_chapters_ex
+from src.utils.chapter_splitter import AVAILABLE_MODES, ChapterInfo, SplitResult, split_chapters, split_chapters_ex, infer_pattern_from_points
 from src.utils.text_processor import decode_text
 
 # In-memory cache for upload previews (file_hash -> cached data)
@@ -455,6 +455,69 @@ async def re_split(
     cached.chapters = split_result.chapters
 
     return preview
+
+
+async def infer_and_resplit(
+    file_hash: str,
+    split_points: list[int],
+) -> dict:
+    """Infer a regex from user-marked split points, then re-split using it.
+
+    Returns the inferred regex and the re-split preview.
+    """
+    _evict_expired()
+
+    cached = _upload_cache.get(file_hash)
+    if not cached:
+        raise ValueError("上传数据已过期，请重新上传文件 (expired)")
+
+    text = cached.raw_text
+    inferred = infer_pattern_from_points(text, split_points)
+
+    if not inferred:
+        # Inference failed — fall back to manual split points
+        split_result = split_chapters_ex(text, split_points=split_points)
+        preview = _build_preview(
+            title=cached.preview.title,
+            author=cached.preview.author,
+            file_hash=file_hash,
+            split_result=split_result,
+            duplicate_novel_id=cached.preview.duplicate_novel_id,
+            raw_text=text,
+        )
+        if cached.preview.hygiene_report:
+            preview.hygiene_report = cached.preview.hygiene_report
+        cached.preview = preview
+        cached.chapters = split_result.chapters
+        return {
+            "inferred_regex": None,
+            "message": "未能从标记点推断出共同模式，已按手动标记切分",
+            "preview": preview,
+        }
+
+    # Use inferred regex to re-split
+    split_result = split_chapters_ex(text, custom_regex=inferred)
+    preview = _build_preview(
+        title=cached.preview.title,
+        author=cached.preview.author,
+        file_hash=file_hash,
+        split_result=split_result,
+        duplicate_novel_id=cached.preview.duplicate_novel_id,
+        raw_text=text,
+    )
+    if cached.preview.hygiene_report:
+        preview.hygiene_report = cached.preview.hygiene_report
+    cached.preview = preview
+    cached.chapters = split_result.chapters
+
+    import re
+    match_count = len(list(re.compile(inferred, re.MULTILINE).finditer(text)))
+    return {
+        "inferred_regex": inferred,
+        "match_count": match_count,
+        "message": f"从标记点推断出模式，共匹配 {match_count} 处",
+        "preview": preview,
+    }
 
 
 async def clean_and_resplit(

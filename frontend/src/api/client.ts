@@ -290,6 +290,18 @@ export function reSplitChapters(req: ReSplitRequest): Promise<UploadPreviewRespo
   })
 }
 
+export function inferPattern(req: { file_hash: string; split_points: number[] }): Promise<{
+  inferred_regex: string | null
+  match_count?: number
+  message: string
+  preview: UploadPreviewResponse
+}> {
+  return apiFetch("/novels/infer-pattern", {
+    method: "POST",
+    body: JSON.stringify(req),
+  })
+}
+
 export function fetchRawText(fileHash: string): Promise<{ text: string }> {
   return apiFetch<{ text: string }>(`/novels/raw-text/${encodeURIComponent(fileHash)}`)
 }

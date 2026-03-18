@@ -80,6 +80,21 @@ async def get_raw_text(file_hash: str):
     return {"text": text}
 
 
+@router.post("/infer-pattern")
+async def infer_pattern(req: ReSplitRequest):
+    """Infer a regex pattern from user-marked split points, then re-split using it."""
+    if not req.split_points or len(req.split_points) < 2:
+        raise HTTPException(status_code=400, detail="至少需要标记 2 个分割点才能推断模式")
+    try:
+        result = await novel_service.infer_and_resplit(
+            file_hash=req.file_hash,
+            split_points=req.split_points,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
+
+
 @router.post("/clean-and-resplit", response_model=UploadPreviewResponse)
 async def clean_and_resplit(req: CleanAndReSplitRequest):
     """Clean text noise and re-split chapters."""

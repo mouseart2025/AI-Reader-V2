@@ -43,13 +43,13 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             re.MULTILINE,
         ),
     ),
-    # Mode 2: 第X回/节/卷/幕/场/部
+    # Mode 2: 第X回/节/卷/幕/场/部 OR 卷X (reversed order, e.g. 卷一 01标题)
     # Lookahead prevents false matches like 第二回你... (meaning "second time")
     # or 第三部分 (meaning "part 3") where the suffix is part of a word
     (
         "section_zh",
         re.compile(
-            r"^\s*第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])[\s：:]*(.*)$",
+            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d]))[\s：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
@@ -280,6 +280,105 @@ def _score_mode(mode: str, matches: list[re.Match], text: str, genre: str) -> fl
         score *= 1.5
 
     return score
+
+
+def infer_pattern_from_points(text: str, split_points: list[int]) -> str | None:
+    """Infer a regex pattern from user-marked split points.
+
+    Extracts the heading line at each split point, analyzes common structure,
+    and generates a regex that matches similar headings throughout the text.
+    Returns a regex string or None if no common pattern can be inferred.
+    """
+    if len(split_points) < 2:
+        return None
+
+    # Extract the heading line at each split point
+    headings: list[str] = []
+    for pos in sorted(split_points):
+        # Find the line containing or just after the split point
+        line_start = text.rfind("\n", 0, pos) + 1
+        line_end = text.find("\n", pos)
+        if line_end == -1:
+            line_end = len(text)
+        line = text[line_start:line_end].strip()
+        if line:
+            headings.append(line)
+
+    if len(headings) < 2:
+        return None
+
+    # Try to find a common prefix pattern
+    # Strategy: find the longest common prefix, then generalize it to a regex
+
+    # Step 1: Check against existing patterns — maybe the user is marking known patterns
+    for mode_name, pattern in _PATTERNS:
+        matches = sum(1 for h in headings if pattern.match(h))
+        if matches == len(headings):
+            # All headings match this pattern — the user's marks align with an existing mode
+            # Return None to let the caller use this mode directly
+            return None
+
+    # Step 2: Find longest common prefix
+    prefix = headings[0]
+    for h in headings[1:]:
+        while prefix and not h.startswith(prefix):
+            prefix = prefix[:-1]
+
+    # Step 3: Generalize prefix to regex
+    # Common patterns to detect:
+    #   "卷一 01..." → "卷[一二三...] "
+    #   "第1节..." → "第\d+节"
+    #   "Chapter 1..." → "Chapter \d+"
+    if not prefix:
+        # No common prefix — try character-class generalization
+        # Check if all headings start with the same Chinese/English word
+        first_chars = set(h[0] for h in headings if h)
+        if len(first_chars) == 1:
+            prefix = headings[0][0]
+
+    if not prefix:
+        return None
+
+    # Generalize: replace varying parts with regex classes
+    regex = re.escape(prefix)
+
+    # Replace Chinese numbers with character class
+    cn_num_chars = "零〇一二两三四五六七八九十百千万"
+    cn_num_class = f"[{cn_num_chars}\\d]+"
+    # Find Chinese number runs in the prefix and replace
+    cn_run = re.compile(f"[{re.escape(cn_num_chars)}]+")
+    if cn_run.search(prefix):
+        regex = cn_run.sub(lambda m: cn_num_class, prefix)
+        # Re-escape non-special parts (but keep the character class)
+        parts = []
+        for segment in re.split(f"({re.escape(cn_num_class)})", regex):
+            if segment == cn_num_class:
+                parts.append(cn_num_class)
+            else:
+                parts.append(re.escape(segment))
+        regex = "".join(parts)
+
+    # Replace digit runs with \d+
+    regex = re.sub(r"\\d\+", r"\\d+", regex)  # already escaped
+    digit_run = re.compile(r"(?<!\\)\d+")
+    if digit_run.search(regex):
+        regex = digit_run.sub(r"\\d+", regex)
+
+    # Add line anchor
+    regex = f"^{regex}"
+
+    # Validate: compile and check it matches all headings + finds more in text
+    try:
+        pat = re.compile(regex, re.MULTILINE)
+        heading_matches = sum(1 for h in headings if pat.match(h))
+        if heading_matches < len(headings):
+            return None  # Regex doesn't match all user-marked headings
+        full_matches = len(list(pat.finditer(text)))
+        if full_matches < 2:
+            return None  # Regex doesn't find enough matches in the full text
+        return regex
+    except re.error:
+        return None
 
 
 def split_chapters(
