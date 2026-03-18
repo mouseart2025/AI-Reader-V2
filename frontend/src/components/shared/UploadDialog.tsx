@@ -22,6 +22,7 @@ import {
   deleteNovel,
   fetchSplitModes,
   reSplitChapters,
+  inferPattern,
   cleanAndResplit,
   fetchRawText,
 } from "@/api/client"
@@ -581,6 +582,27 @@ export function UploadDialog({
 
   const handleFixedSizeSplit = () => doReSplit("fixed_size", null)
 
+  const handleInferPattern = async () => {
+    if (!preview || splitPoints.length < 2) return
+    setReSplitting(true)
+    setError(null)
+    try {
+      const result = await inferPattern({
+        file_hash: preview.file_hash,
+        split_points: splitPoints,
+      })
+      setPreview(result.preview)
+      if (result.inferred_regex) {
+        setSplitPoints([])
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "智能推断失败"
+      setError(msg)
+    } finally {
+      setReSplitting(false)
+    }
+  }
+
   const handleCleanAndResplit = async () => {
     if (!preview) return
     setCleaning(true)
@@ -805,6 +827,21 @@ export function UploadDialog({
                     <span className="text-xs text-red-500">
                       + {splitPoints.length} 个手动标记
                     </span>
+                  )}
+                  {splitPoints.length >= 2 && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={handleInferPattern}
+                      disabled={reSplitting}
+                    >
+                      {reSplitting ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-1 h-3 w-3" />
+                      )}
+                      智能推断模式
+                    </Button>
                   )}
                 </div>
 
