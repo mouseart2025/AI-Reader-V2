@@ -243,6 +243,32 @@ def detect_text_genre(text: str) -> tuple[str, float]:
     return ("unknown", 0.5)
 
 
+def _detect_pagination_pattern(text: str) -> re.Pattern | None:
+    """Detect web-scraped pagination markers like 书名(N).
+
+    Looks for repeated lines matching the pattern: CJK_title(digit)
+    where the title is consistent and digits are sequential.
+    Returns a compiled regex pattern or None.
+    """
+    # Find all lines matching 中文(数字) pattern
+    pat = re.compile(r"^(.{1,20})\((\d+)\)\s*$", re.MULTILINE)
+    matches = list(pat.finditer(text))
+    if len(matches) < 5:
+        return None
+
+    # Check if the title part is consistent
+    titles = [m.group(1).strip() for m in matches]
+    from collections import Counter
+    title_counts = Counter(titles)
+    dominant_title, count = title_counts.most_common(1)[0]
+    if count < len(matches) * 0.8:
+        return None  # Title isn't consistent enough
+
+    # Build regex for this specific pagination pattern (group 1 = page number)
+    escaped = re.escape(dominant_title)
+    return re.compile(rf"^{escaped}\((\d+)\)\s*$", re.MULTILINE)
+
+
 def _score_mode(mode: str, matches: list[re.Match], text: str, genre: str) -> float:
     """Score a candidate split mode based on match quality.
 
@@ -595,6 +621,16 @@ def split_chapters_ex(
             best_score = score
 
     if not best_matches:
+        # Try pagination pattern: 书名(N) — common in web-scraped TXT files
+        pagination = _detect_pagination_pattern(text)
+        if pagination:
+            pag_matches = list(pagination.finditer(text))
+            if len(pag_matches) >= 5:  # Need at least 5 to be meaningful
+                chapters = _split_by_matches(text, "pagination", pag_matches)
+                chapters = _subsplit_oversized(chapters)
+                return SplitResult(chapters=chapters, matched_mode="pagination",
+                                   is_fallback=True, detected_genre=genre)
+
         # No regex pattern matched >= 2 times — try heuristic title detection
         chapters = _heuristic_title_split(text)
         if chapters:
@@ -766,6 +802,10 @@ def _extract_title(mode: str, match: re.Match) -> str:
     """Extract a clean chapter title from a regex match."""
     if mode == "separator":
         return ""  # Placeholder — overridden in _split_by_matches
+
+    if mode == "pagination":
+        # Page number from group 1
+        return match.group(0).strip()
 
     if mode in ("numbered", "cn_numbered"):
         # Group 2 is the title text after the number
