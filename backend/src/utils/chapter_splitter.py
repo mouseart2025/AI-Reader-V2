@@ -282,12 +282,47 @@ def _score_mode(mode: str, matches: list[re.Match], text: str, genre: str) -> fl
     return score
 
 
+_CJK_SEQUENCES = [
+    "上中下",
+    "甲乙丙丁戊己庚辛壬癸",
+    "子丑寅卯辰巳午未申酉戌亥",
+    "春夏秋冬",
+    "东南西北",
+    "前后",
+    "左右",
+    "内外",
+]
+
+
+def _expand_cjk_class(chars: set[str]) -> str:
+    """Expand a set of CJK characters using known sequences.
+
+    E.g., {"上", "中"} → "上中下" (adds "下" from the 上中下 sequence).
+    """
+    result = set(chars)
+    for seq in _CJK_SEQUENCES:
+        if chars <= set(seq) and len(chars & set(seq)) >= 2:
+            result |= set(seq)
+        elif len(chars & set(seq)) >= 1 and len(chars) <= 3:
+            # At least one char matches a sequence — add the full sequence
+            if all(c in seq for c in chars if c in set(seq)):
+                result |= set(seq)
+    return "".join(sorted(result))
+
+
 def infer_pattern_from_points(text: str, split_points: list[int]) -> str | None:
     """Infer a regex pattern from user-marked split points.
 
-    Extracts the heading line at each split point, analyzes common structure,
-    and generates a regex that matches similar headings throughout the text.
-    Returns a regex string or None if no common pattern can be inferred.
+    Extracts the heading line at each split point, tokenizes each heading into
+    segments (CJK chars, digits, punctuation, spaces), aligns them column-wise,
+    and generates a regex where varying segments become character classes.
+
+    Examples:
+      ["上卷 第01节", "上卷 第02节", "中卷 第01节"]
+      → "^[上中下]卷 第\\d+节"
+
+      ["卷一 01标题.1", "卷一 02标题.2"]
+      → "^卷[一二三...] \\d+"
     """
     if len(split_points) < 2:
         return None
@@ -295,7 +330,6 @@ def infer_pattern_from_points(text: str, split_points: list[int]) -> str | None:
     # Extract the heading line at each split point
     headings: list[str] = []
     for pos in sorted(split_points):
-        # Find the line containing or just after the split point
         line_start = text.rfind("\n", 0, pos) + 1
         line_end = text.find("\n", pos)
         if line_end == -1:
@@ -307,75 +341,92 @@ def infer_pattern_from_points(text: str, split_points: list[int]) -> str | None:
     if len(headings) < 2:
         return None
 
-    # Try to find a common prefix pattern
-    # Strategy: find the longest common prefix, then generalize it to a regex
+    # Check against existing patterns first
+    for _, pattern in _PATTERNS:
+        if all(pattern.match(h) for h in headings):
+            return None  # Already covered by built-in mode
 
-    # Step 1: Check against existing patterns — maybe the user is marking known patterns
-    for mode_name, pattern in _PATTERNS:
-        matches = sum(1 for h in headings if pattern.match(h))
-        if matches == len(headings):
-            # All headings match this pattern — the user's marks align with an existing mode
-            # Return None to let the caller use this mode directly
-            return None
+    # Tokenize headings into typed segments
+    # Order matters: Chinese numbers first, then digits, then CJK single chars, then ASCII words
+    _TOKEN_RE = re.compile(
+        r"([零〇一二两三四五六七八九十百千万]+)"    # Chinese numbers
+        r"|(\d+)"                                    # Arabic digits
+        r"|(\s+)"                                    # Whitespace
+        r"|([^\w\s零〇一二两三四五六七八九十百千万]+)"  # Punctuation/symbols
+        r"|([a-zA-Z]+)"                              # ASCII words
+        r"|([\u4e00-\u9fff\u3400-\u4dbf])"           # Single CJK character
+    )
 
-    # Step 2: Find longest common prefix
-    prefix = headings[0]
-    for h in headings[1:]:
-        while prefix and not h.startswith(prefix):
-            prefix = prefix[:-1]
+    def _tokenize(s: str) -> list[tuple[str, str]]:
+        """Returns list of (type, value) tokens."""
+        tokens = []
+        for m in _TOKEN_RE.finditer(s):
+            if m.group(1):
+                tokens.append(("cn_num", m.group(1)))
+            elif m.group(2):
+                tokens.append(("digit", m.group(2)))
+            elif m.group(3):
+                tokens.append(("space", m.group(3)))
+            elif m.group(4):
+                tokens.append(("punct", m.group(4)))
+            elif m.group(5):
+                tokens.append(("ascii", m.group(5)))
+            elif m.group(6):
+                tokens.append(("cjk", m.group(6)))
+        return tokens
 
-    # Step 3: Generalize prefix to regex
-    # Common patterns to detect:
-    #   "卷一 01..." → "卷[一二三...] "
-    #   "第1节..." → "第\d+节"
-    #   "Chapter 1..." → "Chapter \d+"
-    if not prefix:
-        # No common prefix — try character-class generalization
-        # Check if all headings start with the same Chinese/English word
-        first_chars = set(h[0] for h in headings if h)
-        if len(first_chars) == 1:
-            prefix = headings[0][0]
+    tokenized = [_tokenize(h) for h in headings]
 
-    if not prefix:
+    # Find the minimum token count — align up to that length
+    min_len = min(len(t) for t in tokenized)
+    if min_len == 0:
         return None
 
-    # Generalize: replace varying parts with regex classes
-    regex = re.escape(prefix)
+    # Build regex by aligning token columns
+    regex_parts: list[str] = []
+    cn_num_class = "[零〇一二两三四五六七八九十百千万\\d]+"
 
-    # Replace Chinese numbers with character class
-    cn_num_chars = "零〇一二两三四五六七八九十百千万"
-    cn_num_class = f"[{cn_num_chars}\\d]+"
-    # Find Chinese number runs in the prefix and replace
-    cn_run = re.compile(f"[{re.escape(cn_num_chars)}]+")
-    if cn_run.search(prefix):
-        regex = cn_run.sub(lambda m: cn_num_class, prefix)
-        # Re-escape non-special parts (but keep the character class)
-        parts = []
-        for segment in re.split(f"({re.escape(cn_num_class)})", regex):
-            if segment == cn_num_class:
-                parts.append(cn_num_class)
+    for col in range(min_len):
+        col_tokens = [(tokenized[i][col] if col < len(tokenized[i]) else ("", ""))
+                      for i in range(len(tokenized))]
+        types = set(t[0] for t in col_tokens)
+        values = set(t[1] for t in col_tokens)
+
+        if len(values) == 1:
+            # All same — literal
+            val = col_tokens[0][1]
+            typ = col_tokens[0][0]
+            if typ == "space":
+                regex_parts.append(r"\s+")
+            elif typ in ("digit", "cn_num"):
+                regex_parts.append(cn_num_class)  # Even if same value, generalize numbers
             else:
-                parts.append(re.escape(segment))
-        regex = "".join(parts)
+                regex_parts.append(re.escape(val))
+        elif types <= {"cn_num", "digit"}:
+            # Varying numbers — use number class
+            regex_parts.append(cn_num_class)
+        elif types == {"cjk"}:
+            # Varying single CJK characters — build character class
+            # Auto-expand common sequences (上中→上中下, 甲乙→甲乙丙丁, etc.)
+            chars = _expand_cjk_class(values)
+            regex_parts.append(f"[{re.escape(chars)}]")
+        elif types == {"ascii"}:
+            # Varying ASCII words
+            regex_parts.append(r"[a-zA-Z]+")
+        else:
+            # Mixed types — stop here, don't extend regex further
+            break
 
-    # Replace digit runs with \d+
-    regex = re.sub(r"\\d\+", r"\\d+", regex)  # already escaped
-    digit_run = re.compile(r"(?<!\\)\d+")
-    if digit_run.search(regex):
-        regex = digit_run.sub(r"\\d+", regex)
+    regex = "^" + "".join(regex_parts)
 
-    # Add line anchor
-    regex = f"^{regex}"
-
-    # Validate: compile and check it matches all headings + finds more in text
+    # Validate
     try:
         pat = re.compile(regex, re.MULTILINE)
-        heading_matches = sum(1 for h in headings if pat.match(h))
-        if heading_matches < len(headings):
-            return None  # Regex doesn't match all user-marked headings
+        if not all(pat.match(h) for h in headings):
+            return None
         full_matches = len(list(pat.finditer(text)))
         if full_matches < 2:
-            return None  # Regex doesn't find enough matches in the full text
+            return None
         return regex
     except re.error:
         return None
