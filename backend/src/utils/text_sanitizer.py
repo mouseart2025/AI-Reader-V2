@@ -38,6 +38,24 @@ _URL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Fullwidth → halfwidth mapping for obfuscated URL/watermark detection
+_FW_TO_HW = str.maketrans(
+    "ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ．",
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.",
+)
+
+# Obfuscated site name watermarks (punctuation-separated characters)
+_WATERMARK_PATTERNS = [
+    # 大;学，生，小，说'网 / 大$学$生@小`说"网 etc.
+    re.compile(r"大.学.+生.+小.+说.网"),
+    # 小说天堂 / 小 说 天 堂 / 小.说.天.堂
+    re.compile(r"小.?说.?天.?堂"),
+    # 笔趣阁 / 笔.趣.阁
+    re.compile(r"笔.?趣.?阁"),
+    # 顶点小说 / 顶.点.小.说
+    re.compile(r"顶.?点.?小.?说"),
+]
+
 # ── Promo keywords ──
 _PROMO_KEYWORDS = [
     "公众号", "微信", "QQ群", "qq群", "QQ 群",
@@ -71,16 +89,36 @@ _DECORATION_RE = re.compile(
 
 
 def _detect_urls(lines: list[str]) -> list[SuspectLine]:
-    """Detect lines containing URLs."""
+    """Detect lines containing URLs (including obfuscated ones)."""
     results = []
     for i, line in enumerate(lines):
-        if _URL_RE.search(line):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Standard URL detection
+        if _URL_RE.search(stripped):
             results.append(SuspectLine(
-                line_num=i + 1,
-                content=line.strip()[:100],
-                category="url",
-                confidence=0.9,
+                line_num=i + 1, content=stripped[:100],
+                category="url", confidence=0.9,
             ))
+            continue
+        # Obfuscated URL: normalize fullwidth chars and remove spaces, then check
+        normalized = stripped.replace(" ", "").replace("\u3000", "").translate(_FW_TO_HW)
+        if _URL_RE.search(normalized):
+            results.append(SuspectLine(
+                line_num=i + 1, content=stripped[:100],
+                category="url", confidence=0.85,
+            ))
+            continue
+        # Site name watermarks (大;学，生，小，说'网 etc.)
+        if len(stripped) < 30:
+            for wp in _WATERMARK_PATTERNS:
+                if wp.search(stripped):
+                    results.append(SuspectLine(
+                        line_num=i + 1, content=stripped[:100],
+                        category="promo", confidence=0.9,
+                    ))
+                    break
     return results
 
 
