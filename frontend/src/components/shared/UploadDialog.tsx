@@ -180,20 +180,25 @@ function DiagnosisBanner({
           <p className="text-xs opacity-75">{diagnosis.suggestion}</p>
         )}
         {(diagnosis.tag === "SINGLE_HUGE_CHAPTER" || diagnosis.tag === "NO_HEADING_MATCH") && (
-          <Button
-            variant="outline"
-            size="xs"
-            className="mt-1"
-            onClick={onFixedSizeSplit}
-            disabled={reSplitting}
-          >
-            {reSplitting ? (
-              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-            ) : (
-              <Sparkles className="mr-1.5 h-3 w-3" />
-            )}
-            一键按字数切分
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="xs"
+              className="mt-1"
+              onClick={onFixedSizeSplit}
+              disabled={reSplitting}
+            >
+              {reSplitting ? (
+                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3 w-3" />
+              )}
+              一键按字数切分
+            </Button>
+            <p className="text-xs opacity-60">
+              或在右侧原文中点击 2 个章节标题位置插入标记，然后点击「智能推断模式」自动识别全文章节
+            </p>
+          </>
         )}
       </div>
     </div>
