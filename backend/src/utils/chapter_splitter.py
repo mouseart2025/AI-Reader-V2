@@ -34,19 +34,20 @@ _CN_NUMS = {
 # 5 splitting modes ordered by priority
 # \s* after ^ to tolerate leading whitespace (fullwidth spaces, tabs, etc.)
 _PATTERNS: list[tuple[str, re.Pattern]] = [
-    # Mode 1: 第X章 / 番外X / 后记 / 尾声 / 完本感言
+    # Mode 1: 第X章 / 番外X / 楔子 / 引子 / 序言 / 后记 / 尾声 / 完本感言
     # Note: 两 is needed for 第两千章 etc.
     # [^\S\n] = whitespace except newline — prevents cross-line matching
     # Optional prefix: "第X部 副标题 " before 第X章 (e.g. "第二部 不夜之候 第一章")
     (
         "chapter_zh",
         re.compile(
-            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[部].+?)?(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|后记|尾声|完本感言)[^\S\n：:]*(.*)$",
+            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[部].+?)?(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|楔子|引子|序[言章曲]|后记|尾声|完本感言)[^\S\n：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
     # Mode 2: 第X回/节/卷/幕/场/部 OR 卷X (reversed order) OR (第X部)/(第X卷) (parenthesized)
     #          OR 一\u3000标题 (Chinese numeral + fullwidth space, subsection style)
+    #          OR 楔子/引子/序言/后记/尾声 (structural markers shared with chapter_zh)
     # Lookahead prevents false matches like 第二回你... (meaning "second time")
     # or 第三部分 (meaning "part 3") where the suffix is part of a word
     (
@@ -57,6 +58,7 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             r"|第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])"  # 第X回/节/卷/部
             r"|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d])"  # 卷X
             r"|[一二三四五六七八九十百]+\u3000"  # 一　标题 (CJK numeral + fullwidth space)
+            r"|(?:楔子|引子|序[言章曲]|后记|尾声)(?=$|[\s：:])"  # Structural markers
             r")[^\S\n：:]*(.*)$",
             re.MULTILINE,
         ),
