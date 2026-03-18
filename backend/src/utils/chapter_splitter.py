@@ -36,10 +36,11 @@ _CN_NUMS = {
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     # Mode 1: 第X章 / 番外X / 后记 / 尾声 / 完本感言
     # Note: 两 is needed for 第两千章 etc.
+    # [^\S\n] = whitespace except newline — prevents cross-line matching
     (
         "chapter_zh",
         re.compile(
-            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|后记|尾声|完本感言)[\s：:]*(.*)$",
+            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|后记|尾声|完本感言)[^\S\n：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
@@ -49,7 +50,7 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "section_zh",
         re.compile(
-            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d]))[\s：:]*(.*)$",
+            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d]))[^\S\n：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
