@@ -21,6 +21,7 @@ class SplitResult:
     chapters: list[ChapterInfo]
     matched_mode: str  # e.g. "chapter_zh", "heuristic_title", "fixed_size", "custom", "none"
     is_fallback: bool = False  # True if heuristic or fixed_size was used as fallback
+    detected_genre: str = "unknown"  # essay, poetry, novel, short_collection, unknown
 
 
 # Chinese number mapping for conversion
@@ -177,6 +178,61 @@ def _augment_with_volume_markers(text: str, matches: list[re.Match]) -> list[re.
     return sorted(matches + extra, key=lambda m: m.start())
 
 
+def detect_text_genre(text: str) -> tuple[str, float]:
+    """Detect text genre using lightweight heuristics.
+
+    Returns (genre, confidence) where genre is one of:
+    "novel", "essay", "poetry", "short_collection", "unknown".
+
+    Safety valve: text > 50K chars auto-downgrades essay/poetry to "unknown".
+    """
+    from src.utils.text_features import compute_dialogue_ratio
+    from statistics import mean
+
+    text_len = len(text)
+
+    # Compute features on first 50K chars for performance
+    sample = text[:50_000]
+    dialogue_ratio = compute_dialogue_ratio(sample)
+
+    # Paragraph stats
+    paras = [l.strip() for l in sample.split("\n") if l.strip()]
+    para_count = len(paras)
+    avg_para_len = mean(len(p) for p in paras) if paras else 0
+
+    # Count how many regex modes match >= 2 times (early exit for performance)
+    from itertools import islice
+    modes_with_matches = 0
+    for _, pattern in _PATTERNS:
+        if len(list(islice(pattern.finditer(text), 2))) >= 2:
+            modes_with_matches += 1
+
+    # ── Novel detection (high dialogue) — check FIRST to prevent false poetry ──
+    if dialogue_ratio > 0.05:
+        return ("novel", 0.9)
+
+    # ── Poetry detection ──
+    # avg_para_len < 50 AND 100+ paragraphs AND < 50K chars AND no pattern matches AND low dialogue
+    if (avg_para_len < 50 and para_count > 100 and text_len < 50_000
+            and modes_with_matches == 0 and dialogue_ratio < 0.01):
+        return ("poetry", 0.85)
+
+    # ── Essay detection ──
+    # < 30K chars AND dialogue_ratio < 1% AND no pattern matches >= 2
+    if text_len < 30_000 and dialogue_ratio < 0.01 and modes_with_matches == 0:
+        return ("essay", 0.80)
+
+    # ── Short collection ──
+    # Separator or heuristic_title patterns dominant, moderate length
+    sep_pattern = next(p for name, p in _PATTERNS if name == "separator")
+    sep_matches = list(islice(sep_pattern.finditer(text), 4))
+    if len(sep_matches) >= 3 and text_len < 200_000:
+        return ("short_collection", 0.7)
+
+    # Default
+    return ("unknown", 0.5)
+
+
 def split_chapters(
     text: str,
     mode: str | None = None,
@@ -210,6 +266,22 @@ def split_chapters_ex(
 
     # Compress excessive blank lines (3+ → 2)
     text = _BLANK_LINE_RE.sub("\n\n\n", text)
+
+    # Detect text genre (for auto-detect mode only — skip if user specified mode/regex/points)
+    genre = "unknown"
+    if not mode and not custom_regex and not split_points:
+        genre, confidence = detect_text_genre(text)
+        # Essay/poetry: return as single chapter without splitting
+        if genre in ("essay", "poetry") and confidence >= 0.7:
+            return SplitResult(
+                chapters=[ChapterInfo(
+                    chapter_num=1, title="全文",
+                    content=text.strip(), word_count=len(text.strip()),
+                )],
+                matched_mode=f"genre_{genre}",
+                is_fallback=False,
+                detected_genre=genre,
+            )
 
     # Manual split points mode (from user-marked boundaries)
     if split_points:
@@ -302,12 +374,14 @@ def split_chapters_ex(
             chapters = _dedup_adjacent_chapters(chapters)
             _detect_volume_resets(chapters)
             chapters = _subsplit_oversized(chapters)
-            return SplitResult(chapters=chapters, matched_mode="heuristic_title", is_fallback=True)
+            return SplitResult(chapters=chapters, matched_mode="heuristic_title", is_fallback=True,
+                               detected_genre=genre)
         # Last resort: fixed-size split at paragraph boundaries
         return SplitResult(
             chapters=_fixed_size_split(text),
             matched_mode="fixed_size",
             is_fallback=True,
+            detected_genre=genre,
         )
 
     if best_mode == "section_zh":
@@ -319,7 +393,8 @@ def split_chapters_ex(
     if len(chapters) == 1 and chapters[0].word_count > 30_000:
         fallback = _fixed_size_split(text)
         if len(fallback) > 1:
-            return SplitResult(chapters=fallback, matched_mode="fixed_size", is_fallback=True)
+            return SplitResult(chapters=fallback, matched_mode="fixed_size", is_fallback=True,
+                               detected_genre=genre)
 
     _assign_volumes(text, chapters)
     chapters = _dedup_adjacent_chapters(chapters)
@@ -328,7 +403,8 @@ def split_chapters_ex(
     # Sub-split any oversized chapters (>50k chars) to keep all chunks manageable
     chapters = _subsplit_oversized(chapters)
 
-    return SplitResult(chapters=chapters, matched_mode=best_mode or "none")
+    return SplitResult(chapters=chapters, matched_mode=best_mode or "none",
+                       detected_genre=genre)
 
 
 def _split_by_points(text: str, points: list[int]) -> SplitResult:
@@ -852,7 +928,7 @@ def _fixed_size_split(text: str, target_size: int = _DEFAULT_FIXED_SIZE) -> list
                     word_count=len(chunk_text),
                 )
             )
-        chunk_start = best_break + 2  # Skip past the \n\n
+        chunk_start = best_break + 1  # Skip past the \n
 
     return chapters if chapters else [
         ChapterInfo(chapter_num=1, title="第 1 段", content=text.strip(), word_count=len(text.strip()))

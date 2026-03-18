@@ -14,9 +14,16 @@ class ChapterPreviewItem(BaseModel):
 
 class SplitDiagnosis(BaseModel):
     """Structured diagnosis of how the chapter split went."""
-    tag: str  # OK, NO_HEADING_MATCH, SINGLE_HUGE_CHAPTER, etc.
-    message: str  # User-facing Chinese description
+    tag: str  # OK, NO_HEADING_MATCH, SINGLE_HUGE_CHAPTER, HEADING_TOO_SPARSE, HEADING_TOO_DENSE, MODE_MISMATCH
+    message: str  # Technical description (Chinese)
     suggestion: str = ""  # Recommended action
+    # Sprint C new fields
+    auto_optimized: bool = False  # Whether auto-optimization was applied
+    original_mode: str | None = None  # Original mode before optimization
+    alternatives_tried: list[str] = []  # Modes tried during auto-optimization
+    user_message: str = ""  # User-friendly description (preferred over message in frontend)
+    technical_detail: str = ""  # Technical details (expandable in frontend)
+    detected_genre: str = "unknown"  # Text genre: novel, essay, poetry, short_collection, unknown
 
 
 class SuspectLine(BaseModel):

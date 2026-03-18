@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass
 
 from src.utils.chapter_splitter import ChapterInfo
+from src.utils.text_features import _DIALOGUE_LINE_RE
 
 # ── Title keyword patterns ────────────────────────────────────
 
@@ -52,7 +53,7 @@ _CONTENT_CRITICISM_KEYWORDS: list[str] = [
 
 # Dialogue markers — their ABSENCE suggests non-narrative content
 _DIALOGUE_MARKERS = re.compile(r'[""「」『』]')
-_DIALOGUE_LINE = re.compile(r'^[""「]', re.MULTILINE)
+_DIALOGUE_LINE = _DIALOGUE_LINE_RE
 
 # ── Thresholds ────────────────────────────────────────────────
 
