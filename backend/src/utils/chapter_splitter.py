@@ -57,7 +57,7 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             r"[(（]第[零〇一二两三四五六七八九十百千万\d]+[卷部][)）]"  # (第X卷) / (第X部)
             r"|第[零〇一二两三四五六七八九十百千万\d]+[幕场回节卷部](?=$|[\s：:(（·・—–\-])"  # 第X回/节/卷/部
             r"|卷[零〇一二两三四五六七八九十百千万\d]+(?=$|[\s：:·・—–\-\d])"  # 卷X
-            r"|[一二三四五六七八九十百]+\u3000"  # 一　标题 (CJK numeral + fullwidth space)
+            r"|[一二三四五六七八九十百]+[\u3000 ](?=[^\n。！？…]{1,30}$)"  # 一　标题 / 一 标题 (CJK numeral + space, title ≤30 chars, no sentence-ending punct)
             r"|(?:楔子|引子|序[言章曲]|后记|尾声)(?=$|[\s：:])"  # Structural markers
             r")[^\S\n：:]*(.*)$",
             re.MULTILINE,
