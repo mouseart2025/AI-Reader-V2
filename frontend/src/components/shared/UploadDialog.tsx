@@ -848,6 +848,11 @@ export function UploadDialog({
                       智能推断模式
                     </Button>
                   )}
+                  {splitPoints.length === 1 && (
+                    <span className="text-xs text-muted-foreground">
+                      再标记 1 个即可启用智能推断
+                    </span>
+                  )}
                 </div>
 
                 {/* Diagnosis banner — two-layer display */}
