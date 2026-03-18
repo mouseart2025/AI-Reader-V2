@@ -37,10 +37,11 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     # Mode 1: 第X章 / 番外X / 后记 / 尾声 / 完本感言
     # Note: 两 is needed for 第两千章 etc.
     # [^\S\n] = whitespace except newline — prevents cross-line matching
+    # Optional prefix: "第X部 副标题 " before 第X章 (e.g. "第二部 不夜之候 第一章")
     (
         "chapter_zh",
         re.compile(
-            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|后记|尾声|完本感言)[^\S\n：:]*(.*)$",
+            r"^\s*(?:第[零〇一二两三四五六七八九十百千万\d]+[部].+?)?(?:第[零〇一二两三四五六七八九十百千万\d]+[章]|番外[零〇一二两三四五六七八九十百千万\d篇]*|后记|尾声|完本感言)[^\S\n：:]*(.*)$",
             re.MULTILINE,
         ),
     ),
@@ -765,8 +766,16 @@ def _extract_title(mode: str, match: re.Match) -> str:
     if title:
         return title
 
+    # chapter_zh with 第X部 prefix: extract just the chapter marker
+    # e.g. "第二部 不夜之候 第一章" → "第一章"
+    full = match.group(0).strip()
+    if mode == "chapter_zh":
+        ch_marker = re.search(r"第[零〇一二两三四五六七八九十百千万\d]+章", full)
+        if ch_marker and ch_marker.start() > 0:
+            return ch_marker.group(0)
+
     # Fallback: use the entire matched line
-    return match.group(0).strip()
+    return full
 
 
 def _assign_volumes(text: str, chapters: list[ChapterInfo]) -> None:
