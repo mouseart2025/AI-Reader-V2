@@ -233,6 +233,55 @@ def detect_text_genre(text: str) -> tuple[str, float]:
     return ("unknown", 0.5)
 
 
+def _score_mode(mode: str, matches: list[re.Match], text: str, genre: str) -> float:
+    """Score a candidate split mode based on match quality.
+
+    Higher score = better candidate. Considers:
+    - Match count (baseline)
+    - Chapter size uniformity (CV penalty)
+    - Tiny chapter ratio penalty (miscut detection)
+    - Genre-aware mode suppression
+    """
+    from statistics import mean, stdev
+
+    count = len(matches)
+    if count < 2:
+        return 0
+
+    score = float(count)
+
+    # Estimate chapter sizes from match positions
+    text_len = len(text)
+    sizes = []
+    for i in range(len(matches)):
+        start = matches[i].end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else text_len
+        sizes.append(max(0, end - start))
+
+    if sizes:
+        avg = mean(sizes)
+        if avg > 0 and len(sizes) > 1:
+            cv = stdev(sizes) / avg
+            score *= max(0.3, 1 - cv)  # Uniformity reward
+
+        # Tiny chapter penalty (< 200 chars likely miscut)
+        tiny_ratio = sum(1 for s in sizes if s < 200) / len(sizes)
+        score *= max(0.2, 1 - tiny_ratio)
+
+    # Genre-aware suppression: separator and numbered are usually wrong for novels
+    if genre in ("novel", "unknown"):
+        if mode == "separator":
+            score *= 0.1  # Heavy penalty — separators in novels are scene breaks, not chapters
+        elif mode == "numbered":
+            score *= 0.5  # Moderate penalty — numbered lists in novels are often content enumerations
+
+    # Short collection boost
+    if genre == "short_collection" and mode in ("heuristic_title", "separator"):
+        score *= 1.5
+
+    return score
+
+
 def split_chapters(
     text: str,
     mode: str | None = None,
@@ -354,17 +403,20 @@ def split_chapters_ex(
                     is_fallback=True,
                 )
 
-    # Auto-detect: try all patterns, pick the best
+    # Auto-detect: try all patterns, pick the best using weighted scoring
     best_mode = None
     best_matches: list[re.Match] = []
-    best_count = 0
+    best_score = 0
 
     for mode_name, pattern in _PATTERNS:
         matches = list(pattern.finditer(text))
-        if len(matches) >= 2 and len(matches) > best_count:
+        if len(matches) < 2:
+            continue
+        score = _score_mode(mode_name, matches, text, genre)
+        if score > best_score:
             best_mode = mode_name
             best_matches = matches
-            best_count = len(matches)
+            best_score = score
 
     if not best_matches:
         # No regex pattern matched >= 2 times — try heuristic title detection
