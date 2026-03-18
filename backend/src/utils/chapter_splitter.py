@@ -664,6 +664,9 @@ def split_chapters_ex(
     chapters = _dedup_adjacent_chapters(chapters)
     _detect_volume_resets(chapters)
 
+    # Sub-split chapters with standalone digit subsections (1, 2, 3...)
+    chapters = _subsplit_by_digit_sections(chapters)
+
     # Sub-split any oversized chapters (>50k chars) to keep all chunks manageable
     chapters = _subsplit_oversized(chapters)
 
@@ -1068,6 +1071,77 @@ def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
         )
 
     return chapters if len(chapters) >= 2 else None
+
+
+_DIGIT_SECTION_RE = re.compile(r"^\s*(\d{1,3})\s*$", re.MULTILINE)
+
+
+def _subsplit_by_digit_sections(chapters: list[ChapterInfo]) -> list[ChapterInfo]:
+    """Sub-split chapters that contain standalone digit subsections (1, 2, 3...).
+
+    Detects chapters where the content has multiple lines that are just a number
+    (e.g., "1", "2", "3") preceded by text, indicating numbered subsections.
+    Only applies when the majority of chapters have such subsections.
+    """
+    # First pass: count how many chapters have digit subsections
+    chapters_with_digits = 0
+    for ch in chapters:
+        digit_matches = list(_DIGIT_SECTION_RE.finditer(ch.content))
+        # Need at least 2 sequential digit lines to count
+        if len(digit_matches) >= 2:
+            # Verify they look sequential (first is 1 or 2, increases)
+            nums = [int(m.group(1)) for m in digit_matches]
+            if nums[0] <= 2 and all(b > a for a, b in zip(nums, nums[1:])):
+                chapters_with_digits += 1
+
+    # Only subsplit if majority of chapters have digit sections
+    if chapters_with_digits < len(chapters) * 0.4:
+        return chapters
+
+    result: list[ChapterInfo] = []
+    for ch in chapters:
+        digit_matches = list(_DIGIT_SECTION_RE.finditer(ch.content))
+        nums = [int(m.group(1)) for m in digit_matches]
+
+        # Verify sequential
+        if len(digit_matches) < 2 or nums[0] > 2 or not all(b > a for a, b in zip(nums, nums[1:])):
+            result.append(ch)
+            continue
+
+        # Sub-split at each digit marker
+        sub_chapters: list[ChapterInfo] = []
+        for j, dm in enumerate(digit_matches):
+            content_start = dm.end()
+            content_end = digit_matches[j + 1].start() if j + 1 < len(digit_matches) else len(ch.content)
+            content = ch.content[content_start:content_end].strip()
+            if not content:
+                continue
+            sub_title = f"{ch.title} ({nums[j]})" if ch.title != "序章" else f"{ch.title} ({nums[j]})"
+            sub_chapters.append(ChapterInfo(
+                chapter_num=0,  # Renumbered later
+                title=sub_title,
+                content=content,
+                word_count=len(content),
+                volume_num=ch.volume_num,
+                volume_title=ch.volume_title,
+            ))
+
+        # If there's content before the first digit section, keep it as a preamble
+        pre_content = ch.content[:digit_matches[0].start()].strip()
+        if pre_content and len(pre_content) >= _MIN_PROLOGUE_CHARS:
+            result.append(ChapterInfo(
+                chapter_num=0, title=ch.title,
+                content=pre_content, word_count=len(pre_content),
+                volume_num=ch.volume_num, volume_title=ch.volume_title,
+            ))
+
+        result.extend(sub_chapters)
+
+    # Renumber
+    for i, ch in enumerate(result, 1):
+        ch.chapter_num = i
+
+    return result
 
 
 def _subsplit_oversized(
