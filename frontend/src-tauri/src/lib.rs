@@ -317,7 +317,7 @@ fn import_air_file(
     .and_then(|v| v.as_u64())
     .unwrap_or(0);
 
-  if ![1, 2, 3, 4].contains(&format_version) {
+  if ![1, 2, 3, 4, 5].contains(&format_version) {
     return Err("不支持的文件格式".to_string());
   }
 
