@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Markdown from "react-markdown"
+import { MessageCircle } from "lucide-react"
 import { useChatStore } from "@/stores/chatStore"
+import { matchSystemFaq, QUICK_QUESTIONS } from "@/lib/systemFaq"
 import { cn } from "@/lib/utils"
+
+const BUBBLE_CLICKED_KEY = "ai-reader-chat-bubble-clicked"
 
 export function FloatingChatPanel() {
   const { novelId } = useParams<{ novelId: string }>()
@@ -11,8 +15,11 @@ export function FloatingChatPanel() {
   const {
     panelOpen,
     panelHeight,
+    firstVisit,
     closePanel,
     setPanelHeight,
+    markVisited,
+    addLocalMessage,
     conversations,
     activeConversationId,
     messages,
@@ -24,20 +31,32 @@ export function FloatingChatPanel() {
     connectWs,
     disconnectWs,
     sendQuestion,
+    clearMessages,
   } = useChatStore()
 
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const dragStartRef = useRef<{ y: number; h: number } | null>(null)
+  const [showQuickQuestions, setShowQuickQuestions] = useState(true)
+  const prevNovelIdRef = useRef(novelId)
 
-  // Load conversations on open
+  // Clear messages when switching between novels
+  useEffect(() => {
+    if (prevNovelIdRef.current !== novelId) {
+      clearMessages()
+      setShowQuickQuestions(true)
+      prevNovelIdRef.current = novelId
+    }
+  }, [novelId, clearMessages])
+
+  // Load conversations on open (only when we have a novel)
   useEffect(() => {
     if (panelOpen && novelId) {
       loadConversations(novelId)
     }
   }, [panelOpen, novelId, loadConversations])
 
-  // Connect WebSocket
+  // Connect WebSocket (only when we have a novel)
   useEffect(() => {
     if (panelOpen && novelId) {
       const sessionId = `panel-${novelId}`
@@ -45,6 +64,21 @@ export function FloatingChatPanel() {
       return () => disconnectWs()
     }
   }, [panelOpen, novelId, connectWs, disconnectWs])
+
+  // Show welcome message on first visit
+  useEffect(() => {
+    if (panelOpen && firstVisit && messages.length === 0) {
+      addLocalMessage(
+        "assistant",
+        "你好！我是 AI 助手 👋\n\n" +
+          "我可以帮你：\n" +
+          "- 回答关于小说内容的问题（打开一本已分析的小说后提问）\n" +
+          "- 解答 AI Reader 的使用问题\n\n" +
+          "试试下面的快捷提问，或直接输入你的问题！"
+      )
+      markVisited()
+    }
+  }, [panelOpen, firstVisit, messages.length, addLocalMessage, markVisited])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -73,17 +107,54 @@ export function FloatingChatPanel() {
     return () => window.removeEventListener("keydown", handler)
   }, [])
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || !novelId || streaming) return
+  const handleSend = useCallback(async (text?: string) => {
+    const question = (text ?? input).trim()
+    if (!question || streaming) return
 
-    let convId = activeConversationId
-    if (!convId) {
-      convId = await newConversation(novelId)
+    setShowQuickQuestions(false)
+
+    // Branch 1: Try FAQ match
+    const faqResult = matchSystemFaq(question)
+    if (faqResult && faqResult.confidence >= 0.8) {
+      addLocalMessage("user", question)
+      // Small delay to feel natural
+      setTimeout(() => {
+        addLocalMessage("assistant", faqResult.answer)
+      }, 200)
+      if (!text) setInput("")
+      return
     }
 
-    sendQuestion(novelId, input.trim())
-    setInput("")
-  }, [input, novelId, streaming, activeConversationId, newConversation, sendQuestion])
+    // Branch 2: Has novelId → WebSocket novel QA
+    if (novelId) {
+      let convId = activeConversationId
+      if (!convId) {
+        convId = await newConversation(novelId)
+      }
+      sendQuestion(novelId, question)
+      if (!text) setInput("")
+      return
+    }
+
+    // Branch 3: No novelId, FAQ low confidence → friendly tip
+    if (faqResult) {
+      // Low confidence FAQ still useful when no novel context
+      addLocalMessage("user", question)
+      setTimeout(() => {
+        addLocalMessage("assistant", faqResult.answer)
+      }, 200)
+    } else {
+      addLocalMessage("user", question)
+      setTimeout(() => {
+        addLocalMessage(
+          "assistant",
+          "请先打开一本已分析的小说，我就能回答关于小说内容的问题了 📖\n\n" +
+            "如果你有关于 AI Reader 使用方面的问题，也可以直接问我！"
+        )
+      }, 200)
+    }
+    if (!text) setInput("")
+  }, [input, novelId, streaming, activeConversationId, newConversation, sendQuestion, addLocalMessage])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -116,7 +187,30 @@ export function FloatingChatPanel() {
     [panelHeight, setPanelHeight],
   )
 
-  if (!panelOpen) return null
+  const [bubbleClicked, setBubbleClicked] = useState(
+    () => localStorage.getItem(BUBBLE_CLICKED_KEY) === "1"
+  )
+
+  const handleBubbleClick = useCallback(() => {
+    localStorage.setItem(BUBBLE_CLICKED_KEY, "1")
+    setBubbleClicked(true)
+    useChatStore.getState().openPanel()
+  }, [])
+
+  if (!panelOpen) {
+    return (
+      <button
+        onClick={handleBubbleClick}
+        className="fixed bottom-6 right-6 z-50 flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition h-12 w-12"
+        title="AI 助手 (⌘K)"
+      >
+        <MessageCircle className="h-5 w-5" />
+        {!bubbleClicked && (
+          <span className="absolute inset-0 rounded-full bg-primary animate-ping opacity-30" />
+        )}
+      </button>
+    )
+  }
 
   return (
     <div
@@ -131,10 +225,10 @@ export function FloatingChatPanel() {
 
       {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-2 flex-shrink-0">
-        <span className="text-sm font-medium">智能问答</span>
+        <span className="text-sm font-medium">AI 助手</span>
 
-        {/* Conversation selector */}
-        {conversations.length > 0 && (
+        {/* Conversation selector — only when novel is open */}
+        {novelId && conversations.length > 0 && (
           <select
             className="text-xs border rounded px-2 py-1 bg-background"
             value={activeConversationId ?? ""}
@@ -151,25 +245,36 @@ export function FloatingChatPanel() {
           </select>
         )}
 
-        <button
-          className="text-xs text-primary hover:underline"
-          onClick={() => novelId && newConversation(novelId)}
-        >
-          + 新对话
-        </button>
+        {novelId && (
+          <button
+            className="text-xs text-primary hover:underline"
+            onClick={() => newConversation(novelId)}
+          >
+            + 新对话
+          </button>
+        )}
 
         <div className="flex-1" />
 
+        {/* Mode indicator */}
+        {!novelId && (
+          <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            系统帮助模式
+          </span>
+        )}
+
         {/* Expand to full page */}
-        <button
-          className="text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => {
-            closePanel()
-            navigate(`/chat/${novelId}`)
-          }}
-        >
-          全屏
-        </button>
+        {novelId && (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              closePanel()
+              navigate(`/chat/${novelId}`)
+            }}
+          >
+            全屏
+          </button>
+        )}
 
         <button
           className="text-muted-foreground hover:text-foreground text-sm"
@@ -183,7 +288,7 @@ export function FloatingChatPanel() {
       <div className="flex-1 overflow-auto px-4 py-3 space-y-3">
         {messages.length === 0 && !streaming && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            输入问题开始对话
+            {novelId ? "输入问题开始对话" : "输入问题，我来帮你解答"}
           </div>
         )}
 
@@ -237,13 +342,30 @@ export function FloatingChatPanel() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick questions */}
+      {showQuickQuestions && messages.length <= 1 && (
+        <div className="flex-shrink-0 border-t px-4 py-2">
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                className="rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                onClick={() => handleSend(q)}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="flex-shrink-0 border-t px-4 py-2">
         <div className="flex gap-2">
           <textarea
             className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             rows={1}
-            placeholder="输入问题... (Enter 发送, Shift+Enter 换行)"
+            placeholder={novelId ? "输入问题... (Enter 发送)" : "问我关于 AI Reader 的使用问题..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -256,7 +378,7 @@ export function FloatingChatPanel() {
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed",
             )}
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={!input.trim() || streaming}
           >
             发送

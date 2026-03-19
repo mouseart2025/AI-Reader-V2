@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
+import { recordTabVisit } from "@/lib/tabTracking"
 
 interface CategoryStats {
   total: number
@@ -102,6 +103,8 @@ export default function EncyclopediaPage() {
   const [applying, setApplying] = useState(false)
   const [conflictMap, setConflictMap] = useState<Record<string, { type: string; severity: string; description: string; chapters: number[] }[]>>({})
   const [worldStructure, setWorldStructure] = useState<WorldStructureData | null>(null)
+
+  useEffect(() => { recordTabVisit("encyclopedia") }, [])
 
   // Reset hierarchy sort when leaving location category
   useEffect(() => {

@@ -12,6 +12,7 @@ interface ChatState {
   // Panel state
   panelOpen: boolean
   panelHeight: number
+  firstVisit: boolean
 
   // Conversations
   conversations: Conversation[]
@@ -32,6 +33,8 @@ interface ChatState {
   openPanel: () => void
   closePanel: () => void
   setPanelHeight: (h: number) => void
+  markVisited: () => void
+  addLocalMessage: (role: "user" | "assistant", content: string) => void
 
   loadConversations: (novelId: string) => Promise<void>
   newConversation: (novelId: string) => Promise<string>
@@ -42,13 +45,18 @@ interface ChatState {
   disconnectWs: () => void
   sendQuestion: (novelId: string, question: string) => void
 
+  clearMessages: () => void
+
   // Internal
   _appendStreamToken: (token: string) => void
   _finishStream: (sources: number[]) => void
   _addMessage: (msg: ChatMessage) => void
 }
 
-// Module-level state for reconnection (not in Zustand to avoid renders)
+// Module-level state (not in Zustand to avoid renders)
+let _msgIdCounter = 0
+function nextMsgId() { return ++_msgIdCounter }
+
 let _sessionId: string | null = null
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let _reconnectAttempt = 0
@@ -56,9 +64,12 @@ const _MAX_RECONNECT = 5
 // Pending message to send after reconnection
 let _pendingPayload: string | null = null
 
+const FIRST_VISIT_KEY = "ai-reader-chat-first-visit"
+
 export const useChatStore = create<ChatState>((set, get) => ({
   panelOpen: false,
   panelHeight: 400,
+  firstVisit: localStorage.getItem(FIRST_VISIT_KEY) !== "0",
   conversations: [],
   activeConversationId: null,
   messages: [],
@@ -72,6 +83,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
   openPanel: () => set({ panelOpen: true }),
   closePanel: () => set({ panelOpen: false }),
   setPanelHeight: (h) => set({ panelHeight: Math.max(200, Math.min(h, 800)) }),
+  markVisited: () => {
+    localStorage.setItem(FIRST_VISIT_KEY, "0")
+    set({ firstVisit: false })
+  },
+  addLocalMessage: (role, content) => {
+    const msg: ChatMessage = {
+      id: nextMsgId(),
+      conversation_id: "__local__",
+      role,
+      content,
+      sources: [],
+      created_at: new Date().toISOString(),
+    }
+    set((s) => ({ messages: [...s.messages, msg] }))
+  },
+
+  clearMessages: () => set({ messages: [], activeConversationId: null, streaming: false, streamingContent: "" }),
 
   loadConversations: async (novelId) => {
     try {
@@ -176,7 +204,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           case "done": {
             const state = get()
             const assistantMsg: ChatMessage = {
-              id: Date.now(),
+              id: nextMsgId(),
               conversation_id: state.activeConversationId ?? "",
               role: "assistant",
               content: state.streamingContent,
@@ -192,7 +220,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const state = get()
             // Show error as an assistant message so user sees feedback
             const errMsg: ChatMessage = {
-              id: Date.now(),
+              id: nextMsgId(),
               conversation_id: state.activeConversationId ?? "",
               role: "assistant",
               content: `[错误] ${errContent}`,
@@ -235,7 +263,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Add user message locally first so it always appears
     const userMsg: ChatMessage = {
-      id: Date.now(),
+      id: nextMsgId(),
       conversation_id: activeConversationId ?? "",
       role: "user",
       content: question,

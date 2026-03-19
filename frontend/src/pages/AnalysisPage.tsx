@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { InlineLlmSetup } from "@/components/shared/InlineLlmSetup"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -587,15 +588,10 @@ export default function AnalysisPage() {
       )}
 
       {llmAvailable === false && !isActive && (
-        <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
-          <strong>未检测到可用的 LLM</strong>：请先在
-          <button
-            className="mx-1 underline hover:no-underline"
-            onClick={() => navigate("/settings")}
-          >
-            设置页面
-          </button>
-          配置本地 Ollama 或云端 API，否则分析将无法进行。
+        <div className="mb-4">
+          <InlineLlmSetup onReady={() => {
+            setLlmAvailable(true)
+          }} />
         </div>
       )}
 
@@ -931,7 +927,7 @@ export default function AnalysisPage() {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={() => handleStartAnalysis(false)}
                 disabled={starting || isActive || llmAvailable === false}
@@ -943,6 +939,19 @@ export default function AnalysisPage() {
                   强制重新分析
                 </Button>
               )}
+              {/* Time estimate */}
+              {novel && llmAvailable !== false && !isActive && !isCompleted && (() => {
+                const chapters = novel.total_chapters
+                const isCloud = llmInfo.provider === "openai"
+                const secPerChapter = isCloud ? 5 : 30
+                const totalMin = Math.ceil((chapters * secPerChapter) / 60)
+                return (
+                  <span className="text-xs text-muted-foreground">
+                    预计需要 {totalMin < 60 ? `${totalMin} 分钟` : `${Math.floor(totalMin / 60)} 小时 ${totalMin % 60} 分钟`}
+                    {isCloud ? "（云端）" : "（本地）"}
+                  </span>
+                )
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -1009,7 +1018,7 @@ export default function AnalysisPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>已达月度预算上限</AlertDialogTitle>
             <AlertDialogDescription>
-              本月云端 LLM 消费已达预算上限 ¥{costStats?.monthly_budget_cny?.toFixed(0)}。
+              本月云端 AI 消费已达预算上限 ¥{costStats?.monthly_budget_cny?.toFixed(0)}。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

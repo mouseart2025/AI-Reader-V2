@@ -4,7 +4,7 @@
  * 支持 TXT 上传（通过后端 API）和 .air 文件导入（通过 Tauri IPC）
  */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ensureSidecar } from "@/api/sidecarBridge"
 import { fetchNovels, fetchActiveAnalyses } from "@/api/client"
@@ -12,6 +12,7 @@ import type { Novel } from "@/api/types"
 import { DragDropOverlay } from "./DragDropOverlay"
 import { SecurityGuide } from "./SecurityGuide"
 import { UploadDialog } from "@/components/shared/UploadDialog"
+import { WelcomeBanner } from "@/components/shared/WelcomeBanner"
 import { HelpCircle, Upload, Settings, FileUp, BookOpen } from "lucide-react"
 
 interface PreviewResult {
@@ -114,6 +115,11 @@ export default function DesktopBookshelfPage() {
   useEffect(() => {
     loadNovels()
   }, [loadNovels])
+
+  const sampleNovels = useMemo(
+    () => novels.filter((n) => n.is_sample),
+    [novels]
+  )
 
   /** TXT upload via UploadDialog */
   const handleUploadClick = useCallback(() => {
@@ -333,6 +339,11 @@ export default function DesktopBookshelfPage() {
 
       {/* Content */}
       <div className="mx-auto max-w-5xl">
+        {/* Welcome Banner for first-time users */}
+        {!loading && sampleNovels.length > 0 && (
+          <WelcomeBanner sampleNovels={sampleNovels} />
+        )}
+
         {loading && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (

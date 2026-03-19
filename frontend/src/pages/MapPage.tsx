@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Download, Loader2, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
+import { recordTabVisit } from "@/lib/tabTracking"
 import { annealLabels, type AnnealItem } from "@/lib/labelAnnealing"
 
 const ICON_LEGEND: { icon: string; label: string }[] = [
@@ -110,6 +111,8 @@ export default function MapPage() {
     const layer = layers.find((l) => l.layer_id === activeLayerId)
     return layer?.layer_type ?? "overworld"
   }, [layers, activeLayerId])
+
+  useEffect(() => { recordTabVisit("map") }, [])
 
   // Load data
   useEffect(() => {

@@ -15,7 +15,6 @@ import {
 } from "lucide-react"
 import {
   deleteNovel,
-  checkEnvironment,
   fetchActiveAnalyses,
   exportNovelUrl,
   previewImport,
@@ -59,9 +58,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { SetupGuide } from "@/components/shared/SetupGuide"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { UploadDialog } from "@/components/shared/UploadDialog"
+import { WelcomeBanner } from "@/components/shared/WelcomeBanner"
+import { ContextualGuideCard } from "@/components/shared/ContextualGuideCard"
 
 type SortKey = "recent" | "title" | "chapters" | "words"
 
@@ -282,7 +282,6 @@ export default function BookshelfPage() {
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
   const [activeAnalysisMap, setActiveAnalysisMap] = useState<Map<string, "running" | "paused">>(new Map())
 
   // Drag-to-upload state
@@ -297,31 +296,6 @@ export default function BookshelfPage() {
   const searchRef = useRef<HTMLInputElement>(null)
   const importFileRef = useRef<HTMLInputElement>(null)
   const backupImportRef = useRef<HTMLInputElement>(null)
-
-  // Check Ollama environment on first load
-  useEffect(() => {
-    const stored = sessionStorage.getItem("setup_skipped")
-    if (stored === "1") {
-      setSetupNeeded(false)
-      return
-    }
-    checkEnvironment()
-      .then((env) => {
-        if (env.llm_provider === "openai") {
-          setSetupNeeded(false)
-        } else {
-          setSetupNeeded(!env.ollama_running || !env.model_available)
-        }
-      })
-      .catch(() => {
-        setSetupNeeded(false)
-      })
-  }, [])
-
-  const handleSetupReady = useCallback(() => {
-    sessionStorage.setItem("setup_skipped", "1")
-    setSetupNeeded(false)
-  }, [])
 
   const loadNovels = useCallback(async () => {
     await Promise.all([
@@ -363,6 +337,11 @@ export default function BookshelfPage() {
       }
     })
   }, [novels, search, sortKey])
+
+  const sampleNovels = useMemo(
+    () => novels.filter((n) => n.is_sample),
+    [novels]
+  )
 
   const handleClick = (novel: Novel) => {
     navigate(`/read/${novel.id}`)
@@ -490,18 +469,6 @@ export default function BookshelfPage() {
     }
   }, [loadNovels])
 
-  // Show setup guide if environment not ready
-  if (setupNeeded === null) {
-    return (
-      <div className="text-muted-foreground flex min-h-screen items-center justify-center text-sm">
-        加载中...
-      </div>
-    )
-  }
-  if (setupNeeded) {
-    return <SetupGuide onReady={handleSetupReady} />
-  }
-
   return (
     <div
       className="relative mx-auto max-w-6xl px-6 py-8"
@@ -620,6 +587,11 @@ export default function BookshelfPage() {
         </div>
       )}
 
+      {/* Welcome Banner for first-time users */}
+      {!loading && sampleNovels.length > 0 && (
+        <WelcomeBanner sampleNovels={sampleNovels} />
+      )}
+
       {/* Content */}
       {loading ? (
         <div className="text-muted-foreground flex justify-center py-32 text-sm">
@@ -646,6 +618,11 @@ export default function BookshelfPage() {
             />
           ))}
         </div>
+      )}
+
+      {/* Contextual guide card for users who've explored sample novels */}
+      {!loading && novels.length > 0 && (
+        <ContextualGuideCard onUpload={() => setUploadOpen(true)} />
       )}
 
       {/* Upload Dialog */}
