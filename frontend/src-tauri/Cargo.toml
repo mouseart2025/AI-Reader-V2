@@ -1,6 +1,6 @@
 [package]
 name = "ai-reader"
-version = "0.54.1"
+version = "0.54.2"
 description = "AI Reader - 中文小说分析桌面应用"
 authors = ["leonfeng"]
 license = ""
