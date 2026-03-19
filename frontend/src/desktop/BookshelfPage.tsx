@@ -154,6 +154,18 @@ export default function DesktopBookshelfPage() {
       }
 
       await invoke<ImportResult>("import_air_file", { path: filePath, overwrite })
+
+      // Also import into SQLite via sidecar REST API so the novel appears in the bookshelf
+      try {
+        const jsonStr = await invoke<string>("load_file_absolute", { path: filePath })
+        const blob = new Blob([jsonStr], { type: "application/json" })
+        const file = new File([blob], "import.json")
+        const { confirmDataImport } = await import("@/api/client")
+        await confirmDataImport(file, overwrite)
+      } catch (dbErr) {
+        console.warn("SQLite import fallback failed:", dbErr)
+      }
+
       await loadNovels()
       setToast({ message: `「${preview.title}」导入成功`, type: "success" })
     } catch (err) {
