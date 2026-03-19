@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import Markdown from "react-markdown"
 import { exportConversationUrl } from "@/api/client"
 import { useChatStore } from "@/stores/chatStore"
+import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore, formatLlmLabel } from "@/stores/llmInfoStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
@@ -224,7 +225,7 @@ export default function ChatPage() {
                     <button
                       key={ch}
                       className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground"
-                      onClick={() => navigate(`/read/${novelId}?chapter=${ch}`)}
+                      onClick={() => navigate(novelPath(novelId!, "read", `chapter=${ch}`))}
                     >
                       第{ch}章
                     </button>

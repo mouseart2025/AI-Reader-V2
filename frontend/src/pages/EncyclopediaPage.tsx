@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, fetchLocationConflicts, fetchWorldStructure, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
 import type { WorldStructureData } from "@/api/types"
+import { novelPath } from "@/lib/novelPaths"
 import type { HierarchyRebuildResult } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
@@ -620,7 +621,7 @@ export default function EncyclopediaPage() {
                   </span>
                   <button
                     className="text-xs text-muted-foreground ml-2 hover:text-primary hover:underline cursor-pointer"
-                    onClick={() => navigate(`/read/${novelId}?chapter=${conceptDetail.first_chapter}`)}
+                    onClick={() => navigate(novelPath(novelId!, "read", `chapter=${conceptDetail.first_chapter}`))}
                   >
                     首次出现: 第{conceptDetail.first_chapter}章
                   </button>
@@ -644,7 +645,7 @@ export default function EncyclopediaPage() {
                           <p>{ex.text}</p>
                           <button
                             className="text-[10px] text-muted-foreground hover:text-primary hover:underline cursor-pointer"
-                            onClick={() => navigate(`/read/${novelId}?chapter=${ex.chapter}`)}
+                            onClick={() => navigate(novelPath(novelId!, "read", `chapter=${ex.chapter}`))}
                           >
                             — 第{ex.chapter}章
                           </button>
@@ -698,7 +699,7 @@ export default function EncyclopediaPage() {
                           </button>
                           <button
                             className="text-muted-foreground hover:text-primary hover:underline cursor-pointer"
-                            onClick={() => navigate(`/read/${novelId}?chapter=${e.chapter}`)}
+                            onClick={() => navigate(novelPath(novelId!, "read", `chapter=${e.chapter}`))}
                           >
                             (Ch.{e.chapter})
                           </button>

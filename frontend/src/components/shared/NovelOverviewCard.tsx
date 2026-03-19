@@ -11,7 +11,7 @@ import {
   type NovelStats,
 } from "@/api/client"
 import type { Novel } from "@/api/types"
-import { isTauri } from "@/api/sidecarBridge"
+import { novelPath } from "@/lib/novelPaths"
 
 const ENTITY_STAT_ITEMS = [
   { key: "person", label: "人物", color: "text-blue-500", page: "encyclopedia" },
@@ -226,7 +226,7 @@ export function NovelOverviewCard({
                   <button
                     key={key}
                     className="rounded-md border bg-muted/30 px-2 py-2 text-center hover:bg-accent/50 transition-colors"
-                    onClick={() => navigate(isTauri ? `/novel/${novelId}/${page}` : `/${page}/${novelId}`)}
+                    onClick={() => navigate(novelPath(novelId, page))}
                     title={`查看${label}`}
                   >
                     <div className={`text-lg font-bold ${color}`}>{count}</div>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Novel } from "@/api/types"
+import { novelPath } from "@/lib/novelPaths"
 
 const STORAGE_KEY = "ai-reader-ftue-dismissed"
 
@@ -20,7 +21,7 @@ export function WelcomeBanner({ sampleNovels }: { sampleNovels: Novel[] }) {
   }
 
   const handleExplore = () => {
-    navigate(`/graph/${sampleNovels[0].id}`)
+    navigate(novelPath(sampleNovels[0].id, "graph"))
   }
 
   return (

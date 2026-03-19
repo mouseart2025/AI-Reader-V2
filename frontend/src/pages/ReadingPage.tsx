@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils"
 import { highlightText } from "@/lib/entityHighlight"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 import { recordTabVisit } from "@/lib/tabTracking"
+import { novelPath } from "@/lib/novelPaths"
 
 // ── Entity type colors for filter chips ──────────
 const ENTITY_TYPE_LABELS: { type: string; label: string; color: string }[] = [
@@ -439,7 +440,7 @@ export default function ReadingPage() {
   }, [chapters])
 
   const handleGoAnalysis = useCallback(() => {
-    if (novelId) navigate(`/analysis/${novelId}`)
+    if (novelId) navigate(novelPath(novelId, "analysis"))
   }, [novelId, navigate])
 
   const handleEntityClick = useCallback(

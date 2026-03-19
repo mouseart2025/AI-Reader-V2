@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, downloadBackupExport, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
 import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
+import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
 import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
@@ -1479,7 +1480,7 @@ export default function SettingsPage() {
                         <Button
                           variant="outline"
                           size="xs"
-                          onClick={() => navigate(`/analysis/${novel.id}`)}
+                          onClick={() => navigate(novelPath(novel.id, "analysis"))}
                         >
                           分析
                         </Button>

@@ -5,6 +5,7 @@ import { isTauri } from "@/api/sidecarBridge"
  * Tauri: /novel/{novelId}/{tab}
  * Web:   /{tab}/{novelId}
  */
-export function novelPath(novelId: string, tab: string): string {
-  return isTauri ? `/novel/${novelId}/${tab}` : `/${tab}/${novelId}`
+export function novelPath(novelId: string, tab: string, query?: string): string {
+  const base = isTauri ? `/novel/${novelId}/${tab}` : `/${tab}/${novelId}`
+  return query ? `${base}?${query}` : base
 }
