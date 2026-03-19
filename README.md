@@ -59,6 +59,10 @@
 - 🤖 **多 LLM 后端** — 本地 Ollama + 10 大云端供应商（DeepSeek、Claude、OpenAI、Gemini 等），Token 预算自动缩放
 - 📊 **全链路分析** — 实体预扫描 → 章节提取 → 聚合 → 可视化，异步执行、暂停恢复、失败重试
 
+## 开发故事 Story
+
+📝 [全程不写一行代码，我如何用 AI 做出一个复杂的小说分析系统](https://zhuanlan.zhihu.com/p/2016598051163218226) — 从零到一的完整开发历程
+
 ## 桌面应用下载 Desktop Download
 
 无需配置开发环境，下载即用。内置 Python 后端，只需安装 [Ollama](https://ollama.com/) 或配置云端 API。
