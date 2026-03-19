@@ -194,7 +194,7 @@ export function NovelOverviewCard({
                   onClick={handleGenerate}
                   disabled={generating}
                 >
-                  {generating ? "LLM 生成中，请稍候..." : "生成小说简介"}
+                  {generating ? "AI 生成中，请稍候..." : "生成小说简介"}
                 </button>
                 <span className="text-xs text-muted-foreground">
                   或

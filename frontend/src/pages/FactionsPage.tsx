@@ -9,6 +9,7 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
+import { recordTabVisit } from "@/lib/tabTracking"
 
 interface OrgNode {
   id: string
@@ -76,6 +77,8 @@ export default function FactionsPage() {
   const graphRef = useRef<ForceGraphMethods<OrgNode, OrgRelation>>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+
+  useEffect(() => { recordTabVisit("factions") }, [])
 
   // Resize observer
   useEffect(() => {

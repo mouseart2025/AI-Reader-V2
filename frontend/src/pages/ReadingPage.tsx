@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { highlightText } from "@/lib/entityHighlight"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
+import { recordTabVisit } from "@/lib/tabTracking"
 
 // ── Entity type colors for filter chips ──────────
 const ENTITY_TYPE_LABELS: { type: string; label: string; color: string }[] = [
@@ -422,6 +423,8 @@ export default function ReadingPage() {
     const ch = chapters.find((c) => c.chapter_num === currentChapterNum)
     return ch?.analysis_status ?? "pending"
   }, [chapters, currentChapterNum])
+
+  useEffect(() => { recordTabVisit("reading") }, [])
 
   // Default scene panel open when novel is fully analyzed
   useEffect(() => {

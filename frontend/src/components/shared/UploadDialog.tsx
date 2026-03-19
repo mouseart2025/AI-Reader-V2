@@ -265,6 +265,8 @@ export function UploadDialog({
 
   // Expanded mode (split-pane with text preview)
   const [isExpanded, setIsExpanded] = useState(false)
+  // Advanced split options — auto-expand when diagnosis is not OK
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [rawText, setRawText] = useState<string | null>(null)
   const [rawTextLoading, setRawTextLoading] = useState(false)
   const [splitPoints, setSplitPoints] = useState<number[]>([])
@@ -660,6 +662,13 @@ export function UploadDialog({
   const diagnosis = preview?.diagnosis
   const hygieneReport = preview?.hygiene_report
 
+  // Auto-expand advanced options when diagnosis indicates a problem
+  useEffect(() => {
+    if (diagnosis && diagnosis.tag !== "OK" && !diagnosis.auto_optimized) {
+      setAdvancedOpen(true)
+    }
+  }, [diagnosis])
+
   // Determine dialog width class
   const dialogWidthClass = isExpanded ? "sm:max-w-7xl" : "sm:max-w-2xl"
 
@@ -941,15 +950,31 @@ export function UploadDialog({
 
                 {/* Split adjustment — expanded mode uses RegexTemplateSelector, default uses legacy controls */}
                 {isExpanded ? (
-                  <div className="rounded-md border px-3 py-3">
-                    <RegexTemplateSelector
-                      onApply={handleRegexTemplateApply}
-                      disabled={reSplitting || isWorking}
-                    />
-                    {reSplitting && (
-                      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        正在重新切分...
+                  <div className="rounded-md border">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors"
+                      onClick={() => setAdvancedOpen((v) => !v)}
+                    >
+                      {advancedOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      高级切分选项
+                    </button>
+                    {advancedOpen && (
+                      <div className="border-t px-3 py-3">
+                        <RegexTemplateSelector
+                          onApply={handleRegexTemplateApply}
+                          disabled={reSplitting || isWorking}
+                        />
+                        {reSplitting && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            正在重新切分...
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

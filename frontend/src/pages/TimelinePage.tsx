@@ -9,6 +9,7 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
+import { recordTabVisit } from "@/lib/tabTracking"
 
 interface TimelineEvent {
   id: string
@@ -119,6 +120,8 @@ export default function TimelinePage() {
   const expandAll = useCallback(() => {
     setCollapsedChapters(new Set())
   }, [])
+
+  useEffect(() => { recordTabVisit("timeline") }, [])
 
   // Load data
   useEffect(() => {

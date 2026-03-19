@@ -369,6 +369,16 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
 
         # Import bookmarks
         if bookmarks:
+            await conn.execute(
+                """CREATE TABLE IF NOT EXISTS bookmarks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    novel_id TEXT NOT NULL,
+                    chapter_num INTEGER NOT NULL,
+                    scroll_position REAL DEFAULT 0,
+                    note TEXT DEFAULT '',
+                    created_at TEXT DEFAULT (datetime('now'))
+                )"""
+            )
             await conn.executemany(
                 "INSERT INTO bookmarks (novel_id, chapter_num, scroll_position, note, created_at) VALUES (?, ?, ?, ?, ?)",
                 [

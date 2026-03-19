@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![Version](https://img.shields.io/badge/version-0.53.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.54.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -65,8 +65,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.53.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.53.0/AI.Reader_0.53.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.53.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.53.0/AI.Reader_0.53.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.53.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.54.0/AI.Reader_0.53.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.53.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.54.0/AI.Reader_0.53.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 这是因为应用未经 Apple 签名。请在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -108,6 +108,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.54.0 | 2026-03-19 | FTUE 新用户首次体验改造 — 预装红楼梦+西游记完整分析数据（打开即看）、移除 SetupGuide 阻塞（书架直出）、WelcomeBanner 欢迎引导、AI 助手双模式（FAQ 即时回复+小说问答）、InlineLlmSetup 分析页内联配置、分析时间预估、ContextualGuideCard 情境引导、UploadDialog 高级选项折叠、技术术语替换 |
 | v0.53.0 | 2026-03-18 | 章节切分大幅改进 — 文体预检测（散文/诗集/小说自动识别）、加权评分替代纯 match count、智能推断模式（标记 2 个分割点自动推导正则）、混淆水印检测增强、支持 10+ 新格式（卷X、(第X部)、楔子/尾声、半角空格子节、数字小节、网站分页标记）、46 个单元测试、1569 本批量分析脚本 |
 | v0.52.2 | 2026-03-17 | 双平台构建修复（macOS Team ID 签名冲突修复 + Windows PATH 清理 + sidecar Python 版本验证），CI release.yml 与 build-windows.yml 步骤对齐 |
 | v0.52.1 | 2026-03-16 | 跨平台一致性修复（版本同步脚本 + CI macOS Python pinning + Remove heavy packages 全平台化 + CI 触发分离），桌面端功能补齐（FloatingChatPanel + .txt 拖拽上传） |
