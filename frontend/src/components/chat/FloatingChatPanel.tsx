@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import Markdown from "react-markdown"
 import { MessageCircle } from "lucide-react"
+import { novelPath } from "@/lib/novelPaths"
 import { useChatStore } from "@/stores/chatStore"
 import { matchSystemFaq, QUICK_QUESTIONS } from "@/lib/systemFaq"
 import { cn } from "@/lib/utils"
@@ -269,7 +270,7 @@ export function FloatingChatPanel() {
             className="text-xs text-muted-foreground hover:text-foreground"
             onClick={() => {
               closePanel()
-              navigate(`/chat/${novelId}`)
+              navigate(novelPath(novelId!, "chat"))
             }}
           >
             全屏
