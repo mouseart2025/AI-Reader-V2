@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 import { recordTabVisit } from "@/lib/tabTracking"
+import { lazy, Suspense } from "react"
+
+const StorylineView = lazy(() => import("./StorylineView"))
 
 interface TimelineEvent {
   id: string
@@ -85,6 +88,7 @@ export default function TimelinePage() {
   const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
   const [minSwimlaneEvents, setMinSwimlaneEvents] = useState(5)
   const [autoCollapseLow, setAutoCollapseLow] = useState(true)
+  const [viewMode, setViewMode] = useState<"list" | "storyline">("list")
 
   const toggleTypeFilter = useCallback((type: FilterType) => {
     setFilterTypes((prev) => {
@@ -258,6 +262,34 @@ export default function TimelinePage() {
       <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex items-center gap-3 border-b px-4 py-2 flex-shrink-0">
+          {/* View mode tabs */}
+          <div className="flex items-center gap-1 mr-2">
+            <button
+              className={cn(
+                "px-2.5 py-1 rounded text-xs font-medium transition",
+                viewMode === "list"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setViewMode("list")}
+            >
+              ▤ 事件列表
+            </button>
+            <button
+              className={cn(
+                "px-2.5 py-1 rounded text-xs font-medium transition",
+                viewMode === "storyline"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setViewMode("storyline")}
+            >
+              ═ 故事线
+            </button>
+          </div>
+
+          <div className="w-px h-5 bg-border" />
+
           {/* Type filter (multi-select) */}
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs text-muted-foreground mr-1">类型</span>
@@ -329,7 +361,21 @@ export default function TimelinePage() {
           </Button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        {/* Storyline view */}
+        {viewMode === "storyline" && (
+          <Suspense fallback={<div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">加载故事线视图...</div>}>
+            <StorylineView
+              events={filteredEvents}
+              swimlanes={swimlanes}
+              novelId={novelId ?? ""}
+              filterTypes={filterTypes}
+              onToggleType={toggleTypeFilter}
+            />
+          </Suspense>
+        )}
+
+        {/* List view */}
+        {viewMode === "list" && <div className="flex flex-1 overflow-hidden">
           {/* Main timeline area */}
           <div ref={timelineContainerRef} className="flex-1 overflow-auto">
             {loading && (
@@ -562,7 +608,7 @@ export default function TimelinePage() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
         {novelId && <EntityCardDrawer novelId={novelId} />}
       </div>

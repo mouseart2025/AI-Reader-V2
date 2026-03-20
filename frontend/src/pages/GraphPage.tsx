@@ -132,6 +132,7 @@ export default function GraphPage() {
   const [pathSearchB, setPathSearchB] = useState("")
   const [showPathPanel, setShowPathPanel] = useState(false)
   const [pathInfo, setPathInfo] = useState<string[]>([])
+  const [pathSteps, setPathSteps] = useState<{ from: string; to: string; relType: string; category: string }[]>([])
 
   // Debounced filter values — slider UI updates immediately, graph filtering lags 150ms
   const [debouncedMinChapters, setDebouncedMinChapters] = useState(minChapters)
@@ -297,22 +298,40 @@ export default function GraphPage() {
       setPathNodes(new Set())
       setPathEdges(new Set())
       setPathInfo([])
+      setPathSteps([])
       return
     }
 
     const pNodes = new Set(path)
     const pEdges = new Set<string>()
+    const edgeMap = new Map<string, GraphEdge>()
+    for (const e of filteredEdges) {
+      const src = typeof e.source === "string" ? e.source : e.source.id
+      const tgt = typeof e.target === "string" ? e.target : e.target.id
+      edgeMap.set(`${src}--${tgt}`, e)
+      edgeMap.set(`${tgt}--${src}`, e)
+    }
+
+    const steps: { from: string; to: string; relType: string; category: string }[] = []
+    const nodeMap = new Map(filteredNodes.map((n) => [n.id, n.name]))
     for (let i = 0; i < path.length - 1; i++) {
       pEdges.add(`${path[i]}--${path[i + 1]}`)
       pEdges.add(`${path[i + 1]}--${path[i]}`)
+      const edge = edgeMap.get(`${path[i]}--${path[i + 1]}`)
+      steps.push({
+        from: nodeMap.get(path[i]) ?? path[i],
+        to: nodeMap.get(path[i + 1]) ?? path[i + 1],
+        relType: edge?.relation_type ?? "?",
+        category: edge?.category ?? "other",
+      })
     }
 
-    const nodeMap = new Map(filteredNodes.map((n) => [n.id, n.name]))
     const names = path.map((id) => nodeMap.get(id) ?? id)
 
     setPathNodes(pNodes)
     setPathEdges(pEdges)
     setPathInfo(names)
+    setPathSteps(steps)
   }, [filteredNodeIds, filteredEdges, filteredNodes])
 
   const handleSearchPath = useCallback(() => {
@@ -530,7 +549,16 @@ export default function GraphPage() {
                   <p className="text-[10px] text-muted-foreground mb-1">
                     最短路径 ({pathInfo.length - 1} 步)
                   </p>
-                  <p className="text-xs">{pathInfo.join(" → ")}</p>
+                  <div className="text-xs space-y-0.5">
+                    {pathSteps.map((step, i) => (
+                      <span key={i}>
+                        {i === 0 && <span className="font-medium">{step.from}</span>}
+                        <span style={{ color: categoryColor(step.category) }}> →{step.relType}→ </span>
+                        <span className="font-medium">{step.to}</span>
+                        {i < pathSteps.length - 1 && " "}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               {pathInfo.length === 0 && pathStart && (
@@ -547,7 +575,15 @@ export default function GraphPage() {
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 rounded-full border bg-background/95 px-4 py-1.5 shadow-lg flex items-center gap-2">
             {hasPath ? (
               <>
-                <span className="text-xs">{pathInfo.join(" → ")}</span>
+                <span className="text-xs flex items-center gap-0.5 flex-wrap">
+                  {pathSteps.length > 0 ? pathSteps.map((step, i) => (
+                    <span key={i} className="flex items-center gap-0.5">
+                      {i === 0 && <span>{step.from}</span>}
+                      <span style={{ color: categoryColor(step.category) }}>→<span className="text-[9px] mx-0.5">{step.relType}</span>→</span>
+                      <span>{step.to}</span>
+                    </span>
+                  )) : <span>{pathInfo.join(" → ")}</span>}
+                </span>
                 <Button variant="ghost" size="xs" onClick={clearPath}>
                   清除
                 </Button>
@@ -764,7 +800,7 @@ export default function GraphPage() {
           linkColor={(edge: GraphEdge) => {
             const ek = edgeKey(edge)
             if (hasPath) {
-              if (pathEdges.has(ek)) return "#f59e0b"
+              if (pathEdges.has(ek)) return categoryColor(edge.category ?? "other")
               return isDarkRef.current ? "#374151" : "#f3f4f6"
             }
             if (hoverNode) {
