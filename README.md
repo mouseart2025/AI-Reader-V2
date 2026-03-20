@@ -69,8 +69,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.54.2_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.54.2/AI.Reader_0.54.2_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.54.2_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.54.2/AI.Reader_0.54.2_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.55.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.55.0/AI.Reader_0.55.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.55.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.55.0/AI.Reader_0.55.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 这是因为应用未经 Apple 签名。请在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
