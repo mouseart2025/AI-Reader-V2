@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![Version](https://img.shields.io/badge/version-0.54.2-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.55.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -112,6 +112,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.55.0 | 2026-03-20 | 时间线故事线视图 + 关系图路径着色 — 新增角色泳道视图（水平时间轴+D3缩放+交汇标记+详情面板）、关系图路径查找按关系类型着色（边+路径条显示关系名）、角色上限提示 |
 | v0.54.2 | 2026-03-19 | 桌面端 .air 导入修复 — 导入后同步写入 SQLite（修复导入成功但书架不显示） |
 | v0.54.1 | 2026-03-19 | 桌面端修复 — .air format v5 导入支持、跨页面导航 404 系统性修复（8 处 novelPath 统一）、bookmarks 表全新 DB 创建 |
 | v0.54.0 | 2026-03-19 | FTUE 新用户首次体验改造 — 预装红楼梦+西游记完整分析数据（打开即看）、移除 SetupGuide 阻塞（书架直出）、WelcomeBanner 欢迎引导、AI 助手双模式（FAQ 即时回复+小说问答）、InlineLlmSetup 分析页内联配置、分析时间预估、ContextualGuideCard 情境引导、UploadDialog 高级选项折叠、技术术语替换 |
