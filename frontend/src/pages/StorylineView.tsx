@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useEntityCardStore } from "@/stores/entityCardStore"
+import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { novelPath } from "@/lib/novelPaths"
 import { useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
@@ -87,6 +88,7 @@ export default function StorylineView({
 }: StorylineViewProps) {
   const navigate = useNavigate()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
+  const setFocusLocation = useVisualizationFocusStore((s) => s.setFocusLocation)
 
   // State
   const [selectedChars, setSelectedChars] = useState<string[]>([])
@@ -696,7 +698,17 @@ export default function StorylineView({
                         onClick={() => openEntityCard(p, "person")}
                       >{p}</button>
                     ))}
-                    {selectedEvent.location && <span className="text-xs text-muted-foreground ml-2">📍 {selectedEvent.location}</span>}
+                    {selectedEvent.location && (
+                      <button
+                        className="text-xs text-green-600 dark:text-green-400 hover:underline ml-2"
+                        onClick={() => {
+                          setFocusLocation(selectedEvent.location!, "timeline")
+                          navigate(novelPath(novelId, "map"))
+                        }}
+                      >
+                        📍 {selectedEvent.location} →
+                      </button>
+                    )}
                   </div>
                   <button className="text-xs text-primary hover:underline flex-shrink-0" onClick={() => navigate(novelPath(novelId, "read", `chapter=${selectedEvent.chapter}`))}>
                     前往阅读 →
