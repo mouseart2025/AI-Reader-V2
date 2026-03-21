@@ -37,6 +37,7 @@ export default defineConfig({
             if (id.includes("/d3-")) return "vendor-d3"
             if (id.includes("/radix-ui/") || id.includes("/@radix-ui/")) return "vendor-ui"
             if (id.includes("/react-markdown/") || id.includes("/micromark") || id.includes("/mdast-") || id.includes("/remark-") || id.includes("/unified/") || id.includes("/hast-") || id.includes("/unist-")) return "vendor-markdown"
+            if (id.includes("/maplibre-gl/")) return "vendor-maplibre"
           }
         },
       },

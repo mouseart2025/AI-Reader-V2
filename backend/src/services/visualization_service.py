@@ -962,17 +962,11 @@ async def get_map_data(
         _ws_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
     ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
 
-    # Generate river network (non-geographic modes with 3+ locations)
-    rivers: list[dict] = []
-    if layout_mode != "geographic" and len(layout_data) >= 3 and not layer_id:
-        rivers = generate_rivers(
-            locations, layout_data, novel_id,
-            canvas_width=_resp_cw, canvas_height=_resp_ch,
-        )
-
-    # Generate landmass contours (non-geographic modes with 3+ locations)
+    # Generate landmass contours FIRST (river generation needs land_mask)
+    # Note: generate for overworld layer too (layer_id == "overworld" or None)
+    _is_overworld_like = not layer_id or layer_id == "overworld"
     landmass_result: dict = {}
-    if layout_mode != "geographic" and len(layout_data) >= 3 and not layer_id:
+    if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like:
         try:
             landmass_result = generate_landmasses(
                 locations, layout_data, novel_id,
@@ -980,6 +974,22 @@ async def get_map_data(
             )
         except Exception:
             logger.warning("Failed to generate landmasses", exc_info=True)
+
+    # Generate river network AFTER landmasses (clip rivers to land)
+    rivers: list[dict] = []
+    if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like:
+        # Pass land_mask so rivers terminate at coastline
+        _land_mask_info = None
+        if "_land_mask" in landmass_result:
+            _land_mask_info = {
+                "_land_mask": landmass_result["_land_mask"],
+                "_cell_size": landmass_result["_cell_size"],
+            }
+        rivers = generate_rivers(
+            locations, layout_data, novel_id,
+            canvas_width=_resp_cw, canvas_height=_resp_ch,
+            land_mask_info=_land_mask_info,
+        )
 
     # Add placement_confidence to each location
     constrained_names: set[str] = set()

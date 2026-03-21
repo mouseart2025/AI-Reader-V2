@@ -35,10 +35,10 @@ logger = logging.getLogger(__name__)
 # Canvas coordinate range (16:9 aspect ratio)
 CANVAS_WIDTH = 1600
 CANVAS_HEIGHT = 900
-CANVAS_MIN_X = 50
-CANVAS_MAX_X = CANVAS_WIDTH - 50
-CANVAS_MIN_Y = 50
-CANVAS_MAX_Y = CANVAS_HEIGHT - 50
+CANVAS_MIN_X = 100
+CANVAS_MAX_X = CANVAS_WIDTH - 100
+CANVAS_MIN_Y = 60
+CANVAS_MAX_Y = CANVAS_HEIGHT - 60
 
 # Spatial scale → canvas size mapping (width, height) — 16:9 ratio
 SPATIAL_SCALE_CANVAS: dict[str, tuple[int, int]] = {
@@ -266,8 +266,8 @@ def _layout_regions(
 
     cw = float(canvas_width)
     ch = float(canvas_height)
-    margin_x = canvas_width * 0.05
-    margin_y = canvas_height * 0.05
+    margin_x = canvas_width * 0.07
+    margin_y = canvas_height * 0.07
 
     if len(regions) == 1:
         # Single region → full canvas
@@ -317,9 +317,9 @@ def _layout_regions(
             continue
 
         verts = np.array([vor.vertices[vi] for vi in region])
-        # Clip to canvas
-        verts[:, 0] = np.clip(verts[:, 0], 0, cw)
-        verts[:, 1] = np.clip(verts[:, 1], 0, ch)
+        # Clip to canvas with margin so locations don't land at the very edge
+        verts[:, 0] = np.clip(verts[:, 0], margin_x, cw - margin_x)
+        verts[:, 1] = np.clip(verts[:, 1], margin_y, ch - margin_y)
         x1, y1 = float(verts[:, 0].min()), float(verts[:, 1].min())
         x2, y2 = float(verts[:, 0].max()), float(verts[:, 1].max())
 
@@ -596,7 +596,7 @@ def generate_voronoi_boundaries(
 
 # Canvas sizes for non-overworld layers (width, height) — 16:9 ratio
 _LAYER_CANVAS_SIZES: dict[str, tuple[int, int]] = {
-    "pocket": (480, 270),
+    "pocket": (1200, 675),
     "sky": (960, 540),
     "underground": (960, 540),
     "sea": (960, 540),
@@ -787,8 +787,8 @@ def compute_layered_layout(
     canvas_w, canvas_h = SPATIAL_SCALE_CANVAS.get(
         spatial_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
     )
-    margin_x = max(50, canvas_w // 20)
-    margin_y = max(50, canvas_h // 20)
+    margin_x = max(100, int(canvas_w * 0.07))
+    margin_y = max(60, int(canvas_h * 0.07))
     overworld_bounds = (margin_x, margin_y, canvas_w - margin_x, canvas_h - margin_y)
 
     if not layers:
@@ -3163,8 +3163,13 @@ def _trace_river(
     canvas_w: int, canvas_h: int,
     step: int = 20,
     max_steps: int = 200,
+    is_land_fn=None,
 ) -> list[tuple[float, float]]:
-    """Trace a single river path via gradient descent with lateral wiggle."""
+    """Trace a single river path via gradient descent with lateral wiggle.
+
+    If *is_land_fn* is provided, the river terminates when it leaves land
+    (reaches the coastline / ocean).
+    """
     path = [(sx, sy)]
     x, y = sx, sy
     for i in range(max_steps):
@@ -3187,6 +3192,9 @@ def _trace_river(
         wiggle = wiggle_gen.noise2(best_x * 0.01, best_y * 0.01) * 15
         new_x = max(10, min(canvas_w - 10, best_x + wiggle * perp_x))
         new_y = max(10, min(canvas_h - 10, best_y + wiggle * perp_y))
+        # Stop if next point is outside land (river reached ocean)
+        if is_land_fn and not is_land_fn(new_x, new_y):
+            break
         path.append((new_x, new_y))
         x, y = best_x, best_y  # gradient position (unwiggled) for next step
     return path
@@ -3198,6 +3206,7 @@ def generate_rivers(
     novel_id: str,
     canvas_width: int = CANVAS_WIDTH,
     canvas_height: int = CANVAS_HEIGHT,
+    land_mask_info: dict | None = None,
 ) -> list[dict]:
     """Generate river paths from high-elevation sources toward low areas.
 
@@ -3278,12 +3287,27 @@ def generate_rivers(
     # Limit to 3-8 rivers
     sources = sources[:8]
 
+    # ── Build land check function from landmass mask ──
+    is_land_fn = None
+    if land_mask_info:
+        _mask = land_mask_info["_land_mask"]
+        _cs = land_mask_info["_cell_size"]
+        _mh, _mw = _mask.shape
+
+        def is_land_fn(x: float, y: float) -> bool:
+            gi = int(round(x / _cs))
+            gj = int(round(y / _cs))
+            if 0 <= gj < _mh and 0 <= gi < _mw:
+                return bool(_mask[gj, gi])
+            return False
+
     # ── Trace rivers ──
     rivers: list[dict] = []
     for sx, sy in sources:
         path = _trace_river(
             sx, sy, elevation_at, wiggle_noise,
             canvas_width, canvas_height,
+            is_land_fn=is_land_fn,
         )
         if len(path) < 5:
             continue
@@ -3444,6 +3468,28 @@ def generate_landmasses(
     struct_large = np.ones((5, 5), dtype=bool)
     land_mask = binary_closing(land_mask, structure=struct_large)   # merge gaps first
     land_mask = binary_opening(land_mask, structure=struct_small)   # remove pixel noise
+
+    # ── 1.3b2 Ensure all land locations are covered ──
+    # After morphological cleanup, some edge locations may fall outside the mask.
+    # Grow small circles around uncovered land points to guarantee they're on land.
+    _uncovered = 0
+    _patch_r = max(3, int(round(threshold * 0.15)))
+    for px, py in all_points:
+        gxi = int(round(px / cell_size))
+        gyi = int(round(py / cell_size))
+        if 0 <= gyi < grid_h and 0 <= gxi < grid_w and not land_mask[gyi, gxi]:
+            _uncovered += 1
+            y_lo = max(0, gyi - _patch_r)
+            y_hi = min(grid_h, gyi + _patch_r + 1)
+            x_lo = max(0, gxi - _patch_r)
+            x_hi = min(grid_w, gxi + _patch_r + 1)
+            yy, xx = np.ogrid[y_lo:y_hi, x_lo:x_hi]
+            dist_sq = (xx - gxi) ** 2 + (yy - gyi) ** 2
+            land_mask[y_lo:y_hi, x_lo:x_hi][dist_sq <= _patch_r * _patch_r] = True
+    if _uncovered:
+        # Re-apply closing to merge the patches smoothly with existing land
+        land_mask = binary_closing(land_mask, structure=struct_large)
+        logger.debug("Patched %d uncovered land locations", _uncovered)
 
     # ── 1.3c Ocean hole carving ──
     # Ocean locations may be positioned among land by the layout engine.
@@ -3750,4 +3796,9 @@ def generate_landmasses(
         novel_id, len(landmasses), len(shelves), threshold, n,
     )
 
-    return {"landmasses": landmasses, "shelves": shelves}
+    return {
+        "landmasses": landmasses,
+        "shelves": shelves,
+        "_land_mask": land_mask,       # internal: numpy bool grid (not serialized)
+        "_cell_size": cell_size,       # internal: grid cell size in canvas px
+    }

@@ -12,7 +12,7 @@
  * 5. Sort by level ascending (outermost first) for correct layer ordering
  */
 
-import type { MapLocation, MapLayoutItem } from "@/api/types"
+import type { Landmass, MapLocation, MapLayoutItem } from "@/api/types"
 import type { Point } from "./edgeDistortion"
 
 export interface Territory {
@@ -43,6 +43,7 @@ export function generateHullTerritories(
   locations: MapLocation[],
   layout: MapLayoutItem[],
   canvasSize: { width: number; height: number },
+  landmasses?: Landmass[],
 ): Territory[] {
   // ── Step 1: Build indexes ──
   const layoutMap = new Map<string, MapLayoutItem>()
@@ -104,6 +105,11 @@ export function generateHullTerritories(
       hull = capsule(hull, padding)
     } else {
       hull = expandConvexHull(hull, padding)
+    }
+
+    // Skip territories whose hull edges cross ocean (children on different landmasses)
+    if (landmasses && landmasses.length > 0 && hullCrossesOcean(hull, landmasses)) {
+      continue
     }
 
     // Nesting level
@@ -353,4 +359,50 @@ function territoryColor(locType: string): string {
   if (t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
   if (t.includes("州") || t.includes("省") || t.includes("区")) return "#6366f1"
   return "#6b7280"
+}
+
+// ── Ocean-crossing detection ──
+
+/** Ray-casting point-in-polygon test. */
+function pointInPolygon(px: number, py: number, polygon: [number, number][]): boolean {
+  let inside = false
+  const n = polygon.length
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [xi, yi] = polygon[i]
+    const [xj, yj] = polygon[j]
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+/** Check if a hull polygon has edges that cross ocean (not inside any landmass). */
+function hullCrossesOcean(hull: Point[], landmasses: Landmass[]): boolean {
+  const n = hull.length
+  if (n < 3 || landmasses.length === 0) return false
+
+  // Sample midpoint of each hull edge; if any midpoint is in ocean, the hull crosses water
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = hull[i]
+    const [x2, y2] = hull[(i + 1) % n]
+    const mx = (x1 + x2) / 2
+    const my = (y1 + y2) / 2
+
+    let inLand = false
+    for (const lm of landmasses) {
+      if (pointInPolygon(mx, my, lm.coastline)) {
+        // Check it's not inside a hole (inner sea)
+        let inHole = false
+        for (const hole of lm.holes) {
+          if (pointInPolygon(mx, my, hole)) { inHole = true; break }
+        }
+        if (!inHole) { inLand = true; break }
+      }
+    }
+
+    if (!inLand) return true  // edge midpoint is in ocean
+  }
+
+  return false
 }

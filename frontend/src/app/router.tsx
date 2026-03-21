@@ -17,6 +17,7 @@ const AnalysisPage = lazy(() => import("@/pages/AnalysisPage"))
 const ConflictsPage = lazy(() => import("@/pages/ConflictsPage"))
 const ExportPage = lazy(() => import("@/pages/ExportPage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
+// const MapEnginePOC = lazy(() => import("@/pages/MapEnginePOC"))  // WebGL POC — hidden until stable
 
 // Desktop pages (lazy-loaded, only included in Tauri)
 const DesktopBookshelfPage = lazy(() => import("@/desktop/BookshelfPage"))
@@ -140,4 +141,6 @@ export const router = createBrowserRouter([
   },
   // Redirect bare /demo to default novel
   { path: "/demo", element: <Navigate to="/demo/honglou/reading" replace /> },
+  // 技术 POC 页面 — 隐藏直到 WebGL 渲染器稳定
+  // { path: "/poc/map-engine", element: <SuspenseWrapper><MapEnginePOC /></SuspenseWrapper> },
 ])

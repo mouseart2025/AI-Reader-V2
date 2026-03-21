@@ -61,18 +61,60 @@ _MACRO_GEO_SUFFIXES = ("洲", "域", "界", "国")
 # ── Heuristic layer-assignment keywords ──────────────────────────
 
 _CELESTIAL_KEYWORDS = (
-    "天宫", "天庭", "天门", "天界", "三十三天", "大罗天",
+    "天庭", "天界", "三十三天", "大罗天",
     "离恨天", "兜率宫", "凌霄殿", "蟠桃园", "瑶池",
-    "灵霄宝殿", "南天门", "北天门", "东天门", "西天门",
-    "九天应元府",
+    "灵霄宝殿", "九天应元府",
+    # Note: "天宫" removed — causes false positive on "后天宫" (古建筑).
+    # Note: "天门" removed — causes false positive on "天门峰" etc.
+    # Specific full names:
+    "南天门", "北天门", "东天门", "西天门",
 )
+# Celestial keywords that require exact name match (not substring)
+_CELESTIAL_EXACT = ("天宫",)
 _UNDERWORLD_KEYWORDS = (
     "地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
     "奈何桥", "阎罗殿", "森罗殿", "枉死城",
 )
 
-# Instance candidates: location type keywords
-_INSTANCE_TYPE_KEYWORDS = ("洞", "府")
+# ── Xianxia realm keywords → separate world layers ──
+# These are major world planes (界/域), not buildings. Each gets its own layer.
+# Matched against location NAME (not type).
+# IMPORTANT: longer keywords MUST come first in iteration (or use longest-match
+# in _detect_layer) to prevent "修仙界" matching "仙界".
+_REALM_LAYER_KEYWORDS: dict[str, tuple[str, str]] = {
+    # keyword → (layer_id, display_name)
+    # Cultivation / Xianxia realms
+    "灵界": ("lingworld", "灵界"),
+    "真仙界": ("xianworld", "真仙界"),
+    "仙界": ("xianworld", "仙界"),
+    "真魔界": ("moworld", "真魔界"),
+    "古魔界": ("moworld", "魔界"),
+    "魔界": ("moworld", "魔界"),
+    "妖界": ("yaoworld", "妖界"),
+    "圣界": ("shengworld", "圣界"),
+    "人界": ("overworld", "人界"),          # 人界 = mortal world, stays on overworld
+    "冥河之地": ("underworld", "冥界/地府"),
+    "蛮荒世界": ("manhuang", "蛮荒世界"),
+}
+# Names that contain realm keywords but should NOT be assigned to a realm layer.
+# E.g., "修仙界" means "cultivation world" (= mortal overworld), not "仙界".
+_REALM_LAYER_EXCLUDE = (
+    "修仙界",  # "the cultivation world" — refers to mortal realm, not 仙界
+)
+
+# ── Instance / pocket dimension detection ──
+# Only genuinely separate spatial dimensions — NOT ordinary buildings.
+# "洞府" (cave dwelling) is just a building; "洞天" (grotto-heaven) is a
+# pocket dimension. "秘境" (secret realm) is a pocket dimension; "府邸" is not.
+_INSTANCE_NAME_KEYWORDS = (
+    "秘境", "洞天", "福地", "芥子空间", "须弥空间",
+    "幻境", "结界", "禁地", "试炼", "遗迹",
+)
+# Type-based instance detection — location types that indicate separate spaces
+_INSTANCE_TYPE_KEYWORDS = (
+    "洞天", "秘境", "结界", "幻境",
+    "异空间", "封印空间", "法术空间", "特殊空间", "小世界",
+)
 
 # Direction inference from location names
 _DIRECTION_MAP: dict[str, str] = {
@@ -1158,21 +1200,25 @@ class WorldStructureAgent:
                     self.structure.location_layer_map[name] = "overworld"
 
             # ── Instance candidate detection ─────────────────
+            # Only detect genuinely separate spaces (秘境, 洞天, 幻境 etc.),
+            # NOT ordinary buildings (洞府, 府邸).
+            # All instances go to a single "pockets" layer instead of per-name layers.
             if (
                 self._is_instance_detection_enabled()
-                and any(kw in loc_type for kw in _INSTANCE_TYPE_KEYWORDS)
-                and loc.parent
+                and (
+                    any(kw in name for kw in _INSTANCE_NAME_KEYWORDS)
+                    or any(kw in loc_type for kw in _INSTANCE_TYPE_KEYWORDS)
+                )
             ):
-                # Instance locations get a pocket layer ID derived from name
-                layer_id = f"instance_{name}"
-                if not self._has_layer(layer_id):
+                _POCKETS_LAYER_ID = "pockets"
+                if not self._has_layer(_POCKETS_LAYER_ID):
                     self.structure.layers.append(MapLayer(
-                        layer_id=layer_id,
-                        name=name,
+                        layer_id=_POCKETS_LAYER_ID,
+                        name="副本/秘境",
                         layer_type=LayerType.pocket,
-                        description=f"副本/洞府: {name}",
+                        description="秘境、禁地、洞天、幻境等独立空间",
                     ))
-                self.structure.location_layer_map[name] = layer_id
+                self.structure.location_layer_map[name] = _POCKETS_LAYER_ID
 
             # ── Region assignment ────────────────────────────
             # Skip if user has an override for this location's region
@@ -1573,14 +1619,28 @@ class WorldStructureAgent:
         return "continental"  # safe default
 
     def _detect_layer(self, name: str, loc_type: str) -> str | None:
-        """Return layer_id if the location matches celestial/underworld keywords."""
+        """Return layer_id if the location matches celestial/underworld/realm keywords."""
         for kw in _CELESTIAL_KEYWORDS:
             if kw in name:
+                return "celestial"
+        for kw in _CELESTIAL_EXACT:
+            if name == kw:  # exact match only — avoids "后天宫" matching "天宫"
                 return "celestial"
         for kw in _UNDERWORLD_KEYWORDS:
             if kw in name:
                 return "underworld"
-        return None
+        # Skip excluded names before realm matching (e.g., "修仙界" ≠ "仙界")
+        if any(ex in name for ex in _REALM_LAYER_EXCLUDE):
+            return None
+        # Xianxia realm detection — match longest keyword first to prefer
+        # "真仙界" over "仙界"
+        best_kw = ""
+        best_layer = None
+        for kw, (layer_id, _) in _REALM_LAYER_KEYWORDS.items():
+            if kw in name and len(kw) > len(best_kw):
+                best_kw = kw
+                best_layer = layer_id
+        return best_layer
 
     def _ensure_layer_exists(self, layer_id: str) -> None:
         """Create a layer if it doesn't already exist."""
@@ -1588,10 +1648,16 @@ class WorldStructureAgent:
         if self._has_layer(layer_id):
             return
 
+        # Static mapping for well-known layers
         type_map: dict[str, tuple[LayerType, str]] = {
             "celestial": (LayerType.sky, "天界"),
             "underworld": (LayerType.underground, "冥界/地府"),
         }
+        # Add realm layers from _REALM_LAYER_KEYWORDS
+        for kw, (lid, display_name) in _REALM_LAYER_KEYWORDS.items():
+            if lid not in type_map:
+                type_map[lid] = (LayerType.overworld, display_name)
+
         layer_type, layer_name = type_map.get(
             layer_id, (LayerType.pocket, layer_id)
         )
