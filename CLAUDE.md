@@ -315,6 +315,6 @@ uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 - **Privacy**: Data stays local. Cloud mode only sends LLM requests to the configured API endpoint — no telemetry
 - **Dual LLM backend**: `LLM_PROVIDER=ollama` (default, local) or `LLM_PROVIDER=openai` (cloud). Cloud supports 10 providers: DeepSeek, MiniMax, Qwen, Moonshot, Zhipu, SiliconFlow, Yi, OpenAI, Gemini, Anthropic. Anthropic uses a separate `AnthropicClient` (`anthropic_client.py`) with `x-api-key` auth and `/v1/messages` endpoint; all others use `OpenAICompatibleClient`. `LLM_PROVIDER_FORMAT` (`"openai"` | `"anthropic"`) is set automatically by `update_cloud_config()` and controls which client is instantiated by `get_llm_client()`.
 - **Apple Silicon optimized**: Targets M1/M2/M3/M4 with MPS acceleration for embeddings
-- **No tests yet**: Test infrastructure (pytest, vitest) is not set up yet
+- **Testing**: Backend pytest (140 tests: chapter splitter, fact validator, alias resolver, export, settings, cost tracking). Frontend vitest (novelPaths, spatialLabels). CI via `.github/workflows/test.yml`. Run: `cd backend && uv run pytest tests/` / `cd frontend && npx vitest run`
 - **TypeScript strict mode**: `strict: true`, `noUnusedLocals`, `noUnusedParameters` enabled
 - **Build chunking**: Vite manual chunks split vendor-react, vendor-graph, vendor-ui

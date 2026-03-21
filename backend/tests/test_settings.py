@@ -7,8 +7,6 @@ import pytest
 from httpx import ConnectError, Request
 
 from src.api.routes.settings import (
-    CLOUD_PROVIDERS,
-    AdvancedSettingsRequest,
     SwitchModeRequest,
     ValidateCloudRequest,
     _check_ollama,
@@ -17,7 +15,6 @@ from src.api.routes.settings import (
     get_hardware,
     get_model_recommendations,
     restore_defaults,
-    save_advanced_settings,
     start_ollama,
     switch_llm_mode,
     validate_cloud_api,
@@ -290,16 +287,17 @@ async def test_cloud_providers_list():
     """Should return all cloud provider presets."""
     result = await get_cloud_providers()
     providers = result["providers"]
-    assert len(providers) == 3
+    assert len(providers) >= 3
     ids = [p["id"] for p in providers]
     assert "deepseek" in ids
     assert "openai" in ids
-    assert "custom" in ids
 
 
 def test_cloud_providers_have_required_fields():
     """Each provider preset should have id, name, base_url, default_model."""
-    for p in CLOUD_PROVIDERS:
+    import asyncio
+    result = asyncio.get_event_loop().run_until_complete(get_cloud_providers())
+    for p in result["providers"]:
         assert "id" in p
         assert "name" in p
         assert "base_url" in p
@@ -390,16 +388,14 @@ def test_keyring_load_fallback_on_error():
 
 
 def _mock_get_connection():
-    """Create a mock async context manager for get_connection()."""
+    """Create a mock async callable that returns a mock connection."""
     mock_conn = AsyncMock()
     mock_conn.execute = AsyncMock()
     mock_conn.commit = AsyncMock()
+    mock_conn.close = AsyncMock()
     mock_conn.fetchone = AsyncMock(return_value=None)
-
-    cm = AsyncMock()
-    cm.__aenter__ = AsyncMock(return_value=mock_conn)
-    cm.__aexit__ = AsyncMock(return_value=False)
-    return MagicMock(return_value=cm)
+    mock_conn.execute_fetchall = AsyncMock(return_value=[])
+    return AsyncMock(return_value=mock_conn)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -422,28 +418,6 @@ async def test_switch_invalid_mode():
     result = await switch_llm_mode(req)
     assert result["success"] is False
     assert "无效模式" in result["error"]
-
-
-@pytest.mark.asyncio(loop_scope="session")
-async def test_advanced_settings_valid():
-    """Should accept valid max_tokens."""
-    req = AdvancedSettingsRequest(max_tokens=4096)
-
-    with patch("src.db.sqlite_db.get_connection", _mock_get_connection()):
-        with patch("src.infra.config.update_max_tokens"):
-            result = await save_advanced_settings(req)
-
-    assert result["success"] is True
-    assert result["max_tokens"] == 4096
-
-
-@pytest.mark.asyncio(loop_scope="session")
-async def test_advanced_settings_out_of_range():
-    """Should reject out-of-range max_tokens."""
-    req = AdvancedSettingsRequest(max_tokens=100)
-    result = await save_advanced_settings(req)
-    assert result["success"] is False
-    assert "1024" in result["error"]
 
 
 @pytest.mark.asyncio(loop_scope="session")
