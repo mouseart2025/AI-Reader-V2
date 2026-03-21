@@ -87,6 +87,14 @@ class TestGenericPerson:
         assert _is_generic_person("妖精") is not None
         assert _is_generic_person("妖怪") is not None
         assert _is_generic_person("众猴") is not None
+        assert _is_generic_person("巡山的小妖") is not None
+        assert _is_generic_person("把门的小妖") is not None
+
+    def test_collective_religious(self):
+        """众僧/老僧 found in 西游记 validation."""
+        assert _is_generic_person("众僧") is not None
+        assert _is_generic_person("老僧") is not None
+        assert _is_generic_person("众将") is not None
 
     def test_military_generics(self):
         assert _is_generic_person("士兵") is not None
@@ -150,6 +158,10 @@ class TestCharVariants:
     def test_zhan_to_shan(self):
         """南瞻部洲 → 南赡部洲"""
         assert _normalize_char_variants("南瞻部洲") == "南赡部洲"
+
+    def test_she_to_shan(self):
+        """南赊部洲 → 南赡部洲 (found in 西游记 validation)"""
+        assert _normalize_char_variants("南赊部洲") == "南赡部洲"
 
     def test_ju_variant(self):
         """北倶芦洲 → 北俱芦洲"""
