@@ -314,6 +314,7 @@ export interface NovelMapProps {
   regionBoundaries?: RegionBoundary[]
   portals?: PortalInfo[]
   rivers?: { points: number[][]; width: number }[]
+  roads?: { from: string; to: string; points: number[][] }[]
   landmasses?: Landmass[]
   shelves?: [number, number][][]
   trajectoryPoints?: TrajectoryPoint[]
@@ -366,6 +367,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       regionBoundaries,
       portals,
       rivers,
+      roads,
       landmasses,
       shelves,
       terrainUrl,
@@ -593,6 +595,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       viewport.append("g").attr("id", "shelf")
       viewport.append("g").attr("id", "coastline")
       viewport.append("g").attr("id", "rivers")
+      viewport.append("g").attr("id", "roads")
 
       // Layer groups (Z-order)
       viewport.append("g").attr("id", "regions")
@@ -764,6 +767,39 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         ;(riversG.node() as Element).appendChild(node)
       }
     }, [mapReady, rivers, darkBg])
+
+    // ── Render road network (rough.js dashed lines) ──────────
+    useEffect(() => {
+      if (!svgRef.current || !mapReady) return
+      const svg = d3Selection.select(svgRef.current)
+      const roadsG = svg.select("#roads")
+      roadsG.selectAll("*").remove()
+
+      if (!roads || roads.length === 0) return
+      const rc = roughCanvasRef.current
+      if (!rc) return
+
+      const roadColor = darkBg
+        ? "rgba(160,140,100,0.35)"
+        : "rgba(120,100,60,0.35)"
+
+      for (const road of roads) {
+        if (road.points.length < 2) continue
+        const [x0, y0] = road.points[0]
+        const [x1, y1] = road.points[road.points.length - 1]
+        const d = `M ${x0} ${y0} L ${x1} ${y1}`
+        const node = rc.path(d, {
+          roughness: 1.2,
+          bowing: 3.0,
+          seed: Math.abs(x0 * 7 + y0 * 13) | 0,
+          stroke: roadColor,
+          strokeWidth: 1.2,
+          fill: "none",
+        })
+        node.style.pointerEvents = "none"
+        ;(roadsG.node() as Element).appendChild(node)
+      }
+    }, [mapReady, roads, darkBg])
 
     // ── Render coastline + ocean fill (rough.js) ──────────
     useEffect(() => {
