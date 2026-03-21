@@ -555,6 +555,7 @@ export interface MapData {
   layout_mode: "constraint" | "hierarchy" | "layered" | "geographic"
   terrain_url: string | null
   rivers?: { points: number[][]; width: number }[]
+  roads?: { from: string; to: string; points: number[][] }[]
   landmasses?: Landmass[]
   shelves?: [number, number][][]
   analyzed_range: [number, number]

@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.optimize import differential_evolution
-from scipy.spatial import Voronoi
+from scipy.spatial import Voronoi, Delaunay
 
 from src.infra.config import DATA_DIR
 
@@ -3320,6 +3320,80 @@ def generate_rivers(
     return rivers
 
 
+# ── Road network generation (Delaunay MST) ──────────────────────
+
+
+def generate_roads(
+    locations: list[dict],
+    layout_data: list[dict],
+    land_mask_info: dict | None = None,
+) -> list[dict]:
+    """Generate road network via Delaunay triangulation → MST filtering.
+
+    Returns list of road segments: [{"from": name, "to": name, "points": [[x,y],...]}]
+    Roads follow the MST (minimum spanning tree) of the Delaunay graph,
+    producing a connected network without redundant paths.
+    """
+    layout_map = {item["name"]: item for item in layout_data}
+    points = []
+    names = []
+    for loc in locations:
+        item = layout_map.get(loc["name"])
+        if item and "x" in item and "y" in item:
+            # Skip ocean/sea locations — no roads on water
+            loc_type = (loc.get("type") or "").lower()
+            icon = (loc.get("icon") or "").lower()
+            if "海" in loc_type or "洋" in loc_type or icon == "water":
+                continue
+            points.append((item["x"], item["y"]))
+            names.append(loc["name"])
+
+    if len(points) < 3:
+        return []
+
+    pts = np.array(points)
+    tri = Delaunay(pts)
+
+    # Build adjacency with distances
+    edges: dict[tuple[int, int], float] = {}
+    for simplex in tri.simplices:
+        for i in range(3):
+            a, b = int(simplex[i]), int(simplex[(i + 1) % 3])
+            key = (min(a, b), max(a, b))
+            if key not in edges:
+                edges[key] = float(np.linalg.norm(pts[a] - pts[b]))
+
+    # Kruskal's MST
+    parent = list(range(len(pts)))
+
+    def _find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def _union(a: int, b: int) -> bool:
+        ra, rb = _find(a), _find(b)
+        if ra != rb:
+            parent[ra] = rb
+            return True
+        return False
+
+    roads = []
+    for (a, b), dist in sorted(edges.items(), key=lambda x: x[1]):
+        if _union(a, b):
+            roads.append({
+                "from": names[a],
+                "to": names[b],
+                "points": [
+                    [round(pts[a][0], 1), round(pts[a][1], 1)],
+                    [round(pts[b][0], 1), round(pts[b][1], 1)],
+                ],
+            })
+
+    return roads
+
+
 # ── Landmass generation (distance field + contour tracing) ─────────
 
 # Tier weight: higher-tier locations have larger "territory"
@@ -3445,9 +3519,10 @@ def generate_landmasses(
     # Convert median_nn from canvas coords to grid coords
     cell_size = 8.0
     median_nn_grid = median_nn / cell_size
-    # More generous threshold: merge nearby clusters into larger continents
-    k_factor = min(3.0, 1.2 + 0.4 * math.log2(max(2, n)))
-    #   n=3→k=1.6, n=10→k=2.5, n=100→k=2.9, n=700→k=3.0
+    # Generous threshold: merge nearby clusters into larger continents.
+    # Higher k_factor = larger landmasses, fewer isolated islands.
+    k_factor = min(4.0, 1.5 + 0.5 * math.log2(max(2, n)))
+    #   n=3→k=2.3, n=10→k=3.2, n=100→k=3.8, n=200→k=4.0
     threshold = median_nn_grid * k_factor
 
     # Content-driven adjustment (ocean ratio — only actual seas count)
@@ -3463,10 +3538,10 @@ def generate_landmasses(
 
     # ── 1.3b Binary mask + morphological cleanup ──
     land_mask = dist_field < threshold
-    # Use larger structuring element to merge nearby clusters
+    # Morphological cleanup: large closing kernel merges nearby islands into continents
     struct_small = np.ones((3, 3), dtype=bool)
-    struct_large = np.ones((5, 5), dtype=bool)
-    land_mask = binary_closing(land_mask, structure=struct_large)   # merge gaps first
+    struct_large = np.ones((7, 7), dtype=bool)   # 7x7 (was 5x5) for stronger merging
+    land_mask = binary_closing(land_mask, structure=struct_large, iterations=2)
     land_mask = binary_opening(land_mask, structure=struct_small)   # remove pixel noise
 
     # ── 1.3b2 Ensure all land locations are covered ──
@@ -3670,10 +3745,10 @@ def generate_landmasses(
     # Sort by area descending
     filtered_outers.sort(key=lambda x: -x[1])
 
-    # Post-process: absorb tiny islands (< 2% of largest) with no locations
+    # Post-process: absorb small islands (< 5% of largest) with few locations
     if len(filtered_outers) > 1:
         max_land_area = filtered_outers[0][1]
-        absorb_threshold = max_land_area * 0.02
+        absorb_threshold = max_land_area * 0.05
         kept: list[tuple[list[tuple[float, float]], float, int]] = []
         for contour, area, loc_count in filtered_outers:
             if area >= absorb_threshold or loc_count >= 2:

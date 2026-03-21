@@ -26,6 +26,7 @@ from src.services.map_layout_service import (
     compute_layered_layout,
     generate_landmasses,
     generate_rivers,
+    generate_roads,
     generate_terrain,
     generate_voronoi_boundaries,
     layout_to_list,
@@ -966,6 +967,7 @@ async def get_map_data(
     # Note: generate for overworld layer too (layer_id == "overworld" or None)
     _is_overworld_like = not layer_id or layer_id == "overworld"
     landmass_result: dict = {}
+    roads: list[dict] = []
     if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like:
         try:
             landmass_result = generate_landmasses(
@@ -990,6 +992,7 @@ async def get_map_data(
             canvas_width=_resp_cw, canvas_height=_resp_ch,
             land_mask_info=_land_mask_info,
         )
+        roads = generate_roads(locations, layout_data, land_mask_info=_land_mask_info)
 
     # Add placement_confidence to each location
     constrained_names: set[str] = set()
@@ -1007,6 +1010,7 @@ async def get_map_data(
         "quality_metrics": satisfaction,
         "terrain_url": terrain_url if not layer_id else None,
         "rivers": rivers,
+        "roads": roads,
         "landmasses": landmass_result.get("landmasses", []),
         "shelves": landmass_result.get("shelves", []),
         "region_boundaries": region_boundaries,

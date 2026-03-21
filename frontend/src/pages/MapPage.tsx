@@ -798,6 +798,7 @@ export default function MapPage() {
                 layerType={activeLayerType}
                 terrainUrl={terrainUrl}
                 rivers={mapData?.rivers}
+                roads={mapData?.roads}
                 landmasses={mapData?.landmasses}
                 shelves={mapData?.shelves}
                 visibleLocationNames={visibleLocationNames}
