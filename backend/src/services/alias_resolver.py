@@ -530,31 +530,38 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
 def _pick_canonical(members: list[str], freq: dict[str, int]) -> str:
     """Pick the best canonical name from an alias group.
 
-    Strategy: among candidates with frequency >= 50% of the max, prefer names
-    that look like proper Chinese names (2-4 chars, not starting with common
-    nicknames/titles). This avoids picking abbreviated forms like "智深" over
-    the full "鲁智深".
+    Strategy: among candidates with frequency >= 10% of the max, prefer names
+    that look like proper Chinese full names (surname + given, 2-3 chars).
+    The 10% threshold (instead of 50%) ensures full names like "孙悟空" (freq=125)
+    compete against high-frequency nicknames like "行者" (freq=4072).
+
+    Quality tiers (lower is better):
+    - Tier 0: 3-char names (classic surname+given: 孙悟空, 贾宝玉, 唐三藏)
+    - Tier 1: 2-char names (common short names: 唐僧, 悟空, 韩立)
+    - Tier 2: 4-char names (齐天大圣, 陈玄奘)
+    - Tier 3: single char or 5+ chars
+    Within same tier, higher frequency wins.
     """
-    max_freq = max((freq.get(m, 0) for m in members), default=0)
-    if max_freq == 0:
-        return min(members, key=len)
-    threshold = max_freq * 0.5
-    candidates = [m for m in members if freq.get(m, 0) >= threshold]
-    if not candidates:
-        candidates = members
+    # All members compete — no frequency-based filtering for candidates.
+    # Quality tier is primary sort key; frequency is tiebreaker within same tier.
+    candidates = members
 
     def _name_quality(m: str) -> tuple:
-        """Lower is better. Prefer 2-4 char names with high frequency."""
+        """Lower is better. Prefer 3-char full names, then 2-char, then frequency."""
         n = len(m)
-        # Ideal name length is 2-3 chars; 4 is ok, beyond that penalize
-        if 2 <= n <= 3:
+        # 3-char names are the most distinctive (surname + given: 孙悟空, 贾宝玉)
+        # Prefer 3-char over 2-char to get full-name canonicals.
+        # e.g., 孙悟空 > 行者, 唐三藏 > 三藏, 猪八戒 > 八戒
+        if n == 3:
             len_score = 0
-        elif n == 4:
+        elif n == 2:
             len_score = 1
-        elif n == 1:
-            len_score = 3  # Single char is too short to be canonical
-        else:
+        elif n == 4:
             len_score = 2
+        elif n == 1:
+            len_score = 4
+        else:
+            len_score = 3
         return (len_score, -freq.get(m, 0))
 
     return min(candidates, key=_name_quality)
