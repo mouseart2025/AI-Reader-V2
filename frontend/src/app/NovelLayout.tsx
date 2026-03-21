@@ -12,11 +12,11 @@ import { Button } from "@/components/ui/button"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 
 const NAV_TABS = [
-  { key: "analysis", label: "分析", path: "/analysis" },
   { key: "read", label: "阅读", path: "/read" },
+  { key: "analysis", label: "分析", path: "/analysis" },
+  { key: "timeline", label: "时间线", path: "/timeline" },
   { key: "graph", label: "关系图", path: "/graph" },
   { key: "map", label: "地图", path: "/map" },
-  { key: "timeline", label: "时间线", path: "/timeline" },
   { key: "encyclopedia", label: "百科", path: "/encyclopedia" },
   { key: "chat", label: "问答", path: "/chat" },
   { key: "conflicts", label: "冲突", path: "/conflicts" },

@@ -27,8 +27,15 @@ HOMONYM_PRONE_NAMES = frozenset({
     "配殿", "偏殿", "抱厦",
     # Outdoor spaces
     "后院", "前院", "院子", "花园", "后花园",
-    # Generic
+    # Generic facilities
     "仓库", "马厩", "马棚", "门房", "倒座",
+    # Natural terrain — same name at different locations
+    "树林", "山洞", "小路", "山坡", "河边", "湖边", "草地",
+    "森林", "密林", "林中", "溪边", "崖边", "洞口",
+    "山脚", "山腰", "山顶", "岸边", "路边", "林间",
+    "水潭", "深潭", "石洞", "山谷", "峡谷",
+    # Military / temporary encampments
+    "中军帐", "辕门", "营地", "军营", "帐篷", "大帐", "营寨", "阵前",
 })
 
 

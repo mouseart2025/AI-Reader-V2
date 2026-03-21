@@ -2,17 +2,7 @@ import { useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { QualityMetrics } from "@/api/types"
-
-const TYPE_LABELS: Record<string, string> = {
-  direction: "方向",
-  distance: "距离",
-  contains: "包含",
-  adjacent: "相邻",
-  separated_by: "分隔",
-  in_between: "居中",
-  travel_path: "路径",
-  cluster: "聚集",
-}
+import { SPATIAL_TYPE_LABELS as TYPE_LABELS } from "@/lib/spatialLabels"
 
 function rateColor(rate: number): string {
   if (rate >= 0.8) return "text-green-600 dark:text-green-400"
