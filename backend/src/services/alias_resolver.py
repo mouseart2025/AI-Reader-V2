@@ -16,6 +16,7 @@ import logging
 from collections import defaultdict
 
 from src.db.sqlite_db import get_connection
+from src.extraction.fact_validator import _normalize_char_variants
 
 logger = logging.getLogger(__name__)
 
@@ -461,7 +462,7 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
     for row in fact_rows:
         data = json.loads(row["fact_json"])
         for char in data.get("characters", []):
-            name = char.get("name", "")
+            name = _normalize_char_variants(char.get("name", ""))
             if not name:
                 continue
 
@@ -479,7 +480,8 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
             freq[name] += 1
             uf.find(name)
 
-            for alias in char.get("new_aliases", []):
+            for raw_alias in char.get("new_aliases", []):
+                alias = _normalize_char_variants(raw_alias) if raw_alias else ""
                 if alias and alias != name:
                     level = _alias_safety_level(alias)
                     if level < 2:

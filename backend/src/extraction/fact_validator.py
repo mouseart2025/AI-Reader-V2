@@ -191,6 +191,11 @@ _GENERIC_PERSON_WORDS = frozenset({
     "庄客", "农夫", "猎户", "渔夫", "樵夫",
     "使者", "信使", "探子", "细作",
     "客人", "客官", "过客", "行人",
+    # Mythological/xianxia generic creatures — different individuals per chapter
+    "小妖", "小鬼", "众妖", "老妖", "妖精", "妖怪",
+    "妖兵", "山贼", "小卒", "士兵",
+    "巡山小妖", "把门小妖",
+    "众猴", "众仙", "众神", "众鬼",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
@@ -352,6 +357,11 @@ def _is_generic_location(name: str) -> str | None:
     if n >= 4 and any(name.endswith(e) for e in _ROOM_ENDINGS):
         return "character room suffix"
 
+    # Rule 19: LLM noise — names ending with non-geographic suffixes (花果山届, 某地的时候)
+    _NOISE_SUFFIXES = ("届", "届时", "的时候", "的地方", "那里的", "这里的")
+    if any(name.endswith(s) for s in _NOISE_SUFFIXES):
+        return f"noise suffix ({name[-2:]})"
+
     return None
 
 
@@ -405,9 +415,34 @@ def _is_generic_person(name: str) -> str | None:
     return None
 
 
+# CJK character variant normalization — map uncommon/archaic forms to standard forms.
+# Prevents duplicates like "南瞻部洲" vs "南赡部洲" (same place, different writing).
+_CHAR_VARIANTS: dict[str, str] = {
+    "瞻": "赡",  # 南瞻部洲 → 南赡部洲
+    "倶": "俱",  # 北倶芦洲 → 北俱芦洲
+    "峯": "峰",  # 峯 → 峰
+    "嶽": "岳",  # 嶽 → 岳
+    "裏": "里",  # 裏 → 里
+    "崑": "昆",  # 崑仑 → 昆仑
+    "崙": "仑",  # 崑崙 → 昆仑
+    "餘": "余",  # 餘 → 余
+    "滙": "汇",  # 滙 → 汇
+}
+
+
+def _normalize_char_variants(name: str) -> str:
+    """Replace archaic/variant CJK characters with their standard equivalents."""
+    for old, new in _CHAR_VARIANTS.items():
+        if old in name:
+            name = name.replace(old, new)
+    return name
+
+
 def _clamp_name(name: str) -> str:
     """Clean and truncate location name."""
     name = name.strip()
+    # Normalize character variants (瞻→赡, 倶→俱, etc.)
+    name = _normalize_char_variants(name)
     # Split on Chinese/English list separators, take first element
     for sep in ("、", "，", "；", ",", ";"):
         if sep in name:

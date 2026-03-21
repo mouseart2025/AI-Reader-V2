@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react"
 import type { LocationProfile } from "@/api/types"
 import { fetchLocationSpatialSummary } from "@/api/client"
+import { translateSpatialType, translateSpatialValue } from "@/lib/spatialLabels"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 import { LocationMiniMap } from "./LocationMiniMap"
@@ -89,9 +90,9 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
             const other = rel.source === profile.name ? rel.target : rel.source
             return (
               <div key={i} className="text-sm">
-                <span className="text-muted-foreground text-xs mr-1">{rel.relation_type}</span>
+                <span className="text-muted-foreground text-xs mr-1">{translateSpatialType(rel.relation_type)}</span>
                 <EntityLink name={other} type="location" onClick={onEntityClick} />
-                {rel.value && <span className="text-muted-foreground text-xs ml-1">({rel.value})</span>}
+                {rel.value && <span className="text-muted-foreground text-xs ml-1">({translateSpatialValue(rel.value)})</span>}
                 <span className="text-muted-foreground text-[10px] ml-1">{rel.chapters.length}章</span>
               </div>
             )

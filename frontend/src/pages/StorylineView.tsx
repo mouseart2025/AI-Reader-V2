@@ -93,6 +93,7 @@ export default function StorylineView({
   const [search, setSearch] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [tooltip, setTooltip] = useState<{ event: TimelineEvent; x: number; y: number } | null>(null)
+  const [hoverX, setHoverX] = useState<number | null>(null)
   const [initialized, setInitialized] = useState(false)
   const [toast, setToast] = useState("")
 
@@ -400,7 +401,12 @@ export default function StorylineView({
             const isSelected = selectedChars.includes(c.name)
             const color = charColorMap.get(c.name) ?? "#6b7280"
             return (
-              <div key={c.name} className="flex items-center gap-1.5 px-2 py-1 hover:bg-muted/50 transition-colors">
+              <div key={c.name} className={cn(
+                "flex items-center gap-1.5 px-2 py-1 transition-colors",
+                isSelected
+                  ? "bg-primary/10 border-l-2 border-primary"
+                  : "hover:bg-muted/50 border-l-2 border-transparent",
+              )}>
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -411,14 +417,14 @@ export default function StorylineView({
                 <button
                   className={cn(
                     "flex-1 text-left text-xs truncate hover:underline",
-                    isSelected ? "text-foreground font-medium" : "text-muted-foreground",
+                    isSelected ? "text-foreground font-semibold" : "text-muted-foreground",
                   )}
                   onClick={() => openEntityCard(c.name, "person")}
                   title={`查看 ${c.name} 档案`}
                 >
                   {c.name}
                 </button>
-                <span className="text-[10px] text-muted-foreground tabular-nums">{c.count}</span>
+                <span className={cn("text-[10px] tabular-nums", isSelected ? "text-foreground/70" : "text-muted-foreground")}>{c.count}</span>
               </div>
             )
           })}
@@ -478,6 +484,15 @@ export default function StorylineView({
                     setTooltip(null)
                   }
                 }}
+                onMouseMove={(e) => {
+                  const svg = svgRef.current
+                  if (!svg) return
+                  const rect = svg.getBoundingClientRect()
+                  const x = e.clientX - rect.left
+                  if (x > LABEL_WIDTH) setHoverX(x)
+                  else setHoverX(null)
+                }}
+                onMouseLeave={() => setHoverX(null)}
               >
                 {/* Background */}
                 <rect width="100%" height={svgHeight} className="fill-background" />
@@ -490,7 +505,7 @@ export default function StorylineView({
                     <g key={`tick-${ch}`}>
                       <line x1={x} y1={AXIS_HEIGHT - 4} x2={x} y2={AXIS_HEIGHT} stroke="currentColor" className="text-muted-foreground" strokeWidth={0.5} />
                       <text x={x} y={AXIS_HEIGHT - 8} textAnchor="middle" className="fill-muted-foreground" fontSize={9}>{ch}</text>
-                      <line x1={x} y1={AXIS_HEIGHT} x2={x} y2={AXIS_HEIGHT + selectedChars.length * LANE_HEIGHT} stroke="currentColor" className="text-border" strokeWidth={0.5} opacity={0.08} />
+                      <line x1={x} y1={AXIS_HEIGHT} x2={x} y2={AXIS_HEIGHT + selectedChars.length * LANE_HEIGHT} stroke="currentColor" className="text-border" strokeWidth={0.5} opacity={0.15} />
                     </g>
                   )
                 })}
@@ -601,6 +616,16 @@ export default function StorylineView({
                     />
                   )
                 })}
+
+                {/* Hover crosshair guide */}
+                {hoverX != null && (
+                  <line
+                    x1={hoverX} y1={AXIS_HEIGHT}
+                    x2={hoverX} y2={AXIS_HEIGHT + selectedChars.length * LANE_HEIGHT}
+                    stroke="currentColor" className="text-muted-foreground pointer-events-none"
+                    strokeWidth={0.5} strokeDasharray="4,3" opacity={0.35}
+                  />
+                )}
 
                 {/* Mini navigation bar — clickable to jump */}
                 <g

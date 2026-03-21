@@ -30,11 +30,11 @@ import {
 } from "lucide-react"
 
 const TABS = [
-  { key: "analysis", label: "分析", Icon: FlaskConical },
   { key: "reading", label: "阅读", Icon: BookOpen },
+  { key: "analysis", label: "分析", Icon: FlaskConical },
+  { key: "timeline", label: "时间线", Icon: Clock },
   { key: "graph", label: "图谱", Icon: GitBranch },
   { key: "map", label: "地图", Icon: Map },
-  { key: "timeline", label: "时间线", Icon: Clock },
   { key: "encyclopedia", label: "百科", Icon: BookMarked },
   { key: "factions", label: "势力", Icon: Users },
   { key: "chat", label: "问答", Icon: MessageCircle },
