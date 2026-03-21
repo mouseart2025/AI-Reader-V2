@@ -433,8 +433,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // Territory generation (uses filtered data — territories represent visible groupings)
     const territories = useMemo(
-      () => generateHullTerritories(locations, layout, { width: canvasW, height: canvasH }),
-      [locations, layout, canvasW, canvasH],
+      () => generateHullTerritories(locations, layout, { width: canvasW, height: canvasH }, landmasses),
+      [locations, layout, canvasW, canvasH, landmasses],
     )
 
     // Terrain texture hints (use full data for stable decorations)
@@ -813,8 +813,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               roughness: 2.0,
               bowing: 0.5,
               seed: 42,
-              stroke: darkBg ? "rgba(80,110,140,0.25)" : "rgba(107,91,62,0.25)",
-              strokeWidth: 0.8,
+              stroke: darkBg ? "rgba(80,110,140,0.12)" : "rgba(107,91,62,0.12)",
+              strokeWidth: 0.5,
               fill: "none",
             })
             shelfNode.style.pointerEvents = "none"

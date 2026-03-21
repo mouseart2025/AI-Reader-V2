@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.55.0",
+  "version": "0.56.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -36,6 +36,7 @@
     "d3-zoom": "^3.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
+    "maplibre-gl": "^5.20.2",
     "pako": "^2.1.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.0",

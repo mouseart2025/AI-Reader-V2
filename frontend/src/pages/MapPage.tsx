@@ -6,7 +6,7 @@ import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
-import { NovelMapGL } from "@/components/visualization/NovelMapGL"
+// import { NovelMapGL } from "@/components/visualization/NovelMapGL"  // WebGL renderer — hidden until stable
 import { GeoMap } from "@/components/visualization/GeoMap"
 import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
 import { GeographyPanel } from "@/components/visualization/GeographyPanel"
@@ -76,9 +76,6 @@ export default function MapPage() {
 
   // Right panel tab
   const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
-
-  // WebGL renderer toggle (feature flag)
-  const [useWebGL, setUseWebGL] = useState(false)
 
   // Focus location (click-to-navigate: fly to + highlight)
   const [focusLocation, setFocusLocation] = useState<string | null>(null)
@@ -701,20 +698,7 @@ export default function MapPage() {
               </button>
             )}
 
-            {/* WebGL 渲染器切换 */}
-            {layoutMode !== "geographic" && (
-              <button
-                onClick={() => setUseWebGL((v) => !v)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
-                  useWebGL
-                    ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                    : "bg-background/90 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {useWebGL ? "WebGL" : "SVG"}
-              </button>
-            )}
+            {/* WebGL 渲染器切换 — 隐藏直到副本切换锁死问题修复 */}
 
             {/* Export map button (NovelMap only) */}
             {layoutMode !== "geographic" && (
@@ -802,16 +786,6 @@ export default function MapPage() {
                 onEditLocation={handleEditLocation}
                 onEditDragEnd={handleEditDragEnd}
                 onEditCancel={handleEditCancel}
-              />
-            ) : useWebGL ? (
-              <NovelMapGL
-                key={activeLayerId}
-                locations={filteredLocations}
-                layout={filteredLayout}
-                canvasSize={mapData?.canvas_size}
-                trajectoryPoints={visibleTrajectory}
-                onLocationClick={handleLocationClick}
-                onLocationDragEnd={handleDragEnd}
               />
             ) : (
               <NovelMap

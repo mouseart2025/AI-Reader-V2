@@ -255,6 +255,85 @@ async def rebuild_hierarchy(novel_id: str):
             if retier_count:
                 yield _sse("init", f"修正 {retier_count} 个过时的层级分类")
 
+            # 0.7. Re-detect layers (realm/instance assignment)
+            # Clears stale instance_* layers and re-runs detection with current keywords
+            yield _sse("init", "正在重新检测世界层级...")
+            from src.services.world_structure_agent import (
+                _CELESTIAL_KEYWORDS as _ck,
+                _UNDERWORLD_KEYWORDS as _uk,
+                _REALM_LAYER_KEYWORDS,
+                _INSTANCE_NAME_KEYWORDS,
+                _INSTANCE_TYPE_KEYWORDS as _itk,
+            )
+            # Remove stale instance_* layers and their assignments
+            stale_instance_ids = {
+                l.layer_id for l in ws.layers
+                if l.layer_id.startswith("instance_")
+            }
+            if stale_instance_ids:
+                ws.layers = [l for l in ws.layers if l.layer_id not in stale_instance_ids]
+                for loc_name, lid in list(ws.location_layer_map.items()):
+                    if lid in stale_instance_ids:
+                        ws.location_layer_map[loc_name] = "overworld"
+
+            # Re-run layer detection on all known locations
+            layer_reassign_count = 0
+            all_loc_names = set(ws.location_tiers.keys())
+            # Build a simple type lookup from the latest chapter_facts
+            loc_types: dict[str, str] = {}
+            try:
+                from src.db import chapter_fact_store as _cfs
+                import asyncio as _aio_layer
+                all_facts = await _cfs.get_all_chapter_facts(novel_id)
+                for _f in all_facts:
+                    for _loc in _f.get("locations", []):
+                        _ln = _loc.get("name", "")
+                        if _ln and _ln not in loc_types:
+                            loc_types[_ln] = _loc.get("type", "")
+            except Exception:
+                pass
+
+            for loc_name in all_loc_names:
+                if ("location_layer", loc_name) in agent._overridden_keys:
+                    continue
+                loc_type = loc_types.get(loc_name, "")
+                new_layer = agent._detect_layer(loc_name, loc_type)
+                if new_layer:
+                    agent._ensure_layer_exists(new_layer)
+                    old_layer = ws.location_layer_map.get(loc_name, "overworld")
+                    if old_layer != new_layer:
+                        ws.location_layer_map[loc_name] = new_layer
+                        layer_reassign_count += 1
+                elif ws.location_layer_map.get(loc_name) != "overworld":
+                    # Check instance keywords
+                    is_instance = (
+                        agent._is_instance_detection_enabled()
+                        and (
+                            any(kw in loc_name for kw in _INSTANCE_NAME_KEYWORDS)
+                            or any(kw in loc_type for kw in _itk)
+                        )
+                    )
+                    if is_instance:
+                        from src.models.world_structure import MapLayer, LayerType
+                        _pk_id = "pockets"
+                        if not agent._has_layer(_pk_id):
+                            ws.layers.append(MapLayer(
+                                layer_id=_pk_id, name="副本/秘境",
+                                layer_type=LayerType.pocket,
+                                description="秘境、禁地、洞天、幻境等独立空间",
+                            ))
+                        ws.location_layer_map[loc_name] = _pk_id
+                        layer_reassign_count += 1
+                    else:
+                        # Reset non-matching to overworld
+                        old_layer = ws.location_layer_map.get(loc_name)
+                        if old_layer and old_layer != "overworld":
+                            ws.location_layer_map[loc_name] = "overworld"
+                            layer_reassign_count += 1
+
+            if layer_reassign_count or stale_instance_ids:
+                yield _sse("init", f"层级重检: 清理 {len(stale_instance_ids)} 个旧副本, 重新分配 {layer_reassign_count} 个地点")
+
             # 1. Rebuild parent votes
             yield _sse("votes", "正在从章节事实重建投票数据...")
             agent._parent_votes = await agent._rebuild_parent_votes()
@@ -532,6 +611,102 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
     # Save consolidated tiers to keep them in sync with new parents
     if body.location_tiers is not None:
         ws.location_tiers = body.location_tiers
+
+    # ── Re-detect layers (clean stale instances, detect realms/pockets) ──
+    from src.services.world_structure_agent import (
+        WorldStructureAgent,
+        _INSTANCE_NAME_KEYWORDS,
+        _INSTANCE_TYPE_KEYWORDS as _itk_apply,
+    )
+    from src.models.world_structure import MapLayer, LayerType
+
+    _apply_agent = WorldStructureAgent(novel_id)
+    _apply_agent.structure = ws
+
+    # Load user overrides to respect them
+    _apply_overrides = await world_structure_override_store.load_overrides(novel_id)
+    for ov in _apply_overrides:
+        _apply_agent._overridden_keys.add((ov["override_type"], ov["override_key"]))
+
+    # Remove stale instance_* layers AND orphaned LLM-created duplicate layers
+    # (e.g., LLM creates layer "灵界" while keyword detection creates "lingworld")
+    _keyword_layer_ids = set()
+    from src.services.world_structure_agent import _REALM_LAYER_KEYWORDS
+    for _, (lid, _) in _REALM_LAYER_KEYWORDS.items():
+        _keyword_layer_ids.add(lid)
+    _keyword_layer_ids.update({"celestial", "underworld", "overworld"})
+
+    # Collect IDs of layers to remove: stale instances + orphaned Chinese-named realms
+    _active_layer_ids = set(ws.location_layer_map.values())
+    stale_ids: set[str] = set()
+    for l in ws.layers:
+        if l.layer_id.startswith("instance_"):
+            stale_ids.add(l.layer_id)
+        elif (
+            l.layer_id not in _keyword_layer_ids
+            and l.layer_id != "overworld"
+            and l.layer_id not in _active_layer_ids
+        ):
+            # Orphaned layer (no locations assigned to it)
+            stale_ids.add(l.layer_id)
+
+    if stale_ids:
+        ws.layers = [l for l in ws.layers if l.layer_id not in stale_ids]
+        for _ln, _lid in list(ws.location_layer_map.items()):
+            if _lid in stale_ids:
+                ws.location_layer_map[_ln] = "overworld"
+
+    # Build location type lookup from chapter_facts
+    _loc_types: dict[str, str] = {}
+    try:
+        from src.db import chapter_fact_store as _cfs_apply
+        _all_facts = await _cfs_apply.get_all_chapter_facts(novel_id)
+        for _f in _all_facts:
+            for _loc in _f.get("locations", []):
+                _ln = _loc.get("name", "")
+                if _ln and _ln not in _loc_types:
+                    _loc_types[_ln] = _loc.get("type", "")
+    except Exception:
+        pass
+
+    # Re-detect all locations
+    _layer_changes = 0
+    for _ln in set(ws.location_tiers.keys()):
+        if ("location_layer", _ln) in _apply_agent._overridden_keys:
+            continue
+        _lt = _loc_types.get(_ln, "")
+        _new_layer = _apply_agent._detect_layer(_ln, _lt)
+        if _new_layer:
+            _apply_agent._ensure_layer_exists(_new_layer)
+            if ws.location_layer_map.get(_ln) != _new_layer:
+                ws.location_layer_map[_ln] = _new_layer
+                _layer_changes += 1
+        else:
+            # Check instance keywords (name or type)
+            _is_inst = (
+                _apply_agent._is_instance_detection_enabled()
+                and (
+                    any(kw in _ln for kw in _INSTANCE_NAME_KEYWORDS)
+                    or any(kw in _lt for kw in _itk_apply)
+                )
+            )
+            if _is_inst:
+                _pockets_id = "pockets"
+                if not _apply_agent._has_layer(_pockets_id):
+                    ws.layers.append(MapLayer(
+                        layer_id=_pockets_id, name="副本/秘境",
+                        layer_type=LayerType.pocket,
+                        description="秘境、禁地、洞天、幻境等独立空间",
+                    ))
+                if ws.location_layer_map.get(_ln) != _pockets_id:
+                    ws.location_layer_map[_ln] = _pockets_id
+                    _layer_changes += 1
+            elif ws.location_layer_map.get(_ln, "overworld") != "overworld":
+                ws.location_layer_map[_ln] = "overworld"
+                _layer_changes += 1
+
+    logger.info("Layer re-detection during apply: %d stale cleared, %d reassigned",
+                len(stale_ids), _layer_changes)
 
     new_count = len(ws.location_parents)
     root_count, final_roots = _count_roots(ws.location_parents)
