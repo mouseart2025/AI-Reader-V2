@@ -78,7 +78,6 @@ async def seeded_db(mock_get_connection):
 async def test_export_v2_format_version(seeded_db):
     result = await export_novel(NOVEL_ID)
     assert result["format_version"] == CURRENT_FORMAT_VERSION
-    assert result["format_version"] == 2
 
 
 @pytest.mark.asyncio

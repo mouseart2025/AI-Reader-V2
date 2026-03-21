@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync
+      - name: Run pytest
+        working-directory: backend
+        run: uv run pytest tests/ -v --tb=short
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: TypeScript check
+        working-directory: frontend
+        run: npx tsc -b
+      - name: Run vitest
+        working-directory: frontend
+        run: npx vitest run

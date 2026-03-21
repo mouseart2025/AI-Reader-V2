@@ -6,77 +6,42 @@ import pytest_asyncio
 
 from unittest.mock import patch
 
-# Schema copied from src/db/sqlite_db.py (inline to avoid importing config)
-_TEST_SCHEMA = """
-CREATE TABLE IF NOT EXISTS novels (
-    id              TEXT PRIMARY KEY,
-    title           TEXT NOT NULL,
-    author          TEXT,
-    file_hash       TEXT,
-    total_chapters  INTEGER DEFAULT 0,
-    total_words     INTEGER DEFAULT 0,
-    prescan_status  TEXT DEFAULT 'pending',
-    is_sample       INTEGER DEFAULT 0,
-    created_at      TEXT DEFAULT (datetime('now')),
-    updated_at      TEXT DEFAULT (datetime('now'))
-);
+# Import schema from production code + apply all migrations inline.
+# Tests get a fresh DB each time, so we merge base schema + migrations
+# into a single script to avoid drift.
+from src.db.sqlite_db import _SCHEMA_SQL as _BASE_SCHEMA
 
-CREATE TABLE IF NOT EXISTS chapters (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
-    chapter_num     INTEGER NOT NULL,
-    volume_num      INTEGER,
-    volume_title    TEXT,
-    title           TEXT NOT NULL,
-    content         TEXT NOT NULL,
-    word_count      INTEGER DEFAULT 0,
-    analysis_status TEXT DEFAULT 'pending',
-    analyzed_at     TEXT,
-    is_excluded     INTEGER DEFAULT 0,
-    UNIQUE(novel_id, chapter_num)
+# Migrations that are applied via ALTER TABLE in init_db() but not in base schema.
+# We add them here so test DBs have the full schema from the start.
+_MIGRATION_SQL = """
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id TEXT NOT NULL,
+    chapter_num INTEGER NOT NULL,
+    scroll_position REAL DEFAULT 0,
+    note TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(novel_id, chapter_num, scroll_position)
 );
-
-CREATE TABLE IF NOT EXISTS chapter_facts (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
-    chapter_id      INTEGER NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
-    fact_json       TEXT NOT NULL,
-    llm_model       TEXT,
-    extracted_at    TEXT DEFAULT (datetime('now')),
-    extraction_ms   INTEGER,
-    UNIQUE(novel_id, chapter_id)
-);
-
-CREATE TABLE IF NOT EXISTS user_state (
-    novel_id        TEXT PRIMARY KEY REFERENCES novels(id) ON DELETE CASCADE,
-    last_chapter    INTEGER,
-    scroll_position REAL,
-    chapter_range   TEXT,
-    updated_at      TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS entity_dictionary (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
-    name            TEXT NOT NULL,
-    entity_type     TEXT,
-    frequency       INTEGER DEFAULT 0,
-    confidence      TEXT DEFAULT 'medium',
-    aliases         TEXT DEFAULT '[]',
-    source          TEXT NOT NULL,
-    sample_context  TEXT,
-    created_at      TEXT DEFAULT (datetime('now')),
-    UNIQUE(novel_id, name)
-);
-
-CREATE TABLE IF NOT EXISTS world_structures (
-    novel_id        TEXT PRIMARY KEY REFERENCES novels(id) ON DELETE CASCADE,
-    structure_json   TEXT NOT NULL,
-    source_chapters  TEXT NOT NULL DEFAULT '[]',
-    created_at       TEXT DEFAULT (datetime('now')),
-    updated_at       TEXT DEFAULT (datetime('now'))
-);
+ALTER TABLE chapters ADD COLUMN is_excluded INTEGER DEFAULT 0;
+ALTER TABLE chapters ADD COLUMN analysis_error TEXT;
+ALTER TABLE chapters ADD COLUMN error_type TEXT;
+ALTER TABLE map_user_overrides ADD COLUMN lat REAL;
+ALTER TABLE map_user_overrides ADD COLUMN lng REAL;
+ALTER TABLE map_user_overrides ADD COLUMN constraint_type TEXT DEFAULT 'position';
+ALTER TABLE map_user_overrides ADD COLUMN locked_parent TEXT;
+ALTER TABLE chapter_facts ADD COLUMN input_tokens INTEGER;
+ALTER TABLE chapter_facts ADD COLUMN output_tokens INTEGER;
+ALTER TABLE chapter_facts ADD COLUMN cost_usd REAL;
+ALTER TABLE chapter_facts ADD COLUMN cost_cny REAL;
+ALTER TABLE chapter_facts ADD COLUMN scenes_json TEXT;
+ALTER TABLE chapter_facts ADD COLUMN is_truncated INTEGER DEFAULT 0;
+ALTER TABLE chapter_facts ADD COLUMN segment_count INTEGER DEFAULT 1;
+ALTER TABLE analysis_tasks ADD COLUMN timing_summary TEXT;
+ALTER TABLE map_layouts ADD COLUMN satisfaction_json TEXT;
 """
+
+_TEST_SCHEMA = _BASE_SCHEMA
 
 
 @pytest_asyncio.fixture
@@ -86,6 +51,15 @@ async def memory_db():
     await conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = aiosqlite.Row
     await conn.executescript(_TEST_SCHEMA)
+    # Apply migrations — split on semicolons, execute each statement individually
+    # so failures on individual ALTER TABLE (column exists) don't block others.
+    for stmt in _MIGRATION_SQL.split(";"):
+        stmt = stmt.strip()
+        if stmt:
+            try:
+                await conn.execute(stmt)
+            except Exception:
+                pass  # Column already exists or table already created
     await conn.commit()
     yield conn
     await conn.close()
