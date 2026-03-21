@@ -194,8 +194,9 @@ _GENERIC_PERSON_WORDS = frozenset({
     # Mythological/xianxia generic creatures — different individuals per chapter
     "小妖", "小鬼", "众妖", "老妖", "妖精", "妖怪",
     "妖兵", "山贼", "小卒", "士兵",
-    "巡山小妖", "把门小妖",
+    "巡山小妖", "把门小妖", "巡山的小妖", "把门的小妖",
     "众猴", "众仙", "众神", "众鬼",
+    "众僧", "老僧", "小僧", "众道", "众将", "众官",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
@@ -419,6 +420,7 @@ def _is_generic_person(name: str) -> str | None:
 # Prevents duplicates like "南瞻部洲" vs "南赡部洲" (same place, different writing).
 _CHAR_VARIANTS: dict[str, str] = {
     "瞻": "赡",  # 南瞻部洲 → 南赡部洲
+    "赊": "赡",  # 南赊部洲 → 南赡部洲 (another variant found in 西游记)
     "倶": "俱",  # 北倶芦洲 → 北俱芦洲
     "峯": "峰",  # 峯 → 峰
     "嶽": "岳",  # 嶽 → 岳
