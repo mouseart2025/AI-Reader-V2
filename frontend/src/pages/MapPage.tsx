@@ -6,6 +6,7 @@ import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
+import { NovelMapGL } from "@/components/visualization/NovelMapGL"
 import { GeoMap } from "@/components/visualization/GeoMap"
 import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
 import { GeographyPanel } from "@/components/visualization/GeographyPanel"
@@ -76,6 +77,9 @@ export default function MapPage() {
   // Right panel tab
   const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
 
+  // WebGL renderer toggle (feature flag)
+  const [useWebGL, setUseWebGL] = useState(false)
+
   // Focus location (click-to-navigate: fly to + highlight)
   const [focusLocation, setFocusLocation] = useState<string | null>(null)
 
@@ -133,9 +137,14 @@ export default function MapPage() {
           setLayers(data.world_structure.layers)
         }
         setMapData(data)
-        // Apply backend-suggested mention filter defaults
-        const suggested = data.suggested_min_mentions ?? 1
-        const maxMC = data.max_mention_count ?? 1
+        // Apply mention filter defaults — scope to current layer
+        const layoutNames = new Set((data.layout ?? []).map((li: { name: string }) => li.name))
+        const layerLocs = layoutNames.size > 0
+          ? (data.locations ?? []).filter((l: { name: string }) => layoutNames.has(l.name))
+          : data.locations ?? []
+        const layerCount = layerLocs.length
+        const suggested = layerCount > 300 ? 3 : layerCount > 150 ? 2 : 1
+        const maxMC = Math.max(1, ...layerLocs.map((l: { mention_count: number }) => l.mention_count))
         setMinMentions(suggested)
         setDebouncedMinMentions(suggested)
         setMaxMentionCount(maxMC)
@@ -192,20 +201,32 @@ export default function MapPage() {
   // ── Collapsed tiers ────────────────────────────────────
   const COLLAPSED_TIERS = new Set(["site", "building"])
 
+  // Scope locations to current layer (layout contains only current layer's positions)
+  const layerLocationNames = useMemo(
+    () => new Set(layout.map((l) => l.name)),
+    [layout],
+  )
+  const layerLocations = useMemo(
+    () => (layout.length > 0 ? locations.filter((l) => layerLocationNames.has(l.name)) : locations),
+    [locations, layout, layerLocationNames],
+  )
+
   // ── Combined filtering: mention count → tier collapse ──
   const { filteredLocations, collapsedChildCount } = useMemo(() => {
-    // Step 1: mention count filter
+    // Step 1: mention count filter (scoped to current layer)
     const afterMention = debouncedMinMentions <= 1
-      ? locations
-      : locations.filter((l) => l.mention_count >= debouncedMinMentions)
+      ? layerLocations
+      : layerLocations.filter((l) => l.mention_count >= debouncedMinMentions)
 
     // Step 2: tier collapse — hide site/building unless parent is expanded
+    // Skip tier collapse for small layers (non-overworld) where it's too aggressive
+    const skipCollapse = afterMention.length <= 100
     const result: typeof locations = []
     const childCount = new Map<string, number>()
 
     for (const loc of afterMention) {
       const tier = loc.tier ?? "city"
-      if (COLLAPSED_TIERS.has(tier) && loc.parent && !expandedNodes.has(loc.parent)) {
+      if (!skipCollapse && COLLAPSED_TIERS.has(tier) && loc.parent && !expandedNodes.has(loc.parent)) {
         // Collapsed — count it under its parent
         childCount.set(loc.parent, (childCount.get(loc.parent) ?? 0) + 1)
       } else {
@@ -213,7 +234,7 @@ export default function MapPage() {
       }
     }
     return { filteredLocations: result, collapsedChildCount: childCount }
-  }, [locations, debouncedMinMentions, expandedNodes])
+  }, [layerLocations, debouncedMinMentions, expandedNodes])
 
   const filteredLayout = useMemo(() => {
     const nameSet = new Set(filteredLocations.map((l) => l.name))
@@ -635,7 +656,7 @@ export default function MapPage() {
                     最少提及: {minMentions}
                   </label>
                   <span className="text-[10px] text-muted-foreground">
-                    {filteredLocations.length} / {locations.length}
+                    {filteredLocations.length} / {layerLocations.length}
                   </span>
                 </div>
                 <input
@@ -677,6 +698,21 @@ export default function MapPage() {
                   showConflicts ? "bg-red-500" : "bg-muted-foreground/40",
                 )} />
                 冲突 {conflictCount}
+              </button>
+            )}
+
+            {/* WebGL 渲染器切换 */}
+            {layoutMode !== "geographic" && (
+              <button
+                onClick={() => setUseWebGL((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
+                  useWebGL
+                    ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
+                    : "bg-background/90 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {useWebGL ? "WebGL" : "SVG"}
               </button>
             )}
 
@@ -767,6 +803,16 @@ export default function MapPage() {
                 onEditDragEnd={handleEditDragEnd}
                 onEditCancel={handleEditCancel}
               />
+            ) : useWebGL ? (
+              <NovelMapGL
+                key={activeLayerId}
+                locations={filteredLocations}
+                layout={filteredLayout}
+                canvasSize={mapData?.canvas_size}
+                trajectoryPoints={visibleTrajectory}
+                onLocationClick={handleLocationClick}
+                onLocationDragEnd={handleDragEnd}
+              />
             ) : (
               <NovelMap
                 ref={mapHandle}
@@ -778,6 +824,8 @@ export default function MapPage() {
                 layerType={activeLayerType}
                 terrainUrl={terrainUrl}
                 rivers={mapData?.rivers}
+                landmasses={mapData?.landmasses}
+                shelves={mapData?.shelves}
                 visibleLocationNames={visibleLocationNames}
                 revealedLocationNames={revealedLocationNames}
                 regionBoundaries={regionBoundaries}

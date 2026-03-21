@@ -3276,3 +3276,460 @@ def generate_rivers(
         })
 
     return rivers
+
+
+# ── Landmass generation (distance field + contour tracing) ─────────
+
+# Tier weight: higher-tier locations have larger "territory"
+_TIER_WEIGHT: dict[str, float] = {
+    "continent": 3.0, "kingdom": 2.5, "region": 2.0,
+    "city": 1.5, "site": 1.0, "building": 0.8,
+}
+
+# Water-type detection patterns (Chinese)
+# Only oceans/seas create coastline gaps; rivers/springs flow through land
+_OCEAN_TYPE_KEYWORDS = ("海", "洋")          # 海/洋 → strong distance amplification
+_OCEAN_TYPE_EXCLUDE = ("海榴", "海棠", "海市")  # false positives (place names)
+_ISLAND_TYPE_KEYWORDS = ("岛",)
+
+
+def generate_landmasses(
+    locations: list[dict],
+    layout_data: list[dict],
+    novel_id: str,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
+) -> dict:
+    """Generate landmass contours via distance field + contour tracing.
+
+    Returns dict with ``landmasses`` (list of landmass dicts with coastline,
+    holes, area, location_count, is_main) and ``shelves`` (list of shelf
+    contour coordinate arrays).
+    """
+    from opensimplex import OpenSimplex
+    from scipy.ndimage import binary_opening, binary_closing
+    from scipy.spatial import KDTree
+
+    # Build coord + tier lookup from layout_data
+    coords: dict[str, tuple[float, float]] = {}
+    tiers: dict[str, str] = {}
+    for item in layout_data:
+        name = item.get("name", "")
+        if item.get("is_portal"):
+            continue
+        coords[name] = (item["x"], item["y"])
+        tiers[name] = item.get("tier", "site")
+
+    # Classify locations: only ocean/sea types create coastline gaps
+    ocean_names: set[str] = set()  # seas/oceans → distance amplification
+    island_names: set[str] = set()
+    for loc in locations:
+        name = loc.get("name", "")
+        icon = loc.get("icon", "generic")
+        loc_type = loc.get("type", "")
+
+        if icon == "island" or any(kw in loc_type for kw in _ISLAND_TYPE_KEYWORDS):
+            island_names.add(name)
+        elif icon == "ocean" or (
+            any(kw in loc_type for kw in _OCEAN_TYPE_KEYWORDS)
+            and not any(ex in loc_type for ex in _OCEAN_TYPE_EXCLUDE)
+            # Only match actual seas/oceans, not rivers/springs with 海 in name
+            and loc_type not in ("河流", "泉水", "水井", "水池", "水潭", "池塘",
+                                 "温泉", "涧", "河岸", "桥梁", "地点", "卫所", "亭子")
+        ):
+            ocean_names.add(name)
+
+    # Collect LAND points only (exclude ocean/sea locations from distance field anchors)
+    # Ocean locations mixed among land would attract the landmass boundary,
+    # preventing proper coastline gaps. Excluding them lets the distance field
+    # naturally produce high values at ocean positions.
+    all_points: list[tuple[float, float]] = []
+    all_weights: list[float] = []
+    for item in layout_data:
+        name = item.get("name", "")
+        if item.get("is_portal") or name not in coords:
+            continue
+        if name in ocean_names:
+            continue  # oceans are NOT land anchors
+        all_points.append(coords[name])
+        all_weights.append(_TIER_WEIGHT.get(tiers.get(name, "site"), 1.0))
+
+    n = len(all_points)
+    if n < 3:
+        return {"landmasses": [], "shelves": []}
+
+    points_arr = np.array(all_points, dtype=np.float64)
+    weights_arr = np.array(all_weights, dtype=np.float64)
+
+    # ── 1.1 Build weighted distance field ──
+    grid_w = canvas_width // 8
+    grid_h = canvas_height // 8
+    tree = KDTree(points_arr)
+
+    # Create grid coordinates
+    gx = np.linspace(0, canvas_width, grid_w, endpoint=False) + 4  # center of cell
+    gy = np.linspace(0, canvas_height, grid_h, endpoint=False) + 4
+    grid_xx, grid_yy = np.meshgrid(gx, gy)
+    grid_pts = np.column_stack([grid_xx.ravel(), grid_yy.ravel()])
+
+    # Query k nearest neighbors for each grid point
+    k = min(5, n)
+    dists, idxs = tree.query(grid_pts, k=k)
+    if k == 1:
+        dists = dists.reshape(-1, 1)
+        idxs = idxs.reshape(-1, 1)
+
+    # Weighted distance: effective_dist = min(dist / weight) over k neighbors
+    w_at_idx = weights_arr[idxs]  # shape (grid_pts, k)
+    effective = dists / np.maximum(w_at_idx, 0.1)
+    dist_field = effective.min(axis=1).reshape(grid_h, grid_w)
+
+    # ── 1.2 Ocean/sea distance amplification (rivers/springs excluded) ──
+    ocean_pts = [coords[name] for name in ocean_names if name in coords]
+    if ocean_pts:
+        ocean_arr = np.array(ocean_pts, dtype=np.float64)
+        ocean_tree = KDTree(ocean_arr)
+        ocean_dists, _ = ocean_tree.query(grid_pts, k=1)
+        ocean_dists = ocean_dists.reshape(grid_h, grid_w)
+        # Strong amplification near oceans/seas: creates coastline gaps
+        amplify_radius = max(grid_w, grid_h) * 0.15  # tighter radius for focused effect
+        ocean_factor = 1.0 + 1.5 * np.exp(-ocean_dists / max(amplify_radius, 1))
+        dist_field *= ocean_factor
+
+    # ── 1.3 Adaptive threshold ──
+    nn_dists, _ = tree.query(points_arr, k=2)
+    median_nn = float(np.median(nn_dists[:, 1]))
+
+    # Convert median_nn from canvas coords to grid coords
+    cell_size = 8.0
+    median_nn_grid = median_nn / cell_size
+    # More generous threshold: merge nearby clusters into larger continents
+    k_factor = min(3.0, 1.2 + 0.4 * math.log2(max(2, n)))
+    #   n=3→k=1.6, n=10→k=2.5, n=100→k=2.9, n=700→k=3.0
+    threshold = median_nn_grid * k_factor
+
+    # Content-driven adjustment (ocean ratio — only actual seas count)
+    ocean_count = len(ocean_names)
+    ocean_ratio = ocean_count / max(1, n)
+    threshold *= max(0.6, 1.0 - ocean_ratio * 0.4)
+
+    # Minimum landmass coverage guarantee (25% of canvas)
+    canvas_area_grid = grid_w * grid_h
+    min_area = canvas_area_grid * 0.25
+    min_threshold = math.sqrt(min_area / math.pi)
+    threshold = max(threshold, min_threshold)
+
+    # ── 1.3b Binary mask + morphological cleanup ──
+    land_mask = dist_field < threshold
+    # Use larger structuring element to merge nearby clusters
+    struct_small = np.ones((3, 3), dtype=bool)
+    struct_large = np.ones((5, 5), dtype=bool)
+    land_mask = binary_closing(land_mask, structure=struct_large)   # merge gaps first
+    land_mask = binary_opening(land_mask, structure=struct_small)   # remove pixel noise
+
+    # ── 1.3c Ocean hole carving ──
+    # Ocean locations may be positioned among land by the layout engine.
+    # Carve small guaranteed ocean circles at each ocean position.
+    # These create visible "inner sea" holes even when oceans are misplaced.
+    if ocean_pts:
+        ocean_r = max(int(round(threshold * 0.2)), 3)
+        for ox, oy in ocean_pts:
+            gxi = int(round(ox / cell_size))
+            gyi = int(round(oy / cell_size))
+            y_lo = max(0, gyi - ocean_r)
+            y_hi = min(grid_h, gyi + ocean_r + 1)
+            x_lo = max(0, gxi - ocean_r)
+            x_hi = min(grid_w, gxi + ocean_r + 1)
+            yy, xx = np.ogrid[y_lo:y_hi, x_lo:x_hi]
+            dist_sq = (xx - gxi) ** 2 + (yy - gyi) ** 2
+            land_mask[y_lo:y_hi, x_lo:x_hi][dist_sq <= ocean_r * ocean_r] = False
+
+    # Also build shelf mask (threshold * 1.3)
+    shelf_mask = dist_field < threshold * 1.3
+    shelf_mask = binary_closing(shelf_mask, structure=struct_large)
+    shelf_mask = binary_opening(shelf_mask, structure=struct_small)
+
+    # ── 1.4 Contour tracing (Moore Neighborhood per component) ──
+    from scipy.ndimage import label as ndimage_label
+
+    # 8-connected neighbor offsets (clockwise from right)
+    _dx = [1, 1, 0, -1, -1, -1, 0, 1]
+    _dy = [0, 1, 1, 1, 0, -1, -1, -1]
+
+    def _trace_single_boundary(comp_mask: np.ndarray) -> list[tuple[int, int]] | None:
+        """Trace the outer boundary of a single connected component via Moore neighborhood.
+
+        Uses a per-component mask, so no shared visited-state issues.
+        ``move_dir`` always stores the direction we moved to reach the current pixel.
+        Search starts at ``(move_dir + 5) % 8`` = one step CW past the backtrack direction.
+        """
+        h, w = comp_mask.shape
+        max_steps = h * w  # generous safety limit
+
+        # Find first boundary pixel (top-left scan)
+        start_x = start_y = -1
+        initial_nonmask_dir = 0
+        for sy in range(h):
+            for sx in range(w):
+                if not comp_mask[sy, sx]:
+                    continue
+                for di in range(8):
+                    ny, nx_ = sy + _dy[di], sx + _dx[di]
+                    if ny < 0 or ny >= h or nx_ < 0 or nx_ >= w or not comp_mask[ny, nx_]:
+                        start_x, start_y = sx, sy
+                        initial_nonmask_dir = di
+                        break
+                if start_x >= 0:
+                    break
+            if start_x >= 0:
+                break
+
+        if start_x < 0:
+            return None
+
+        # Convert initial non-mask direction to fake "movement direction" so that
+        # the search formula (move_dir + 5) % 8 produces the correct start:
+        # backtrack_dir = non-mask dir → search_start = (backtrack_dir + 1) % 8
+        # Using move_dir: search_start = (move_dir + 5) % 8
+        # So we need (move_dir + 5) = (initial_nonmask_dir + 1) → move_dir = initial_nonmask_dir - 4
+        move_dir = (initial_nonmask_dir + 4) % 8  # opposite of non-mask = as if we came from the non-mask side
+
+        contour: list[tuple[int, int]] = []
+        cx, cy_ = start_x, start_y
+        first = True
+        steps = 0
+
+        while steps < max_steps:
+            contour.append((cx, cy_))
+
+            # Search CW from one past backtrack: (move_dir + 5) % 8
+            search_start = (move_dir + 5) % 8
+            found = False
+            for di_offset in range(8):
+                di = (search_start + di_offset) % 8
+                ny, nx_ = cy_ + _dy[di], cx + _dx[di]
+                if 0 <= ny < h and 0 <= nx_ < w and comp_mask[ny, nx_]:
+                    move_dir = di
+                    cx, cy_ = nx_, ny
+                    found = True
+                    break
+
+            if not found:
+                break
+
+            if not first and cx == start_x and cy_ == start_y:
+                break
+            first = False
+            steps += 1
+
+        return contour if len(contour) >= 4 else None
+
+    def _trace_all_components(mask: np.ndarray) -> list[list[tuple[int, int]]]:
+        """Trace boundary of each connected component in mask independently."""
+        labels, num = ndimage_label(mask, structure=np.ones((3, 3), dtype=int))
+        contours: list[list[tuple[int, int]]] = []
+        for comp_id in range(1, num + 1):
+            comp_mask = labels == comp_id
+            c = _trace_single_boundary(comp_mask)
+            if c:
+                contours.append(c)
+        return contours
+
+    # Trace land outer boundaries (one per connected land component)
+    land_contours = _trace_all_components(land_mask)
+    shelf_contours = _trace_all_components(shelf_mask)
+
+    # Trace hole boundaries: connected sea regions NOT touching the grid border
+    sea_labels, num_sea = ndimage_label(~land_mask, structure=np.ones((3, 3), dtype=int))
+    hole_contours_raw: list[list[tuple[int, int]]] = []
+    for comp_id in range(1, num_sea + 1):
+        comp = sea_labels == comp_id
+        # Skip ocean (touches border)
+        if comp[0, :].any() or comp[-1, :].any() or comp[:, 0].any() or comp[:, -1].any():
+            continue
+        c = _trace_single_boundary(comp)
+        if c:
+            hole_contours_raw.append(c)
+
+    # ── 1.5 Polygon classification ──
+    def _unsigned_area(poly: list[tuple[float, float]]) -> float:
+        """Unsigned polygon area via Shoelace formula."""
+        n_ = len(poly)
+        area = 0.0
+        for i in range(n_):
+            j = (i + 1) % n_
+            area += poly[i][0] * poly[j][1]
+            area -= poly[j][0] * poly[i][1]
+        return abs(area) / 2.0
+
+    def _point_in_polygon(px: float, py: float, poly: list[tuple[float, float]]) -> bool:
+        """Ray casting point-in-polygon test."""
+        n_ = len(poly)
+        inside = False
+        j = n_ - 1
+        for i in range(n_):
+            xi, yi = poly[i]
+            xj, yj = poly[j]
+            if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+                inside = not inside
+            j = i
+        return inside
+
+    # Convert grid coords to canvas coords
+    def _grid_to_canvas(contour: list[tuple[int, int]]) -> list[tuple[float, float]]:
+        return [(float(gx[min(c[0], len(gx) - 1)]), float(gy[min(c[1], len(gy) - 1)]))
+                for c in contour]
+
+    canvas_area = canvas_width * canvas_height
+    min_outer_area = canvas_area * 0.005  # 0.5% of canvas
+
+    # Convert all contours to canvas coords
+    canvas_outers = [_grid_to_canvas(c) for c in land_contours]
+    outer_areas = [_unsigned_area(c) for c in canvas_outers]
+    canvas_holes = [_grid_to_canvas(c) for c in hole_contours_raw]
+
+    # Count locations inside each outer ring
+    def _count_locations_inside(poly: list[tuple[float, float]]) -> int:
+        count = 0
+        for pt in all_points:
+            if _point_in_polygon(pt[0], pt[1], poly):
+                count += 1
+        return count
+
+    # Filter small outer rings (unless they contain locations)
+    filtered_outers: list[tuple[list[tuple[float, float]], float, int]] = []
+    for contour, area in zip(canvas_outers, outer_areas):
+        loc_count = _count_locations_inside(contour)
+        if area >= min_outer_area or loc_count > 0:
+            filtered_outers.append((contour, area, loc_count))
+
+    # Sort by area descending
+    filtered_outers.sort(key=lambda x: -x[1])
+
+    # Post-process: absorb tiny islands (< 2% of largest) with no locations
+    if len(filtered_outers) > 1:
+        max_land_area = filtered_outers[0][1]
+        absorb_threshold = max_land_area * 0.02
+        kept: list[tuple[list[tuple[float, float]], float, int]] = []
+        for contour, area, loc_count in filtered_outers:
+            if area >= absorb_threshold or loc_count >= 2:
+                kept.append((contour, area, loc_count))
+        # Keep at least the main landmass
+        filtered_outers = kept if kept else filtered_outers[:1]
+
+    # Associate holes with their containing outer ring
+    hole_map: dict[int, list[list[tuple[float, float]]]] = {i: [] for i in range(len(filtered_outers))}
+    for hole_contour in canvas_holes:
+        hx = sum(p[0] for p in hole_contour) / len(hole_contour)
+        hy = sum(p[1] for p in hole_contour) / len(hole_contour)
+        for oi, (outer_c, _, _) in enumerate(filtered_outers):
+            if _point_in_polygon(hx, hy, outer_c):
+                hole_map[oi].append(hole_contour)
+                break
+
+    # ── 1.6 Chaikin smoothing + dual-frequency OpenSimplex distortion ──
+    base_seed = int(hashlib.md5(novel_id.encode()).hexdigest()[:8], 16) % (2**31)
+    noise_gen = OpenSimplex(seed=base_seed + 200)
+
+    def _chaikin_smooth(poly: list[tuple[float, float]], rounds: int) -> list[tuple[float, float]]:
+        """Chaikin corner-cutting subdivision."""
+        pts = list(poly)
+        for _ in range(rounds):
+            new_pts: list[tuple[float, float]] = []
+            n_ = len(pts)
+            for i in range(n_):
+                p0 = pts[i]
+                p1 = pts[(i + 1) % n_]
+                new_pts.append((0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]))
+                new_pts.append((0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]))
+            pts = new_pts
+        return pts
+
+    def _distort_coastline(
+        poly: list[tuple[float, float]],
+        area: float,
+        is_hole: bool = False,
+    ) -> list[tuple[float, float]]:
+        """Apply Chaikin smoothing + dual-frequency OpenSimplex distortion."""
+        n_ = len(poly)
+        if n_ < 4:
+            return poly
+
+        # Adaptive Chaikin rounds
+        rounds = 2 if n_ > 20 else (1 if n_ > 10 else 0)
+        smoothed = _chaikin_smooth(poly, rounds) if rounds > 0 else list(poly)
+
+        # Amplitude scaling: small islands get less distortion
+        area_scale = max(0.3, math.sqrt(abs(area) / canvas_area))
+        large_amp = min(canvas_width, canvas_height) * 0.025 * area_scale
+        small_amp = min(canvas_width, canvas_height) * 0.008 * area_scale
+
+        # Distort along normals
+        n_pts = len(smoothed)
+        result: list[tuple[float, float]] = []
+        for i in range(n_pts):
+            px, py = smoothed[i]
+            # Compute normal direction from neighbors
+            prev = smoothed[(i - 1) % n_pts]
+            nxt = smoothed[(i + 1) % n_pts]
+            tx = nxt[0] - prev[0]
+            ty = nxt[1] - prev[1]
+            t_len = math.sqrt(tx * tx + ty * ty)
+            if t_len < 1e-6:
+                result.append((px, py))
+                continue
+            # Normal (perpendicular to tangent)
+            nx_dir = -ty / t_len
+            ny_dir = tx / t_len
+
+            # Dual-frequency noise
+            low_noise = noise_gen.noise2(px * 0.003, py * 0.003) * large_amp
+            high_noise = noise_gen.noise2(px * 0.02, py * 0.02) * small_amp
+            offset = low_noise + high_noise
+            if is_hole:
+                offset *= -1  # Inward for holes
+
+            result.append((
+                round(px + offset * nx_dir, 1),
+                round(py + offset * ny_dir, 1),
+            ))
+
+        return result
+
+    # Build landmass objects
+    landmasses: list[dict] = []
+    max_area = filtered_outers[0][1] if filtered_outers else 0
+
+    for i, (contour, area, loc_count) in enumerate(filtered_outers):
+        coastline = _distort_coastline(contour, area)
+        holes: list[list[list[float]]] = []
+        for hole_c in hole_map.get(i, []):
+            hole_area = _unsigned_area(hole_c)
+            distorted_hole = _distort_coastline(hole_c, hole_area, is_hole=True)
+            holes.append([[round(p[0], 1), round(p[1], 1)] for p in distorted_hole])
+
+        landmasses.append({
+            "id": f"landmass_{i}" if i == 0 or area > max_area * 0.3 else f"island_{i}",
+            "coastline": [[round(p[0], 1), round(p[1], 1)] for p in coastline],
+            "holes": holes,
+            "area": round(area, 1),
+            "location_count": loc_count,
+            "is_main": i == 0,
+        })
+
+    # Build shelf contours
+    canvas_shelves = [_grid_to_canvas(c) for c in shelf_contours]
+    shelves: list[list[list[float]]] = []
+    for sc in canvas_shelves:
+        sc_area = _unsigned_area(sc)
+        if sc_area < canvas_area * 0.01:
+            continue
+        smoothed_shelf = _distort_coastline(sc, sc_area)
+        shelves.append([[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf])
+
+    logger.info(
+        "Generated landmasses for novel %s: %d landmasses, %d shelves (threshold=%.1f, n=%d)",
+        novel_id, len(landmasses), len(shelves), threshold, n,
+    )
+
+    return {"landmasses": landmasses, "shelves": shelves}

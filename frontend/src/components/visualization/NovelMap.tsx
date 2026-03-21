@@ -13,6 +13,7 @@ import * as d3Drag from "d3-drag"
 import * as d3Shape from "d3-shape"
 import "d3-transition"
 import type {
+  Landmass,
   LayerType,
   LocationConflict,
   MapLayoutItem,
@@ -230,8 +231,8 @@ const TIER_LABELS: Record<string, string> = {
   building: "建筑",
 }
 
-function getVisibleTiers(scale: number): string {
-  const visible = TIERS.filter((t) => scale >= (TIER_MIN_SCALE[t] ?? 99))
+function getVisibleTiers(scale: number, scaleDivisor = 1): string {
+  const visible = TIERS.filter((t) => scale >= (TIER_MIN_SCALE[t] ?? 99) / scaleDivisor)
   if (visible.length === 0) return ""
   return visible.map((t) => TIER_LABELS[t] ?? t).join("/")
 }
@@ -313,6 +314,8 @@ export interface NovelMapProps {
   regionBoundaries?: RegionBoundary[]
   portals?: PortalInfo[]
   rivers?: { points: number[][]; width: number }[]
+  landmasses?: Landmass[]
+  shelves?: [number, number][][]
   trajectoryPoints?: TrajectoryPoint[]
   allTrajectoryPoints?: TrajectoryPoint[]  // full trajectory (for background dashed path)
   currentLocation?: string | null
@@ -363,6 +366,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       regionBoundaries,
       portals,
       rivers,
+      landmasses,
+      shelves,
       terrainUrl,
       trajectoryPoints,
       allTrajectoryPoints,
@@ -405,6 +410,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     const canvasH = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
     const darkBg = isDarkBackground(layoutMode, layerType)
     const bgColor = getMapBgColor(layoutMode, layerType)
+
+    // Scale factor for tier visibility thresholds on large canvases.
+    // Default canvas is 1600px; cosmic scale is 8000px. At fit-to-view,
+    // the zoom level is proportionally lower, so we divide thresholds by
+    // the canvas-to-default ratio to keep labels visible.
+    const tierScaleDivisor = Math.max(1, canvasW / DEFAULT_CANVAS.width)
 
     // Build layout lookup
     const layoutMap = useMemo(() => {
@@ -579,6 +590,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // Terrain image placeholder
       viewport.append("g").attr("id", "terrain")
       viewport.append("g").attr("id", "coastline-ocean")
+      viewport.append("g").attr("id", "shelf")
       viewport.append("g").attr("id", "coastline")
       viewport.append("g").attr("id", "rivers")
 
@@ -758,44 +770,120 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       if (!svgRef.current || !mapReady || !roughCanvasRef.current) return
       const svg = d3Selection.select(svgRef.current)
       const oceanG = svg.select("#coastline-ocean")
+      const shelfG = svg.select("#shelf")
       const coastG = svg.select("#coastline")
       oceanG.selectAll("*").remove()
+      shelfG.selectAll("*").remove()
       coastG.selectAll("*").remove()
 
-      const stableLayout = allLayout ?? layout
-      const allPoints: CoastPoint[] = stableLayout
-        .filter((item) => !item.is_portal)
-        .map((item) => [item.x, item.y] as CoastPoint)
-      if (allPoints.length < 3) return
-
-      // Generate coastline
-      const hull = convexHull(allPoints)
-      const expanded = expandHull(hull, Math.min(canvasW, canvasH) * 0.08)
-      const noisy = distortCoastline(expanded, 42)
-      const pathD = coastlineToPath(noisy)
-
-      // Ocean fill (outside coastline, using evenodd fill rule)
-      const oceanPath = `M 0 0 L ${canvasW} 0 L ${canvasW} ${canvasH} L 0 ${canvasH} Z ${pathD}`
-      oceanG
-        .append("path")
-        .attr("d", oceanPath)
-        .attr("fill", darkBg ? "rgba(20,30,50,0.3)" : "rgba(140,170,195,0.20)")
-        .attr("fill-rule", "evenodd")
-        .style("pointer-events", "none")
-
-      // Rough.js coastline border
       const rc = roughCanvasRef.current
-      const coastNode = rc.path(pathD, {
-        roughness: 1.5,
-        bowing: 1.0,
-        seed: 42,
-        stroke: darkBg ? "rgba(100,130,160,0.4)" : "#6B5B3E",
-        strokeWidth: 2,
-        fill: "none",
-      })
-      coastNode.style.pointerEvents = "none"
-      ;(coastG.node() as Element).appendChild(coastNode)
-    }, [mapReady, allLayout, layout, canvasW, canvasH, darkBg])
+
+      if (landmasses && landmasses.length > 0) {
+        // ── New: multi-island landmass rendering ──
+
+        // Helper: build SVG path from coordinate array
+        const toPathD = (pts: [number, number][], reverse = false) => {
+          const ordered = reverse ? [...pts].reverse() : pts
+          return ordered.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]},${p[1]}`).join(" ") + " Z"
+        }
+
+        // Build ocean fill path (canvas rect + all coastlines as holes, evenodd)
+        let oceanPathD = `M 0 0 L ${canvasW} 0 L ${canvasW} ${canvasH} L 0 ${canvasH} Z`
+        for (const lm of landmasses) {
+          oceanPathD += " " + toPathD(lm.coastline)
+          // Add holes as "un-holes" in the ocean (they should be ocean)
+          for (const hole of lm.holes) {
+            oceanPathD += " " + toPathD(hole, true)
+          }
+        }
+
+        oceanG
+          .append("path")
+          .attr("d", oceanPathD)
+          .attr("fill", darkBg ? "rgba(30,50,80,0.35)" : "rgba(140,170,195,0.30)")
+          .attr("fill-rule", "evenodd")
+          .style("pointer-events", "none")
+
+        // Render shelf contours (dashed, subtle)
+        if (shelves) {
+          for (const shelfPts of shelves) {
+            // Only render shelf for larger areas
+            const shelfPathD = toPathD(shelfPts as [number, number][])
+            const shelfNode = rc.path(shelfPathD, {
+              roughness: 2.0,
+              bowing: 0.5,
+              seed: 42,
+              stroke: darkBg ? "rgba(80,110,140,0.25)" : "rgba(107,91,62,0.25)",
+              strokeWidth: 0.8,
+              fill: "none",
+            })
+            shelfNode.style.pointerEvents = "none"
+            ;(shelfG.node() as Element).appendChild(shelfNode)
+          }
+        }
+
+        // Render coastline borders per landmass
+        for (const lm of landmasses) {
+          const coastPathD = toPathD(lm.coastline)
+          const coastNode = rc.path(coastPathD, {
+            roughness: 1.5,
+            bowing: 1.0,
+            seed: 42,
+            stroke: darkBg ? "rgba(100,130,160,0.4)" : "#6B5B3E",
+            strokeWidth: 2,
+            fill: "none",
+          })
+          coastNode.style.pointerEvents = "none"
+          ;(coastG.node() as Element).appendChild(coastNode)
+
+          // Render hole borders (inner seas/lakes)
+          for (const hole of lm.holes) {
+            const holePathD = toPathD(hole)
+            const holeNode = rc.path(holePathD, {
+              roughness: 1.5,
+              bowing: 1.0,
+              seed: 43,
+              stroke: darkBg ? "rgba(80,110,140,0.35)" : "rgba(107,91,62,0.6)",
+              strokeWidth: 1.5,
+              fill: "none",
+            })
+            holeNode.style.pointerEvents = "none"
+            ;(coastG.node() as Element).appendChild(holeNode)
+          }
+        }
+      } else {
+        // ── Fallback: convex hull coastline (backward compat) ──
+        const stableLayout = allLayout ?? layout
+        const allPoints: CoastPoint[] = stableLayout
+          .filter((item) => !item.is_portal)
+          .map((item) => [item.x, item.y] as CoastPoint)
+        if (allPoints.length < 3) return
+
+        const hull = convexHull(allPoints)
+        const expanded = expandHull(hull, Math.min(canvasW, canvasH) * 0.08)
+        const noisy = distortCoastline(expanded, 42)
+        const pathD = coastlineToPath(noisy)
+
+        const oceanPath = `M 0 0 L ${canvasW} 0 L ${canvasW} ${canvasH} L 0 ${canvasH} Z ${pathD}`
+        oceanG
+          .append("path")
+          .attr("d", oceanPath)
+          .attr("fill", darkBg ? "rgba(30,50,80,0.35)" : "rgba(140,170,195,0.30)")
+          .attr("fill-rule", "evenodd")
+          .style("pointer-events", "none")
+
+        const coastNode = rc.path(pathD, {
+          roughness: 1.5,
+          bowing: 1.0,
+          seed: 42,
+          stroke: darkBg ? "rgba(100,130,160,0.4)" : "#6B5B3E",
+          strokeWidth: 2,
+          fill: "none",
+        })
+        coastNode.style.pointerEvents = "none"
+        ;(coastG.node() as Element).appendChild(coastNode)
+      }
+    }, [mapReady, landmasses, shelves, allLayout, layout, canvasW, canvasH, darkBg])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
@@ -1753,7 +1841,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       // Tier visibility — fade in over 30% of threshold range instead of hard cut
       for (const tier of TIERS) {
-        const minScale = TIER_MIN_SCALE[tier] ?? 1.2
+        const minScale = (TIER_MIN_SCALE[tier] ?? 1.2) / tierScaleDivisor
         const fadeRange = minScale * 0.3
         const tierOpacity = Math.min(1, Math.max(0, (k - minScale + fadeRange) / fadeRange))
         svg
@@ -1791,7 +1879,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const g = d3Selection.select(this)
         // Check if this tier is visible (include fading-in tiers)
         const tier = g.attr("data-tier") ?? "city"
-        const minScale = TIER_MIN_SCALE[tier] ?? 1.2
+        const minScale = (TIER_MIN_SCALE[tier] ?? 1.2) / tierScaleDivisor
         const fadeRange = minScale * 0.3
         if (k < minScale - fadeRange) return
 
@@ -1866,7 +1954,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       svg
         .select("#overview-dots")
         .style("opacity", k > 1.5 ? 0.3 : 1)
-    }, [mapReady, currentScale, locMap])
+    }, [mapReady, currentScale, locMap, tierScaleDivisor])
 
     // ── Fit to locations ─────────────────────────────
     const fitToLocations = useCallback(() => {
@@ -2058,7 +2146,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           className="pointer-events-none absolute bottom-2 left-2 text-[11px] px-2 py-1"
           style={{ color: "rgba(120,120,120,0.8)" }}
         >
-          {getVisibleTiers(currentScale)}
+          {getVisibleTiers(currentScale, tierScaleDivisor)}
         </div>
 
         {/* Toolbar (top-right) */}

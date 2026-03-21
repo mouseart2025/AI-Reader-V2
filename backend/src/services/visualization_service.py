@@ -24,6 +24,7 @@ from src.services.map_layout_service import (
     _layout_regions,
     compute_chapter_hash,
     compute_layered_layout,
+    generate_landmasses,
     generate_rivers,
     generate_terrain,
     generate_voronoi_boundaries,
@@ -969,6 +970,17 @@ async def get_map_data(
             canvas_width=_resp_cw, canvas_height=_resp_ch,
         )
 
+    # Generate landmass contours (non-geographic modes with 3+ locations)
+    landmass_result: dict = {}
+    if layout_mode != "geographic" and len(layout_data) >= 3 and not layer_id:
+        try:
+            landmass_result = generate_landmasses(
+                locations, layout_data, novel_id,
+                canvas_width=_resp_cw, canvas_height=_resp_ch,
+            )
+        except Exception:
+            logger.warning("Failed to generate landmasses", exc_info=True)
+
     # Add placement_confidence to each location
     constrained_names: set[str] = set()
     if satisfaction and "constrained_location_names" in satisfaction:
@@ -985,6 +997,8 @@ async def get_map_data(
         "quality_metrics": satisfaction,
         "terrain_url": terrain_url if not layer_id else None,
         "rivers": rivers,
+        "landmasses": landmass_result.get("landmasses", []),
+        "shelves": landmass_result.get("shelves", []),
         "region_boundaries": region_boundaries,
         "portals": portals_response,
         "revealed_location_names": revealed_names,
