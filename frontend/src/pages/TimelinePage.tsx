@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { fetchTimelineData } from "@/api/client"
+import { useNavigate } from "react-router-dom"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
+import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
+import { novelPath } from "@/lib/novelPaths"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
@@ -68,8 +71,10 @@ const DEFAULT_HIDDEN: FilterType[] = ["角色登场", "物品交接"]
 
 export default function TimelinePage() {
   const { novelId } = useParams<{ novelId: string }>()
+  const navigate = useNavigate()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
+  const setFocusLocation = useVisualizationFocusStore((s) => s.setFocusLocation)
 
   const [events, setEvents] = useState<TimelineEvent[]>([])
   const [swimlanes, setSwimlanes] = useState<Record<string, string[]>>({})
@@ -518,9 +523,16 @@ export default function TimelinePage() {
                                 </span>
                               )}
                               {evt.location && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  @ {evt.location}
-                                </span>
+                                <button
+                                  className="text-[10px] text-green-600 dark:text-green-400 hover:underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setFocusLocation(evt.location!, "timeline")
+                                    if (novelId) navigate(novelPath(novelId, "map"))
+                                  }}
+                                >
+                                  📍 {evt.location}
+                                </button>
                               )}
                             </div>
                             {selectedEvent?.id === evt.id && evt.participants.length > 0 && (

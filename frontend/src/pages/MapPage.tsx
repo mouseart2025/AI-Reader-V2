@@ -4,6 +4,7 @@ import { fetchMapData, saveLocationOverride, saveGeoLocationOverride, rebuildHie
 import type { MapData, MapLayerInfo, HierarchyRebuildResult } from "@/api/types"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
+import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
 // import { NovelMapGL } from "@/components/visualization/NovelMapGL"  // WebGL renderer — hidden until stable
@@ -77,8 +78,24 @@ export default function MapPage() {
   // Right panel tab
   const [rightTab, setRightTab] = useState<"geography" | "trajectory">("geography")
 
-  // Focus location (click-to-navigate: fly to + highlight)
-  const [focusLocation, setFocusLocation] = useState<string | null>(null)
+  // Focus location — synced with cross-module store (Map ↔ Timeline linking)
+  const storeFocusLoc = useVisualizationFocusStore((s) => s.focusLocation)
+  const storeFocusSource = useVisualizationFocusStore((s) => s.source)
+  const setStoreFocusLoc = useVisualizationFocusStore((s) => s.setFocusLocation)
+  const [focusLocation, setFocusLocationLocal] = useState<string | null>(null)
+
+  // When timeline sends a focus location, apply it locally
+  useEffect(() => {
+    if (storeFocusLoc && storeFocusSource === "timeline") {
+      setFocusLocationLocal(storeFocusLoc)
+    }
+  }, [storeFocusLoc, storeFocusSource])
+
+  // Wrapper: update both local and store
+  const setFocusLocation = useCallback((name: string | null) => {
+    setFocusLocationLocal(name)
+    setStoreFocusLoc(name, "map")
+  }, [setStoreFocusLoc])
 
   // Editing location (drag-to-reposition on GeoMap)
   const [editingLocation, setEditingLocation] = useState<string | null>(null)
@@ -556,9 +573,9 @@ export default function MapPage() {
   // Navigate map to a location (fly to + highlight, no entity card)
   const handleGeoLocationClick = useCallback(
     (name: string) => {
-      setFocusLocation((prev) => (prev === name ? null : name))
+      setFocusLocation(focusLocation === name ? null : name)
     },
-    [],
+    [focusLocation, setFocusLocation],
   )
 
   // Enter edit mode for a location (crosshair + drag)
