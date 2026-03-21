@@ -88,6 +88,12 @@ async def mock_get_connection(memory_db):
     async def _factory():
         return _NonClosingConnection(memory_db)
 
+    import src.services.export_service as _export_mod
+
+    async def _noop_precompute(_novel_id):
+        return None
+
     with patch("src.services.export_service.get_connection", _factory), \
+         patch.object(_export_mod, "_build_precomputed", _noop_precompute), \
          patch("src.services.sample_data_service.get_connection", _factory):
         yield memory_db
