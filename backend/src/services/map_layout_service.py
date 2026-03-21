@@ -781,6 +781,7 @@ def compute_layered_layout(
     portals = world_structure.get("portals", [])
     location_layer_map = world_structure.get("location_layer_map", {})
     location_region_map = world_structure.get("location_region_map", {})
+    location_parents_ws = world_structure.get("location_parents", {})
 
     # Dynamic canvas size for overworld based on spatial scale
     canvas_w, canvas_h = SPATIAL_SCALE_CANVAS.get(
@@ -826,6 +827,7 @@ def compute_layered_layout(
             if regions:
                 layout_coords = _solve_overworld_by_region(
                     regions, locs, all_constraints, location_region_map,
+                    location_parents=location_parents_ws,
                     user_overrides=user_overrides,
                     first_chapter=first_chapter,
                     canvas_width=canvas_w,
@@ -887,6 +889,7 @@ def _solve_overworld_by_region(
     locations: list[dict],
     constraints: list[dict],
     location_region_map: dict[str, str],
+    location_parents: dict[str, str] | None = None,
     user_overrides: dict[str, tuple[float, float]] | None = None,
     first_chapter: dict[str, int] | None = None,
     canvas_width: int = CANVAS_WIDTH,
@@ -1012,17 +1015,32 @@ def _solve_overworld_by_region(
     }
 
     def _find_continent_ancestor(name: str) -> str | None:
-        """Walk up region chain to find a continent-scale ancestor (洲)."""
-        visited: set[str] = set()
-        current = name
+        """Walk up hierarchy to find a continent-scale ancestor (洲).
+
+        Path 1 (authoritative): location_parents chain.
+        Path 2 (fallback): location_region_map chain.
+        """
+        # Path 1: location_parents (authoritative hierarchy after consolidation)
+        if location_parents:
+            visited: set[str] = set()
+            current = location_parents.get(name)
+            while current and current not in visited:
+                if current in continent_region_names:
+                    return current
+                visited.add(current)
+                current = location_parents.get(current)
+
+        # Path 2: location_region_map (fallback)
+        visited2: set[str] = set()
+        current2 = name
         for _ in range(10):
-            rn = location_region_map.get(current)
-            if rn is None or rn in visited:
+            rn = location_region_map.get(current2)
+            if rn is None or rn in visited2:
                 return None
             if rn in continent_region_names:
                 return rn
-            visited.add(rn)
-            current = rn
+            visited2.add(rn)
+            current2 = rn
         return None
 
     # Partition locations by region.

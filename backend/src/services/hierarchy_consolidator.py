@@ -454,6 +454,8 @@ def _tiered_catchall(
                         if any(kw in uc for kw in "幻梦仙灵冥虚魔"):
                             continue
                         desc = sum(1 for c, p in location_parents.items() if p == uc)
+                        if desc > 50:  # sanity cap: skip bloated nodes
+                            continue
                         if desc > dominant_desc:
                             dominant = uc
                             dominant_desc = desc

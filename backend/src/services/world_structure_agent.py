@@ -211,12 +211,19 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("码头", "site"),
     ("渡口", "site"),
     ("胡同", "site"),
+    # ── 2-char: real-world cities ending in 海 (protect from 1-char "海"→region) ──
+    ("上海", "city"),
+    ("珠海", "city"),
+    ("威海", "city"),
+    ("北海", "city"),    # 广西北海市 (not 四海之北海)
+    ("青海", "continent"),  # 青海省
+    ("大海", "region"),  # 东洋大海 etc. — large but not continent-scale for layout
     # ── 1-char: macro geography (continent) ──
     ("省", "continent"),
     ("界", "continent"),
     ("洲", "continent"),
     ("域", "continent"),
-    ("海", "continent"),
+    ("海", "region"),    # seas are region-scale, not continent (avoids cardinal position competition)
     # ── 1-char: kingdom ──
     ("国", "kingdom"),
     ("道", "kingdom"),   # Song dynasty administrative route
