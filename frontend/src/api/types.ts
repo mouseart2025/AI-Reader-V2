@@ -538,6 +538,15 @@ export interface LocationConflict {
   details: Record<string, unknown>
 }
 
+export interface Landmass {
+  id: string
+  coastline: [number, number][]
+  holes: [number, number][][]
+  area: number
+  location_count: number
+  is_main: boolean
+}
+
 export interface MapData {
   locations: MapLocation[]
   trajectories: Record<string, TrajectoryPoint[]>
@@ -546,6 +555,8 @@ export interface MapData {
   layout_mode: "constraint" | "hierarchy" | "layered" | "geographic"
   terrain_url: string | null
   rivers?: { points: number[][]; width: number }[]
+  landmasses?: Landmass[]
+  shelves?: [number, number][][]
   analyzed_range: [number, number]
   region_boundaries?: RegionBoundary[]
   portals?: PortalInfo[]
