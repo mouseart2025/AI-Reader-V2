@@ -1,6 +1,6 @@
 [project]
 name = "ai-reader-v2-backend"
-version = "0.56.1"
+version = "0.57.0"
 description = "AI Reader V2 Backend - Novel analysis with local LLM"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -21,6 +21,7 @@ dependencies = [
     "python-docx>=1.2.0",
     "openpyxl>=3.1.5",
     "reportlab>=4.4.10",
+    "matplotlib>=3.9.4",
 ]
 
 [dependency-groups]
