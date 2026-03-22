@@ -2055,13 +2055,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       focusG.selectAll("*").remove()
 
       if (!focusLocation || !zoomRef.current) return
+      // Use allLayout (unfiltered) for flyTo lookup — filtered layout may not contain the target
+      const flyLayout = allLayout && allLayout.length > 0 ? allLayout : layout
+      const flyLocs = allLocations && allLocations.length > 0 ? allLocations : locations
       // Try exact match first, then fallback to parent location
-      let item = layout.find((l) => l.name === focusLocation)
+      let item = flyLayout.find((l) => l.name === focusLocation)
       if (!item) {
-        // Location not in layout (filtered out or no coordinates) — try parent
-        const loc = locations.find((l) => l.name === focusLocation)
+        const loc = flyLocs.find((l) => l.name === focusLocation)
         if (loc?.parent) {
-          item = layout.find((l) => l.name === loc.parent)
+          item = flyLayout.find((l) => l.name === loc.parent)
         }
       }
       if (!item) return
@@ -2070,10 +2072,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const svgWidth = svgEl.clientWidth || 800
       const svgHeight = svgEl.clientHeight || 600
 
-      // Compute scale from actual layout extent (not canvas prop which may be stale/default).
-      // Show ~30% of the data bounding box around the target point.
-      const xs = layout.map((l) => l.x)
-      const ys = layout.map((l) => l.y)
+      // Compute scale from full layout extent (not filtered subset)
+      const xs = flyLayout.map((l) => l.x)
+      const ys = flyLayout.map((l) => l.y)
       const dataW = Math.max(1, Math.max(...xs) - Math.min(...xs))
       const dataH = Math.max(1, Math.max(...ys) - Math.min(...ys))
       const targetViewW = dataW * 0.3
@@ -2122,7 +2123,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("stroke-width", 3)
         .attr("paint-order", "stroke")
         .text(focusLocation)
-    }, [focusLocation, locations, layout, mapReady, darkBg])
+    }, [focusLocation, locations, allLocations, layout, allLayout, mapReady, darkBg])
 
     // Update focus overlay counter-scale when zoom changes
     useEffect(() => {
