@@ -2041,11 +2041,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // Auto-fit when layout changes
     useEffect(() => {
-      if (mapReady && layout.length > 0) {
+      if (mapReady && layout.length > 0 && !focusLocation) {
         const t = setTimeout(fitToLocations, 200)
         return () => clearTimeout(t)
       }
-    }, [mapReady, layout, fitToLocations])
+    }, [mapReady, layout, fitToLocations, focusLocation])
 
     // ── Focus location: pan + zoom + persistent highlight ──
     useEffect(() => {
