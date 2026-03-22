@@ -994,6 +994,55 @@ async def get_map_data(
         )
         roads = generate_roads(locations, layout_data, land_mask_info=_land_mask_info)
 
+    # ── Fill missing layout coordinates ──
+    # Some locations (sub-sites, buildings) may not get layout positions from
+    # the layout engine. Assign them coordinates near their parent using
+    # sunflower-seed angular distribution for organic spread.
+    _layout_map = {item["name"]: item for item in layout_data}
+    _loc_map = {loc["name"]: loc for loc in locations}
+    _missing = [loc for loc in locations if loc["name"] not in _layout_map]
+
+    if _missing:
+        import math as _math
+        _golden_angle = _math.pi * (3 - _math.sqrt(5))  # ~137.5°
+        # Group missing locations by their nearest ancestor that has coords
+        _parent_children: dict[str, list[dict]] = {}
+        for loc in _missing:
+            # Walk up parent chain to find an ancestor with layout coords
+            ancestor = loc.get("parent")
+            visited: set[str] = set()
+            while ancestor and ancestor not in _layout_map and ancestor not in visited:
+                visited.add(ancestor)
+                p = _loc_map.get(ancestor)
+                ancestor = p.get("parent") if p else None
+            if ancestor and ancestor in _layout_map:
+                _parent_children.setdefault(ancestor, []).append(loc)
+
+        for parent_name, children in _parent_children.items():
+            p_item = _layout_map[parent_name]
+            px, py = p_item["x"], p_item["y"]
+            base_r = 60  # base radius for child placement
+            for i, child in enumerate(children):
+                angle = _golden_angle * i
+                r = base_r + 15 * (i // 6)  # expand radius for many children
+                cx = px + r * _math.cos(angle)
+                cy = py + r * _math.sin(angle)
+                new_item = {
+                    "name": child["name"],
+                    "x": round(cx, 1),
+                    "y": round(cy, 1),
+                    "level": p_item.get("level", 0) + 1,
+                }
+                layout_data.append(new_item)
+                _layout_map[child["name"]] = new_item
+
+        if _missing:
+            logger.debug(
+                "Filled %d/%d missing layout positions via parent fallback",
+                len(_missing) - len([l for l in locations if l["name"] not in _layout_map]),
+                len(_missing),
+            )
+
     # Add placement_confidence to each location
     constrained_names: set[str] = set()
     if satisfaction and "constrained_location_names" in satisfaction:
