@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
-import { fetchMapData, saveLocationOverride, saveGeoLocationOverride, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
+import { fetchMapData, saveLocationOverride, saveGeoLocationOverride, rebuildHierarchy, applyHierarchyChanges, spatialCompletion } from "@/api/client"
 import type { MapData, MapLayerInfo, HierarchyRebuildResult } from "@/api/types"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
@@ -873,32 +873,42 @@ export default function MapPage() {
                 variant="outline"
                 size="xs"
                 disabled={rebuilding}
-                onClick={() => {
+                onClick={async () => {
                   if (!novelId || rebuilding) return
                   setRebuilding(true)
-                  setRebuildProgress("正在初始化...")
-                  rebuildHierarchy(novelId, setRebuildProgress)
-                    .then((res) => {
-                      if (res.changes.length === 0) {
-                        setToast("层级无变化")
-                        setTimeout(() => setToast(null), 4000)
-                      } else {
-                        setRebuildResult(res)
-                        setSelectedChanges(new Set(res.changes.map((c, i) => c.auto_select ? i : -1).filter(i => i >= 0)))
+                  try {
+                    // Step 1: Rebuild hierarchy
+                    setRebuildProgress("层级重建中...")
+                    const res = await rebuildHierarchy(novelId, (msg) => setRebuildProgress(`层级: ${msg}`))
+                    // Auto-apply hierarchy changes
+                    if (res.changes.length > 0) {
+                      setRebuildProgress("应用层级变更...")
+                      const autoSelected = res.changes.filter(c => c.auto_select)
+                      if (autoSelected.length > 0) {
+                        await applyHierarchyChanges(novelId, autoSelected, res.location_tiers)
                       }
-                    })
-                    .catch(() => {
-                      setToast("层级重建失败")
-                      setTimeout(() => setToast(null), 4000)
-                    })
-                    .finally(() => {
-                      setRebuilding(false)
-                      setRebuildProgress("")
-                    })
+                    }
+                    // Step 2: Spatial completion
+                    setRebuildProgress("空间补全中...")
+                    const compRes = await spatialCompletion(novelId, (msg) => setRebuildProgress(`补全: ${msg}`))
+                    // Step 3: Reload map
+                    setRebuildProgress("重新加载地图...")
+                    setReloadTrigger(t => t + 1)
+                    const total = (res.changes.length > 0 ? `${res.changes.length} 层级变更` : "层级无变化")
+                      + `, ${compRes.relations_added} 空间关系`
+                    setToast(`智能重绘完成: ${total}`)
+                    setTimeout(() => setToast(null), 6000)
+                  } catch (e) {
+                    setToast(`智能重绘失败: ${e instanceof Error ? e.message : "未知错误"}`)
+                    setTimeout(() => setToast(null), 4000)
+                  } finally {
+                    setRebuilding(false)
+                    setRebuildProgress("")
+                  }
                 }}
               >
                 <RefreshCw className={cn("h-3 w-3 mr-1", rebuilding && "animate-spin")} />
-                {rebuilding ? "重建中..." : "重建层级"}
+                {rebuilding ? "重绘中..." : "智能重绘"}
               </Button>
               <Button
                 variant="outline"

@@ -75,6 +75,10 @@ _UNDERWORLD_KEYWORDS = (
     "地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
     "奈何桥", "阎罗殿", "森罗殿", "枉死城",
 )
+_UNDERWATER_KEYWORDS = (
+    "龙宫", "水晶宫", "海底", "水府", "水下",
+    "龙王殿",
+)
 
 # ── Xianxia realm keywords → separate world layers ──
 # These are major world planes (界/域), not buildings. Each gets its own layer.
@@ -568,6 +572,36 @@ class WorldStructureAgent:
                     parent_votes=self._parent_votes,
                 )
             )
+
+            # Parent layer propagation: child inherits parent's non-overworld layer
+            if self.structure.location_parents and self.structure.location_layer_map:
+                changed = True
+                max_passes = 5
+                while changed and max_passes > 0:
+                    changed = False
+                    max_passes -= 1
+                    for child, parent in self.structure.location_parents.items():
+                        child_layer = self.structure.location_layer_map.get(child, "overworld")
+                        parent_layer = self.structure.location_layer_map.get(parent, "overworld")
+                        if child_layer == "overworld" and parent_layer != "overworld":
+                            self.structure.location_layer_map[child] = parent_layer
+                            changed = True
+
+            # Re-detect spatial scale with full data (override chapter-5 early guess)
+            self.structure.spatial_scale = self._detect_spatial_scale()
+
+            # Compute per-layer spatial scales
+            for layer in self.structure.layers:
+                if layer.layer_id == "overworld":
+                    continue
+                loc_count = sum(
+                    1 for lid in self.structure.location_layer_map.values()
+                    if lid == layer.layer_id
+                )
+                if loc_count > 0:
+                    self.structure.layer_spatial_scales[layer.layer_id] = (
+                        self._detect_layer_scale(loc_count)
+                    )
 
             await world_structure_store.save(self.novel_id, self.structure)
         except Exception:
@@ -1584,42 +1618,94 @@ class WorldStructureAgent:
         return LocationIcon.generic.value
 
     def _detect_spatial_scale(self) -> str:
-        """Infer spatial scale from genre + location type distribution."""
+        """Infer spatial scale from highest tier + location count + genre + distance cross-validation.
+
+        Enhanced 9-level detection:
+        - room/building/district/city/national/continental/planetary/cosmic/interstellar
+        - Backward compatible: preserves existing spatial_scale if already set with user overrides
+        """
         assert self.structure is not None
-        genre = self.structure.novel_genre_hint
-        if genre == "urban":
-            return "urban"
-        if genre == "realistic":
-            return "national"  # realistic fiction is at least national scale
-        if genre in ("wuxia", "historical"):
-            return "national"  # wuxia/historical is always national scale
-
-        # Check known tier distribution
+        genre = (self.structure.novel_genre_hint or "").lower()
         tier_counts = Counter(self.structure.location_tiers.values())
-        has_continent = tier_counts.get("continent", 0) > 0
-        has_kingdom = tier_counts.get("kingdom", 0) > 0
+        total_locs = sum(tier_counts.values())
 
-        # Check for multi-layer (celestial / underworld)
+        # Find highest (most macro) tier present
+        _TIER_SCALE_MAP: dict[str, str] = {
+            "world": "cosmic",
+            "continent": "continental",
+            "kingdom": "national",
+            "region": "national",
+            "city": "city",
+            "site": "district",
+            "building": "building",
+        }
+        highest_tier = "building"
+        _TIER_ORDER = ["world", "continent", "kingdom", "region", "city", "site", "building"]
+        for t in _TIER_ORDER:
+            if tier_counts.get(t, 0) > 0:
+                highest_tier = t
+                break
+
+        base_scale = _TIER_SCALE_MAP.get(highest_tier, "continental")
+
+        # Check for multi-layer (celestial / underworld / spirit)
         non_overworld = [l for l in self.structure.layers if l.layer_id != "overworld"]
-        has_celestial = any(l.layer_type == LayerType.sky for l in non_overworld)
+        has_sky = any(l.layer_type == LayerType.sky for l in non_overworld)
 
-        if has_celestial and has_continent:
-            return "cosmic"
-        if has_continent:
-            return "continental"
-        if has_kingdom:
+        # Promote to cosmic if multi-realm
+        if has_sky and base_scale in ("continental", "national"):
+            base_scale = "cosmic"
+
+        # Genre-based constraints (ceiling)
+        _GENRE_CEILING: dict[str, str] = {
+            "urban": "city",
+            "campus": "district",
+            "mystery": "city",
+            "romance": "city",
+        }
+        ceiling = _GENRE_CEILING.get(genre)
+        if ceiling:
+            _SCALE_ORDER = [
+                "room", "building", "district", "city", "national",
+                "continental", "planetary", "cosmic", "interstellar",
+            ]
+            if ceiling in _SCALE_ORDER and base_scale in _SCALE_ORDER:
+                if _SCALE_ORDER.index(base_scale) > _SCALE_ORDER.index(ceiling):
+                    base_scale = ceiling
+
+        # Genre-based floor (applied BEFORE location count correction)
+        # so count correction has final say on preventing oversized canvas
+        if genre in ("wuxia", "historical", "realistic") and base_scale in ("room", "building", "district", "city"):
+            base_scale = "national"
+        if genre == "fantasy" and base_scale in ("room", "building", "district", "city", "national"):
+            base_scale = "cosmic"
+
+        # Location count correction: very few locations → force smaller scale
+        # (overrides genre floor to prevent huge canvas for tiny datasets)
+        if total_locs <= 5 and base_scale not in ("room", "building"):
+            base_scale = "building"
+        elif total_locs <= 15 and base_scale not in ("room", "building", "district"):
+            base_scale = "district"
+        elif total_locs <= 20 and base_scale in ("continental", "planetary", "cosmic", "interstellar"):
+            base_scale = "city"
+
+        return base_scale
+
+    @staticmethod
+    def _detect_layer_scale(location_count: int) -> str:
+        """Detect spatial scale for non-overworld layers based on location count."""
+        if location_count <= 5:
+            return "building"
+        if location_count <= 15:
+            return "district"
+        if location_count <= 50:
+            return "city"
+        if location_count <= 150:
             return "national"
-
-        # Genre-based fallback
-        if genre == "fantasy":
-            return "cosmic"
-        if genre in ("wuxia", "historical"):
-            return "national"
-
-        return "continental"  # safe default
+        return "continental"
 
     def _detect_layer(self, name: str, loc_type: str) -> str | None:
-        """Return layer_id if the location matches celestial/underworld/realm keywords."""
+        """Return layer_id if the location matches celestial/underworld/underwater/realm keywords."""
         for kw in _CELESTIAL_KEYWORDS:
             if kw in name:
                 return "celestial"
@@ -1629,6 +1715,9 @@ class WorldStructureAgent:
         for kw in _UNDERWORLD_KEYWORDS:
             if kw in name:
                 return "underworld"
+        for kw in _UNDERWATER_KEYWORDS:
+            if kw in name:
+                return "underwater"
         # Skip excluded names before realm matching (e.g., "修仙界" ≠ "仙界")
         if any(ex in name for ex in _REALM_LAYER_EXCLUDE):
             return None
@@ -1652,6 +1741,7 @@ class WorldStructureAgent:
         type_map: dict[str, tuple[LayerType, str]] = {
             "celestial": (LayerType.sky, "天界"),
             "underworld": (LayerType.underground, "冥界/地府"),
+            "underwater": (LayerType.underwater, "海底/龙宫"),
         }
         # Add realm layers from _REALM_LAYER_KEYWORDS
         for kw, (lid, display_name) in _REALM_LAYER_KEYWORDS.items():

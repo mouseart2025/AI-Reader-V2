@@ -14,6 +14,7 @@ class LayerType(str, Enum):
     sea = "sea"
     pocket = "pocket"
     spirit = "spirit"
+    underwater = "underwater"    # 海底/龙宫/水下（蓝色调）
 
 
 class LocationTier(str, Enum):
@@ -49,11 +50,15 @@ class LocationIcon(str, Enum):
 
 
 class SpatialScale(str, Enum):
-    cosmic = "cosmic"            # 多界（仙侠/玄幻）
-    continental = "continental"  # 大陆级（西游记）
+    room = "room"                # 密室、单个建筑
+    building = "building"        # 大观园、学校
+    district = "district"        # 城区、街道
+    city = "city"                # 城市
     national = "national"        # 国家级（红楼梦）
-    urban = "urban"              # 城市级
-    local = "local"              # 局部
+    continental = "continental"  # 大陆级（西游记）
+    planetary = "planetary"      # 星球
+    cosmic = "cosmic"            # 多界（仙侠/玄幻）
+    interstellar = "interstellar"  # 星际
 
 
 class WorldRegion(BaseModel):
@@ -103,6 +108,9 @@ class WorldStructure(BaseModel):
     location_parents: dict[str, str] = {}  # authoritative parent: location_name → parent_name
     type_hierarchy: dict[str, str] = {}   # learned type hierarchy: child_type → parent_type
     geo_type: str | None = None           # "realistic" / "mixed" / "fantasy" — detected by GeoResolver
+    completed_spatial_relations: list[dict] = []  # 补全的跨章节空间关系 (top 500)
+    # Each dict: {source, target, relation_type, value, confidence, evidence_chapters}
+    layer_spatial_scales: dict[str, str] = {}  # layer_id → SpatialScale value
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:

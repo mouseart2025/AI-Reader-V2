@@ -855,6 +855,30 @@ class AnalysisService:
         self._live_timing.pop(novel_id, None)
         logger.info("Task %s completed for novel %s", task_id, novel_id)
 
+        # Auto-trigger spatial completion (non-fatal, independent background task)
+        if final_status in ("completed", "completed_with_errors"):
+            asyncio.create_task(
+                self._auto_spatial_completion(novel_id),
+                name=f"spatial-completion-{novel_id}",
+            )
+
+    async def _auto_spatial_completion(self, novel_id: str) -> None:
+        """Background task: run spatial completion after analysis finishes."""
+        try:
+            from src.services.spatial_completion_agent import SpatialCompletionAgent
+            agent = SpatialCompletionAgent(novel_id)
+            result = await asyncio.wait_for(agent.run(), timeout=300)
+            logger.info(
+                "Auto spatial completion for %s: %s",
+                novel_id, result.get("status", "unknown"),
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Auto spatial completion timed out for %s (300s)", novel_id)
+        except Exception:
+            logger.warning(
+                "Auto spatial completion failed for %s (non-fatal)",
+                novel_id, exc_info=True,
+            )
 
     def _update_live_timing(
         self, novel_id: str, chapter_times: list[int],
