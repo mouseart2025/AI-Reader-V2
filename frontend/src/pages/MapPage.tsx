@@ -88,8 +88,8 @@ export default function MapPage() {
   // Must also depend on mapData — flyTo needs layout data to find coordinates.
   useEffect(() => {
     if (storeFocusLoc && storeFocusSource === "timeline" && mapData) {
-      // Small delay to let NovelMap finish initial render
-      const timer = setTimeout(() => setFocusLocationLocal(storeFocusLoc), 300)
+      // Delay to ensure NovelMap SVG init + zoom setup is complete
+      const timer = setTimeout(() => setFocusLocationLocal(storeFocusLoc), 500)
       return () => clearTimeout(timer)
     }
   }, [storeFocusLoc, storeFocusSource, mapData])
