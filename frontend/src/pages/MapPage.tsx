@@ -84,12 +84,15 @@ export default function MapPage() {
   const setStoreFocusLoc = useVisualizationFocusStore((s) => s.setFocusLocation)
   const [focusLocation, setFocusLocationLocal] = useState<string | null>(null)
 
-  // When timeline sends a focus location, apply it locally
+  // When timeline sends a focus location, apply it locally.
+  // Must also depend on mapData — flyTo needs layout data to find coordinates.
   useEffect(() => {
-    if (storeFocusLoc && storeFocusSource === "timeline") {
-      setFocusLocationLocal(storeFocusLoc)
+    if (storeFocusLoc && storeFocusSource === "timeline" && mapData) {
+      // Small delay to let NovelMap finish initial render
+      const timer = setTimeout(() => setFocusLocationLocal(storeFocusLoc), 300)
+      return () => clearTimeout(timer)
     }
-  }, [storeFocusLoc, storeFocusSource])
+  }, [storeFocusLoc, storeFocusSource, mapData])
 
   // Wrapper: update both local and store
   const setFocusLocation = useCallback((name: string | null) => {
