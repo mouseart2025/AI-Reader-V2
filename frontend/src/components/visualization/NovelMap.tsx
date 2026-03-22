@@ -2055,7 +2055,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       focusG.selectAll("*").remove()
 
       if (!focusLocation || !zoomRef.current) return
-      const item = layout.find((l) => l.name === focusLocation)
+      // Try exact match first, then fallback to parent location
+      let item = layout.find((l) => l.name === focusLocation)
+      if (!item) {
+        // Location not in layout (filtered out or no coordinates) — try parent
+        const loc = locations.find((l) => l.name === focusLocation)
+        if (loc?.parent) {
+          item = layout.find((l) => l.name === loc.parent)
+        }
+      }
       if (!item) return
 
       const svgEl = svgRef.current
@@ -2112,7 +2120,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("stroke-width", 3)
         .attr("paint-order", "stroke")
         .text(focusLocation)
-    }, [focusLocation, layout, mapReady, darkBg])
+    }, [focusLocation, locations, layout, mapReady, darkBg])
 
     // Update focus overlay counter-scale when zoom changes
     useEffect(() => {
