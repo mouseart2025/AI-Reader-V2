@@ -2062,8 +2062,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const svgWidth = svgEl.clientWidth || 800
       const svgHeight = svgEl.clientHeight || 600
 
-      // Zoom to focus location with comfortable scale
-      const focusScale = Math.max(transformRef.current.k, 2.5)
+      // Compute scale that shows ~30% of canvas around the target point
+      // This prevents extreme zoom on large canvases (8000x4500)
+      const cw = canvasW || 1600
+      const ch = canvasH || 900
+      const targetViewW = cw * 0.3  // show 30% of canvas width
+      const targetViewH = ch * 0.3
+      const scaleForView = Math.min(svgWidth / targetViewW, svgHeight / targetViewH)
+      const focusScale = Math.min(Math.max(scaleForView, 0.5), 4.0)  // clamp to [0.5, 4.0]
       const transform = d3Zoom.zoomIdentity
         .translate(svgWidth / 2, svgHeight / 2)
         .scale(focusScale)
