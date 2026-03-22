@@ -1,6 +1,6 @@
-# AI Reader V2
+# AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.57.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.58.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -10,78 +10,91 @@
 [![Ollama](https://img.shields.io/badge/ollama-supported-FF6B35)](https://ollama.com/)
 [![Tauri](https://img.shields.io/badge/tauri-2-FFC131?logo=tauri&logoColor=white)](https://v2.tauri.app/)
 
-**本地部署的智能小说阅读理解系统** — 利用 LLM 将小说文本转化为结构化知识图谱，提供关系图、多层级世界地图、时间线等多维可视化，以及基于原文的智能问答。数据全部存储在本机。
+> **[English Version](./README_EN.md)**
 
-**LLM-powered novel analysis system** — transforms novels into structured knowledge graphs with relationship maps, multi-layer world maps, timelines, and RAG-based Q&A. All data stays local.
+**开源 AI 小说分析工具** — 上传任意 TXT/Markdown 小说，AI 自动提取人物关系、地点层级、事件时间线，生成交互式知识图谱、世界地图、时间线等多维可视化。支持本地 Ollama 和云端 LLM，数据 100% 本地存储，无需联网。
+
+适用于：网文分析、小说世界观整理、文学研究、创作辅助、角色关系梳理、剧情梳理、同人创作参考。
 
 <p align="center">
-  <a href="https://ai-reader.cc"><strong>官网 Website</strong></a> ·
-  <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>在线体验 Live Demo</strong></a> ·
-  <a href="#快速开始-quick-start"><strong>快速开始 Quick Start</strong></a> ·
-  <a href="#桌面应用下载-desktop-download"><strong>桌面下载 Download</strong></a>
+  <a href="https://ai-reader.cc"><strong>官网</strong></a> ·
+  <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>在线体验</strong></a> ·
+  <a href="#快速开始"><strong>快速开始</strong></a> ·
+  <a href="#桌面应用下载"><strong>桌面下载</strong></a>
 </p>
 
-## 核心功能 Features
+## 核心功能
 
-### 🕸️ 智能知识图谱
+### 🕸️ 人物关系知识图谱
 
-力导向人物关系图，自动识别 70+ 种关系类型，六大分类着色（血亲/亲密/师承/社交/敌对/其他），实体别名自动合并（孙悟空 = 美猴王 = 行者 = 齐天大圣）。
+力导向关系网络图，自动识别 70+ 种关系类型（血亲、师徒、同盟、敌对...），六大分类着色。实体别名智能合并（孙悟空 = 美猴王 = 行者 = 齐天大圣），支持路径查找、分类过滤、边权重调节。
 
-<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="知识图谱 Knowledge Graph" />
+<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="人物关系图谱 - AI Reader 自动生成的小说角色关系网络" />
 
-### 🗺️ 多层级世界地图
+### 🗺️ 小说世界地图自动生成
 
-从小说文本全自动生成交互式地图。宏观区域划分、天界/冥界/洞府多空间层、传送门连接、程序化地形生成（生物群落 + 河流水系）、人物轨迹动画、rough.js 手绘风格渲染。
+从文本全自动构建多层级交互式地图。天界/冥界/海底/秘境多空间层、传送门连接、程序化地形（生物群落 + 河流 + 道路 + 大陆架）、人物轨迹动画回放、rough.js 手绘风格渲染。**v0.58 新增：跨章节空间补全 + 空间尺度自适应（9 级画布）+ 智能重绘。**
 
-<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="世界地图 World Map" />
+<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="小说世界地图 - AI 自动生成的虚构世界地图" />
 
-### ⏳ 多泳道时间线
+### ⏳ 多泳道时间线 / 故事线视图
 
-多源事件聚合（角色登场、物品流转、关系变迁、组织变动），智能降噪过滤，情绪基调标签，章节自动折叠。
+多源事件聚合（角色登场、物品流转、关系变迁、组织变动），智能降噪过滤，情绪基调标签，章节自动折叠。故事线泳道视图追踪多角色并行叙事线。
 
-<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="时间线 Timeline" />
+<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="小说时间线 - 多角色叙事时间线可视化" />
 
-### 📖 百科全书
+### 📖 小说百科全书
 
-五类实体分类浏览（人物/地点/物品/组织/概念），地点层级树与空间关系面板，场景索引，世界观总览。
+五类实体分类浏览（人物/地点/物品/组织/概念），地点层级树与空间关系面板，场景索引定位原文，世界观总览。
 
-<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="百科全书 Encyclopedia" />
+<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="小说百科 - 人物地点物品组织百科全书" />
 
 ### 更多功能
 
-- 🖥️ **桌面应用** — Tauri 2 原生桌面客户端，Python sidecar 自动启动，全功能离线运行
-- 📚 **书架管理** — 拖拽上传 .txt/.md，自动章节切分，搜索排序，导入/导出/全量备份
-- 🔍 **实体预扫描** — jieba 统计 + LLM 分类，生成高频实体词典提升提取质量
-- 📖 **智能阅读** — 实体高亮（5 类着色），别名解析，书签系统，场景/剧本面板，快捷键导航
+- 🖥️ **桌面应用** — Tauri 2 原生桌面客户端，下载即用，全功能离线运行
+- 📚 **书架管理** — 拖拽上传 .txt/.md，智能章节切分（50+ 格式），搜索排序，导入/导出/全量备份
+- 🔍 **实体预扫描** — jieba 中文分词 + LLM 分类，生成高频实体词典提升提取质量
+- 📖 **智能阅读** — 实体高亮（5 类着色），别名解析，书签系统，场景/剧本面板
 - ⚔️ **势力图** — 组织架构与势力关系网络
-- 💬 **智能问答** — RAG 检索增强，流式对话，答案来源溯源
-- 📤 **设定集导出** — Markdown / Word / Excel / PDF 四种格式，两种模板
-- 🤖 **多 LLM 后端** — 本地 Ollama + 10 大云端供应商（DeepSeek、Claude、OpenAI、Gemini 等），Token 预算自动缩放
-- 📊 **全链路分析** — 实体预扫描 → 章节提取 → 聚合 → 可视化，异步执行、暂停恢复、失败重试
+- 💬 **RAG 智能问答** — 基于原文的检索增强问答，流式对话，答案来源溯源
+- 📤 **设定集导出** — Markdown / Word / Excel / PDF 四种格式，可选模板
+- 🤖 **多 LLM 支持** — 本地 Ollama（qwen3:8b 等）+ 10 大云端供应商（DeepSeek、MiniMax、Claude、OpenAI、Gemini 等）
+- 📊 **全链路分析管线** — 实体预扫描 → 逐章提取 → 聚合 → 可视化，异步执行、暂停恢复、失败重试、Token 预算自动缩放
 
-## 开发故事 Story
+## 适用场景
+
+| 场景 | 说明 |
+|------|------|
+| 网文/小说世界观整理 | 自动梳理人物关系、地点层级、势力分布 |
+| 文学研究 | 角色关系网络分析、叙事结构可视化 |
+| 创作辅助 | 设定集导出、世界观一致性检查 |
+| 同人/二创参考 | 快速了解原著角色关系和世界观 |
+| 读书笔记 | 阅读中高亮标注、书签、场景索引 |
+| 教学演示 | 可视化展示小说结构 |
+
+## 开发故事
 
 📝 [全程不写一行代码，我如何用 AI 做出一个复杂的小说分析系统](https://zhuanlan.zhihu.com/p/2016598051163218226) — 从零到一的完整开发历程
 
-## 桌面应用下载 Desktop Download
+## 桌面应用下载
 
 无需配置开发环境，下载即用。内置 Python 后端，只需安装 [Ollama](https://ollama.com/) 或配置云端 API。
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.57.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.57.0/AI.Reader_0.57.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.57.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.57.0/AI.Reader_0.57.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.58.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.58.0/AI.Reader_0.58.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.58.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.58.0/AI.Reader_0.58.0_x64-setup.exe) | x86_64 |
 
-> **macOS 首次打开提示"已损坏"？** 这是因为应用未经 Apple 签名。请在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
+> **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
 > 更多版本请查看 [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) 页面。
 
-## 快速开始 Quick Start
+## 快速开始
 
 **环境要求：** Python 3.9+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/)（或云端 API）
 
 ```bash
-# 1. 启动 Ollama
+# 1. 启动 Ollama（本地 LLM）
 ollama pull qwen3:8b && ollama serve
 
 # 2. 启动后端
@@ -91,11 +104,11 @@ cd backend && uv sync && uv run uvicorn src.api.main:app --reload
 cd frontend && npm install && npm run dev
 ```
 
-打开 http://localhost:5173 即可使用。
+打开 http://localhost:5173 即可使用。上传 TXT 小说 → 分析 → 查看可视化。
 
 > 不想本地部署？试试 [在线 Demo](https://ai-reader.cc/demo/honglou/graph?v=3)，含红楼梦和西游记完整分析数据。
 
-## 技术栈 Tech Stack
+## 技术栈
 
 | 层 | 技术 |
 |----|------|
@@ -103,57 +116,61 @@ cd frontend && npm install && npm run dev
 | 桌面 | Tauri 2（Rust）+ Python sidecar（PyInstaller 打包） |
 | 可视化 | D3.js + SVG（地图）/ react-force-graph-2d（图谱）/ react-leaflet（地理） |
 | 状态管理 | Zustand 5 |
-| 后端 | Python + FastAPI + aiosqlite |
-| 数据库 | SQLite + ChromaDB |
-| LLM | Ollama（本地）或 OpenAI 兼容 API（云端，支持 10 大供应商） |
-| 中文 NLP | jieba |
+| 后端 | Python + FastAPI（async）+ aiosqlite |
+| 数据库 | SQLite（结构化数据）+ ChromaDB（向量检索） |
+| LLM | Ollama（本地）或 OpenAI 兼容 API（云端，支持 DeepSeek/MiniMax/Claude/OpenAI/Gemini 等 10 大供应商） |
+| 中文 NLP | jieba 分词 + 实体预扫描 |
 
-## 版本记录 Changelog
+## 版本记录
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
-| v0.57.0 | 2026-03-22 | 测试体系(151 tests+CI) + 大陆合并(18→5) + 道路网络(Delaunay MST) + 时间线↔地图联动(flyTo) + 全量坐标补全(824/824) + 别名 canonical 优化(3字全名优先) + 数据质量迭代 |
-| v0.56.1 | 2026-03-21 | 桌面端 9 项修复 — Ch.X 导航 404 修复、Tab 顺序调整（阅读优先）、通用地名消歧扩充（树林/中军帐等）、通用角色过滤（小妖/众妖等）、CJK 字形变体归一化（南瞻→南赡）、空间关系中文化、故事线选中对比度+网格线+hover 辅助线、LocationMiniMap 子节点折叠 |
-| v0.56.0 | 2026-03-21 | 世界层级重检测 + 领地跨海过滤 + 大陆架淡化 — 层级重建自动清理过期副本/秘境层、领地 hull 跨大陆检测剔除、大陆架线条淡化、天界/冥界关键词精确匹配防误判、WebGL 渲染器暂隐藏 |
-| v0.55.0 | 2026-03-20 | 时间线故事线视图 + 关系图路径着色 — 新增角色泳道视图（水平时间轴+D3缩放+交汇标记+详情面板）、关系图路径查找按关系类型着色（边+路径条显示关系名）、角色上限提示 |
-| v0.54.2 | 2026-03-19 | 桌面端 .air 导入修复 — 导入后同步写入 SQLite（修复导入成功但书架不显示） |
-| v0.54.1 | 2026-03-19 | 桌面端修复 — .air format v5 导入支持、跨页面导航 404 系统性修复（8 处 novelPath 统一）、bookmarks 表全新 DB 创建 |
-| v0.54.0 | 2026-03-19 | FTUE 新用户首次体验改造 — 预装红楼梦+西游记完整分析数据（打开即看）、移除 SetupGuide 阻塞（书架直出）、WelcomeBanner 欢迎引导、AI 助手双模式（FAQ 即时回复+小说问答）、InlineLlmSetup 分析页内联配置、分析时间预估、ContextualGuideCard 情境引导、UploadDialog 高级选项折叠、技术术语替换 |
-| v0.53.0 | 2026-03-18 | 章节切分大幅改进 — 文体预检测（散文/诗集/小说自动识别）、加权评分替代纯 match count、智能推断模式（标记 2 个分割点自动推导正则）、混淆水印检测增强、支持 10+ 新格式（卷X、(第X部)、楔子/尾声、半角空格子节、数字小节、网站分页标记）、46 个单元测试、1569 本批量分析脚本 |
-| v0.52.2 | 2026-03-17 | 双平台构建修复（macOS Team ID 签名冲突修复 + Windows PATH 清理 + sidecar Python 版本验证），CI release.yml 与 build-windows.yml 步骤对齐 |
-| v0.52.1 | 2026-03-16 | 跨平台一致性修复（版本同步脚本 + CI macOS Python pinning + Remove heavy packages 全平台化 + CI 触发分离），桌面端功能补齐（FloatingChatPanel + .txt 拖拽上传） |
-| v0.52.0 | 2026-03-15 | 智能问答增强（关系数据注入 + 问题感知过滤 + 别名解析 + 防幻觉约束），别名合并修复（dict 阶段主实体合并 + 大组延迟合并 + 西游记别名全合并） |
-| v0.51.1 | 2026-03-14 | 全量备份导出修复（Tauri 下载 + 格式 v5 补全 scenes/map/conversations），Windows 无 Ollama 体验优化（LLM 预检 + 模型显示刷新 + 重试错误反馈） |
-| v0.51.0 | 2026-03-14 | 章节切分预览增强（富预览面板 + 正则模板 + 手动分割点 + 虚拟化长文渲染），Windows CI 修复（UV_PYTHON 锁定 3.11） |
-| v0.50.1 | 2026-03-13 | Windows Python DLL 根治（PATH 清理确保 3.11），实体高亮类型优先级修复（concept 不再覆盖 person/location） |
-| v0.50.0 | 2026-03-13 | 别名爆炸修复（Union-Find 安全合并 + 修仙小说称谓过滤），Windows DLL 兼容性修复（Python 3.11 + UPX 禁用） |
-| v0.49.1 | 2026-03-12 | 桌面安装包瘦身（218MB→75MB，排除 torch/transformers，ONNX embedding 回退），Windows sidecar 启动修复 |
-| v0.49.0 | 2026-03-12 | GitHub Actions CI/CD（macOS DMG + Windows EXE 自动构建），README 下载链接 |
-| v0.48.1 | 2026-03-11 | 地理数据质量修复（神秘岛/海底两万里坐标纠偏，GeoNames假阳性过滤，补充词典400+），章节分隔符修复，地图标签可见性修复 |
-| v0.48.0 | 2026-03-10 | 世界地图增强（方向/距离冲突检测，轨迹路径点注入，渐进式求解，质量基线对比） |
-| v0.47.0 | 2026-03-10 | 地图质量透明化（满足度面板+置信度样式），桌面端个性化（主题切换+版本检查） |
-| v0.46.0 | 2026-03-10 | 章节拆分修复（URL过滤+部/卷模式+散文截断），VoT空间推理增强（10种关系类型+token预算适配） |
-| v0.45.0 | 2026-03-08 | 文档系统 — 13页产品文档，侧边栏/ToC/移动端适配，开发版+桌面端文档链接 |
-| v0.44.1 | 2026-03-08 | 章节分卷修复（去重优先+卷名提取），重试进度书架指示，桌面端同步 |
-| v0.44.0 | 2026-03-08 | Tauri 2 桌面应用 + Python sidecar 集成，自定义图标，全功能离线运行 |
-| v0.43.0 | 2026-03-06 | .air 分析数据导出/导入，小说概览卡片，LLM 自动生成简介，Demo 阅读模式 |
-| v0.42.0 | 2026-02-28 | 导出功能升级 — 4 格式 (MD/Word/PDF/Excel)，章节范围选择，模板选择器 |
-| v0.41.0 | 2026-02-26 | 书架升级 — 搜索排序、拖拽上传、进度指示、.air 导入导出 |
-| v0.40.0 | 2026-02-24 | 阅读页升级 — 实体高亮、场景面板、书签系统、快捷键导航 |
-| v0.39.0 | 2026-02-22 | 关系图升级 — 分类过滤、边权重、标签碰撞检测、暗色适配 |
-| v0.38.0 | 2026-02-20 | 时间线升级 — 智能降噪、关系变化事件、情绪基调链接 |
-| v0.37.0 | 2026-02-18 | 百科升级 — 实体卡片、场景索引、世界观 Tab、地点层级树 |
-| v0.36.0 | 2026-02-16 | 地图绘制优化 — 海岸线稳定、子节点分散、大领地去填充 |
-| v0.35.0 | 2026-02-14 | 地图层级 — LLM 自我反思验证 + Container/Peers 分离 |
+| v0.58.0 | 2026-03-23 | 跨章节空间补全(LLM gap检测+方位距离补全) + 空间尺度自适应(9级画布) + 智能重绘(层级重建+空间补全一键执行) + 约束增强(轨迹邻接+传递推导) + underwater层检测 + 父级层传播 + 海中地点自动归陆 + 192 tests |
+| v0.57.0 | 2026-03-22 | 测试体系(151 tests+CI) + 大陆合并(18→5) + 道路网络(Delaunay MST) + 时间线↔地图联动(flyTo) + 全量坐标补全(824/824) + 别名 canonical 优化(3字全名优先) |
+| v0.56.1 | 2026-03-21 | 桌面端 9 项修复 — Ch.X 导航 404、Tab 顺序调整、通用地名消歧扩充、CJK 字形变体归一化、空间关系中文化 |
+| v0.56.0 | 2026-03-21 | 世界层级重检测 + 领地跨海过滤 + 大陆架淡化 |
+| v0.55.0 | 2026-03-20 | 时间线故事线视图 + 关系图路径着色 |
+| v0.54.0 | 2026-03-19 | FTUE 新用户首次体验改造 — 预装数据、AI 助手、内联配置 |
+| v0.53.0 | 2026-03-18 | 章节切分大幅改进 — 文体预检测、智能推断、50+ 格式支持 |
+| v0.52.0 | 2026-03-15 | 智能问答增强 + 别名合并修复 |
+| v0.51.0 | 2026-03-14 | 章节切分预览增强 + Windows CI 修复 |
+| v0.50.0 | 2026-03-13 | 别名爆炸修复 + Windows DLL 兼容 |
+| v0.49.0 | 2026-03-12 | GitHub Actions CI/CD + 桌面安装包瘦身(218→75MB) |
+| v0.48.0 | 2026-03-10 | 世界地图增强 — 冲突检测、轨迹路径点、渐进式求解 |
+| v0.47.0 | 2026-03-10 | 地图质量透明化 + 桌面端个性化 |
+| v0.46.0 | 2026-03-10 | 章节拆分修复 + VoT 空间推理增强 |
+| v0.45.0 | 2026-03-08 | 文档系统（13 页产品文档） |
+| v0.44.0 | 2026-03-08 | Tauri 2 桌面应用 + Python sidecar 集成 |
+| v0.43.0 | 2026-03-06 | .air 分析数据导出/导入 + 小说概览 |
 
-## 文档 Documentation
+<details>
+<summary>更早版本</summary>
 
-- 📋 [贡献指南 Contributing](./CONTRIBUTING.md) — 开发环境搭建、代码规范、PR 流程
-- 🏗️ [技术架构 Architecture](./CLAUDE.md) — 完整架构设计、代码约定、数据模型
-- 💼 [商业许可 Commercial License](./LICENSE-COMMERCIAL.md) — 商业使用条款
+| 版本 | 日期 | 主要更新 |
+|------|------|---------|
+| v0.42.0 | 2026-02-28 | 导出功能升级 — 4 格式模板选择器 |
+| v0.41.0 | 2026-02-26 | 书架升级 — 搜索排序、拖拽上传 |
+| v0.40.0 | 2026-02-24 | 阅读页升级 — 实体高亮、场景面板 |
+| v0.39.0 | 2026-02-22 | 关系图升级 — 分类过滤、暗色适配 |
+| v0.38.0 | 2026-02-20 | 时间线升级 — 智能降噪、关系变化事件 |
+| v0.37.0 | 2026-02-18 | 百科升级 — 实体卡片、场景索引 |
+| v0.36.0 | 2026-02-16 | 地图绘制优化 — 海岸线、子节点分散 |
+| v0.35.0 | 2026-02-14 | 地图层级 — LLM 自我反思验证 |
+
+</details>
+
+## 文档
+
+- 📋 [贡献指南](./CONTRIBUTING.md) — 开发环境搭建、代码规范、PR 流程
+- 🏗️ [技术架构](./CLAUDE.md) — 完整架构设计、代码约定、数据模型
+- 💼 [商业许可](./LICENSE-COMMERCIAL.md) — 商业使用条款
 
 ## License
 
 [GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0)
 
 个人、教育和研究用途免费。商业闭源部署请参阅 [商业许可](./LICENSE-COMMERCIAL.md)。
+
+---
+
+**关键词：** 小说分析工具 / 网文分析 / AI 阅读器 / 知识图谱生成 / 人物关系图 / 小说世界地图 / 时间线可视化 / NLP 文本分析 / LLM 应用 / Ollama / 中文小说 / 网络小说工具 / 角色关系梳理 / 世界观整理 / novel analysis / knowledge graph / character relationship

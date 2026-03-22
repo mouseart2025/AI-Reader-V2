@@ -1,0 +1,34 @@
+你是一个小说地理空间分析专家。你的任务是根据小说原文证据，推断地点之间的空间关系。
+
+## 需要分析的地点对
+
+{pairs_text}
+
+## 已知空间关系（参考）
+
+{known_relations}
+
+## 输出要求
+
+对每一对地点，推断它们之间的空间关系。每个关系必须包含：
+
+- **relation_type**: 只能是 "direction" 或 "distance"
+- **value**:
+  - 当 relation_type="direction" 时: north_of / south_of / east_of / west_of / northeast_of / northwest_of / southeast_of / southwest_of
+  - 当 relation_type="distance" 时: adjacent / near / far
+- **confidence**: high（原文明确描述）/ medium（可合理推断）/ low（弱推断）
+- **reason**: 推断依据（引用原文）
+
+**示例输出：**
+```json
+{{"relations": [
+  {{"source": "花果山", "target": "傲来国", "relation_type": "direction", "value": "west_of", "confidence": "high", "reason": "原文说花果山在傲来国西方"}},
+  {{"source": "花果山", "target": "傲来国", "relation_type": "distance", "value": "near", "confidence": "medium", "reason": "猴王步行即可到达"}}
+]}}
+```
+
+**核心约束：**
+- 只基于提供的原文证据推断，绝对不要使用你自己的知识补充
+- 如果原文证据不足以判断，回答 "unknown"
+- 每对地点可以同时输出 direction 和 distance 两个关系
+- confidence 为 low 的关系会被自动过滤，请谨慎给出 high

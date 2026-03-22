@@ -2,7 +2,7 @@
 title: '跨章节空间补全 + 空间尺度自适应'
 slug: 'spatial-completion-scale-adaptive'
 created: '2026-03-22'
-status: 'ready-for-dev'
+status: 'implementation-complete'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack: ['Python 3.9+/FastAPI async', 'LLM (Ollama/OpenAI/Anthropic)', 'SQLite/aiosqlite', 'React 19/TypeScript 5.9/Vite 7', 'D3 zoom', 'scipy', 'opensimplex']
 files_to_modify:
@@ -280,145 +280,145 @@ LLM 补全:
 ### Tasks
 
 #### T1: 数据模型扩展
-- [ ] T1.1: WorldStructure 模型扩展
+- [x] T1.1: WorldStructure 模型扩展
   - File: `backend/src/models/world_structure.py`
   - Action: 新增字段 `completed_spatial_relations: list[dict] = []` 和 `layer_spatial_scales: dict[str, str] = {}`
   - Notes: 无 DB schema 变更（JSON blob 内部扩展）
 
-- [ ] T1.2: LayerType 枚举扩展
+- [x] T1.2: LayerType 枚举扩展
   - File: `backend/src/models/world_structure.py`
   - Action: 新增 `underwater = "underwater"`（V1 只加这一个）
   - Notes: celestial/virtual 留 V2
 
-- [ ] T1.3: SPATIAL_SCALE_CANVAS 扩展到 9 级
+- [x] T1.3: SPATIAL_SCALE_CANVAS 扩展到 9 级
   - File: `backend/src/services/map_layout_service.py`
   - Action: 从 5 级扩展到 9 级（room/building/district/city/national/continental/planetary/cosmic/interstellar）
   - Notes: 保持 16:9 比例
 
 #### T2: 阶段 A — 约束增强（无 LLM，实时）
-- [ ] T2.1: `_enhance_constraints()` 函数
+- [x] T2.1: `_enhance_constraints()` 函数
   - File: `backend/src/services/visualization_service.py`
   - Action: 新增函数，在 `get_map_data()` 的约束组装后调用
   - Notes: 包含轨迹 travel_sequence 注入 + 传递性方位推导
 
-- [ ] T2.2: 轨迹隐含 travel_sequence 约束
+- [x] T2.2: 轨迹隐含 travel_sequence 约束
   - File: `backend/src/services/visualization_service.py` (在 `_enhance_constraints` 内)
   - Action: 从 trajectories 提取连续章节的角色移动，注入 travel_sequence 约束
   - Notes: 过滤条件：tier 差距 ≤ 1 + 连续章节 + 共同 3 级祖先
 
-- [ ] T2.3: 传递性方位推导
+- [x] T2.3: 传递性方位推导
   - File: `backend/src/services/visualization_service.py` (在 `_enhance_constraints` 内)
   - Action: 从已有 direction 关系构建有向图，推导传递闭包
   - Notes: 仅 4 基本方向，链长 ≤ 2，置信度递减（high→medium, medium→low）
 
-- [ ] T2.4: 约束合并优先级
+- [x] T2.4: 约束合并优先级
   - File: `backend/src/services/visualization_service.py`
   - Action: 在 `get_map_data()` 中实现三层合并（逐章 > 补全 > 推导），existing_keys 防覆盖
   - Notes: 同时注入 WorldStructure.completed_spatial_relations
 
 #### T3: 空间尺度检测增强
-- [ ] T3.1: `_detect_spatial_scale()` 重写
+- [x] T3.1: `_detect_spatial_scale()` 重写
   - File: `backend/src/services/world_structure_agent.py`
   - Action: 增强检测逻辑——最高 tier + 地点数 + genre + 距离交叉验证
   - Notes: 向后兼容——已有 spatial_scale 不变，新小说才用新逻辑
 
-- [ ] T3.2: 非 overworld 层尺度检测
+- [x] T3.2: 非 overworld 层尺度检测
   - File: `backend/src/services/world_structure_agent.py`
   - Action: 新增 `_detect_layer_scale(location_count)` 按地点数映射
   - Notes: ≤5→building, ≤15→district, ≤50→city, ≤150→national, 150+→continental
 
-- [ ] T3.3: per-layer canvas 尺寸应用
+- [x] T3.3: per-layer canvas 尺寸应用
   - File: `backend/src/services/visualization_service.py`
   - Action: `get_map_data()` 根据当前 layer 的 spatial_scale 选择画布尺寸
   - Notes: 读取 `WorldStructure.layer_spatial_scales[layer_id]`
 
 #### T4: 层检测增强
-- [ ] T4.1: underwater 关键词检测
+- [x] T4.1: underwater 关键词检测
   - File: `backend/src/services/world_structure_agent.py`
   - Action: `_detect_layer()` 新增 underwater 关键词（龙宫/水晶宫/海底/水府）
   - Notes: 关键词快速路径，零 LLM 开销
 
-- [ ] T4.2: 父级层传播
+- [x] T4.2: 父级层传播
   - File: `backend/src/services/world_structure_agent.py`
   - Action: parent 已在非 overworld 层 → child 自动继承
   - Notes: 在 `_assign_layers()` 循环后加传播 pass
 
-- [ ] T4.3: `generate_landmasses()` underwater 跳过
+- [x] T4.3: `generate_landmasses()` underwater 跳过
   - File: `backend/src/services/visualization_service.py`
   - Action: 当 layer_type == underwater 时跳过 `generate_landmasses()` 调用
   - Notes: 同时跳过 shelves 生成
 
 #### T5: 阶段 B — SpatialCompletionAgent（LLM）
-- [ ] T5.1: 新建 `spatial_completion_agent.py`
+- [x] T5.1: 新建 `spatial_completion_agent.py`
   - File: `backend/src/services/spatial_completion_agent.py` (NEW)
   - Action: 创建 SpatialCompletionAgent 类，包含 gap 检测 + LLM 补全 + 语义分层
   - Notes: 遵循 MacroSkeletonGenerator 的 prompt+schema 模式
 
-- [ ] T5.2: 混合三阶段 gap 检测
+- [x] T5.2: 混合三阶段 gap 检测
   - File: `backend/src/services/spatial_completion_agent.py`
   - Action: 实现 B1(轨迹gap) + B2(层级邻居gap) + B3(高频共现gap) + 去重排序
   - Notes: Tier 剪枝 + co-occurrence ≥ 2 + batch 上限 10
 
-- [ ] T5.3: LLM 补全 prompt 设计
+- [x] T5.3: LLM 补全 prompt 设计
   - File: `backend/src/extraction/prompts/spatial_completion.txt` (NEW)
   - Action: 设计 prompt template（20 对/批 + 原文证据 + JSON schema output）
   - Notes: 强约束"只基于原文证据" + confidence 必填
 
-- [ ] T5.4: 矛盾检测 + confidence 过滤
+- [x] T5.4: 矛盾检测 + confidence 过滤
   - File: `backend/src/services/spatial_completion_agent.py`
   - Action: 新关系与已有关系冲突检测 + confidence < medium 丢弃 + top 500 cap
   - Notes: 方向对立检测（north vs south）
 
-- [ ] T5.5: 语义分层审校
+- [x] T5.5: 语义分层审校
   - File: `backend/src/services/spatial_completion_agent.py`
   - Action: 对未分配层的地点做 LLM 批量审校（overworld 默认原则）
   - Notes: 仅确认/否决，不做分类；父级传播后的残余
 
 #### T6: API 端点 + 自动触发
-- [ ] T6.1: `POST /spatial-completion` SSE 端点
+- [x] T6.1: `POST /spatial-completion` SSE 端点
   - File: `backend/src/api/routes/world_structure.py`
   - Action: 新增 SSE streaming 端点，调用 SpatialCompletionAgent
   - Notes: 复用 rebuild-hierarchy 的 `_sse()` helper 模式
 
-- [ ] T6.2: 分析完成自动触发
+- [x] T6.2: 分析完成自动触发
   - File: `backend/src/services/analysis_service.py`
   - Action: 最后一章完成后立即标记 task completed，然后 `asyncio.create_task()` 启动补全
   - Notes: timeout 300s + 失败非致命 + 独立 task lifecycle
 
 #### T7: 前端适配
-- [ ] T7.1: layer 切换画布自适应
+- [x] T7.1: layer 切换画布自适应
   - File: `frontend/src/pages/MapPage.tsx`
   - Action: 切换 layer 时读取 `layer_spatial_scales` 对应画布尺寸，传给 NovelMap
   - Notes: 如果无对应尺度，fallback 到主层尺度
 
-- [ ] T7.2: ConstraintSolver confidence 加权
+- [x] T7.2: ConstraintSolver confidence 加权
   - File: `backend/src/services/map_layout_service.py`
   - Action: ConstraintSolver 能量函数按 confidence 加权（high=1.0, medium=0.6, low=0.3）
   - Notes: 现有 confidence_score 字段已有，确保 travel_sequence 和补全关系使用
 
 #### T8: 测试
-- [ ] T8.1: `test_spatial_completion.py`
+- [x] T8.1: `test_spatial_completion.py`
   - File: `backend/tests/test_spatial_completion.py` (NEW)
   - Action: gap 检测逻辑（3 阶段）、约束合并优先级、传递性推导、尺度检测增强、矛盾检测
   - Notes: 使用 memory_db fixture，mock LLM 调用
 
-- [ ] T8.2: `test_spatial_scale.py`
+- [x] T8.2: `test_spatial_scale.py`
   - File: `backend/tests/test_spatial_scale.py` (NEW)
   - Action: 9 级尺度检测、per-layer 尺度、地点数映射、向后兼容
   - Notes: 纯函数测试，不需要 DB
 
 ### Acceptance Criteria
 
-- [ ] AC1: Given 一本已分析完的小说有轨迹数据, when 调用 get_map_data(), then 返回的 spatial_constraints 中包含 travel_sequence 类型约束（阶段A）
-- [ ] AC2: Given 已有 A north_of B 和 B north_of C (confidence=high), when 阶段A运行, then 自动推导 A north_of C (confidence=medium)
-- [ ] AC3: Given A north_of B 已存在, when 阶段B补全出 B north_of A, then 矛盾关系被丢弃
-- [ ] AC4: Given 西游记 824 个地点, when 调用 POST /spatial-completion, then SSE 返回进度事件 + 完成后 completed_spatial_relations ≤ 500 条
-- [ ] AC5: Given 地点"水晶宫"的 parent 链含水域关键词, when 层检测运行, then 分配到 underwater 层
-- [ ] AC6: Given 天庭的 parent 在 celestial 层, when 父级传播运行, then 南天门/灵霄宝殿自动继承 celestial 层
-- [ ] AC7: Given 一本只有 15 个 building-tier 地点的小说, when 尺度检测运行, then spatial_scale = "building" (非默认 continental)
-- [ ] AC8: Given 凡人修仙传有 overworld + celestial + underground 层, when 查看不同层地图, then 每层使用独立画布尺寸
-- [ ] AC9: Given 已有 spatial_scale 且用户有 map_user_overrides, when 新尺度检测逻辑运行, then 保持原 spatial_scale 不变（向后兼容）
-- [ ] AC10: Given 分析完最后一章, when analysis task 完成, then task 立即标记 completed + 补全任务异步启动 + 补全失败不影响 task 状态
+- [x] AC1: Given 一本已分析完的小说有轨迹数据, when 调用 get_map_data(), then 返回的 spatial_constraints 中包含 travel_sequence 类型约束（阶段A）
+- [x] AC2: Given 已有 A north_of B 和 B north_of C (confidence=high), when 阶段A运行, then 自动推导 A north_of C (confidence=medium)
+- [x] AC3: Given A north_of B 已存在, when 阶段B补全出 B north_of A, then 矛盾关系被丢弃
+- [x] AC4: Given 西游记 824 个地点, when 调用 POST /spatial-completion, then SSE 返回进度事件 + 完成后 completed_spatial_relations ≤ 500 条
+- [x] AC5: Given 地点"水晶宫"的 parent 链含水域关键词, when 层检测运行, then 分配到 underwater 层
+- [x] AC6: Given 天庭的 parent 在 celestial 层, when 父级传播运行, then 南天门/灵霄宝殿自动继承 celestial 层
+- [x] AC7: Given 一本只有 15 个 building-tier 地点的小说, when 尺度检测运行, then spatial_scale = "building" (非默认 continental)
+- [x] AC8: Given 凡人修仙传有 overworld + celestial + underground 层, when 查看不同层地图, then 每层使用独立画布尺寸
+- [x] AC9: Given 已有 spatial_scale 且用户有 map_user_overrides, when 新尺度检测逻辑运行, then 保持原 spatial_scale 不变（向后兼容）
+- [x] AC10: Given 分析完最后一章, when analysis task 完成, then task 立即标记 completed + 补全任务异步启动 + 补全失败不影响 task 状态
 
 ## Additional Context
 

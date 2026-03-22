@@ -765,3 +765,47 @@ async def delete_override(novel_id: str, override_id: int):
 
     ws = await world_structure_store.load_with_overrides(novel_id)
     return ws.model_dump()
+
+
+@router.post("/spatial-completion")
+async def spatial_completion(novel_id: str):
+    """Run spatial completion agent with SSE progress streaming.
+
+    Detects cross-chapter spatial gaps and uses LLM to fill them.
+    Results stored in WorldStructure.completed_spatial_relations.
+    """
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    ws = await world_structure_store.load(novel_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="WorldStructure 不存在，请先分析小说")
+
+    async def event_stream():
+        try:
+            from src.services.spatial_completion_agent import SpatialCompletionAgent
+
+            agent = SpatialCompletionAgent(novel_id)
+            collected: list[str] = []
+
+            async def collect_emit(stage: str, message: str, **extra):
+                collected.append(_sse(stage, message, **extra))
+
+            await agent.run(progress_callback=collect_emit)
+
+            for event in collected:
+                yield event
+
+            # Invalidate layout cache so next map load uses new spatial data
+            await world_structure_store.delete_layer_layouts(novel_id)
+
+        except Exception as e:
+            logger.error("Spatial completion failed for %s", novel_id, exc_info=True)
+            yield _sse("error", f"空间补全失败: {str(e)[:200]}")
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

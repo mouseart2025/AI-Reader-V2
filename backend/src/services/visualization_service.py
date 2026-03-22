@@ -45,6 +45,7 @@ from src.services.conflict_detector import (
 )
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
+from src.models.world_structure import LayerType
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,120 @@ async def get_graph_data(
 # ── Map (Location Hierarchy + Trajectories) ──────
 
 
+# Keywords for ocean/sea type locations (should stay in sea)
+_OCEAN_ICON_TYPES = {"ocean", "water"}
+_OCEAN_NAME_KEYWORDS = ("海", "洋", "湖", "江", "河", "溪", "泉", "潭", "池", "井", "水")
+
+
+def _snap_sea_orphans_to_land(
+    layout_data: list[dict],
+    locations: list[dict],
+    landmass_result: dict,
+    spatial_constraints: list[dict],
+) -> int:
+    """Snap non-ocean locations that fell into the sea toward nearby land locations.
+
+    Instead of snapping to the nearest land grid cell (which piles locations
+    on the coastline), snap toward the nearest *existing land location* —
+    preferring parent or same-region locations. Uses sunflower distribution
+    around the anchor to avoid stacking.
+    """
+    import math
+    import numpy as np
+    from scipy.spatial import KDTree
+
+    land_mask = landmass_result.get("_land_mask")
+    cell_size = landmass_result.get("_cell_size", 8.0)
+    if land_mask is None:
+        return 0
+
+    grid_h, grid_w = land_mask.shape
+
+    # Build ocean name set (locations that should stay in sea)
+    ocean_names: set[str] = set()
+    for loc in locations:
+        icon = loc.get("icon", "generic")
+        loc_type = loc.get("type", "")
+        if icon in _OCEAN_ICON_TYPES:
+            ocean_names.add(loc["name"])
+        elif any(kw in loc_type for kw in ("海", "洋", "湖泊", "河流")):
+            ocean_names.add(loc["name"])
+
+    def _is_on_land(x: float, y: float) -> bool:
+        gxi = int(round(x / cell_size))
+        gyi = int(round(y / cell_size))
+        if 0 <= gyi < grid_h and 0 <= gxi < grid_w:
+            return bool(land_mask[gyi, gxi])
+        return False
+
+    # Separate layout items into land-anchors and sea-orphans
+    loc_parent = {loc["name"]: loc.get("parent") for loc in locations}
+    layout_map = {item["name"]: item for item in layout_data if not item.get("is_portal")}
+
+    land_items: list[dict] = []  # items already on land
+    sea_orphans: list[dict] = []  # items in sea that need snapping
+
+    for item in layout_data:
+        name = item.get("name", "")
+        if item.get("is_portal") or not name:
+            continue
+        if name in ocean_names:
+            continue
+        if _is_on_land(item["x"], item["y"]):
+            land_items.append(item)
+        else:
+            sea_orphans.append(item)
+
+    if not sea_orphans or not land_items:
+        return 0
+
+    # Build KDTree of land locations for nearest-neighbor lookup
+    land_coords = np.array([(it["x"], it["y"]) for it in land_items], dtype=np.float64)
+    land_names = [it["name"] for it in land_items]
+    land_tree = KDTree(land_coords)
+
+    golden_angle = math.pi * (3 - math.sqrt(5))
+    anchor_counter: dict[str, int] = {}  # anchor name → snap count
+
+    snapped = 0
+    for item in sea_orphans:
+        name = item["name"]
+        # Priority 1: snap to parent if parent is on land
+        parent = loc_parent.get(name)
+        anchor = None
+        if parent and parent in layout_map:
+            p_item = layout_map[parent]
+            if _is_on_land(p_item["x"], p_item["y"]):
+                anchor = p_item
+
+        # Priority 2: nearest land location
+        if anchor is None:
+            _, idx = land_tree.query([item["x"], item["y"]])
+            anchor = land_items[idx]
+
+        # Place near anchor using sunflower distribution
+        anchor_name = anchor["name"]
+        count = anchor_counter.get(anchor_name, 0)
+        anchor_counter[anchor_name] = count + 1
+
+        angle = golden_angle * count
+        base_r = 40 + 10 * (count // 8)  # expand radius gradually
+        new_x = anchor["x"] + base_r * math.cos(angle)
+        new_y = anchor["y"] + base_r * math.sin(angle)
+
+        # Verify new position is on land; if not, nudge toward anchor
+        if not _is_on_land(new_x, new_y):
+            # Lerp 80% toward anchor (guaranteed on land)
+            new_x = anchor["x"] * 0.8 + new_x * 0.2
+            new_y = anchor["y"] * 0.8 + new_y * 0.2
+
+        item["x"] = round(new_x, 1)
+        item["y"] = round(new_y, 1)
+        snapped += 1
+
+    return snapped
+
+
 _CONFIDENCE_RANK = {"high": 3, "medium": 2, "low": 1}
 
 # Valid direction enum values expected by the constraint solver
@@ -341,6 +456,197 @@ def _clean_spatial_constraints(
             fixed, removed, len(cleaned),
         )
     return cleaned
+
+
+# ── Direction opposites for contradiction detection ──
+_DIRECTION_OPPOSITES: dict[str, str] = {
+    "north_of": "south_of", "south_of": "north_of",
+    "east_of": "west_of", "west_of": "east_of",
+    "northeast_of": "southwest_of", "southwest_of": "northeast_of",
+    "northwest_of": "southeast_of", "southeast_of": "northwest_of",
+}
+
+# 4 cardinal directions used for transitive inference (diagonal excluded)
+_CARDINAL_DIRECTIONS = {"north_of", "south_of", "east_of", "west_of"}
+
+# Tier rank for tier-gap filtering
+_TIER_RANK: dict[str, int] = {
+    "world": 0, "continent": 1, "kingdom": 2, "region": 3,
+    "city": 4, "site": 5, "building": 6,
+}
+
+
+def _enhance_constraints(
+    spatial_constraints: list[dict],
+    trajectories: dict[str, list[dict]],
+    locations: list[dict],
+    completed_relations: list[dict] | None = None,
+) -> list[dict]:
+    """Enhance spatial constraints with trajectory-implied adjacency and transitive direction inference.
+
+    Phase A (no LLM, < 1 second):
+    1. Trajectory travel_sequence: consecutive chapter character movement → adjacent constraint
+    2. Transitive direction inference: A north B, B north C → A north C (chain ≤ 2)
+    3. Inject completed_spatial_relations from WorldStructure (Phase B results)
+
+    Priority: existing (chapter-extracted) > completed (Phase B) > inferred (Phase A)
+    """
+    existing_keys: set[tuple[str, str, str]] = {
+        (c["source"], c["target"], c["relation_type"]) for c in spatial_constraints
+    }
+    # Also track (source, target) pairs for any relation type
+    existing_pairs: set[tuple[str, str]] = {
+        (c["source"], c["target"]) for c in spatial_constraints
+    }
+    existing_pairs |= {(c["target"], c["source"]) for c in spatial_constraints}
+
+    loc_tier: dict[str, str] = {loc["name"]: loc.get("tier", "city") for loc in locations}
+    loc_parent: dict[str, str | None] = {loc["name"]: loc.get("parent") for loc in locations}
+    loc_set: set[str] = {loc["name"] for loc in locations}
+
+    added_travel = 0
+    added_transitive = 0
+    added_completed = 0
+
+    # ── 1. Inject completed_spatial_relations (Phase B, higher priority than Phase A inferred) ──
+    if completed_relations:
+        for rel in completed_relations:
+            key = (rel["source"], rel["target"], rel["relation_type"])
+            if key not in existing_keys:
+                spatial_constraints.append(rel)
+                existing_keys.add(key)
+                existing_pairs.add((rel["source"], rel["target"]))
+                existing_pairs.add((rel["target"], rel["source"]))
+                added_completed += 1
+
+    # ── 2. Trajectory travel_sequence constraints ──
+    def _has_common_ancestor(a: str, b: str, depth: int = 3) -> bool:
+        """Check if a and b share a common ancestor within `depth` levels."""
+        ancestors_a: set[str] = set()
+        cur = a
+        for _ in range(depth):
+            p = loc_parent.get(cur)
+            if not p:
+                break
+            ancestors_a.add(p)
+            cur = p
+        cur = b
+        for _ in range(depth):
+            p = loc_parent.get(cur)
+            if not p:
+                break
+            if p in ancestors_a:
+                return True
+            cur = p
+        # Both rootless → trivially share "no parent" ancestor
+        if not loc_parent.get(a) and not loc_parent.get(b):
+            return True
+        return False
+
+    for _person, path in trajectories.items():
+        if len(path) < 2:
+            continue
+        for i in range(len(path) - 1):
+            loc_a = path[i]["location"]
+            loc_b = path[i + 1]["location"]
+            if loc_a == loc_b:
+                continue
+            if loc_a not in loc_set or loc_b not in loc_set:
+                continue
+            # Non-consecutive chapters → skip (teleport, not travel)
+            ch_gap = abs(path[i + 1]["chapter"] - path[i]["chapter"])
+            if ch_gap > 1:
+                continue
+            # Tier gap check: only same tier or adjacent tiers
+            tier_a = _TIER_RANK.get(loc_tier.get(loc_a, "city"), 4)
+            tier_b = _TIER_RANK.get(loc_tier.get(loc_b, "city"), 4)
+            if abs(tier_a - tier_b) > 1:
+                continue
+            # Common ancestor check
+            if not _has_common_ancestor(loc_a, loc_b):
+                continue
+            # Don't overwrite existing constraints
+            key = (loc_a, loc_b, "travel_sequence")
+            rev_key = (loc_b, loc_a, "travel_sequence")
+            if key in existing_keys or rev_key in existing_keys:
+                continue
+            spatial_constraints.append({
+                "source": loc_a,
+                "target": loc_b,
+                "relation_type": "travel_sequence",
+                "value": "travel_implied",
+                "confidence": "medium",
+                "confidence_score": 0.6,
+                "source_type": "trajectory",
+            })
+            existing_keys.add(key)
+            existing_pairs.add((loc_a, loc_b))
+            existing_pairs.add((loc_b, loc_a))
+            added_travel += 1
+
+    # ── 3. Transitive direction inference (chain ≤ 2, cardinal only) ──
+    # Build directed graph: (source, direction) → [targets]
+    dir_graph: dict[str, dict[str, list[str]]] = {}  # source → {direction → [targets]}
+    dir_confidence: dict[tuple[str, str, str], str] = {}  # (src, tgt, dir) → confidence
+
+    for c in spatial_constraints:
+        if c["relation_type"] == "direction" and c.get("value") in _CARDINAL_DIRECTIONS:
+            src, tgt, direction = c["source"], c["target"], c["value"]
+            dir_graph.setdefault(src, {}).setdefault(direction, []).append(tgt)
+            dir_confidence[(src, tgt, direction)] = c.get("confidence", "medium")
+
+    # One-hop transitive: A →dir→ B →dir→ C ⇒ A →dir→ C
+    for a, dir_targets in dir_graph.items():
+        for direction, b_list in dir_targets.items():
+            for b in b_list:
+                b_targets = dir_graph.get(b, {}).get(direction, [])
+                for c in b_targets:
+                    if c == a:
+                        continue
+                    key = (a, c, "direction")
+                    if key in existing_keys:
+                        continue
+                    # Check for contradiction: if C→A exists in opposite direction, skip
+                    opposite = _DIRECTION_OPPOSITES.get(direction)
+                    rev_key = (c, a, "direction")
+                    is_contradiction = False
+                    if rev_key in existing_keys:
+                        for ec in spatial_constraints:
+                            if ec["source"] == c and ec["target"] == a and ec["relation_type"] == "direction":
+                                if ec.get("value") == opposite:
+                                    is_contradiction = True
+                                    break
+                    if is_contradiction:
+                        continue
+                    # Confidence decay: high→medium, medium→low, low→skip
+                    src_conf_ab = dir_confidence.get((a, b, direction), "medium")
+                    src_conf_bc = dir_confidence.get((b, c, direction), "medium")
+                    min_conf = min(
+                        _CONFIDENCE_RANK.get(src_conf_ab, 1),
+                        _CONFIDENCE_RANK.get(src_conf_bc, 1),
+                    )
+                    if min_conf <= 1:
+                        continue  # source too weak to infer
+                    new_conf = "medium" if min_conf >= 3 else "low"
+
+                    spatial_constraints.append({
+                        "source": a,
+                        "target": c,
+                        "relation_type": "direction",
+                        "value": direction,
+                        "confidence": new_conf,
+                        "confidence_score": 0.6 if new_conf == "medium" else 0.3,
+                        "source_type": "transitive",
+                    })
+                    existing_keys.add(key)
+                    added_transitive += 1
+
+    if added_travel or added_transitive or added_completed:
+        logger.info(
+            "Constraint enhancement: +%d travel_sequence, +%d transitive, +%d completed",
+            added_travel, added_transitive, added_completed,
+        )
+    return spatial_constraints
 
 
 async def get_map_data(
@@ -682,6 +988,13 @@ async def get_map_data(
     except Exception:
         logger.warning("Failed to load WorldStructure for region layout", exc_info=True)
 
+    # ── Phase A: Constraint enhancement (no LLM, real-time) ──
+    _completed_rels = ws.completed_spatial_relations if ws else None
+    spatial_constraints = _enhance_constraints(
+        spatial_constraints, dict(trajectories), locations,
+        completed_relations=_completed_rels,
+    )
+
     # ── Layout computation with caching ──
     _ws_scale_for_hash = ws.spatial_scale if ws else None
     _cw_hash, _ch_hash = SPATIAL_SCALE_CANVAS.get(
@@ -957,18 +1270,29 @@ async def get_map_data(
     except Exception:
         logger.warning("Failed to detect location conflicts for map", exc_info=True)
 
-    # Compute canvas_size for API response
+    # Compute canvas_size for API response (per-layer scale if available)
     _ws_scale = ws.spatial_scale if ws else None
+    if ws and layer_id and layer_id != "overworld" and ws.layer_spatial_scales.get(layer_id):
+        _effective_scale = ws.layer_spatial_scales[layer_id]
+    else:
+        _effective_scale = _ws_scale
     _resp_cw, _resp_ch = SPATIAL_SCALE_CANVAS.get(
-        _ws_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+        _effective_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
     ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
 
     # Generate landmass contours FIRST (river generation needs land_mask)
     # Note: generate for overworld layer too (layer_id == "overworld" or None)
+    # Skip for underwater layers (no land masses under water)
     _is_overworld_like = not layer_id or layer_id == "overworld"
+    _is_underwater = False
+    if ws and layer_id:
+        for _layer_obj in ws.layers:
+            if _layer_obj.layer_id == layer_id and _layer_obj.layer_type == LayerType.underwater:
+                _is_underwater = True
+                break
     landmass_result: dict = {}
     roads: list[dict] = []
-    if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like:
+    if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like and not _is_underwater:
         try:
             landmass_result = generate_landmasses(
                 locations, layout_data, novel_id,
@@ -976,6 +1300,16 @@ async def get_map_data(
             )
         except Exception:
             logger.warning("Failed to generate landmasses", exc_info=True)
+
+    # ── Snap sea-orphan locations to nearest land ──
+    # After landmass generation, some unconstrained locations may visually sit
+    # in the ocean. Snap non-ocean locations back to the nearest land cell.
+    if landmass_result and "_land_mask" in landmass_result:
+        _snap_count = _snap_sea_orphans_to_land(
+            layout_data, locations, landmass_result, spatial_constraints,
+        )
+        if _snap_count:
+            logger.info("Snapped %d sea-orphan locations to nearest land", _snap_count)
 
     # Generate river network AFTER landmasses (clip rivers to land)
     rivers: list[dict] = []
@@ -1066,6 +1400,7 @@ async def get_map_data(
         "portals": portals_response,
         "revealed_location_names": revealed_names,
         "spatial_scale": _ws_scale,
+        "layer_spatial_scales": ws.layer_spatial_scales if ws else {},
         "canvas_size": {"width": _resp_cw, "height": _resp_ch},
         "geography_context": geo_context,
         "location_conflicts": location_conflicts,

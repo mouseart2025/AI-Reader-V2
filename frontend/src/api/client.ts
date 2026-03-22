@@ -566,6 +566,51 @@ export function applyHierarchyChanges(
   })
 }
 
+export function spatialCompletion(
+  novelId: string,
+  onProgress?: (message: string) => void,
+): Promise<{ relations_added: number; layer_changes: number }> {
+  return new Promise((resolve, reject) => {
+    fetch(`${getBase()}/novels/${novelId}/world-structure/spatial-completion`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+        const reader = res.body?.getReader()
+        if (!reader) throw new Error("No response body")
+        const decoder = new TextDecoder()
+        let buffer = ""
+        let result: { relations_added: number; layer_changes: number } | null = null
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop() ?? ""
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.stage === "done") {
+                result = data.result ?? { relations_added: 0, layer_changes: 0 }
+              } else if (data.stage === "error") {
+                reject(new Error(data.message))
+                return
+              } else if (onProgress && data.message) {
+                onProgress(data.message)
+              }
+            } catch { /* skip parse errors */ }
+          }
+        }
+        if (result) resolve(result)
+        else reject(new Error("未收到补全结果"))
+      })
+      .catch(reject)
+  })
+}
+
 export function saveLocationOverride(
   novelId: string,
   locationName: string,

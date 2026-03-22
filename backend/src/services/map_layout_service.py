@@ -42,9 +42,16 @@ CANVAS_MAX_Y = CANVAS_HEIGHT - 60
 
 # Spatial scale → canvas size mapping (width, height) — 16:9 ratio
 SPATIAL_SCALE_CANVAS: dict[str, tuple[int, int]] = {
+    "interstellar": (12000, 6750),
     "cosmic": (8000, 4500),
+    "planetary": (6400, 3600),
     "continental": (4800, 2700),
     "national": (3200, 1800),
+    "city": (2400, 1350),
+    "district": (1600, 900),
+    "building": (1200, 675),
+    "room": (800, 450),
+    # Legacy aliases (backward compat)
     "urban": (1600, 900),
     "local": (800, 450),
 }
@@ -1990,6 +1997,8 @@ class ConstraintSolver:
                         indices.append(wi)
                 indices.append(ti)
                 e += self._e_travel_path(coords, indices) * weight
+            elif rtype == "travel_sequence":
+                e += self._e_adjacent(coords, si, ti) * weight
             elif rtype == "cluster":
                 e += self._e_cluster(coords, si, ti) * weight
 
@@ -2582,7 +2591,7 @@ class ConstraintSolver:
                         forces[ti] -= direction * force_mag
                         if not fixed[si]:
                             forces[si] += direction * force_mag * 0.3
-                elif rtype == "adjacent":
+                elif rtype in ("adjacent", "travel_sequence"):
                     # Pull toward ADJACENT_DIST
                     force_mag = (dist - ADJACENT_DIST) * 0.05 * weight
                     forces[si] += direction * force_mag
@@ -3286,6 +3295,19 @@ def generate_rivers(
 
     # Limit to 3-8 rivers
     sources = sources[:8]
+
+    # ── Filter sources: only keep those on land ──
+    if land_mask_info:
+        _fmask = land_mask_info["_land_mask"]
+        _fcs = land_mask_info["_cell_size"]
+        _fh, _fw = _fmask.shape
+        land_sources = []
+        for sx, sy in sources:
+            gi = int(round(sx / _fcs))
+            gj = int(round(sy / _fcs))
+            if 0 <= gj < _fh and 0 <= gi < _fw and _fmask[gj, gi]:
+                land_sources.append((sx, sy))
+        sources = land_sources
 
     # ── Build land check function from landmass mask ──
     is_land_fn = None
