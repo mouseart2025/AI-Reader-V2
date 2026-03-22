@@ -1,6 +1,6 @@
 # AI Reader V2
 
-[![Version](https://img.shields.io/badge/version-0.56.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.57.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -69,8 +69,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.56.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.56.1/AI.Reader_0.56.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.56.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.56.1/AI.Reader_0.56.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.57.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.57.0/AI.Reader_0.57.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.57.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.57.0/AI.Reader_0.57.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 这是因为应用未经 Apple 签名。请在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -112,6 +112,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.57.0 | 2026-03-22 | 测试体系(151 tests+CI) + 大陆合并(18→5) + 道路网络(Delaunay MST) + 时间线↔地图联动(flyTo) + 全量坐标补全(824/824) + 别名 canonical 优化(3字全名优先) + 数据质量迭代 |
 | v0.56.1 | 2026-03-21 | 桌面端 9 项修复 — Ch.X 导航 404 修复、Tab 顺序调整（阅读优先）、通用地名消歧扩充（树林/中军帐等）、通用角色过滤（小妖/众妖等）、CJK 字形变体归一化（南瞻→南赡）、空间关系中文化、故事线选中对比度+网格线+hover 辅助线、LocationMiniMap 子节点折叠 |
 | v0.56.0 | 2026-03-21 | 世界层级重检测 + 领地跨海过滤 + 大陆架淡化 — 层级重建自动清理过期副本/秘境层、领地 hull 跨大陆检测剔除、大陆架线条淡化、天界/冥界关键词精确匹配防误判、WebGL 渲染器暂隐藏 |
 | v0.55.0 | 2026-03-20 | 时间线故事线视图 + 关系图路径着色 — 新增角色泳道视图（水平时间轴+D3缩放+交汇标记+详情面板）、关系图路径查找按关系类型着色（边+路径条显示关系名）、角色上限提示 |
