@@ -38,6 +38,10 @@ _ENV_LLM_MODEL = LLM_MODEL
 # to improve spatial relationship extraction quality.
 VOT_SPATIAL_ENABLED: bool = True
 
+# LLM quality review for aggregated entity profiles (Phase 2).
+# When True, a single LLM call reviews top entities after aggregation.
+LLM_QUALITY_REVIEW: bool = False
+
 # Context window size (tokens). Auto-detected at startup; 8192 = conservative default.
 CONTEXT_WINDOW_SIZE: int = 8192
 

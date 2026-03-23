@@ -262,6 +262,16 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
         },
     )
 
+    # ── Profile quality check (Phase 1: pure rules) ──
+    from src.services.profile_quality_checker import check_person_profile
+    quality_findings = check_person_profile(profile, alias_map)
+    if quality_findings:
+        logger.info(
+            "Profile quality: %d findings for %s (%s)",
+            len(quality_findings), person_name,
+            ", ".join(f.finding_type for f in quality_findings),
+        )
+
     _cache_set(cache_key, profile)
     return profile
 
