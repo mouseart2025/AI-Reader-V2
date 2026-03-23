@@ -89,8 +89,8 @@ _VALID_DIRECTIONS = {
 
 
 def _load_prompt_template() -> str:
-    path = _PROMPTS_DIR / "macro_skeleton.txt"
-    return path.read_text(encoding="utf-8")
+    from src.extraction.prompt_registry import get_prompt
+    return get_prompt("macro_skeleton")
 
 
 class MacroSkeletonGenerator:

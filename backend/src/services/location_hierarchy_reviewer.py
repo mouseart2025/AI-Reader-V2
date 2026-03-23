@@ -49,8 +49,8 @@ _REVIEW_SCHEMA: dict = {
 
 
 def _load_review_prompt_template() -> str:
-    path = _PROMPTS_DIR / "hierarchy_review.txt"
-    return path.read_text(encoding="utf-8")
+    from src.extraction.prompt_registry import get_prompt
+    return get_prompt("hierarchy_review")
 
 
 class LocationHierarchyReviewer:
@@ -105,8 +105,8 @@ class LocationHierarchyReviewer:
         if not suspicious:
             return []
 
-        template_path = _PROMPTS_DIR / "hierarchy_reflection.txt"
-        template = template_path.read_text(encoding="utf-8")
+        from src.extraction.prompt_registry import get_prompt
+        template = get_prompt("hierarchy_reflection")
 
         _REASON_LABELS = {
             "same_suffix": "同后缀",
@@ -638,8 +638,8 @@ class LocationHierarchyReviewer:
                     )
 
         # Load prompt template and format
-        path = _PROMPTS_DIR / "hierarchy_validation.txt"
-        template = path.read_text(encoding="utf-8")
+        from src.extraction.prompt_registry import get_prompt
+        template = get_prompt("hierarchy_validation")
         prompt = template.format(
             genre_hint=novel_genre_hint or "未知",
             uber_root=effective_root,
