@@ -301,6 +301,63 @@ class TestCheckPersonProfile:
         assert len(profile.relations) == 0
 
 
+# ── Genre-Aware Tests ──
+
+
+class TestGenreAwareMutations:
+    """Genre-aware relation mutation tolerance."""
+
+    def test_fantasy_allows_two_transitions(self):
+        """Fantasy/wuxia should tolerate 2 transitions (A→B→C)."""
+        profile = _make_profile("韩立", [
+            _make_chain("令狐冲", [
+                ("朋友", [1, 2]),
+                ("敌对", [3, 4]),
+            ]),
+        ])
+        findings = fix_relation_mutations(profile, genre="fantasy")
+        # 1 transition (朋友→敌对) is within tolerance (max 2 for fantasy)
+        assert len(findings) == 0
+
+    def test_fantasy_fixes_three_transitions(self):
+        """Fantasy still fixes 3+ transitions (A→B→A→B)."""
+        profile = _make_profile("韩立", [
+            _make_chain("令狐冲", [
+                ("朋友", [1]),
+                ("敌对", [2]),
+                ("朋友", [3]),
+                ("敌对", [4]),
+            ]),
+        ])
+        findings = fix_relation_mutations(profile, genre="fantasy")
+        assert len(findings) >= 1
+
+    def test_realistic_strict_one_transition(self):
+        """Realistic should only allow 1 transition."""
+        profile = _make_profile("A", [
+            _make_chain("B", [
+                ("朋友", [1, 2]),
+                ("敌对", [3]),
+                ("朋友", [4]),
+            ]),
+        ])
+        findings = fix_relation_mutations(profile, genre="realistic")
+        # 2 transitions (朋友→敌对→朋友) exceeds max 1 for realistic
+        assert len(findings) >= 1
+
+    def test_no_genre_default_one_transition(self):
+        """No genre = same as realistic (1 transition max)."""
+        profile = _make_profile("A", [
+            _make_chain("B", [
+                ("朋友", [1]),
+                ("敌对", [2]),
+                ("朋友", [3]),
+            ]),
+        ])
+        findings = fix_relation_mutations(profile, genre=None)
+        assert len(findings) >= 1
+
+
 # ── Phase 2 Tests ──
 
 

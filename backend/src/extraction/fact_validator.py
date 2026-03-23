@@ -213,9 +213,17 @@ _PURE_TITLE_WORDS = frozenset({
 })
 
 
-def _is_generic_location(name: str) -> str | None:
+# Fantasy/xianxia: these conceptual terms are valid world-layer locations
+_FANTASY_LOCATION_WHITELIST = frozenset({
+    "仙界", "魔界", "妖界", "灵域", "修仙界",
+    "洞府", "秘境", "禁地", "结界", "虚空",
+})
+
+
+def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     """Check if a location name is generic/invalid using morphological rules.
 
+    Genre-aware: fantasy allows 仙界/魔界/洞府/秘境 etc.
     Returns a reason string if the name should be filtered, or None if it should be kept.
     """
     n = len(name)
@@ -224,8 +232,11 @@ def _is_generic_location(name: str) -> str | None:
     if n == 1 and name in _GEO_GENERIC_SUFFIXES:
         return "single-char generic suffix"
 
-    # Rule 2: Abstract/conceptual spatial terms
+    # Rule 2: Abstract/conceptual spatial terms (genre-aware)
     if name in _CONCEPTUAL_GEO_WORDS:
+        # Fantasy whitelist: 仙界/魔界 are valid world layers in xianxia
+        if genre in ("fantasy", "wuxia") and name in _FANTASY_LOCATION_WHITELIST:
+            return None
         return "conceptual geo word"
 
     # Rule 3: Vehicle/object words
@@ -401,17 +412,42 @@ def _infer_type_from_name(name: str) -> str:
     return "区域"
 
 
-def _is_generic_person(name: str) -> str | None:
+# ── Genre-aware person filtering ──────────────────────────────────────
+
+# Fantasy/xianxia: these are valid character names (具体角色, not 泛称)
+_FANTASY_PERSON_WHITELIST = frozenset({
+    "仙人", "仙子", "仙翁", "道人", "散修", "真人",
+    "魔尊", "魔君", "魔头", "妖王", "妖帝",
+    "灵兽", "仙童", "精怪", "妖仙",
+})
+
+# Realistic/urban: these are almost always titles, not names (无姓氏时过滤)
+_REALISTIC_TITLE_ADDITIONS = frozenset({
+    "队长", "书记", "主任", "科长", "处长", "局长", "厂长",
+    "村长", "社长", "组长", "班长",
+})
+
+
+def _is_generic_person(name: str, genre: str | None = None) -> str | None:
     """Check if a person name is generic/invalid.
 
+    Genre-aware: fantasy allows 仙人/妖兽 etc.; realistic adds title filtering.
     Returns a reason string if filtered, or None if kept.
     """
+    # Fantasy whitelist: skip generic check for xianxia character types
+    if genre in ("fantasy", "wuxia") and name in _FANTASY_PERSON_WHITELIST:
+        return None
+
     if name in _GENERIC_PERSON_WORDS:
         return "generic person reference"
 
     # Pure title without surname: "堂主", "长老" alone (not "岳堂主", "张长老")
     if name in _PURE_TITLE_WORDS:
         return "pure title without surname"
+
+    # Realistic/urban: additional title filtering (无姓氏时)
+    if genre in ("realistic", "urban") and name in _REALISTIC_TITLE_ADDITIONS:
+        return "realistic title without surname"
 
     return None
 
@@ -458,7 +494,8 @@ def _clamp_name(name: str) -> str:
 class FactValidator:
     """Validate and clean a ChapterFact instance."""
 
-    def __init__(self) -> None:
+    def __init__(self, genre: str | None = None) -> None:
+        self._genre = genre
         # name_corrections: short_name → full_name mapping built from
         # entity dictionary.  E.g., {"愣子": "二愣子"} when the dictionary
         # contains "二愣子" with a numeric prefix that jieba/LLM truncated.
@@ -545,7 +582,7 @@ class FactValidator:
             if len(name) < _NAME_MIN_LEN:
                 continue
             # Drop generic person references and pure titles
-            reason = _is_generic_person(name)
+            reason = _is_generic_person(name, self._genre)
             if reason:
                 logger.debug("Dropping person '%s': %s", name, reason)
                 continue
@@ -744,7 +781,7 @@ class FactValidator:
                 continue
             seen_names.add(name)
             # Morphological validation (replaces blocklist approach)
-            reason = _is_generic_location(name)
+            reason = _is_generic_location(name, self._genre)
             if reason:
                 logger.debug("Dropping location '%s': %s", name, reason)
                 continue
@@ -771,7 +808,7 @@ class FactValidator:
             if loc.peers:
                 valid_peers = [
                     p for p in loc.peers
-                    if p and p != loc.name and not _is_generic_location(p)
+                    if p and p != loc.name and not _is_generic_location(p, self._genre)
                 ]
                 cleaned_valid.append(
                     loc.model_copy(update={"peers": valid_peers if valid_peers else None})
@@ -989,7 +1026,7 @@ class FactValidator:
         for ev in events:
             for p in ev.participants:
                 p = p.strip()
-                if p and p not in char_names and len(p) >= _NAME_MIN_LEN and not _is_generic_person(p):
+                if p and p not in char_names and len(p) >= _NAME_MIN_LEN and not _is_generic_person(p, self._genre):
                     characters.append(CharacterFact(name=p))
                     char_names.add(p)
                     logger.debug("Auto-added character from event participant: %s", p)
@@ -1006,7 +1043,7 @@ class FactValidator:
         for rel in relationships:
             for name in (rel.person_a, rel.person_b):
                 name = name.strip()
-                if name and name not in char_names and len(name) >= _NAME_MIN_LEN and not _is_generic_person(name):
+                if name and name not in char_names and len(name) >= _NAME_MIN_LEN and not _is_generic_person(name, self._genre):
                     characters.append(CharacterFact(name=name))
                     char_names.add(name)
                     logger.debug("Auto-added character from relationship: %s", name)

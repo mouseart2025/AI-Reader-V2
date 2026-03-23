@@ -183,3 +183,69 @@ class TestCharVariants:
     def test_empty_and_short(self):
         assert _normalize_char_variants("") == ""
         assert _normalize_char_variants("山") == "山"
+
+
+# ── Genre-aware filtering tests ─────────────────────────
+
+
+class TestGenreAwarePersonFiltering:
+    """Test _is_generic_person with genre parameter."""
+
+    def test_fantasy_allows_xianren(self):
+        """Fantasy genre should allow 仙人 as valid character name."""
+        assert _is_generic_person("仙人", genre="fantasy") is None
+
+    def test_fantasy_allows_yaoshou(self):
+        assert _is_generic_person("妖兽", genre="fantasy") is None
+
+    def test_fantasy_allows_mozun(self):
+        assert _is_generic_person("魔尊", genre="fantasy") is None
+
+    def test_realistic_filters_shuji(self):
+        """Realistic genre should filter 书记 (title without surname)."""
+        assert _is_generic_person("书记", genre="realistic") is not None
+
+    def test_realistic_filters_zhuren(self):
+        assert _is_generic_person("主任", genre="realistic") is not None
+
+    def test_no_genre_keeps_backward_compat(self):
+        """Without genre, behavior unchanged (仙人 not in generic list → kept)."""
+        # 仙人 is NOT in _GENERIC_PERSON_WORDS, so it passes without genre too
+        assert _is_generic_person("仙人") is None
+
+    def test_generic_always_filtered(self):
+        """众人 should be filtered regardless of genre."""
+        assert _is_generic_person("众人", genre="fantasy") is not None
+        assert _is_generic_person("众人", genre="realistic") is not None
+        assert _is_generic_person("众人") is not None
+
+    def test_urban_filters_titles(self):
+        assert _is_generic_person("局长", genre="urban") is not None
+
+
+class TestGenreAwareLocationFiltering:
+    """Test _is_generic_location with genre parameter."""
+
+    def test_fantasy_allows_xianjie(self):
+        """Fantasy should allow 仙界 (normally blocked as conceptual)."""
+        assert _is_generic_location("仙界", genre="fantasy") is None
+
+    def test_fantasy_allows_mojie(self):
+        assert _is_generic_location("魔界", genre="fantasy") is None
+
+    def test_fantasy_allows_dongfu(self):
+        assert _is_generic_location("洞府", genre="fantasy") is None
+
+    def test_realistic_blocks_xianjie(self):
+        """Realistic should block 仙界."""
+        assert _is_generic_location("仙界", genre="realistic") is not None
+
+    def test_no_genre_blocks_xianjie(self):
+        """Without genre, 仙界 should be blocked (backward compat)."""
+        assert _is_generic_location("仙界") is not None
+
+    def test_normal_location_always_kept(self):
+        """花果山 should pass regardless of genre."""
+        assert _is_generic_location("花果山", genre="fantasy") is None
+        assert _is_generic_location("花果山", genre="realistic") is None
+        assert _is_generic_location("花果山") is None

@@ -177,6 +177,17 @@ def _merge_chapter_facts(
     )
 
 
+# Genre-specific context injected into the extraction system prompt.
+# Helps the LLM understand domain-specific naming patterns.
+_GENRE_CONTEXT: dict[str, str] = {
+    "fantasy": "\n- **题材提示**：这是一部修仙/奇幻小说。仙人、妖兽、灵兽、魔尊等是常见角色类型，应当提取。洞府、秘境、仙界、魔界等是合法地点。\n",
+    "wuxia": "\n- **题材提示**：这是一部武侠小说。大侠、掌门、帮主等可能是有名字的角色。总舵、分舵、密道等是合法地点。\n",
+    "historical": "\n- **题材提示**：这是一部历史/古典小说。太尉、知府等官职后有姓氏时是角色名。衙门、宫殿等是合法地点。\n",
+    "realistic": "\n- **题材提示**：这是一部现实主义小说。队长、书记等通常是职务泛称而非人名。注意区分真实人名和职务称呼。\n",
+    "urban": "\n- **题材提示**：这是一部都市小说。注意区分公司名、品牌名和地点名。\n",
+}
+
+
 def _load_system_prompt() -> str:
     path = _PROMPTS_DIR / "extraction_system.txt"
     return path.read_text(encoding="utf-8")
@@ -274,13 +285,17 @@ class ChapterFactExtractor:
         chapter_id: int,
         chapter_text: str,
         context_summary: str = "",
+        genre_hint: str | None = None,
     ) -> tuple[ChapterFact, LlmUsage, ExtractionMeta]:
         """Extract ChapterFact from chapter text. Returns (fact, usage, meta).
 
         Long chapters (cloud mode) are automatically split into segments
         and merged to avoid output truncation.
         """
-        system = self.system_template.replace("{context}", context_summary or "（无前序上下文）")
+        # Inject genre context into system prompt
+        genre_context = _GENRE_CONTEXT.get(genre_hint, "") if genre_hint else ""
+        system = self.system_template.replace("{genre_context}", genre_context)
+        system = system.replace("{context}", context_summary or "（无前序上下文）")
 
         budget = get_budget()
         vot_injected = False

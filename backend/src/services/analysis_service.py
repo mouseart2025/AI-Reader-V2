@@ -319,6 +319,10 @@ class AnalysisService:
         except Exception as e:
             logger.warning("WorldStructureAgent init failed for %s: %s", novel_id, e)
 
+        # Set genre on validator for genre-aware filtering
+        if world_agent.structure and world_agent.structure.novel_genre_hint:
+            self.validator._genre = world_agent.structure.novel_genre_hint
+
         # Broadcast initial state immediately so frontend shows total count
         await manager.broadcast(novel_id, {
             "type": "progress",
@@ -444,11 +448,13 @@ class AnalysisService:
 
                 # Extract facts
                 await self._broadcast_stage(novel_id, chapter_num, "AI 提取中")
+                _genre = world_agent.structure.novel_genre_hint if world_agent.structure else None
                 fact, chapter_usage, extraction_meta = await self.extractor.extract(
                     novel_id=novel_id,
                     chapter_id=chapter_num,
                     chapter_text=chapter["content"],
                     context_summary=context,
+                    genre_hint=_genre,
                 )
                 # Track quality stats
                 if extraction_meta.is_truncated:

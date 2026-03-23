@@ -57,11 +57,17 @@ def remove_self_references(
     return findings
 
 
-def fix_relation_mutations(profile: PersonProfile) -> list[QualityFinding]:
+def fix_relation_mutations(
+    profile: PersonProfile,
+    genre: str | None = None,
+) -> list[QualityFinding]:
     """修正同一人物对在不同 stage 间的关系类型突变。
 
     只修正"振荡"（A→B→A），不修正"干净转变"（A→B）。
+    Genre-aware: 修仙/武侠小说关系反转频繁，容忍度更高（允许 2 次转变）。
     """
+    # Fantasy/wuxia: allow more transitions (enemies become allies often)
+    max_transitions = 2 if genre in ("fantasy", "wuxia") else 1
     findings: list[QualityFinding] = []
     for chain in profile.relations:
         if len(chain.stages) < 2:
@@ -83,7 +89,7 @@ def fix_relation_mutations(profile: PersonProfile) -> list[QualityFinding]:
                 1 for i in range(1, len(type_sequence))
                 if type_sequence[i] != type_sequence[i - 1]
             )
-            if transitions == 1:
+            if transitions <= max_transitions:
                 continue  # clean transition (e.g., 朋友→恋人), keep as-is
 
         # Mutation detected: fix all stages to dominant type
@@ -105,15 +111,17 @@ def fix_relation_mutations(profile: PersonProfile) -> list[QualityFinding]:
 def check_person_profile(
     profile: PersonProfile,
     alias_map: dict[str, str],
+    genre: str | None = None,
 ) -> list[QualityFinding]:
     """对 PersonProfile 执行全部质量检测。修改 profile in-place。
 
+    Genre-aware: 修仙/武侠小说对关系突变容忍度更高。
     Returns:
         修正发现列表（用于日志/未来的质量报告）。
     """
     findings: list[QualityFinding] = []
     findings.extend(remove_self_references(profile, alias_map))
-    findings.extend(fix_relation_mutations(profile))
+    findings.extend(fix_relation_mutations(profile, genre=genre))
     return findings
 
 
