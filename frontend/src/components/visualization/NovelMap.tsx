@@ -776,28 +776,28 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       roadsG.selectAll("*").remove()
 
       if (!roads || roads.length === 0) return
-      const rc = roughCanvasRef.current
-      if (!rc) return
 
       const roadColor = darkBg
-        ? "rgba(160,140,100,0.35)"
-        : "rgba(120,100,60,0.35)"
+        ? "rgba(160,140,100,0.30)"
+        : "rgba(120,100,60,0.30)"
 
+      // Use simple SVG paths instead of roughjs for performance
+      // (roughjs creates multiple DOM elements per road, causing zoom lag)
       for (const road of roads) {
         if (road.points.length < 2) continue
         const [x0, y0] = road.points[0]
         const [x1, y1] = road.points[road.points.length - 1]
-        const d = `M ${x0} ${y0} L ${x1} ${y1}`
-        const node = rc.path(d, {
-          roughness: 1.2,
-          bowing: 3.0,
-          seed: Math.abs(x0 * 7 + y0 * 13) | 0,
-          stroke: roadColor,
-          strokeWidth: 1.2,
-          fill: "none",
-        })
-        node.style.pointerEvents = "none"
-        ;(roadsG.node() as Element).appendChild(node)
+        roadsG
+          .append("line")
+          .attr("x1", x0)
+          .attr("y1", y0)
+          .attr("x2", x1)
+          .attr("y2", y1)
+          .attr("stroke", roadColor)
+          .attr("stroke-width", 1)
+          .attr("stroke-dasharray", "4,3")
+          .attr("vector-effect", "non-scaling-stroke")
+          .style("pointer-events", "none")
       }
     }, [mapReady, roads, darkBg])
 
@@ -866,10 +866,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             bowing: 1.0,
             seed: 42,
             stroke: darkBg ? "rgba(100,130,160,0.4)" : "#6B5B3E",
-            strokeWidth: 2,
+            strokeWidth: 1.2,
             fill: "none",
           })
           coastNode.style.pointerEvents = "none"
+          // Non-scaling stroke: constant width regardless of zoom level
+          coastNode.querySelectorAll("path").forEach((p) => {
+            p.setAttribute("vector-effect", "non-scaling-stroke")
+          })
           ;(coastG.node() as Element).appendChild(coastNode)
 
           // Render hole borders (inner seas/lakes)
@@ -880,10 +884,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               bowing: 1.0,
               seed: 43,
               stroke: darkBg ? "rgba(80,110,140,0.35)" : "rgba(107,91,62,0.6)",
-              strokeWidth: 1.5,
+              strokeWidth: 1,
               fill: "none",
             })
             holeNode.style.pointerEvents = "none"
+            holeNode.querySelectorAll("path").forEach((p) => {
+              p.setAttribute("vector-effect", "non-scaling-stroke")
+            })
             ;(coastG.node() as Element).appendChild(holeNode)
           }
         }

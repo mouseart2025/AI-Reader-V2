@@ -55,8 +55,36 @@ _SKELETON_SCHEMA: dict = {
                 "required": ["canonical", "alias"],
             },
         },
+        "directions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string"},
+                    "target": {"type": "string"},
+                    "direction": {
+                        "type": "string",
+                        "enum": [
+                            "north_of", "south_of", "east_of", "west_of",
+                            "northeast_of", "northwest_of", "southeast_of", "southwest_of",
+                        ],
+                    },
+                    "confidence": {
+                        "type": "string",
+                        "enum": ["high", "medium"],
+                    },
+                },
+                "required": ["source", "target", "direction", "confidence"],
+            },
+        },
     },
     "required": ["uber_root", "skeleton"],
+}
+
+# Valid direction values for validation
+_VALID_DIRECTIONS = {
+    "north_of", "south_of", "east_of", "west_of",
+    "northeast_of", "northwest_of", "southeast_of", "southwest_of",
 }
 
 
@@ -77,7 +105,7 @@ class MacroSkeletonGenerator:
         novel_genre_hint: str | None,
         location_tiers: dict[str, str],
         current_parents: dict[str, str],
-    ) -> tuple[dict[str, Counter], list[tuple[str, str]]]:
+    ) -> tuple[dict[str, Counter], list[tuple[str, str]], list[dict]]:
         """Generate skeleton votes from LLM.
 
         Args:
@@ -87,14 +115,16 @@ class MacroSkeletonGenerator:
             current_parents: ``{child: parent}`` current parent assignments.
 
         Returns:
-            Tuple of (skeleton_votes, synonym_pairs) where:
+            Tuple of (skeleton_votes, synonym_pairs, direction_constraints) where:
             - skeleton_votes: ``{child: Counter({parent: weight})}`` — votes to inject.
             - synonym_pairs: ``[(canonical, alias), ...]`` — synonym location pairs.
+            - direction_constraints: ``[{source, target, relation_type, value, ...}]``
+              — macro direction constraints for the solver.
         """
         all_locs = set(location_tiers.keys())
         if len(all_locs) < 3:
             logger.debug("Too few locations (%d), skipping skeleton", len(all_locs))
-            return {}, []
+            return {}, [], []
 
         # --- Build prompt inputs ---
 
@@ -142,7 +172,7 @@ class MacroSkeletonGenerator:
 
         if not tiered_lines and not orphans:
             logger.debug("No skeleton-relevant locations found")
-            return {}, []
+            return {}, [], []
 
         # --- Build prompt ---
         template = _load_prompt_template()
@@ -170,14 +200,14 @@ class MacroSkeletonGenerator:
             )
         except Exception:
             logger.warning("Macro skeleton LLM call failed", exc_info=True)
-            return {}, []
+            return {}, [], []
 
         if isinstance(result, str):
             try:
                 result = json.loads(result)
             except json.JSONDecodeError:
                 logger.warning("Failed to parse macro skeleton result as JSON")
-                return {}, []
+                return {}, [], []
 
         # --- Parse and validate ---
         votes: dict[str, Counter] = {}
@@ -222,8 +252,43 @@ class MacroSkeletonGenerator:
                         canonical, alias,
                     )
 
+        # --- Parse directions (macro anchor constraints) ---
+        direction_constraints: list[dict] = []
+        for d in result.get("directions", []):
+            source = d.get("source", "")
+            target = d.get("target", "")
+            direction = d.get("direction", "")
+            confidence = d.get("confidence", "medium")
+
+            if not source or not target or source == target:
+                continue
+            if direction not in _VALID_DIRECTIONS:
+                logger.debug("Skeleton direction: invalid direction %r", direction)
+                continue
+            if source not in all_locs or target not in all_locs:
+                logger.debug(
+                    "Skeleton direction: skipping hallucinated %s → %s", source, target
+                )
+                continue
+
+            conf_score = {"high": 1.0, "medium": 0.8}.get(confidence, 0.6)
+            direction_constraints.append({
+                "source": source,
+                "target": target,
+                "relation_type": "direction",
+                "value": direction,
+                "confidence": confidence,
+                "confidence_score": conf_score,
+                "source_type": "llm_anchor",
+            })
+            logger.debug(
+                "Skeleton direction: %s %s %s (confidence=%s)",
+                source, direction, target, confidence,
+            )
+
         logger.info(
-            "Macro skeleton: %d suggestions, %d valid votes, %d synonyms for novel %s",
-            len(suggestions), len(votes), len(synonym_pairs), novel_title,
+            "Macro skeleton: %d suggestions, %d valid votes, %d synonyms, %d directions for novel %s",
+            len(suggestions), len(votes), len(synonym_pairs), len(direction_constraints),
+            novel_title,
         )
-        return votes, synonym_pairs
+        return votes, synonym_pairs, direction_constraints

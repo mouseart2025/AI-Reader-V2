@@ -13,7 +13,7 @@
 {orphan_list}
 
 ## 任务
-生成 2-3 层的核心地理骨架，确定主要区域的父子关系。
+生成 2-3 层的核心地理骨架，确定主要区域的父子关系，并标注顶级区域之间的方位关系。
 
 规则：
 1. 所有 child 和 parent 必须是上述已知地点中的名称，不要创造新名称
@@ -22,6 +22,7 @@
 4. 考虑中国地理常识（如"都中"通常指京城所在区域）
 5. 同名同级的地点（如两个"府"）通常是兄弟，不是父子
 6. 如果发现多个顶级节点实际指同一地点（如"都中"和"神京"都是京城），请在 synonyms 中声明
+7. **directions**: 为最重要的顶级区域（如大洲、国、大区域）标注方位关系。例如"东胜神洲"在"西牛贺洲"的东方。只标注你有把握的宏观方位。
 
 请严格输出以下 JSON 格式：
 ```json
@@ -38,6 +39,14 @@
     {{
       "canonical": "保留的地点名",
       "alias": "合并进去的地点名"
+    }}
+  ],
+  "directions": [
+    {{
+      "source": "地点A",
+      "target": "地点B",
+      "direction": "north_of/south_of/east_of/west_of/northeast_of/northwest_of/southeast_of/southwest_of",
+      "confidence": "high 或 medium"
     }}
   ]
 }}

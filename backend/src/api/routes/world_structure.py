@@ -341,11 +341,12 @@ async def rebuild_hierarchy(novel_id: str):
             # 1.5 Macro-skeleton generation
             yield _sse("skeleton", "正在生成宏观地理骨架...")
             skeleton_synonyms: list[tuple[str, str]] = []
+            skeleton_directions: list[dict] = []
             try:
                 import asyncio as _asyncio_skel
                 from src.services.macro_skeleton_generator import MacroSkeletonGenerator
                 skel_gen = MacroSkeletonGenerator()
-                skeleton_votes, skeleton_synonyms = await _asyncio_skel.wait_for(
+                skeleton_votes, skeleton_synonyms, skeleton_directions = await _asyncio_skel.wait_for(
                     skel_gen.generate(
                         novel_title=novel.get("title", ""),
                         novel_genre_hint=ws.novel_genre_hint,
@@ -360,6 +361,17 @@ async def rebuild_hierarchy(novel_id: str):
                     parts.append(f"{len(skeleton_votes)} 个地点获得锚定")
                 if skeleton_synonyms:
                     parts.append(f"{len(skeleton_synonyms)} 组同义合并")
+                if skeleton_directions:
+                    # Inject LLM anchor directions into completed_spatial_relations
+                    existing_keys = {
+                        (r["source"], r["target"], r.get("value", ""))
+                        for r in ws.completed_spatial_relations
+                    }
+                    for d in skeleton_directions:
+                        key = (d["source"], d["target"], d["value"])
+                        if key not in existing_keys:
+                            ws.completed_spatial_relations.append(d)
+                    parts.append(f"{len(skeleton_directions)} 组方位锚定")
                 if parts:
                     yield _sse("skeleton", f"骨架生成完成，{'，'.join(parts)}")
                 else:
