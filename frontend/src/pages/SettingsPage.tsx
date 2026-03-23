@@ -1027,7 +1027,7 @@ export default function SettingsPage() {
                       <Button
                         size="xs"
                         onClick={handleSaveCloud}
-                        disabled={cloudSaving || !cloudProvider || !cloudBaseUrl || !cloudModel || !cloudApiKey}
+                        disabled={cloudSaving || !cloudProvider || !cloudBaseUrl || !cloudModel || (!cloudApiKey && !cloudConfig?.has_api_key)}
                       >
                         {cloudSaving ? "保存中..." : "保存配置"}
                       </Button>

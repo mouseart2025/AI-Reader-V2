@@ -189,21 +189,22 @@ _GENRE_CONTEXT: dict[str, str] = {
 
 
 def _load_system_prompt() -> str:
-    path = _PROMPTS_DIR / "extraction_system.txt"
-    return path.read_text(encoding="utf-8")
+    from src.extraction.prompt_registry import get_prompt
+    return get_prompt("extraction_system")
 
 
 def _load_vot_guide() -> str:
     """Load VoT spatial reasoning guide. Returns empty string if file missing."""
-    vot_path = _PROMPTS_DIR / "vot_spatial_guide.txt"
-    if vot_path.exists():
-        return vot_path.read_text(encoding="utf-8")
-    return ""
+    from src.extraction.prompt_registry import get_prompt
+    try:
+        return get_prompt("vot_spatial_guide")
+    except FileNotFoundError:
+        return ""
 
 
 def _load_examples() -> list[dict]:
-    path = _PROMPTS_DIR / "extraction_examples.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+    from src.extraction.prompt_registry import get_prompt_json
+    return get_prompt_json("extraction_examples")
 
 
 def _build_extraction_schema() -> dict:

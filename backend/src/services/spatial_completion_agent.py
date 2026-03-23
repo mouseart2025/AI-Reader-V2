@@ -114,7 +114,7 @@ class SpatialCompletionAgent:
 
     def __init__(self, novel_id: str):
         self.novel_id = novel_id
-        self._prompt_template = _PROMPTS_DIR / "spatial_completion.txt"
+        self._prompt_name = "spatial_completion"
 
     async def run(self, progress_callback=None) -> dict:
         """Run full spatial completion pipeline.
@@ -410,7 +410,8 @@ class SpatialCompletionAgent:
         budget = get_budget()
         logger.info("SpatialCompletion LLM client: %s, model=%s",
                      type(llm).__name__, getattr(llm, 'model', '?'))
-        template = self._prompt_template.read_text(encoding="utf-8")
+        from src.extraction.prompt_registry import get_prompt
+        template = get_prompt(self._prompt_name)
 
         all_results: list[dict] = []
         batches = [gaps[i:i + PAIRS_PER_BATCH] for i in range(0, len(gaps), PAIRS_PER_BATCH)]

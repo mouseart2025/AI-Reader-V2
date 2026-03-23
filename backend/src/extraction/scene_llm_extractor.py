@@ -27,8 +27,8 @@ class SceneLLMExtractor:
 
     @staticmethod
     def _load_system_prompt() -> str:
-        path = _PROMPTS_DIR / "scene_system.txt"
-        return path.read_text(encoding="utf-8")
+        from src.extraction.prompt_registry import get_prompt
+        return get_prompt("scene_system")
 
     @staticmethod
     def _add_paragraph_markers(text: str) -> tuple[str, int]:

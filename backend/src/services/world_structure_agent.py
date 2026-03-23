@@ -484,8 +484,8 @@ _VALID_LAYER_TYPES = {t.value for t in LayerType}
 
 
 def _load_update_prompt_template() -> str:
-    path = _PROMPTS_DIR / "world_structure_update.txt"
-    return path.read_text(encoding="utf-8")
+    from src.extraction.prompt_registry import get_prompt
+    return get_prompt("world_structure_update")
 
 
 class WorldStructureAgent:

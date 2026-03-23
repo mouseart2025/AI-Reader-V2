@@ -423,10 +423,14 @@ async def get_cloud_config():
 async def save_cloud_config(req: CloudConfigRequest):
     """Save cloud LLM configuration and update runtime config."""
     from src.db.sqlite_db import get_connection
-    from src.infra.secret_store import save_api_key
+    from src.infra.secret_store import load_api_key, save_api_key
 
-    # Save API key securely
-    storage = await save_api_key(req.api_key)
+    # Save API key securely (if provided; empty string = keep existing key)
+    if req.api_key:
+        storage = await save_api_key(req.api_key)
+    else:
+        # Keep existing key — user is only changing model/provider
+        storage = "unchanged"
 
     # Save provider/model/base_url to app_settings
     conn = await get_connection()
@@ -449,9 +453,11 @@ async def save_cloud_config(req: CloudConfigRequest):
     # Hot-update runtime config
     from src.infra.config import update_cloud_config
 
+    # Use provided key, or load existing if not provided
+    effective_key = req.api_key or (await load_api_key() or "")
     update_cloud_config(
         provider="openai",
-        api_key=req.api_key,
+        api_key=effective_key,
         base_url=req.base_url,
         model=req.model,
     )

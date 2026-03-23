@@ -52,11 +52,11 @@ class OrgRelation(BaseModel):
 
 
 class OrgEventFact(BaseModel):
-    org_name: str
-    org_type: str
+    org_name: str = ""
+    org_type: str = ""
     member: str | None = None
     role: str | None = None
-    action: str  # 加入/离开/晋升/阵亡/叛出/逐出
+    action: str = "其他"  # 加入/离开/晋升/阵亡/叛出/逐出 (default for LLM omission tolerance)
     description: str | None = None
     org_relation: OrgRelation | None = None
 
