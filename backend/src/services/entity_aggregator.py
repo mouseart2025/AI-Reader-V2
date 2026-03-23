@@ -262,9 +262,18 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
         },
     )
 
-    # ── Profile quality check (Phase 1: pure rules) ──
+    # ── Profile quality check (Phase 1: pure rules, genre-aware) ──
     from src.services.profile_quality_checker import check_person_profile
-    quality_findings = check_person_profile(profile, alias_map)
+    # Get genre hint for genre-aware quality checks
+    _genre = None
+    try:
+        from src.db import world_structure_store
+        _ws = await world_structure_store.load(novel_id)
+        if _ws:
+            _genre = _ws.novel_genre_hint
+    except Exception:
+        pass
+    quality_findings = check_person_profile(profile, alias_map, genre=_genre)
     if quality_findings:
         logger.info(
             "Profile quality: %d findings for %s (%s)",
