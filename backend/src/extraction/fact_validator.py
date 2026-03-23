@@ -917,10 +917,17 @@ class FactValidator:
             cleaned.append(ch)
         return cleaned
 
+    # Suffixes that indicate a name match is part of a place/org, not a person
+    _NAME_BOUNDARY_BLOCKLIST = set("国省市县镇村区域界地洲岛山河湖海洋城池寺庙观殿阁楼台塔")
+
     def _fill_event_participants(
         self, characters: list[CharacterFact], events: list[EventFact]
     ) -> list[EventFact]:
-        """Fill empty event participants by scanning summary for character names."""
+        """Fill empty event participants by scanning summary for character names.
+
+        Uses boundary-aware matching: a matched name must not be followed by
+        geographic/architectural suffixes (e.g., "韩" should not match in "韩国").
+        """
         # Build name set: all character names + aliases
         all_names: set[str] = set()
         for ch in characters:
@@ -933,10 +940,19 @@ class FactValidator:
         updated = []
         for ev in events:
             if not ev.participants:
-                # Scan summary for character names
+                # Scan summary for character names with boundary check
                 found = []
                 for name in sorted_names:
-                    if name in ev.summary and name not in found:
+                    if len(name) < 1:
+                        continue
+                    idx = ev.summary.find(name)
+                    if idx < 0:
+                        continue
+                    # Boundary check: next char should not be a place suffix
+                    end = idx + len(name)
+                    if end < len(ev.summary) and ev.summary[end] in self._NAME_BOUNDARY_BLOCKLIST:
+                        continue
+                    if name not in found:
                         found.append(name)
                 if found:
                     ev = ev.model_copy(update={"participants": found})

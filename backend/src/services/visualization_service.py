@@ -458,12 +458,19 @@ def _clean_spatial_constraints(
     # Build lookup tables
     loc_level = {loc["name"]: loc.get("level", 0) for loc in locations}
     loc_parent = {loc["name"]: loc.get("parent") for loc in locations}
+    loc_names_set = {loc["name"] for loc in locations}
 
     cleaned = []
     fixed = 0
     removed = 0
+    dangling = 0
 
     for c in constraints:
+        # ── Filter dangling references: source/target must exist in locations ──
+        if c["source"] not in loc_names_set or c["target"] not in loc_names_set:
+            dangling += 1
+            continue
+
         rtype = c["relation_type"]
 
         # ── Fix contains inversions ──
@@ -508,10 +515,10 @@ def _clean_spatial_constraints(
         # Other relation types: keep as-is
         cleaned.append(c)
 
-    if fixed or removed:
+    if fixed or removed or dangling:
         logger.info(
-            "Constraint cleaning: fixed %d, removed %d, kept %d",
-            fixed, removed, len(cleaned),
+            "Constraint cleaning: fixed %d, removed %d, dangling %d, kept %d",
+            fixed, removed, dangling, len(cleaned),
         )
     return cleaned
 
