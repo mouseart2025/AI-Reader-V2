@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.58.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.59.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -33,7 +33,7 @@
 
 ### 🗺️ 小说世界地图自动生成
 
-从文本全自动构建多层级交互式地图。天界/冥界/海底/秘境多空间层、传送门连接、程序化地形（生物群落 + 河流 + 道路 + 大陆架）、人物轨迹动画回放、rough.js 手绘风格渲染。**v0.58 新增：跨章节空间补全 + 空间尺度自适应（9 级画布）+ 智能重绘。**
+从文本全自动构建多层级交互式地图。天界/冥界/海底/秘境多空间层、传送门连接、程序化地形（生物群落 + 河流 + 道路 + 大陆架）、人物轨迹动画回放、rough.js 手绘风格渲染。**v0.59 新增：LLM 宏观方位锚定 + 三重水域检测 + 海岸线覆盖保证 + 道路跨海过滤。**
 
 <img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="小说世界地图 - AI 自动生成的虚构世界地图" />
 
@@ -82,8 +82,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.58.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.58.0/AI.Reader_0.58.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.58.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.58.0/AI.Reader_0.58.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.59.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.59.0/AI.Reader_0.59.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.59.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.59.0/AI.Reader_0.59.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -125,6 +125,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.59.0 | 2026-03-23 | 地图质量大版本 — LLM宏观方位锚定(MacroSkeleton directions) + 三重水域检测(icon+type+parent链) + 递归归陆(3轮) + 海岸线覆盖保证(Chaikin收缩补偿) + 道路跨海过滤(land_mask采样) + Solver容量40→80 + 能量函数自适应权重 + 方向提示LLM anchor×3 + 道路性能优化(roughjs→SVG, top 150) + non-scaling-stroke海岸线 + 218 tests |
 | v0.58.0 | 2026-03-23 | 跨章节空间补全(LLM gap检测+方位距离补全) + 空间尺度自适应(9级画布) + 智能重绘(层级重建+空间补全一键执行) + 约束增强(轨迹邻接+传递推导) + underwater层检测 + 父级层传播 + 海中地点自动归陆 + 192 tests |
 | v0.57.0 | 2026-03-22 | 测试体系(151 tests+CI) + 大陆合并(18→5) + 道路网络(Delaunay MST) + 时间线↔地图联动(flyTo) + 全量坐标补全(824/824) + 别名 canonical 优化(3字全名优先) |
 | v0.56.1 | 2026-03-21 | 桌面端 9 项修复 — Ch.X 导航 404、Tab 顺序调整、通用地名消歧扩充、CJK 字形变体归一化、空间关系中文化 |

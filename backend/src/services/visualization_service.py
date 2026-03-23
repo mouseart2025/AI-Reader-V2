@@ -249,8 +249,55 @@ async def get_graph_data(
 
 
 # Keywords for ocean/sea type locations (should stay in sea)
-_OCEAN_ICON_TYPES = {"ocean", "water"}
-_OCEAN_NAME_KEYWORDS = ("海", "洋", "湖", "江", "河", "溪", "泉", "潭", "池", "井", "水")
+_OCEAN_ICON_TYPES = {"ocean", "water", "island"}
+_OCEAN_TYPE_KEYWORDS_VIS = ("海", "洋", "湖泊", "河流", "海域", "水域", "大海", "海洋")
+# Broader water type keywords for parent-chain water detection
+_WATER_TYPE_KEYWORDS = ("海", "洋", "湖", "江", "河", "溪", "泉", "潭", "池", "水域", "海域")
+
+
+def _is_water_location(
+    name: str,
+    loc_lookup: dict[str, dict],
+    _cache: dict[str, bool] | None = None,
+    _depth: int = 0,
+) -> bool:
+    """Triple water detection: icon + type keywords + parent chain (max 5 levels).
+
+    Returns True if this location should stay in sea (is a water body).
+    """
+    if _cache is not None and name in _cache:
+        return _cache[name]
+
+    loc = loc_lookup.get(name)
+    if not loc:
+        return False
+
+    # Layer 1: icon-based detection
+    icon = loc.get("icon", "generic")
+    if icon in _OCEAN_ICON_TYPES:
+        if _cache is not None:
+            _cache[name] = True
+        return True
+
+    # Layer 2: type keyword detection
+    loc_type = loc.get("type", "")
+    if any(kw in loc_type for kw in _OCEAN_TYPE_KEYWORDS_VIS):
+        if _cache is not None:
+            _cache[name] = True
+        return True
+
+    # Layer 3: parent chain — if any ancestor is a water body, this is too
+    if _depth < 5:
+        parent = loc.get("parent", "")
+        if parent and parent != name:
+            if _is_water_location(parent, loc_lookup, _cache, _depth + 1):
+                if _cache is not None:
+                    _cache[name] = True
+                return True
+
+    if _cache is not None:
+        _cache[name] = False
+    return False
 
 
 def _snap_sea_orphans_to_land(
@@ -261,10 +308,8 @@ def _snap_sea_orphans_to_land(
 ) -> int:
     """Snap non-ocean locations that fell into the sea toward nearby land locations.
 
-    Instead of snapping to the nearest land grid cell (which piles locations
-    on the coastline), snap toward the nearest *existing land location* —
-    preferring parent or same-region locations. Uses sunflower distribution
-    around the anchor to avoid stacking.
+    Triple water detection (icon + type + parent chain). Recursive snap ensures
+    children of snapped parents also move to land. Returns total snap count.
     """
     import math
     import numpy as np
@@ -277,14 +322,14 @@ def _snap_sea_orphans_to_land(
 
     grid_h, grid_w = land_mask.shape
 
-    # Build ocean name set (locations that should stay in sea)
+    # Build location lookup for triple water detection
+    loc_lookup: dict[str, dict] = {loc["name"]: loc for loc in locations}
+    water_cache: dict[str, bool] = {}
+
+    # Build ocean name set using triple detection
     ocean_names: set[str] = set()
     for loc in locations:
-        icon = loc.get("icon", "generic")
-        loc_type = loc.get("type", "")
-        if icon in _OCEAN_ICON_TYPES:
-            ocean_names.add(loc["name"])
-        elif any(kw in loc_type for kw in ("海", "洋", "湖泊", "河流")):
+        if _is_water_location(loc["name"], loc_lookup, water_cache):
             ocean_names.add(loc["name"])
 
     def _is_on_land(x: float, y: float) -> bool:
@@ -294,72 +339,85 @@ def _snap_sea_orphans_to_land(
             return bool(land_mask[gyi, gxi])
         return False
 
-    # Separate layout items into land-anchors and sea-orphans
     loc_parent = {loc["name"]: loc.get("parent") for loc in locations}
     layout_map = {item["name"]: item for item in layout_data if not item.get("is_portal")}
 
-    land_items: list[dict] = []  # items already on land
-    sea_orphans: list[dict] = []  # items in sea that need snapping
-
-    for item in layout_data:
-        name = item.get("name", "")
-        if item.get("is_portal") or not name:
-            continue
-        if name in ocean_names:
-            continue
-        if _is_on_land(item["x"], item["y"]):
-            land_items.append(item)
-        else:
-            sea_orphans.append(item)
-
-    if not sea_orphans or not land_items:
-        return 0
-
-    # Build KDTree of land locations for nearest-neighbor lookup
-    land_coords = np.array([(it["x"], it["y"]) for it in land_items], dtype=np.float64)
-    land_names = [it["name"] for it in land_items]
-    land_tree = KDTree(land_coords)
-
     golden_angle = math.pi * (3 - math.sqrt(5))
-    anchor_counter: dict[str, int] = {}  # anchor name → snap count
+    anchor_counter: dict[str, int] = {}
 
-    snapped = 0
-    for item in sea_orphans:
-        name = item["name"]
-        # Priority 1: snap to parent if parent is on land
-        parent = loc_parent.get(name)
-        anchor = None
-        if parent and parent in layout_map:
-            p_item = layout_map[parent]
-            if _is_on_land(p_item["x"], p_item["y"]):
-                anchor = p_item
-
-        # Priority 2: nearest land location
-        if anchor is None:
-            _, idx = land_tree.query([item["x"], item["y"]])
-            anchor = land_items[idx]
-
-        # Place near anchor using sunflower distribution
+    def _snap_one(item: dict, anchor: dict) -> None:
+        """Snap a single item near an anchor using sunflower distribution."""
         anchor_name = anchor["name"]
         count = anchor_counter.get(anchor_name, 0)
         anchor_counter[anchor_name] = count + 1
 
         angle = golden_angle * count
-        base_r = 40 + 10 * (count // 8)  # expand radius gradually
+        base_r = 40 + 10 * (count // 8)
         new_x = anchor["x"] + base_r * math.cos(angle)
         new_y = anchor["y"] + base_r * math.sin(angle)
 
-        # Verify new position is on land; if not, nudge toward anchor
         if not _is_on_land(new_x, new_y):
-            # Lerp 80% toward anchor (guaranteed on land)
             new_x = anchor["x"] * 0.8 + new_x * 0.2
             new_y = anchor["y"] * 0.8 + new_y * 0.2
 
         item["x"] = round(new_x, 1)
         item["y"] = round(new_y, 1)
-        snapped += 1
 
-    return snapped
+    # ── Recursive snap loop (max 3 rounds) ──
+    total_snapped = 0
+    rounds_done = 0
+    for round_num in range(3):
+        # Re-classify on each round (newly snapped parents become land anchors)
+        land_items: list[dict] = []
+        sea_orphans: list[dict] = []
+
+        for item in layout_data:
+            name = item.get("name", "")
+            if item.get("is_portal") or not name:
+                continue
+            if name in ocean_names:
+                continue
+            if _is_on_land(item["x"], item["y"]):
+                land_items.append(item)
+            else:
+                sea_orphans.append(item)
+
+        if not sea_orphans or not land_items:
+            break
+
+        land_coords = np.array([(it["x"], it["y"]) for it in land_items], dtype=np.float64)
+        land_tree = KDTree(land_coords)
+
+        round_snapped = 0
+        for item in sea_orphans:
+            name = item["name"]
+            # Priority 1: snap to parent if parent is on land
+            parent = loc_parent.get(name)
+            anchor = None
+            if parent and parent in layout_map:
+                p_item = layout_map[parent]
+                if _is_on_land(p_item["x"], p_item["y"]):
+                    anchor = p_item
+
+            # Priority 2: nearest land location
+            if anchor is None:
+                _, idx = land_tree.query([item["x"], item["y"]])
+                anchor = land_items[idx]
+
+            _snap_one(item, anchor)
+            round_snapped += 1
+
+        total_snapped += round_snapped
+        rounds_done = round_num + 1
+        if round_snapped == 0:
+            break
+
+        logger.debug("Sea snap round %d: snapped %d locations", round_num + 1, round_snapped)
+
+    if total_snapped:
+        logger.info("Total sea-orphan snap: %d locations (%d rounds)", total_snapped, rounds_done)
+
+    return total_snapped
 
 
 _CONFIDENCE_RANK = {"high": 3, "medium": 2, "low": 1}
@@ -1293,10 +1351,12 @@ async def get_map_data(
     landmass_result: dict = {}
     roads: list[dict] = []
     if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like and not _is_underwater:
+        _lrm = ws.location_region_map if ws else None
         try:
             landmass_result = generate_landmasses(
                 locations, layout_data, novel_id,
                 canvas_width=_resp_cw, canvas_height=_resp_ch,
+                location_region_map=_lrm,
             )
         except Exception:
             logger.warning("Failed to generate landmasses", exc_info=True)
@@ -1310,6 +1370,18 @@ async def get_map_data(
         )
         if _snap_count:
             logger.info("Snapped %d sea-orphan locations to nearest land", _snap_count)
+            # Regenerate landmass only if significant snaps occurred (>= 3)
+            # to cover new positions. Minor snaps are already near land.
+            if _snap_count >= 3:
+                try:
+                    landmass_result = generate_landmasses(
+                        locations, layout_data, novel_id,
+                        canvas_width=_resp_cw, canvas_height=_resp_ch,
+                        location_region_map=_lrm,
+                    )
+                    logger.debug("Regenerated landmasses after sea-orphan snap")
+                except Exception:
+                    logger.warning("Failed to regenerate landmasses after snap", exc_info=True)
 
     # Generate river network AFTER landmasses (clip rivers to land)
     rivers: list[dict] = []

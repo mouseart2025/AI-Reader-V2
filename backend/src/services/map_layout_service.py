@@ -56,8 +56,9 @@ SPATIAL_SCALE_CANVAS: dict[str, tuple[int, int]] = {
     "local": (800, 450),
 }
 
-# Minimum spacing between any two locations (pixels)
-MIN_SPACING = 50
+# Base minimum spacing between any two locations (pixels).
+# Dynamically adjusted in ConstraintSolver.__init__ via canvas_w * 0.015.
+MIN_SPACING = 30
 
 # Direction margin — how far A must exceed B in the expected axis
 DIRECTION_MARGIN = 50
@@ -1076,7 +1077,22 @@ def _solve_overworld_by_region(
             region_locs[region_name].append(loc)
             continue
 
-        # Priority 4: walk up to any pruned region
+        # Priority 4: walk up location_parents chain to find any pruned region
+        if location_parents:
+            visited_p: set[str] = set()
+            cur = location_parents.get(name)
+            found_parent_region = False
+            while cur and cur not in visited_p:
+                if cur in pruned_region_name_set and cur in region_locs:
+                    region_locs[cur].append(loc)
+                    found_parent_region = True
+                    break
+                visited_p.add(cur)
+                cur = location_parents.get(cur)
+            if found_parent_region:
+                continue
+
+        # Priority 5: walk up location_region_map chain
         ancestor = _find_pruned_region(name)
         if ancestor:
             region_locs[ancestor].append(loc)
@@ -1342,9 +1358,8 @@ def _are_opposing(c1: dict, c2: dict) -> bool:
 # ── Constraint Solver ──────────────────────────────
 
 
-# Maximum number of locations to send into the constraint solver.
-# Locations beyond this are placed via hierarchy layout relative to solved anchors.
-MAX_SOLVER_LOCATIONS = 40
+# Default max solver locations. Dynamically scaled per region in _select_solver_locations.
+_DEFAULT_MAX_SOLVER_LOCATIONS = 80
 
 
 def _is_celestial(name: str) -> bool:
@@ -1471,6 +1486,37 @@ def _detect_narrative_axis(
         magnitude = math.sqrt(net_dx ** 2 + net_dy ** 2)
         return (net_dx / magnitude, net_dy / magnitude)
 
+    # ── Strategy 2.5: Aggregate direction constraints (LLM anchor ×3) ──
+    # Count direction constraint votes; llm_anchor constraints get 3× weight
+    dir_votes: dict[str, float] = {}  # direction → accumulated weight
+    for c in constraints:
+        if c["relation_type"] != "direction":
+            continue
+        direction = c.get("value", "")
+        if direction not in _DIRECTION_VECTORS:
+            continue
+        w = 3.0 if c.get("source_type") == "llm_anchor" else 1.0
+        dir_votes[direction] = dir_votes.get(direction, 0) + w
+
+    if dir_votes:
+        total_votes = sum(dir_votes.values())
+        # Check if 70%+ of direction votes point in one direction.
+        # Minimum 3 weighted votes to avoid noise from 1-2 stray constraints.
+        for direction, count in sorted(dir_votes.items(), key=lambda x: -x[1]):
+            if count >= total_votes * 0.7 and count >= 3:
+                vec = _DIRECTION_VECTORS[direction]
+                logger.info(
+                    "Direction constraint majority: %s (%.0f%% of %.0f votes)",
+                    direction, count / total_votes * 100, total_votes,
+                )
+                net_dx += vec[0] * 2.0
+                net_dy += vec[1] * 2.0
+                break
+
+    if abs(net_dx) > 0.5 or abs(net_dy) > 0.5:
+        magnitude = math.sqrt(net_dx ** 2 + net_dy ** 2)
+        return (net_dx / magnitude, net_dy / magnitude)
+
     # ── Strategy 3: Direction constraints weighted by chapter separation ──
     for c in constraints:
         if c["relation_type"] != "direction":
@@ -1479,16 +1525,23 @@ def _detect_narrative_axis(
         if vec is None:
             continue
 
+        # LLM anchor constraints get 3× weight even in Strategy 3
+        base_w = 3.0 if c.get("source_type") == "llm_anchor" else 1.0
+
         src_ch = first_chapter.get(c["source"], 0)
         tgt_ch = first_chapter.get(c["target"], 0)
         if src_ch == 0 or tgt_ch == 0:
+            # For llm_anchor constraints without chapter info, still count
+            if c.get("source_type") == "llm_anchor":
+                net_dx += vec[0] * base_w
+                net_dy += vec[1] * base_w
             continue
 
         ch_diff = src_ch - tgt_ch
-        if abs(ch_diff) < 10:
+        if abs(ch_diff) < 10 and c.get("source_type") != "llm_anchor":
             continue
 
-        weight = 1.0 if abs(ch_diff) < 20 else 2.0
+        weight = base_w * (1.0 if abs(ch_diff) < 20 else 2.0)
         if ch_diff > 0:
             net_dx += vec[0] * weight
             net_dy += vec[1] * weight
@@ -1543,7 +1596,7 @@ class ConstraintSolver:
 
         # Dynamic min spacing proportional to canvas size
         canvas_w = self._canvas_max_x - self._canvas_min_x
-        self._min_spacing = max(MIN_SPACING, canvas_w * 0.02)
+        self._min_spacing = max(MIN_SPACING, canvas_w * 0.015)
 
         # Compute chapter range for normalization
         chapters = [ch for ch in self.first_chapter.values() if ch > 0]
@@ -1631,8 +1684,9 @@ class ConstraintSolver:
 
         scored.sort(key=lambda x: -x[0])
 
-        # Take top N
-        solver_locs = [loc for _, loc in scored[:MAX_SOLVER_LOCATIONS]]
+        # Dynamic solver capacity: min(80, total) — allows more locations in solver
+        max_solver = min(_DEFAULT_MAX_SOLVER_LOCATIONS, len(self.all_locations))
+        solver_locs = [loc for _, loc in scored[:max_solver]]
 
         self.locations = solver_locs
         self.loc_names = [loc["name"] for loc in solver_locs]
@@ -1694,9 +1748,9 @@ class ConstraintSolver:
             return layout, "hierarchy", None
 
         # Scale solver budget based on problem size
-        # With 40 locations (80 params), keep budget tight for responsiveness
+        # With 80 locations (160 params), keep budget tight for responsiveness
         maxiter = max(50, min(200, 2000 // max(self.n, 1)))
-        popsize = max(4, min(8, 200 // max(self.n, 1)))
+        popsize = max(5, min(8, 200 // max(self.n, 1)))  # DE requires S > 4
 
         # Generate force-directed seed population
         seed_population = self._force_directed_seed(bounds, valid_constraints, popsize)
@@ -1748,7 +1802,7 @@ class ConstraintSolver:
     ) -> tuple[dict[str, tuple[float, float]], str, dict | None]:
         """Progressive batched solving for large constraint sets.
 
-        If >MAX_SOLVER_LOCATIONS constrained locations exist, solves in batches:
+        If >_DEFAULT_MAX_SOLVER_LOCATIONS constrained locations exist, solves in batches:
         batch 1 (top priority) → lock positions → batch 2 → ... until all
         constrained locations are solver-optimized.
         """
@@ -1761,7 +1815,7 @@ class ConstraintSolver:
         loc_names = {loc["name"] for loc in locations}
         constrained_in_locs = constrained_names & loc_names
 
-        if len(constrained_in_locs) <= MAX_SOLVER_LOCATIONS:
+        if len(constrained_in_locs) <= _DEFAULT_MAX_SOLVER_LOCATIONS:
             # Single batch is sufficient
             solver = ConstraintSolver(
                 locations, constraints,
@@ -1774,7 +1828,7 @@ class ConstraintSolver:
 
         logger.info(
             "Progressive solve: %d constrained locations > cap %d, using batched solving",
-            len(constrained_in_locs), MAX_SOLVER_LOCATIONS,
+            len(constrained_in_locs), _DEFAULT_MAX_SOLVER_LOCATIONS,
         )
 
         fixed: dict[str, tuple[float, float]] = {}
@@ -2005,11 +2059,14 @@ class ConstraintSolver:
         # Anti-overlap penalty (vectorized)
         e += self._e_overlap(coords)
 
-        # Uniform spread: repulsion to prevent clustering
-        e += self._e_uniform_spread(coords) * 0.5
+        # Uniform spread: repulsion weight scales with location count
+        # More locations → stronger repulsion to prevent clustering
+        _spread_w = 0.3 + 0.2 * min(1.0, self.n / 100)
+        e += self._e_uniform_spread(coords) * _spread_w
 
-        # Narrative order: weak tie-breaker for chapter proximity
-        e += self._e_narrative_order(coords) * 0.1
+        # Narrative order: weight scales with location count
+        _narr_w = 0.05 + 0.05 * min(1.0, self.n / 50)
+        e += self._e_narrative_order(coords) * _narr_w
 
         # Direction hints: weak preference for locations with directional names
         e += self._e_direction_hints(coords) * 0.3
@@ -3357,18 +3414,34 @@ def generate_roads(
     producing a connected network without redundant paths.
     """
     layout_map = {item["name"]: item for item in layout_data}
-    points = []
-    names = []
+
+    # Score locations: higher mention count + lower level = more important
+    scored: list[tuple[float, dict]] = []
     for loc in locations:
         item = layout_map.get(loc["name"])
-        if item and "x" in item and "y" in item:
-            # Skip ocean/sea locations — no roads on water
-            loc_type = (loc.get("type") or "").lower()
-            icon = (loc.get("icon") or "").lower()
-            if "海" in loc_type or "洋" in loc_type or icon == "water":
-                continue
-            points.append((item["x"], item["y"]))
-            names.append(loc["name"])
+        if not item or "x" not in item or "y" not in item:
+            continue
+        # Skip ocean/sea locations — no roads on water
+        loc_type = (loc.get("type") or "").lower()
+        icon = (loc.get("icon") or "").lower()
+        if "海" in loc_type or "洋" in loc_type or icon in ("water", "ocean"):
+            continue
+        score = loc.get("mention_count", 1) + (5 - loc.get("level", 3)) * 10
+        scored.append((score, loc))
+
+    # Limit road network to top 150 locations for performance
+    # (Delaunay + MST on thousands of points is too slow for roughjs rendering)
+    _MAX_ROAD_LOCATIONS = 150
+    if len(scored) > _MAX_ROAD_LOCATIONS:
+        scored.sort(key=lambda x: -x[0])
+        scored = scored[:_MAX_ROAD_LOCATIONS]
+
+    points = []
+    names = []
+    for _, loc in scored:
+        item = layout_map[loc["name"]]
+        points.append((item["x"], item["y"]))
+        names.append(loc["name"])
 
     if len(points) < 3:
         return []
@@ -3401,8 +3474,50 @@ def generate_roads(
             return True
         return False
 
+    # Build water-crossing check using land_mask
+    _land_mask = None
+    _cell_sz = 8.0
+    if land_mask_info:
+        _land_mask = land_mask_info.get("_land_mask")
+        _cell_sz = land_mask_info.get("_cell_size", 8.0)
+
+    # Compute max road length: median NN distance × 4 — roads longer than this
+    # almost certainly cross water or connect distant unrelated locations
+    nn_dists_road = np.linalg.norm(pts[np.newaxis] - pts[:, np.newaxis], axis=2)
+    np.fill_diagonal(nn_dists_road, np.inf)
+    median_nn_road = float(np.median(nn_dists_road.min(axis=1)))
+    max_road_dist = median_nn_road * 4.0
+
+    def _crosses_water(ax: float, ay: float, bx: float, by: float) -> bool:
+        """Check if a road segment crosses water by dense sampling along it."""
+        if _land_mask is None:
+            return False
+        grid_h, grid_w = _land_mask.shape
+        # Adaptive sampling: 1 sample per 8px (= cell_size), min 8 samples
+        seg_len = math.sqrt((bx - ax) ** 2 + (by - ay) ** 2)
+        n_samples = max(8, int(seg_len / _cell_sz))
+        for i in range(1, n_samples):
+            t = i / n_samples
+            sx = ax + t * (bx - ax)
+            sy = ay + t * (by - ay)
+            gx = int(round(sx / _cell_sz))
+            gy = int(round(sy / _cell_sz))
+            if 0 <= gy < grid_h and 0 <= gx < grid_w:
+                if not _land_mask[gy, gx]:
+                    return True
+        return False
+
+    # Pre-filter: remove long edges and water-crossing edges before MST
+    land_edges: dict[tuple[int, int], float] = {}
+    for key, dist in edges.items():
+        if dist > max_road_dist:
+            continue  # too long → skip
+        a, b = key
+        if not _crosses_water(pts[a][0], pts[a][1], pts[b][0], pts[b][1]):
+            land_edges[key] = dist
+
     roads = []
-    for (a, b), dist in sorted(edges.items(), key=lambda x: x[1]):
+    for (a, b), dist in sorted(land_edges.items(), key=lambda x: x[1]):
         if _union(a, b):
             roads.append({
                 "from": names[a],
@@ -3437,6 +3552,7 @@ def generate_landmasses(
     novel_id: str,
     canvas_width: int = CANVAS_WIDTH,
     canvas_height: int = CANVAS_HEIGHT,
+    **_kwargs,  # accept and ignore location_region_map for backward compat
 ) -> dict:
     """Generate landmass contours via distance field + contour tracing.
 
@@ -3458,6 +3574,8 @@ def generate_landmasses(
         coords[name] = (item["x"], item["y"])
         tiers[name] = item.get("tier", "site")
 
+    cell_size = 8.0  # grid cell size in canvas px (canvas_width // 8)
+
     # Classify locations: only ocean/sea types create coastline gaps
     ocean_names: set[str] = set()  # seas/oceans → distance amplification
     island_names: set[str] = set()
@@ -3469,6 +3587,10 @@ def generate_landmasses(
         if icon == "island" or any(kw in loc_type for kw in _ISLAND_TYPE_KEYWORDS):
             island_names.add(name)
         elif icon == "ocean" or (
+            # icon=water + type is actual water body (海/洋/湖) — not rivers/springs/bridges
+            icon == "water"
+            and loc_type in ("海", "洋", "海洋", "大海", "海域", "湖", "湖泊")
+        ) or (
             any(kw in loc_type for kw in _OCEAN_TYPE_KEYWORDS)
             and not any(ex in loc_type for ex in _OCEAN_TYPE_EXCLUDE)
             # Only match actual seas/oceans, not rivers/springs with 海 in name
@@ -3534,12 +3656,16 @@ def generate_landmasses(
         ocean_factor = 1.0 + 1.5 * np.exp(-ocean_dists / max(amplify_radius, 1))
         dist_field *= ocean_factor
 
+    # NOTE: Region-aware multi-continent separation (T4) was removed.
+    # The distance-field suppression approach fragments landmasses when locations
+    # are densely distributed. The natural distance field already creates
+    # separation based on point density gaps between region clusters.
+
     # ── 1.3 Adaptive threshold ──
     nn_dists, _ = tree.query(points_arr, k=2)
     median_nn = float(np.median(nn_dists[:, 1]))
 
     # Convert median_nn from canvas coords to grid coords
-    cell_size = 8.0
     median_nn_grid = median_nn / cell_size
     # Generous threshold: merge nearby clusters into larger continents.
     # Higher k_factor = larger landmasses, fewer isolated islands.
@@ -3887,6 +4013,66 @@ def generate_landmasses(
             continue
         smoothed_shelf = _distort_coastline(sc, sc_area)
         shelves.append([[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf])
+
+    # ── Post-generation coverage guarantee ──
+    # Chaikin smoothing + OpenSimplex distortion shrink coastlines inward,
+    # causing edge locations to fall outside rendered polygons even though
+    # land_mask covers them. Expand each coastline to guarantee coverage.
+    _expand_margin = max(15.0, min(canvas_width, canvas_height) * 0.01)
+    _uncovered_expanded = 0
+    for lm in landmasses:
+        coast = lm["coastline"]
+        if len(coast) < 3:
+            continue
+        # Find non-ocean points outside this landmass
+        uncovered_pts: list[tuple[float, float]] = []
+        for pt in all_points:
+            if _point_in_polygon(pt[0], pt[1], coast):
+                continue
+            # Check if near this coastline (within expand_margin * 3)
+            min_dist = min(
+                math.sqrt((pt[0] - c[0]) ** 2 + (pt[1] - c[1]) ** 2)
+                for c in coast
+            )
+            if min_dist < _expand_margin * 3:
+                uncovered_pts.append(pt)
+
+        if not uncovered_pts:
+            continue
+
+        # Expand coastline outward to cover uncovered points
+        # Compute centroid of coastline
+        cx = sum(c[0] for c in coast) / len(coast)
+        cy = sum(c[1] for c in coast) / len(coast)
+        new_coast: list[list[float]] = []
+        for c in coast:
+            # Check if any uncovered point is near this coast segment
+            needs_expand = False
+            for pt in uncovered_pts:
+                d = math.sqrt((pt[0] - c[0]) ** 2 + (pt[1] - c[1]) ** 2)
+                if d < _expand_margin * 2:
+                    needs_expand = True
+                    break
+            if needs_expand:
+                # Push this vertex outward from centroid
+                dx = c[0] - cx
+                dy = c[1] - cy
+                dist_from_center = math.sqrt(dx * dx + dy * dy)
+                if dist_from_center > 1e-6:
+                    scale = _expand_margin / dist_from_center
+                    new_coast.append([
+                        round(c[0] + dx * scale, 1),
+                        round(c[1] + dy * scale, 1),
+                    ])
+                else:
+                    new_coast.append(c)
+            else:
+                new_coast.append(c)
+        lm["coastline"] = new_coast
+        _uncovered_expanded += len(uncovered_pts)
+
+    if _uncovered_expanded:
+        logger.info("Expanded coastlines to cover %d uncovered locations", _uncovered_expanded)
 
     logger.info(
         "Generated landmasses for novel %s: %d landmasses, %d shelves (threshold=%.1f, n=%d)",
