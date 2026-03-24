@@ -21,7 +21,7 @@ LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
-LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "8192"))
+LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "16384"))
 
 # API protocol format for cloud providers: "openai" (default) | "anthropic"
 # Separate from LLM_PROVIDER so users can use Anthropic-compatible proxies
