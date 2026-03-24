@@ -597,6 +597,15 @@
         "value": "水帘洞位于花果山瀑布内",
         "confidence": "high",
         "narrative_evidence": "花果山上有一水帘洞"
+      },
+      {
+        "source": "傲来国",
+        "target": "花果山",
+        "relation_type": "contains",
+        "value": "",
+        "confidence": "high",
+        "narrative_evidence": "海外有一国土名曰傲来国，国近大海之中有一座名山",
+        "confidence_score": 0.9
       }
     ],
     "item_events": [],

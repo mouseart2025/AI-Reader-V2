@@ -80,7 +80,17 @@
 2. relation_type 必须是以下之一：direction, distance, contains, adjacent, separated_by, terrain, in_between, travel_path, relative_scale, cluster
 3. direction 的 value 使用英文方位：north_of, south_of, east_of, west_of, northeast_of, northwest_of, southeast_of, southwest_of
 4. distance 的 value 描述距离信息，如 "三天路程（步行）"、"百里"、"very_near"
-5. contains: **source 包含 target**（source 是更大的地理实体，target 在 source 内部）。正确示例: source="东京" target="开封府"（东京包含开封府）。错误示例: source="开封府" target="东京"（❌ 小地方不能包含大地方）。判断方法: 如果 A 在 B 里面，则 source=B, target=A
+5. contains: **source 包含 target**（source 是容器/更大的地点，target 是被包含的/更小的地点）
+   - 主动语态: 文中说"B 包含 A"或"A 在 B 内" → source=B, target=A
+   - **判断方法: 比较地名后缀的地理层级: 洲 > 国 > 山/海 > 城/镇 > 村/洞/寺 > 殿/楼/房/院**
+   - 层级更高的是 source（容器），层级更低的是 target（被包含者）
+   - ✅ 正确: source="荣国府" target="怡红院"（府 > 院）
+   - ✅ 正确: source="花果山" target="水帘洞"（山 > 洞）
+   - ✅ 正确: source="东胜神洲" target="傲来国"（洲 > 国）
+   - ❌ 错误: source="怡红院" target="荣国府"（院不可能包含府）
+   - ❌ 错误: source="水帘洞" target="花果山"（洞不可能包含山）
+   - ❌ 错误: source="梨香院" target="荣国府"（院不可能包含府）
+   - ❌ 错误: source="县立高中" target="黄土高原"（学校不可能包含高原）
 6. adjacent 的 value 为 "adjacent"（相邻/接壤/毗邻）
 7. separated_by 的 value 描述分隔物：如 "大河"、"山脉"、"荒漠"
 8. terrain 的 value 描述地形特征：on_coast, in_forest, on_mountain, in_desert, by_river, in_plains
@@ -95,7 +105,11 @@
 17. waypoints（仅 travel_path 类型）：途经地点名称的有序列表，如 ["定州", "邺城"]。非 travel_path 类型不需要此字段
 18. 只提取文中有依据的关系，不要推测
 19. source 和 target 必须是本章或之前出现过的地点名
-20. **⚠️ 再次强调 contains 方向**：写 contains 关系前请自检——"source 比 target 大吗？source 能装下 target 吗？" 如果答案是否，请交换 source 和 target
+20. **⚠️ contains 自检清单**（每条 contains 必须通过以下检查）：
+   - 检查 1: source 的地名后缀层级 ≤ target 的后缀层级？（洲<国<山<城<村<洞<殿<房）
+   - 检查 2: source 能物理上装下 target 吗？
+   - 检查 3: 如果 source 的名字比 target 长很多，很可能是反的（长名字=更具体=更小）
+   - 任一检查失败 → 交换 source 和 target
 
 ## 事件提取规则（events）⚠️ participants 和 location 必填
 1. **participants 必须列出所有参与者的名字**，不可为空列表
