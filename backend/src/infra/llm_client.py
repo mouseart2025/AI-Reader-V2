@@ -91,6 +91,29 @@ def _extract_json(text: str) -> dict:
             except json.JSONDecodeError:
                 continue
 
+    # Try to repair truncated JSON (output hit max_tokens limit)
+    # Find the last valid JSON object by progressively closing brackets
+    if cleaned.startswith("{") or cleaned.startswith("["):
+        for attempt in range(5):
+            # Count unclosed brackets and try to close them
+            opens = cleaned.count("{") - cleaned.count("}")
+            open_arr = cleaned.count("[") - cleaned.count("]")
+            suffix = "]" * max(open_arr, 0) + "}" * max(opens, 0)
+            if not suffix:
+                break
+            try:
+                repaired = json.loads(cleaned + suffix)
+                logger.warning("Repaired truncated JSON (added %d closing brackets)", len(suffix))
+                if isinstance(repaired, list):
+                    dicts = [x for x in repaired if isinstance(x, dict)]
+                    if dicts:
+                        return dicts[0]
+                return repaired
+            except json.JSONDecodeError:
+                # Remove trailing partial value and retry
+                cleaned = cleaned.rsplit(",", 1)[0] if "," in cleaned else cleaned
+                continue
+
     # Show cleaned text in error (not raw <think> output which is useless noise)
     raise LLMParseError(f"Failed to extract JSON from LLM response: {cleaned[:200]}...")
 
