@@ -126,15 +126,29 @@ export default function ExportPage() {
     }
   }, [novelId, format, template, selectedModules, chapterStart, chapterEnd])
 
-  const handleAirExport = useCallback(() => {
+  const handleAirExport = useCallback(async () => {
     if (!novelId) return
     setAirExporting(true)
-    // Trigger download via hidden link
-    const a = document.createElement("a")
-    a.href = exportNovelAirUrl(novelId)
-    a.click()
-    // Reset after a short delay (download starts in background)
-    setTimeout(() => setAirExporting(false), 2000)
+    try {
+      const resp = await fetch(exportNovelAirUrl(novelId))
+      if (!resp.ok) throw new Error(`Export failed: ${resp.status}`)
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      // Extract filename from Content-Disposition header, or use default
+      const cd = resp.headers.get("Content-Disposition")
+      const match = cd?.match(/filename\*?=(?:UTF-8'')?(.+?)(?:;|$)/)
+      a.download = match ? decodeURIComponent(match[1].replace(/"/g, "")) : "export.air"
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error("AIR export failed:", e)
+    } finally {
+      setAirExporting(false)
+    }
   }, [novelId])
 
   return (
