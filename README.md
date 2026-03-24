@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.60.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.61.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -82,8 +82,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.60.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.60.0/AI.Reader_0.60.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.60.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.60.0/AI.Reader_0.60.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.61.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.61.0/AI.Reader_0.61.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.61.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.61.0/AI.Reader_0.61.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -125,6 +125,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.61.0 | 2026-03-24 | Prompt Registry(核心能力保护) + Scene Graph CoT空间推理 + contains方向修复(3个示例反转) + LLM输出容错(数组响应+abilities字符串) + .air导出修复(fetch+blob) + 云端免密切换 + 269 tests |
 | v0.60.0 | 2026-03-24 | 数据质量体系 — ProfileQualityChecker(关系突变+自引用+参与者修复) + LLM聚合审查(opt-in) + Genre-aware验证(修仙/武侠/现实分化) + 空间悬空引用过滤 + prompt负面示例 + 云模型更新(MiniMax M2.7/Gemini 2.5/GPT-4.1) + 269 tests |
 | v0.59.1 | 2026-03-24 | ProfileQualityChecker Phase 1+2 + 云模型版本更新 + 251 tests |
 | v0.59.0 | 2026-03-23 | 地图质量大版本 — LLM宏观方位锚定(MacroSkeleton directions) + 三重水域检测(icon+type+parent链) + 递归归陆(3轮) + 海岸线覆盖保证(Chaikin收缩补偿) + 道路跨海过滤(land_mask采样) + Solver容量40→80 + 能量函数自适应权重 + 方向提示LLM anchor×3 + 道路性能优化(roughjs→SVG, top 150) + non-scaling-stroke海岸线 + 218 tests |
