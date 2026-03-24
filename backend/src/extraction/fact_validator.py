@@ -31,6 +31,55 @@ _VALID_SPATIAL_RELATION_TYPES = {
 _VALID_CONFIDENCE = {"high", "medium", "low"}
 _VALID_DISTANCE_CLASS = {"near", "medium", "far", "very_far"}
 
+# ── Contains direction fix: suffix-based geographic rank ─────────────
+# Smaller number = larger geographic entity. Used to detect inverted contains.
+# Reuses the same principle as world_structure_agent._get_suffix_rank().
+_CONTAINS_RANK_ORDER = {"world": 0, "continent": 1, "kingdom": 2, "region": 3,
+                        "city": 4, "site": 5, "building": 6}
+
+_CONTAINS_SUFFIX_RANK: list[tuple[str, int]] = [
+    # 2+ char suffixes first
+    ("大陆", 1), ("王国", 2), ("帝国", 2), ("山脉", 3), ("地区", 2),
+    ("城市", 4), ("城池", 4), ("公社", 4), ("县城", 4),
+    ("客栈", 6), ("酒楼", 6), ("酒馆", 6), ("茶馆", 6), ("书院", 6),
+    ("祠堂", 6), ("宅院", 6), ("府邸", 6), ("洞府", 6),
+    # 1-char: macro
+    ("省", 1), ("界", 1), ("洲", 1), ("域", 1), ("海", 3),
+    # 1-char: kingdom
+    ("国", 2), ("府", 2), ("州", 2), ("道", 2),
+    # 1-char: region
+    ("郡", 3), ("县", 3), ("山", 3), ("岭", 3), ("岛", 3), ("谷", 3),
+    ("湖", 3), ("河", 3), ("林", 3), ("境", 3),
+    # 1-char: city
+    ("城", 4), ("都", 4), ("镇", 4), ("乡", 4), ("京", 4),
+    # 1-char: site
+    ("村", 5), ("庄", 5), ("寨", 5), ("洞", 5), ("窟", 5),
+    ("峰", 5), ("关", 5), ("坊", 5), ("街", 5), ("巷", 5),
+    ("寺", 5), ("庙", 5), ("观", 5), ("庵", 5), ("园", 5),
+    ("桥", 5), ("墓", 5), ("陵", 5),
+    # 1-char: building
+    ("殿", 6), ("堂", 6), ("阁", 6), ("楼", 6), ("塔", 6),
+    ("亭", 6), ("房", 6), ("室", 6), ("厅", 6), ("院", 6),
+    ("馆", 6), ("铺", 6), ("店", 6), ("门", 6), ("轩", 6),
+    ("斋", 6), ("居", 6), ("窗", 6),
+]
+
+
+def _get_contains_rank(name: str) -> int | None:
+    """Get geographic scale rank from Chinese location name suffix.
+
+    Returns rank (0=world, 6=building) or None if no suffix matches.
+    Used to fix inverted contains relationships.
+    """
+    if len(name) < 2:
+        return None
+    for suffix, rank in _CONTAINS_SUFFIX_RANK:
+        if name.endswith(suffix):
+            if len(suffix) >= 2 or len(name) > len(suffix):
+                return rank
+    return None
+
+
 # ── Location name normalization (variant → canonical) ────────────────
 # LLMs sometimes output different character variants for the same place.
 # Map all known variants to a single canonical form.
@@ -841,6 +890,28 @@ class FactValidator:
                     "Dropping spatial rel with invalid type: %s", relation_type
                 )
                 continue
+            # ── Contains direction fix: ensure source is larger than target ──
+            if relation_type == "contains":
+                swapped = False
+                src_rank = _get_contains_rank(source)
+                tgt_rank = _get_contains_rank(target)
+                if src_rank is not None and tgt_rank is not None and src_rank > tgt_rank:
+                    # Source is smaller (higher rank) than target → swap
+                    source, target = target, source
+                    swapped = True
+                elif src_rank == tgt_rank or (src_rank is None and tgt_rank is None):
+                    # Same rank or both unknown: use name length (longer = more specific = smaller)
+                    if len(source) > len(target) + 2:
+                        source, target = target, source
+                        swapped = True
+                    # Name containment tiebreak: "石圪节公社" starts with "石圪节"
+                    elif source.startswith(target) and len(source) > len(target):
+                        source, target = target, source
+                        swapped = True
+                if swapped:
+                    logger.debug("Fixed contains inversion: %s→%s (was %s→%s)",
+                                 source, target, target, source)
+
             confidence = rel.confidence if rel.confidence in _VALID_CONFIDENCE else "medium"
             # Deduplicate by (source, target, relation_type)
             key = (source, target, relation_type)
