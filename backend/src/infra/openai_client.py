@@ -218,11 +218,15 @@ class OpenAICompatibleClient:
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ]
+        # Cap max_tokens to provider limit (DeepSeek: 8192, most others: 16384+)
+        effective_max = max_tokens
+        if "deepseek" in self.base_url.lower():
+            effective_max = min(max_tokens, 8192)
         payload: dict = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            "max_tokens": effective_max,
             "stream": False,
         }
         if format is not None:
