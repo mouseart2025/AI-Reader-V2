@@ -134,15 +134,22 @@ export default function ExportPage() {
     if (!novelId) return
     setAirExporting(true)
     try {
+      // Fetch title fresh if not yet loaded
+      let title = novelTitle
+      if (!title) {
+        try {
+          const n = await fetchNovel(novelId)
+          title = n.title || ""
+        } catch { /* ignore */ }
+      }
       const resp = await fetch(exportNovelAirUrl(novelId))
       if (!resp.ok) throw new Error(`Export failed: ${resp.status}`)
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      // Use novel title + date as filename
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "")
-      a.download = novelTitle ? `${novelTitle}_${dateStr}.air` : `export_${dateStr}.air`
+      a.download = title ? `${title}_${dateStr}.air` : `export_${dateStr}.air`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -152,7 +159,7 @@ export default function ExportPage() {
     } finally {
       setAirExporting(false)
     }
-  }, [novelId])
+  }, [novelId, novelTitle])
 
   return (
     <div className="flex-1 overflow-auto">
