@@ -76,13 +76,20 @@ def _extract_json(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # Try to find the first JSON object
-    match = re.search(r"\{[\s\S]*\}", cleaned)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
+    # Try to find JSON object {...} or array [{...}]
+    for pattern in (r"\{[\s\S]*\}", r"\[[\s\S]*\]"):
+        match = re.search(pattern, cleaned)
+        if match:
+            try:
+                parsed = json.loads(match.group())
+                # If LLM returned array, extract first dict element
+                if isinstance(parsed, list):
+                    dicts = [x for x in parsed if isinstance(x, dict)]
+                    if dicts:
+                        return dicts[0]
+                return parsed
+            except json.JSONDecodeError:
+                continue
 
     # Show cleaned text in error (not raw <think> output which is useless noise)
     raise LLMParseError(f"Failed to extract JSON from LLM response: {cleaned[:200]}...")

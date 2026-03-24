@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class AbilityGained(BaseModel):
-    dimension: str  # "境界" / "技能" / "身份"
-    name: str
+    dimension: str = ""  # "境界" / "技能" / "身份"
+    name: str = ""
     description: str = ""
 
 
@@ -17,6 +17,20 @@ class CharacterFact(BaseModel):
     appearance: str | None = None
     abilities_gained: list[AbilityGained] = []
     locations_in_chapter: list[str] = []
+
+    @field_validator("abilities_gained", mode="before")
+    @classmethod
+    def _coerce_abilities(cls, v: list) -> list:
+        """LLM sometimes returns plain strings instead of AbilityGained dicts."""
+        if not isinstance(v, list):
+            return []
+        result = []
+        for item in v:
+            if isinstance(item, str):
+                result.append({"dimension": "技能", "name": item, "description": ""})
+            elif isinstance(item, dict):
+                result.append(item)
+        return result
 
 
 class RelationshipFact(BaseModel):
