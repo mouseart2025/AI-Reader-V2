@@ -46,11 +46,15 @@ export default function ExportPage() {
   const [relationCount, setRelationCount] = useState(0)
   const [airExporting, setAirExporting] = useState(false)
   const [statsLoading, setStatsLoading] = useState(false)
+  const [novelTitle, setNovelTitle] = useState("")
 
   useEffect(() => {
     if (!novelId) return
     fetchNovel(novelId)
-      .then((novel) => setTotalChapters(novel.total_chapters))
+      .then((novel) => {
+        setTotalChapters(novel.total_chapters)
+        setNovelTitle(novel.title || "")
+      })
       .catch(() => {})
   }, [novelId])
 
@@ -136,10 +140,9 @@ export default function ExportPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      // Extract filename from Content-Disposition header, or use default
-      const cd = resp.headers.get("Content-Disposition")
-      const match = cd?.match(/filename\*?=(?:UTF-8'')?(.+?)(?:;|$)/)
-      a.download = match ? decodeURIComponent(match[1].replace(/"/g, "")) : "export.air"
+      // Use novel title + date as filename
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+      a.download = novelTitle ? `${novelTitle}_${dateStr}.air` : `export_${dateStr}.air`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
