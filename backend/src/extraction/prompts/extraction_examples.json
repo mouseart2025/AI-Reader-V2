@@ -5,38 +5,52 @@
     "characters": [
       {
         "name": "韩立",
-        "new_aliases": ["二愣子"],
+        "new_aliases": [
+          "二愣子"
+        ],
         "appearance": "皮肤黑黑的，普通的农家小孩模样",
         "abilities_gained": [],
-        "locations_in_chapter": ["山村"]
+        "locations_in_chapter": [
+          "山村"
+        ]
       },
       {
         "name": "韩铸",
-        "new_aliases": ["二哥"],
+        "new_aliases": [
+          "二哥"
+        ],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["山村"]
+        "locations_in_chapter": [
+          "山村"
+        ]
       },
       {
         "name": "三叔",
         "new_aliases": [],
         "appearance": "穿着一身崭新的缎子衣服，胖胖的圆脸，留着一撮小胡子",
         "abilities_gained": [],
-        "locations_in_chapter": ["山村"]
+        "locations_in_chapter": [
+          "山村"
+        ]
       },
       {
         "name": "韩父",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["山村"]
+        "locations_in_chapter": [
+          "山村"
+        ]
       },
       {
         "name": "韩母",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["山村"]
+        "locations_in_chapter": [
+          "山村"
+        ]
       }
     ],
     "relationships": [
@@ -99,21 +113,33 @@
         "summary": "三叔来到韩家，提议带韩立参加七玄门招收内门弟子的考验",
         "type": "社交",
         "importance": "high",
-        "participants": ["韩立", "三叔", "韩父"],
+        "participants": [
+          "韩立",
+          "三叔",
+          "韩父"
+        ],
         "location": "山村"
       },
       {
         "summary": "韩父犹豫后同意让韩立去七玄门",
         "type": "社交",
         "importance": "medium",
-        "participants": ["韩父", "三叔"],
+        "participants": [
+          "韩父",
+          "三叔"
+        ],
         "location": "山村"
       },
       {
         "summary": "三叔一个多月后接走韩立，韩立第一次出远门与父母分别",
         "type": "旅行",
         "importance": "medium",
-        "participants": ["韩立", "三叔", "韩父", "韩母"],
+        "participants": [
+          "韩立",
+          "三叔",
+          "韩父",
+          "韩母"
+        ],
         "location": "山村"
       }
     ],
@@ -122,13 +148,19 @@
         "name": "外门弟子",
         "category": "门派制度",
         "definition": "七玄门外围人员，替门派打理门外的生意",
-        "related": ["七玄门", "内门弟子"]
+        "related": [
+          "七玄门",
+          "内门弟子"
+        ]
       },
       {
         "name": "内门弟子",
         "category": "门派制度",
         "definition": "七玄门正式弟子，免费习武，每月有一两散银零花钱",
-        "related": ["七玄门", "外门弟子"]
+        "related": [
+          "七玄门",
+          "外门弟子"
+        ]
       }
     ],
     "world_declarations": []
@@ -149,7 +181,9 @@
             "description": "张铁所练的外门功法，共分九层。前三层易练；第四层起极度痛苦，许多人中途放弃；突破第六层到第七层后又一路平坦，但每月仍需定期承受剧痛。练至第九层可刀枪不入，水火不侵，更拥有巨象之力，能活擒恶狼、生撕虎豹。"
           }
         ],
-        "locations_in_chapter": ["七玄门"]
+        "locations_in_chapter": [
+          "七玄门"
+        ]
       },
       {
         "name": "张铁",
@@ -162,14 +196,18 @@
             "description": "张铁正在修炼的功法，目前修炼层数不明"
           }
         ],
-        "locations_in_chapter": ["七玄门"]
+        "locations_in_chapter": [
+          "七玄门"
+        ]
       },
       {
         "name": "墨大夫",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["七玄门"]
+        "locations_in_chapter": [
+          "七玄门"
+        ]
       }
     ],
     "relationships": [
@@ -238,7 +276,9 @@
         "summary": "韩立发现丹田内有阴寒之物潜伏，使用清灵散等各种驱毒方法未能奏效",
         "type": "成长",
         "importance": "medium",
-        "participants": ["韩立"],
+        "participants": [
+          "韩立"
+        ],
         "location": "七玄门"
       }
     ],
@@ -247,7 +287,10 @@
         "name": "象甲功",
         "category": "功法",
         "definition": "一门罕见的外门武功，共分九层。前三层与普通武功难度相当；第四层起突然变得极其艰难，修炼者需承受非人的痛苦，许多人因此放弃；但突破第六层到第七层后又变得平坦，仅每月需定期忍受剧痛。练至第九层可身如宝甲、刀枪不入、水火不侵，并能获得巨象之力，力大无穷。因修炼痛苦巨大，此功法几近失传。",
-        "related": ["张铁", "墨大夫"]
+        "related": [
+          "张铁",
+          "墨大夫"
+        ]
       }
     ],
     "world_declarations": []
@@ -262,7 +305,10 @@
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["落云宗", "天星城"]
+        "locations_in_chapter": [
+          "落云宗",
+          "天星城"
+        ]
       }
     ],
     "relationships": [],
@@ -324,8 +370,8 @@
         "narrative_evidence": "落云宗建于翠屏山之上"
       },
       {
-        "source": "落云宗",
-        "target": "乱星海",
+        "source": "乱星海",
+        "target": "落云宗",
         "relation_type": "contains",
         "value": "落云宗位于乱星海范围内",
         "confidence": "high",
@@ -347,7 +393,9 @@
         "summary": "韩立从落云宗出发前往天星城采购炼丹材料",
         "type": "旅行",
         "importance": "medium",
-        "participants": ["韩立"],
+        "participants": [
+          "韩立"
+        ],
         "location": "天星城"
       }
     ],
@@ -371,45 +419,62 @@
     "characters": [
       {
         "name": "石猴",
-        "new_aliases": ["美猴王"],
+        "new_aliases": [
+          "美猴王"
+        ],
         "appearance": "目运两道金光，射冲斗府",
         "abilities_gained": [],
-        "locations_in_chapter": ["花果山", "水帘洞"]
+        "locations_in_chapter": [
+          "花果山",
+          "水帘洞"
+        ]
       },
       {
         "name": "赤尻马猴",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["花果山"]
+        "locations_in_chapter": [
+          "花果山"
+        ]
       },
       {
         "name": "通背猿猴",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["花果山"]
+        "locations_in_chapter": [
+          "花果山"
+        ]
       },
       {
         "name": "玉皇大帝",
-        "new_aliases": ["玉帝"],
+        "new_aliases": [
+          "玉帝"
+        ],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["灵霄宝殿"]
+        "locations_in_chapter": [
+          "灵霄宝殿"
+        ]
       },
       {
         "name": "千里眼",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["南天门"]
+        "locations_in_chapter": [
+          "南天门"
+        ]
       },
       {
         "name": "顺风耳",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["南天门"]
+        "locations_in_chapter": [
+          "南天门"
+        ]
       }
     ],
     "relationships": [
@@ -518,16 +583,16 @@
         "narrative_evidence": "国近大海，海中有一座山，唤为花果山"
       },
       {
-        "source": "傲来国",
-        "target": "东胜神洲",
+        "source": "东胜神洲",
+        "target": "傲来国",
         "relation_type": "contains",
         "value": "傲来国在东胜神洲海外",
         "confidence": "high",
         "narrative_evidence": "海外有一国土，名曰傲来国"
       },
       {
-        "source": "水帘洞",
-        "target": "花果山",
+        "source": "花果山",
+        "target": "水帘洞",
         "relation_type": "contains",
         "value": "水帘洞位于花果山瀑布内",
         "confidence": "high",
@@ -541,14 +606,23 @@
         "summary": "仙石迸裂化为石猴，目运金光惊动天庭",
         "type": "其他",
         "importance": "high",
-        "participants": ["石猴", "玉皇大帝", "千里眼", "顺风耳"],
+        "participants": [
+          "石猴",
+          "玉皇大帝",
+          "千里眼",
+          "顺风耳"
+        ],
         "location": "花果山"
       },
       {
         "summary": "石猴跳入瀑布发现水帘洞，众猴拜其为美猴王",
         "type": "社交",
         "importance": "high",
-        "participants": ["石猴", "赤尻马猴", "通背猿猴"],
+        "participants": [
+          "石猴",
+          "赤尻马猴",
+          "通背猿猴"
+        ],
         "location": "水帘洞"
       }
     ],
@@ -558,7 +632,12 @@
         "declaration_type": "region_division",
         "content": {
           "parent": "世界",
-          "children": ["东胜神洲", "西牛贺洲", "南赡部洲", "北俱芦洲"],
+          "children": [
+            "东胜神洲",
+            "西牛贺洲",
+            "南赡部洲",
+            "北俱芦洲"
+          ],
           "division_basis": "方位"
         },
         "narrative_evidence": "世界之间遂分为四大部洲：曰东胜神洲曰西牛贺洲曰南赡部洲曰北俱芦洲",
@@ -621,21 +700,30 @@
         "new_aliases": [],
         "appearance": "高个子，瘦削，穿着破烂的衣服",
         "abilities_gained": [],
-        "locations_in_chapter": ["县立高中", "原西县"]
+        "locations_in_chapter": [
+          "县立高中",
+          "原西县"
+        ]
       },
       {
         "name": "田润叶",
-        "new_aliases": ["润叶"],
+        "new_aliases": [
+          "润叶"
+        ],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["县立高中"]
+        "locations_in_chapter": [
+          "县立高中"
+        ]
       },
       {
         "name": "孙少安",
         "new_aliases": [],
         "appearance": null,
         "abilities_gained": [],
-        "locations_in_chapter": ["双水村"]
+        "locations_in_chapter": [
+          "双水村"
+        ]
       }
     ],
     "relationships": [
@@ -725,7 +813,9 @@
         "summary": "孙少平在县立高中食堂排队领饭，因贫困只能吃最差的黑面馍",
         "type": "社交",
         "importance": "medium",
-        "participants": ["孙少平"],
+        "participants": [
+          "孙少平"
+        ],
         "location": "县立高中"
       }
     ],
