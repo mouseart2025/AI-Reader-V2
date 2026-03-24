@@ -95,6 +95,7 @@
 17. waypoints（仅 travel_path 类型）：途经地点名称的有序列表，如 ["定州", "邺城"]。非 travel_path 类型不需要此字段
 18. 只提取文中有依据的关系，不要推测
 19. source 和 target 必须是本章或之前出现过的地点名
+20. **⚠️ 再次强调 contains 方向**：写 contains 关系前请自检——"source 比 target 大吗？source 能装下 target 吗？" 如果答案是否，请交换 source 和 target
 
 ## 事件提取规则（events）⚠️ participants 和 location 必填
 1. **participants 必须列出所有参与者的名字**，不可为空列表
