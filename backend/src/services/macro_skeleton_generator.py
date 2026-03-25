@@ -194,9 +194,9 @@ class MacroSkeletonGenerator:
                 prompt=prompt,
                 format=_SKELETON_SCHEMA,
                 temperature=0.1,
-                max_tokens=4096,
+                max_tokens=8192,  # v0.63.0: 4K→8K for novels with 500+ locations
                 timeout=budget.hierarchy_timeout,
-                num_ctx=min(budget.context_window, 8192),
+                num_ctx=min(budget.context_window, 16384),
             )
         except Exception:
             logger.warning("Macro skeleton LLM call failed", exc_info=True)

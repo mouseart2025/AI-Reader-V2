@@ -1,0 +1,103 @@
+{
+  "_meta": {
+    "novel": "西游记",
+    "author": "吴承恩",
+    "version": "1.0",
+    "annotation_rules": [
+      "只标注直接父级，不跳级",
+      "以原著最后一次明确描述为准",
+      "模糊归属取叙事主场景",
+      "tier 按 suffix rank 体系标注"
+    ],
+    "total_locations": 72
+  },
+  "locations": [
+    {"name": "东胜神洲", "correct_parent": null, "tier": "continent"},
+    {"name": "西牛贺洲", "correct_parent": null, "tier": "continent"},
+    {"name": "南赡部洲", "correct_parent": null, "tier": "continent"},
+    {"name": "北俱芦洲", "correct_parent": null, "tier": "continent"},
+
+    {"name": "傲来国", "correct_parent": "东胜神洲", "tier": "kingdom"},
+    {"name": "花果山", "correct_parent": "傲来国", "tier": "region"},
+    {"name": "水帘洞", "correct_parent": "花果山", "tier": "site"},
+
+    {"name": "大唐", "correct_parent": "南赡部洲", "tier": "kingdom"},
+    {"name": "长安", "correct_parent": "大唐", "tier": "city"},
+    {"name": "大慈恩寺", "correct_parent": "长安", "tier": "site"},
+    {"name": "化生寺", "correct_parent": "长安", "tier": "site"},
+
+    {"name": "两界山", "correct_parent": "大唐", "tier": "region"},
+    {"name": "五行山", "correct_parent": "大唐", "tier": "region"},
+
+    {"name": "鹰愁涧", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "高老庄", "correct_parent": "西牛贺洲", "tier": "site"},
+    {"name": "云栈洞", "correct_parent": "福陵山", "tier": "site"},
+    {"name": "福陵山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "流沙河", "correct_parent": "西牛贺洲", "tier": "region"},
+
+    {"name": "黑风山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "黑风洞", "correct_parent": "黑风山", "tier": "site"},
+    {"name": "黄风岭", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "黄风洞", "correct_parent": "黄风岭", "tier": "site"},
+    {"name": "白虎岭", "correct_parent": "西牛贺洲", "tier": "region"},
+
+    {"name": "万寿山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "五庄观", "correct_parent": "万寿山", "tier": "site"},
+
+    {"name": "宝象国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "乌鸡国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "车迟国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "女儿国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "祭赛国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "朱紫国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "比丘国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "灭法国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "天竺国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "狮驼国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "玉华州", "correct_parent": "天竺国", "tier": "kingdom"},
+    {"name": "金平府", "correct_parent": "天竺国", "tier": "kingdom"},
+    {"name": "凤仙郡", "correct_parent": "天竺国", "tier": "region"},
+    {"name": "铜台府", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+
+    {"name": "平顶山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "莲花洞", "correct_parent": "平顶山", "tier": "site"},
+    {"name": "火焰山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "芭蕉洞", "correct_parent": "翠云山", "tier": "site"},
+    {"name": "翠云山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "通天河", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "盘丝洞", "correct_parent": "盘丝岭", "tier": "site"},
+    {"name": "盘丝岭", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "狮驼岭", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "狮驼洞", "correct_parent": "狮驼岭", "tier": "site"},
+
+    {"name": "陷空山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "无底洞", "correct_parent": "陷空山", "tier": "site"},
+    {"name": "积雷山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "摩云洞", "correct_parent": "积雷山", "tier": "site"},
+    {"name": "号山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "火云洞", "correct_parent": "号山", "tier": "site"},
+    {"name": "碗子山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "波月洞", "correct_parent": "碗子山", "tier": "site"},
+
+    {"name": "灵山", "correct_parent": "西牛贺洲", "tier": "region"},
+    {"name": "大雷音寺", "correct_parent": "灵山", "tier": "site"},
+
+    {"name": "天庭", "correct_parent": null, "tier": "continent"},
+    {"name": "灵霄宝殿", "correct_parent": "天庭", "tier": "building"},
+    {"name": "南天门", "correct_parent": "天庭", "tier": "building"},
+    {"name": "蟠桃园", "correct_parent": "天庭", "tier": "site"},
+    {"name": "兜率宫", "correct_parent": "天庭", "tier": "site"},
+    {"name": "御马监", "correct_parent": "天庭", "tier": "building"},
+    {"name": "凌霄殿", "correct_parent": "天庭", "tier": "building"},
+
+    {"name": "东海", "correct_parent": "东胜神洲", "tier": "region"},
+    {"name": "龙宫", "correct_parent": "东海", "tier": "site"},
+
+    {"name": "地府", "correct_parent": null, "tier": "continent"},
+    {"name": "森罗殿", "correct_parent": "地府", "tier": "building"},
+    {"name": "翠屏山", "correct_parent": "东胜神洲", "tier": "region"},
+
+    {"name": "珞珈山", "correct_parent": "南海", "tier": "region"},
+    {"name": "南海", "correct_parent": "西牛贺洲", "tier": "region"}
+  ]
+}

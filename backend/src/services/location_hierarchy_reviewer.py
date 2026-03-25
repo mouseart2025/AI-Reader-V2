@@ -64,8 +64,9 @@ class LocationHierarchyReviewer:
 
     # ── Reflection constants ──
     _REFLECTION_BATCH_SIZE = 10
-    _REFLECTION_MAX_BATCHES = 2
-    _REFLECTION_TIMEOUT = 30.0  # seconds per batch
+    _REFLECTION_MAX_BATCHES_LOCAL = 2   # Ollama: conservative LLM calls
+    _REFLECTION_MAX_BATCHES_CLOUD = 4   # Cloud API: can afford more
+    _REFLECTION_TIMEOUT = 60.0  # seconds per batch (v0.63.0: 30→60s)
 
     _REFLECTION_SCHEMA: dict = {
         "type": "object",
@@ -79,9 +80,10 @@ class LocationHierarchyReviewer:
                         "parent": {"type": "string"},
                         "verdict": {
                             "type": "string",
-                            "enum": ["correct", "sibling", "reverse"],
+                            "enum": ["correct", "sibling", "reverse", "uncertain"],
                         },
                         "reason": {"type": "string"},
+                        "evidence": {"type": "string"},
                     },
                     "required": ["child", "parent", "verdict"],
                 },
@@ -89,6 +91,15 @@ class LocationHierarchyReviewer:
         },
         "required": ["results"],
     }
+
+    @property
+    def _reflection_max_batches(self) -> int:
+        """Return batch limit based on LLM provider (local vs cloud)."""
+        from src.infra.openai_client import OpenAICompatibleClient
+        from src.infra.anthropic_client import AnthropicClient
+        if isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient)):
+            return self._REFLECTION_MAX_BATCHES_CLOUD
+        return self._REFLECTION_MAX_BATCHES_LOCAL
 
     async def reflect_suspicious(
         self, title: str, suspicious: list[dict],
@@ -112,12 +123,13 @@ class LocationHierarchyReviewer:
             "same_suffix": "同后缀",
             "close_votes": "票数接近",
             "name_contained": "名称包含",
+            "transitivity_violation": "传递性违背",
         }
 
         all_results: list[dict] = []
         remaining = list(suspicious)
 
-        for batch_idx in range(self._REFLECTION_MAX_BATCHES):
+        for batch_idx in range(self._reflection_max_batches):
             if not remaining:
                 break
             batch = remaining[:self._REFLECTION_BATCH_SIZE]
@@ -137,7 +149,11 @@ class LocationHierarchyReviewer:
             pairs_text = "\n".join(lines)
 
             prompt = template.format(title=title, pairs_text=pairs_text)
-            system = "你是一个小说地理分析专家。请严格按照 JSON 格式输出。"
+            system = (
+                "你是一个小说地理分析专家。请严格按照 JSON 格式输出。\n"
+                "每条判定必须在 evidence 字段中引用小说原文片段或章节编号作为依据。\n"
+                "如果找不到原文依据来支撑你的判定，verdict 应为 \"uncertain\" 而非 \"correct\" 或 \"reverse\"。"
+            )
             budget = get_budget()
 
             try:
@@ -147,9 +163,9 @@ class LocationHierarchyReviewer:
                         prompt=prompt,
                         format=self._REFLECTION_SCHEMA,
                         temperature=0.1,
-                        max_tokens=2048,
+                        max_tokens=4096,  # v0.63.0: 2K→4K for evidence field
                         timeout=budget.hierarchy_timeout,
-                        num_ctx=min(budget.context_window, 8192),
+                        num_ctx=min(budget.context_window, 16384),
                     ),
                     timeout=self._REFLECTION_TIMEOUT,
                 )
@@ -172,14 +188,23 @@ class LocationHierarchyReviewer:
                     logger.warning("Failed to parse reflection batch %d as JSON", batch_idx + 1)
                     continue
 
+            # LLM may return [{...}] array instead of {"results": [{...}]}
+            if isinstance(result, list):
+                result = {"results": result}
+
             for item in result.get("results", []):
                 verdict = item.get("verdict", "")
-                if verdict in ("sibling", "reverse"):
+                evidence = item.get("evidence", "")
+                # No evidence → downgrade to uncertain (Story 3.2)
+                if verdict in ("sibling", "reverse") and not evidence:
+                    verdict = "uncertain"
+                if verdict in ("sibling", "reverse", "uncertain"):
                     all_results.append({
                         "child": item.get("child", ""),
                         "parent": item.get("parent", ""),
                         "verdict": verdict,
                         "reason": item.get("reason", ""),
+                        "evidence": evidence,
                     })
 
             logger.info(
@@ -424,7 +449,8 @@ class LocationHierarchyReviewer:
     # Subtree size threshold: trees smaller than this are batched together
     _SUBTREE_MIN_SIZE = 5
     # Per-subtree LLM timeout (seconds)
-    _SUBTREE_TIMEOUT = 45.0
+    _SUBTREE_TIMEOUT = 90.0  # v0.63.0: 45→90s for slower cloud models
+    _SUBTREE_CONCURRENCY = 5  # Max concurrent subtree validations (rate limit protection)
     # Max nodes per subtree slice sent to LLM
     _SUBTREE_MAX_DETAIL = 30
 
@@ -512,9 +538,14 @@ class LocationHierarchyReviewer:
                 len(small_batch_roots), len(small_batch_parents),
             )
 
+        # Skip tiny subtrees (≤2 nodes) — not worth an LLM call
+        before_filter = len(large_slices)
+        large_slices = [(label, sp) for label, sp in large_slices if len(sp) > 2]
+        skipped_tiny = before_filter - len(large_slices)
+
         logger.info(
-            "Subtree validation: %d slices from %d root children",
-            len(large_slices), len(root_children_names),
+            "Subtree validation: %d slices from %d root children (skipped %d tiny)",
+            len(large_slices), len(root_children_names), skipped_tiny,
         )
 
         all_known = set(location_tiers.keys()) | set(location_parents.values())
@@ -552,10 +583,19 @@ class LocationHierarchyReviewer:
                 return []
 
         if is_cloud and len(large_slices) > 1:
-            # Cloud: concurrent execution
-            logger.info("Cloud mode: running %d subtree validations concurrently", len(large_slices))
+            # Cloud: concurrent with semaphore to avoid rate limiting
+            sem = asyncio.Semaphore(self._SUBTREE_CONCURRENCY)
+            logger.info(
+                "Cloud mode: running %d subtree validations (concurrency=%d)",
+                len(large_slices), self._SUBTREE_CONCURRENCY,
+            )
+
+            async def _limited_run(label: str, sp: dict[str, str]) -> list[dict]:
+                async with sem:
+                    return await _run_slice(label, sp)
+
             results = await asyncio.gather(
-                *[_run_slice(label, sp) for label, sp in large_slices]
+                *[_limited_run(label, sp) for label, sp in large_slices]
             )
             all_corrections = []
             for r in results:

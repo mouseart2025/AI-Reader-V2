@@ -1188,6 +1188,61 @@ def consolidate_hierarchy(
         if _is_geographic_name(root) and not _is_sub_location_name(root):
             _try_saved_or_uber(root, "geo-to-root")
 
+    # ── Step 11.5: Kingdom→Continent rescue (v0.63.0) ──
+    # When continent-tier locations exist, kingdom-tier orphans should attach to
+    # the nearest continent (by vote evidence or proximity), NOT uber_root.
+    # This prevents kingdoms like 车迟国/天竺国 from sitting directly under 天下.
+    continents = [loc for loc, t in location_tiers.items()
+                  if t == "continent" and loc != uber_root]
+    if continents and uber_root:
+        kingdom_orphans = [
+            loc for loc in all_known
+            if loc not in location_parents
+            and loc != uber_root
+            and location_tiers.get(loc) == "kingdom"
+        ]
+        kingdom_rescued = 0
+        for orphan in kingdom_orphans:
+            # Strategy 1: Check parent_votes for continent evidence
+            best_continent = None
+            best_votes = 0
+            if parent_votes and orphan in parent_votes:
+                for candidate, votes in parent_votes[orphan].items():
+                    if candidate in continents and votes > best_votes:
+                        best_continent = candidate
+                        best_votes = votes
+            # Strategy 2: Check saved_parents
+            if not best_continent and saved_parents:
+                saved_p = saved_parents.get(orphan)
+                if saved_p in continents:
+                    best_continent = saved_p
+            # Strategy 3: Pick the continent with most kingdom children (dominant)
+            if not best_continent and len(continents) == 1:
+                best_continent = continents[0]
+            elif not best_continent:
+                # Pick continent with highest kingdom child count
+                continent_scores = {}
+                for c in continents:
+                    child_count = sum(
+                        1 for ch, p in location_parents.items()
+                        if p == c and location_tiers.get(ch) == "kingdom"
+                    )
+                    continent_scores[c] = child_count
+                if continent_scores:
+                    best_continent = max(continent_scores, key=continent_scores.get)
+
+            if best_continent:
+                if _safe_set_parent(orphan, best_continent, location_parents,
+                                    f"kingdom-rescue:{orphan}→{best_continent}"):
+                    kingdom_rescued += 1
+                    changes_made += 1
+
+        if kingdom_rescued:
+            logger.info(
+                "Kingdom→Continent rescue: %d kingdoms assigned to continents "
+                "(continents: %s)", kingdom_rescued, continents,
+            )
+
     # ── Step 12: Tiered catch-all — adopt orphan nodes with intermediate matching ──
     catchall_adopted = _tiered_catchall(
         all_known, uber_root, location_parents, location_tiers,

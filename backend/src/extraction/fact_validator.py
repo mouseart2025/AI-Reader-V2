@@ -38,30 +38,52 @@ _CONTAINS_RANK_ORDER = {"world": 0, "continent": 1, "kingdom": 2, "region": 3,
                         "city": 4, "site": 5, "building": 6}
 
 _CONTAINS_SUFFIX_RANK: list[tuple[str, int]] = [
-    # 2+ char suffixes first
+    # 3+ char suffixes
+    ("自治区", 1), ("直辖市", 1), ("黑龙江", 1),
+    # 2+ char suffixes
     ("大陆", 1), ("王国", 2), ("帝国", 2), ("山脉", 3), ("地区", 2),
+    ("坊市", 5),   # fantasy marketplace, not municipality
     ("城市", 4), ("城池", 4), ("公社", 4), ("县城", 4),
-    ("客栈", 6), ("酒楼", 6), ("酒馆", 6), ("茶馆", 6), ("书院", 6),
+    ("客栈", 6), ("酒楼", 6), ("酒馆", 6), ("茶馆", 6), ("茶楼", 6),
+    ("当铺", 6), ("药铺", 6), ("书院", 6),
     ("祠堂", 6), ("宅院", 6), ("府邸", 6), ("洞府", 6),
-    # 1-char: macro
-    ("省", 1), ("界", 1), ("洲", 1), ("域", 1), ("海", 3),
+    ("牌坊", 5), ("码头", 5), ("渡口", 5), ("胡同", 5),
+    # Residential 府 — noble/official residences (NOT administrative prefectures)
+    ("王府", 5), ("侯府", 5), ("国府", 5), ("公府", 5),
+    ("相府", 5), ("帅府", 5),
+    # Province/city exceptions for 江/海/原
+    ("上海", 4), ("珠海", 4), ("威海", 4), ("北海", 4),
+    ("青海", 1), ("大海", 3),
+    ("浙江", 1), ("镇江", 4), ("九江", 4), ("湛江", 4),
+    ("丽江", 4), ("阳江", 4), ("内江", 4), ("吴江", 4),
+    ("太原", 4),
+    # 1-char: continent
+    ("省", 1), ("界", 1), ("洲", 1), ("域", 1), ("洋", 1),
+    ("海", 3),
     # 1-char: kingdom
-    ("国", 2), ("府", 2), ("州", 2), ("道", 2),
+    ("国", 2), ("府", 2), ("州", 2), ("道", 2), ("市", 2),
     # 1-char: region
     ("郡", 3), ("县", 3), ("山", 3), ("岭", 3), ("岛", 3), ("谷", 3),
-    ("湖", 3), ("河", 3), ("林", 3), ("境", 3),
+    ("湖", 3), ("河", 3), ("江", 3), ("林", 3), ("原", 3),
+    ("峡", 3), ("泊", 3), ("湾", 3), ("境", 3),
     # 1-char: city
     ("城", 4), ("都", 4), ("镇", 4), ("乡", 4), ("京", 4),
     # 1-char: site
-    ("村", 5), ("庄", 5), ("寨", 5), ("洞", 5), ("窟", 5),
-    ("峰", 5), ("关", 5), ("坊", 5), ("街", 5), ("巷", 5),
-    ("寺", 5), ("庙", 5), ("观", 5), ("庵", 5), ("园", 5),
-    ("桥", 5), ("墓", 5), ("陵", 5),
+    ("村", 5), ("庄", 5), ("寨", 5), ("屯", 5), ("营", 5),
+    ("洞", 5), ("窟", 5), ("穴", 5),
+    ("峰", 5), ("坡", 5), ("崖", 5), ("岗", 5), ("冈", 5),
+    ("泉", 5), ("潭", 5), ("溪", 5), ("沟", 5),
+    ("关", 5), ("坊", 5), ("街", 5), ("巷", 5), ("弄", 5),
+    ("寺", 5), ("庙", 5), ("观", 5), ("庵", 5), ("祠", 5),
+    ("园", 5), ("宫", 5), ("池", 5), ("苑", 5), ("渊", 5),
+    ("桥", 5), ("墓", 5), ("陵", 5), ("堡", 5), ("坝", 5), ("哨", 5),
+    ("坞", 5), ("径", 5),
     # 1-char: building
     ("殿", 6), ("堂", 6), ("阁", 6), ("楼", 6), ("塔", 6),
-    ("亭", 6), ("房", 6), ("室", 6), ("厅", 6), ("院", 6),
-    ("馆", 6), ("铺", 6), ("店", 6), ("门", 6), ("轩", 6),
-    ("斋", 6), ("居", 6), ("窗", 6),
+    ("亭", 6), ("台", 6), ("房", 6), ("室", 6), ("厅", 6), ("院", 6),
+    ("馆", 6), ("铺", 6), ("店", 6), ("家", 6), ("宅", 6), ("舍", 6),
+    ("居", 6), ("轩", 6), ("斋", 6), ("棚", 6), ("架", 6),
+    ("窗", 6), ("门", 6),
 ]
 
 
@@ -266,6 +288,24 @@ _PURE_TITLE_WORDS = frozenset({
 _FANTASY_LOCATION_WHITELIST = frozenset({
     "仙界", "魔界", "妖界", "灵域", "修仙界",
     "洞府", "秘境", "禁地", "结界", "虚空",
+    # v0.63.0 Story 4.1: expanded fantasy/wuxia whitelist
+    "洞天", "福地", "洞天福地", "灵脉", "仙府", "魔窟",
+    "演武场", "藏经阁", "炼丹房", "聚灵阵",
+    "天界", "冥界", "鬼界", "神界",
+})
+
+# Realistic/urban: generic facility names that should be filtered when standalone
+# (no proper-noun prefix). Names with a proper-noun prefix pass through.
+_REALISTIC_GENERIC_FACILITIES = frozenset({
+    "区政府", "市政府", "派出所", "居委会", "街道办",
+    "网吧", "超市", "菜市场", "停车场", "公交站",
+    "便利店", "快递站", "洗衣房", "理发店",
+})
+
+# Historical: administrative facility names (generic without proper-noun prefix)
+_HISTORICAL_GENERIC_FACILITIES = frozenset({
+    "府衙", "县衙", "总兵府", "提督府", "巡抚衙门",
+    "军营", "校场", "粮仓", "驿站",
 })
 
 
@@ -303,6 +343,17 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     # Rule 4b: Hardcoded fallback blocklist
     if name in _FALLBACK_GEO_BLOCKLIST:
         return "fallback blocklist"
+
+    # Rule 4c: Genre-specific facility filtering (v0.63.0 Story 4.1)
+    # Fantasy/wuxia: allow expanded whitelist (洞天, 福地, 仙府 etc.)
+    if genre in ("fantasy", "wuxia") and name in _FANTASY_LOCATION_WHITELIST:
+        return None  # Explicitly pass — overrides any later rule
+    # Realistic/urban: filter standalone generic facilities (区政府, 网吧 etc.)
+    if genre in ("realistic", "urban") and name in _REALISTIC_GENERIC_FACILITIES:
+        return "genre:realistic generic facility"
+    # Historical: filter standalone admin facilities (府衙, 县衙 etc.)
+    if genre == "historical" and name in _HISTORICAL_GENERIC_FACILITIES:
+        return "genre:historical generic facility"
 
     # Rule 5: Contains 的 → descriptive phrase ("自己的地界", "最高的屋子")
     if "的" in name:

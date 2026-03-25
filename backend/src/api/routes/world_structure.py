@@ -338,10 +338,16 @@ async def rebuild_hierarchy(novel_id: str):
             yield _sse("votes", "正在从章节事实重建投票数据...")
             agent._parent_votes = await agent._rebuild_parent_votes()
 
+            # 1.1 Location alias normalization (Story 2.3)
+            alias_merge_map = agent.normalize_location_aliases(agent._parent_votes)
+            if alias_merge_map:
+                yield _sse("votes", f"合并 {len(alias_merge_map)} 组地点名变体（如{'、'.join(f'{k}→{v}' for k, v in list(alias_merge_map.items())[:3])}）")
+
             # 1.5 Macro-skeleton generation
             yield _sse("skeleton", "正在生成宏观地理骨架...")
             skeleton_synonyms: list[tuple[str, str]] = []
             skeleton_directions: list[dict] = []
+            skeleton_success = False  # Track if skeleton produced useful output
             try:
                 import asyncio as _asyncio_skel
                 from src.services.macro_skeleton_generator import MacroSkeletonGenerator
@@ -353,7 +359,7 @@ async def rebuild_hierarchy(novel_id: str):
                         location_tiers=ws.location_tiers,
                         current_parents=ws.location_parents,
                     ),
-                    timeout=45.0,
+                    timeout=90.0,  # v0.63.0: 45→90s for slower cloud models
                 )
                 parts = []
                 if skeleton_votes:
@@ -373,6 +379,7 @@ async def rebuild_hierarchy(novel_id: str):
                             ws.completed_spatial_relations.append(d)
                     parts.append(f"{len(skeleton_directions)} 组方位锚定")
                 if parts:
+                    skeleton_success = True
                     yield _sse("skeleton", f"骨架生成完成，{'，'.join(parts)}")
                 else:
                     yield _sse("skeleton", "骨架生成无建议")
@@ -430,7 +437,7 @@ async def rebuild_hierarchy(novel_id: str):
                             scene_analysis,
                             ws.novel_genre_hint,
                         ),
-                        timeout=90.0,
+                        timeout=120.0,  # v0.63.0: 90→120s for slower cloud models
                     )
                     if review_votes:
                         agent.inject_external_votes(review_votes)
@@ -447,6 +454,26 @@ async def rebuild_hierarchy(novel_id: str):
             else:
                 yield _sse("llm", f"根节点仅 {temp_root_count} 个，跳过 LLM 审查")
 
+            # 3.5 Close-vote detection (Story 3.1 FR9) — feed into suspicious pairs
+            _close_vote_pairs = 0
+            for child, counter in agent._parent_votes.items():
+                if len(counter) >= 2:
+                    top2 = counter.most_common(2)
+                    first_votes = top2[0][1]
+                    second_votes = top2[1][1]
+                    if first_votes > 0 and second_votes / first_votes > 0.8:
+                        agent._suspicious_pairs.append({
+                            "child": child,
+                            "parent": top2[0][0],
+                            "reasons": ["close_votes"],
+                            "child_tier": ws.location_tiers.get(child, "unknown"),
+                            "parent_tier": ws.location_tiers.get(top2[0][0], "unknown"),
+                            "alternative_parent": top2[1][0],
+                        })
+                        _close_vote_pairs += 1
+            if _close_vote_pairs:
+                yield _sse("votes", f"检测到 {_close_vote_pairs} 对并列票地点，将交由 LLM 裁决")
+
             # 4. Final resolution
             yield _sse("consolidate", "正在合并与优化层级结构...")
             new_parents = agent._resolve_parents()
@@ -460,6 +487,41 @@ async def rebuild_hierarchy(novel_id: str):
                 saved_parents=dict(ws.location_parents),
                 synonym_pairs=skeleton_synonyms,
             )
+
+            # 4.1a. Transitivity check (Story 2.1)
+            from src.services.world_structure_agent import WorldStructureAgent as _WSA
+            transitivity_violations = _WSA._check_transitivity(new_parents)
+            if transitivity_violations:
+                fixed = _WSA.fix_transitivity_violations(new_parents, transitivity_violations)
+                yield _sse("transitivity_check", f"传递性校验：检测到 {len(transitivity_violations)} 处违背，修复 {fixed} 处")
+                # Feed violations into suspicious pairs for LLM reflection
+                for ancestor, descendant in transitivity_violations:
+                    agent._suspicious_pairs.append({
+                        "child": descendant, "parent": ancestor,
+                        "reasons": ["transitivity_violation"],
+                        "child_tier": new_tiers.get(descendant, "unknown"),
+                        "parent_tier": new_tiers.get(ancestor, "unknown"),
+                    })
+            else:
+                yield _sse("transitivity_check", "传递性校验：层级链一致，无违背")
+
+            # 4.1b. Continent protection: continents must be direct children of uber_root
+            _uber = None
+            for loc, tier in new_tiers.items():
+                if tier == "world":
+                    _uber = loc
+                    break
+            if _uber:
+                _fixed_continents = 0
+                for loc, tier in new_tiers.items():
+                    if tier == "continent" and new_parents.get(loc) not in (_uber, None):
+                        logger.info("Continent protection: %s parent %s → %s",
+                                    loc, new_parents.get(loc), _uber)
+                        new_parents[loc] = _uber
+                        _fixed_continents += 1
+                if _fixed_continents:
+                    yield _sse("consolidate",
+                               f"修正 {_fixed_continents} 个大洲归属（大洲必须是顶级子节点）")
 
             # 4.2. LLM Reflection on suspicious parent-child pairs
             try:
@@ -482,6 +544,8 @@ async def rebuild_hierarchy(novel_id: str):
                         verdict = r.get("verdict", "")
                         if not child or not parent:
                             continue
+                        if verdict in ("correct", "uncertain", ""):
+                            continue  # Story 3.2: uncertain = no action
                         if verdict == "sibling":
                             from src.services.world_structure_agent import _find_common_parent
                             known_locs = set(new_tiers.keys())
@@ -559,6 +623,23 @@ async def rebuild_hierarchy(novel_id: str):
             old_parents = dict(ws.location_parents)
             known_locations = set(new_tiers.keys())
             changes = _compute_hierarchy_diff(old_parents, new_parents, known_locations)
+
+            # v0.63.0 Safety: when skeleton AND LLM review both failed,
+            # downgrade "changed" auto_select to false to prevent regression.
+            # Only "added" (new orphan parents) remain auto-selected.
+            if not skeleton_success and not llm_review_used:
+                downgraded = 0
+                for c in changes:
+                    if c["change_type"] == "changed" and c["auto_select"]:
+                        c["auto_select"] = False
+                        c["reason"] = "骨架和LLM审查均未成功，修改类变更需人工确认"
+                        downgraded += 1
+                if downgraded:
+                    logger.info(
+                        "Safety downgrade: %d 'changed' auto_select → false (no skeleton/LLM)",
+                        downgraded,
+                    )
+                    yield _sse("consolidate", f"安全保护：{downgraded} 项修改类变更降级为手动确认（骨架/LLM未生效）")
 
             old_root_count, _ = _count_roots(old_parents)
             new_root_count, _ = _count_roots(new_parents)
@@ -821,3 +902,63 @@ async def spatial_completion(novel_id: str):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Topology quality metrics (v0.63.0 Story 1.3) ────────────────────
+
+
+@router.get("/topology-metrics")
+async def get_topology_metrics(novel_id: str):
+    """Compute topology quality metrics against golden standard datasets.
+
+    Returns metrics comparing the novel's location_parents with the
+    golden standard (if the novel matches a known golden standard title).
+    Always returns root_count and orphan_rate even without golden standard.
+    """
+    import json as _json
+    from pathlib import Path
+    from src.utils.topology_metrics import compute_topology_metrics
+
+    ws = await world_structure_store.load(novel_id)
+    if not ws or not ws.location_parents:
+        raise HTTPException(status_code=404, detail="无层级数据")
+
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    title = novel.get("title", "")
+    predicted = dict(ws.location_parents)
+
+    # Try to match a golden standard dataset
+    fixtures_dir = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures"
+    golden_file = None
+    if "西游" in title:
+        golden_file = fixtures_dir / "golden_standard_journey_to_west.json"
+    elif "红楼" in title:
+        golden_file = fixtures_dir / "golden_standard_dream_of_red_chamber.json"
+
+    if golden_file and golden_file.exists():
+        with open(golden_file, encoding="utf-8") as f:
+            golden_data = _json.load(f)
+        golden_locations = golden_data["locations"]
+        metrics = compute_topology_metrics(predicted, golden_locations)
+        metrics["golden_standard"] = golden_data.get("_meta", {}).get("novel", "unknown")
+        metrics["golden_location_count"] = len(golden_locations)
+    else:
+        # No golden standard: compute structural metrics only
+        all_children = set(predicted.keys())
+        all_locations = all_children | set(predicted.values())
+        roots = all_locations - all_children
+        metrics = {
+            "parent_precision": None,
+            "parent_recall": None,
+            "chain_accuracy": None,
+            "root_count": len(roots),
+            "orphan_rate": None,
+            "golden_standard": None,
+            "golden_location_count": 0,
+        }
+
+    metrics["predicted_location_count"] = len(predicted)
+    return metrics
