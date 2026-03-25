@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
@@ -462,6 +463,18 @@ class ChapterFactExtractor:
         )
         return merged, total_usage
 
+    @staticmethod
+    def _is_transient_error(err: Exception) -> bool:
+        """Check if error is transient (network/rate-limit/server) vs permanent (parse/validation)."""
+        msg = str(err).lower()
+        return any(kw in msg for kw in (
+            "429", "rate_limit", "rate limit",
+            "500", "502", "503", "server_error",
+            "timeout", "timed out",
+            "nodename", "name resolution", "connection",
+            "network", "reset by peer", "broken pipe",
+        ))
+
     async def _call_and_parse(
         self,
         system: str,
@@ -470,11 +483,13 @@ class ChapterFactExtractor:
         chapter_id: int,
         timeout: int = 600,
     ) -> tuple[ChapterFact, LlmUsage]:
-        """Call LLM and parse response into ChapterFact. Returns (fact, usage)."""
+        """Call LLM and parse response into ChapterFact.
+
+        Transient errors (429/500/network) get exponential backoff retries.
+        Only permanent errors (parse/validation) count as real failures.
+        """
         effective_system = system
         if self._is_cloud:
-            # Cloud APIs only support json_object mode, not schema-level enforcement.
-            # Embed the JSON schema in the system prompt so the model knows the structure.
             schema_text = json.dumps(self._schema, ensure_ascii=False, indent=2)
             effective_system += (
                 f"\n\n## 输出 JSON Schema\n"
@@ -483,17 +498,35 @@ class ChapterFactExtractor:
             )
 
         budget = get_budget()
-        from src.infra import config as _cfg  # dynamic read (avoids frozen module-level import)
+        from src.infra import config as _cfg
         max_out = _cfg.LLM_MAX_TOKENS if self._is_cloud else 8192
-        result, usage = await self.llm.generate(
-            system=effective_system,
-            prompt=prompt,
-            format=self._schema,
-            temperature=0.1,
-            max_tokens=max_out,
-            timeout=timeout,
-            num_ctx=budget.extraction_num_ctx,
-        )
+
+        # Exponential backoff for transient errors (429/500/network)
+        max_transient_retries = 5
+        backoff_base = 30  # seconds
+
+        for attempt in range(max_transient_retries + 1):
+            try:
+                result, usage = await self.llm.generate(
+                    system=effective_system,
+                    prompt=prompt,
+                    format=self._schema,
+                    temperature=0.1,
+                    max_tokens=max_out,
+                    timeout=timeout,
+                    num_ctx=budget.extraction_num_ctx,
+                )
+                break  # success
+            except Exception as err:
+                if self._is_transient_error(err) and attempt < max_transient_retries:
+                    wait = backoff_base * (2 ** attempt)  # 30, 60, 120, 240, 480s
+                    logger.warning(
+                        "Chapter %d transient error (attempt %d/%d), retrying in %ds: %s",
+                        chapter_id, attempt + 1, max_transient_retries, wait, str(err)[:100],
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                raise  # permanent error or max retries exhausted
 
         if isinstance(result, str):
             raise ExtractionError(f"Expected dict from structured output, got str")
