@@ -230,6 +230,13 @@ class MacroSkeletonGenerator:
                 continue
 
             weight = _CONFIDENCE_WEIGHT.get(confidence, 3)
+            # Boost weight for kingdom-level locations currently orphaned under uber_root.
+            # Without this boost, per-chapter votes (累积 20+) overwhelm skeleton votes (5),
+            # keeping kingdoms like 车迟国 stuck under 天下 instead of 西牛贺洲.
+            child_tier = location_tiers.get(child, "city")
+            child_current_parent = current_parents.get(child)
+            if child_tier == "kingdom" and (child_current_parent == uber_root or child_current_parent is None):
+                weight = max(weight, 10)
             votes.setdefault(child, Counter())[parent] += weight
 
             logger.debug(
