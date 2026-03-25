@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "novel": "红楼梦",
+    "author": "曹雪芹",
+    "version": "1.0",
+    "annotation_rules": [
+      "只标注直接父级，不跳级",
+      "以原著最后一次明确描述为准",
+      "贾府在京城（都中），取叙事主场景",
+      "tier 按 suffix rank 体系标注，国府/王府=site（宅邸）"
+    ],
+    "total_locations": 62
+  },
+  "locations": [
+    {"name": "都中", "correct_parent": null, "tier": "city"},
+    {"name": "金陵", "correct_parent": null, "tier": "city"},
+
+    {"name": "宁荣街", "correct_parent": "都中", "tier": "site"},
+    {"name": "荣国府", "correct_parent": "宁荣街", "tier": "site"},
+    {"name": "宁国府", "correct_parent": "宁荣街", "tier": "site"},
+
+    {"name": "大观园", "correct_parent": "荣国府", "tier": "site"},
+    {"name": "怡红院", "correct_parent": "大观园", "tier": "building"},
+    {"name": "潇湘馆", "correct_parent": "大观园", "tier": "building"},
+    {"name": "蘅芜苑", "correct_parent": "大观园", "tier": "site"},
+    {"name": "稻香村", "correct_parent": "大观园", "tier": "site"},
+    {"name": "秋爽斋", "correct_parent": "大观园", "tier": "building"},
+    {"name": "紫菱洲", "correct_parent": "大观园", "tier": "site"},
+    {"name": "缀锦楼", "correct_parent": "紫菱洲", "tier": "building"},
+    {"name": "藕香榭", "correct_parent": "大观园", "tier": "building"},
+    {"name": "暖香坞", "correct_parent": "大观园", "tier": "building"},
+    {"name": "栊翠庵", "correct_parent": "大观园", "tier": "site"},
+    {"name": "芦雪广", "correct_parent": "大观园", "tier": "building"},
+    {"name": "沁芳亭", "correct_parent": "大观园", "tier": "building"},
+    {"name": "凸碧堂", "correct_parent": "大观园", "tier": "building"},
+    {"name": "凹晶馆", "correct_parent": "大观园", "tier": "building"},
+    {"name": "省亲别墅", "correct_parent": "大观园", "tier": "building"},
+
+    {"name": "荣禧堂", "correct_parent": "荣国府", "tier": "building"},
+    {"name": "贾母院", "correct_parent": "荣国府", "tier": "building"},
+    {"name": "梨香院", "correct_parent": "荣国府", "tier": "building"},
+    {"name": "王夫人房", "correct_parent": "荣国府", "tier": "building"},
+    {"name": "凤姐院", "correct_parent": "荣国府", "tier": "building"},
+
+    {"name": "天香楼", "correct_parent": "宁国府", "tier": "building"},
+    {"name": "会芳园", "correct_parent": "宁国府", "tier": "site"},
+    {"name": "贾珍院", "correct_parent": "宁国府", "tier": "building"},
+
+    {"name": "铁槛寺", "correct_parent": "都中", "tier": "site"},
+    {"name": "馒头庵", "correct_parent": "都中", "tier": "site"},
+    {"name": "水月庵", "correct_parent": "都中", "tier": "site"},
+    {"name": "清虚观", "correct_parent": "都中", "tier": "site"},
+    {"name": "智通寺", "correct_parent": "都中", "tier": "site"},
+
+    {"name": "薛家", "correct_parent": "荣国府", "tier": "building"},
+    {"name": "贾赦院", "correct_parent": "荣国府", "tier": "building"},
+
+    {"name": "金陵十二钗正册", "correct_parent": null, "tier": null},
+
+    {"name": "甄家", "correct_parent": "金陵", "tier": "building"},
+    {"name": "林家", "correct_parent": "扬州", "tier": "building"},
+    {"name": "扬州", "correct_parent": null, "tier": "city"},
+    {"name": "姑苏", "correct_parent": null, "tier": "city"},
+    {"name": "阊门", "correct_parent": "姑苏", "tier": "site"},
+    {"name": "葫芦庙", "correct_parent": "姑苏", "tier": "site"},
+
+    {"name": "太虚幻境", "correct_parent": null, "tier": "continent"},
+    {"name": "薄命司", "correct_parent": "太虚幻境", "tier": "building"},
+
+    {"name": "大荒山", "correct_parent": null, "tier": "region"},
+    {"name": "无稽崖", "correct_parent": "大荒山", "tier": "site"},
+    {"name": "青埂峰", "correct_parent": "大荒山", "tier": "site"},
+
+    {"name": "平安州", "correct_parent": null, "tier": "kingdom"},
+    {"name": "刘姥姥村", "correct_parent": "都中", "tier": "site"},
+
+    {"name": "大明宫", "correct_parent": "都中", "tier": "site"},
+    {"name": "荣庆堂", "correct_parent": "荣国府", "tier": "building"},
+    {"name": "小花枝巷", "correct_parent": "都中", "tier": "site"},
+    {"name": "花枝巷", "correct_parent": "都中", "tier": "site"},
+
+    {"name": "紫檀堡", "correct_parent": "都中", "tier": "site"},
+    {"name": "潢海铁网山", "correct_parent": null, "tier": "region"},
+
+    {"name": "芦雪庵", "correct_parent": "大观园", "tier": "building"},
+    {"name": "蓼风轩", "correct_parent": "大观园", "tier": "building"},
+    {"name": "嘉荫堂", "correct_parent": "宁国府", "tier": "building"},
+    {"name": "翠烟桥", "correct_parent": "大观园", "tier": "site"},
+
+    {"name": "玄真观", "correct_parent": "都中", "tier": "site"}
+  ]
+}

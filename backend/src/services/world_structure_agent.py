@@ -202,12 +202,13 @@ _ADMIN_TIER_MAP: dict[str, str] = {
 # Fantasy system
 _FANTASY_TIER_MAP: dict[str, str] = {
     "洲": "continent", "大陆": "continent", "界": "continent", "域": "continent",
-    "大海": "continent",
+    "大海": "continent", "洋": "continent",
     "国": "kingdom", "王国": "kingdom", "帝国": "kingdom",
     "城": "city", "城市": "city", "都": "city", "镇": "city",
     "宗": "region", "门": "region", "派": "region",
-    "山": "region", "海": "region", "林": "region",
+    "山": "region", "海": "region", "林": "region", "江": "region",
     "岛": "region", "谷": "region",
+    "宫": "site",
 }
 
 # Facility system (universal)
@@ -229,6 +230,7 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     # ── 3+ char suffixes ──
     ("自治区", "continent"),
     ("直辖市", "continent"),
+    ("黑龙江", "continent"),  # 黑龙江省 — protect from 1-char 江→region
     # ── 2-char suffixes ──
     ("大陆", "continent"),
     ("王国", "kingdom"),
@@ -254,6 +256,15 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("宅院", "building"),
     ("府邸", "building"),
     ("洞府", "building"),  # cultivation cave dwelling
+    # Residential 府 — noble/official residences (NOT administrative prefectures)
+    # 荣国府/宁国府 are mansions, not kingdoms; without this, 府→kingdom(2) causes
+    # direction validation to flip 金陵城(city=4)→荣国府(kingdom=2) incorrectly.
+    ("王府", "site"),    # 恭王府 — prince residence
+    ("侯府", "site"),    # 侯爵 residence
+    ("国府", "site"),    # 荣国府, 宁国府 — noble family estates
+    ("公府", "site"),    # 国公 residence
+    ("相府", "site"),    # 丞相 residence
+    ("帅府", "site"),    # 元帅 residence
     ("码头", "site"),
     ("渡口", "site"),
     ("胡同", "site"),
@@ -264,11 +275,23 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("北海", "city"),    # 广西北海市 (not 四海之北海)
     ("青海", "continent"),  # 青海省
     ("大海", "region"),  # 东洋大海 etc. — large but not continent-scale for layout
+    # ── 2-char: province/city exceptions for 1-char 江→region ──
+    ("浙江", "continent"),  # 浙江省
+    ("镇江", "city"),
+    ("九江", "city"),
+    ("湛江", "city"),
+    ("丽江", "city"),
+    ("阳江", "city"),
+    ("内江", "city"),
+    ("吴江", "city"),
+    # ── 2-char: city exception for 1-char 原→region ──
+    ("太原", "city"),
     # ── 1-char: macro geography (continent) ──
     ("省", "continent"),
     ("界", "continent"),
     ("洲", "continent"),
     ("域", "continent"),
+    ("洋", "continent"),  # 太平洋, 大西洋 — oceans are continent-scale
     ("海", "region"),    # seas are region-scale, not continent (avoids cardinal position competition)
     # ── 1-char: kingdom ──
     ("国", "kingdom"),
@@ -285,7 +308,12 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("谷", "region"),
     ("湖", "region"),
     ("河", "region"),
+    ("江", "region"),     # 长江, 金沙江 — major rivers
     ("林", "region"),
+    ("原", "region"),     # 中原, 黄土高原 — plains/plateaus
+    ("峡", "region"),     # 三峡, 龙门峡 — gorges
+    ("泊", "region"),     # 梁山泊 — marshes/lakes
+    ("湾", "region"),     # 海湾
     ("境", "region"),    # 太虚幻境, 仙境, 幻境 — realm/domain
     # ── 1-char: city ──
     ("城", "city"),
@@ -328,6 +356,10 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("庵", "site"),
     ("祠", "site"),
     ("园", "site"),      # 大观园, 会芳园 — 户外区域
+    ("宫", "site"),      # 龙宫, 月宫, 天宫 — palace complexes containing 殿/阁
+    ("池", "site"),      # 瑶池, 莲花池
+    ("苑", "site"),      # 御苑, 上苑 — garden compounds
+    ("渊", "site"),      # 万丈渊, 龙渊 — abyss
     # ── 1-char: building ──
     ("殿", "building"),
     ("堂", "building"),
@@ -351,6 +383,7 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("棚", "building"),  # 木香棚, 瓜棚
     ("架", "building"),  # 荼蘼架, 葡萄架
     ("窗", "building"),  # 临窗
+    ("台", "building"),  # 擂台, 点将台, 高台
     ("门", "building"),  # 月洞门, 角门 — gates within compounds
     ("坞", "site"),      # 芭蕉坞 — garden area
     ("径", "site"),      # 羊肠小径 — path/trail
@@ -2019,8 +2052,13 @@ class WorldStructureAgent:
         # Collect character-location co-occurrence per chapter (A.3)
         char_chapter_locs: dict[str, dict[int, set[str]]] = {}
 
-        for row in rows:
+        total_chapters = max(len(rows), 1)
+
+        for chapter_idx, row in enumerate(rows):
             data = _json.loads(row["fact_json"])
+            # Temporal weight: later chapters get slightly higher weight (1.0 ~ 1.5)
+            # to address "geographic drift" in long novels (Story 2.2)
+            chapter_weight = 1.0 + 0.5 * (chapter_idx / total_chapters)
             # A.3: Collect character locations per chapter
             chapter_id = data.get("chapter_id", 0)
             for char in data.get("characters", []):
@@ -2044,9 +2082,9 @@ class WorldStructureAgent:
                         # Peer vote suppression: weight ÷ 3 when child-parent are known peers
                         pair_key = frozenset({name, parent})
                         if pair_key in self._peer_pairs:
-                            votes.setdefault(name, Counter())[parent] += 0.33
+                            votes.setdefault(name, Counter())[parent] += 0.33 * chapter_weight
                         else:
-                            votes.setdefault(name, Counter())[parent] += 1
+                            votes.setdefault(name, Counter())[parent] += 1 * chapter_weight
             for sr in data.get("spatial_relationships", []):
                 rel_type = sr.get("relation_type", "")
                 source = sr.get("source", "")
@@ -2080,7 +2118,7 @@ class WorldStructureAgent:
                         source, target = target, source
                     elif not (target.startswith(source) and len(target) > len(source)):
                             weight = 1
-                votes.setdefault(target, Counter())[source] += weight
+                votes.setdefault(target, Counter())[source] += weight * chapter_weight
 
             # ── Chapter primary setting → parent inference (rebuild) ──
             locations = data.get("locations", [])
@@ -2527,6 +2565,133 @@ class WorldStructureAgent:
             )
 
         return result
+
+    @staticmethod
+    def _check_transitivity(
+        parents: dict[str, str],
+    ) -> list[tuple[str, str]]:
+        """Check transitivity: walk each parent chain and verify suffix ranks decrease.
+
+        Detects violations where an ancestor has a HIGHER suffix rank (= smaller
+        geographic entity) than a descendant further down the chain.
+        E.g., A(洲=1)→B(城=4)→C(国=2): rank(B)=4 > rank(C)=2 is a violation.
+
+        Returns list of (ancestor, descendant) violation pairs.
+        Complexity: O(V+E) — each node visited at most once via memoized chain walk.
+        """
+        violations: list[tuple[str, str]] = []
+        # Cache: node → list of (node, rank) along its chain to root
+        chain_cache: dict[str, list[tuple[str, int | None]]] = {}
+
+        def _get_chain(node: str) -> list[tuple[str, int | None]]:
+            if node in chain_cache:
+                return chain_cache[node]
+            chain: list[tuple[str, int | None]] = []
+            visited: set[str] = set()
+            cur = node
+            while cur and cur not in visited:
+                visited.add(cur)
+                rank = _get_suffix_rank(cur)
+                chain.append((cur, rank))
+                cur = parents.get(cur)  # type: ignore[assignment]
+                # If we hit a cached node, extend from cache
+                if cur and cur in chain_cache:
+                    chain.extend(chain_cache[cur])
+                    break
+            # Cache for all nodes in this chain
+            for i, (n, _r) in enumerate(chain):
+                chain_cache[n] = chain[i:]
+            return chain
+
+        for node in parents:
+            chain = _get_chain(node)
+            # Walk chain from child (index 0) toward root (last index)
+            # Ranks should be non-decreasing toward child (child rank >= parent rank)
+            # i.e., as we go UP the chain (toward root), ranks should decrease or stay
+            for i in range(len(chain) - 1):
+                child_name, child_rank = chain[i]
+                ancestor_name, ancestor_rank = chain[i + 1]
+                if (
+                    child_rank is not None
+                    and ancestor_rank is not None
+                    and ancestor_rank > child_rank
+                ):
+                    violations.append((ancestor_name, child_name))
+
+        return violations
+
+    @staticmethod
+    def fix_transitivity_violations(
+        parents: dict[str, str],
+        violations: list[tuple[str, str]],
+    ) -> int:
+        """Fix transitivity violations by removing the offending edge.
+
+        For each (ancestor, descendant) violation, remove the edge where
+        the ancestor (incorrectly smaller) is the child in the parents dict.
+        Returns the number of edges removed.
+        """
+        removed = 0
+        for ancestor, _descendant in violations:
+            if ancestor in parents:
+                del parents[ancestor]
+                removed += 1
+        return removed
+
+    @staticmethod
+    def normalize_location_aliases(
+        votes: dict[str, Counter],
+    ) -> dict[str, str]:
+        """Merge suffix variant location names before vote resolution.
+
+        Detects pairs where A is a substring of B and B = A + known suffix
+        (from _NAME_SUFFIX_TIER). Merges A's votes into B.
+
+        Returns merge map {short_name: canonical_long_name} for logging.
+        """
+        all_names = set(votes.keys())
+        # Also collect names that appear as vote targets
+        for counter in votes.values():
+            all_names.update(counter.keys())
+
+        suffix_chars = {s for s, _t in _NAME_SUFFIX_TIER if len(s) == 1}
+        suffix_multi = {s for s, _t in _NAME_SUFFIX_TIER if len(s) >= 2}
+
+        merge_map: dict[str, str] = {}
+        sorted_names = sorted(all_names, key=len)
+
+        for short in sorted_names:
+            if len(short) < 2 or short in merge_map:
+                continue
+            for long in sorted_names:
+                if long == short or not long.startswith(short) or len(long) <= len(short):
+                    continue
+                suffix_part = long[len(short):]
+                if suffix_part in suffix_chars or suffix_part in suffix_multi:
+                    merge_map[short] = long
+                    break
+
+        if not merge_map:
+            return merge_map
+
+        # Apply merges: transfer votes from short_name to long_name
+        for short, canonical in merge_map.items():
+            if short in votes:
+                # Merge short's parent votes into canonical
+                votes.setdefault(canonical, Counter()).update(votes.pop(short))
+            # Also rename vote targets: if someone voted for short, redirect to canonical
+            for child_counter in votes.values():
+                if short in child_counter:
+                    child_counter[canonical] = child_counter.get(canonical, 0) + child_counter.pop(short)
+
+        if merge_map:
+            logger.info(
+                "Location alias normalization: merged %d variants (%s)",
+                len(merge_map),
+                ", ".join(f"{k}→{v}" for k, v in list(merge_map.items())[:5]),
+            )
+
+        return merge_map
 
     @staticmethod
     def _apply_name_containment_heuristic(raw: dict[str, str]) -> dict[str, str]:

@@ -46,6 +46,7 @@ class LocationFact(BaseModel):
     name: str
     type: str
     parent: str | None = None
+    parent_evidence: str | None = None  # v0.63.0: evidence for parent assignment (≤30 chars)
     peers: list[str] | None = None  # same-level spatially adjacent/parallel entities
     description: str | None = None
     role: str | None = None  # "setting" | "referenced" | "boundary"

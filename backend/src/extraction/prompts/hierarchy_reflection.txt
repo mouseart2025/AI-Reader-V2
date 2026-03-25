@@ -6,9 +6,13 @@
 - 如果两者是**同级并列**关系（如两座府邸、两座城池），应标记为 "sibling"
 - 如果方向反了（子实际包含父），应标记为 "reverse"
 - 如果关系正确，标记为 "correct"
+- 如果你**无法从小说内容中找到足够依据**来判定，标记为 "uncertain"
+
+⚠️ 关键要求：每条判定必须在 evidence 字段中引用小说原文片段或章节编号作为依据。
+没有原文依据的判定应标记为 "uncertain"，不要猜测。
 
 待验证的关系：
 {pairs_text}
 
 请以 JSON 数组返回，每项包含：
-{{"child": "...", "parent": "...", "verdict": "correct|sibling|reverse", "reason": "简要理由"}}
+{{"child": "...", "parent": "...", "verdict": "correct|sibling|reverse|uncertain", "reason": "简要理由", "evidence": "原文依据或章节编号"}}
