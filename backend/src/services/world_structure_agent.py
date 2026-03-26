@@ -390,6 +390,22 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
 ]
 
 
+def _find_continent(
+    name: str,
+    parents: dict[str, str],
+    tiers: dict[str, str],
+) -> str | None:
+    """Walk parent chain to find the continent ancestor, if any."""
+    visited: set[str] = set()
+    node = name
+    while node and node not in visited:
+        if tiers.get(node) == "continent":
+            return node
+        visited.add(node)
+        node = parents.get(node)  # type: ignore[assignment]
+    return None
+
+
 def _get_suffix_rank(name: str) -> int | None:
     """Get geographic scale rank from Chinese location name suffix.
 
@@ -1931,22 +1947,31 @@ class WorldStructureAgent:
                 for loc in locs:
                     tier = tiers.get(loc, "city")
                     rank = TIER_ORDER.get(tier, 4)
-                    if rank <= 3:  # kingdom or bigger (world=0, continent=1, kingdom=2, region=3)
+                    # v0.63.0 S2a-3: Only region(3) and city(4) qualify as "big" parents.
+                    # Exclude continent(1) and kingdom(2) — too coarse for co-occurrence
+                    # inference. In novels like Journey to the West, protagonists visit
+                    # dozens of kingdoms, causing spurious votes (龙宫→车迟国).
+                    if rank in (3, 4):  # region or city only
                         big_locs.append((loc, rank))
                     elif rank >= 5:  # site or smaller (site=5, building=6)
                         small_locs.append((loc, rank))
 
                 for big_loc, big_rank in big_locs:
                     for small_loc, small_rank in small_locs:
-                        if small_rank - big_rank >= 2:
+                        if small_rank - big_rank >= 1:  # relaxed from >=2 since big is now only region/city
                             pair_counts[(big_loc, small_loc)] += 1
 
             # Add votes for pairs with ≥5 co-occurrences (v0.63.0: 3→5 to reduce noise)
-            # In novels like Journey to the West, protagonists visit many unrelated
-            # locations, causing spurious parent votes (e.g., 龙宫→西梁女国).
             for (big_loc, small_loc), count in pair_counts.items():
                 if count >= 5:
-                    weight = min(count, 3)  # v0.63.0: cap 5→3
+                    # S2a-1: Skip if big and small are in different continents
+                    # Walk parent chain to find continent for each
+                    _existing_parents = self.structure.location_parents if self.structure else {}
+                    big_cont = _find_continent(big_loc, _existing_parents, tiers)
+                    small_cont = _find_continent(small_loc, _existing_parents, tiers)
+                    if big_cont and small_cont and big_cont != small_cont:
+                        continue  # Different continents → skip inference
+                    weight = min(count, 3)
                     votes.setdefault(small_loc, Counter())[big_loc] += weight
                     inferred += 1
 
