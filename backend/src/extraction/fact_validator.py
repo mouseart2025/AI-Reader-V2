@@ -594,8 +594,9 @@ def _clamp_name(name: str) -> str:
 class FactValidator:
     """Validate and clean a ChapterFact instance."""
 
-    def __init__(self, genre: str | None = None) -> None:
+    def __init__(self, genre: str | None = None, *, skip_validation: bool = False) -> None:
         self._genre = genre
+        self._skip_validation = skip_validation  # For ablation experiments
         # name_corrections: short_name → full_name mapping built from
         # entity dictionary.  E.g., {"愣子": "二愣子"} when the dictionary
         # contains "二愣子" with a numeric prefix that jieba/LLM truncated.
@@ -612,6 +613,8 @@ class FactValidator:
 
     def validate(self, fact: ChapterFact) -> ChapterFact:
         """Return a cleaned copy of the ChapterFact."""
+        if self._skip_validation:
+            return fact  # Ablation: bypass all validation
         characters = self._validate_characters(fact.characters)
         relationships = self._validate_relationships(fact.relationships, characters)
         locations = self._validate_locations(fact.locations, characters)
