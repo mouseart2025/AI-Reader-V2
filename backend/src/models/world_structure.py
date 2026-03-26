@@ -111,6 +111,7 @@ class WorldStructure(BaseModel):
     completed_spatial_relations: list[dict] = []  # 补全的跨章节空间关系 (top 500)
     # Each dict: {source, target, relation_type, value, confidence, evidence_chapters}
     layer_spatial_scales: dict[str, str] = {}  # layer_id → SpatialScale value
+    cached_skeleton: dict | None = None  # v0.63.0: cached successful skeleton result
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:
