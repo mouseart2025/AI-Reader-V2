@@ -9,10 +9,12 @@
         "吴学究",
         "学究"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "智多星"
+      ],
+      "notes": "缺少绰号智多星"
     },
     {
       "canonical_name": "学究",
@@ -20,10 +22,10 @@
         "吴用",
         "吴学究"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "与吴用组重复，canonical应为吴用"
     },
     {
       "canonical_name": "吴学究",
@@ -31,10 +33,10 @@
         "吴用",
         "学究"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "与吴用组重复，canonical应为吴用"
     },
     {
       "canonical_name": "阮小",
@@ -42,10 +44,13 @@
         "阮小二",
         "阮小七"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "阮小二",
+        "阮小七"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：阮小二和阮小七是两个不同的人（亲兄弟），不应合并。阮小是截断错误"
     },
     {
       "canonical_name": "阮小七",
@@ -53,10 +58,13 @@
         "阮小",
         "阮小二"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "阮小",
+        "阮小二"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：阮小七与阮小二是不同角色，阮小是截断错误"
     },
     {
       "canonical_name": "阮小二",
@@ -64,120 +72,143 @@
         "阮小",
         "阮小七"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "阮小",
+        "阮小七"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：阮小二与阮小七是不同角色，阮小是截断错误"
     },
     {
       "canonical_name": "宋江",
       "system_aliases": [
         "宋公明"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "及时雨"
+      ],
+      "notes": "缺少绰号及时雨"
     },
     {
       "canonical_name": "卢俊义",
       "system_aliases": [
         "俊义"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "玉麒麟"
+      ],
+      "notes": "缺少绰号玉麒麟"
     },
     {
       "canonical_name": "鲁智深",
       "system_aliases": [
         "智深"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "花和尚",
+        "鲁达",
+        "鲁提辖"
+      ],
+      "notes": "缺少绰号花和尚和原名鲁达/鲁提辖"
     },
     {
       "canonical_name": "呼延",
       "system_aliases": [
         "呼延灼"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": false,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "呼延是姓氏截断，不应作为canonical name，应以呼延灼为canonical"
     },
     {
       "canonical_name": "呼延灼",
       "system_aliases": [
         "呼延"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "呼延"
+      ],
+      "missing_aliases": [
+        "双鞭"
+      ],
+      "notes": "呼延是姓氏截断不应作别名；AI预标注-请人工确认双鞭是否作为别名使用"
     },
     {
       "canonical_name": "西门庆",
       "system_aliases": [
         "门庆"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "门庆"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "门庆是名字截断错误，不应作为别名"
     },
     {
       "canonical_name": "宋公明",
       "system_aliases": [
         "宋江"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "与宋江组重复，canonical应为宋江"
     },
     {
       "canonical_name": "解宝",
       "system_aliases": [
         "解珍"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "解珍"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：解宝和解珍是两个不同的人（亲兄弟），不应合并"
     },
     {
       "canonical_name": "智深",
       "system_aliases": [
         "鲁智深"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "与鲁智深组重复，canonical应为鲁智深"
     },
     {
       "canonical_name": "解珍",
       "system_aliases": [
         "解宝"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "解宝"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：解珍和解宝是两个不同的人（亲兄弟），不应合并"
     },
     {
       "canonical_name": "门庆",
       "system_aliases": [
         "西门庆"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "西门庆"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "门庆是截断错误，与西门庆组重复且canonical有误"
     }
   ]
 }
