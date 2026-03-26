@@ -359,7 +359,7 @@ async def rebuild_hierarchy(novel_id: str):
                         location_tiers=ws.location_tiers,
                         current_parents=ws.location_parents,
                     ),
-                    timeout=90.0,  # v0.63.0: 45→90s for slower cloud models
+                    timeout=150.0,  # v0.63.0: generous timeout for first-time skeleton generation
                 )
                 parts = []
                 if skeleton_votes:
@@ -368,7 +368,6 @@ async def rebuild_hierarchy(novel_id: str):
                 if skeleton_synonyms:
                     parts.append(f"{len(skeleton_synonyms)} 组同义合并")
                 if skeleton_directions:
-                    # Inject LLM anchor directions into completed_spatial_relations
                     existing_keys = {
                         (r["source"], r["target"], r.get("value", ""))
                         for r in ws.completed_spatial_relations
@@ -380,15 +379,57 @@ async def rebuild_hierarchy(novel_id: str):
                     parts.append(f"{len(skeleton_directions)} 组方位锚定")
                 if parts:
                     skeleton_success = True
+                    # Cache successful skeleton for reuse on future timeouts
+                    ws.cached_skeleton = {
+                        "votes": {k: dict(v) for k, v in skeleton_votes.items()} if skeleton_votes else {},
+                        "synonyms": skeleton_synonyms,
+                        "directions": skeleton_directions,
+                    }
+                    # Persist cache immediately so future timeouts can reuse
+                    await world_structure_store.save(novel_id, ws)
                     yield _sse("skeleton", f"骨架生成完成，{'，'.join(parts)}")
                 else:
-                    yield _sse("skeleton", "骨架生成无建议")
-            except _asyncio_skel.TimeoutError:
-                logger.warning("Macro skeleton generation timed out for %s", novel_id)
-                yield _sse("skeleton", "骨架生成超时，已跳过")
-            except Exception:
-                logger.warning("Macro skeleton generation failed for %s", novel_id, exc_info=True)
-                yield _sse("skeleton", "骨架生成失败，已跳过")
+                    # LLM returned empty result (internal error or no suggestions)
+                    # Fall through to cache check below
+                    raise ValueError("骨架生成无建议")
+            except (_asyncio_skel.TimeoutError, Exception) as _skel_err:
+                is_timeout = isinstance(_skel_err, _asyncio_skel.TimeoutError)
+                # v0.63.0: Reuse cached skeleton on timeout/failure
+                if ws.cached_skeleton and ws.cached_skeleton.get("votes"):
+                    cached = ws.cached_skeleton
+                    cached_votes_raw = cached["votes"]
+                    # Rebuild Counter objects from cached dict
+                    skeleton_votes_cached: dict[str, Counter] = {}
+                    for k, v in cached_votes_raw.items():
+                        skeleton_votes_cached[k] = Counter(v)
+                    if skeleton_votes_cached:
+                        agent.inject_external_votes(skeleton_votes_cached)
+                    skeleton_synonyms = cached.get("synonyms", [])
+                    skeleton_directions = cached.get("directions", [])
+                    if skeleton_directions:
+                        existing_keys = {
+                            (r["source"], r["target"], r.get("value", ""))
+                            for r in ws.completed_spatial_relations
+                        }
+                        for d in skeleton_directions:
+                            key = (d["source"], d["target"], d["value"])
+                            if key not in existing_keys:
+                                ws.completed_spatial_relations.append(d)
+                    skeleton_success = True
+                    label = "超时" if is_timeout else "失败"
+                    yield _sse("skeleton", f"骨架生成{label}，使用缓存骨架（{len(cached_votes_raw)} 个锚定）")
+                    logger.info(
+                        "Skeleton %s, using cached skeleton (%d votes) for %s",
+                        "timed out" if is_timeout else "failed",
+                        len(cached_votes_raw), novel_id,
+                    )
+                else:
+                    if is_timeout:
+                        logger.warning("Macro skeleton generation timed out for %s (no cache)", novel_id)
+                        yield _sse("skeleton", "骨架生成超时，无缓存可用")
+                    else:
+                        logger.warning("Macro skeleton generation failed for %s (no cache)", novel_id, exc_info=True)
+                        yield _sse("skeleton", "骨架生成失败，无缓存可用")
 
             # 2. Scene transition analysis
             scene_analysis_used = False
@@ -624,32 +665,34 @@ async def rebuild_hierarchy(novel_id: str):
             known_locations = set(new_tiers.keys())
             changes = _compute_hierarchy_diff(old_parents, new_parents, known_locations)
 
-            # v0.63.0 Safety: when skeleton AND LLM review both failed,
-            # downgrade lateral "changed" auto_select to false to prevent regression.
-            # Exception: upward moves (from uber_root/天下 to a continent) are rule-derived
-            # and should remain auto-selected.
-            if not skeleton_success and not llm_review_used:
+            # v0.63.0 Safety: downgrade lateral "changed" auto_select when LLM review
+            # is unavailable. Even when skeleton succeeded, lateral moves (between
+            # non-uber_root parents) are risky without LLM validation.
+            if not llm_review_used:
                 _uber_for_safety = agent._find_uber_root(new_parents) if new_parents else None
                 downgraded = 0
                 for c in changes:
                     if c["change_type"] == "changed" and c["auto_select"]:
                         old_p = c.get("old_parent", "")
                         new_p = c.get("new_parent", "")
-                        # Allow: moves FROM uber_root to a specific parent (consolidate rescue)
+                        # Allow: moves FROM uber_root to a specific parent (consolidate/skeleton rescue)
                         if old_p == _uber_for_safety and new_p != _uber_for_safety:
                             continue
                         # Allow: moves FROM None/missing to a parent (orphan adoption)
                         if not old_p:
                             continue
+                        # Allow: moves TO uber_root (cleanup)
+                        if new_p == _uber_for_safety:
+                            continue
                         c["auto_select"] = False
-                        c["reason"] = "骨架和LLM审查均未成功，横向修改需人工确认"
+                        c["reason"] = "LLM审查未成功，横向修改需人工确认"
                         downgraded += 1
                 if downgraded:
                     logger.info(
-                        "Safety downgrade: %d lateral 'changed' auto_select → false (no skeleton/LLM)",
+                        "Safety downgrade: %d lateral 'changed' auto_select → false (no LLM review)",
                         downgraded,
                     )
-                    yield _sse("consolidate", f"安全保护：{downgraded} 项横向修改降级为手动确认（骨架/LLM未生效）")
+                    yield _sse("consolidate", f"安全保护：{downgraded} 项横向修改降级为手动确认（LLM审查未生效）")
 
             old_root_count, _ = _count_roots(old_parents)
             new_root_count, _ = _count_roots(new_parents)
