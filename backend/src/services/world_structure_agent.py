@@ -1941,10 +1941,12 @@ class WorldStructureAgent:
                         if small_rank - big_rank >= 2:
                             pair_counts[(big_loc, small_loc)] += 1
 
-            # Add votes for pairs with ≥3 co-occurrences
+            # Add votes for pairs with ≥5 co-occurrences (v0.63.0: 3→5 to reduce noise)
+            # In novels like Journey to the West, protagonists visit many unrelated
+            # locations, causing spurious parent votes (e.g., 龙宫→西梁女国).
             for (big_loc, small_loc), count in pair_counts.items():
-                if count >= 3:
-                    weight = min(count, 5)
+                if count >= 5:
+                    weight = min(count, 3)  # v0.63.0: cap 5→3
                     votes.setdefault(small_loc, Counter())[big_loc] += weight
                     inferred += 1
 

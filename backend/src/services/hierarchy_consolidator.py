@@ -1188,10 +1188,10 @@ def consolidate_hierarchy(
         if _is_geographic_name(root) and not _is_sub_location_name(root):
             _try_saved_or_uber(root, "geo-to-root")
 
-    # ── Step 11.5: Kingdom→Continent rescue (v0.63.0) ──
-    # When continent-tier locations exist, kingdom-tier orphans should attach to
-    # the nearest continent (by vote evidence or proximity), NOT uber_root.
-    # This prevents kingdoms like 车迟国/天竺国 from sitting directly under 天下.
+    # ── Step 11.5: Kingdom/Region→Continent rescue (v0.63.0) ──
+    # When continent-tier locations exist, kingdom and region-tier orphans should
+    # attach to the nearest continent, NOT uber_root.
+    # Prevents kingdoms (车迟国) AND regions (黄风岭, 花果山) from sitting under 天下.
     continents = [loc for loc, t in location_tiers.items()
                   if t == "continent" and loc != uber_root]
     if continents and uber_root:
@@ -1199,7 +1199,7 @@ def consolidate_hierarchy(
             loc for loc in all_known
             if loc not in location_parents
             and loc != uber_root
-            and location_tiers.get(loc) == "kingdom"
+            and location_tiers.get(loc) in ("kingdom", "region")
         ]
         kingdom_rescued = 0
         for orphan in kingdom_orphans:
