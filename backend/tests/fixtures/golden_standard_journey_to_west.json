@@ -21,13 +21,13 @@
     {"name": "花果山", "correct_parent": "傲来国", "tier": "region"},
     {"name": "水帘洞", "correct_parent": "花果山", "tier": "site"},
 
-    {"name": "大唐", "correct_parent": "南赡部洲", "tier": "kingdom"},
-    {"name": "长安", "correct_parent": "大唐", "tier": "city"},
-    {"name": "大慈恩寺", "correct_parent": "长安", "tier": "site"},
-    {"name": "化生寺", "correct_parent": "长安", "tier": "site"},
+    {"name": "大唐国", "correct_parent": "南赡部洲", "tier": "kingdom"},
+    {"name": "长安城", "correct_parent": "大唐国", "tier": "city"},
+    {"name": "大慈恩寺", "correct_parent": "长安城", "tier": "site", "_note": "LLM未独立提取,仅变体"},
+    {"name": "化生寺", "correct_parent": "长安城", "tier": "site"},
 
-    {"name": "两界山", "correct_parent": "大唐", "tier": "region"},
-    {"name": "五行山", "correct_parent": "大唐", "tier": "region"},
+    {"name": "两界山", "correct_parent": "大唐国", "tier": "region"},
+    {"name": "五行山", "correct_parent": "大唐国", "tier": "region"},
 
     {"name": "鹰愁涧", "correct_parent": "西牛贺洲", "tier": "region"},
     {"name": "高老庄", "correct_parent": "西牛贺洲", "tier": "site"},
@@ -47,7 +47,7 @@
     {"name": "宝象国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
     {"name": "乌鸡国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
     {"name": "车迟国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
-    {"name": "女儿国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
+    {"name": "西梁女国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
     {"name": "祭赛国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
     {"name": "朱紫国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
     {"name": "比丘国", "correct_parent": "西牛贺洲", "tier": "kingdom"},
@@ -93,8 +93,9 @@
     {"name": "东海", "correct_parent": "东胜神洲", "tier": "region"},
     {"name": "龙宫", "correct_parent": "东海", "tier": "site"},
 
-    {"name": "地府", "correct_parent": null, "tier": "continent"},
-    {"name": "森罗殿", "correct_parent": "地府", "tier": "building"},
+    {"name": "幽冥界", "correct_parent": null, "tier": "continent"},
+    {"name": "幽冥地府", "correct_parent": "幽冥界", "tier": "kingdom"},
+    {"name": "森罗殿", "correct_parent": "幽冥地府", "tier": "building"},
     {"name": "翠屏山", "correct_parent": "东胜神洲", "tier": "region"},
 
     {"name": "珞珈山", "correct_parent": "南海", "tier": "region"},
