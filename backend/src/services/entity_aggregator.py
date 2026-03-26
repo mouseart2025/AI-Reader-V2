@@ -7,6 +7,7 @@ Uses LRU caching keyed by (novel_id, entity_name) with per-novel invalidation.
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
 from functools import lru_cache
 from typing import Any
@@ -37,6 +38,8 @@ from src.models.entity_profiles import (
 )
 
 # ── Cache ─────────────────────────────────────────
+
+logger = logging.getLogger(__name__)
 
 _cache: dict[tuple[str, str, str], Any] = {}  # (novel_id, type, name) -> profile
 _cache_order: list[tuple[str, str, str]] = []
