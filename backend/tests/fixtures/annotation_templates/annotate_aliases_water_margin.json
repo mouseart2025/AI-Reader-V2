@@ -1,0 +1,183 @@
+{
+  "_instructions": "标注说明: is_correct_grouping=true表示别名组正确. wrong_aliases列出不应在此组的别名. missing_aliases列出应加入的别名.",
+  "_novel": "water_margin",
+  "_total": 17,
+  "alias_groups": [
+    {
+      "canonical_name": "吴用",
+      "system_aliases": [
+        "吴学究",
+        "学究"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "学究",
+      "system_aliases": [
+        "吴用",
+        "吴学究"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "吴学究",
+      "system_aliases": [
+        "吴用",
+        "学究"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "阮小",
+      "system_aliases": [
+        "阮小二",
+        "阮小七"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "阮小七",
+      "system_aliases": [
+        "阮小",
+        "阮小二"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "阮小二",
+      "system_aliases": [
+        "阮小",
+        "阮小七"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "宋江",
+      "system_aliases": [
+        "宋公明"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "卢俊义",
+      "system_aliases": [
+        "俊义"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "鲁智深",
+      "system_aliases": [
+        "智深"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "呼延",
+      "system_aliases": [
+        "呼延灼"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "呼延灼",
+      "system_aliases": [
+        "呼延"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "西门庆",
+      "system_aliases": [
+        "门庆"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "宋公明",
+      "system_aliases": [
+        "宋江"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "解宝",
+      "system_aliases": [
+        "解珍"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "智深",
+      "system_aliases": [
+        "鲁智深"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "解珍",
+      "system_aliases": [
+        "解宝"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "门庆",
+      "system_aliases": [
+        "西门庆"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    }
+  ]
+}

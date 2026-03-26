@@ -1,0 +1,6 @@
+{
+  "_instructions": "标注说明: is_correct_grouping=true表示别名组正确. wrong_aliases列出不应在此组的别名. missing_aliases列出应加入的别名.",
+  "_novel": "dream_of_red_chamber",
+  "_total": 0,
+  "alias_groups": []
+}
