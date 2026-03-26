@@ -1204,6 +1204,8 @@ def consolidate_hierarchy(
         kingdom_rescued = 0
         for orphan in kingdom_orphans:
             # Strategy 1: Check parent_votes for continent evidence
+            # Prefer continent candidates even if not top-voted, since continent
+            # is the correct tier for kingdom/region orphans.
             best_continent = None
             best_votes = 0
             if parent_votes and orphan in parent_votes:
@@ -1211,6 +1213,15 @@ def consolidate_hierarchy(
                     if candidate in continents and votes > best_votes:
                         best_continent = candidate
                         best_votes = votes
+                # Also check: does the orphan's top-voted parent belong to a continent?
+                # E.g., 花果山's top vote might be 傲来国, which belongs to 东胜神洲.
+                if not best_continent:
+                    top_parent = parent_votes[orphan].most_common(1)
+                    if top_parent:
+                        top_name = top_parent[0][0]
+                        top_continent = location_parents.get(top_name)
+                        if top_continent in continents:
+                            best_continent = top_continent
             # Strategy 2: Check saved_parents
             if not best_continent and saved_parents:
                 saved_p = saved_parents.get(orphan)
