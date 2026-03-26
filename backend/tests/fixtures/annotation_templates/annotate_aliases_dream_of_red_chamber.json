@@ -2,5 +2,6 @@
   "_instructions": "标注说明: is_correct_grouping=true表示别名组正确. wrong_aliases列出不应在此组的别名. missing_aliases列出应加入的别名.",
   "_novel": "dream_of_red_chamber",
   "_total": 0,
-  "alias_groups": []
+  "alias_groups": [],
+  "_annotation_notes": "系统未提取出任何别名组。以下为应有的主要别名组（缺失项）：贾宝玉=[宝玉], 林黛玉=[黛玉,颦儿,林姑娘], 薛宝钗=[宝钗], 王熙凤=[凤姐,凤辣子], 史湘云=[湘云], 贾母=[老太太,史太君], 香菱=[英莲,甄英莲], 薛宝琴=[宝琴], 贾琏=[琏二爷]"
 }

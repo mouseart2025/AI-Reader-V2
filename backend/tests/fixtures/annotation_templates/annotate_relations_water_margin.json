@@ -10,9 +10,9 @@
       "mention_count": 68,
       "example_evidence": "前面大路上有军师吴学究同花知寨在那里专等",
       "example_chapter": 36,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "军师与首领，核心搭档关系"
     },
     {
       "person_a": "宋江",
@@ -21,9 +21,9 @@
       "mention_count": 43,
       "example_evidence": "宋江便道：我正是山东黑宋江。李逵拍手叫道：我那爷，你可不早说些个，也教铁牛欢喜！",
       "example_chapter": 38,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "李逵对宋江忠心耿耿"
     },
     {
       "person_a": "宋江",
@@ -32,8 +32,8 @@
       "mention_count": 35,
       "example_evidence": "晁盖是我心腹弟兄",
       "example_chapter": 18,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -43,8 +43,8 @@
       "mention_count": 32,
       "example_evidence": "吴学究道：我有个至爱相识，现在江州充做两院押牢节级，姓戴，名宗",
       "example_chapter": 36,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -54,9 +54,9 @@
       "mention_count": 32,
       "example_evidence": "",
       "example_chapter": 60,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "system_type数据异常，实际为梁山兄弟/搭档关系"
     },
     {
       "person_a": "公孙胜",
@@ -65,9 +65,9 @@
       "mention_count": 30,
       "example_evidence": "感蒙众位豪杰相带贫道许多时，恩同骨肉",
       "example_chapter": 42,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "公孙胜为梁山法师，与宋江是兄弟/同僚"
     },
     {
       "person_a": "宋江",
@@ -76,8 +76,8 @@
       "mention_count": 19,
       "example_evidence": "宋江正来投奔花知寨，莫不是花荣之妻",
       "example_chapter": 32,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -87,8 +87,8 @@
       "mention_count": 15,
       "example_evidence": "刘唐道：他是天下闻名的义士好汉，我来这村中投奔一个好汉",
       "example_chapter": 14,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -98,8 +98,8 @@
       "mention_count": 14,
       "example_evidence": "吴用道：晁盖我都是自幼结交，但有些事便和我相议计较",
       "example_chapter": 14,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -109,8 +109,8 @@
       "mention_count": 14,
       "example_evidence": "既有宋公明兄长的书札",
       "example_chapter": 35,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -120,9 +120,9 @@
       "mention_count": 13,
       "example_evidence": "宋江扶起那汉问道足下是谁高姓大名柴进介绍武松后宋江道江湖上多闻说武二郎名字不期今日却在这里相会",
       "example_chapter": 23,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "结义兄弟"
     },
     {
       "person_a": "呼延灼",
@@ -131,9 +131,9 @@
       "mention_count": 13,
       "example_evidence": "杨志道：更兼呼延灼是他那里仇人",
       "example_chapter": 58,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "先敌对后归顺梁山"
     },
     {
       "person_a": "宋江",
@@ -142,8 +142,8 @@
       "mention_count": 13,
       "example_evidence": "俺是梁山泊好汉花和尚鲁智深。我死倒不打紧，洒家的哥哥宋公明得知，下山来时",
       "example_chapter": 59,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -153,9 +153,9 @@
       "mention_count": 13,
       "example_evidence": "就叫燕青也走一遭，专和李逵作伴",
       "example_chapter": 72,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "梁山兄弟关系为主"
     },
     {
       "person_a": "宋江",
@@ -164,9 +164,9 @@
       "mention_count": 12,
       "example_evidence": "反了花荣，结连清风山强盗，时刻清风寨不保",
       "example_chapter": 34,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "初期短暂敌对，后归顺梁山成为兄弟"
     },
     {
       "person_a": "关胜",
@@ -175,9 +175,9 @@
       "mention_count": 12,
       "example_evidence": "宋江军马与关胜军马交战",
       "example_chapter": 64,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "初期敌对，后归顺梁山成为兄弟"
     },
     {
       "person_a": "朱仝",
@@ -186,9 +186,9 @@
       "mention_count": 11,
       "example_evidence": "本县尉司管下有两个都头，一个唤做步兵都头，一个唤做马兵都头",
       "example_chapter": 13,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同事",
+      "correct_category": "social",
+      "notes": "郓城县两个都头"
     },
     {
       "person_a": "宋江",
@@ -197,8 +197,8 @@
       "mention_count": 11,
       "example_evidence": "柴大官人引着三五个伴当，慌忙跑将出来，亭子上与宋江相见",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -208,9 +208,9 @@
       "mention_count": 10,
       "example_evidence": "这三个是亲弟兄：一个唤做立地太岁阮小二，一个唤做短命二郎阮小五，一个唤做活阎罗阮小七",
       "example_chapter": 15,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "亲兄弟"
     },
     {
       "person_a": "宋江",
@@ -219,9 +219,9 @@
       "mention_count": 10,
       "example_evidence": "下有一个兄弟，唤做铁扇子宋清",
       "example_chapter": 18,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "亲兄弟"
     },
     {
       "person_a": "宋江",
@@ -230,9 +230,9 @@
       "mention_count": 10,
       "example_evidence": "宋江慌忙劝道：哥哥息怒，两个壮士不远千里而来，同心协助",
       "example_chapter": 47,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "梁山兄弟"
     },
     {
       "person_a": "阮小二",
@@ -241,9 +241,9 @@
       "mention_count": 9,
       "example_evidence": "这三个是亲弟兄：一个唤做立地太岁阮小二，一个唤做短命二郎阮小五，一个唤做活阎罗阮小七",
       "example_chapter": 15,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "亲兄弟"
     },
     {
       "person_a": "宋太公",
@@ -252,8 +252,8 @@
       "mention_count": 9,
       "example_evidence": "自和他父亲宋太公在村中务农",
       "example_chapter": 18,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -263,8 +263,8 @@
       "mention_count": 9,
       "example_evidence": "李俊道：多闻山东及时雨宋公明，偶然寓居在此",
       "example_chapter": 36,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -274,9 +274,9 @@
       "mention_count": 9,
       "example_evidence": "张清见宋江如此义气，叩头下拜受降",
       "example_chapter": 70,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "先敌对后归顺成为兄弟"
     },
     {
       "person_a": "戴宗",
@@ -285,9 +285,9 @@
       "mention_count": 8,
       "example_evidence": "这个小弟身边牢里一个小牢子，姓李，名逵",
       "example_chapter": 38,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "初在江州为上下级，后在梁山为兄弟"
     },
     {
       "person_a": "宋江",
@@ -296,8 +296,8 @@
       "mention_count": 8,
       "example_evidence": "宋江听得，猛省道：莫不是绰号浪里白跳的张顺？戴宗指着宋江对张顺道：二哥，你曾认得这位兄长么？",
       "example_chapter": 38,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -307,9 +307,9 @@
       "mention_count": 8,
       "example_evidence": "登州山下有一家猎户，兄弟两个，哥哥唤做解珍，兄弟唤做解宝",
       "example_chapter": 49,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "亲兄弟"
     },
     {
       "person_a": "武松",
@@ -318,9 +318,9 @@
       "mention_count": 8,
       "example_evidence": "第三是行者二郎武松",
       "example_chapter": 57,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "梁山兄弟，同属步军头领"
     },
     {
       "person_a": "卢俊义",
@@ -329,8 +329,8 @@
       "mention_count": 8,
       "example_evidence": "原来这燕青是卢俊义家心腹人，也上厅声喏了",
       "example_chapter": 61,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -340,9 +340,9 @@
       "mention_count": 7,
       "example_evidence": "少华山上有三个强人",
       "example_chapter": 2,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "先对抗后结交"
     },
     {
       "person_a": "史进",
@@ -351,9 +351,9 @@
       "mention_count": 7,
       "example_evidence": "少华山上有三个强人",
       "example_chapter": 2,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "先对抗后结交"
     },
     {
       "person_a": "李成",
@@ -362,9 +362,9 @@
       "mention_count": 7,
       "example_evidence": "正将台上立着两个都监：一个唤做李天王李成，一个唤做闻大刀闻达。",
       "example_chapter": 12,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "notes": "梁中书为大名府留守，李成为都监"
     },
     {
       "person_a": "阮小七",
@@ -373,9 +373,9 @@
       "mention_count": 7,
       "example_evidence": "这三个是亲弟兄：一个唤做立地太岁阮小二，一个唤做短命二郎阮小五，一个唤做活阎罗阮小七",
       "example_chapter": 15,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "亲兄弟"
     },
     {
       "person_a": "公孙胜",
@@ -384,8 +384,8 @@
       "mention_count": 7,
       "example_evidence": "晁盖请那先生到后堂吃茶已罢",
       "example_chapter": 15,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -395,8 +395,8 @@
       "mention_count": 7,
       "example_evidence": "两个好汉立在船上",
       "example_chapter": 41,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -406,8 +406,8 @@
       "mention_count": 7,
       "example_evidence": "我今日就结义你做个弟兄如何",
       "example_chapter": 44,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "结拜兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -417,9 +417,9 @@
       "mention_count": 7,
       "example_evidence": "那扮知府的是萧让",
       "example_chapter": 50,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "梁山兄弟"
     },
     {
       "person_a": "宋江",
@@ -428,9 +428,9 @@
       "mention_count": 7,
       "example_evidence": "宋江引众将出郭远远迎接，入到昭德府内歇下",
       "example_chapter": 98,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "notes": "陈安抚为朝廷钦差，宋江受朝廷调遣"
     },
     {
       "person_a": "张清",
@@ -439,8 +439,8 @@
       "mention_count": 7,
       "example_evidence": "张清化名全羽，于三月十六日招赘为婿，与琼英洞房花烛",
       "example_chapter": 98,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "夫妻",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -450,9 +450,9 @@
       "mention_count": 6,
       "example_evidence": "我听得少华山上有三个强人",
       "example_chapter": 2,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "先对抗后结交"
     },
     {
       "person_a": "林冲",
@@ -461,9 +461,9 @@
       "mention_count": 6,
       "example_evidence": "王伦接来拆开看了，便请林冲来坐第四位交椅",
       "example_chapter": 11,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "notes": "王伦嫉贤妒能，后被林冲火并"
     },
     {
       "person_a": "梁中书",
@@ -472,8 +472,8 @@
       "mention_count": 6,
       "example_evidence": "正将台上立着两个都监：一个唤做李天王李成，一个唤做闻大刀闻达。",
       "example_chapter": 12,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -483,8 +483,8 @@
       "mention_count": 6,
       "example_evidence": "晁保正闻知你三个大名，特地教我来请你们说话",
       "example_chapter": 15,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -494,8 +494,8 @@
       "mention_count": 6,
       "example_evidence": "那人夫妻两个，亦是江湖上好汉有名的",
       "example_chapter": 17,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "夫妻",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -505,8 +505,8 @@
       "mention_count": 6,
       "example_evidence": "朱仝那人，也有些家私，不用与他，我自与他说知人情便了",
       "example_chapter": 20,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -516,9 +516,9 @@
       "mention_count": 6,
       "example_evidence": "雷横这人，又不知我报与保正",
       "example_chapter": 20,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "梁山兄弟"
     },
     {
       "person_a": "潘金莲",
@@ -527,9 +527,9 @@
       "mention_count": 6,
       "example_evidence": "原来只是阳谷县一个破落户财主，就县前开着个生药铺",
       "example_chapter": 24,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同谋",
+      "correct_category": "social",
+      "notes": "王婆教唆潘金莲与西门庆通奸并毒杀武大郎"
     },
     {
       "person_a": "宋江",
@@ -538,9 +538,9 @@
       "mention_count": 6,
       "example_evidence": "穆弘因宋江赏薛永银子，要捉拿宋江",
       "example_chapter": 37,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "初期短暂敌对，后归顺梁山"
     },
     {
       "person_a": "张横",
@@ -549,8 +549,8 @@
       "mention_count": 6,
       "example_evidence": "前面是甚么梢公，敢在当港行事？原来却是李大哥，我只道是谁来",
       "example_chapter": 37,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     }
   ]

@@ -8,7 +8,7 @@
       "mention_count": 105,
       "first_chapter": 3,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -17,7 +17,7 @@
       "mention_count": 102,
       "first_chapter": 2,
       "last_chapter": 119,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -26,16 +26,16 @@
       "mention_count": 102,
       "first_chapter": 3,
       "last_chapter": 122,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "贾宝玉",
+      "notes": "贾宝玉的常用简称"
     },
     {
       "name": "袭人",
       "mention_count": 87,
       "first_chapter": 3,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -44,25 +44,25 @@
       "mention_count": 80,
       "first_chapter": 4,
       "last_chapter": 122,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "薛宝钗",
+      "notes": "薛宝钗的简称"
     },
     {
       "name": "凤姐",
       "mention_count": 79,
       "first_chapter": 3,
       "last_chapter": 119,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "王熙凤",
+      "notes": "王熙凤的简称"
     },
     {
       "name": "贾政",
       "mention_count": 75,
       "first_chapter": 2,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -71,7 +71,7 @@
       "mention_count": 68,
       "first_chapter": 6,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -80,7 +80,7 @@
       "mention_count": 67,
       "first_chapter": 2,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -89,16 +89,16 @@
       "mention_count": 64,
       "first_chapter": 2,
       "last_chapter": 117,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "林黛玉",
+      "notes": "林黛玉的简称"
     },
     {
       "name": "李纨",
       "mention_count": 60,
       "first_chapter": 4,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -107,7 +107,7 @@
       "mention_count": 58,
       "first_chapter": 2,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -116,7 +116,7 @@
       "mention_count": 58,
       "first_chapter": 3,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -125,7 +125,7 @@
       "mention_count": 58,
       "first_chapter": 4,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -134,7 +134,7 @@
       "mention_count": 52,
       "first_chapter": 3,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -143,7 +143,7 @@
       "mention_count": 49,
       "first_chapter": 3,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -152,7 +152,7 @@
       "mention_count": 46,
       "first_chapter": 5,
       "last_chapter": 119,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -161,7 +161,7 @@
       "mention_count": 46,
       "first_chapter": 8,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -170,7 +170,7 @@
       "mention_count": 46,
       "first_chapter": 20,
       "last_chapter": 117,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -179,7 +179,7 @@
       "mention_count": 45,
       "first_chapter": 2,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -188,7 +188,7 @@
       "mention_count": 45,
       "first_chapter": 5,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -197,7 +197,7 @@
       "mention_count": 43,
       "first_chapter": 5,
       "last_chapter": 117,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -206,7 +206,7 @@
       "mention_count": 41,
       "first_chapter": 3,
       "last_chapter": 113,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -215,7 +215,7 @@
       "mention_count": 36,
       "first_chapter": 2,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -224,7 +224,7 @@
       "mention_count": 36,
       "first_chapter": 20,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -233,7 +233,7 @@
       "mention_count": 34,
       "first_chapter": 3,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -242,7 +242,7 @@
       "mention_count": 32,
       "first_chapter": 20,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -251,7 +251,7 @@
       "mention_count": 31,
       "first_chapter": 4,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -260,52 +260,52 @@
       "mention_count": 31,
       "first_chapter": 19,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "宝玉的丫鬟"
     },
     {
       "name": "莺儿",
       "mention_count": 26,
       "first_chapter": 7,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "宝钗的丫鬟"
     },
     {
       "name": "香菱",
       "mention_count": 26,
       "first_chapter": 7,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "原名甄英莲"
     },
     {
       "name": "湘云",
       "mention_count": 25,
       "first_chapter": 36,
       "last_chapter": 110,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "史湘云",
+      "notes": "史湘云的简称"
     },
     {
       "name": "小丫头",
       "mention_count": 24,
       "first_chapter": 6,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，非特定角色"
     },
     {
       "name": "林黛玉",
       "mention_count": 23,
       "first_chapter": 5,
       "last_chapter": 103,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -314,16 +314,16 @@
       "mention_count": 23,
       "first_chapter": 23,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "赵姨娘房里的丫鬟"
     },
     {
       "name": "史湘云",
       "mention_count": 22,
       "first_chapter": 19,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -332,43 +332,43 @@
       "mention_count": 21,
       "first_chapter": 20,
       "last_chapter": 113,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "贾母的丫鬟"
     },
     {
       "name": "雪雁",
       "mention_count": 19,
       "first_chapter": 3,
       "last_chapter": 101,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "黛玉的丫鬟"
     },
     {
       "name": "宝琴",
       "mention_count": 19,
       "first_chapter": 51,
       "last_chapter": 121,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "薛宝琴",
+      "notes": "薛宝琴的简称"
     },
     {
       "name": "丰儿",
       "mention_count": 18,
       "first_chapter": 7,
       "last_chapter": 118,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "凤姐的丫鬟"
     },
     {
       "name": "薛宝钗",
       "mention_count": 17,
       "first_chapter": 5,
       "last_chapter": 84,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -377,7 +377,7 @@
       "mention_count": 16,
       "first_chapter": 1,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -386,16 +386,16 @@
       "mention_count": 16,
       "first_chapter": 6,
       "last_chapter": 113,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "王夫人的陪房"
     },
     {
       "name": "贾芸",
       "mention_count": 16,
       "first_chapter": 13,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -404,16 +404,16 @@
       "mention_count": 16,
       "first_chapter": 16,
       "last_chapter": 119,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "贾府管家"
     },
     {
       "name": "妙玉",
       "mention_count": 16,
       "first_chapter": 18,
       "last_chapter": 118,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -422,36 +422,36 @@
       "mention_count": 16,
       "first_chapter": 18,
       "last_chapter": 99,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "贾府管家媳妇"
     },
     {
       "name": "婆子",
       "mention_count": 16,
       "first_chapter": 37,
       "last_chapter": 121,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，指各种老年女仆"
     },
     {
       "name": "薛蝌",
       "mention_count": 16,
       "first_chapter": 50,
       "last_chapter": 122,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "薛蟠的堂弟"
     },
     {
       "name": "茗烟",
       "mention_count": 15,
       "first_chapter": 9,
       "last_chapter": 103,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "宝玉的小厮"
     }
   ]
 }

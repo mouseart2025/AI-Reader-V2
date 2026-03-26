@@ -8,7 +8,7 @@
       "mention_count": 69,
       "first_chapter": 22,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -17,25 +17,25 @@
       "mention_count": 42,
       "first_chapter": 20,
       "last_chapter": 99,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "猪八戒",
+      "notes": "猪八戒的简称"
     },
     {
       "name": "行者",
       "mention_count": 41,
       "first_chapter": 15,
       "last_chapter": 99,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "notes": "孙悟空的常用称呼"
     },
     {
       "name": "猪八戒",
       "mention_count": 38,
       "first_chapter": 21,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -44,16 +44,16 @@
       "mention_count": 35,
       "first_chapter": 13,
       "last_chapter": 99,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "唐僧",
+      "notes": "唐僧的法号"
     },
     {
       "name": "唐僧",
       "mention_count": 31,
       "first_chapter": 21,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -62,43 +62,43 @@
       "mention_count": 24,
       "first_chapter": 14,
       "last_chapter": 98,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "唐僧",
+      "notes": "唐僧的全称"
     },
     {
       "name": "土地",
       "mention_count": 20,
       "first_chapter": 5,
       "last_chapter": 95,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用神职称谓，非特定角色，指各地土地神"
     },
     {
       "name": "小妖",
       "mention_count": 19,
       "first_chapter": 21,
       "last_chapter": 86,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，指各种无名小妖怪"
     },
     {
       "name": "孙大圣",
       "mention_count": 18,
       "first_chapter": 35,
       "last_chapter": 92,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "notes": "孙悟空的尊称"
     },
     {
       "name": "孙悟空",
       "mention_count": 17,
       "first_chapter": 2,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -107,16 +107,16 @@
       "mention_count": 16,
       "first_chapter": 16,
       "last_chapter": 100,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "白龙马",
+      "notes": "白龙马的简称"
     },
     {
       "name": "观音菩萨",
       "mention_count": 15,
       "first_chapter": 8,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -125,7 +125,7 @@
       "mention_count": 14,
       "first_chapter": 1,
       "last_chapter": 92,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -134,25 +134,25 @@
       "mention_count": 13,
       "first_chapter": 5,
       "last_chapter": 99,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "护法神众，集体角色"
     },
     {
       "name": "孙行者",
       "mention_count": 13,
       "first_chapter": 16,
       "last_chapter": 97,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "notes": "孙悟空的别称"
     },
     {
       "name": "如来佛祖",
       "mention_count": 12,
       "first_chapter": 7,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -161,25 +161,25 @@
       "mention_count": 11,
       "first_chapter": 31,
       "last_chapter": 95,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，指途经各国国王，非特定角色"
     },
     {
       "name": "众僧",
       "mention_count": 10,
       "first_chapter": 13,
       "last_chapter": 95,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用集体称谓"
     },
     {
       "name": "牛魔王",
       "mention_count": 9,
       "first_chapter": 3,
       "last_chapter": 61,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -188,7 +188,7 @@
       "mention_count": 9,
       "first_chapter": 5,
       "last_chapter": 60,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -197,43 +197,43 @@
       "mention_count": 9,
       "first_chapter": 5,
       "last_chapter": 99,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "护法神众，集体角色"
     },
     {
       "name": "黄门官",
       "mention_count": 9,
       "first_chapter": 39,
       "last_chapter": 94,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用官职称谓，指各国宫廷传话官员"
     },
     {
       "name": "哪吒三太子",
       "mention_count": 8,
       "first_chapter": 4,
       "last_chapter": 61,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "哪吒",
+      "notes": "哪吒的全称"
     },
     {
       "name": "六丁六甲",
       "mention_count": 8,
       "first_chapter": 15,
       "last_chapter": 99,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "护法神众，集体角色"
     },
     {
       "name": "太白金星",
       "mention_count": 7,
       "first_chapter": 4,
       "last_chapter": 92,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -242,52 +242,52 @@
       "mention_count": 7,
       "first_chapter": 6,
       "last_chapter": 100,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "观音菩萨",
+      "notes": "观音菩萨的全称"
     },
     {
       "name": "山神",
       "mention_count": 7,
       "first_chapter": 8,
       "last_chapter": 95,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用神职称谓，非特定角色"
     },
     {
       "name": "金头揭谛",
       "mention_count": 7,
       "first_chapter": 15,
       "last_chapter": 90,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "五方揭谛之一"
     },
     {
       "name": "护教伽蓝",
       "mention_count": 7,
       "first_chapter": 21,
       "last_chapter": 99,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "护法神众，集体角色"
     },
     {
       "name": "增长天王",
       "mention_count": 6,
       "first_chapter": 4,
       "last_chapter": 92,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "四大天王之一"
     },
     {
       "name": "托塔李天王",
       "mention_count": 6,
       "first_chapter": 4,
       "last_chapter": 61,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -296,34 +296,34 @@
       "mention_count": 6,
       "first_chapter": 6,
       "last_chapter": 90,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "四大天王之一"
     },
     {
       "name": "沙悟净",
       "mention_count": 6,
       "first_chapter": 8,
       "last_chapter": 79,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "沙僧",
+      "notes": "沙僧的法名"
     },
     {
       "name": "城隍",
       "mention_count": 6,
       "first_chapter": 8,
       "last_chapter": 90,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用神职称谓，非特定角色"
     },
     {
       "name": "唐太宗",
       "mention_count": 6,
       "first_chapter": 9,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -332,61 +332,61 @@
       "mention_count": 5,
       "first_chapter": 1,
       "last_chapter": 73,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，指各处仙童"
     },
     {
       "name": "夜叉",
       "mention_count": 5,
       "first_chapter": 3,
       "last_chapter": 43,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，指各处夜叉"
     },
     {
       "name": "阿傩",
       "mention_count": 5,
       "first_chapter": 7,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "如来佛祖弟子"
     },
     {
       "name": "八大金刚",
       "mention_count": 5,
       "first_chapter": 8,
       "last_chapter": 100,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "集体角色"
     },
     {
       "name": "道人",
       "mention_count": 5,
       "first_chapter": 16,
       "last_chapter": 80,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用称谓，非特定角色"
     },
     {
       "name": "驿丞",
       "mention_count": 5,
       "first_chapter": 29,
       "last_chapter": 94,
-      "is_valid_character": null,
+      "is_valid_character": false,
       "correct_name": null,
-      "notes": ""
+      "notes": "通用官职称谓，非特定角色"
     },
     {
       "name": "白龙马",
       "mention_count": 5,
       "first_chapter": 31,
       "last_chapter": 82,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -395,43 +395,43 @@
       "mention_count": 5,
       "first_chapter": 43,
       "last_chapter": 84,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "观音菩萨座下，即红孩儿被收服后的身份"
     },
     {
       "name": "龙女",
       "mention_count": 4,
       "first_chapter": 3,
       "last_chapter": 58,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "观音菩萨座下"
     },
     {
       "name": "马元帅",
       "mention_count": 4,
       "first_chapter": 3,
       "last_chapter": 58,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "AI预标注-请人工确认，可能指华光天王马灵官"
     },
     {
       "name": "齐天大圣",
       "mention_count": 4,
       "first_chapter": 5,
       "last_chapter": 51,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "notes": "孙悟空的封号"
     },
     {
       "name": "王母娘娘",
       "mention_count": 4,
       "first_chapter": 5,
       "last_chapter": 74,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
       "notes": ""
     },
@@ -440,18 +440,18 @@
       "mention_count": 4,
       "first_chapter": 6,
       "last_chapter": 92,
-      "is_valid_character": null,
+      "is_valid_character": true,
       "correct_name": null,
-      "notes": ""
+      "notes": "集体角色"
     },
     {
       "name": "李天王",
       "mention_count": 4,
       "first_chapter": 6,
       "last_chapter": 83,
-      "is_valid_character": null,
-      "correct_name": null,
-      "notes": ""
+      "is_valid_character": true,
+      "correct_name": "托塔李天王",
+      "notes": "托塔李天王的简称"
     }
   ]
 }

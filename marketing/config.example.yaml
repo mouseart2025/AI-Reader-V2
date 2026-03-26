@@ -1,0 +1,104 @@
+# AI Reader V2 — AI 自主营销系统配置
+# 复制为 config.yaml 并填入实际值
+# 支持 ${ENV_VAR} 语法引用环境变量
+
+llm:
+  # 文案生成 (Claude — 中文文案质量优)
+  copywriting:
+    provider: anthropic          # anthropic | openai
+    base_url: https://api.anthropic.com
+    api_key: ${CLAUDE_API_KEY}
+    model: claude-sonnet-4-20250514
+    max_tokens: 4096
+  # 选题分析 (DeepSeek — 性价比高)
+  analysis:
+    provider: openai             # openai 兼容格式
+    base_url: https://api.deepseek.com/v1
+    api_key: ${DEEPSEEK_API_KEY}
+    model: deepseek-chat
+    max_tokens: 4096
+
+# AI Reader V2 后端连接
+ai_reader:
+  base_url: http://localhost:8000
+  frontend_url: http://localhost:5173
+  timeout: 1800  # 30 分钟分析超时
+
+# 社交平台配置
+platforms:
+  juejin:
+    enabled: true
+    publish_mode: auto           # auto | manual
+    cookie: ${JUEJIN_COOKIE}
+    max_daily: 1
+    min_interval_hours: 4
+    accounts:
+      - role: primary
+        cookie: ${JUEJIN_COOKIE}
+      - role: backup
+        cookie: ${JUEJIN_COOKIE_BACKUP}
+  csdn:
+    enabled: true
+    publish_mode: auto
+    cookie: ${CSDN_COOKIE}
+    max_daily: 1
+    min_interval_hours: 4
+  twitter:
+    enabled: false
+    publish_mode: auto
+    api_key: ${TWITTER_API_KEY}
+    api_secret: ${TWITTER_API_SECRET}
+    access_token: ${TWITTER_ACCESS_TOKEN}
+    access_secret: ${TWITTER_ACCESS_SECRET}
+    max_daily: 3
+    min_interval_hours: 2
+  xiaohongshu:
+    enabled: true
+    publish_mode: manual         # 小红书无 API，仅人工发布
+  zhihu:
+    enabled: true
+    publish_mode: manual         # 知乎封号风险高，仅人工发布
+
+# Playwright 截图配置
+screenshots:
+  wait_timeout: 15000            # ms
+  stable_delay: 3000             # ms, 力导向图稳定等待
+  device_scale_factor: 2         # Retina 高清
+  pages:
+    graph:
+      path: /novels/{novel_id}/graph
+      wait_selector: canvas
+      clip_selector: .graph-container
+    map:
+      path: /novels/{novel_id}/map
+      wait_selector: .novel-map svg
+      clip_selector: .map-container
+    timeline:
+      path: /novels/{novel_id}/timeline
+      wait_selector: .timeline-container svg
+      clip_selector: .timeline-container
+    encyclopedia:
+      path: /novels/{novel_id}/encyclopedia
+      wait_selector: .encyclopedia-content
+      clip_selector: .encyclopedia-content
+
+# 本地小说库 (可选)
+novels_dir: ~/novels
+
+# 输出配置
+output:
+  dir: ./output
+  db_path: ./marketing.db
+  log_dir: ./logs
+  manual_publish_dir: ./output/manual_publish
+
+# 发布排期
+schedule:
+  content_per_week: 8
+  publish_times: ["10:00", "14:00", "20:00"]
+
+# 敏感词库路径
+content_filter:
+  political: ./filters/political.txt
+  competitive: ./filters/competitive.txt
+  copyright: ./filters/copyright.txt

@@ -14,10 +14,13 @@
         "猴王",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "别名组正确，缺少齐天大圣和美猴王"
     },
     {
       "canonical_name": "大圣",
@@ -30,10 +33,13 @@
         "猴王",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "与行者组重复，应合并为同一组，canonical应为孙悟空"
     },
     {
       "canonical_name": "老孙",
@@ -46,10 +52,13 @@
         "孙大圣",
         "猴王"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "与行者组重复，应合并，canonical应为孙悟空"
     },
     {
       "canonical_name": "悟空",
@@ -62,10 +71,13 @@
         "猴王",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "与行者组重复，应合并，canonical应为孙悟空"
     },
     {
       "canonical_name": "孙行者",
@@ -78,10 +90,13 @@
         "猴王",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "与行者组重复，应合并，canonical应为孙悟空"
     },
     {
       "canonical_name": "孙大圣",
@@ -94,10 +109,13 @@
         "猴王",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "与行者组重复，应合并，canonical应为孙悟空"
     },
     {
       "canonical_name": "猴王",
@@ -110,10 +128,13 @@
         "孙大圣",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "与行者组重复，应合并，canonical应为孙悟空"
     },
     {
       "canonical_name": "孙悟空",
@@ -126,10 +147,13 @@
         "猴王",
         "老孙"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "齐天大圣",
+        "美猴王"
+      ],
+      "notes": "别名组正确，这是最佳canonical name"
     },
     {
       "canonical_name": "三藏",
@@ -139,10 +163,16 @@
         "圣僧",
         "长老"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "贫僧",
+        "圣僧",
+        "长老"
+      ],
+      "missing_aliases": [
+        "唐三藏"
+      ],
+      "notes": "贫僧/圣僧/长老是通用称谓不应作为别名，缺少唐三藏"
     },
     {
       "canonical_name": "唐僧",
@@ -152,10 +182,16 @@
         "圣僧",
         "长老"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "贫僧",
+        "圣僧",
+        "长老"
+      ],
+      "missing_aliases": [
+        "唐三藏"
+      ],
+      "notes": "贫僧/圣僧/长老是通用称谓不应作为别名"
     },
     {
       "canonical_name": "妖精",
@@ -165,10 +201,15 @@
         "那怪",
         "怪物"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "妖怪",
+        "妖魔",
+        "那怪",
+        "怪物"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：妖精/妖怪/妖魔/那怪/怪物都是通用称谓，指代不同妖怪，不应合并为同一角色"
     },
     {
       "canonical_name": "长老",
@@ -178,10 +219,15 @@
         "贫僧",
         "圣僧"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "三藏",
+        "唐僧",
+        "贫僧",
+        "圣僧"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "长老是通用称谓，不应作为canonical name也不应合并唐僧等"
     },
     {
       "canonical_name": "那怪",
@@ -191,10 +237,15 @@
         "妖魔",
         "怪物"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "妖精",
+        "妖怪",
+        "妖魔",
+        "怪物"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：通用称谓不应合并"
     },
     {
       "canonical_name": "妖怪",
@@ -204,10 +255,15 @@
         "那怪",
         "怪物"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "妖精",
+        "妖魔",
+        "那怪",
+        "怪物"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：通用称谓不应合并"
     },
     {
       "canonical_name": "妖魔",
@@ -217,10 +273,15 @@
         "那怪",
         "怪物"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "妖精",
+        "妖怪",
+        "那怪",
+        "怪物"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：通用称谓不应合并"
     },
     {
       "canonical_name": "贫僧",
@@ -230,10 +291,15 @@
         "圣僧",
         "长老"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "三藏",
+        "唐僧",
+        "圣僧",
+        "长老"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "贫僧是通用自称，不应作为canonical也不应合并唐僧等"
     },
     {
       "canonical_name": "怪物",
@@ -243,10 +309,15 @@
         "妖魔",
         "那怪"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "妖精",
+        "妖怪",
+        "妖魔",
+        "那怪"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：通用称谓不应合并"
     },
     {
       "canonical_name": "圣僧",
@@ -256,10 +327,15 @@
         "贫僧",
         "长老"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "三藏",
+        "唐僧",
+        "贫僧",
+        "长老"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "圣僧是尊称，不应作为canonical也不应合并唐僧等"
     },
     {
       "canonical_name": "八戒",
@@ -268,10 +344,16 @@
         "呆子",
         "那呆子"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "呆子",
+        "那呆子"
+      ],
+      "missing_aliases": [
+        "悟能",
+        "天蓬元帅"
+      ],
+      "notes": "呆子/那呆子是通用贬称，可能指代他人；缺少悟能和天蓬元帅"
     },
     {
       "canonical_name": "呆子",
@@ -280,10 +362,13 @@
         "猪八戒",
         "那呆子"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "八戒",
+        "猪八戒"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "呆子是通用称谓，不应作为canonical"
     },
     {
       "canonical_name": "那呆子",
@@ -292,10 +377,13 @@
         "猪八戒",
         "呆子"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "八戒",
+        "猪八戒"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "那呆子是通用称谓，不应作为canonical"
     },
     {
       "canonical_name": "猪八戒",
@@ -304,70 +392,92 @@
         "呆子",
         "那呆子"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "呆子",
+        "那呆子"
+      ],
+      "missing_aliases": [
+        "悟能",
+        "天蓬元帅"
+      ],
+      "notes": "呆子/那呆子不宜作别名；缺少悟能和天蓬元帅"
     },
     {
       "canonical_name": "沙僧",
       "system_aliases": [
         "沙和尚"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "沙悟净",
+        "卷帘大将"
+      ],
+      "notes": "缺少沙悟净和卷帘大将"
     },
     {
       "canonical_name": "国王",
       "system_aliases": [
         "太宗"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "太宗"
+      ],
       "missing_aliases": [],
-      "notes": ""
+      "notes": "错误分组：国王是通用称谓指途经各国国王，太宗专指唐太宗，不应合并"
     },
     {
       "canonical_name": "三太子",
       "system_aliases": [
         "哪吒"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "哪吒三太子"
+      ],
+      "notes": "缺少哪吒三太子"
     },
     {
       "canonical_name": "太宗",
       "system_aliases": [
         "国王"
       ],
-      "is_correct_grouping": null,
-      "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "国王"
+      ],
+      "missing_aliases": [
+        "唐太宗"
+      ],
+      "notes": "国王是通用称谓不应作为太宗别名；缺少唐太宗"
     },
     {
       "canonical_name": "沙和尚",
       "system_aliases": [
         "沙僧"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "沙悟净",
+        "卷帘大将"
+      ],
+      "notes": "与沙僧组重复，canonical应为沙僧"
     },
     {
       "canonical_name": "哪吒",
       "system_aliases": [
         "三太子"
       ],
-      "is_correct_grouping": null,
+      "is_correct_grouping": true,
       "wrong_aliases": [],
-      "missing_aliases": [],
-      "notes": ""
+      "missing_aliases": [
+        "哪吒三太子"
+      ],
+      "notes": "与三太子组重复"
     }
   ]
 }

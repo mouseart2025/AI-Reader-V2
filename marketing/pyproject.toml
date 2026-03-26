@@ -1,0 +1,22 @@
+[project]
+name = "ai-reader-marketing"
+version = "0.1.0"
+description = "AI Reader V2 — AI 自主营销系统"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28",
+    "pyyaml>=6.0",
+    "aiosqlite>=0.20",
+    "playwright>=1.49",
+    "websockets>=13.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "strict"

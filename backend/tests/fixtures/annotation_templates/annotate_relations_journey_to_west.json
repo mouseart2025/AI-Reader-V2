@@ -10,8 +10,8 @@
       "mention_count": 39,
       "example_evidence": "行者道：这个恋家鬼！八戒道：说得是我老猪也有些饿了",
       "example_chapter": 20,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -21,8 +21,8 @@
       "mention_count": 35,
       "example_evidence": "三藏上马行者引路",
       "example_chapter": 14,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -32,8 +32,8 @@
       "mention_count": 34,
       "example_evidence": "行者、沙僧坐在台基边",
       "example_chapter": 23,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -43,8 +43,8 @@
       "mention_count": 24,
       "example_evidence": "三藏道：悟能你若是在家心重呵不是个出家的了",
       "example_chapter": 20,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -54,8 +54,8 @@
       "mention_count": 24,
       "example_evidence": "沙僧歇了担子八戒牵了马匹",
       "example_chapter": 23,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -65,9 +65,9 @@
       "mention_count": 23,
       "example_evidence": "悟净才收了宝杖整一整黄锦直裰跳上岸来对唐僧双膝跪下道：师父弟子有眼无珠不认得师父的尊容多有冲撞万望恕罪",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "notes": "与三藏↔沙僧是同一对关系的不同称呼"
     },
     {
       "person_a": "沙僧",
@@ -76,8 +76,8 @@
       "mention_count": 21,
       "example_evidence": "又来拜了三藏拜了行者与八戒分了大小",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -87,9 +87,9 @@
       "mention_count": 20,
       "example_evidence": "悟净道：二哥你在他家做个女婿罢",
       "example_chapter": 23,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "notes": "与沙僧↔猪八戒是同一对关系的不同称呼"
     },
     {
       "person_a": "唐僧",
@@ -98,8 +98,8 @@
       "mention_count": 17,
       "example_evidence": "我们是东土大唐圣僧的徒弟",
       "example_chapter": 21,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -109,9 +109,9 @@
       "mention_count": 13,
       "example_evidence": "行者道：我师父乃唐王御弟号曰三藏",
       "example_chapter": 39,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "notes": "与三藏↔行者是同一对关系的不同称呼"
     },
     {
       "person_a": "孙大圣",
@@ -120,8 +120,8 @@
       "mention_count": 12,
       "example_evidence": "那大圣在柱根下爬蹉，忽惊动八戒",
       "example_chapter": 34,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -131,8 +131,8 @@
       "mention_count": 11,
       "example_evidence": "那长老泪眼双垂，怨他三个徒弟道：你等闯出祸来",
       "example_chapter": 25,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -142,8 +142,8 @@
       "mention_count": 10,
       "example_evidence": "快还我师父师弟白马行囊",
       "example_chapter": 34,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -153,8 +153,8 @@
       "mention_count": 9,
       "example_evidence": "行者道：兄弟你还不知哩",
       "example_chapter": 21,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -164,8 +164,8 @@
       "mention_count": 9,
       "example_evidence": "猪八戒吊在梁上听得他一家子齐哭",
       "example_chapter": 35,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -175,9 +175,9 @@
       "mention_count": 9,
       "example_evidence": "先来的孙行者，次来的者行孙，后来的行者孙，返复三字都是我师兄一人",
       "example_chapter": 35,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "notes": "system_type为同门，实际应为师兄弟"
     },
     {
       "person_a": "孙悟空",
@@ -186,8 +186,8 @@
       "mention_count": 8,
       "example_evidence": "又来拜了三藏拜了行者与八戒分了大小",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -197,8 +197,8 @@
       "mention_count": 8,
       "example_evidence": "他听见一声叫就一毂辘跳将起来道：正是！正是！我是猪八戒",
       "example_chapter": 30,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -208,8 +208,8 @@
       "mention_count": 8,
       "example_evidence": "把唐僧与沙僧、八戒、白马、行李都送还那孙行者",
       "example_chapter": 34,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -219,8 +219,8 @@
       "mention_count": 7,
       "example_evidence": "我愿保你取经与你做个徒弟",
       "example_chapter": 14,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -230,9 +230,9 @@
       "mention_count": 7,
       "example_evidence": "南海菩萨道：孙悟空你怎么不受教诲不保唐僧来此处何干？",
       "example_chapter": 14,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "notes": "观音安排孙悟空保护唐僧，有指导关系"
     },
     {
       "person_a": "唐僧",
@@ -241,8 +241,8 @@
       "mention_count": 7,
       "example_evidence": "师父天亮了起来罢",
       "example_chapter": 16,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -252,8 +252,8 @@
       "mention_count": 7,
       "example_evidence": "师父我在你头上哩",
       "example_chapter": 21,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -263,8 +263,8 @@
       "mention_count": 7,
       "example_evidence": "那长老泪眼双垂，怨他三个徒弟道：你等闯出祸来，却带累我在此受罪",
       "example_chapter": 25,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -274,8 +274,8 @@
       "mention_count": 7,
       "example_evidence": "沙和尚歇下担子拿出行李来",
       "example_chapter": 32,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -285,9 +285,9 @@
       "mention_count": 7,
       "example_evidence": "老魔喜道：兄弟错拿了这个和尚没用",
       "example_chapter": 33,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同门",
+      "correct_category": "social",
+      "notes": "金角大王与银角大王的代称"
     },
     {
       "person_a": "八戒",
@@ -296,8 +296,8 @@
       "mention_count": 7,
       "example_evidence": "八戒又在梁上喊道：哥哥啊耳朵吃不成了",
       "example_chapter": 34,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -307,8 +307,8 @@
       "mention_count": 6,
       "example_evidence": "行者心中暗道：我那老和尚不禁打",
       "example_chapter": 25,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -318,9 +318,9 @@
       "mention_count": 5,
       "example_evidence": "行者念了一声唵字咒语即唤出当坊土地、本处山神",
       "example_chapter": 15,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "notes": "土地神受孙悟空召唤"
     },
     {
       "person_a": "唐三藏",
@@ -329,8 +329,8 @@
       "mention_count": 5,
       "example_evidence": "徒弟啊，多亏你受了劳苦！",
       "example_chapter": 35,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -340,8 +340,8 @@
       "mention_count": 5,
       "example_evidence": "我老孙当年与他相会真个意合情投交游甚厚",
       "example_chapter": 42,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "结拜兄弟",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -351,8 +351,8 @@
       "mention_count": 4,
       "example_evidence": "封托塔天王李靖为降魔大元帅哪吒三太子为三坛海会大神",
       "example_chapter": 4,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -362,8 +362,8 @@
       "mention_count": 4,
       "example_evidence": "玉帝大喜即封托塔天王李靖为降魔大元帅",
       "example_chapter": 4,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -373,9 +373,9 @@
       "mention_count": 4,
       "example_evidence": "如来即唤阿傩、迦叶二尊者相随",
       "example_chapter": 7,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "notes": "阿傩是如来弟子，师徒关系更准确"
     },
     {
       "person_a": "菩萨",
@@ -384,9 +384,9 @@
       "mention_count": 4,
       "example_evidence": "行者将那请菩萨施变化降妖的事情备陈了一遍",
       "example_chapter": 18,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "notes": "观音菩萨指导孙悟空保唐僧取经"
     },
     {
       "person_a": "明月",
@@ -395,9 +395,9 @@
       "mention_count": 4,
       "example_evidence": "两个绝小的看家：一个唤做清风一个唤做明月",
       "example_chapter": 24,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同门",
+      "correct_category": "social",
+      "notes": "镇元大仙的两个童子"
     },
     {
       "person_a": "陈清",
@@ -406,8 +406,8 @@
       "mention_count": 4,
       "example_evidence": "这个是我舍弟名唤陈清，老拙叫做陈澄",
       "example_chapter": 47,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -417,8 +417,8 @@
       "mention_count": 3,
       "example_evidence": "老君宫中炼了些九转金丹不期被贼偷去。",
       "example_chapter": 5,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "敌对",
+      "correct_category": "hostile",
       "notes": ""
     },
     {
@@ -428,9 +428,9 @@
       "mention_count": 3,
       "example_evidence": "玉帝调遣我等往花果山收降妖猴",
       "example_chapter": 6,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "notes": "二郎神是玉帝外甥，但此处体现君臣关系"
     },
     {
       "person_a": "孙悟空",
@@ -439,9 +439,9 @@
       "mention_count": 3,
       "example_evidence": "你可跟他做个徒弟秉教伽持入我佛门再修正果",
       "example_chapter": 8,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "notes": "观音是悟空的引导者，非直接师徒"
     },
     {
       "person_a": "土地",
@@ -450,8 +450,8 @@
       "mention_count": 3,
       "example_evidence": "有土地、山神、监押大圣的天将都来拜接了菩萨",
       "example_chapter": 8,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -461,8 +461,8 @@
       "mention_count": 3,
       "example_evidence": "唐王召徐世勣上殿道：朕夜间得一怪梦...魏征来朝",
       "example_chapter": 9,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -472,9 +472,9 @@
       "mention_count": 3,
       "example_evidence": "只因犯了诳上之罪被佛祖压于此处",
       "example_chapter": 14,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "notes": "早期为镇压关系，后期孙悟空成佛后转为佛门上下级"
     },
     {
       "person_a": "伶俐虫",
@@ -483,9 +483,9 @@
       "mention_count": 3,
       "example_evidence": "二魔道：差精细鬼、伶俐虫二人去",
       "example_chapter": 33,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同事",
+      "correct_category": "social",
+      "notes": "二者都是金角银角的手下，同事关系"
     },
     {
       "person_a": "唐三藏",
@@ -494,8 +494,8 @@
       "mention_count": 3,
       "example_evidence": "师父/徒弟关系在整部小说中持续存在",
       "example_chapter": 36,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -505,8 +505,8 @@
       "mention_count": 3,
       "example_evidence": "他是牛魔王的儿子罗刹女养的",
       "example_chapter": 40,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -516,9 +516,9 @@
       "mention_count": 3,
       "example_evidence": "呆子只是想着吃食那里管甚么好歹使戒刀挑断绳索放下怪来",
       "example_chapter": 40,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "notes": "system_type错误，猪八戒与红孩儿是敌对关系"
     },
     {
       "person_a": "红孩儿",
@@ -527,8 +527,8 @@
       "mention_count": 3,
       "example_evidence": "行者道：还我师父来。那怪道：你这猴头忒不通变",
       "example_chapter": 41,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "敌对",
+      "correct_category": "hostile",
       "notes": ""
     },
     {
@@ -538,9 +538,9 @@
       "mention_count": 3,
       "example_evidence": "我大师父号做虎力大仙；二师父鹿力大仙；三师父羊力大仙",
       "example_chapter": 44,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同门",
+      "correct_category": "social",
+      "notes": "三位大仙是同门师兄弟关系，非亲兄弟"
     },
     {
       "person_a": "羊力大仙",
@@ -549,9 +549,9 @@
       "mention_count": 3,
       "example_evidence": "我大师父号做虎力大仙；二师父鹿力大仙；三师父羊力大仙",
       "example_chapter": 44,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "同门",
+      "correct_category": "social",
+      "notes": "同门关系，非亲兄弟"
     }
   ]
 }

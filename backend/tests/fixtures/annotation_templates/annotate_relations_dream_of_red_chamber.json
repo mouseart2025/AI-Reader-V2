@@ -10,8 +10,8 @@
       "mention_count": 64,
       "example_evidence": "宝玉因知他本姓花，又曾见旧人诗句上有花气袭人之处，遂回明贾母，更名袭人",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -21,8 +21,8 @@
       "mention_count": 48,
       "example_evidence": "外祖母又极溺爱",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "祖孙",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -32,9 +32,9 @@
       "mention_count": 47,
       "example_evidence": "这个妹妹我曾见过的",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "恋人",
+      "correct_category": "intimate",
+      "notes": "虽有表亲血缘，但核心关系是恋人"
     },
     {
       "person_a": "宝玉",
@@ -43,9 +43,9 @@
       "mention_count": 40,
       "example_evidence": "宝钗亦在那里，与宝玉黛玉同往",
       "example_chapter": 18,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "notes": "后期结为夫妻"
     },
     {
       "person_a": "凤姐",
@@ -54,8 +54,8 @@
       "mention_count": 34,
       "example_evidence": "平儿便到这边来，一见了周瑞家的便问",
       "example_chapter": 7,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -65,8 +65,8 @@
       "mention_count": 31,
       "example_evidence": "我有一个孽根祸胎，是家里的混世魔王",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "母子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -76,8 +76,8 @@
       "mention_count": 31,
       "example_evidence": "宝玉又去书房中见贾政",
       "example_chapter": 9,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -87,8 +87,8 @@
       "mention_count": 28,
       "example_evidence": "接着房门响处，平儿拿着大铜盆出来，叫丰儿舀水进去",
       "example_chapter": 7,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "夫妻",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -98,8 +98,8 @@
       "mention_count": 25,
       "example_evidence": "只为母亲分忧解劳",
       "example_chapter": 4,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "母女",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -109,8 +109,8 @@
       "mention_count": 24,
       "example_evidence": "贾赦贾政之母",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "母子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -120,9 +120,9 @@
       "mention_count": 24,
       "example_evidence": "凤姐又趁势请贾母后日过去看戏",
       "example_chapter": 8,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "notes": "凤姐是贾琏之妻，贾母是祖母辈，为孙媳妇与祖母关系"
     },
     {
       "person_a": "宝玉",
@@ -131,8 +131,8 @@
       "mention_count": 24,
       "example_evidence": "晴雯先接出来，笑说道：好，好，要我研了那些墨",
       "example_chapter": 8,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -142,8 +142,8 @@
       "mention_count": 23,
       "example_evidence": "雪雁道：紫鹃姐姐怕姑娘冷，使我送来的",
       "example_chapter": 8,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -153,8 +153,8 @@
       "mention_count": 20,
       "example_evidence": "方欲拜见时，早被他外祖母一把搂入怀中",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "外祖孙",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -164,9 +164,9 @@
       "mention_count": 20,
       "example_evidence": "王夫人之兄嫂处遣了两个媳妇来说话的",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "姑侄",
+      "correct_category": "family",
+      "notes": "凤姐是王夫人的内侄女"
     },
     {
       "person_a": "尤氏",
@@ -175,8 +175,8 @@
       "mention_count": 19,
       "example_evidence": "贾珍之妻尤氏",
       "example_chapter": 5,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "夫妻",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -186,9 +186,9 @@
       "mention_count": 19,
       "example_evidence": "次日又与宝钗看",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "朋友",
+      "correct_category": "social",
+      "notes": "亦有情敌关系，后期和好为姐妹"
     },
     {
       "person_a": "宝玉",
@@ -197,8 +197,8 @@
       "mention_count": 18,
       "example_evidence": "宝玉又去嘱咐了晴雯麝月等几句",
       "example_chapter": 9,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -208,8 +208,8 @@
       "mention_count": 18,
       "example_evidence": "比如老太太屋里，要没那个鸳鸯如何使得",
       "example_chapter": 40,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -219,8 +219,8 @@
       "mention_count": 17,
       "example_evidence": "这珍爷倒生了一个儿子，今年才十六岁，名叫贾蓉",
       "example_chapter": 2,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -230,8 +230,8 @@
       "mention_count": 17,
       "example_evidence": "贾赦贾政之母",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄弟",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -241,8 +241,8 @@
       "mention_count": 17,
       "example_evidence": "赵姨娘见他这般，因问：又是那里垫了踹窝来了",
       "example_chapter": 20,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "母子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -252,8 +252,8 @@
       "mention_count": 15,
       "example_evidence": "遂至老大无成，且家中有百万之富",
       "example_chapter": 4,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "母子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -263,8 +263,8 @@
       "mention_count": 14,
       "example_evidence": "黛玉只带了两个人来：一个是自幼奶娘王嬷嬷，一个是十岁的小丫头名唤作雪雁",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -274,9 +274,9 @@
       "mention_count": 14,
       "example_evidence": "平儿与众丫鬟参拜毕，献茶",
       "example_chapter": 16,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "notes": "平儿是贾琏的通房丫鬟"
     },
     {
       "person_a": "贾政",
@@ -285,8 +285,8 @@
       "mention_count": 13,
       "example_evidence": "贾政因劝道：此物恐非常人可享者",
       "example_chapter": 13,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "叔侄",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -296,8 +296,8 @@
       "mention_count": 13,
       "example_evidence": "见过贾赦贾政",
       "example_chapter": 16,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "叔侄",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -307,9 +307,9 @@
       "mention_count": 13,
       "example_evidence": "贾母道：从我们家四个女孩儿算起，全不如宝丫头",
       "example_chapter": 35,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "亲戚",
+      "correct_category": "family",
+      "notes": "宝钗非贾母亲孙女，是薛家客居，后成为孙媳妇"
     },
     {
       "person_a": "王夫人",
@@ -318,8 +318,8 @@
       "mention_count": 12,
       "example_evidence": "贾母带领邢夫人，王夫人，尤氏，一共四乘大轿入朝",
       "example_chapter": 16,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "婆媳",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -329,8 +329,8 @@
       "mention_count": 11,
       "example_evidence": "贾赦贾政之母",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "母子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -340,8 +340,8 @@
       "mention_count": 11,
       "example_evidence": "贾政因不见贾兰",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "祖孙",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -351,9 +351,9 @@
       "mention_count": 11,
       "example_evidence": "贾母扶着凤姐儿，让着薛姨妈，大家出房去了",
       "example_chapter": 35,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "亲戚",
+      "correct_category": "social",
+      "notes": "薛姨妈是王夫人之妹，与贾母是亲戚关系"
     },
     {
       "person_a": "王夫人",
@@ -362,8 +362,8 @@
       "mention_count": 10,
       "example_evidence": "二舅母王氏",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "夫妻",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -373,8 +373,8 @@
       "mention_count": 10,
       "example_evidence": "迎春便坐右手第一",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "祖孙",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -384,8 +384,8 @@
       "mention_count": 10,
       "example_evidence": "探春左第二",
       "example_chapter": 3,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "祖孙",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -395,9 +395,9 @@
       "mention_count": 10,
       "example_evidence": "黛玉道：咱们来了这一日，也该回去了。还不知那边怎么找咱们呢。宝玉道：你要走，我和你一同走",
       "example_chapter": 8,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "恋人",
+      "correct_category": "intimate",
+      "notes": "与宝玉↔黛玉是同一对关系的不同称呼"
     },
     {
       "person_a": "尤氏",
@@ -406,9 +406,9 @@
       "mention_count": 10,
       "example_evidence": "贾母带领邢夫人，王夫人，尤氏，一共四乘大轿入朝",
       "example_chapter": 16,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "notes": "尤氏是贾珍之妻，贾母是曾祖母辈"
     },
     {
       "person_a": "宝钗",
@@ -417,9 +417,9 @@
       "mention_count": 10,
       "example_evidence": "午间，王夫人治了酒席，请薛家母女等赏午",
       "example_chapter": 31,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "姨侄",
+      "correct_category": "family",
+      "notes": "王夫人是宝钗的姨母（王夫人与薛姨妈是姐妹）"
     },
     {
       "person_a": "宝钗",
@@ -428,8 +428,8 @@
       "mention_count": 9,
       "example_evidence": "还有一女，比薛蟠小两岁，乳名宝钗",
       "example_chapter": 4,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "兄妹",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -439,8 +439,8 @@
       "mention_count": 9,
       "example_evidence": "贾母带领邢夫人，王夫人，尤氏，一共四乘大轿入朝",
       "example_chapter": 16,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "婆媳",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -450,8 +450,8 @@
       "mention_count": 9,
       "example_evidence": "这件事，老太太，太太断不肯行的",
       "example_chapter": 19,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
       "notes": ""
     },
     {
@@ -461,8 +461,8 @@
       "mention_count": 9,
       "example_evidence": "黛玉便携了回房去，与湘云同看",
       "example_chapter": 22,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "朋友",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -472,8 +472,8 @@
       "mention_count": 9,
       "example_evidence": "贾珍贾琏等忙答了几个是",
       "example_chapter": 43,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "祖孙",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -483,8 +483,8 @@
       "mention_count": 8,
       "example_evidence": "赦老竟无一个不成，赦公也有二子，长名贾琏",
       "example_chapter": 2,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -494,8 +494,8 @@
       "mention_count": 8,
       "example_evidence": "日则同行同坐，夜则同息同止，真是言和意顺，略无参商",
       "example_chapter": 5,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "恋人",
+      "correct_category": "intimate",
       "notes": ""
     },
     {
@@ -505,8 +505,8 @@
       "mention_count": 8,
       "example_evidence": "宝玉自见了秦钟的人品出众，心中似有所失，痴了半日......二人你言我语，十来句后，越觉亲密起来",
       "example_chapter": 7,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "朋友",
+      "correct_category": "social",
       "notes": ""
     },
     {
@@ -516,8 +516,8 @@
       "mention_count": 8,
       "example_evidence": "贾政举目，见宝玉站在跟前，看看贾环，人物委琐",
       "example_chapter": 23,
-      "correct_type": null,
-      "correct_category": null,
+      "correct_type": "父子",
+      "correct_category": "family",
       "notes": ""
     },
     {
@@ -527,9 +527,9 @@
       "mention_count": 8,
       "example_evidence": "宝钗道：你不必忙，我替你作些如何？袭人笑道：当真这样，就是我的福了",
       "example_chapter": 32,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "朋友",
+      "correct_category": "social",
+      "notes": "system_type错误，宝钗与袭人是社交关系非主仆，袭人是宝玉的丫鬟"
     },
     {
       "person_a": "尤二姐",
@@ -538,9 +538,9 @@
       "mention_count": 8,
       "example_evidence": "贾琏动了垂涎之意，百般撩拨，眉目传情",
       "example_chapter": 65,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "notes": "贾琏偷娶尤二姐为二房"
     },
     {
       "person_a": "薛蝌",
@@ -549,9 +549,9 @@
       "mention_count": 8,
       "example_evidence": "今夜打点银两同着二爷赶去和大爷见了面",
       "example_chapter": 86,
-      "correct_type": null,
-      "correct_category": null,
-      "notes": ""
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "notes": "堂兄弟"
     }
   ]
 }
