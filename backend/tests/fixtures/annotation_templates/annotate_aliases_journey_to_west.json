@@ -1,0 +1,373 @@
+{
+  "_instructions": "标注说明: is_correct_grouping=true表示别名组正确. wrong_aliases列出不应在此组的别名. missing_aliases列出应加入的别名.",
+  "_novel": "journey_to_west",
+  "_total": 28,
+  "alias_groups": [
+    {
+      "canonical_name": "行者",
+      "system_aliases": [
+        "孙行者",
+        "孙悟空",
+        "悟空",
+        "大圣",
+        "孙大圣",
+        "猴王",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "大圣",
+      "system_aliases": [
+        "行者",
+        "孙行者",
+        "孙悟空",
+        "悟空",
+        "孙大圣",
+        "猴王",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "老孙",
+      "system_aliases": [
+        "行者",
+        "孙行者",
+        "孙悟空",
+        "悟空",
+        "大圣",
+        "孙大圣",
+        "猴王"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "悟空",
+      "system_aliases": [
+        "行者",
+        "孙行者",
+        "孙悟空",
+        "大圣",
+        "孙大圣",
+        "猴王",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "孙行者",
+      "system_aliases": [
+        "行者",
+        "孙悟空",
+        "悟空",
+        "大圣",
+        "孙大圣",
+        "猴王",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "孙大圣",
+      "system_aliases": [
+        "行者",
+        "孙行者",
+        "孙悟空",
+        "悟空",
+        "大圣",
+        "猴王",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "猴王",
+      "system_aliases": [
+        "行者",
+        "孙行者",
+        "孙悟空",
+        "悟空",
+        "大圣",
+        "孙大圣",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "孙悟空",
+      "system_aliases": [
+        "行者",
+        "孙行者",
+        "悟空",
+        "大圣",
+        "孙大圣",
+        "猴王",
+        "老孙"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "三藏",
+      "system_aliases": [
+        "唐僧",
+        "贫僧",
+        "圣僧",
+        "长老"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "唐僧",
+      "system_aliases": [
+        "三藏",
+        "贫僧",
+        "圣僧",
+        "长老"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "妖精",
+      "system_aliases": [
+        "妖怪",
+        "妖魔",
+        "那怪",
+        "怪物"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "长老",
+      "system_aliases": [
+        "三藏",
+        "唐僧",
+        "贫僧",
+        "圣僧"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "那怪",
+      "system_aliases": [
+        "妖精",
+        "妖怪",
+        "妖魔",
+        "怪物"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "妖怪",
+      "system_aliases": [
+        "妖精",
+        "妖魔",
+        "那怪",
+        "怪物"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "妖魔",
+      "system_aliases": [
+        "妖精",
+        "妖怪",
+        "那怪",
+        "怪物"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "贫僧",
+      "system_aliases": [
+        "三藏",
+        "唐僧",
+        "圣僧",
+        "长老"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "怪物",
+      "system_aliases": [
+        "妖精",
+        "妖怪",
+        "妖魔",
+        "那怪"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "圣僧",
+      "system_aliases": [
+        "三藏",
+        "唐僧",
+        "贫僧",
+        "长老"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "八戒",
+      "system_aliases": [
+        "猪八戒",
+        "呆子",
+        "那呆子"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "呆子",
+      "system_aliases": [
+        "八戒",
+        "猪八戒",
+        "那呆子"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "那呆子",
+      "system_aliases": [
+        "八戒",
+        "猪八戒",
+        "呆子"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "猪八戒",
+      "system_aliases": [
+        "八戒",
+        "呆子",
+        "那呆子"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "沙僧",
+      "system_aliases": [
+        "沙和尚"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "国王",
+      "system_aliases": [
+        "太宗"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "三太子",
+      "system_aliases": [
+        "哪吒"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "太宗",
+      "system_aliases": [
+        "国王"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "沙和尚",
+      "system_aliases": [
+        "沙僧"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    },
+    {
+      "canonical_name": "哪吒",
+      "system_aliases": [
+        "三太子"
+      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "notes": ""
+    }
+  ]
+}

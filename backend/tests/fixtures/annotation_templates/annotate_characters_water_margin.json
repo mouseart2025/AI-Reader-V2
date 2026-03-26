@@ -1,0 +1,457 @@
+{
+  "_instructions": "标注说明: is_valid_character=true表示是真实人物角色, false表示是误提取(如地名/物品/称号). correct_name填写标准名(如别名需合并).",
+  "_novel": "water_margin",
+  "_total": 50,
+  "characters": [
+    {
+      "name": "宋江",
+      "mention_count": 83,
+      "first_chapter": 18,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "吴用",
+      "mention_count": 74,
+      "first_chapter": 14,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "林冲",
+      "mention_count": 61,
+      "first_chapter": 7,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "李逵",
+      "mention_count": 55,
+      "first_chapter": 38,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "公孙胜",
+      "mention_count": 53,
+      "first_chapter": 15,
+      "last_chapter": 110,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "戴宗",
+      "mention_count": 53,
+      "first_chapter": 36,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "花荣",
+      "mention_count": 49,
+      "first_chapter": 32,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "秦明",
+      "mention_count": 46,
+      "first_chapter": 34,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "武松",
+      "mention_count": 43,
+      "first_chapter": 23,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "刘唐",
+      "mention_count": 42,
+      "first_chapter": 13,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "鲁智深",
+      "mention_count": 39,
+      "first_chapter": 5,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "朱仝",
+      "mention_count": 39,
+      "first_chapter": 13,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "卢俊义",
+      "mention_count": 39,
+      "first_chapter": 60,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "李俊",
+      "mention_count": 36,
+      "first_chapter": 36,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "杨志",
+      "mention_count": 35,
+      "first_chapter": 12,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "阮小二",
+      "mention_count": 35,
+      "first_chapter": 15,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "吕方",
+      "mention_count": 35,
+      "first_chapter": 35,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "郭盛",
+      "mention_count": 35,
+      "first_chapter": 35,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "张顺",
+      "mention_count": 35,
+      "first_chapter": 37,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "呼延灼",
+      "mention_count": 35,
+      "first_chapter": 54,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "阮小七",
+      "mention_count": 34,
+      "first_chapter": 15,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "穆弘",
+      "mention_count": 34,
+      "first_chapter": 36,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "石秀",
+      "mention_count": 33,
+      "first_chapter": 44,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "解珍",
+      "mention_count": 33,
+      "first_chapter": 49,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "解宝",
+      "mention_count": 33,
+      "first_chapter": 49,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "晁盖",
+      "mention_count": 32,
+      "first_chapter": 14,
+      "last_chapter": 83,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "柴进",
+      "mention_count": 31,
+      "first_chapter": 9,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "阮小五",
+      "mention_count": 31,
+      "first_chapter": 15,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "杨雄",
+      "mention_count": 31,
+      "first_chapter": 44,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "孙立",
+      "mention_count": 31,
+      "first_chapter": 49,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "索超",
+      "mention_count": 30,
+      "first_chapter": 13,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "黄信",
+      "mention_count": 30,
+      "first_chapter": 33,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "徐宁",
+      "mention_count": 30,
+      "first_chapter": 56,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "关胜",
+      "mention_count": 30,
+      "first_chapter": 63,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "雷横",
+      "mention_count": 29,
+      "first_chapter": 13,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "张横",
+      "mention_count": 29,
+      "first_chapter": 37,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "史进",
+      "mention_count": 28,
+      "first_chapter": 2,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "萧让",
+      "mention_count": 28,
+      "first_chapter": 39,
+      "last_chapter": 110,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "马麟",
+      "mention_count": 28,
+      "first_chapter": 41,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "杨林",
+      "mention_count": 28,
+      "first_chapter": 44,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "项充",
+      "mention_count": 28,
+      "first_chapter": 59,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "李衮",
+      "mention_count": 28,
+      "first_chapter": 59,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "燕顺",
+      "mention_count": 27,
+      "first_chapter": 32,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "燕青",
+      "mention_count": 27,
+      "first_chapter": 61,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "石勇",
+      "mention_count": 26,
+      "first_chapter": 35,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "欧鹏",
+      "mention_count": 26,
+      "first_chapter": 41,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "邓飞",
+      "mention_count": 26,
+      "first_chapter": 44,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "樊瑞",
+      "mention_count": 26,
+      "first_chapter": 59,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "宋万",
+      "mention_count": 25,
+      "first_chapter": 11,
+      "last_chapter": 111,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    },
+    {
+      "name": "杜迁",
+      "mention_count": 24,
+      "first_chapter": 11,
+      "last_chapter": 112,
+      "is_valid_character": null,
+      "correct_name": null,
+      "notes": ""
+    }
+  ]
+}
