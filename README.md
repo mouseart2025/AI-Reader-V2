@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.63.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.63.2-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -82,8 +82,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.63.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.63.1/AI.Reader_0.63.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.63.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.63.1/AI.Reader_0.63.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.63.2_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.63.2/AI.Reader_0.63.2_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.63.2_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.63.2/AI.Reader_0.63.2_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -125,6 +125,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.63.2 | 2026-03-27 | 实体卡片500修复 + 评估基础设施(eval_dashboard+标注模板+消融脚本) + FactValidator消融开关 + 344 tests |
 | v0.63.1 | 2026-03-26 | 骨架缓存(超时自动复用) + 安全阈值精细化(LLM审查驱动) + region→continent救援 + 角色共现降噪(阈值3→5+kingdom排除+跨洲过滤) + 黄金标准别名修正 + 投票间接continent推断 + 累积P:37.7%→65.6%(+27.9pp) |
 | v0.63.0 | 2026-03-26 | 地点归属质量跃迁 — 拓扑质量指标(5项+黄金标准) + 传递性闭包校验 + 时序权重衰减 + 地点别名归一化 + 后缀排名扩充(11新后缀+府歧义修复) + LLM审查增强(evidence+uncertain+并发限制) + Genre-aware地点规则(3题材) + rebuild安全阈值 + kingdom→continent救援 + 骨架max_tokens修复(根因+18pp) + 344 tests |
 | v0.62.0 | 2026-03-25 | Contains四层防御(FactValidator suffix rank自动修正+prompt后缀层级表+CoT逐条校验+负面示例) + LLM截断JSON自动修复 + max_tokens 8K→16K + .air导出文件名(小说名_日期) + 269 tests |
