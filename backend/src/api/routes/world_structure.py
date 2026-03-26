@@ -625,21 +625,31 @@ async def rebuild_hierarchy(novel_id: str):
             changes = _compute_hierarchy_diff(old_parents, new_parents, known_locations)
 
             # v0.63.0 Safety: when skeleton AND LLM review both failed,
-            # downgrade "changed" auto_select to false to prevent regression.
-            # Only "added" (new orphan parents) remain auto-selected.
+            # downgrade lateral "changed" auto_select to false to prevent regression.
+            # Exception: upward moves (from uber_root/天下 to a continent) are rule-derived
+            # and should remain auto-selected.
             if not skeleton_success and not llm_review_used:
+                _uber_for_safety = agent._find_uber_root(new_parents) if new_parents else None
                 downgraded = 0
                 for c in changes:
                     if c["change_type"] == "changed" and c["auto_select"]:
+                        old_p = c.get("old_parent", "")
+                        new_p = c.get("new_parent", "")
+                        # Allow: moves FROM uber_root to a specific parent (consolidate rescue)
+                        if old_p == _uber_for_safety and new_p != _uber_for_safety:
+                            continue
+                        # Allow: moves FROM None/missing to a parent (orphan adoption)
+                        if not old_p:
+                            continue
                         c["auto_select"] = False
-                        c["reason"] = "骨架和LLM审查均未成功，修改类变更需人工确认"
+                        c["reason"] = "骨架和LLM审查均未成功，横向修改需人工确认"
                         downgraded += 1
                 if downgraded:
                     logger.info(
-                        "Safety downgrade: %d 'changed' auto_select → false (no skeleton/LLM)",
+                        "Safety downgrade: %d lateral 'changed' auto_select → false (no skeleton/LLM)",
                         downgraded,
                     )
-                    yield _sse("consolidate", f"安全保护：{downgraded} 项修改类变更降级为手动确认（骨架/LLM未生效）")
+                    yield _sse("consolidate", f"安全保护：{downgraded} 项横向修改降级为手动确认（骨架/LLM未生效）")
 
             old_root_count, _ = _count_roots(old_parents)
             new_root_count, _ = _count_roots(new_parents)
