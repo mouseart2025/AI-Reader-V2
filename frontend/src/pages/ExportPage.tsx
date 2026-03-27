@@ -93,10 +93,12 @@ export default function ExportPage() {
   }, [entities])
 
   const estimatedSizeMB = useMemo(() => {
-    // Rough estimate: ~600 bytes/chapter + ~200 bytes/entity + ~150 bytes/relation
-    const bytes = chapters.length * 600 + entities.length * 200 + relationCount * 150
-    // gzip typically achieves 70-80% compression
-    return ((bytes * 0.25) / 1024 / 1024).toFixed(1)
+    // Rough estimate: ~8KB/chapter (fact_json avg) + ~500 bytes/entity + ~200 bytes/relation
+    // Plus chapter content ~3KB/chapter avg, scenes ~2KB/chapter
+    const bytes = chapters.length * 13000 + entities.length * 500 + relationCount * 200
+    // gzip typically achieves 70-80% compression on JSON
+    const mb = (bytes * 0.25) / 1024 / 1024
+    return mb < 0.1 ? mb.toFixed(2) : mb.toFixed(1)
   }, [chapters.length, entities.length, relationCount])
 
   const toggleModule = useCallback((id: string) => {
