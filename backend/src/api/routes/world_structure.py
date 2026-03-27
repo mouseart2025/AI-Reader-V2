@@ -603,8 +603,8 @@ async def rebuild_hierarchy(novel_id: str):
                                 )
                         elif verdict == "reverse":
                             if child in new_parents:
-                                new_parents[parent] = child
-                                del new_parents[child]
+                                new_parents[parent] = new_parents[child]  # B gets A's old parent
+                                del new_parents[child]  # A becomes root
                                 reflection_applied += 1
                                 logger.info(
                                     "Reflection reverse: %s → %s (was %s → %s)",
@@ -659,6 +659,12 @@ async def rebuild_hierarchy(novel_id: str):
             if phantom_cleaned:
                 logger.info("Cleaned %d phantom parent entries", phantom_cleaned)
                 yield _sse("validate", f"清理 {phantom_cleaned} 个幻影父节点")
+
+            # 4.95. Final cycle detection — catch cycles introduced by reflection/validation
+            _final_cycles = agent._detect_and_break_cycles(new_parents)
+            if _final_cycles:
+                logger.warning("Final cycle sweep broke %d cycles after LLM mutations", _final_cycles)
+                yield _sse("validate", f"最终检查：修复 {_final_cycles} 个循环依赖")
 
             # 5. Compute diff (use new_tiers as known location set for validation)
             old_parents = dict(ws.location_parents)
@@ -853,6 +859,11 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
 
     logger.info("Layer re-detection during apply: %d stale cleared, %d reassigned",
                 len(stale_ids), _layer_changes)
+
+    # Cycle detection — user-selected changes may create cycles
+    _apply_cycles = _apply_agent._detect_and_break_cycles(ws.location_parents)
+    if _apply_cycles:
+        logger.warning("Apply: broke %d cycles from user-selected changes", _apply_cycles)
 
     new_count = len(ws.location_parents)
     root_count, final_roots = _count_roots(ws.location_parents)

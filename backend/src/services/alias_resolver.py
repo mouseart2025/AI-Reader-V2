@@ -107,6 +107,9 @@ _KINSHIP_TERMS = frozenset({
     "爹爹", "爹", "老爹", "老娘", "亲娘", "干爹", "干娘",
     "义兄", "义弟", "义父", "义母", "义子", "义女",
     "恩人", "恩公", "恩师",
+    # Royal/imperial kinship — different kings/queens across chapters
+    "父王", "母后", "王后", "太后", "皇后", "王母", "太子",
+    "王爷", "王妃", "驸马", "公主", "殿下", "陛下",
     # Generic address terms used for multiple people — major bridge causes
     "阿哥", "阿弟", "阿妹", "阿姐",
     "大郎", "二郎", "三郎", "四郎", "五郎", "六郎", "七郎",
@@ -207,6 +210,16 @@ _TITLE_PREFIXES = frozenset({
 })
 
 
+_TITLE_SUFFIXES_2 = frozenset({
+    "前辈", "道友", "师兄", "师弟", "师姐", "师妹", "师叔", "师侄",
+    "师伯", "仙师", "仙子", "公子", "姑娘", "小姐", "夫人",
+    "大人", "老爷", "长老", "掌门", "帮主", "教主", "堂主",
+    "将军", "统领", "元帅", "大哥", "老弟", "兄弟", "先生",
+    "天尊", "老祖", "大长老", "世兄", "世侄", "贤弟", "贤侄",
+    "施主", "领队",
+})
+
+
 def _alias_safety_level(alias: str) -> int:
     """Return alias safety level: 0=hard-block, 1=soft-block(suspicious), 2=safe."""
     if not alias or len(alias) < 1:
@@ -248,14 +261,6 @@ def _alias_safety_level(alias: str) -> int:
 
     # Level 0: surname + generic title pattern (e.g., "韩前辈", "林道友", "王师兄")
     # These are contextual address forms, not stable aliases.
-    _TITLE_SUFFIXES_2 = frozenset({
-        "前辈", "道友", "师兄", "师弟", "师姐", "师妹", "师叔", "师侄",
-        "师伯", "仙师", "仙子", "公子", "姑娘", "小姐", "夫人",
-        "大人", "老爷", "长老", "掌门", "帮主", "教主", "堂主",
-        "将军", "统领", "元帅", "大哥", "老弟", "兄弟", "先生",
-        "天尊", "老祖", "大长老", "世兄", "世侄", "贤弟", "贤侄",
-        "施主", "领队",
-    })
     if 3 <= n <= 5:
         for suffix in _TITLE_SUFFIXES_2:
             if n > len(suffix) and alias.endswith(suffix):
@@ -426,7 +431,7 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         entity_type = row["entity_type"] or "unknown"
         if entity_type == "unknown":
             continue
-        name = row["name"]
+        name = _normalize_char_variants(row["name"])
         if not _is_unsafe_alias(name):
             dict_primary_names.add(name)
 
@@ -436,20 +441,37 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         if entity_type == "unknown":
             continue
 
-        name = row["name"]
+        name = _normalize_char_variants(row["name"])
         frequency = row["frequency"] or 0
         aliases_raw = row["aliases"]
         aliases: list[str] = json.loads(aliases_raw) if aliases_raw else []
 
-        # If name is a generic/contextual term (妖精, 那怪, etc.):
-        # Skip entirely — don't register it or its aliases.
+        # If name is a generic/contextual term (妖精, 那怪, 父王, 公主, etc.):
+        # Don't register it as a UF node, but rescue its safe aliases by
+        # union-ing them together. This preserves alias chains like
+        # "太子" → {"哪吒", "三太子"} → group {"哪吒", "三太子"} without
+        # using the blocked name as a bridge node.
         if name not in dict_primary_names:
+            safe_aliases = [a for a in aliases
+                            if a and a != name and _alias_safety_level(a) >= 2]
+            if len(safe_aliases) >= 2:
+                first = safe_aliases[0]
+                freq.setdefault(first, 0)
+                uf.find(first)
+                for other in safe_aliases[1:]:
+                    freq.setdefault(other, 0)
+                    _safe_union(first, other, "dict")
+                logger.debug(
+                    "Rescued %d aliases from blocked name '%s': %s",
+                    len(safe_aliases), name, safe_aliases,
+                )
             continue
 
         freq[name] = max(freq.get(name, 0), frequency)
         uf.find(name)  # ensure registered
 
-        for alias in aliases:
+        for raw_alias in aliases:
+            alias = _normalize_char_variants(raw_alias) if raw_alias else ""
             if alias and alias != name:
                 level = _alias_safety_level(alias)
                 if level < 2:
@@ -573,11 +595,17 @@ def _pick_canonical(members: list[str], freq: dict[str, int],
     Within same tier, higher frequency wins.
     Blocklisted generic terms (pronouns, titles, descriptions) are excluded.
     """
-    # Priority 1: If a member is a known entity from pre-scan dictionary, use it
+    # Priority 1: If a member is a known entity from pre-scan dictionary, prefer it
     if dict_primary_names:
         dict_members = [m for m in members if m in dict_primary_names]
         if len(dict_members) == 1:
-            return dict_members[0]  # Unambiguous: the dictionary name wins
+            # Unambiguous dict name — but still check it's not a title form.
+            # If it is (e.g., "韩前辈"), fall through to quality-based selection.
+            candidate = dict_members[0]
+            if candidate not in _CANONICAL_BLOCKLIST and not any(
+                candidate.endswith(t) for t in _TITLE_SUFFIXES
+            ):
+                return candidate
         if dict_members:
             # Multiple dict names in same group — pick best among them
             members = dict_members
