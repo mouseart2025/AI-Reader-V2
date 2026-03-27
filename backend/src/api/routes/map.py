@@ -31,12 +31,25 @@ async def get_map(
     start = chapter_start if chapter_start is not None else first
     end = chapter_end if chapter_end is not None else last
 
+    if start > end:
+        start, end = end, start
+
     if first == 0:
         return {
             "locations": [], "trajectories": {},
             "spatial_constraints": [], "layout": [],
             "layout_mode": "hierarchy", "terrain_url": None,
             "analyzed_range": [0, 0],
+            "rivers": [], "roads": [], "landmasses": [],
+            "shelves": [], "region_boundaries": [],
+            "portals": [], "revealed_location_names": [],
+            "spatial_scale": "medium", "layer_spatial_scales": {},
+            "canvas_size": [1000, 1000],
+            "geography_context": None,
+            "location_conflicts": [],
+            "max_mention_count": 0, "suggested_min_mentions": 1,
+            "geo_coords": {}, "world_structure": None,
+            "layer_layouts": {}, "quality_metrics": None,
         }
 
     data = await get_map_data(novel_id, start, end, layer_id=layer_id)
