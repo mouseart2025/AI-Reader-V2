@@ -40,6 +40,10 @@ _CONTAINS_RANK_ORDER = {"world": 0, "continent": 1, "kingdom": 2, "region": 3,
 _CONTAINS_SUFFIX_RANK: list[tuple[str, int]] = [
     # 3+ char suffixes
     ("自治区", 1), ("直辖市", 1), ("黑龙江", 1),
+    # Sci-fi / astronomy multi-char suffixes
+    ("太阳系", 1), ("银河系", 0), ("恒星系", 1), ("星系", 1),
+    ("天文台", 5), ("观测站", 5), ("基地", 5), ("控制中心", 5),
+    ("加速器", 5), ("发电站", 5),
     # 2+ char suffixes
     ("大陆", 1), ("王国", 2), ("帝国", 2), ("山脉", 3), ("地区", 2),
     ("坊市", 5),   # fantasy marketplace, not municipality
@@ -152,12 +156,21 @@ _CONCEPTUAL_GEO_WORDS = frozenset({
     "地球", "全球", "全世界",
     "中国大陆", "中国", "大陆",
     "外国", "国外", "海外", "世界各地",
+    # Collective/abstract terms — not specific locations
+    "全国各地", "全球各战区", "全国科学大会",
+    "地平线", "西方夜空", "云海",
+    "同步轨道", "大气层",
 })
 
 # Vehicle/object words that are not locations
 _VEHICLE_WORDS = frozenset({
     "小舟", "大船", "船只", "马车", "轿子", "飞剑", "法宝",
     "车厢", "船舱", "轿内",
+    # Modern vehicles
+    "出租车", "出租车内", "警车", "警车内", "救护车", "直升机",
+    "飞机", "汽车", "火车", "大巴", "公交车",
+    # Sci-fi vehicles/objects
+    "飞船", "母舰", "战舰", "穿梭机",
 })
 
 # Furniture / object names — these are never locations
@@ -176,6 +189,10 @@ _FURNITURE_OBJECT_NAMES = frozenset({
     "石碣", "碑前",
     "墙角", "墙根",
     "台阶", "阶上",
+    # Computer/tech components — not locations
+    "主板", "系统总线", "显示阵列", "CPU区", "外存",
+    # Generic objects
+    "长桌", "大鼎", "凉亭", "岗亭",
 })
 
 # Generic facility/building names — shared across many chapters, not specific places
@@ -236,6 +253,8 @@ _FALLBACK_GEO_BLOCKLIST = frozenset({
     # Descriptive nature compounds
     "深山", "深山老林", "荒山野岭", "穷山恶水",
     "密林深处", "荒野", "旷野", "原野", "野外",
+    "荒原", "平原", "辽阔的平原",
+    "悬崖", "悬崖边", "崖底", "操场",
     # On-object
     "树上", "石上", "岩上", "岩石上", "岩石边", "岩石下",
     "石壁", "崖壁", "绝壁",
