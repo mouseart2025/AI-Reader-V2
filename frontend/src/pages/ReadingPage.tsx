@@ -413,6 +413,7 @@ export default function ReadingPage() {
   // Chapter preload cache (3.2)
   const preloadCacheRef = useRef(new Map<number, import("@/api/types").ChapterContent>())
   const navGenerationRef = useRef(0) // race condition guard for goToChapter
+  const pendingHighlightRef = useRef<string | null>(null) // text to scroll to after chapter load
 
   // Scroll progress (1.2)
   const [scrollProgress, setScrollProgress] = useState(0)
@@ -639,6 +640,32 @@ export default function ReadingPage() {
           contentRef.current.scrollTop = 0
         }
 
+        // Scroll to highlighted text if pending (from search result click or ?highlight= param)
+        if (pendingHighlightRef.current) {
+          const needle = pendingHighlightRef.current
+          pendingHighlightRef.current = null
+          requestAnimationFrame(() => {
+            if (!contentRef.current) return
+            // Find the text node containing the needle
+            const walker = document.createTreeWalker(
+              contentRef.current, NodeFilter.SHOW_TEXT, null,
+            )
+            let node: Node | null
+            while ((node = walker.nextNode())) {
+              const idx = (node.textContent || "").indexOf(needle.slice(0, 20))
+              if (idx >= 0 && node.parentElement) {
+                node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" })
+                // Brief highlight effect
+                const el = node.parentElement
+                el.style.transition = "background-color 0.3s"
+                el.style.backgroundColor = "rgba(234, 179, 8, 0.3)"
+                setTimeout(() => { el.style.backgroundColor = "" }, 3000)
+                break
+              }
+            }
+          })
+        }
+
         saveUserState(novelId, {
           last_chapter: chapterNum,
           scroll_position: 0,
@@ -664,13 +691,19 @@ export default function ReadingPage() {
     [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, chapters.length],
   )
 
-  // Handle ?chapter=N query parameter (from entity card chapter clicks)
+  // Handle ?chapter=N&highlight=text query parameters
+  // (from entity cards, timeline evidence clicks, search results)
   useEffect(() => {
     const chParam = searchParams.get("chapter")
     if (!chParam || !chapters.length) return
     const ch = parseInt(chParam, 10)
     if (isNaN(ch) || ch < 1 || ch > chapters.length) return
+    const highlight = searchParams.get("highlight")
+    if (highlight) {
+      pendingHighlightRef.current = decodeURIComponent(highlight)
+    }
     searchParams.delete("chapter")
+    searchParams.delete("highlight")
     setSearchParams(searchParams, { replace: true })
     goToChapter(ch)
   }, [searchParams, chapters.length, goToChapter, setSearchParams])
@@ -933,13 +966,22 @@ export default function ReadingPage() {
                 {searching ? "搜索中..." : "搜索"}
               </Button>
             </div>
+            {!searching && searchQuery.trim() && searchResults.length === 0 && (
+              <div className="mt-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                未找到匹配内容
+              </div>
+            )}
             {searchResults.length > 0 && (
               <div className="mt-2 max-h-64 overflow-y-auto rounded-md border">
+                <div className="border-b px-3 py-1.5 text-xs text-muted-foreground">
+                  找到 {searchResults.length} 条结果
+                </div>
                 {searchResults.map((r, i) => (
                   <button
                     key={i}
                     className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-accent"
                     onClick={() => {
+                      pendingHighlightRef.current = r.snippet
                       goToChapter(r.chapter_num)
                       setShowSearch(false)
                       setSearchQuery("")

@@ -4,6 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { fetchTimelineData } from "@/api/client"
 import { useNavigate } from "react-router-dom"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
+import { useTimelineStore } from "@/stores/timelineStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { novelPath } from "@/lib/novelPaths"
@@ -81,19 +82,19 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true)
   const [, setSuggestedMinSwimlane] = useState(1)
 
-  // Filters — default: hide 角色登场 + 物品交接
-  const [filterTypes, setFilterTypes] = useState<Set<FilterType>>(() => {
-    const s = new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
-    return s
-  })
-  const [filterImportance, setFilterImportance] = useState<"all" | "high" | "medium">("all")
+  // Filters — persisted in store across page navigations
+  const {
+    filterTypes, setFilterTypes,
+    filterImportance, setFilterImportance,
+    viewMode, setViewMode,
+    autoCollapseLow, setAutoCollapseLow,
+    minSwimlaneEvents, setMinSwimlaneEvents,
+    scrollTop: savedScrollTop, setScrollTop,
+  } = useTimelineStore()
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [showSwimlanes, setShowSwimlanes] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<string[]>([])
   const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
-  const [minSwimlaneEvents, setMinSwimlaneEvents] = useState(5)
-  const [autoCollapseLow, setAutoCollapseLow] = useState(true)
-  const [viewMode, setViewMode] = useState<"list" | "storyline">("list")
 
   const toggleTypeFilter = useCallback((type: FilterType) => {
     setFilterTypes((prev) => {
@@ -233,6 +234,23 @@ export default function TimelinePage() {
     estimateSize: (index) => (flatItems[index].kind === "chapter" ? 32 : 72),
     overscan: 15,
   })
+
+  // Restore scroll position on mount, save on unmount
+  useEffect(() => {
+    if (savedScrollTop > 0 && timelineContainerRef.current) {
+      requestAnimationFrame(() => {
+        if (timelineContainerRef.current) {
+          timelineContainerRef.current.scrollTop = savedScrollTop
+        }
+      })
+    }
+    return () => {
+      if (timelineContainerRef.current) {
+        setScrollTop(timelineContainerRef.current.scrollTop)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Filtered swimlane persons (above min threshold)
   const filteredPersons = useMemo(
