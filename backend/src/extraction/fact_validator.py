@@ -549,6 +549,13 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
     if genre in ("realistic", "urban") and name in _REALISTIC_TITLE_ADDITIONS:
         return "realistic title without surname"
 
+    # Descriptive person references: "墨大夫女儿", "韩家二弟", "村长的妻子"
+    # These describe a relationship to another character, not a standalone name.
+    _DESCRIPTIVE_SUFFIXES = ("女儿", "儿子", "妻子", "丈夫", "夫人",
+                             "老婆", "媳妇", "母亲", "父亲", "弟子")
+    if len(name) >= 4 and any(name.endswith(s) for s in _DESCRIPTIVE_SUFFIXES):
+        return f"descriptive person reference (ends with {name[-2:]})"
+
     return None
 
 
