@@ -524,10 +524,40 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
             uf.find(b)
             uf.union(a, b)
 
-    return _groups_to_map(uf, freq)
+    return _groups_to_map(uf, freq, dict_primary_names)
 
 
-def _pick_canonical(members: list[str], freq: dict[str, int]) -> str:
+_CANONICAL_BLOCKLIST = frozenset({
+    # Generic pronouns/references — should never be canonical names
+    "他", "她", "此人", "对方", "那人", "此子", "本人", "在下", "老夫", "老奴",
+    "男子", "女子", "年轻人", "年轻男子", "青年", "青年男子", "中年人",
+    # Generic titles — refer to different people in different contexts
+    "前辈", "道友", "小友", "阁下", "大人", "主人", "夫君", "师傅", "为师",
+    "弟子", "师兄", "师弟", "师姐", "师妹", "晚辈", "小徒",
+    "小子", "公子", "少爷", "大爷", "仁兄", "兄台", "大哥", "小兄弟",
+    "神医", "仙师", "圣子", "长老", "大长老", "队长", "领队",
+    # Generic descriptions — describe appearance, not identity
+    "异族人", "外族人", "人族修士", "人族小子", "人族男修",
+    "青袍人", "青袍男子", "青袍修士", "青袍青年", "青袍年轻人",
+    "蓝衣青年", "黑脸大汉", "青衫人", "青衫青年", "青衫男子", "青衫儒生",
+    "青袍化身", "青色人影", "带翅男子", "金色人影", "银色巨鹏",
+    "煞星", "穷亲戚", "土包子", "乡巴佬", "毛头小子", "黄毛小子",
+    "救命恩人", "分魂", "本体", "化身", "人形",
+})
+
+# Surname + title suffixes that form address terms, not actual names.
+# E.g., 韩大夫 = "Doctor Han" is a title, not a real name like 韩立.
+_TITLE_SUFFIXES = frozenset({
+    "大夫", "神医", "仙师", "大人", "长老", "大长老", "前辈", "道友",
+    "小友", "师弟", "师兄", "师叔", "师伯", "师侄", "天尊", "老祖",
+    "兄弟", "老弟", "公子", "少爷", "施主", "先生", "世侄", "世兄",
+    "贤侄", "贤弟", "领队", "大哥", "小子", "某", "小哥", "小贼",
+    "小大夫", "兄", "姐", "妹",
+})
+
+
+def _pick_canonical(members: list[str], freq: dict[str, int],
+                    dict_primary_names: set[str] | None = None) -> str:
     """Pick the best canonical name from an alias group.
 
     Strategy: among candidates with frequency >= 10% of the max, prefer names
@@ -541,17 +571,29 @@ def _pick_canonical(members: list[str], freq: dict[str, int]) -> str:
     - Tier 2: 4-char names (齐天大圣, 陈玄奘)
     - Tier 3: single char or 5+ chars
     Within same tier, higher frequency wins.
+    Blocklisted generic terms (pronouns, titles, descriptions) are excluded.
     """
-    # All members compete — no frequency-based filtering for candidates.
-    # Quality tier is primary sort key; frequency is tiebreaker within same tier.
-    candidates = members
+    # Priority 1: If a member is a known entity from pre-scan dictionary, use it
+    if dict_primary_names:
+        dict_members = [m for m in members if m in dict_primary_names]
+        if len(dict_members) == 1:
+            return dict_members[0]  # Unambiguous: the dictionary name wins
+        if dict_members:
+            # Multiple dict names in same group — pick best among them
+            members = dict_members
+
+    # Filter out generic terms that should never be canonical
+    candidates = [m for m in members if m not in _CANONICAL_BLOCKLIST]
+    if not candidates:
+        candidates = members  # Fallback: use all if everything is blocklisted
 
     def _name_quality(m: str) -> tuple:
         """Lower is better. Prefer 3-char full names, then 2-char, then frequency."""
         n = len(m)
-        # 3-char names are the most distinctive (surname + given: 孙悟空, 贾宝玉)
-        # Prefer 3-char over 2-char to get full-name canonicals.
-        # e.g., 孙悟空 > 行者, 唐三藏 > 三藏, 猪八戒 > 八戒
+        # Demote surname+title combos (韩大夫, 韩前辈, 韩道友 etc.)
+        # These are address forms, not actual character names.
+        if any(m.endswith(t) for t in _TITLE_SUFFIXES):
+            return (5, -freq.get(m, 0))  # Worst tier
         if n == 3:
             len_score = 0
         elif n == 2:
@@ -567,14 +609,15 @@ def _pick_canonical(members: list[str], freq: dict[str, int]) -> str:
     return min(candidates, key=_name_quality)
 
 
-def _groups_to_map(uf: _UnionFind, freq: dict[str, int]) -> dict[str, str]:
+def _groups_to_map(uf: _UnionFind, freq: dict[str, int],
+                   dict_primary_names: set[str] | None = None) -> dict[str, str]:
     """Convert Union-Find groups into alias -> canonical mapping."""
     alias_map: dict[str, str] = {}
 
     for _root, members in uf.groups().items():
         if len(members) <= 1:
             continue
-        canonical = _pick_canonical(members, freq)
+        canonical = _pick_canonical(members, freq, dict_primary_names)
         for member in members:
             if member != canonical:
                 alias_map[member] = canonical
