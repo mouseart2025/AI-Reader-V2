@@ -426,14 +426,24 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
 
     # ── Ingest entity_dictionary ──
     # Only use entries with a real entity_type (skip 'unknown' noise like "行者笑", "者道")
-    # First pass: collect all primary entity names for conflict detection
+    # First pass: collect all primary entity names for conflict detection.
+    # Entity dictionary entries (from pre-scan) override the generic blocklist:
+    # if the pre-scan LLM identified "三叔" as a specific person entity, it should
+    # be treated as a named character, not a generic kinship term.
     for row in dict_rows:
         entity_type = row["entity_type"] or "unknown"
         if entity_type == "unknown":
             continue
         name = _normalize_char_variants(row["name"])
-        if not _is_unsafe_alias(name):
+        level = _alias_safety_level(name)
+        if level >= 2:
             dict_primary_names.add(name)
+        elif level == 0 and entity_type == "person" and (row["frequency"] or 0) >= 10:
+            # Pre-scan identified this as a high-frequency person entity — override
+            # the generic blocklist. E.g., "三叔" in 凡人修仙传 is a specific character.
+            dict_primary_names.add(name)
+            logger.info("Dict override for blocked name '%s' (freq=%d, type=%s)",
+                        name, row["frequency"] or 0, entity_type)
 
     # Second pass: build Union-Find groups
     for row in dict_rows:
