@@ -1919,8 +1919,8 @@ class WorldStructureAgent:
                 len(sibling_groups), propagated,
             )
 
-    @staticmethod
     def _infer_parents_from_character_colocation(
+        self,
         char_chapter_locs: dict[str, dict[int, set[str]]],
         votes: dict[str, Counter],
         tiers: dict[str, str],

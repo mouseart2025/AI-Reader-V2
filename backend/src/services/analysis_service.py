@@ -89,7 +89,6 @@ class AnalysisService:
 
     def __init__(self):
         self.extractor = ChapterFactExtractor(get_llm_client())
-        self.validator = FactValidator()
         self.context_builder = ContextSummaryBuilder()
         self.scene_extractor = SceneLLMExtractor(get_llm_client())
         # Track running tasks for pause/cancel
@@ -319,9 +318,12 @@ class AnalysisService:
         except Exception as e:
             logger.warning("WorldStructureAgent init failed for %s: %s", novel_id, e)
 
-        # Set genre on validator for genre-aware filtering
-        if world_agent.structure and world_agent.structure.novel_genre_hint:
-            self.validator._genre = world_agent.structure.novel_genre_hint
+        # Create a per-analysis validator to avoid shared state between concurrent novels
+        validator = FactValidator(
+            genre=world_agent.structure.novel_genre_hint
+            if world_agent.structure and world_agent.structure.novel_genre_hint
+            else None
+        )
 
         # Broadcast initial state immediately so frontend shows total count
         await manager.broadcast(novel_id, {
@@ -352,7 +354,7 @@ class AnalysisService:
                     if short_form not in _dict_names:
                         _corrections[short_form] = name
             if _corrections:
-                self.validator.set_name_corrections(_corrections)
+                validator.set_name_corrections(_corrections)
                 logger.info(
                     "Name corrections loaded: %s",
                     ", ".join(f"{k}→{v}" for k, v in _corrections.items()),
@@ -503,7 +505,7 @@ class AnalysisService:
 
                 # Validate
                 await self._broadcast_stage(novel_id, chapter_num, "验证数据")
-                fact = self.validator.validate(fact)
+                fact = validator.validate(fact)
 
                 # Update world structure (never blocks pipeline)
                 await self._broadcast_stage(novel_id, chapter_num, "更新世界结构")
@@ -689,13 +691,13 @@ class AnalysisService:
                         location_parents=_loc_parents,
                         location_tiers=_loc_tiers,
                     )
-                    fact, usage = await self.extractor.extract(
+                    fact, usage, _retry_meta = await self.extractor.extract(
                         novel_id=novel_id,
                         chapter_id=retry_num,
                         chapter_text=retry_ch["content"],
                         context_summary=ctx,
                     )
-                    fact = self.validator.validate(fact)
+                    fact = validator.validate(fact)
                     retry_elapsed = int(time.time() * 1000) - retry_start
                     await chapter_fact_store.insert_chapter_fact(
                         novel_id=novel_id,
@@ -931,6 +933,10 @@ class AnalysisService:
         ws_struct = await world_structure_store.load(novel_id)
         loc_parents = ws_struct.location_parents if ws_struct else None
         loc_tiers = dict(ws_struct.location_tiers) if ws_struct and ws_struct.location_tiers else None
+        # Per-retry validator to avoid shared state
+        _retry_validator = FactValidator(
+            genre=ws_struct.novel_genre_hint if ws_struct and ws_struct.novel_genre_hint else None
+        )
         total = len(rows)
         succeeded = 0
         failed_count = 0
@@ -967,7 +973,7 @@ class AnalysisService:
                     chapter_text=ch_content,
                     context_summary=ctx,
                 )
-                fact = self.validator.validate(fact)
+                fact = _retry_validator.validate(fact)
 
                 await chapter_fact_store.insert_chapter_fact(
                     novel_id=novel_id,

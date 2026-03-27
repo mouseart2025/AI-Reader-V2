@@ -79,5 +79,22 @@ class TestAliasSafetyLevel:
         assert _alias_safety_level("三太子") == 2
         assert _alias_safety_level("一灯大师") == 2
 
+    def test_royal_kinship_blocked(self):
+        """Royal kinship terms bridge unrelated kings/queens across chapters."""
+        assert _alias_safety_level("父王") == 0
+        assert _alias_safety_level("母后") == 0
+        assert _alias_safety_level("太后") == 0
+        assert _alias_safety_level("公主") == 0
+        assert _alias_safety_level("太子") == 0
+        assert _alias_safety_level("驸马") == 0
+        assert _alias_safety_level("殿下") == 0
+
+    def test_qualified_royal_names_safe(self):
+        """Specific royal names with qualifiers should pass."""
+        assert _alias_safety_level("铁扇公主") == 2
+        assert _alias_safety_level("乌鸡国国王") == 2
+        assert _alias_safety_level("哪吒太子") == 2
+        assert _alias_safety_level("百花公主") == 1  # 百 numeric prefix → soft-block
+
     def test_empty_blocked(self):
         assert _alias_safety_level("") == 0

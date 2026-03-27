@@ -33,6 +33,10 @@ _RELATION_TYPE_NORM: dict[str, str] = {
     "情人": "恋人", "爱人": "恋人", "未婚夫妻": "恋人",
     "妾": "夫妻", "侧室": "夫妻", "通房": "夫妻",
     "情敌": "情敌",
+    # One-sided / attempted — NOT intimate
+    "求亲": "求亲", "招亲": "求亲", "求婚": "求亲", "逼婚": "逼婚",
+    "爱慕": "爱慕", "单相思": "爱慕", "倾慕": "爱慕", "暗恋": "爱慕",
+    "未遂": "求亲",  # LLM may use the category label as type
     # Hierarchical — master-servant
     "主仆": "主仆", "主人与仆人": "主仆",
     "宾主": "主仆", "主顾": "主仆",
@@ -81,6 +85,8 @@ _RELATION_CATEGORY: dict[str, str] = {
     # Intimate
     "夫妻": "intimate", "恋人": "intimate",
     "情敌": "hostile",
+    # One-sided / attempted — social, not intimate
+    "求亲": "social", "逼婚": "hostile", "爱慕": "social",
     # Hierarchical
     "师徒": "hierarchical", "主仆": "hierarchical", "君臣": "hierarchical",
     "上下级": "hierarchical",

@@ -57,7 +57,9 @@ class ContextSummaryBuilder:
                         chapter_facts.append(
                             ChapterFact.model_validate(row["fact"])
                         )
-                    except Exception:
+                    except Exception as e:
+                        logger.warning("Skipping malformed ChapterFact for chapter %d: %s",
+                                       row.get("chapter_num", "?"), e)
                         continue
 
         if chapter_facts:
@@ -462,7 +464,10 @@ class ContextSummaryBuilder:
         # Build chains from each root via DFS
         chains: list[list[str]] = []
 
-        def _build_chain(node: str, current_chain: list[str]) -> None:
+        def _build_chain(node: str, current_chain: list[str], visited: set[str]) -> None:
+            if node in visited:
+                return  # cycle protection
+            visited.add(node)
             current_chain.append(node)
             kids = children_map.get(node, [])
             if not kids:
@@ -471,11 +476,12 @@ class ContextSummaryBuilder:
                     chains.append(list(current_chain))
             else:
                 for kid in kids:
-                    _build_chain(kid, current_chain)
+                    _build_chain(kid, current_chain, visited)
             current_chain.pop()
+            visited.discard(node)
 
         for root in roots:
-            _build_chain(root, [])
+            _build_chain(root, [], set())
 
         if not chains:
             return ""

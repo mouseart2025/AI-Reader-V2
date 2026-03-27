@@ -214,6 +214,10 @@ class EntityPreScanner:
             await entity_dictionary_store.insert_batch(novel_id, candidates)
             await entity_dictionary_store.update_prescan_status(novel_id, "completed")
 
+            # Invalidate alias cache so the new dictionary is picked up
+            from src.services.alias_resolver import invalidate_alias_cache
+            invalidate_alias_cache(novel_id)
+
             logger.info(
                 "预扫描完成: %d 个实体已写入词典, novel_id=%s",
                 len(candidates), novel_id,
