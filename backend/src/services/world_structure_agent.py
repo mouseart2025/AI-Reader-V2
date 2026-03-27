@@ -231,6 +231,17 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("自治区", "continent"),
     ("直辖市", "continent"),
     ("黑龙江", "continent"),  # 黑龙江省 — protect from 1-char 江→region
+    # Sci-fi / astronomy suffixes
+    ("太阳系", "continent"),  # solar system — continent-level for hierarchy
+    ("银河系", "world"),      # galaxy — world-level
+    ("恒星系", "continent"),  # star system
+    ("星系", "continent"),    # generic star system
+    ("天文台", "site"),       # observatory
+    ("观测站", "site"),       # observation station
+    ("基地", "site"),         # base/facility — 红岸基地, 第二红岸基地
+    ("控制中心", "site"),     # control center
+    ("加速器", "site"),       # particle accelerator
+    ("发电站", "site"),       # power station
     # ── 2-char suffixes ──
     ("大陆", "continent"),
     ("王国", "kingdom"),
