@@ -1,7 +1,10 @@
 """Chapter splitting engine with pattern modes + heuristic + fixed-size fallback."""
 
+import logging
 import re
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -71,11 +74,13 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             re.MULTILINE,
         ),
     ),
-    # Mode 4: 1. / 001 / 1、
+    # Mode 4: 1.标题 / 001 标题 / 1、标题 (allow leading fullwidth/regular whitespace)
+    # Require the text after separator to start with a non-digit, non-whitespace char
+    # to avoid matching "1988 年..." or "2. 运用唯物史观..." (embedded list items)
     (
         "numbered",
         re.compile(
-            r"^(\d{1,4})[\.、\s]\s*(.+)$",
+            r"^\s*(\d{1,4})[\.．、][^\S\n]*(\S.*)$",
             re.MULTILINE,
         ),
     ),
@@ -303,6 +308,23 @@ def _score_mode(mode: str, matches: list[re.Match], text: str, genre: str) -> fl
         # Tiny chapter penalty (< 200 chars likely miscut)
         tiny_ratio = sum(1 for s in sizes if s < 200) / len(sizes)
         score *= max(0.2, 1 - tiny_ratio)
+
+    # Sequence reset penalty for numbered mode: true chapters have monotonically
+    # increasing numbers (1,2,3...36). Embedded sub-numbering restarts from 1.
+    # Count how many times the number DECREASES — each reset is a strong signal
+    # that the matches include non-chapter content.
+    if mode == "numbered" and count >= 3:
+        nums = []
+        for m in matches:
+            try:
+                nums.append(int(m.group(1)))
+            except (ValueError, IndexError):
+                pass
+        if nums:
+            resets = sum(1 for i in range(1, len(nums)) if nums[i] <= nums[i - 1])
+            if resets > 0:
+                reset_ratio = resets / len(nums)
+                score *= max(0.1, 1 - reset_ratio * 2)  # Heavy penalty for resets
 
     # Genre-aware suppression: separator and numbered are usually wrong for novels
     if genre in ("novel", "unknown"):
@@ -650,6 +672,13 @@ def split_chapters_ex(
 
     if best_mode == "section_zh":
         best_matches = _augment_with_volume_markers(text, best_matches)
+
+    # For numbered mode, filter out embedded sub-numbering that restarts from 1.
+    # True chapters have monotonically increasing numbers; sub-sections within
+    # chapters reset to 1. Keep only matches that form the longest increasing
+    # subsequence starting from the first match.
+    if best_mode == "numbered":
+        best_matches = _filter_numbered_resets(best_matches)
 
     chapters = _split_by_matches(text, best_mode, best_matches)
 
@@ -1071,6 +1100,48 @@ def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
         )
 
     return chapters if len(chapters) >= 2 else None
+
+
+def _filter_numbered_resets(matches: list[re.Match]) -> list[re.Match]:
+    """Filter numbered matches to keep only the monotonically increasing sequence.
+
+    In novels like "三体", true chapter numbers (1-36) are interspersed with
+    embedded sub-numbering (1-5) from appendices/reports that restart from 1.
+    This keeps only matches whose numbers form an increasing sequence,
+    discarding "reset" matches where the number drops.
+    """
+    if len(matches) < 3:
+        return matches
+
+    nums: list[int] = []
+    for m in matches:
+        try:
+            nums.append(int(m.group(1)))
+        except (ValueError, IndexError):
+            nums.append(0)
+
+    # Count resets — if few, not worth filtering
+    resets = sum(1 for i in range(1, len(nums)) if nums[i] <= nums[i - 1])
+    if resets == 0:
+        return matches
+
+    # Greedy: keep matches where number > previous kept number
+    filtered: list[re.Match] = [matches[0]]
+    prev_num = nums[0]
+    for i in range(1, len(matches)):
+        if nums[i] > prev_num:
+            filtered.append(matches[i])
+            prev_num = nums[i]
+        # else: skip (sub-numbering reset)
+
+    # Only use filtered if we kept a reasonable fraction (≥50% of resets removed)
+    if len(filtered) >= 3 and len(filtered) < len(matches):
+        logger.info(
+            "Numbered mode: filtered %d/%d matches (removed %d sub-numbering resets)",
+            len(filtered), len(matches), len(matches) - len(filtered),
+        )
+        return filtered
+    return matches
 
 
 _DIGIT_SECTION_RE = re.compile(r"^\s*(\d{1,3})\s*$", re.MULTILINE)

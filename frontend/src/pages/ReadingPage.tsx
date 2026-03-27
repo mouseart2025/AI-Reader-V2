@@ -412,6 +412,7 @@ export default function ReadingPage() {
 
   // Chapter preload cache (3.2)
   const preloadCacheRef = useRef(new Map<number, import("@/api/types").ChapterContent>())
+  const navGenerationRef = useRef(0) // race condition guard for goToChapter
 
   // Scroll progress (1.2)
   const [scrollProgress, setScrollProgress] = useState(0)
@@ -619,6 +620,7 @@ export default function ReadingPage() {
       if (!novelId) return
       savePosition()
 
+      const gen = ++navGenerationRef.current
       setLoading(true)
       setError(null)
       try {
@@ -626,6 +628,9 @@ export default function ReadingPage() {
         const preloaded = preloadCacheRef.current.get(chapterNum)
         const content = preloaded ?? await fetchChapterContent(novelId, chapterNum)
         if (preloaded) preloadCacheRef.current.delete(chapterNum)
+
+        // Race guard: if another goToChapter was called while we were fetching, discard
+        if (gen !== navGenerationRef.current) return
 
         setCurrentChapter(content)
         setCurrentChapterNum(chapterNum)

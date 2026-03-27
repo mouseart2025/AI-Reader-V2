@@ -22,8 +22,15 @@ async def get_timeline(
     start = chapter_start if chapter_start is not None else first
     end = chapter_end if chapter_end is not None else last
 
+    if start > end:
+        start, end = end, start
+
     if first == 0:
-        return {"events": [], "swimlanes": {}, "analyzed_range": [0, 0]}
+        return {
+            "events": [], "swimlanes": {}, "analyzed_range": [0, 0],
+            "suggested_hidden_types": [], "suggested_min_swimlane": 1,
+            "total_swimlanes": 0,
+        }
 
     data = await get_timeline_data(novel_id, start, end)
     data["analyzed_range"] = [first, last]
