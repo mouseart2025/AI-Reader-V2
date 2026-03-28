@@ -798,6 +798,7 @@ class AnalysisService:
 
         # Auto-generate synopsis if not already present
         try:
+            await self._broadcast_stage(novel_id, chapter_end, "生成小说概要")
             novel_row = await novel_store.get_novel(novel_id)
             if novel_row and not novel_row.get("synopsis"):
                 from src.extraction.synopsis_generator import SynopsisGenerator
@@ -848,6 +849,7 @@ class AnalysisService:
             logger.warning("Synopsis auto-generation failed: %s", e)
 
         # All chapters processed — check for remaining failures
+        await self._broadcast_stage(novel_id, chapter_end, "完成分析")
         remaining_failures = await analysis_task_store.get_failed_chapters(novel_id)
         final_status = "completed_with_errors" if remaining_failures else "completed"
         await analysis_task_store.update_task_status(task_id, final_status)
