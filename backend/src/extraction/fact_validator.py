@@ -208,6 +208,8 @@ _GENERIC_FACILITY_NAMES = frozenset({
     "法场", "刑场", "校场",
     # Religious
     "寺庙", "道观", "庵堂", "祠堂",
+    # Generic palace/hall names
+    "宝殿", "大殿", "正殿", "偏殿", "内殿",
     # Functional rooms — interior spaces, not named locations
     "后堂", "前厅", "正厅", "大厅", "中堂", "花厅",
     "书房", "卧房", "卧室", "厨房", "柴房", "仓库",
@@ -287,6 +289,11 @@ _GENERIC_PERSON_WORDS = frozenset({
     "巡山小妖", "把门小妖", "巡山的小妖", "把门的小妖",
     "众猴", "众仙", "众神", "众鬼",
     "众僧", "老僧", "小僧", "众道", "众将", "众官",
+    # Age-based generics
+    "后生", "後生", "后生小辈", "小辈", "晚辈",
+    # Mythological generic roles — celestial/court titles
+    "玉女", "天将", "仙卿", "天妃", "仙童", "仙女",
+    "天兵", "天卒", "神将", "神兵",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
