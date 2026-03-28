@@ -50,6 +50,7 @@ async def get_map(
             "max_mention_count": 0, "suggested_min_mentions": 1,
             "geo_coords": {}, "world_structure": None,
             "layer_layouts": {}, "quality_metrics": None,
+            "space_theme": False,
         }
 
     data = await get_map_data(novel_id, start, end, layer_id=layer_id)

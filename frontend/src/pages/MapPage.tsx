@@ -836,6 +836,7 @@ export default function MapPage() {
                 focusLocation={focusLocation}
                 locationConflicts={showConflicts ? mapData?.location_conflicts : undefined}
                 collapsedChildCount={collapsedChildCount}
+                spaceTheme={mapData?.space_theme}
                 onLocationClick={handleLocationClick}
                 onLocationDragEnd={handleDragEnd}
                 onPortalClick={handlePortalClick}

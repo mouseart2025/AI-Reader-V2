@@ -572,6 +572,7 @@ export interface MapData {
   max_mention_count?: number
   suggested_min_mentions?: number
   quality_metrics?: QualityMetrics | null
+  space_theme?: boolean
 }
 
 export interface GeographyEntry {

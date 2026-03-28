@@ -99,7 +99,27 @@ _REALM_LAYER_KEYWORDS: dict[str, tuple[str, str]] = {
     "人界": ("overworld", "人界"),          # 人界 = mortal world, stays on overworld
     "冥河之地": ("underworld", "冥界/地府"),
     "蛮荒世界": ("manhuang", "蛮荒世界"),
+    # Sci-fi: solar system / star system layers
+    "太阳系": ("solarsystem", "太阳系"),
+    "银河系": ("galaxy", "银河系"),
+    "银河": ("galaxy", "银河系"),
+    "三体世界": ("trisolaris", "三体世界"),
+    "三体星系": ("trisolaris", "三体星系"),
+    "三体行星": ("trisolaris", "三体世界"),
+    "三体游戏世界": ("trisolaris-game", "三体游戏"),
+    "三体游戏": ("trisolaris-game", "三体游戏"),
 }
+
+# Sci-fi: locations containing these keywords are assigned to cosmic layers
+# unless they are already matched by _REALM_LAYER_KEYWORDS above.
+# Used in _detect_layer as a fallback after realm keyword matching.
+_SCIFI_LAYER_RULES: list[tuple[list[str], str]] = [
+    # keywords → layer_id
+    # Locations with these in their name go to the solar system layer
+    (["太阳", "地球轨道", "月球", "火星", "木星"], "solarsystem"),
+    # Locations with these go to the galaxy layer
+    (["星系", "星区", "星省", "星团", "恒星", "光年", "半人马"], "galaxy"),
+]
 # Names that contain realm keywords but should NOT be assigned to a realm layer.
 # E.g., "修仙界" means "cultivation world" (= mortal overworld), not "仙界".
 _REALM_LAYER_EXCLUDE = (
@@ -1781,15 +1801,23 @@ class WorldStructureAgent:
         # Skip excluded names before realm matching (e.g., "修仙界" ≠ "仙界")
         if any(ex in name for ex in _REALM_LAYER_EXCLUDE):
             return None
-        # Xianxia realm detection — match longest keyword first to prefer
-        # "真仙界" over "仙界"
+        # Realm detection — match longest keyword first to prefer
+        # "真仙界" over "仙界", "三体游戏世界" over "三体世界"
         best_kw = ""
         best_layer = None
         for kw, (layer_id, _) in _REALM_LAYER_KEYWORDS.items():
             if kw in name and len(kw) > len(best_kw):
                 best_kw = kw
                 best_layer = layer_id
-        return best_layer
+        if best_layer:
+            return best_layer
+
+        # Sci-fi fallback: assign to cosmic layers by keyword
+        for keywords, layer_id in _SCIFI_LAYER_RULES:
+            if any(kw in name for kw in keywords):
+                return layer_id
+
+        return None
 
     def _ensure_layer_exists(self, layer_id: str) -> None:
         """Create a layer if it doesn't already exist."""
@@ -1802,6 +1830,11 @@ class WorldStructureAgent:
             "celestial": (LayerType.sky, "天界"),
             "underworld": (LayerType.underground, "冥界/地府"),
             "underwater": (LayerType.underwater, "海底/龙宫"),
+            # Sci-fi layers — pocket dimensions (separate spatial spaces)
+            "solarsystem": (LayerType.pocket, "太阳系"),
+            "galaxy": (LayerType.pocket, "银河系"),
+            "trisolaris": (LayerType.pocket, "三体世界"),
+            "trisolaris-game": (LayerType.pocket, "三体游戏"),
         }
         # Add realm layers from _REALM_LAYER_KEYWORDS
         for kw, (lid, display_name) in _REALM_LAYER_KEYWORDS.items():
