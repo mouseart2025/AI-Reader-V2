@@ -293,7 +293,7 @@ _GENERIC_PERSON_WORDS = frozenset({
     "后生", "後生", "后生小辈", "小辈", "晚辈",
     # Mythological generic roles — celestial/court titles
     "玉女", "天将", "仙卿", "天妃", "仙童", "仙女",
-    "天兵", "天卒", "神将", "神兵",
+    "天兵", "天卒", "天丁", "神将", "神兵",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
