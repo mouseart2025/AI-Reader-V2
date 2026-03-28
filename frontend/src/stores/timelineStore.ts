@@ -6,7 +6,7 @@
  */
 import { create } from "zustand"
 
-type FilterType = "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "关系变化" | "其他"
+export type FilterType = "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "关系变化" | "其他"
 
 interface TimelineState {
   filterTypes: Set<FilterType>
