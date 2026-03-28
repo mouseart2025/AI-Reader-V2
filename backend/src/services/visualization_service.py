@@ -1463,6 +1463,24 @@ async def get_map_data(
     for loc in locations:
         loc["placement_confidence"] = "constrained" if loc["name"] in constrained_names else "unconstrained"
 
+    # ── Space theme detection ──────────────────────────
+    _SPACE_KEYWORDS = {"星系", "星球", "行星", "恒星", "太阳系", "银河", "星区", "星团",
+                       "母星", "恒星系", "星际", "宇宙", "太空"}
+    space_theme = False
+    _ws_tiers = ws.location_tiers if ws else {}
+    _ws_genre = (ws.novel_genre_hint or "").lower() if ws else ""
+    if _ws_genre not in ("fantasy", "wuxia"):
+        _high_tier_names = [
+            name for name, tier in _ws_tiers.items()
+            if tier in ("world", "continent")
+        ]
+        _space_hits = sum(
+            1 for name in _high_tier_names
+            if any(kw in name for kw in _SPACE_KEYWORDS)
+        )
+        if _space_hits >= 3:
+            space_theme = True
+
     result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
@@ -1485,6 +1503,7 @@ async def get_map_data(
         "location_conflicts": location_conflicts,
         "max_mention_count": max((l["mention_count"] for l in locations), default=1),
         "suggested_min_mentions": 3 if len(locations) > 300 else (2 if len(locations) > 150 else 1),
+        "space_theme": space_theme,
     }
     if geo_coords_raw:
         # Apply user lat/lng overrides on top of auto-resolved coordinates

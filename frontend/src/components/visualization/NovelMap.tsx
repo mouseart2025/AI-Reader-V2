@@ -25,6 +25,7 @@ import type {
 import rough from "roughjs"
 import type { RoughSVG } from "roughjs/bin/svg"
 import { generateHullTerritories } from "@/lib/hullTerritoryGenerator"
+import { SPACE_THEME, getSpaceNodeColor, getSpaceGlowRadius, generateStarfield } from "@/lib/mapRenderer/spaceTheme"
 import { generateTerrainHints } from "@/lib/terrainHints"
 import type { Point } from "@/lib/edgeDistortion"
 import {
@@ -328,6 +329,7 @@ export interface NovelMapProps {
   focusLocation?: string | null
   locationConflicts?: LocationConflict[]
   collapsedChildCount?: Map<string, number>
+  spaceTheme?: boolean
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
   onPortalClick?: (targetLayerId: string) => void
@@ -381,6 +383,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       focusLocation,
       locationConflicts,
       collapsedChildCount,
+      spaceTheme: spaceThemeProp,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
@@ -410,8 +413,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     const canvasW = canvasSizeProp?.width ?? DEFAULT_CANVAS.width
     const canvasH = canvasSizeProp?.height ?? DEFAULT_CANVAS.height
-    const darkBg = isDarkBackground(layoutMode, layerType)
-    const bgColor = getMapBgColor(layoutMode, layerType)
+    const darkBg = spaceThemeProp || isDarkBackground(layoutMode, layerType)
+    const bgColor = spaceThemeProp ? SPACE_THEME.bg : getMapBgColor(layoutMode, layerType)
 
     // Scale factor for tier visibility thresholds on large canvases.
     // Default canvas is 1600px; cosmic scale is 8000px. At fit-to-view,
@@ -562,7 +565,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("fill", bgColor)
 
       // Parchment texture overlay (only for light backgrounds)
-      if (!darkBg) {
+      if (spaceThemeProp) {
+        // Space theme: render starfield dots on dark background
+        const starfieldG = viewport.append("g").attr("id", "starfield").style("pointer-events", "none")
+        const stars = generateStarfield(canvasW, canvasH)
+        for (const star of stars) {
+          starfieldG.append("circle")
+            .attr("cx", star.x)
+            .attr("cy", star.y)
+            .attr("r", star.r)
+            .attr("fill", `rgba(255, 255, 255, ${star.alpha})`)
+        }
+      } else if (!darkBg) {
         viewport
           .append("rect")
           .attr("id", "bg-texture")
@@ -649,11 +663,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         setMapReady(false)
         setPopup(null)
       }
-    }, [canvasW, canvasH, layoutMode, layerType, bgColor, darkBg])
+    }, [canvasW, canvasH, layoutMode, layerType, bgColor, darkBg, spaceThemeProp])
 
     // ── Terrain image (Whittaker biome bottom layer) ──────────────
     useEffect(() => {
-      if (!svgRef.current || !mapReady || !terrainUrl) return
+      if (!svgRef.current || !mapReady || !terrainUrl || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const terrainG = svg.select("#terrain")
       // Remove previous terrain image if any (keep hint symbols via class check)
@@ -678,7 +692,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // ── Render terrain texture hints ─────────────────
     useEffect(() => {
-      if (!svgRef.current || !mapReady) return
+      if (!svgRef.current || !mapReady || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const terrainG = svg.select("#terrain")
       terrainG.selectAll("use").remove()
@@ -730,7 +744,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // ── Render rivers (rough.js hand-drawn) ──────────────
     useEffect(() => {
-      if (!svgRef.current || !mapReady) return
+      if (!svgRef.current || !mapReady || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const riversG = svg.select("#rivers")
       riversG.selectAll("*").remove()
@@ -777,9 +791,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (!roads || roads.length === 0) return
 
-      const roadColor = darkBg
-        ? "rgba(160,140,100,0.30)"
-        : "rgba(120,100,60,0.30)"
+      const roadColor = spaceThemeProp
+        ? SPACE_THEME.routeColor
+        : darkBg
+          ? "rgba(160,140,100,0.30)"
+          : "rgba(120,100,60,0.30)"
+      const roadDash = spaceThemeProp ? "6,8" : "4,3"
+      const roadWidth = spaceThemeProp ? 1.5 : 1
 
       // Use simple SVG paths instead of roughjs for performance
       // (roughjs creates multiple DOM elements per road, causing zoom lag)
@@ -787,23 +805,27 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         if (road.points.length < 2) continue
         const [x0, y0] = road.points[0]
         const [x1, y1] = road.points[road.points.length - 1]
-        roadsG
+        const line = roadsG
           .append("line")
           .attr("x1", x0)
           .attr("y1", y0)
           .attr("x2", x1)
           .attr("y2", y1)
           .attr("stroke", roadColor)
-          .attr("stroke-width", 1)
-          .attr("stroke-dasharray", "4,3")
+          .attr("stroke-width", roadWidth)
+          .attr("stroke-dasharray", roadDash)
           .attr("vector-effect", "non-scaling-stroke")
           .style("pointer-events", "none")
+        // Space theme glow effect via SVG filter
+        if (spaceThemeProp) {
+          line.style("filter", "drop-shadow(0 0 4px rgba(100, 181, 246, 0.5))")
+        }
       }
-    }, [mapReady, roads, darkBg])
+    }, [mapReady, roads, darkBg, spaceThemeProp])
 
     // ── Render coastline + ocean fill (rough.js) ──────────
     useEffect(() => {
-      if (!svgRef.current || !mapReady || !roughCanvasRef.current) return
+      if (!svgRef.current || !mapReady || !roughCanvasRef.current || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const oceanG = svg.select("#coastline-ocean")
       const shelfG = svg.select("#shelf")
@@ -1003,7 +1025,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // ── Render territories (rough.js hand-drawn hulls) ──────
     useEffect(() => {
-      if (!svgRef.current || !mapReady) return
+      if (!svgRef.current || !mapReady || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const terrG = svg.select("#territories")
       const terrLabelsG = svg.select("#territory-labels")
@@ -1515,18 +1537,47 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
 
         // Icon — render as inner SVG group (local coords centered at origin)
-        const iconContent = iconDefs.get(iconName)
-        if (iconContent) {
-          const iconG = locG
-            .append("g")
+        if (spaceThemeProp) {
+          // Space theme: glowing circle node
+          const spaceColor = getSpaceNodeColor(tier)
+          const glowR = getSpaceGlowRadius(tier)
+          const nodeRadius = iconSize / 2
+          if (glowR > 0) {
+            locG
+              .append("circle")
+              .attr("class", "loc-glow")
+              .attr("cx", item.x)
+              .attr("cy", item.y)
+              .attr("r", nodeRadius + glowR)
+              .attr("fill", spaceColor)
+              .attr("opacity", opacity * 0.15)
+              .style("pointer-events", "none")
+              .style("filter", `blur(${glowR * 0.6}px)`)
+          }
+          locG
+            .append("circle")
             .attr("class", "loc-icon")
-            .attr(
-              "transform",
-              `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
-            )
-            .attr("fill", color)
+            .attr("cx", item.x)
+            .attr("cy", item.y)
+            .attr("r", nodeRadius)
+            .attr("fill", spaceColor)
             .attr("opacity", opacity)
-          iconG.html(iconContent)
+            .attr("stroke", "rgba(255,255,255,0.3)")
+            .attr("stroke-width", 0.5)
+        } else {
+          const iconContent = iconDefs.get(iconName)
+          if (iconContent) {
+            const iconG = locG
+              .append("g")
+              .attr("class", "loc-icon")
+              .attr(
+                "transform",
+                `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
+              )
+              .attr("fill", color)
+              .attr("opacity", opacity)
+            iconG.html(iconContent)
+          }
         }
 
         // Lock indicator for locked locations
@@ -1557,14 +1608,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
 
         // Label (hidden by default — collision detection will show visible ones)
-        const textColor = isRevealed
-          ? "#9ca3af"
-          : mention >= 3
-            ? darkBg ? "#e5e7eb" : "#374151"
-            : "#9ca3af"
+        const textColor = spaceThemeProp
+          ? SPACE_THEME.labelColor
+          : isRevealed
+            ? "#9ca3af"
+            : mention >= 3
+              ? darkBg ? "#e5e7eb" : "#374151"
+              : "#9ca3af"
         const fontSize = TIER_TEXT_SIZE[tier] ?? 12
 
-        locG
+        const labelEl = locG
           .append("text")
           .attr("class", "loc-label")
           .attr("x", item.x)
@@ -1579,6 +1632,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("paint-order", "stroke")
           .style("pointer-events", "none")
           .text(item.name)
+        if (spaceThemeProp) {
+          labelEl.style("filter", `drop-shadow(0 0 3px ${SPACE_THEME.labelGlow})`)
+        }
 
         // Click handler (single-click → entity card)
         locG.on("click", (event: MouseEvent) => {
@@ -1628,7 +1684,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     }, [
       mapReady, layout, locMap, locations, iconDefs,
       visibleLocationNames, revealedLocationNames, currentLocation, darkBg,
-      collapsedChildCount,
+      collapsedChildCount, spaceThemeProp,
     ])
 
     // ── Setup drag behavior ──────────────────────────
