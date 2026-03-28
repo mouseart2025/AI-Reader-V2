@@ -68,5 +68,14 @@ marketing/output/
 marketing/*.db
 marketing/logs/
 
+# Quality audit tools (internal, not for public release)
+backend/scripts/quality_audit.py
+backend/scripts/revalidate.py
+backend/scripts/auto_improve.py
+backend/scripts/apply_decisions.py
+backend/scripts/generate_review_page.py
+backend/scripts/audit_prompt.txt
+backend/audit_reports/
+
 # BMAD claude commands
 .claude/commands/bmad*
