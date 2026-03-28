@@ -653,7 +653,9 @@ class WorldStructureAgent:
                 )
             )
 
-            # Parent layer propagation: child inherits parent's non-overworld layer
+            # Parent layer propagation: child inherits parent's non-overworld layer.
+            # Parent layer takes priority over keyword detection to fix mismatches
+            # (e.g., "三颗太阳" keyword→solarsystem but parent→trisolaris).
             if self.structure.location_parents and self.structure.location_layer_map:
                 changed = True
                 max_passes = 5
@@ -663,7 +665,7 @@ class WorldStructureAgent:
                     for child, parent in self.structure.location_parents.items():
                         child_layer = self.structure.location_layer_map.get(child, "overworld")
                         parent_layer = self.structure.location_layer_map.get(parent, "overworld")
-                        if child_layer == "overworld" and parent_layer != "overworld":
+                        if parent_layer != "overworld" and child_layer != parent_layer:
                             self.structure.location_layer_map[child] = parent_layer
                             changed = True
 

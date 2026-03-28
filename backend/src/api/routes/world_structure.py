@@ -865,6 +865,27 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
     if _apply_cycles:
         logger.warning("Apply: broke %d cycles from user-selected changes", _apply_cycles)
 
+    # Parent layer propagation — child inherits parent's non-overworld layer.
+    # Also corrects mismatches: if child's keyword-detected layer differs from
+    # parent's layer, parent's layer wins (e.g., "三颗太阳" keyword→solarsystem
+    # but parent="三体星系"→trisolaris, so child should be trisolaris).
+    _layer_propagated = 0
+    _prop_changed = True
+    _prop_passes = 5
+    while _prop_changed and _prop_passes > 0:
+        _prop_changed = False
+        _prop_passes -= 1
+        for _child, _parent in ws.location_parents.items():
+            c_layer = ws.location_layer_map.get(_child, "overworld")
+            p_layer = ws.location_layer_map.get(_parent, "overworld")
+            if p_layer != "overworld" and c_layer != p_layer:
+                ws.location_layer_map[_child] = p_layer
+                _prop_changed = True
+                _layer_propagated += 1
+    if _layer_propagated:
+        logger.info("Layer propagation during apply: %d locations inherited parent layer",
+                    _layer_propagated)
+
     new_count = len(ws.location_parents)
     root_count, final_roots = _count_roots(ws.location_parents)
 
