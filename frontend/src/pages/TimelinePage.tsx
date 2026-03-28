@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { fetchTimelineData } from "@/api/client"
 import { useNavigate } from "react-router-dom"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
-import { useTimelineStore } from "@/stores/timelineStore"
+import { useTimelineStore, type FilterType } from "@/stores/timelineStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { novelPath } from "@/lib/novelPaths"
@@ -67,7 +67,7 @@ function importanceSize(importance: string, isMajor?: boolean): number {
   }
 }
 
-type FilterType = "all" | "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "关系变化" | "其他"
+// FilterType imported from timelineStore (without "all" — "all" is UI-only toggle)
 const DEFAULT_HIDDEN: FilterType[] = ["角色登场", "物品交接"]
 
 export default function TimelinePage() {
@@ -96,27 +96,25 @@ export default function TimelinePage() {
   const [selectedPersons, setSelectedPersons] = useState<string[]>([])
   const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
 
-  const toggleTypeFilter = useCallback((type: FilterType) => {
-    setFilterTypes((prev) => {
-      const next = new Set(prev)
-      if (type === "all") {
-        // "all" toggles everything on
-        const allTypes: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
-        const isAll = allTypes.every((t) => prev.has(t))
-        if (isAll) {
-          // already all selected → revert to smart default
-          return new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
-        }
-        return new Set<FilterType>(allTypes)
-      }
-      if (next.has(type)) {
-        next.delete(type)
-        return next.size === 0 ? new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"]) : next
-      }
-      next.add(type)
-      return next
-    })
-  }, [])
+  const ALL_CONTENT_TYPES: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
+  const SMART_DEFAULTS = new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
+
+  const toggleTypeFilter = useCallback((type: string) => {
+    const prev = useTimelineStore.getState().filterTypes
+    if (type === "all") {
+      const isAll = ALL_CONTENT_TYPES.every((t) => prev.has(t))
+      setFilterTypes(isAll ? new Set(SMART_DEFAULTS) : new Set<FilterType>(ALL_CONTENT_TYPES))
+      return
+    }
+    const next = new Set(prev)
+    if (next.has(type as FilterType)) {
+      next.delete(type as FilterType)
+      setFilterTypes(next.size === 0 ? new Set(SMART_DEFAULTS) : next)
+    } else {
+      next.add(type as FilterType)
+      setFilterTypes(next)
+    }
+  }, [setFilterTypes])
 
   const toggleChapterCollapse = useCallback((chapter: number) => {
     setCollapsedChapters((prev) => {
@@ -273,11 +271,10 @@ export default function TimelinePage() {
     )
   }, [])
 
-  const EVENT_TYPES: FilterType[] = ["all", "战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"]
+  const EVENT_TYPES: string[] = ["all", "战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"]
 
   const isAllSelected = useMemo(() => {
-    const contentTypes: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
-    return contentTypes.every((t) => filterTypes.has(t))
+    return ALL_CONTENT_TYPES.every((t) => filterTypes.has(t))
   }, [filterTypes])
 
   return (
@@ -317,8 +314,8 @@ export default function TimelinePage() {
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs text-muted-foreground mr-1">类型</span>
             {EVENT_TYPES.map((t) => {
-              const isActive = t === "all" ? isAllSelected : filterTypes.has(t)
-              const isHiddenDefault = DEFAULT_HIDDEN.includes(t)
+              const isActive = t === "all" ? isAllSelected : filterTypes.has(t as FilterType)
+              const isHiddenDefault = DEFAULT_HIDDEN.includes(t as FilterType)
               return (
                 <Button
                   key={t}
