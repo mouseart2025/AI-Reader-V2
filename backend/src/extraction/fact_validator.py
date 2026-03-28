@@ -171,6 +171,49 @@ _VEHICLE_WORDS = frozenset({
     "飞机", "汽车", "火车", "大巴", "公交车",
     # Sci-fi vehicles/objects
     "飞船", "母舰", "战舰", "穿梭机",
+
+    # auto-improve 2026-03-28
+    "九霄",
+
+    # auto-improve 2026-03-28
+    "半空",
+
+    # auto-improve 2026-03-28
+    "无数仙域",
+
+    # auto-improve 2026-03-28
+    "坎宫之地",
+
+    # auto-improve 2026-03-28
+    "翠幄青紬车",
+
+    # auto-improve 2026-03-28
+    "夕阳",
+    "抛物面天线",
+
+    # auto-improve 2026-03-28
+    "东边",
+    "人",
+    "北边",
+    "南边",
+    "地狱",
+    "天",
+    "恶鬼",
+    "畜生",
+    "西边",
+    "阿修罗",
+    "青石",
+    "青石岩",
+    "青石棋局",
+
+    # auto-improve 2026-03-28
+    "黄吉普车",
+
+    # auto-improve 2026-03-28
+    "区域",
+
+    # auto-improve 2026-03-28
+    "孙玉厚家",
 })
 
 # Furniture / object names — these are never locations
@@ -220,6 +263,46 @@ _GENERIC_FACILITY_NAMES = frozenset({
     "山寨", "营寨", "大寨", "寨子",
     "码头", "渡口", "津渡",
     "驿站", "驿馆",
+
+    # auto-improve 2026-03-28
+    "东阁",
+    "二层门下",
+    "二门外",
+    "廊庑",
+    "高台",
+
+    # auto-improve 2026-03-28
+    "冰地",
+    "峡谷",
+    "石柱",
+
+    # auto-improve 2026-03-28
+    "宝座",
+    "宝阁",
+    "讲堂",
+    "高阁",
+
+    # auto-improve 2026-03-28
+    "影壁",
+    "正房台矶",
+
+    # auto-improve 2026-03-28
+    "三间厅",
+    "廊檐下",
+
+    # auto-improve 2026-03-28
+    "食堂饭厅",
+
+    # auto-improve 2026-03-28
+    "横梁",
+
+    # auto-improve 2026-03-28
+    "密林",
+    "雪地",
+
+    # auto-improve 2026-03-28
+    "宿舍",
+    "教室",
 })
 
 # Hardcoded fallback blocklist — catches common cases the rules might miss
@@ -294,6 +377,224 @@ _GENERIC_PERSON_WORDS = frozenset({
     # Mythological generic roles — celestial/court titles
     "玉女", "天将", "仙卿", "天妃", "仙童", "仙女",
     "天兵", "天卒", "天丁", "神将", "神兵",
+
+    # auto-improve 2026-03-28
+    "义兄弟",
+    "二将",
+    "五百灵官",
+    "八菩萨",
+    "力士",
+    "十万天兵",
+    "四天王",
+    "四金刚",
+    "大众",
+    "架火",
+    "校尉",
+    "洪福寺僧人",
+    "美女",
+    "美姬",
+    "针工",
+    "铁匠人等",
+
+    # auto-improve 2026-03-28
+    "三藏旧徒",
+    "二十八宿",
+    "五方揭谛",
+    "五龙",
+    "六丁六甲",
+    "四将",
+    "寿星",
+    "屠子",
+    "广晋龙王之子",
+    "护教伽蓝",
+    "蛇将",
+    "龟将",
+
+    # auto-improve 2026-03-28
+    "两大元婴长老",
+    "千寰山使者",
+    "华天宗使者",
+    "卫云城使者",
+    "垢土化身",
+    "年轻人",
+    "蒙面修士",
+    "金色小人",
+    "陇家新任大长老",
+    "青年",
+    "黑凤族合体长老",
+
+    # auto-improve 2026-03-28
+    "丑陋大汉",
+    "二爷",
+
+    # auto-improve 2026-03-28
+    "中年男子",
+    "艳女",
+
+    # auto-improve 2026-03-28
+    "仙姬",
+
+    # auto-improve 2026-03-28
+    "三小姐",
+    "二小姐",
+    "同昌公主",
+    "唐伯虎",
+    "四小姐",
+    "大小姐",
+    "女婿",
+    "女学生",
+    "奶娘",
+    "孩子们",
+    "安禄山",
+    "寿昌公主",
+    "小丫头",
+    "小丫鬟",
+    "政老爹",
+    "杨太真",
+    "歌姬",
+    "武则天",
+    "珍爷",
+    "琏爷",
+    "秦太虚",
+    "穆莳",
+    "红娘",
+    "老年人",
+    "舞女",
+    "西施",
+    "赦老爹",
+    "赵飞燕",
+    "龙钟老僧",
+
+    # auto-improve 2026-03-28
+    "婆子",
+
+    # auto-improve 2026-03-28
+    "小乡绅之子",
+
+    # auto-improve 2026-03-28
+    "三体战士",
+    "主任",
+    "值班技术员",
+    "医生",
+    "取信人",
+    "司机",
+    "年轻工程师",
+    "护士",
+    "纳米研究中心主任",
+    "美军空军上校",
+    "美国中央情报局官员",
+    "英军上校",
+    "那位警官",
+    "那名工程师",
+    "那名战士",
+    "那名男警察",
+
+    # auto-improve 2026-03-28
+    "哨兵",
+    "少校军官",
+    "年轻警官",
+    "爆炸物专家",
+    "英国陆军上校",
+    "警卫排排长",
+    "镇中学老师",
+    "齐家屯老两口",
+
+    # auto-improve 2026-03-28
+    "七八人",
+    "丐帮帮众",
+    "丐帮群豪",
+    "两个采燕客",
+    "两名大汉",
+    "两名家将",
+    "两名岛主",
+    "中原群豪",
+    "中年僧人",
+    "中年汉子",
+    "前辈",
+    "大师",
+    "大理国臣民",
+    "契丹武士",
+    "她老人家",
+    "姥姥",
+    "小和尚",
+    "小师父",
+    "少林寺僧人",
+    "少林群僧",
+    "执法僧",
+    "无名老僧",
+    "星宿派门人",
+    "梁上少女",
+    "梅兰竹菊",
+    "梅兰竹菊四剑",
+    "梦郎",
+    "灵鹫宫部属",
+    "玄天部群女",
+    "玄字班僧侣",
+    "神僧",
+    "神农帮帮众",
+    "童姥",
+    "老婆子",
+    "虚字辈僧侣",
+    "褚姓少年",
+    "辽兵",
+    "辽军",
+    "那大汉",
+
+    # auto-improve 2026-03-28
+    "乔氏夫妇",
+    "好妹子",
+    "妹子",
+    "姑娘",
+    "恶和尚",
+    "钟灵之母",
+    "钟灵之父",
+    "高老者",
+
+    # auto-improve 2026-03-28
+    "中年妇人",
+    "京官",
+    "京官小姐",
+    "她师妹",
+    "师姊",
+    "老汉",
+    "蒙面大汉",
+    "贱人",
+    "这贱人",
+    "那妇人",
+    "那少女",
+    "那少年",
+    "那年轻女子",
+    "那年轻男子",
+    "那贱人",
+
+    # auto-improve 2026-03-28
+    "二流子",
+    "公社负责人",
+    "县社干部",
+    "双水村村民",
+    "司机朋友们",
+    "女售货员",
+    "妹妹",
+    "姐夫",
+    "姐姐",
+    "孙玉厚家",
+    "少安他奶",
+    "新娘",
+    "村民",
+    "润生妈",
+    "父亲",
+    "班主任",
+    "秀莲她爸",
+    "老人家",
+    "老祖母",
+    "跛女子",
+
+    # auto-improve 2026-03-28
+    "售票员",
+
+    # auto-improve 2026-03-28
+    "死女子",
+    "老将",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
@@ -307,6 +608,36 @@ _PURE_TITLE_WORDS = frozenset({
     "将军", "元帅", "丞相", "太师",
     "头领", "寨主", "大王", "员外",
     "恩相", "大人", "老爷", "相公",
+
+    # auto-improve 2026-03-28
+    "长史",
+
+    # auto-improve 2026-03-28
+    "师伯",
+    "师叔",
+
+    # auto-improve 2026-03-28
+    "贾化",
+
+    # auto-improve 2026-03-28
+    "紫薇舍人",
+
+    # auto-improve 2026-03-28
+    "国师",
+    "御营都指挥使",
+    "管带",
+
+    # auto-improve 2026-03-28
+    "张将军",
+
+    # auto-improve 2026-03-28
+    "三把手",
+    "副总指挥",
+
+    # auto-improve 2026-03-28
+    "书记",
+    "二队长",
+    "副书记",
 })
 
 
@@ -581,6 +912,42 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
                              "老婆", "媳妇", "母亲", "父亲", "弟子")
     if len(name) >= 4 and any(name.endswith(s) for s in _DESCRIPTIVE_SUFFIXES):
         return f"descriptive person reference (ends with {name[-2:]})"
+
+    # ── Pattern-based rules (cover open-ended variations) ──
+
+    # P1: "众X" prefix — group references (众灵官, 众菩萨, 众门人, etc.)
+    if name.startswith("众") and len(name) >= 2:
+        return f"group reference (众+)"
+
+    # P2: Numeric quantifier + group — "三十六员雷将", "十万天兵", "五百灵官"
+    import re as _re
+    if _re.match(r"^[一二三四五六七八九十百千万几数]+.{0,3}[员个名位只匹头条]", name):
+        return f"quantified group reference"
+    # Also: pure numeric prefix + group suffix
+    _GROUP_SUFFIXES = ("天兵", "灵官", "雷将", "雷神", "金刚", "菩萨",
+                       "天王", "天将", "小妖", "妖精", "鬼卒", "阴兵")
+    if any(name.endswith(s) for s in _GROUP_SUFFIXES) and len(name) > len(name.rstrip("天灵雷金菩王将小妖精鬼卒阴兵")):
+        pass  # Already handled by exact match or prefix rule above
+
+    # P3: "X部众神" / "X部众X" — department/division group
+    if "部众" in name:
+        return "department group reference"
+
+    # P4: Single Chinese surname alone — "张", "刘", "庞" (1 char, common surname)
+    _COMMON_SURNAMES = frozenset(
+        "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜"
+        "戚谢邹喻柏水窦章云苏潘葛奚范彭郎鲁韦昌马苗凤花方俞任袁柳酆鲍史唐"
+        "费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元卜顾孟平黄"
+        "和穆萧尹姚邵湛汪祁毛禹狄米贝明臧计伏成戴谈宋茅庞熊纪舒屈项祝董梁"
+        "杜阮蓝闵席季麻强贾路娄危江童颜郭梅盛林刁钟徐邱骆高夏蔡田樊胡凌霍"
+        "虞万支柯昝管卢莫经房裘缪干解应宗丁宣贲邓郁单杭洪包诸左石崔吉钮龚"
+    )
+    if len(name) == 1 and name in _COMMON_SURNAMES:
+        return "bare surname (not a character name)"
+
+    # P5: "X的Y" pattern — descriptive, not a proper name
+    if "的" in name and len(name) >= 4:
+        return "descriptive reference (contains 的)"
 
     return None
 
