@@ -94,16 +94,17 @@ def _extract_json(text: str) -> dict:
     # Try to repair truncated JSON (output hit max_tokens limit)
     # Find the last valid JSON object by progressively closing brackets
     if cleaned.startswith("{") or cleaned.startswith("["):
-        for attempt in range(5):
+        repair_text = cleaned
+        for attempt in range(10):
             # Count unclosed brackets and try to close them
-            opens = cleaned.count("{") - cleaned.count("}")
-            open_arr = cleaned.count("[") - cleaned.count("]")
+            opens = repair_text.count("{") - repair_text.count("}")
+            open_arr = repair_text.count("[") - repair_text.count("]")
             suffix = "]" * max(open_arr, 0) + "}" * max(opens, 0)
             if not suffix:
                 break
             try:
-                repaired = json.loads(cleaned + suffix)
-                logger.warning("Repaired truncated JSON (added %d closing brackets)", len(suffix))
+                repaired = json.loads(repair_text + suffix)
+                logger.warning("Repaired truncated JSON (added %d closing brackets, attempt %d)", len(suffix), attempt)
                 if isinstance(repaired, list):
                     dicts = [x for x in repaired if isinstance(x, dict)]
                     if dicts:
@@ -111,8 +112,32 @@ def _extract_json(text: str) -> dict:
                 return repaired
             except json.JSONDecodeError:
                 # Remove trailing partial value and retry
-                cleaned = cleaned.rsplit(",", 1)[0] if "," in cleaned else cleaned
+                repair_text = repair_text.rsplit(",", 1)[0] if "," in repair_text else repair_text[:-1]
                 continue
+
+        # Last resort: find the largest parseable JSON object substring
+        # Scan for balanced { ... } blocks from the start
+        brace_depth = 0
+        last_valid_end = -1
+        for i, c in enumerate(cleaned):
+            if c == "{":
+                brace_depth += 1
+            elif c == "}":
+                brace_depth -= 1
+                if brace_depth == 0:
+                    last_valid_end = i + 1
+                    break  # Found first complete top-level object
+        if last_valid_end > 0:
+            try:
+                result = json.loads(cleaned[:last_valid_end])
+                logger.warning("Extracted first complete JSON object (%d chars)", last_valid_end)
+                if isinstance(result, list):
+                    dicts = [x for x in result if isinstance(x, dict)]
+                    if dicts:
+                        return dicts[0]
+                return result
+            except json.JSONDecodeError:
+                pass
 
     # Show cleaned text in error (not raw <think> output which is useless noise)
     raise LLMParseError(f"Failed to extract JSON from LLM response: {cleaned[:200]}...")
