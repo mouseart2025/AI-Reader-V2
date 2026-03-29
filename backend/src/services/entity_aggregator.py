@@ -213,11 +213,38 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                     )
                 )
 
-    # Merge consecutive same-type relation stages (after normalization):
-    # [(ch3,"师生"), (ch5,"师徒"), (ch8,"弟子"), (ch9,"师徒")]
-    # → [RelationStage(chapters=[3,5], type="师徒"), RS(chapters=[8], type="弟子"), RS(chapters=[9], type="师徒")]
+    # Merge relation stages with blood-relation locking + frequency voting:
+    # Blood relations (family category) once established are not overridden.
+    # For non-blood relations, frequency voting picks the dominant type.
+    _BLOOD_CATEGORIES = frozenset({"family", "intimate"})
+
     relation_chains: list[RelationChain] = []
     for other, raw_stages in _raw_relations.items():
+        # 1. Normalize all types and track frequencies
+        type_counts: dict[str, int] = defaultdict(int)
+        all_chapters: list[int] = []
+        all_evidences: list[str] = []
+        first_blood_type: str | None = None
+
+        for ch, rtype, evidence in raw_stages:
+            normalized = normalize_relation_type(rtype)
+            cat = classify_relation_category(normalized)
+            type_counts[normalized] += 1
+            all_chapters.append(ch)
+            if evidence and evidence not in all_evidences:
+                all_evidences.append(evidence)
+            # Lock first blood/intimate relation type
+            if first_blood_type is None and cat in _BLOOD_CATEGORIES:
+                first_blood_type = normalized
+
+        # 2. Pick final type: blood lock > frequency voting
+        if first_blood_type:
+            chosen_type = first_blood_type
+        else:
+            chosen_type = max(type_counts.items(), key=lambda x: x[1])[0]
+
+        # 3. Build stages — keep consecutive stage merging for history,
+        # but use chosen_type for category classification
         merged: list[RelationStage] = []
         for ch, rtype, evidence in raw_stages:
             normalized = normalize_relation_type(rtype)
@@ -231,9 +258,8 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                     relation_type=normalized,
                     evidences=[evidence] if evidence else [],
                 ))
-        # Classify by latest stage type
-        latest_type = merged[-1].relation_type if merged else ""
-        category = classify_relation_category(latest_type)
+
+        category = classify_relation_category(chosen_type)
         relation_chains.append(RelationChain(
             other_person=other, stages=merged, category=category,
         ))
@@ -579,6 +605,25 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
         for nc in fact.new_concepts:
             entity_map[(nc.name, "concept")].add(ch)
 
+    # ── Entity type voting: resolve cross-type conflicts ──
+    # When the same canonical name appears as multiple types (e.g., 林黛玉 as
+    # both person and item), keep only the type with the most chapter appearances.
+    _name_type_votes: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for (name, etype), chapters in entity_map.items():
+        _name_type_votes[name][etype] = len(chapters)
+
+    _name_winning_type: dict[str, str] = {}
+    # Type priority for tie-breaking: person > org > location > item > concept
+    _TYPE_PRIORITY = {"person": 5, "org": 4, "location": 3, "item": 2, "concept": 1}
+    for name, type_votes in _name_type_votes.items():
+        if len(type_votes) > 1:
+            # Pick type with most chapters; break ties by type priority
+            winner = max(
+                type_votes.items(),
+                key=lambda x: (x[1], _TYPE_PRIORITY.get(x[0], 0)),
+            )[0]
+            _name_winning_type[name] = winner
+
     # ── Filter single-character entities ──
     # Non-person: always drop single-char (common nouns like 书/饭/茶)
     # Person: only keep if a longer entity shares it as surname prefix
@@ -587,6 +632,9 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
 
     entities = []
     for (name, etype), chapters in entity_map.items():
+        # Skip losing types in cross-type conflicts
+        if name in _name_winning_type and etype != _name_winning_type[name]:
+            continue
         if len(name) < 2:
             if etype != "person":
                 continue  # drop single-char non-person

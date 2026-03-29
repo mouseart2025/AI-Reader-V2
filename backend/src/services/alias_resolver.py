@@ -369,6 +369,8 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
     # Pairs with >= _MIN_CHAPTER_EVIDENCE chapters are merged in a second pass.
     _primary_pair_evidence: dict[tuple[str, str], int] = defaultdict(int)
     _MIN_CHAPTER_EVIDENCE = 3
+    # Map alias → dict_primary_name it belongs to (for short-alias disambiguation)
+    _alias_to_dict_primary: dict[str, str] = {}
 
     def _safe_union(name: str, alias: str, source: str) -> None:
         """Union name and alias with multi-layer conflict detection.
@@ -387,6 +389,19 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                 source, name, alias,
             )
             return
+
+        # Layer 0.5: Short alias disambiguation (≤2 chars like "二爷"/"大哥").
+        # These high-collision aliases can bridge unrelated entities.
+        # Block if both sides trace to different dict_primary_names.
+        if source != "dict" and (len(name) <= 2 or len(alias) <= 2):
+            name_primary = _alias_to_dict_primary.get(name)
+            alias_primary = _alias_to_dict_primary.get(alias)
+            if name_primary and alias_primary and name_primary != alias_primary:
+                logger.debug(
+                    "Short alias conflict (%s): '%s' (→%s) vs '%s' (→%s), block",
+                    source, name, name_primary, alias, alias_primary,
+                )
+                return
 
         if alias not in uf.parent:
             uf.union(name, alias)
@@ -479,6 +494,7 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
 
         freq[name] = max(freq.get(name, 0), frequency)
         uf.find(name)  # ensure registered
+        _alias_to_dict_primary[name] = name  # primary maps to itself
 
         for raw_alias in aliases:
             alias = _normalize_char_variants(raw_alias) if raw_alias else ""
@@ -488,6 +504,7 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                     logger.debug("Alias blocked (L%d) from dict: %s → %s", level, name, alias)
                     continue
                 freq[alias] = max(freq.get(alias, 0), 0)
+                _alias_to_dict_primary.setdefault(alias, name)  # track which primary this alias belongs to
                 _safe_union(name, alias, "dict")
 
     # ── Ingest chapter_facts new_aliases ──
