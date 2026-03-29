@@ -14,6 +14,7 @@ from src.models.chapter_fact import (
     EventFact,
     ItemEventFact,
     OrgEventFact,
+    RelationshipFact,
     SpatialRelationship,
     WorldDeclaration,
 )
@@ -869,6 +870,22 @@ def _infer_type_from_name(name: str) -> str:
     return "区域"
 
 
+# ── Generic person candidates for disambiguation ─────────────────────
+# These are valid unnamed characters that should be disambiguated with
+# their chapter's primary setting location, not filtered out.
+# E.g., "樵夫" → "灵台方寸山·樵夫" to distinguish from other chapters' 樵夫.
+_GENERIC_PERSON_CANDIDATES = frozenset({
+    "樵夫", "渔夫", "猎户", "农夫",
+    "魔王", "妖王", "大王", "山大王",
+    "童子", "仙童", "道童",
+    "老者", "老翁", "老丈", "老汉",
+    "道人", "道士", "和尚", "老僧", "僧人",
+    "店家", "店主", "小二",
+    "国王", "王后", "公主", "太子",
+    "土地", "山神", "城隍",
+    "驿丞", "太守", "知县",
+})
+
 # ── Genre-aware person filtering ──────────────────────────────────────
 
 # Fantasy/xianxia: these are valid character names (具体角色, not 泛称)
@@ -1054,6 +1071,30 @@ class FactValidator:
             )
         )
 
+        # Post-processing: disambiguate generic person names (v0.65)
+        # Renames "樵夫" → "灵台方寸山·樵夫" using the chapter's primary setting.
+        # Must run AFTER _validate_characters (which already ran) but we need
+        # the rename_map to sync across relationships and events.
+        person_rename_map = self._build_generic_person_rename_map(characters, locations)
+        if person_rename_map:
+            characters = [
+                ch.model_copy(update={"name": person_rename_map[ch.name]})
+                if ch.name in person_rename_map else ch
+                for ch in characters
+            ]
+            relationships = [
+                rel.model_copy(update={
+                    **({"person_a": person_rename_map[rel.person_a]} if rel.person_a in person_rename_map else {}),
+                    **({"person_b": person_rename_map[rel.person_b]} if rel.person_b in person_rename_map else {}),
+                }) if rel.person_a in person_rename_map or rel.person_b in person_rename_map else rel
+                for rel in relationships
+            ]
+            events = [
+                evt.model_copy(update={"participants": [person_rename_map.get(p, p) for p in evt.participants]})
+                if any(p in person_rename_map for p in evt.participants) else evt
+                for evt in events
+            ]
+
         return ChapterFact(
             chapter_id=fact.chapter_id,
             novel_id=fact.novel_id,
@@ -1085,10 +1126,13 @@ class FactValidator:
             if len(name) < _NAME_MIN_LEN:
                 continue
             # Drop generic person references and pure titles
-            reason = _is_generic_person(name, self._genre)
-            if reason:
-                logger.debug("Dropping person '%s': %s", name, reason)
-                continue
+            # Exception: _GENERIC_PERSON_CANDIDATES are kept for later disambiguation
+            # (e.g., "樵夫" → "灵台方寸山·樵夫" in validate() post-processing)
+            if name not in _GENERIC_PERSON_CANDIDATES:
+                reason = _is_generic_person(name, self._genre)
+                if reason:
+                    logger.debug("Dropping person '%s': %s", name, reason)
+                    continue
             if name in seen:
                 # Merge: combine aliases and locations
                 existing = seen[name]
@@ -1725,6 +1769,47 @@ class FactValidator:
                 final_locations.append(loc)
 
         return final_locations, new_characters, new_events, new_spatial
+
+    def _build_generic_person_rename_map(
+        self,
+        characters: list[CharacterFact],
+        locations: list,
+    ) -> dict[str, str]:
+        """Build rename map for generic person disambiguation.
+
+        Returns {old_name: new_name} for generic persons found in this chapter.
+        E.g., {"樵夫": "灵台方寸山·樵夫"}
+        """
+        # Find primary setting location
+        primary_setting: str | None = None
+        for loc in locations:
+            if getattr(loc, "role", None) == "setting" and loc.name:
+                primary_setting = loc.name
+                break
+        if not primary_setting:
+            for loc in locations:
+                if loc.parent and loc.name:
+                    primary_setting = loc.name
+                    break
+        if not primary_setting and locations:
+            primary_setting = locations[0].name if locations[0].name else None
+
+        if not primary_setting:
+            return {}
+
+        rename_map: dict[str, str] = {}
+        for char in characters:
+            if char.name in _GENERIC_PERSON_CANDIDATES:
+                rename_map[char.name] = f"{primary_setting}·{char.name}"
+
+        if rename_map:
+            logger.info(
+                "Disambiguated %d generic persons: %s",
+                len(rename_map),
+                ", ".join(f"{k}→{v}" for k, v in rename_map.items()),
+            )
+
+        return rename_map
 
     def _validate_world_declarations(
         self, declarations: list[WorldDeclaration]
