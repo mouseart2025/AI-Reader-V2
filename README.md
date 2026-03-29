@@ -82,8 +82,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.63.3_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.63.3/AI.Reader_0.63.3_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.63.3_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.63.3/AI.Reader_0.63.3_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.65.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.65.0/AI.Reader_0.65.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.65.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.65.0/AI.Reader_0.65.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -125,6 +125,12 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.65.0 | 2026-03-29 | 数据质量跃迁 — 师兄弟/结拜兄弟独立关系类型 + AliasResolver短称呼消歧 + 实体类型投票 + 血亲关系锁定 + 名字号提取 + 泛称人物地点消歧(樵夫→灵台方寸山·樵夫) + 352 tests |
+| v0.64.1 | 2026-03-28 | LLM审阅驱动FactValidator规则大幅扩充 — 6本跨题材小说自动审阅3轮迭代收敛 + 237条新规则 + 5条模式匹配规则 + 清理1076无效人物+194无效地点 + Prompt修复(父子/父女性别+事件幻觉+师兄弟≠师徒) + 别名高亮 + 分析完成stage广播 + 352 tests |
+| v0.64.0 | 2026-03-28 | 太空科幻地图主题(深色背景+发光节点) + 科幻层检测(太阳系/银河系自动分离) + 层传播修复 + 科幻后缀排名 + 用户反馈修复(别名/关系/搜索/时间线) + 5轮系统审查 |
+| v0.63.6 | 2026-03-28 | 用户反馈修复: 别名合并 + 师兄妹→同门归一化 + 描述性人名过滤 + 搜索跳转 + 时间线状态保持 + 章节切分修复 |
+| v0.63.5 | 2026-03-27 | 章节切分numbered模式修复 + API空响应补全 + goToChapter竞态修复 |
+| v0.63.4 | 2026-03-27 | 3轮系统审查修复(4C+4M): auto-retry crash + @staticmethod + cycle detection + CKJ归一化 + alias cache + 并发隔离 |
 | v0.63.3 | 2026-03-27 | 别名canonical修正(预扫描实体优先+通用词blocklist+称谓降级) + 西游记层级手动修正61处(P:95.3%) + demo数据更新 + 英文landing page + ChiNovelKE benchmark发布 + 344 tests |
 | v0.63.2 | 2026-03-27 | 实体卡片500修复 + 评估基础设施(eval_dashboard+标注模板+消融脚本) + FactValidator消融开关 + 344 tests |
 | v0.63.1 | 2026-03-26 | 骨架缓存(超时自动复用) + 安全阈值精细化(LLM审查驱动) + region→continent救援 + 角色共现降噪(阈值3→5+kingdom排除+跨洲过滤) + 黄金标准别名修正 + 投票间接continent推断 + 累积P:37.7%→65.6%(+27.9pp) |
