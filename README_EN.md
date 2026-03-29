@@ -1,6 +1,6 @@
 # AI Reader V2 — AI-Powered Novel Analysis & Visualization
 
-[![Version](https://img.shields.io/badge/version-0.64.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.65.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -76,8 +76,8 @@ No development environment needed — download and run. Built-in Python backend,
 
 | Platform | Download | Architecture |
 |----------|----------|-------------|
-| macOS | [AI Reader_0.64.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.64.1/AI.Reader_0.64.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.64.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.64.1/AI.Reader_0.64.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.65.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.65.0/AI.Reader_0.65.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.65.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.65.0/AI.Reader_0.65.0_x64-setup.exe) | x86_64 |
 
 > **macOS says "damaged"?** Run in Terminal: `xattr -cr "/Applications/AI Reader.app"`, then reopen.
 >
