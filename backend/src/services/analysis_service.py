@@ -829,13 +829,13 @@ class AnalysisService:
                                 locations.add(name)
 
                     gen = SynopsisGenerator(llm=self.extractor.llm)
-                    synopsis = await gen.generate(
+                    synopsis = await asyncio.wait_for(gen.generate(
                         title=novel_row["title"],
                         author=novel_row.get("author"),
                         high_importance_events=events,
                         main_characters=sorted(characters)[:20],
                         main_locations=sorted(locations)[:15],
-                    )
+                    ), timeout=120)
                     if synopsis:
                         await conn_syn.execute(
                             "UPDATE novels SET synopsis = ? WHERE id = ?",
@@ -845,6 +845,8 @@ class AnalysisService:
                         logger.info("Synopsis auto-generated for novel %s", novel_id)
                 finally:
                     await conn_syn.close()
+        except asyncio.TimeoutError:
+            logger.warning("Synopsis auto-generation timed out (>120s), skipping")
         except Exception as e:
             logger.warning("Synopsis auto-generation failed: %s", e)
 
