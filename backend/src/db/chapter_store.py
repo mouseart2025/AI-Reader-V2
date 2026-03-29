@@ -67,6 +67,10 @@ async def get_chapter_entities(novel_id: str, chapter_num: int) -> list[dict]:
         for ch in fact.get("characters", []):
             if ch.get("name"):
                 entities.append({"name": ch["name"], "type": "person"})
+            # Include aliases for highlighting (猢狲→孙悟空, 行者→孙行者, etc.)
+            for alias in ch.get("new_aliases", []):
+                if alias and len(alias) >= 2:
+                    entities.append({"name": alias, "type": "person"})
 
         for loc in fact.get("locations", []):
             if loc.get("name"):
