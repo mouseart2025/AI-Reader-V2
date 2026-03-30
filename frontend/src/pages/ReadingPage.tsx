@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import {
   fetchChapterContent,
+  fetchChapterEntities,
   fetchChapterScenes,
   fetchChapters,
   fetchEntities,
@@ -479,25 +480,41 @@ export default function ReadingPage() {
         setChapters(chs)
         setAliasMap(aliasData ?? {})
 
-        const entityList = allEnts.map((e) => ({ name: e.name, type: e.type as ChapterEntity["type"] }))
-        if (aliasData) {
-          const canonicalTypeMap = new Map<string, ChapterEntity["type"]>()
-          for (const e of allEnts) {
-            canonicalTypeMap.set(e.name, e.type as ChapterEntity["type"])
-          }
-          for (const [alias, canonical] of Object.entries(aliasData)) {
-            const type = canonicalTypeMap.get(canonical)
-            if (type) {
-              entityList.push({ name: alias, type })
-            }
-          }
-        }
-        setEntities(entityList)
-
         const startChapter = userState.last_chapter ?? 1
         setCurrentChapterNum(startChapter)
 
-        const content = await fetchChapterContent(novelId!, startChapter)
+        // Load per-chapter entities for highlighting (v0.66: context-aware)
+        const [content, chapterEntData] = await Promise.all([
+          fetchChapterContent(novelId!, startChapter),
+          fetchChapterEntities(novelId!, startChapter).catch(() => ({ entities: [] })),
+        ])
+        if (cancelled) return
+
+        if (chapterEntData?.entities?.length) {
+          const chapterEntityList: ChapterEntity[] = chapterEntData.entities
+            .filter((e: { name: string }) => e.name?.length >= 2)
+            .map((e: { name: string; type: string }) => ({
+              name: e.name,
+              type: (e.type || "person") as ChapterEntity["type"],
+            }))
+          setEntities(chapterEntityList)
+        } else {
+          // Fallback to global entities if per-chapter data unavailable
+          const entityList = allEnts.map((e) => ({ name: e.name, type: e.type as ChapterEntity["type"] }))
+          if (aliasData) {
+            const canonicalTypeMap = new Map<string, ChapterEntity["type"]>()
+            for (const e of allEnts) {
+              canonicalTypeMap.set(e.name, e.type as ChapterEntity["type"])
+            }
+            for (const [alias, canonical] of Object.entries(aliasData)) {
+              const type = canonicalTypeMap.get(canonical)
+              if (type) {
+                entityList.push({ name: alias, type })
+              }
+            }
+          }
+          setEntities(entityList)
+        }
         if (cancelled) return
         setCurrentChapter(content)
 
@@ -627,7 +644,10 @@ export default function ReadingPage() {
       try {
         // Check preload cache first (3.2)
         const preloaded = preloadCacheRef.current.get(chapterNum)
-        const content = preloaded ?? await fetchChapterContent(novelId, chapterNum)
+        const [content, chapterEntData] = await Promise.all([
+          preloaded ? Promise.resolve(preloaded) : fetchChapterContent(novelId, chapterNum),
+          fetchChapterEntities(novelId, chapterNum).catch(() => ({ entities: [] })),
+        ])
         if (preloaded) preloadCacheRef.current.delete(chapterNum)
 
         // Race guard: if another goToChapter was called while we were fetching, discard
@@ -635,6 +655,17 @@ export default function ReadingPage() {
 
         setCurrentChapter(content)
         setCurrentChapterNum(chapterNum)
+
+        // Update highlight entities with per-chapter data (v0.66)
+        if (chapterEntData?.entities?.length) {
+          const chapterEntityList: ChapterEntity[] = chapterEntData.entities
+            .filter((e: { name: string }) => e.name?.length >= 2)
+            .map((e: { name: string; type: string }) => ({
+              name: e.name,
+              type: (e.type || "person") as ChapterEntity["type"],
+            }))
+          setEntities(chapterEntityList)
+        }
 
         if (contentRef.current) {
           contentRef.current.scrollTop = 0
