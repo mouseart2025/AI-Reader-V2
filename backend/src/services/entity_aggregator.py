@@ -237,11 +237,29 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
             if first_blood_type is None and cat in _BLOOD_CATEGORIES:
                 first_blood_type = normalized
 
-        # 2. Pick final type: blood lock > frequency voting
+        # 2. Pick final type: blood lock > specificity boost > frequency voting
+        # Specificity boost: "结拜兄弟" is more specific than "朋友"/"上下级".
+        # When the LLM extracts both generic and specific types for the same
+        # pair across chapters, prefer the specific type if it has reasonable
+        # evidence (≥2 chapters). This fixes 水浒传 where "上下级" dominates
+        # due to Liangshan's formal hierarchy, but "结拜兄弟" is the true bond.
+        _SPECIFIC_TYPES = {"结拜兄弟", "师兄弟", "师徒", "同门"}
+        _GENERIC_TYPES = {"上下级", "朋友", "同伙", "社交"}
+
         if first_blood_type:
             chosen_type = first_blood_type
         else:
-            chosen_type = max(type_counts.items(), key=lambda x: x[1])[0]
+            # Check if a specific type exists with ≥2 chapters evidence
+            specific_candidates = [
+                (t, c) for t, c in type_counts.items()
+                if t in _SPECIFIC_TYPES and c >= 1
+            ]
+            generic_winner = max(type_counts.items(), key=lambda x: x[1])
+            if specific_candidates and generic_winner[0] in _GENERIC_TYPES:
+                # Prefer the most frequent specific type
+                chosen_type = max(specific_candidates, key=lambda x: x[1])[0]
+            else:
+                chosen_type = generic_winner[0]
 
         # 3. Build stages — keep consecutive stage merging for history,
         # but use chosen_type for category classification
