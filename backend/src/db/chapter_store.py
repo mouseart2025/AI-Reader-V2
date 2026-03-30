@@ -107,6 +107,43 @@ async def get_chapter_entities(novel_id: str, chapter_num: int) -> list[dict]:
             if rel.get("person_b"):
                 entities.append({"name": rel["person_b"], "type": "person"})
 
+        # Enrich with global alias_map: for each person in this chapter,
+        # add all their known aliases from across the entire novel.
+        # This ensures "猴王" (from ch2+) is highlighted in ch1 where
+        # the character appears as "石猴" with only "美猴王"/"孙悟空" as local aliases.
+        try:
+            from src.services.alias_resolver import build_alias_map
+
+            alias_map = await build_alias_map(novel_id)
+            # Build reverse map: canonical → all aliases
+            canon_to_aliases: dict[str, set[str]] = {}
+            for alias, canon in alias_map.items():
+                canon_to_aliases.setdefault(canon, set()).add(alias)
+
+            chapter_person_names = {
+                e["name"] for e in entities if e["type"] == "person"
+            }
+            extra_aliases: list[dict] = []
+            for person_name in chapter_person_names:
+                canonical = alias_map.get(person_name, person_name)
+                for alias in canon_to_aliases.get(canonical, set()):
+                    if len(alias) >= 2:
+                        extra_aliases.append({"name": alias, "type": "person"})
+            entities.extend(extra_aliases)
+        except Exception:
+            pass  # Non-fatal: global aliases are a nice-to-have
+
+        # For disambiguated entities (e.g., "傲来国·樵夫"), also add the
+        # base name ("樵夫") so the original text word gets highlighted.
+        extra_base: list[dict] = []
+        for e in entities:
+            name = e["name"]
+            if "·" in name:
+                base = name.split("·", 1)[1]
+                if len(base) >= 2:
+                    extra_base.append({"name": base, "type": e["type"]})
+        entities.extend(extra_base)
+
         # Deduplicate by (name, type)
         seen: set[tuple[str, str]] = set()
         unique: list[dict] = []
