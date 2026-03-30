@@ -33,6 +33,7 @@ export interface ChapterContent extends Chapter {
 export interface ChapterEntity {
   name: string
   type: "person" | "location" | "item" | "org" | "concept"
+  canonical?: string // Full disambiguated name (e.g., "傲来国·樵夫" for base "樵夫")
 }
 
 export interface UserState {

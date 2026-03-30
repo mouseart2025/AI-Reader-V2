@@ -37,10 +37,15 @@ export function highlightText(
   // For duplicate names across types, prefer: person > org > location > item > concept
   const TYPE_PRIORITY: Record<string, number> = { person: 5, org: 4, location: 3, item: 2, concept: 1 }
   const entityMap = new Map<string, string>()
+  // Map display name → canonical name for disambiguated entities (e.g., "樵夫" → "傲来国·樵夫")
+  const canonicalMap = new Map<string, string>()
   for (const e of sorted) {
     const existing = entityMap.get(e.name)
     if (!existing || (TYPE_PRIORITY[e.type] ?? 0) > (TYPE_PRIORITY[existing] ?? 0)) {
       entityMap.set(e.name, e.type)
+    }
+    if (e.canonical && !canonicalMap.has(e.name)) {
+      canonicalMap.set(e.name, e.canonical)
     }
   }
 
@@ -56,7 +61,7 @@ export function highlightText(
             ENTITY_COLORS[type] ?? "",
           )}
           title={`${part} (${type})`}
-          onClick={() => onEntityClick?.(part, type)}
+          onClick={() => onEntityClick?.(canonicalMap.get(part) ?? part, type)}
         >
           {part}
         </span>
