@@ -542,6 +542,9 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                         _primary_pair_evidence[pair] += 1
                         continue
                     freq.setdefault(alias, 0)
+                    # Track short alias ownership for disambiguation
+                    if len(alias) <= 2 and name in dict_primary_names:
+                        _alias_to_dict_primary.setdefault(alias, name)
                     _safe_union(name, alias, "fact")
 
     # Second pass: merge deferred pairs with strong chapter evidence.
