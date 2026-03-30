@@ -493,9 +493,10 @@ export default function ReadingPage() {
         if (chapterEntData?.entities?.length) {
           const chapterEntityList: ChapterEntity[] = chapterEntData.entities
             .filter((e: { name: string }) => e.name?.length >= 2)
-            .map((e: { name: string; type: string }) => ({
+            .map((e: { name: string; type: string; canonical?: string }) => ({
               name: e.name,
               type: (e.type || "person") as ChapterEntity["type"],
+              ...(e.canonical ? { canonical: e.canonical } : {}),
             }))
           setEntities(chapterEntityList)
         } else {
@@ -660,9 +661,10 @@ export default function ReadingPage() {
         if (chapterEntData?.entities?.length) {
           const chapterEntityList: ChapterEntity[] = chapterEntData.entities
             .filter((e: { name: string }) => e.name?.length >= 2)
-            .map((e: { name: string; type: string }) => ({
+            .map((e: { name: string; type: string; canonical?: string }) => ({
               name: e.name,
               type: (e.type || "person") as ChapterEntity["type"],
+              ...(e.canonical ? { canonical: e.canonical } : {}),
             }))
           setEntities(chapterEntityList)
         }

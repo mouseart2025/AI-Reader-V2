@@ -135,13 +135,19 @@ async def get_chapter_entities(novel_id: str, chapter_num: int) -> list[dict]:
 
         # For disambiguated entities (e.g., "傲来国·樵夫"), also add the
         # base name ("樵夫") so the original text word gets highlighted.
+        # The base name carries a `canonical` field pointing to the full
+        # disambiguated name, so clicks resolve to the correct entity card.
         extra_base: list[dict] = []
         for e in entities:
             name = e["name"]
             if "·" in name:
                 base = name.split("·", 1)[1]
                 if len(base) >= 2:
-                    extra_base.append({"name": base, "type": e["type"]})
+                    extra_base.append({
+                        "name": base,
+                        "type": e["type"],
+                        "canonical": name,
+                    })
         entities.extend(extra_base)
 
         # Deduplicate by (name, type)
