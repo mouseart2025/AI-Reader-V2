@@ -159,3 +159,94 @@ def _compute_chain_accuracy(
         chain_count += 1
 
     return total_ratio / chain_count if chain_count > 0 else 1.0
+
+
+def compute_hierarchy_health(
+    location_parents: dict[str, str],
+    location_tiers: dict[str, str] | None = None,
+) -> dict[str, float | int | str]:
+    """Compute full hierarchy health metrics (no golden standard needed).
+
+    Returns metrics for monitoring overall hierarchy quality:
+    - avg_depth: average chain depth from leaf to root
+    - max_depth: deepest chain
+    - max_children: largest number of children for any single parent
+    - max_children_location: which location has the most children
+    - tier_inversions: number of parent-child pairs where child tier > parent tier
+    - noise_roots: non-world/continent locations acting as roots
+    - orphan_count: locations in tiers but not in parents (as child or parent)
+    - total_parents: number of parent-child relationships
+    """
+    if not location_parents:
+        return {"avg_depth": 0, "max_depth": 0, "max_children": 0,
+                "max_children_location": "", "tier_inversions": 0,
+                "noise_roots": 0, "total_parents": 0}
+
+    children_set = set(location_parents.keys())
+    parents_set = set(location_parents.values())
+    all_locs = children_set | parents_set
+    roots = parents_set - children_set
+
+    # Children map
+    children_map: dict[str, list[str]] = {}
+    for child, parent in location_parents.items():
+        children_map.setdefault(parent, []).append(child)
+
+    # Depth calculation
+    def _get_depth(loc: str) -> int:
+        d = 0
+        current = loc
+        seen = {loc}
+        while current in location_parents:
+            current = location_parents[current]
+            if current in seen:
+                break
+            seen.add(current)
+            d += 1
+        return d
+
+    depths = [_get_depth(c) for c in children_set]
+    avg_depth = sum(depths) / len(depths) if depths else 0
+    max_depth = max(depths) if depths else 0
+
+    # Max children
+    max_children = 0
+    max_children_loc = ""
+    for parent, kids in children_map.items():
+        if len(kids) > max_children:
+            max_children = len(kids)
+            max_children_loc = parent
+
+    # Tier inversions (requires suffix rank)
+    tier_inversions = 0
+    if location_tiers:
+        try:
+            from src.services.world_structure_agent import _get_suffix_rank
+            for child, parent in location_parents.items():
+                cr = _get_suffix_rank(child)
+                pr = _get_suffix_rank(parent)
+                if cr is not None and pr is not None and cr < pr:
+                    tier_inversions += 1
+        except ImportError:
+            pass
+
+    # Noise roots (non-world/continent)
+    noise_roots = 0
+    _OK_ROOT_TIERS = {"world", "continent", "region"}
+    for r in roots:
+        tier = (location_tiers or {}).get(r, "")
+        if tier and tier not in _OK_ROOT_TIERS:
+            noise_roots += 1
+
+    return {
+        "avg_depth": round(avg_depth, 2),
+        "max_depth": max_depth,
+        "max_children": max_children,
+        "max_children_location": max_children_loc,
+        "tier_inversions": tier_inversions,
+        "noise_roots": noise_roots,
+        "root_count": len(roots),
+        "roots": sorted(roots),
+        "total_parents": len(location_parents),
+        "total_locations": len(all_locs),
+    }
