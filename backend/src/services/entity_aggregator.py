@@ -233,32 +233,42 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
             all_chapters.append(ch)
             if evidence and evidence not in all_evidences:
                 all_evidences.append(evidence)
-            # Lock first blood/intimate relation type
-            if first_blood_type is None and cat in _BLOOD_CATEGORIES:
-                first_blood_type = normalized
 
-        # 2. Pick final type: blood lock > specificity boost > frequency voting
-        # Specificity boost: "结拜兄弟" is more specific than "朋友"/"上下级".
-        # When the LLM extracts both generic and specific types for the same
-        # pair across chapters, prefer the specific type if it has reasonable
-        # evidence (≥2 chapters). This fixes 水浒传 where "上下级" dominates
-        # due to Liangshan's formal hierarchy, but "结拜兄弟" is the true bond.
+        # 2. Pick final type: smart blood lock > specificity boost > frequency voting
         _SPECIFIC_TYPES = {"结拜兄弟", "师兄弟", "师徒", "同门"}
         _GENERIC_TYPES = {"上下级", "朋友", "同伙", "社交"}
+        _MIN_BLOOD_EVIDENCE = 3  # blood-lock needs ≥3 chapters to be reliable
 
-        if first_blood_type:
+        # Find the best blood/intimate type by frequency (not first-seen)
+        blood_types = {t: c for t, c in type_counts.items()
+                       if classify_relation_category(t) in _BLOOD_CATEGORIES}
+        best_blood = max(blood_types.items(), key=lambda x: x[1]) if blood_types else None
+
+        # "恋人"/"夫妻" can override weak blood types (宝玉↔黛玉: 兄妹1 vs 恋人58)
+        intimate_types = {t: c for t, c in type_counts.items()
+                         if classify_relation_category(t) == "intimate"}
+        best_intimate = max(intimate_types.items(), key=lambda x: x[1]) if intimate_types else None
+
+        if best_intimate and best_blood:
+            # If intimate evidence overwhelms blood evidence (≥3x), prefer intimate
+            if best_intimate[1] >= best_blood[1] * 3:
+                best_blood = best_intimate
+
+        if best_blood and best_blood[1] >= _MIN_BLOOD_EVIDENCE:
+            chosen_type = best_blood[0]
             # Surname check: "兄弟"(blood) between different-surname characters
-            # is almost certainly "结拜兄弟"(sworn) — e.g., 阮小二↔宋江
-            if first_blood_type == "兄弟" and person_name and other:
+            # is almost certainly "结拜兄弟"(sworn)
+            if chosen_type == "兄弟" and person_name and other:
                 p_surname = person_name[0] if len(person_name) >= 2 else ""
                 o_surname = other[0] if len(other) >= 2 else ""
                 if p_surname and o_surname and p_surname != o_surname:
                     chosen_type = "结拜兄弟"
-                else:
-                    chosen_type = first_blood_type
-            else:
-                chosen_type = first_blood_type
-        else:
+        elif best_blood:
+            # Weak blood evidence (<3 chapters) — don't lock, fall through to
+            # specificity boost / frequency voting (fixes 红孩儿↔行者 叔侄1 vs 敌对5)
+            best_blood = None  # disable lock
+
+        if not best_blood:
             # Check if a specific type exists with ≥2 chapters evidence
             specific_candidates = [
                 (t, c) for t, c in type_counts.items()
