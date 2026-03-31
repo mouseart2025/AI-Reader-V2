@@ -247,7 +247,17 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
         _GENERIC_TYPES = {"上下级", "朋友", "同伙", "社交"}
 
         if first_blood_type:
-            chosen_type = first_blood_type
+            # Surname check: "兄弟"(blood) between different-surname characters
+            # is almost certainly "结拜兄弟"(sworn) — e.g., 阮小二↔宋江
+            if first_blood_type == "兄弟" and person_name and other:
+                p_surname = person_name[0] if len(person_name) >= 2 else ""
+                o_surname = other[0] if len(other) >= 2 else ""
+                if p_surname and o_surname and p_surname != o_surname:
+                    chosen_type = "结拜兄弟"
+                else:
+                    chosen_type = first_blood_type
+            else:
+                chosen_type = first_blood_type
         else:
             # Check if a specific type exists with ≥2 chapters evidence
             specific_candidates = [

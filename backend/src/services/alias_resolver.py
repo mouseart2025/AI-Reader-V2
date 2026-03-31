@@ -184,6 +184,10 @@ _GENERIC_PERSON_ALIASES = frozenset({
     # Buddhist/Daoist titles — shared across many deities/monks
     "菩萨", "天王", "金星", "真君", "元帅", "星君", "星官",
     "罗汉", "尊者", "法师", "禅师", "国师",
+    # Shared nicknames that bridge unrelated characters
+    "大刀", "混世魔王", "飞天大圣",
+    # Standalone ranked address (2-char, not caught by tail2 check which needs ≥3)
+    "大爷", "二爷", "三爷", "四爷", "大哥", "二哥", "三哥",
     # More generic terms found in 水浒传 analysis
     "童子", "道童", "仙童", "仙女", "渔人",
     "囚徒", "罪犯", "犯人", "配军",
@@ -273,6 +277,20 @@ def _alias_safety_level(alias: str) -> int:
         for suffix in _TITLE_SUFFIXES_2:
             if n > len(suffix) and alias.endswith(suffix):
                 return 0
+
+    # Level 0: location suffixes in person aliases — prevents merging
+    # "探春卧室"→探春, "蘅芜苑"→宝钗 type pollution
+    _LOCATION_SUFFIXES_BLOCK = (
+        "苑", "院", "殿", "堂", "寺", "庵", "楼", "阁", "亭", "庙",
+        "宫", "府", "城", "村", "镇", "县", "州", "洞", "山", "洲",
+        "卧室", "书房", "花园", "客栈", "酒店", "牢房", "营寨",
+    )
+    if n >= 3 and alias.endswith(_LOCATION_SUFFIXES_BLOCK):
+        return 0
+
+    # Level 0: spouse pattern — "X娘子" should not merge into X
+    if n >= 3 and alias.endswith(("娘子", "之妻", "媳妇儿", "夫人")):
+        return 0
 
     # Level 1: suspicious — overly long, collectives, numeric prefixes
     _NUM_CHARS = "一二三四五六七八九十两百千万几数"
@@ -576,6 +594,8 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
 
             freq[name] += 1
             uf.find(name)
+            # Register character name ownership for conflict detection
+            _alias_to_dict_primary.setdefault(name, name)
 
             for raw_alias in char.get("new_aliases", []):
                 alias = _normalize_char_variants(raw_alias) if raw_alias else ""
@@ -590,9 +610,9 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                         _primary_pair_evidence[pair] += 1
                         continue
                     freq.setdefault(alias, 0)
-                    # Track alias ownership for disambiguation (any length)
-                    if name in dict_primary_names:
-                        _alias_to_dict_primary.setdefault(alias, name)
+                    # Track alias ownership for disambiguation (any length, any source)
+                    # First character to claim an alias "owns" it — later conflicts are blocked
+                    _alias_to_dict_primary.setdefault(alias, name)
                     _safe_union(name, alias, "fact")
 
     # Second pass: merge deferred pairs with strong chapter evidence.
