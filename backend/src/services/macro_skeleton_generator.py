@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 
 _PROMPTS_DIR = Path(__file__).parent.parent / "extraction" / "prompts"
 
-# Confidence → vote weight (high enough to anchor, not enough to override 50+ chapter votes)
-_CONFIDENCE_WEIGHT = {"high": 5, "medium": 3}
+# Confidence → vote weight. v0.67: increased from 5/3 to 15/8 so skeleton
+# relationships survive against chapter-level baseline votes.
+# The skeleton represents top-down structural knowledge that should anchor
+# the bottom-up extraction votes, especially for intermediate layers.
+_CONFIDENCE_WEIGHT = {"high": 15, "medium": 8}
 
 # Only consider city-level and above for skeleton input
 _SKELETON_TIERS = {"world", "continent", "kingdom", "region", "city"}

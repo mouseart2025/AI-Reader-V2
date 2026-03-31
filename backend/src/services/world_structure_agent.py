@@ -2383,6 +2383,52 @@ class WorldStructureAgent:
                 len(pruned_micro), ", ".join(pruned_micro[:5]),
             )
 
+        # ── v0.67: Intermediate layer protection ──
+        # When a child skips 2+ tiers to its parent (e.g., 花果山→东胜神洲),
+        # check if there's a closer intermediate parent in the votes.
+        # This prevents the flat hierarchy where everything hangs off the root.
+        intermediate_fixes = 0
+        for child in list(raw):
+            parent = raw.get(child)
+            if not parent:
+                continue
+            child_rank = _get_suffix_rank(child)
+            parent_rank = _get_suffix_rank(parent)
+            # Only check when both have recognizable suffixes and gap >= 2
+            if child_rank is None or parent_rank is None:
+                continue
+            rank_gap = child_rank - parent_rank
+            if rank_gap < 2:
+                continue  # direct parent or 1 tier gap — OK
+            # Look for intermediate candidates in this child's votes
+            for candidate, cand_votes in self._parent_votes.get(child, Counter()).items():
+                if candidate == parent or candidate == child:
+                    continue
+                cand_rank = _get_suffix_rank(candidate)
+                if cand_rank is None:
+                    continue
+                # Candidate must be between child and parent in rank
+                if parent_rank < cand_rank < child_rank and cand_votes >= 1:
+                    # Verify the candidate itself has the current parent as ancestor
+                    cand_parent = raw.get(candidate)
+                    if cand_parent == parent or (
+                        candidate in self._parent_votes
+                        and parent in self._parent_votes.get(candidate, Counter())
+                    ):
+                        raw[child] = candidate
+                        intermediate_fixes += 1
+                        logger.debug(
+                            "Intermediate fix: %s → %s (was %s, gap=%d)",
+                            child, candidate, parent, rank_gap,
+                        )
+                        break
+
+        if intermediate_fixes:
+            logger.info(
+                "Intermediate layer protection: %d fixes applied",
+                intermediate_fixes,
+            )
+
         # ── Name containment heuristic ──
         raw = self._apply_name_containment_heuristic(raw)
 

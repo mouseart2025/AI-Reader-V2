@@ -334,10 +334,11 @@ class ContextSummaryBuilder:
         location_parents: dict[str, str] | None,
         location_tiers: dict[str, str] | None,
     ) -> str:
-        """Build macro hub section: top-level geographic areas for contextual anchoring.
+        """Build macro hub section: depth-3 hierarchy tree for contextual anchoring.
 
-        Identifies major area hubs (depth 1-2 nodes with many descendants) and
-        presents them to the LLM so it can anchor new locations to known areas.
+        v0.67: Upgraded from flat depth-1 list to depth-3 indented tree.
+        This gives the extraction LLM a complete geographic framework so it
+        can assign intermediate parents correctly (花果山→傲来国 not →东胜神洲).
         """
         if not location_parents:
             return ""
@@ -358,60 +359,73 @@ class ContextSummaryBuilder:
             children_map.setdefault(parent, []).append(child)
 
         # 3. Count descendants (recursive)
-        def _count_descendants(node: str, visited: set) -> int:
+        def _count_desc(node: str, visited: set) -> int:
             if node in visited:
                 return 0
             visited.add(node)
             kids = children_map.get(node, [])
             total = len(kids)
             for k in kids:
-                total += _count_descendants(k, visited)
+                total += _count_desc(k, visited)
             return total
 
-        # 4. Collect hubs: uber-root's direct children with >= 3 descendants
-        hubs: list[tuple[str, int]] = []
-        for child in children_map.get(uber_root, []):
-            desc_count = _count_descendants(child, set())
-            if desc_count >= 3:
-                hubs.append((child, desc_count))
+        # 4. Build depth-3 indented tree
+        lines = [
+            "### 地理框架（请参考此框架填写 parent，parent 应填直接上级，不要跳层）",
+        ]
 
-        if not hubs:
+        _MAX_CHILDREN_PER_LEVEL = 10
+
+        def _render_subtree(node: str, depth: int, max_depth: int = 3):
+            """Render a subtree with indentation."""
+            kids = children_map.get(node, [])
+            if not kids or depth >= max_depth:
+                return
+            # Sort by descendant count (most important first)
+            kids_with_desc = [(k, _count_desc(k, set())) for k in kids]
+            kids_with_desc.sort(key=lambda x: -x[1])
+
+            shown = kids_with_desc[:_MAX_CHILDREN_PER_LEVEL]
+            indent = "  " * depth
+            for kid_name, desc_count in shown:
+                tier_str = ""
+                if location_tiers:
+                    t = location_tiers.get(kid_name, "")
+                    if t:
+                        tier_str = f" [{t}]"
+                if desc_count > 0:
+                    lines.append(f"{indent}- {kid_name}{tier_str}（{desc_count}处下属）")
+                    _render_subtree(kid_name, depth + 1, max_depth)
+                else:
+                    lines.append(f"{indent}- {kid_name}{tier_str}")
+
+            overflow = len(kids_with_desc) - _MAX_CHILDREN_PER_LEVEL
+            if overflow > 0:
+                lines.append(f"{indent}- ...+{overflow}处")
+
+        # Start from uber_root's children
+        root_kids = children_map.get(uber_root, [])
+        if not root_kids:
             return ""
 
-        # Sort by descendant count descending, limit to top 8
-        hubs.sort(key=lambda x: -x[1])
-        hubs = hubs[:8]
+        root_kids_desc = [(k, _count_desc(k, set())) for k in root_kids]
+        root_kids_desc.sort(key=lambda x: -x[1])
 
-        # 5. For each hub, show its direct children (top 5)
-        lines = [
-            "### 本小说主要宏观区域",
-            f"（以下是「{uber_root}」下的主要区域。"
-            "本章如出现新地点，请优先判断它属于哪个区域，"
-            "并将该区域或其下属地点设为 parent）",
-        ]
-        for hub_name, desc_count in hubs:
+        # Show top 8 root children with depth-3 subtrees
+        for kid_name, desc_count in root_kids_desc[:8]:
             tier_str = ""
             if location_tiers:
-                tier = location_tiers.get(hub_name, "")
-                if tier:
-                    tier_str = f" [{tier}]"
-            sub_children = children_map.get(hub_name, [])
-            if sub_children:
-                shown = sub_children[:5]
-                suffix = (
-                    f" 等{len(sub_children)}处"
-                    if len(sub_children) > 5 else ""
-                )
-                lines.append(
-                    f"- **{hub_name}**{tier_str}（含 {desc_count} 处下属地点）→ "
-                    f"{'、'.join(shown)}{suffix}"
-                )
-            else:
-                lines.append(
-                    f"- **{hub_name}**{tier_str}（含 {desc_count} 处下属地点）"
-                )
+                t = location_tiers.get(kid_name, "")
+                if t:
+                    tier_str = f" [{t}]"
+            lines.append(f"- **{kid_name}**{tier_str}（{desc_count}处下属）")
+            _render_subtree(kid_name, 1, max_depth=3)
 
-        return "\n".join(lines)
+        overflow = len(root_kids_desc) - 8
+        if overflow > 0:
+            lines.append(f"- ...+{overflow}个区域")
+
+        return "\n".join(lines) if len(lines) > 2 else ""
 
     @staticmethod
     def _build_upward_chain(
