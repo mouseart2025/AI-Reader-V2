@@ -359,7 +359,7 @@ async def rebuild_hierarchy(novel_id: str):
                         location_tiers=ws.location_tiers,
                         current_parents=ws.location_parents,
                     ),
-                    timeout=150.0,  # v0.63.0: generous timeout for first-time skeleton generation
+                    timeout=300.0,  # v0.67: 150→300s for deeper 4-5 level skeleton prompts
                 )
                 parts = []
                 if skeleton_votes:
@@ -478,7 +478,7 @@ async def rebuild_hierarchy(novel_id: str):
                             scene_analysis,
                             ws.novel_genre_hint,
                         ),
-                        timeout=120.0,  # v0.63.0: 90→120s for slower cloud models
+                        timeout=240.0,  # v0.67: 120→240s for cloud models with larger hierarchies
                     )
                     if review_votes:
                         agent.inject_external_votes(review_votes)
@@ -576,7 +576,7 @@ async def rebuild_hierarchy(novel_id: str):
                         _reflect_reviewer.reflect_suspicious(
                             novel.get("title", ""), suspicious,
                         ),
-                        timeout=60.0,
+                        timeout=180.0,  # v0.67: 60→180s
                     )
                     reflection_applied = 0
                     for r in reflections:
@@ -633,7 +633,7 @@ async def rebuild_hierarchy(novel_id: str):
                     _val_reviewer.validate_hierarchy(
                         new_parents, new_tiers, ws.novel_genre_hint,
                     ),
-                    timeout=60.0,
+                    timeout=180.0,  # v0.67: 60→180s
                 )
                 if corrections:
                     for corr in corrections:
