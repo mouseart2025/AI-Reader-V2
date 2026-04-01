@@ -226,7 +226,7 @@ class MacroSkeletonGenerator:
                 prompt=prompt,
                 format=_SKELETON_SCHEMA,
                 temperature=0.1,
-                max_tokens=12288,  # v0.67: 8K→12K for deeper 4-5 level skeletons
+                max_tokens=16384,  # v0.67.1: 12K→16K to prevent finish_reason=length truncation
                 timeout=300,  # v0.67: 5 min for deeper 4-5 level skeleton prompts
                 num_ctx=budget.context_window,  # use budget default (cloud ignores this anyway)
             )
