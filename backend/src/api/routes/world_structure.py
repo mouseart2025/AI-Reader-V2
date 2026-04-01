@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections import Counter
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -338,6 +339,13 @@ async def rebuild_hierarchy(novel_id: str):
             yield _sse("votes", "正在从章节事实重建投票数据...")
             agent._parent_votes = await agent._rebuild_parent_votes()
 
+            # Report frequency stats
+            _freq = agent._location_frequencies
+            _n_core = sum(1 for c in _freq.values() if c >= 10)
+            _n_regular = sum(1 for c in _freq.values() if 3 <= c <= 9)
+            _n_micro = sum(1 for c in _freq.values() if c <= 2)
+            yield _sse("votes", f"频率分级: {_n_core} 核心(≥10) + {_n_regular} 常规(3-9) + {_n_micro} 微观(≤2)")
+
             # 1.1 Location alias normalization (Story 2.3)
             alias_merge_map = agent.normalize_location_aliases(agent._parent_votes)
             if alias_merge_map:
@@ -358,6 +366,7 @@ async def rebuild_hierarchy(novel_id: str):
                         novel_genre_hint=ws.novel_genre_hint,
                         location_tiers=ws.location_tiers,
                         current_parents=ws.location_parents,
+                        location_frequencies=agent._location_frequencies,
                     ),
                     timeout=300.0,  # v0.67: 150→300s for deeper 4-5 level skeleton prompts
                 )
