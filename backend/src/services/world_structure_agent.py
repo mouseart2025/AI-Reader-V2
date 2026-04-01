@@ -582,6 +582,8 @@ class WorldStructureAgent:
         self._parent_votes: dict[str, Counter] = {}  # child → Counter({parent: count})
         self._peer_pairs: set[frozenset[str]] = set()  # known peer/sibling pairs
         self._suspicious_pairs: list[dict] = []  # suspicious parent-child pairs for LLM reflection
+        self._location_frequencies: Counter = Counter()  # location mention counts
+        self._chapter_primary_settings: dict[int, str] = {}  # chapter_id → primary setting
 
     def _detect_and_break_cycles(self, parents: dict[str, str]) -> int:
         """Detect and break cycles in parent map by removing weakest links."""
@@ -2056,6 +2058,11 @@ class WorldStructureAgent:
         so that accumulated knowledge from the original analysis is preserved.
         Chapter fact votes add on top. When chapter_facts are sparse (e.g., analysis
         was interrupted), the baseline prevents all parents from being wiped out.
+
+        Side effect: populates ``self._location_frequencies`` with per-location
+        mention counts across all chapters (used for frequency-based tiering).
+        Also populates ``self._chapter_primary_settings`` mapping chapter_id → primary
+        setting location name (used for micro-location auto-mount).
         """
         from src.db.sqlite_db import get_connection
         import json as _json
@@ -2125,6 +2132,54 @@ class WorldStructureAgent:
 
         tiers = self.structure.location_tiers if self.structure else {}
         all_known = set(tiers.keys())
+
+        # ── v0.67.1: Build location frequency map (mention counts) ──
+        # Used by _resolve_parents for frequency-based tiering: core(≥10),
+        # regular(3-9), micro(≤2). Micro-locations skip expensive global vote
+        # resolution and auto-mount to their chapter's primary setting.
+        loc_freq: Counter = Counter()
+        chapter_settings: dict[int, str] = {}  # chapter_id → primary setting
+        for row in rows:
+            data = _json.loads(row["fact_json"])
+            ch_id = data.get("chapter_id", 0)
+            locations = data.get("locations", [])
+            for loc in locations:
+                name = loc.get("name", "")
+                if name:
+                    loc_freq[name] += 1
+            # Determine primary setting for this chapter (highest-tier setting)
+            setting_candidates = [
+                loc for loc in locations
+                if loc.get("role") == "setting" and loc.get("name")
+                and (not _is_generic_location(loc["name"]) or loc["name"] == uber_root_name)
+            ]
+            if setting_candidates:
+                best_rank = 999
+                best_name = ""
+                for loc in setting_candidates:
+                    suf = _get_suffix_rank(loc["name"])
+                    rank = suf if suf is not None else TIER_ORDER.get(
+                        tiers.get(loc["name"], "city"), 4)
+                    if rank < best_rank:
+                        best_rank = rank
+                        best_name = loc["name"]
+                if best_name:
+                    chapter_settings[ch_id] = best_name
+            elif locations:
+                for loc in locations:
+                    ln = loc.get("name", "")
+                    if ln and (not _is_generic_location(ln) or ln == uber_root_name):
+                        chapter_settings[ch_id] = ln
+                        break
+        self._location_frequencies = loc_freq
+        self._chapter_primary_settings = chapter_settings
+        _n_core = sum(1 for c in loc_freq.values() if c >= 10)
+        _n_regular = sum(1 for c in loc_freq.values() if 3 <= c <= 9)
+        _n_micro = sum(1 for c in loc_freq.values() if c <= 2)
+        logger.info(
+            "Location frequency map: %d total (%d core≥10, %d regular 3-9, %d micro≤2)",
+            len(loc_freq), _n_core, _n_regular, _n_micro,
+        )
 
         # Rebuild peer pairs from chapter facts
         self._peer_pairs.clear()
@@ -2380,17 +2435,44 @@ class WorldStructureAgent:
 
         from src.services.hierarchy_consolidator import _is_sub_location_name
 
+        # ── v0.67.1: Frequency-based tiering ──
+        # Split locations into core(≥10), regular(3-9), micro(≤2).
+        # Core + regular go through full vote resolution.
+        # Micro-locations auto-mount to their chapter's primary setting via
+        # simple vote winner — they skip expensive heuristics (intermediate
+        # layer protection, sibling detection, etc.) that only matter for
+        # structurally important locations.
+        # Only active when frequency data is available (rebuild path).
+        # During live analysis, _location_frequencies is empty → all locations
+        # go through full resolution (freq=0 check disabled).
+        loc_freq = self._location_frequencies
+        _MICRO_FREQ_THRESHOLD = 2  # locations with freq≤2 are micro
+        _freq_tiering_active = bool(loc_freq)  # only in rebuild path
+
         raw: dict[str, str] = {}
+        micro_mounted: dict[str, str] = {}  # micro-locations auto-mounted
         pruned_micro: list[str] = []
         for child, votes in self._parent_votes.items():
             if not votes:
                 continue
-            # Micro-location pruning: skip sub-locations with very few votes
-            total_votes = sum(votes.values())
-            if total_votes < _MIN_MICRO_VOTES and _is_sub_location_name(child):
-                pruned_micro.append(child)
+            freq = loc_freq.get(child, 0)
+
+            # Micro-location handling: freq≤2 locations use simplified resolution
+            if _freq_tiering_active and freq <= _MICRO_FREQ_THRESHOLD:
+                # Still prune sub-locations with very few votes
+                total_votes = sum(votes.values())
+                if total_votes < _MIN_MICRO_VOTES and _is_sub_location_name(child):
+                    pruned_micro.append(child)
+                    continue
+                # Auto-mount: pick vote winner but skip heuristics later
+                for winner, _count in votes.most_common():
+                    if winner and winner != child:
+                        if not known_locs or winner in known_locs:
+                            micro_mounted[child] = winner
+                            break
                 continue
-            # Pick the highest-voted parent that is a known location.
+
+            # Core + regular: full vote resolution
             for winner, _count in votes.most_common():
                 if winner and winner != child:
                     if not known_locs or winner in known_locs:
@@ -2401,6 +2483,11 @@ class WorldStructureAgent:
             logger.info(
                 "Micro-location pruning: removed %d locations from hierarchy (%s...)",
                 len(pruned_micro), ", ".join(pruned_micro[:5]),
+            )
+        if micro_mounted:
+            logger.info(
+                "Micro-location auto-mount: %d locations (freq≤%d) use simplified parent",
+                len(micro_mounted), _MICRO_FREQ_THRESHOLD,
             )
 
         # ── v0.67: Intermediate layer protection ──
@@ -2668,10 +2755,31 @@ class WorldStructureAgent:
                 weakest = min(cycle_edges, key=lambda e: e[2])
                 del result[weakest[0]]
 
+        # ── v0.67.1: Merge micro-mounted locations back ──
+        # Micro-locations use simplified parent resolution (vote winner only),
+        # skipping all heuristics above. Merge them into the result now.
+        # If micro-location's parent was reassigned by heuristics, follow the chain.
+        micro_merge_count = 0
+        for child, parent in micro_mounted.items():
+            if ("location_parent", child) in self._overridden_keys:
+                continue
+            # Follow parent chain: if parent was itself reassigned, use the new parent
+            effective_parent = result.get(parent, parent)
+            result[child] = effective_parent
+            micro_merge_count += 1
+        if micro_merge_count:
+            logger.info(
+                "Micro-location merge: %d locations added to hierarchy",
+                micro_merge_count,
+            )
+
         # ── Collect suspicious pairs for LLM reflection ──
+        # Only check core+regular locations (micro-locations are auto-mounted)
         location_tiers = self.structure.location_tiers if self.structure else {}
         suspicious: list[dict] = []
         for child, parent in result.items():
+            if _freq_tiering_active and loc_freq.get(child, 0) <= _MICRO_FREQ_THRESHOLD:
+                continue  # skip micro-locations
             if not parent:
                 continue
             reasons = []

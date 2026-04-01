@@ -108,6 +108,7 @@ class MacroSkeletonGenerator:
         novel_genre_hint: str | None,
         location_tiers: dict[str, str],
         current_parents: dict[str, str],
+        location_frequencies: Counter | None = None,
     ) -> tuple[dict[str, Counter], list[tuple[str, str]], list[dict]]:
         """Generate skeleton votes from LLM.
 
@@ -116,6 +117,10 @@ class MacroSkeletonGenerator:
             novel_genre_hint: Genre hint string or None.
             location_tiers: ``{location_name: tier}`` for all known locations.
             current_parents: ``{child: parent}`` current parent assignments.
+            location_frequencies: Optional ``Counter({name: mention_count})``.
+                When provided, skeleton input is filtered to locations with
+                freq≥3 (regular+core), reducing LLM input size and improving
+                output quality by focusing on structurally important locations.
 
         Returns:
             Tuple of (skeleton_votes, synonym_pairs, direction_constraints) where:
@@ -124,10 +129,33 @@ class MacroSkeletonGenerator:
             - direction_constraints: ``[{source, target, relation_type, value, ...}]``
               — macro direction constraints for the solver.
         """
-        all_locs = set(location_tiers.keys())
-        if len(all_locs) < 3:
-            logger.debug("Too few locations (%d), skipping skeleton", len(all_locs))
+        all_locs_full = set(location_tiers.keys())  # full set for hallucination check
+        if len(all_locs_full) < 3:
+            logger.debug("Too few locations (%d), skipping skeleton", len(all_locs_full))
             return {}, [], []
+
+        # ── v0.67.1: Frequency-based input filtering ──
+        # When frequency data is available, only include locations with freq≥3
+        # (core + regular) in the LLM prompt. This dramatically reduces input
+        # size (e.g., 791→115 for 西游记) and lets the LLM focus on
+        # structurally important locations.
+        _SKELETON_MIN_FREQ = 3
+        all_locs = set(all_locs_full)  # prompt input set (may be filtered)
+        if location_frequencies:
+            freq_filtered = {
+                loc for loc in all_locs
+                if location_frequencies.get(loc, 0) >= _SKELETON_MIN_FREQ
+            }
+            # Always keep uber_root and continent+ locations regardless of freq
+            for loc, tier in location_tiers.items():
+                if tier in ("world", "continent", "kingdom"):
+                    freq_filtered.add(loc)
+            _orig_count = len(all_locs)
+            all_locs = freq_filtered
+            logger.info(
+                "Skeleton freq filter: %d → %d locations (freq≥%d + world/continent/kingdom)",
+                _orig_count, len(all_locs), _SKELETON_MIN_FREQ,
+            )
 
         # --- Build prompt inputs ---
 
@@ -143,13 +171,14 @@ class MacroSkeletonGenerator:
         root_children: list[str] = []
         if uber_root:
             root_children = sorted(
-                c for c, p in current_parents.items() if p == uber_root
+                c for c, p in current_parents.items()
+                if p == uber_root and c in all_locs
             )
 
-        # Tier-grouped locations (only city-level and above)
+        # Tier-grouped locations (only city-level and above, filtered by freq)
         tiered: dict[str, list[str]] = {}
         for loc, tier in sorted(location_tiers.items()):
-            if tier in _SKELETON_TIERS:
+            if tier in _SKELETON_TIERS and loc in all_locs:
                 tiered.setdefault(tier, []).append(loc)
 
         tiered_lines: list[str] = []
@@ -161,7 +190,7 @@ class MacroSkeletonGenerator:
                 if len(locs) > 60:
                     tiered_lines.append(f"  ...及其余 {len(locs) - 60} 个")
 
-        # Orphan list (no parent, not world/continent)
+        # Orphan list (no parent, not world/continent, filtered by freq)
         orphans = [
             loc for loc in all_locs
             if loc not in children_set
@@ -199,7 +228,7 @@ class MacroSkeletonGenerator:
                 temperature=0.1,
                 max_tokens=12288,  # v0.67: 8K→12K for deeper 4-5 level skeletons
                 timeout=300,  # v0.67: 5 min for deeper 4-5 level skeleton prompts
-                num_ctx=65536,  # v0.67: ensure enough context for cloud models
+                num_ctx=budget.context_window,  # use budget default (cloud ignores this anyway)
             )
         except Exception:
             logger.warning("Macro skeleton LLM call failed", exc_info=True)
@@ -226,7 +255,7 @@ class MacroSkeletonGenerator:
                 continue
             if child == parent:
                 continue
-            if child not in all_locs or parent not in all_locs:
+            if child not in all_locs_full or parent not in all_locs_full:
                 logger.debug(
                     "Skeleton: skipping hallucinated pair %s → %s", child, parent
                 )
@@ -253,7 +282,7 @@ class MacroSkeletonGenerator:
             canonical = syn.get("canonical", "")
             alias = syn.get("alias", "")
             if canonical and alias and canonical != alias:
-                if canonical in all_locs and alias in all_locs:
+                if canonical in all_locs_full and alias in all_locs_full:
                     synonym_pairs.append((canonical, alias))
                     logger.debug("Skeleton synonym: %s ← %s", canonical, alias)
                 else:
@@ -275,7 +304,7 @@ class MacroSkeletonGenerator:
             if direction not in _VALID_DIRECTIONS:
                 logger.debug("Skeleton direction: invalid direction %r", direction)
                 continue
-            if source not in all_locs or target not in all_locs:
+            if source not in all_locs_full or target not in all_locs_full:
                 logger.debug(
                     "Skeleton direction: skipping hallucinated %s → %s", source, target
                 )
