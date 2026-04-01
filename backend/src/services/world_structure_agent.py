@@ -1578,9 +1578,16 @@ class WorldStructureAgent:
         _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
         effective_type = "" if loc_type in _VAGUE_TYPES else loc_type
 
-        # ── Layer 0: world-level special cases ──
+        # ── Layer 0: world-level & well-known special cases ──
         if any(kw in name for kw in ("三界", "天下")) or "世界" in loc_type:
             return LocationTier.world.value
+        # v0.67.1: Celestial/mythological realm classification.
+        # 天庭/天宫 are continent-level celestial realms (containing 南天门/灵霄宝殿 etc.)
+        # 大唐/大唐国 is a kingdom (dynasty name without 国 suffix)
+        if name in ("天庭", "天宫"):
+            return LocationTier.continent.value
+        if name in ("大唐", "大宋", "大明", "大清", "大汉", "大秦", "大元"):
+            return LocationTier.kingdom.value
 
         # ── Layer 1: name suffix matching (name is more reliable than LLM type) ──
         raw_tier: str | None = None
