@@ -583,6 +583,26 @@ class WorldStructureAgent:
         self._peer_pairs: set[frozenset[str]] = set()  # known peer/sibling pairs
         self._suspicious_pairs: list[dict] = []  # suspicious parent-child pairs for LLM reflection
 
+    def _detect_and_break_cycles(self, parents: dict[str, str]) -> int:
+        """Detect and break cycles in parent map by removing weakest links."""
+        broken = 0
+        for start in list(parents.keys()):
+            visited: dict[str, int] = {}
+            current = start
+            depth = 0
+            while current in parents:
+                if current in visited:
+                    # Cycle found — break at current node
+                    del parents[current]
+                    broken += 1
+                    break
+                visited[current] = depth
+                current = parents[current]
+                depth += 1
+                if depth > 50:
+                    break
+        return broken
+
     async def load_or_init(self) -> None:
         """Load existing WorldStructure from DB, or create default."""
         loaded = await world_structure_store.load(self.novel_id)
