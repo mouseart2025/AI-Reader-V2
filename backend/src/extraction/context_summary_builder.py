@@ -139,12 +139,19 @@ class ContextSummaryBuilder:
                 ]
                 for name, info in list(locations.items())[:loc_limit]:
                     desc = f"- {name} ({info['type']})"
-                    parent = (
-                        location_parents.get(name) if location_parents
-                        else info.get("parent")
-                    ) or info.get("parent")
-                    if parent:
-                        desc += f" ⊂ {parent}"
+                    # v0.67.1: Show full parent chain (up to 3 levels) instead
+                    # of single parent, so LLM knows intermediate layers.
+                    # e.g., "三清殿 ⊂ 三清观 ⊂ 车迟国" not "三清殿 ⊂ 车迟国"
+                    if location_parents:
+                        chain = self._build_upward_chain(name, location_parents)
+                        if len(chain) > 1:
+                            # chain is [root, ..., name], show name's ancestors
+                            ancestors = chain[:-1]  # exclude self
+                            # Show up to 3 levels: direct parent → grandparent → ...
+                            ancestors.reverse()
+                            desc += " ⊂ " + " ⊂ ".join(ancestors[:3])
+                    elif info.get("parent"):
+                        desc += f" ⊂ {info['parent']}"
                     lines.append(desc)
                 sections.append("\n".join(lines))
 
@@ -334,11 +341,12 @@ class ContextSummaryBuilder:
         location_parents: dict[str, str] | None,
         location_tiers: dict[str, str] | None,
     ) -> str:
-        """Build macro hub section: depth-3 hierarchy tree for contextual anchoring.
+        """Build macro hub section: depth-5 hierarchy tree for contextual anchoring.
 
         v0.67: Upgraded from flat depth-1 list to depth-3 indented tree.
-        This gives the extraction LLM a complete geographic framework so it
-        can assign intermediate parents correctly (花果山→傲来国 not →东胜神洲).
+        v0.67.1: Upgraded to depth-5 with adaptive root children count.
+        Deeper trees give the extraction LLM intermediate parent knowledge
+        so it outputs 东厕→三清观 (not →车迟国).
         """
         if not location_parents:
             return ""
@@ -359,7 +367,11 @@ class ContextSummaryBuilder:
             children_map.setdefault(parent, []).append(child)
 
         # 3. Count descendants (recursive)
+        _desc_cache: dict[str, int] = {}
+
         def _count_desc(node: str, visited: set) -> int:
+            if node in _desc_cache:
+                return _desc_cache[node]
             if node in visited:
                 return 0
             visited.add(node)
@@ -367,25 +379,35 @@ class ContextSummaryBuilder:
             total = len(kids)
             for k in kids:
                 total += _count_desc(k, visited)
+            _desc_cache[node] = total
             return total
 
-        # 4. Build depth-3 indented tree
+        # 4. Build indented tree (depth adapts to token budget)
         lines = [
             "### 地理框架（请参考此框架填写 parent，parent 应填直接上级，不要跳层）",
         ]
 
-        _MAX_CHILDREN_PER_LEVEL = 10
+        # Adaptive depth: cloud models (context≥32K) get depth 5; local get depth 3
+        budget = get_budget()
+        is_deep = budget.context_max_chars >= 12000  # cloud threshold
+        _MAX_DEPTH = 5 if is_deep else 3
+        # Adaptive children limits: show more at shallow depth, fewer at deep
+        _MAX_CHILDREN_BY_DEPTH = (
+            {0: 20, 1: 12, 2: 8, 3: 6, 4: 4} if is_deep
+            else {0: 10, 1: 8, 2: 6}
+        )
 
-        def _render_subtree(node: str, depth: int, max_depth: int = 3):
+        def _render_subtree(node: str, depth: int):
             """Render a subtree with indentation."""
             kids = children_map.get(node, [])
-            if not kids or depth >= max_depth:
+            if not kids or depth >= _MAX_DEPTH:
                 return
             # Sort by descendant count (most important first)
             kids_with_desc = [(k, _count_desc(k, set())) for k in kids]
             kids_with_desc.sort(key=lambda x: -x[1])
 
-            shown = kids_with_desc[:_MAX_CHILDREN_PER_LEVEL]
+            max_show = _MAX_CHILDREN_BY_DEPTH.get(depth, 4)
+            shown = kids_with_desc[:max_show]
             indent = "  " * depth
             for kid_name, desc_count in shown:
                 tier_str = ""
@@ -395,11 +417,11 @@ class ContextSummaryBuilder:
                         tier_str = f" [{t}]"
                 if desc_count > 0:
                     lines.append(f"{indent}- {kid_name}{tier_str}（{desc_count}处下属）")
-                    _render_subtree(kid_name, depth + 1, max_depth)
+                    _render_subtree(kid_name, depth + 1)
                 else:
                     lines.append(f"{indent}- {kid_name}{tier_str}")
 
-            overflow = len(kids_with_desc) - _MAX_CHILDREN_PER_LEVEL
+            overflow = len(kids_with_desc) - max_show
             if overflow > 0:
                 lines.append(f"{indent}- ...+{overflow}处")
 
@@ -411,17 +433,18 @@ class ContextSummaryBuilder:
         root_kids_desc = [(k, _count_desc(k, set())) for k in root_kids]
         root_kids_desc.sort(key=lambda x: -x[1])
 
-        # Show top 8 root children with depth-3 subtrees
-        for kid_name, desc_count in root_kids_desc[:8]:
+        # Adaptive root children: show up to 20 (after freq tiering, typically ~20-30)
+        _ROOT_MAX = _MAX_CHILDREN_BY_DEPTH[0]
+        for kid_name, desc_count in root_kids_desc[:_ROOT_MAX]:
             tier_str = ""
             if location_tiers:
                 t = location_tiers.get(kid_name, "")
                 if t:
                     tier_str = f" [{t}]"
             lines.append(f"- **{kid_name}**{tier_str}（{desc_count}处下属）")
-            _render_subtree(kid_name, 1, max_depth=3)
+            _render_subtree(kid_name, 1)
 
-        overflow = len(root_kids_desc) - 8
+        overflow = len(root_kids_desc) - _ROOT_MAX
         if overflow > 0:
             lines.append(f"- ...+{overflow}个区域")
 
