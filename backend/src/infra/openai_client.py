@@ -230,7 +230,11 @@ class OpenAICompatibleClient:
             "stream": False,
         }
         if format is not None:
-            payload["response_format"] = {"type": "json_object"}
+            # Some providers (Zhipu GLM, Yi) don't fully support response_format
+            # and may hang or error. Only use it for known-compatible providers.
+            _RESPONSE_FORMAT_BLOCKLIST = ("bigmodel.cn", "lingyiwanwu.com")
+            if not any(blocked in self.base_url for blocked in _RESPONSE_FORMAT_BLOCKLIST):
+                payload["response_format"] = {"type": "json_object"}
 
         sem = _get_cloud_semaphore()
         async with sem:
