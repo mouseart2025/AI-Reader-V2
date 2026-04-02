@@ -430,6 +430,42 @@ class ContextSummaryBuilder:
         if not root_kids:
             return ""
 
+        # ── v0.67: Dynamic hard rules from hierarchy structure ──
+        # Addresses 3 root causes found via golden standard analysis:
+        # 1. "西牛贺洲" omitted as parent 77 times (31% of all errors)
+        # 2. Independent regions confused as parent-child (天庭→傲来国)
+        # 3. LLM invents non-existent intermediate layers (灵山胜境)
+        lines.append("**⚠️ 三条硬规则：**")
+
+        continent_kids = [
+            k for k in root_kids
+            if location_tiers and location_tiers.get(k) == "continent"
+        ]
+        if continent_kids:
+            lines.append(
+                f"1. 以下大区域是顶级区域：{'、'.join(continent_kids[:8])}。"
+                f"本章出现的国/山/河如果在这些区域内，"
+                f"parent 应填所属的大区域（如某国→{continent_kids[0]}），"
+                f"**不要填「{uber_root}」**"
+            )
+
+        independent_regions = [
+            k for k in root_kids
+            if location_tiers and location_tiers.get(k) in ("continent", "region")
+            and children_map.get(k)
+        ]
+        if len(independent_regions) >= 2:
+            names = "、".join(independent_regions[:6])
+            lines.append(
+                f"2. {names} 是**互相独立**的区域，它们各自直属「{uber_root}」，"
+                f"不要把一个区域当作另一个区域的 parent"
+            )
+
+        lines.append(
+            "3. **不要创造原文中不存在的中间地名**作为 parent。"
+            "如果不确定 parent 是谁，留空比填错好"
+        )
+
         root_kids_desc = [(k, _count_desc(k, set())) for k in root_kids]
         root_kids_desc.sort(key=lambda x: -x[1])
 
