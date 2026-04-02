@@ -1057,3 +1057,100 @@ async def get_topology_metrics(novel_id: str):
 
     metrics["predicted_location_count"] = len(predicted)
     return metrics
+
+
+# ── v2 rebuild endpoint (GeoOrchestrator) ──────────────────────
+
+@router.post("/rebuild-hierarchy-v2")
+async def rebuild_hierarchy_v2(novel_id: str):
+    """Rebuild hierarchy using GeoOrchestrator (snapshot-based pipeline).
+
+    SSE-compatible with v1 format. Adds version_history in final event.
+    Uses parallel endpoint so v1 remains available as fallback.
+    """
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    ws = await world_structure_store.load(novel_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="WorldStructure 不存在，请先分析小说")
+
+    async def event_stream():
+        try:
+            from src.services.geo_skills.orchestrator import GeoOrchestrator
+            from src.services.geo_skills.vote_builder import VoteBuilder
+            from src.services.geo_skills.skeleton_classifier import SkeletonClassifier
+            from src.services.geo_skills.vote_resolver import VoteResolver
+            from src.services.geo_skills.consolidator_skill import ConsolidatorSkill
+            from src.services.geo_skills.reviewer_skill import ReviewerSkill
+            from src.services.geo_skills.tier_classifier import TierClassifier
+            from src.services.geo_skills.snapshot import HierarchyMetrics
+
+            title = novel.get("title", "")
+
+            # Build orchestrator with full skill pipeline
+            orch = GeoOrchestrator(novel_id)
+            orch.add_skill("tier", TierClassifier(novel_id))
+            orch.add_skill("votes", VoteBuilder(novel_id))
+            orch.add_skill("skeleton", SkeletonClassifier(novel_title=title))
+            orch.add_skill("resolve", VoteResolver())
+            orch.add_skill("consolidate", ConsolidatorSkill())
+            orch.add_skill("review", ReviewerSkill(
+                novel_title=title,
+            ))
+
+            # Run pipeline, convert ProgressEvents to SSE
+            async for event in orch.run():
+                extra = event.extra or {}
+                yield _sse(event.stage, event.message, **extra)
+
+            # Apply to WorldStructure
+            apply_result = await orch.apply_to_world_structure()
+            yield _sse("apply", f"已应用到 WorldStructure (v{apply_result.get('version', '?')})")
+
+            # Version history (for paper tracking)
+            history = await orch.get_version_history()
+            yield _sse("history", "版本历史", versions=history)
+
+        except Exception as e:
+            logger.error("Hierarchy rebuild v2 failed for %s", novel_id, exc_info=True)
+            yield _sse("error", f"重建失败: {str(e)[:200]}")
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/hierarchy-versions")
+async def get_hierarchy_versions(novel_id: str):
+    """Get snapshot version history with metrics (for paper tracking)."""
+    from src.services.geo_skills.snapshot_store import SnapshotStore
+    store = SnapshotStore()
+    versions = await store.list_versions(novel_id)
+    return {"versions": versions}
+
+
+@router.post("/hierarchy-rollback")
+async def rollback_hierarchy(novel_id: str, version: int):
+    """Rollback hierarchy to a specific snapshot version."""
+    from src.services.geo_skills.snapshot_store import SnapshotStore
+    from src.services.geo_skills.orchestrator import GeoOrchestrator
+
+    store = SnapshotStore()
+    snap = await store.rollback(novel_id, version)
+    if not snap:
+        raise HTTPException(status_code=404, detail=f"Version {version} not found")
+
+    # Apply rolled-back snapshot to WorldStructure
+    orch = GeoOrchestrator(novel_id)
+    result = await orch.apply_to_world_structure()
+
+    return {
+        "status": "ok",
+        "rolled_back_to": version,
+        "new_version": snap.version,
+        "metrics": result.get("metrics", {}),
+    }
