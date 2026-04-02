@@ -46,6 +46,7 @@ AI-Reader-V2/
 │       │   ├── routes/             # REST endpoints (15 routers)
 │       │   └── websocket/          # WS handlers (analysis progress, chat streaming)
 │       ├── services/               # Business logic (14 services)
+│       │   └── geo_skills/         # Geographic Agent Skills (Edmonds + snapshots)
 │       ├── extraction/             # LLM fact extraction + entity pre-scan pipeline
 │       │   ├── entity_pre_scanner.py  # jieba stats + LLM classification
 │       │   └── prompts/            # System prompt + few-shot examples
@@ -125,6 +126,8 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 **LLM-assisted quality**: `MacroSkeletonGenerator` pre-generates a 2-3 level geographic skeleton via LLM. `LocationHierarchyReviewer` provides self-reflection (validates suspicious pairs) and subtree partition validation (independent LLM validation per subtree). Synonym location detection merges aliases.
 
 **Two-step hierarchy rebuild**: `POST /rebuild-hierarchy` streams SSE progress events and returns a diff without saving. `POST /apply-hierarchy-changes` applies user-selected changes and auto-clears map overrides for repositioning. Three layers of cycle detection defense (resolve, consolidate, save).
+
+**Geographic Agent Skill Architecture (v0.67)**: `src/services/geo_skills/` — composable skill pipeline replacing the monolithic rebuild. Core: `HierarchySnapshot` (immutable state with version chain) + `GeoOrchestrator` (chains skills with SSE progress). Skills: `TierClassifier` → `VoteBuilder` (chapter fact votes + frequency tiering) → `KnowledgePrior` (domain knowledge for classic novels, 144 entries for 西游记) → `EdmondsResolver` (Chu-Liu/Edmonds maximum weight arborescence, 130ms, no LLM). `SnapshotStore` saves each version to `hierarchy_snapshots` SQLite table for rollback and A/B comparison. API: `POST /rebuild-hierarchy-v2`, `GET /hierarchy-versions`, `POST /hierarchy-rollback`.
 
 **Consumers**: `visualization_service.get_map_data()` overrides parents and recalculates levels; `entity_aggregator.aggregate_location()` overrides parent and children; `encyclopedia_service` injects virtual parent nodes (uber-roots like "天下" that exist only in `location_parents`).
 

@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.66.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.67.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -125,6 +125,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.67.0 | 2026-04-03 | 地点层级质量跃迁 — Geographic Agent Skill 架构 + Edmonds全局最优树算法(McDonald 2005) + 领域知识先验注入 — 将层级构建建模为"最大权有向生成树"组合优化问题，用Chu-Liu/Edmonds算法130ms求解(替代5-10min LLM依赖) + 不可变快照版本链(回滚/A-B对比) + 西游记144条黄金标准 — golden_P 40%→97% + avg_depth 2.78→3.13 + max_children 103→39 + 智谱GLM兼容性修复 + 352 tests |
 | v0.66.0 | 2026-03-30 | AliasResolver重构 — Canonical选名(3字全名优先+频率fallback+绰号降权) + 防桥接(相似名阻断+归属冲突检测扩展+集体引用blocklist) + 阅读页per-chapter上下文高亮 — 核心人物canonical 0%→84%(水浒35/35,红楼18/24,西游5/10) + 跨人物灾难合并消除(阮氏三兄弟独立,宝钗/凤姐独立) + 352 tests |
 | v0.65.0 | 2026-03-29 | 数据质量跃迁 — 师兄弟/结拜兄弟独立关系类型 + AliasResolver短称呼消歧 + 实体类型投票 + 血亲关系锁定 + 名字号提取 + 泛称人物地点消歧(樵夫→灵台方寸山·樵夫) + 352 tests |
 | v0.64.1 | 2026-03-28 | LLM审阅驱动FactValidator规则大幅扩充 — 6本跨题材小说自动审阅3轮迭代收敛 + 237条新规则 + 5条模式匹配规则 + 清理1076无效人物+194无效地点 + Prompt修复(父子/父女性别+事件幻觉+师兄弟≠师徒) + 别名高亮 + 分析完成stage广播 + 352 tests |
