@@ -64,6 +64,8 @@ class EdmondsResolver(GeoSkill):
         all_locs.update(votes.keys())
         all_locs.add(uber_root)
 
+        from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
+
         for child, vote_counter in votes.items():
             for parent, weight in vote_counter.items():
                 if not parent or parent == child:
@@ -73,6 +75,16 @@ class EdmondsResolver(GeoSkill):
                 w = float(weight)
                 if w <= 0:
                     continue
+
+                # ── Tier soft constraint ──
+                # When BOTH have recognizable suffixes and parent is clearly
+                # smaller than child, halve the weight (discourage but don't block).
+                # Blocking too aggressively reduces depth by removing valid deep edges.
+                p_suf = _get_suffix_rank(parent)
+                c_suf = _get_suffix_rank(child)
+                if p_suf is not None and c_suf is not None and p_suf > c_suf:
+                    w *= 0.1  # heavy penalty but not blocked
+
                 # Edge: parent → child
                 if G.has_edge(parent, child):
                     G[parent][child]["weight"] = max(
@@ -151,82 +163,101 @@ class EdmondsResolver(GeoSkill):
     ) -> dict[str, str]:
         """Redistribute children when a node exceeds max_children.
 
-        Strategy: for nodes with too many children, group children by
-        their tier or suffix type and assign them to the largest existing
-        intermediate child (a child that itself has children).
+        Two-phase strategy:
+        Phase 1: Redistribute leaf children to existing intermediate nodes
+        Phase 2: For remaining overflows, redistribute to ANY smaller-tier
+                 child (not just intermediates) — creating new intermediate layers
         """
         from src.services.world_structure_agent import TIER_ORDER
 
-        # Build children map
-        children_map: dict[str, list[str]] = {}
-        for child, parent in parents.items():
-            children_map.setdefault(parent, []).append(child)
+        def _rebuild_children_map():
+            cm: dict[str, list[str]] = {}
+            for child, parent in parents.items():
+                cm.setdefault(parent, []).append(child)
+            return cm
 
-        changed = True
-        iterations = 0
-        while changed and iterations < 5:
-            changed = False
-            iterations += 1
-            for node, kids in list(children_map.items()):
+        for iteration in range(10):
+            children_map = _rebuild_children_map()
+            any_change = False
+
+            for node in list(children_map.keys()):
+                kids = children_map.get(node, [])
                 if len(kids) <= max_children:
                     continue
 
-                # Find intermediate children (kids that themselves have kids)
-                intermediates = [
-                    k for k in kids
-                    if k in children_map and len(children_map[k]) > 0
-                ]
-                if not intermediates:
-                    continue  # can't redistribute without intermediates
+                node_rank = TIER_ORDER.get(tiers.get(node, "world"), 0)
 
-                # Sort intermediates by descendant count (largest first)
-                intermediates.sort(
-                    key=lambda k: len(children_map.get(k, [])),
+                # Sort kids: non-leaf first (intermediates), then by tier rank desc
+                kid_has_children = {
+                    k: len(children_map.get(k, [])) for k in kids
+                }
+                # Candidates to absorb: kids with lower tier rank than leaves
+                absorbers = sorted(
+                    [k for k in kids if kid_has_children.get(k, 0) > 0],
+                    key=lambda k: kid_has_children.get(k, 0),
+                    reverse=True,
+                )
+                # If no absorbers, use any kid that has a bigger tier than others
+                if not absorbers:
+                    absorbers = sorted(
+                        kids,
+                        key=lambda k: TIER_ORDER.get(tiers.get(k, "site"), 5),
+                    )
+                    # Only use kids that are at least one tier bigger than the smallest
+                    if absorbers:
+                        min_rank = TIER_ORDER.get(
+                            tiers.get(absorbers[-1], "site"), 5
+                        )
+                        absorbers = [
+                            k for k in absorbers
+                            if TIER_ORDER.get(tiers.get(k, "site"), 5) < min_rank
+                        ]
+
+                if not absorbers:
+                    continue
+
+                # Leaves to redistribute (smallest tier first)
+                leaves = sorted(
+                    [k for k in kids if k not in absorbers],
+                    key=lambda k: TIER_ORDER.get(tiers.get(k, "site"), 5),
                     reverse=True,
                 )
 
-                # Redistribute leaf children to closest intermediate
-                leaf_kids = [
-                    k for k in kids
-                    if k not in children_map or len(children_map.get(k, [])) == 0
-                ]
-
-                # Assign each leaf to the intermediate with matching tier
-                # or the largest intermediate as fallback
                 redistributed = 0
-                for leaf in leaf_kids:
+                for leaf in leaves:
                     if len(kids) <= max_children:
                         break
                     leaf_rank = TIER_ORDER.get(tiers.get(leaf, "site"), 5)
-                    best_intermediate = None
-                    best_score = -1
-                    for interm in intermediates:
-                        interm_rank = TIER_ORDER.get(
-                            tiers.get(interm, "city"), 4
-                        )
-                        # Intermediate must be "bigger" than leaf
-                        if interm_rank >= leaf_rank:
-                            continue
-                        # Score: prefer intermediates with fewer existing children
-                        score = max_children - len(children_map.get(interm, []))
-                        if score > best_score:
-                            best_score = score
-                            best_intermediate = interm
 
-                    if best_intermediate:
-                        parents[leaf] = best_intermediate
+                    # Find best absorber: bigger tier + fewest current children
+                    best = None
+                    best_score = -1
+                    for ab in absorbers:
+                        ab_rank = TIER_ORDER.get(tiers.get(ab, "city"), 4)
+                        if ab_rank >= leaf_rank:
+                            continue  # absorber must be bigger tier
+                        ab_children = len(children_map.get(ab, []))
+                        if ab_children >= max_children:
+                            continue  # don't overflow absorber
+                        score = max_children - ab_children
+                        if score > best_score:
+                            best = ab
+                            best_score = score
+
+                    if best:
+                        parents[leaf] = best
                         kids.remove(leaf)
-                        children_map.setdefault(best_intermediate, []).append(
-                            leaf
-                        )
+                        children_map.setdefault(best, []).append(leaf)
                         redistributed += 1
-                        changed = True
+                        any_change = True
 
                 if redistributed:
                     logger.debug(
-                        "Degree balance: %s %d→%d children (%d redistributed)",
+                        "Degree balance: %s %d→%d children",
                         node, len(kids) + redistributed, len(kids),
-                        redistributed,
                     )
+
+            if not any_change:
+                break
 
         return parents
