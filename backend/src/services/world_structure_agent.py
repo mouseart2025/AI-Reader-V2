@@ -317,7 +317,9 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("吴江", "city"),
     # ── 2-char: city exception for 1-char 原→region ──
     ("太原", "city"),
-    # ── 2-char: protect X界 compounds that are NOT continents ──
+    # ── 2-3 char: protect X界 compounds that are NOT continents ──
+    ("国东界", "region"),  # 天竺国东界 — eastern border of a kingdom
+    ("藏界", "region"),    # 乌斯藏界 — Tibetan region border
     ("国界", "region"),    # 天竺国界, 西番哈咇国界 — border of a kingdom
     ("世界", "region"),    # 极乐世界, 西方极乐世界 — realm concept, not continent
     ("法界", "region"),    # 龙宫法界 — dharma realm

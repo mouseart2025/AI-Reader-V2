@@ -368,7 +368,7 @@ async def rebuild_hierarchy(novel_id: str):
                         current_parents=ws.location_parents,
                         location_frequencies=agent._location_frequencies,
                     ),
-                    timeout=300.0,  # v0.67: 150→300s for deeper 4-5 level skeleton prompts
+                    timeout=500.0,  # v0.67.2: 300→500s for phased classification (multiple LLM calls)
                 )
                 parts = []
                 if skeleton_votes:

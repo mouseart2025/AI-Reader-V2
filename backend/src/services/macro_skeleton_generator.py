@@ -241,22 +241,32 @@ class MacroSkeletonGenerator:
                 child_label, parent_label,
             )
 
-            try:
-                result, _usage = await self.llm.generate(
-                    system="你是一个小说地理分析专家。请严格按照 JSON 格式输出。",
-                    prompt=prompt,
-                    format=_CLASSIFY_SCHEMA,
-                    temperature=0.1,
-                    max_tokens=4096,  # small output for classification
-                    timeout=90,  # 90s per small batch
-                    num_ctx=get_budget().context_window,
-                )
-            except Exception:
-                logger.warning(
-                    "Skeleton classify batch %d-%d failed",
-                    i, i + len(batch), exc_info=True,
-                )
-                continue
+            # Retry once on timeout — MiniMax can be slow on first request
+            for attempt in range(2):
+                try:
+                    result, _usage = await self.llm.generate(
+                        system="你是一个小说地理分析专家。请严格按照 JSON 格式输出。",
+                        prompt=prompt,
+                        format=_CLASSIFY_SCHEMA,
+                        temperature=0.1,
+                        max_tokens=4096,
+                        timeout=150,  # 150s per batch (MiniMax can be slow)
+                        num_ctx=get_budget().context_window,
+                    )
+                    break  # success
+                except Exception:
+                    if attempt == 0:
+                        logger.info(
+                            "Skeleton classify batch %d-%d attempt 1 failed, retrying...",
+                            i, i + len(batch),
+                        )
+                    else:
+                        logger.warning(
+                            "Skeleton classify batch %d-%d failed after retry",
+                            i, i + len(batch), exc_info=True,
+                        )
+            else:
+                continue  # both attempts failed
 
             if isinstance(result, str):
                 try:
