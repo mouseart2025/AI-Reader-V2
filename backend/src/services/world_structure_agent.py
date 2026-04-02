@@ -595,6 +595,7 @@ class WorldStructureAgent:
         self._suspicious_pairs: list[dict] = []  # suspicious parent-child pairs for LLM reflection
         self._location_frequencies: Counter = Counter()  # location mention counts
         self._chapter_primary_settings: dict[int, str] = {}  # chapter_id → primary setting
+        self._location_chapters: dict[str, list[int]] = {}  # location → [chapter_ids]
 
     def _detect_and_break_cycles(self, parents: dict[str, str]) -> int:
         """Detect and break cycles in parent map by removing weakest links."""
@@ -2160,6 +2161,7 @@ class WorldStructureAgent:
         # resolution and auto-mount to their chapter's primary setting.
         loc_freq: Counter = Counter()
         chapter_settings: dict[int, str] = {}  # chapter_id → primary setting
+        loc_chapters: dict[str, list[int]] = {}  # location → [chapter_ids]
         for row in rows:
             data = _json.loads(row["fact_json"])
             ch_id = data.get("chapter_id", 0)
@@ -2168,6 +2170,7 @@ class WorldStructureAgent:
                 name = loc.get("name", "")
                 if name:
                     loc_freq[name] += 1
+                    loc_chapters.setdefault(name, []).append(ch_id)
             # Determine primary setting for this chapter (highest-tier setting)
             setting_candidates = [
                 loc for loc in locations
@@ -2194,6 +2197,7 @@ class WorldStructureAgent:
                         break
         self._location_frequencies = loc_freq
         self._chapter_primary_settings = chapter_settings
+        self._location_chapters = loc_chapters
         _n_core = sum(1 for c in loc_freq.values() if c >= 10)
         _n_regular = sum(1 for c in loc_freq.values() if 3 <= c <= 9)
         _n_micro = sum(1 for c in loc_freq.values() if c <= 2)
@@ -2485,12 +2489,31 @@ class WorldStructureAgent:
                 if total_votes < _MIN_MICRO_VOTES and _is_sub_location_name(child):
                     pruned_micro.append(child)
                     continue
-                # Auto-mount: pick vote winner but skip heuristics later
+                # Auto-mount: pick vote winner, but avoid uber_root.
+                # When the only/best vote is uber_root (LLM didn't know the parent),
+                # fall back to the chapter's primary setting where this location
+                # first appears — much more likely to be the correct parent.
+                best_parent = None
                 for winner, _count in votes.most_common():
                     if winner and winner != child:
                         if not known_locs or winner in known_locs:
-                            micro_mounted[child] = winner
+                            if winner != uber_root_name:
+                                best_parent = winner
+                                break
+                            elif best_parent is None:
+                                best_parent = winner  # fallback to root
+                if best_parent == uber_root_name and self._location_chapters:
+                    # Use chapter primary setting as better parent
+                    ch_ids = self._location_chapters.get(child, [])
+                    for ch_id in ch_ids:
+                        setting = self._chapter_primary_settings.get(ch_id)
+                        if (setting and setting != child
+                                and setting != uber_root_name
+                                and (not known_locs or setting in known_locs)):
+                            best_parent = setting
                             break
+                if best_parent:
+                    micro_mounted[child] = best_parent
                 continue
 
             # Core + regular: full vote resolution
