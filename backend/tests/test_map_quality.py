@@ -105,10 +105,10 @@ class TestWaterDetection:
 class TestLLMAnchorInjection:
     """LLM anchor direction constraints from MacroSkeletonGenerator."""
 
-    def test_skeleton_schema_has_directions(self):
-        from src.services.macro_skeleton_generator import _SKELETON_SCHEMA
+    def test_direction_schema_has_directions(self):
+        from src.services.macro_skeleton_generator import _DIRECTION_SCHEMA
 
-        props = _SKELETON_SCHEMA["properties"]
+        props = _DIRECTION_SCHEMA["properties"]
         assert "directions" in props
         dir_schema = props["directions"]
         assert dir_schema["type"] == "array"

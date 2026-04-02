@@ -317,9 +317,18 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("吴江", "city"),
     # ── 2-char: city exception for 1-char 原→region ──
     ("太原", "city"),
+    # ── 2-char: protect X界 compounds that are NOT continents ──
+    ("国界", "region"),    # 天竺国界, 西番哈咇国界 — border of a kingdom
+    ("世界", "region"),    # 极乐世界, 西方极乐世界 — realm concept, not continent
+    ("法界", "region"),    # 龙宫法界 — dharma realm
+    ("苦界", "region"),    # 血盆苦界 — hell layer
+    ("仙景界", "region"),  # 落伽仙景界 — scenic realm
+    # ── 2-char: protect 洲 compounds ──
+    ("部洲", "continent"),  # 四大部洲 = collective → protect, but also 南赡部洲 etc.
+    ("瀛洲", "region"),     # 瀛洲 — mythical island, not continent
     # ── 1-char: macro geography (continent) ──
     ("省", "continent"),
-    ("界", "continent"),
+    ("界", "continent"),   # 幽冥界, 仙界 — true realm-level (after 2-char filters above)
     ("洲", "continent"),
     ("域", "continent"),
     ("洋", "continent"),  # 太平洋, 大西洋 — oceans are continent-scale
@@ -1582,10 +1591,13 @@ class WorldStructureAgent:
         if any(kw in name for kw in ("三界", "天下")) or "世界" in loc_type:
             return LocationTier.world.value
         # v0.67.1: Celestial/mythological realm classification.
-        # 天庭/天宫 are continent-level celestial realms (containing 南天门/灵霄宝殿 etc.)
-        # 大唐/大唐国 is a kingdom (dynasty name without 国 suffix)
-        if name in ("天庭", "天宫"):
+        # 天庭 is a continent-level celestial realm (containing 南天门/灵霄宝殿 etc.)
+        # 天宫 is ambiguous (could be 天庭 synonym or a specific palace) → region
+        # 四大部洲 is a collective noun ("the four continents"), not a single continent → region
+        if name == "天庭":
             return LocationTier.continent.value
+        if name in ("天宫", "四大部洲"):
+            return LocationTier.region.value
         if name in ("大唐", "大宋", "大明", "大清", "大汉", "大秦", "大元"):
             return LocationTier.kingdom.value
 
