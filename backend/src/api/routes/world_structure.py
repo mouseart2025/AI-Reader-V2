@@ -696,9 +696,10 @@ async def rebuild_hierarchy(novel_id: str):
                         # Allow: moves FROM None/missing to a parent (orphan adoption)
                         if not old_p:
                             continue
-                        # Allow: moves TO uber_root (cleanup)
-                        if new_p == _uber_for_safety:
-                            continue
+                        # v0.67.1: Do NOT auto-approve moves TO uber_root.
+                        # Previously allowed as "cleanup", but this flattens the
+                        # hierarchy when LLM review fails — locations get pulled
+                        # from specific parents to uber_root, destroying depth.
                         c["auto_select"] = False
                         c["reason"] = "LLM审查未成功，横向修改需人工确认"
                         downgraded += 1
