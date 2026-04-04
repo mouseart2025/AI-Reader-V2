@@ -98,6 +98,39 @@ class EdmondsResolver(GeoSkill):
             if loc not in G:
                 G.add_node(loc)
 
+        # ── Name-containment rule ──
+        # When a child's name starts with a known location name
+        # (e.g., "花果山辕门" starts with "花果山"), inject a high-weight
+        # edge making that location the parent. This fixes 276 cases where
+        # Edmonds' global optimization overrides obvious naming patterns.
+        _NAME_CONTAIN_WEIGHT = 25.0  # higher than typical chapter votes (~1-15)
+        name_contain_injected = 0
+        sorted_locs = sorted(all_locs, key=len, reverse=True)  # longest first
+        for child in list(all_locs):
+            for candidate in sorted_locs:
+                if candidate == child or len(candidate) < 2:
+                    continue
+                if child.startswith(candidate) and candidate in all_locs:
+                    # Don't inject if candidate is a generic prefix
+                    # (e.g., "东" in "东土大唐" — too short/generic)
+                    if len(candidate) < 2:
+                        continue
+                    # Inject or boost edge: candidate → child
+                    if G.has_edge(candidate, child):
+                        G[candidate][child]["weight"] = max(
+                            G[candidate][child]["weight"],
+                            _NAME_CONTAIN_WEIGHT,
+                        )
+                    else:
+                        G.add_edge(candidate, child, weight=_NAME_CONTAIN_WEIGHT)
+                    name_contain_injected += 1
+                    break  # use longest match only
+        if name_contain_injected:
+            logger.info(
+                "EdmondsResolver: injected %d name-containment edges (w=%.0f)",
+                name_contain_injected, _NAME_CONTAIN_WEIGHT,
+            )
+
         # Ensure uber_root can reach all nodes: add tiny-weight fallback edges
         # These are "last resort" connections — Edmonds will prefer real votes
         _FALLBACK_WEIGHT = 0.001
