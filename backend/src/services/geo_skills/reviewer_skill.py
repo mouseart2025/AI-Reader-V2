@@ -28,7 +28,7 @@ class ReviewerSkill(GeoSkill):
 
     @property
     def name(self) -> str:
-        return "HierarchyReviewer"
+        return "LLM审查"
 
     @property
     def requires_llm(self) -> bool:

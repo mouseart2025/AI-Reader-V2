@@ -24,7 +24,7 @@ class TierClassifier(GeoSkill):
 
     @property
     def name(self) -> str:
-        return "TierClassifier"
+        return "层级分类"
 
     async def execute(self, snapshot: HierarchySnapshot) -> SkillResult:
         from src.services.world_structure_agent import WorldStructureAgent

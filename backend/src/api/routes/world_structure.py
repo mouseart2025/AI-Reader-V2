@@ -1080,9 +1080,8 @@ async def rebuild_hierarchy_v2(novel_id: str):
         try:
             from src.services.geo_skills.orchestrator import GeoOrchestrator
             from src.services.geo_skills.vote_builder import VoteBuilder
-            from src.services.geo_skills.skeleton_classifier import SkeletonClassifier
-            from src.services.geo_skills.vote_resolver import VoteResolver
-            from src.services.geo_skills.consolidator_skill import ConsolidatorSkill
+            from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+            from src.services.geo_skills.knowledge_prior import KnowledgePrior
             from src.services.geo_skills.reviewer_skill import ReviewerSkill
             from src.services.geo_skills.tier_classifier import TierClassifier
             from src.services.geo_skills.snapshot import HierarchyMetrics
@@ -1091,11 +1090,13 @@ async def rebuild_hierarchy_v2(novel_id: str):
 
             # Build orchestrator with full skill pipeline
             orch = GeoOrchestrator(novel_id)
+            # Incremental pipeline: respect LLM extraction + targeted fixes
+            # (no SkeletonClassifier/VoteResolver/Consolidator — they degrade quality)
             orch.add_skill("tier", TierClassifier(novel_id))
             orch.add_skill("votes", VoteBuilder(novel_id))
-            orch.add_skill("skeleton", SkeletonClassifier(novel_title=title))
-            orch.add_skill("resolve", VoteResolver())
-            orch.add_skill("consolidate", ConsolidatorSkill())
+            orch.add_skill("prior", KnowledgePrior(novel_title=title))
+            orch.add_skill("edmonds", EdmondsResolver())
+            # Optional: LLM review (may timeout, graceful failure)
             orch.add_skill("review", ReviewerSkill(
                 novel_title=title,
             ))

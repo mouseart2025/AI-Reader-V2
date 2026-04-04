@@ -86,15 +86,15 @@ class GeoOrchestrator:
 
         # Run each skill
         for tag, skill in self._skills:
-            yield ProgressEvent(tag, f"正在执行 {skill.name}...")
+            yield ProgressEvent(tag, f"⏳ {skill.name}...")
 
             result = await skill.run(snapshot)
 
             if not result.success:
                 yield ProgressEvent(
                     tag,
-                    f"{skill.name} 失败: {result.error_message[:100]} "
-                    f"({result.duration_ms}ms) — 使用上一版本继续",
+                    f"⚠️ {skill.name} 跳过: {result.error_message[:80]} "
+                    f"({result.duration_ms//1000}s) — 不影响其他步骤",
                 )
                 continue
 
@@ -133,10 +133,12 @@ class GeoOrchestrator:
                 "root_count": metrics.root_count,
             }
 
+            # Format duration
+            dur = f"{result.duration_ms}ms" if result.duration_ms < 1000 else f"{result.duration_ms/1000:.1f}s"
             yield ProgressEvent(
                 tag,
-                f"{skill.name} 完成 ({result.duration_ms}ms): "
-                f"{metrics.summary()}",
+                f"✅ {skill.name} ({dur}): "
+                f"深度={metrics.avg_depth:.1f} 最大子节点={metrics.max_children}",
                 votes=len(result.new_votes),
                 overrides=len(result.parent_overrides),
                 synonyms=len(result.synonym_pairs),
