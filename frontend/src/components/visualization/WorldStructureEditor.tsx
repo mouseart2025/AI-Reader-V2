@@ -38,6 +38,7 @@ const TIER_OPTIONS = [
   { value: "landmark", label: "地标" },
   { value: "building", label: "建筑" },
   { value: "room", label: "房间" },
+  { value: "invalid", label: "❌ 无效地点" },
 ]
 
 const TIER_LABELS: Record<string, string> = Object.fromEntries(
@@ -573,7 +574,7 @@ function LocationTreeTab({
             {node.isOverridden && (
               <span className="size-1.5 rounded-full bg-amber-500 flex-shrink-0" />
             )}
-            <span className="truncate flex-1">{node.name}</span>
+            <span className={cn("truncate flex-1", node.tier === "invalid" && "line-through text-muted-foreground/50")}>{node.name}</span>
             {node.childCount > 0 && (
               <span className="text-[10px] text-muted-foreground flex-shrink-0">
                 {node.childCount}
@@ -777,6 +778,26 @@ function DetailPanel({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Mark invalid button */}
+      {currentTier !== "invalid" && (
+        <Button
+          variant="outline"
+          size="xs"
+          className="text-[10px] h-6 text-red-500 border-red-500/30 hover:bg-red-500/10"
+          onClick={() => {
+            onFieldChange(locationName, "tier", "invalid")
+            onFieldChange(locationName, "parent", "")
+          }}
+        >
+          ❌ 标记为无效地点
+        </Button>
+      )}
+      {currentTier === "invalid" && (
+        <div className="flex items-center gap-2 rounded bg-red-500/10 px-2 py-1">
+          <span className="text-[10px] text-red-500">已标记为无效地点</span>
+        </div>
+      )}
 
       {relevantOverrides.length > 0 && (
         <div className="flex items-center gap-2 pt-1">
