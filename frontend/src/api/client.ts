@@ -519,6 +519,7 @@ export function rebuildHierarchy(
         if (!reader) throw new Error("No response body")
         const decoder = new TextDecoder()
         let buffer = ""
+        let done_received = false
         let result: HierarchyRebuildResult | null = null
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -532,7 +533,10 @@ export function rebuildHierarchy(
             try {
               const data = JSON.parse(line.slice(6))
               if (data.stage === "done") {
-                result = data.result
+                done_received = true
+                result = data.result ?? { changes: [], summary: { total: 0 } }
+              } else if (data.stage === "apply" || data.stage === "history") {
+                done_received = true // v2 endpoint auto-applies
               } else if (data.stage === "error") {
                 reject(new Error(data.message))
                 return
@@ -542,7 +546,7 @@ export function rebuildHierarchy(
             } catch { /* skip parse errors */ }
           }
         }
-        if (result) resolve(result)
+        if (done_received) resolve(result ?? { changes: [], summary: { total: 0 } } as unknown as HierarchyRebuildResult)
         else reject(new Error("未收到重建结果"))
       })
       .catch(reject)
