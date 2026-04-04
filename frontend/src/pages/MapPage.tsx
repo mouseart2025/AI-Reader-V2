@@ -121,6 +121,12 @@ export default function MapPage() {
   // Rebuild hierarchy
   const [rebuilding, setRebuilding] = useState(false)
   const [rebuildProgress, setRebuildProgress] = useState("")
+  const [rebuildLogs, setRebuildLogs] = useState<string[]>([])
+  const rebuildLogsEndRef = useRef<HTMLDivElement>(null)
+  // Auto-scroll rebuild logs
+  useEffect(() => {
+    rebuildLogsEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [rebuildLogs])
   const [rebuildResult, setRebuildResult] = useState<HierarchyRebuildResult | null>(null)
   const [selectedChanges, setSelectedChanges] = useState<Set<number>>(new Set())
   const [applying, setApplying] = useState(false)
@@ -783,15 +789,61 @@ export default function MapPage() {
             )}
           </div>
 
-          {/* Toast / Progress */}
-          {(toast || (rebuilding && rebuildProgress)) && (
+          {/* Toast (non-rebuild) */}
+          {toast && !rebuilding && (
             <div className="absolute top-3 right-3 z-20 rounded-lg border bg-background px-3 py-2 text-xs shadow-lg">
-              {rebuilding && rebuildProgress ? (
-                <span className="text-blue-600 animate-pulse">{rebuildProgress}</span>
-              ) : (
-                toast
-              )}
+              {toast}
             </div>
+          )}
+
+          {/* Rebuild progress dialog (centered, detailed) */}
+          {rebuilding && (
+            <>
+              <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-sm" />
+              <div className="absolute inset-0 z-40 flex items-center justify-center p-8">
+                <div className="w-full max-w-lg rounded-xl border bg-background shadow-2xl">
+                  {/* Header */}
+                  <div className="flex items-center gap-3 border-b px-5 py-4">
+                    <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+                    <div>
+                      <h3 className="font-medium">智能重绘进行中</h3>
+                      <p className="text-xs text-muted-foreground">
+                        请勿关闭页面，正在优化地点层级结构...
+                      </p>
+                    </div>
+                  </div>
+                  {/* Current step */}
+                  <div className="px-5 py-3 border-b bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                      </span>
+                      <span className="text-sm font-medium text-blue-600">{rebuildProgress}</span>
+                    </div>
+                  </div>
+                  {/* Log area */}
+                  <div className="px-5 py-3 max-h-60 overflow-y-auto font-mono text-xs space-y-0.5">
+                    {rebuildLogs.map((log, i) => (
+                      <div key={i} className={cn(
+                        "py-0.5",
+                        log.includes("✅") ? "text-green-600" :
+                        log.includes("❌") ? "text-red-500" :
+                        log.includes("Step") ? "text-blue-500 font-medium" :
+                        "text-muted-foreground",
+                      )}>
+                        {log}
+                      </div>
+                    ))}
+                    <div ref={rebuildLogsEndRef} />
+                  </div>
+                  {/* Footer hint */}
+                  <div className="px-5 py-3 border-t text-[10px] text-muted-foreground">
+                    💡 层级优化使用 Edmonds 增量修复算法，保留 LLM 提取的正确层级关系，仅修复结构问题
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Current trajectory info bar */}
@@ -893,25 +945,26 @@ export default function MapPage() {
                 onClick={async () => {
                   if (!novelId || rebuilding) return
                   setRebuilding(true)
+                  setRebuildLogs([])
+                  const addLog = (msg: string) => {
+                    setRebuildProgress(msg)
+                    setRebuildLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`])
+                  }
                   try {
-                    // Step 1: Rebuild hierarchy (v2 — auto-applies via GeoOrchestrator)
-                    setRebuildProgress("层级重建中...")
-                    await rebuildHierarchy(novelId, (msg) => setRebuildProgress(`层级: ${msg}`))
-                    // Step 2: Spatial completion
-                    setRebuildProgress("空间补全中...")
-                    const compRes = await spatialCompletion(novelId, (msg) => setRebuildProgress(`补全: ${msg}`))
-                    // Step 3: Reload map
-                    setRebuildProgress("重新加载地图...")
+                    addLog("🚀 开始智能重绘...")
+                    addLog("📊 Step 1/3: 层级优化 (Edmonds 增量修复)")
+                    await rebuildHierarchy(novelId, (msg) => addLog(`  ${msg}`))
+                    addLog("✅ 层级优化完成")
+                    addLog("🔗 Step 2/3: 空间关系补全")
+                    const compRes = await spatialCompletion(novelId, (msg) => addLog(`  ${msg}`))
+                    addLog(`✅ 补全完成: ${compRes.relations_added} 条空间关系`)
+                    addLog("🗺️ Step 3/3: 重新加载地图...")
                     setReloadTrigger(t => t + 1)
-                    const total = `层级已优化 (Edmonds), ${compRes.relations_added} 空间关系`
-                    setToast(`智能重绘完成: ${total}`)
-                    setTimeout(() => setToast(null), 6000)
+                    addLog("✅ 智能重绘完成！")
+                    setTimeout(() => { setRebuilding(false); setRebuildProgress("") }, 2000)
                   } catch (e) {
-                    setToast(`智能重绘失败: ${e instanceof Error ? e.message : "未知错误"}`)
-                    setTimeout(() => setToast(null), 4000)
-                  } finally {
-                    setRebuilding(false)
-                    setRebuildProgress("")
+                    addLog(`❌ 失败: ${e instanceof Error ? e.message : "未知错误"}`)
+                    setTimeout(() => { setRebuilding(false); setRebuildProgress("") }, 4000)
                   }
                 }}
               >
