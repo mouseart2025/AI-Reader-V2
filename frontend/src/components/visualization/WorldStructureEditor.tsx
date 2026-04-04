@@ -215,7 +215,10 @@ export function WorldStructureEditor({
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 z-50 flex h-screen w-[440px] flex-col border-l bg-background shadow-lg">
+      <div className={cn(
+        "fixed top-0 right-0 z-50 flex h-screen flex-col border-l bg-background shadow-lg transition-all",
+        selectedLocation ? "w-[820px]" : "w-[440px]",
+      )}>
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 className="text-sm font-medium">编辑世界结构</h2>
@@ -263,8 +266,13 @@ export function WorldStructureEditor({
           ))}
         </div>
 
-        {/* Content */}
-        <div className="flex flex-1 flex-col min-h-0">
+        {/* Content — dual-panel when location selected */}
+        <div className={cn("flex flex-1 min-h-0", selectedLocation ? "flex-row" : "flex-col")}>
+          {/* Left panel: tree / portals / overrides */}
+          <div className={cn(
+            "flex flex-col min-h-0 overflow-hidden",
+            selectedLocation ? "w-[380px] border-r" : "flex-1",
+          )}>
           {loading && (
             <div className="flex h-32 items-center justify-center">
               <p className="text-muted-foreground text-sm">加载中...</p>
@@ -282,6 +290,7 @@ export function WorldStructureEditor({
               onFieldChange={handleFieldChange}
               overrides={overrides}
               onDeleteOverride={handleDeleteOverride}
+              hideDetail={!!selectedLocation}
             />
           )}
 
@@ -308,7 +317,24 @@ export function WorldStructureEditor({
           {!loading && ws && activeTab === "overrides" && (
             <OverrideHistoryTab overrides={overrides} onDelete={handleDeleteOverride} />
           )}
-        </div>
+          </div>{/* end left panel */}
+
+          {/* Right panel: detail card + edit (only when location selected) */}
+          {selectedLocation && ws && (
+            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+              <DetailPanel
+                locationName={selectedLocation}
+                ws={ws}
+                pendingChanges={pendingChanges}
+                overrides={overrides}
+                onFieldChange={handleFieldChange}
+                onDeleteOverride={handleDeleteOverride}
+                onClose={() => setSelectedLocation(null)}
+                expanded
+              />
+            </div>
+          )}
+        </div>{/* end content flex-row */}
 
         {/* Toast */}
         {toast && (
@@ -344,6 +370,7 @@ function LocationTreeTab({
   onFieldChange,
   overrides,
   onDeleteOverride,
+  hideDetail,
 }: {
   ws: WorldStructureData
   search: string
@@ -354,6 +381,7 @@ function LocationTreeTab({
   onFieldChange: (locName: string, field: "parent" | "region" | "layer" | "tier", value: string) => void
   overrides: WorldStructureOverride[]
   onDeleteOverride: (id: number) => void
+  hideDetail?: boolean
 }) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [initialized, setInitialized] = useState(false)
@@ -556,8 +584,8 @@ function LocationTreeTab({
         ))}
       </div>
 
-      {/* Detail panel */}
-      {selectedLocation && (
+      {/* Detail panel (inline, only when right panel is NOT showing it) */}
+      {selectedLocation && !hideDetail && (
         <DetailPanel
           locationName={selectedLocation}
           ws={ws}
@@ -582,6 +610,7 @@ function DetailPanel({
   onFieldChange,
   onDeleteOverride,
   onClose,
+  expanded,
 }: {
   locationName: string
   ws: WorldStructureData
@@ -590,6 +619,7 @@ function DetailPanel({
   onFieldChange: (locName: string, field: "parent" | "region" | "layer" | "tier", value: string) => void
   onDeleteOverride: (id: number) => void
   onClose: () => void
+  expanded?: boolean
 }) {
   const currentParent =
     (pendingChanges.get(`parent:${locationName}`)?.json?.parent as string) ??
@@ -634,20 +664,87 @@ function DetailPanel({
       ["location_parent", "location_region", "location_layer", "location_tier"].includes(ov.override_type),
   )
 
+  // Build parent chain for display
+  const parentChain = useMemo(() => {
+    const chain: string[] = []
+    let cur = locationName
+    const visited = new Set<string>()
+    while (ws.location_parents?.[cur] && !visited.has(cur)) {
+      visited.add(cur)
+      cur = ws.location_parents[cur]
+      chain.push(cur)
+    }
+    return chain.reverse()
+  }, [ws.location_parents, locationName])
+
+  // Count children
+  const childLocations = useMemo(() => {
+    const children: string[] = []
+    for (const [child, parent] of Object.entries(ws.location_parents ?? {})) {
+      if (parent === locationName) children.push(child)
+    }
+    return children.sort()
+  }, [ws.location_parents, locationName])
+
   return (
-    <div className="border-t bg-muted/20 p-3 space-y-2 flex-shrink-0">
+    <div className={cn(
+      "bg-muted/20 space-y-2 flex-shrink-0",
+      expanded ? "p-4" : "border-t p-3",
+    )}>
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium truncate">{locationName}</h4>
+        <h4 className={cn("font-medium truncate", expanded ? "text-base" : "text-sm")}>
+          📍 {locationName}
+        </h4>
         <Button variant="ghost" size="icon-xs" onClick={onClose}>
           <XIcon className="size-3.5" />
         </Button>
       </div>
+
+      {/* Location info (only in expanded mode) */}
+      {expanded && (
+        <div className="space-y-3 text-xs text-muted-foreground">
+          {/* Parent chain */}
+          <div>
+            <span className="text-[10px] text-muted-foreground/70">层级链: </span>
+            <span>{parentChain.length > 0 ? parentChain.join(" > ") + " > " : ""}{locationName}</span>
+          </div>
+
+          {/* Tier + frequency */}
+          <div className="flex gap-3">
+            <span className="px-1.5 py-0.5 rounded bg-muted text-[10px]">
+              {TIER_LABELS[currentTier] ?? currentTier}
+            </span>
+          </div>
+
+          {/* Children */}
+          {childLocations.length > 0 && (
+            <div>
+              <span className="text-[10px] text-muted-foreground/70">
+                子地点 ({childLocations.length}):
+              </span>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {childLocations.slice(0, 12).map((c) => (
+                  <span key={c} className="px-1.5 py-0.5 rounded bg-muted text-[10px]">{c}</span>
+                ))}
+                {childLocations.length > 12 && (
+                  <span className="text-[10px] text-muted-foreground">+{childLocations.length - 12}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <hr className="border-border" />
+          <span className="text-[11px] font-medium text-foreground">✏️ 编辑</span>
+        </div>
+      )}
 
       <SearchableField
         label="父级"
         value={currentParent}
         options={allLocationNames}
         onChange={(v) => onFieldChange(locationName, "parent", v)}
+        tierMap={ws.location_tiers}
+        parentMap={ws.location_parents}
       />
       <SearchableField
         label="区域"
@@ -713,21 +810,37 @@ function SearchableField({
   value,
   options,
   onChange,
+  tierMap,
+  parentMap,
 }: {
   label: string
   value: string
   options: string[]
   onChange: (value: string) => void
+  tierMap?: Record<string, string>
+  parentMap?: Record<string, string>
 }) {
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
-    if (!inputValue) return options.slice(0, 50)
-    const q = inputValue.toLowerCase()
-    return options.filter((o) => o.toLowerCase().includes(q)).slice(0, 50)
-  }, [options, inputValue])
+    const TIER_RANK: Record<string, number> = {
+      world: 0, continent: 1, kingdom: 2, region: 3, city: 4, site: 5, building: 6,
+    }
+    let list: string[]
+    if (!inputValue) {
+      list = options.slice(0, 50)
+    } else {
+      const q = inputValue.toLowerCase()
+      list = options.filter((o) => o.toLowerCase().includes(q)).slice(0, 50)
+    }
+    // Sort by tier (bigger entities first) when tierMap available
+    if (tierMap) {
+      list.sort((a, b) => (TIER_RANK[tierMap[a] ?? "site"] ?? 5) - (TIER_RANK[tierMap[b] ?? "site"] ?? 5))
+    }
+    return list
+  }, [options, inputValue, tierMap])
 
   // Close on click outside
   useEffect(() => {
@@ -768,19 +881,48 @@ function SearchableField({
               {filtered.length === 0 && (
                 <div className="px-2 py-2 text-xs text-muted-foreground">无匹配</div>
               )}
-              {filtered.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={cn(
-                    "w-full text-left px-2 py-1 text-xs hover:bg-muted/60 transition-colors",
-                    opt === value && "bg-primary/10 text-primary font-medium",
-                  )}
-                  onClick={() => { onChange(opt); setOpen(false) }}
-                >
-                  {opt}
-                </button>
-              ))}
+              {filtered.map((opt) => {
+                const tier = tierMap?.[opt]
+                const tierLabel = tier ? (TIER_LABELS[tier] ?? tier) : ""
+                // Build parent chain for this option
+                let chainStr = ""
+                if (parentMap) {
+                  const parts: string[] = []
+                  let cur = opt
+                  const visited = new Set<string>()
+                  while (parentMap[cur] && !visited.has(cur)) {
+                    visited.add(cur)
+                    cur = parentMap[cur]
+                    parts.push(cur)
+                  }
+                  if (parts.length > 0) chainStr = "⊂ " + parts.reverse().join(" > ")
+                }
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={cn(
+                      "w-full text-left px-2 py-1.5 text-xs hover:bg-muted/60 transition-colors",
+                      opt === value && "bg-primary/10 text-primary font-medium",
+                    )}
+                    onClick={() => { onChange(opt); setOpen(false) }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate">{opt}</span>
+                      {tierLabel && (
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
+                          {tierLabel}
+                        </span>
+                      )}
+                    </div>
+                    {chainStr && (
+                      <div className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
+                        {chainStr}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
