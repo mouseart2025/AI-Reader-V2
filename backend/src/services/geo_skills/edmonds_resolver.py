@@ -143,22 +143,116 @@ class EdmondsResolver(GeoSkill):
             G.number_of_nodes(), G.number_of_edges(), uber_root,
         )
 
-        # ── Run Edmonds' algorithm ──
+        # ── Phase 1: Start from LLM-extracted parents (respect extraction) ──
+        # The key insight: per-chapter LLM extraction produces high-quality
+        # local parent judgments (68-81% accuracy). Full Edmonds optimization
+        # paradoxically degrades these by overriding correct local judgments
+        # with noisy global co-occurrence weights.
+        #
+        # New strategy: preserve LLM parents as base, use Edmonds only to:
+        # 1. Fix structural violations (cycles, multiple roots)
+        # 2. Assign parents to orphan locations
+        # 3. Override LLM parents only when name-containment or priors disagree
+
+        base_parents = dict(snapshot.location_parents)
+
+        # Apply name-containment overrides (high-confidence, covers 306+ cases)
+        name_contain_applied = 0
+        for child in list(all_locs):
+            for candidate in sorted_locs:
+                if candidate == child or len(candidate) < 2:
+                    continue
+                if child.startswith(candidate) and candidate in all_locs:
+                    if base_parents.get(child) != candidate:
+                        base_parents[child] = candidate
+                        name_contain_applied += 1
+                    break
+
+        # Apply prior overrides from votes (KnowledgePrior injected w=20+ edges)
+        # These represent domain knowledge that should override LLM extraction errors
+        _PRIOR_THRESHOLD = 15.0  # only override if prior weight is high
+        prior_applied = 0
+        for child, vote_counter in votes.items():
+            if not vote_counter:
+                continue
+            for parent, weight in vote_counter.most_common():
+                if weight >= _PRIOR_THRESHOLD and parent != child and parent in all_locs:
+                    current = base_parents.get(child)
+                    if current != parent:
+                        base_parents[child] = parent
+                        prior_applied += 1
+                    break  # use highest-weight vote if it's a prior
+
+        if name_contain_applied or prior_applied:
+            logger.info(
+                "EdmondsResolver: %d name-containment + %d prior overrides applied to base",
+                name_contain_applied, prior_applied,
+            )
+
+        # Find locations without parents (orphans needing Edmonds)
+        orphans = [loc for loc in all_locs if loc not in base_parents and loc != uber_root]
+
+        # ── Phase 2: Edmonds for orphans only ──
+        # Run Edmonds on the full graph but only use its assignments for orphans
         try:
             T = nx.maximum_spanning_arborescence(G, attr="weight")
         except nx.NetworkXException as e:
             logger.error("Edmonds algorithm failed: %s", e)
             return SkillResult.empty(self.name, f"Edmonds failed: {e}")
 
-        # ── Extract parent assignments ──
-        parents: dict[str, str] = {}
+        edmonds_parents: dict[str, str] = {}
         for u, v in T.edges():
-            # u → v means u is parent of v
-            parents[v] = u
+            edmonds_parents[v] = u
 
-        # ── Phase 2: Degree balancing ──
-        # If any node has >MAX_CHILDREN children, redistribute excess
-        # to intermediate grouping nodes (virtual or existing)
+        # Merge: base (LLM) + Edmonds for orphans
+        parents: dict[str, str] = dict(base_parents)
+        orphans_filled = 0
+        for orphan in orphans:
+            if orphan in edmonds_parents:
+                parents[orphan] = edmonds_parents[orphan]
+                orphans_filled += 1
+
+        # ── Phase 3: Structural repair ──
+        # Fix cycles (break weakest edge)
+        cycles_broken = 0
+        for start in list(parents):
+            visited: set[str] = set()
+            node = start
+            while node in parents and node not in visited:
+                visited.add(node)
+                node = parents[node]
+            if node in visited:
+                # Found cycle — find weakest edge and break
+                cycle_edges: list[tuple[str, str, float]] = []
+                cur = node
+                while True:
+                    p = parents[cur]
+                    w = votes.get(cur, Counter()).get(p, 0)
+                    cycle_edges.append((cur, p, w))
+                    cur = p
+                    if cur == node:
+                        break
+                weakest = min(cycle_edges, key=lambda e: e[2])
+                # Replace with Edmonds' choice for this node
+                if weakest[0] in edmonds_parents:
+                    parents[weakest[0]] = edmonds_parents[weakest[0]]
+                else:
+                    del parents[weakest[0]]
+                cycles_broken += 1
+
+        # Ensure single root
+        roots = [loc for loc in all_locs if loc not in parents and loc != uber_root]
+        for root in roots:
+            if root in edmonds_parents:
+                parents[root] = edmonds_parents[root]
+
+        logger.info(
+            "EdmondsResolver (incremental): %d base parents preserved, "
+            "%d orphans filled by Edmonds, %d cycles repaired",
+            len(base_parents), orphans_filled, cycles_broken,
+        )
+
+        # ── Phase 4: Degree balancing ──
         _MAX_CHILDREN = 30
         parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN)
 
