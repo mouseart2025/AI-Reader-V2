@@ -330,6 +330,7 @@ export interface NovelMapProps {
   locationConflicts?: LocationConflict[]
   collapsedChildCount?: Map<string, number>
   spaceTheme?: boolean
+  editMode?: boolean
   onLocationClick?: (name: string) => void
   onLocationDragEnd?: (name: string, x: number, y: number) => void
   onPortalClick?: (targetLayerId: string) => void
@@ -384,6 +385,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       locationConflicts,
       collapsedChildCount,
       spaceTheme: spaceThemeProp,
+      editMode,
       onLocationClick,
       onLocationDragEnd,
       onPortalClick,
@@ -1687,10 +1689,19 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       collapsedChildCount, spaceThemeProp,
     ])
 
-    // ── Setup drag behavior ──────────────────────────
+    // ── Setup drag behavior (only in edit mode) ──────
     const setupDrag = useCallback(
       (svg: d3Selection.Selection<SVGSVGElement, unknown, null, undefined>) => {
         const locationItems = svg.selectAll<SVGGElement, unknown>(".location-item")
+
+        // Remove existing drag handlers first
+        locationItems.on(".drag", null)
+
+        // Only enable drag in edit mode
+        if (!editMode) {
+          locationItems.style("cursor", "pointer")
+          return
+        }
 
         let hasDragged = false
 
@@ -1758,7 +1769,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
         locationItems.call(drag)
       },
-      [locMap, iconDefs],
+      [locMap, iconDefs, editMode],
     )
 
     // ── Render portals ───────────────────────────────

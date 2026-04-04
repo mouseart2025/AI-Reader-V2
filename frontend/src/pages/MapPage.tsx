@@ -60,6 +60,21 @@ export default function MapPage() {
   // World structure editor
   const [editorOpen, setEditorOpen] = useState(false)
   const [reloadTrigger, setReloadTrigger] = useState(0)
+  // Edit mode: when ON, locations are draggable; when OFF (default), drag = pan map
+  const [editMode, setEditMode] = useState(false)
+  // Keyboard shortcut E to toggle edit mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "e" && !e.ctrlKey && !e.metaKey && !e.altKey
+          && !(e.target instanceof HTMLInputElement)
+          && !(e.target instanceof HTMLTextAreaElement)
+          && !(e.target instanceof HTMLSelectElement)) {
+        setEditMode(prev => !prev)
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [])
 
   // Legend state
   const [legendOpen, setLegendOpen] = useState(false)
@@ -837,6 +852,7 @@ export default function MapPage() {
                 locationConflicts={showConflicts ? mapData?.location_conflicts : undefined}
                 collapsedChildCount={collapsedChildCount}
                 spaceTheme={mapData?.space_theme}
+                editMode={editMode}
                 onLocationClick={handleLocationClick}
                 onLocationDragEnd={handleDragEnd}
                 onPortalClick={handlePortalClick}
@@ -901,6 +917,15 @@ export default function MapPage() {
               >
                 <RefreshCw className={cn("h-3 w-3 mr-1", rebuilding && "animate-spin")} />
                 {rebuilding ? "重绘中..." : "智能重绘"}
+              </Button>
+              <Button
+                variant={editMode ? "default" : "outline"}
+                size="xs"
+                onClick={() => setEditMode(prev => !prev)}
+                className={editMode ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
+                title="切换编辑模式 (E)"
+              >
+                {editMode ? "✏️ 编辑中" : "🔒 查看"}
               </Button>
               <Button
                 variant="outline"
