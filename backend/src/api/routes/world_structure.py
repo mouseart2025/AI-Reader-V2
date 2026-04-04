@@ -1091,15 +1091,13 @@ async def rebuild_hierarchy_v2(novel_id: str):
             # Build orchestrator with full skill pipeline
             orch = GeoOrchestrator(novel_id)
             # Incremental pipeline: respect LLM extraction + targeted fixes
-            # (no SkeletonClassifier/VoteResolver/Consolidator — they degrade quality)
+            # Lean pipeline: no LLM dependencies, completes in <1s
+            # (SkeletonClassifier/VoteResolver/Consolidator/ReviewerSkill removed —
+            #  incremental Edmonds preserves LLM extraction quality, no need to re-review)
             orch.add_skill("tier", TierClassifier(novel_id))
             orch.add_skill("votes", VoteBuilder(novel_id))
             orch.add_skill("prior", KnowledgePrior(novel_title=title))
             orch.add_skill("edmonds", EdmondsResolver())
-            # Optional: LLM review (may timeout, graceful failure)
-            orch.add_skill("review", ReviewerSkill(
-                novel_title=title,
-            ))
 
             # Run pipeline, convert ProgressEvents to SSE
             async for event in orch.run():
