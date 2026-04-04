@@ -90,6 +90,7 @@ class SkillResult:
     error_message: str = ""
     duration_ms: int = 0
     llm_calls: int = 0
+    logs: list[str] = field(default_factory=list)  # sub-step progress messages
 
     # Paper metrics delta (computed by evaluator)
     metrics_before: dict | None = None

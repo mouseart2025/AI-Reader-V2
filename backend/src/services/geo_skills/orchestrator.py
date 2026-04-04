@@ -133,6 +133,10 @@ class GeoOrchestrator:
                 "root_count": metrics.root_count,
             }
 
+            # Emit sub-step logs (if skill provided them)
+            for log_msg in result.logs:
+                yield ProgressEvent(tag, f"  {log_msg}")
+
             # Format duration
             dur = f"{result.duration_ms}ms" if result.duration_ms < 1000 else f"{result.duration_ms/1000:.1f}s"
             yield ProgressEvent(
