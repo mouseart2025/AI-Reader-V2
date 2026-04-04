@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.67.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.67.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
