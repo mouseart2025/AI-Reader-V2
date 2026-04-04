@@ -2928,9 +2928,14 @@ def generate_terrain(
     scale_y = img_h / canvas_height
 
     # ── Classify location influence points ──
-    _MOUNTAIN_KW = ("山", "峰", "岭", "崖", "岩", "高", "丘")
-    _WATER_KW = ("河", "湖", "海", "泉", "潭", "溪", "池", "港", "江", "洋", "水")
-    _FOREST_KW = ("林", "园", "苑", "圃", "庄", "村")
+    # v0.67.1: Use name SUFFIX matching (endswith) instead of substring (in)
+    # to avoid false positives like 水帘洞→water, 城池→water, 南海普陀山→water.
+    # Type and icon still use substring matching (they are more reliable).
+    _MOUNTAIN_SUFFIXES = ("山", "峰", "岭", "崖", "岩", "丘")
+    _WATER_SUFFIXES = ("河", "湖", "海", "泉", "潭", "溪", "江", "洋")
+    _FOREST_SUFFIXES = ("林", "苑", "圃")
+    # These are checked against type+icon only (not name) to avoid false positives
+    _WATER_TYPE_KW = ("河", "湖", "海", "泉", "潭", "溪", "池", "港", "江", "洋", "水")
 
     mountain_pts: list[tuple[float, float]] = []
     water_pts: list[tuple[float, float]] = []
@@ -2945,12 +2950,19 @@ def generate_terrain(
         py = (canvas_height - y) * scale_y
         loc_type = loc.get("type", "")
         icon = loc.get("icon", "")
-        combined = name + loc_type + icon
-        if any(k in combined for k in _MOUNTAIN_KW) or icon == "mountain":
+        type_icon = loc_type + icon
+        # Mountain: name ends with mountain suffix OR type/icon says mountain
+        if any(name.endswith(s) for s in _MOUNTAIN_SUFFIXES) or icon == "mountain" or \
+           any(k in type_icon for k in _MOUNTAIN_SUFFIXES):
             mountain_pts.append((px, py))
-        if any(k in combined for k in _WATER_KW) or icon in ("water", "island"):
+        # Water: name ends with water suffix OR type/icon says water
+        # (NOT substring match on name — avoids 水帘洞, 城池, etc.)
+        if any(name.endswith(s) for s in _WATER_SUFFIXES) or icon in ("water", "island") or \
+           any(k in type_icon for k in _WATER_TYPE_KW):
             water_pts.append((px, py))
-        if any(k in combined for k in _FOREST_KW) or icon == "forest":
+        # Forest: name ends with forest suffix OR type/icon says forest
+        if any(name.endswith(s) for s in _FOREST_SUFFIXES) or icon == "forest" or \
+           any(k in type_icon for k in _FOREST_SUFFIXES):
             forest_pts.append((px, py))
 
     # ── Noise generators ──
