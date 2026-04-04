@@ -4,7 +4,10 @@ import {
   fetchWorldStructure,
   fetchWorldStructureOverrides,
   saveWorldStructureOverrides,
+  fetchEntityProfile,
 } from "@/api/client"
+import type { LocationProfile } from "@/api/types"
+import { LocationCard } from "@/components/entity-cards/LocationCard"
 import type {
   OverrideType,
   WorldStructureData,
@@ -331,6 +334,7 @@ export function WorldStructureEditor({
                 onDeleteOverride={handleDeleteOverride}
                 onClose={() => setSelectedLocation(null)}
                 expanded
+                novelId={novelId}
               />
             </div>
           )}
@@ -611,6 +615,7 @@ function DetailPanel({
   onDeleteOverride,
   onClose,
   expanded,
+  novelId,
 }: {
   locationName: string
   ws: WorldStructureData
@@ -620,6 +625,7 @@ function DetailPanel({
   onDeleteOverride: (id: number) => void
   onClose: () => void
   expanded?: boolean
+  novelId?: string
 }) {
   const currentParent =
     (pendingChanges.get(`parent:${locationName}`)?.json?.parent as string) ??
@@ -677,14 +683,17 @@ function DetailPanel({
     return chain.reverse()
   }, [ws.location_parents, locationName])
 
-  // Count children
-  const childLocations = useMemo(() => {
-    const children: string[] = []
-    for (const [child, parent] of Object.entries(ws.location_parents ?? {})) {
-      if (parent === locationName) children.push(child)
-    }
-    return children.sort()
-  }, [ws.location_parents, locationName])
+  // Load full location profile for expanded card
+  const [locationProfile, setLocationProfile] = useState<LocationProfile | null>(null)
+  useEffect(() => {
+    if (!expanded || !locationName || !novelId) return
+    let cancelled = false
+    setLocationProfile(null)
+    fetchEntityProfile(novelId, locationName, "location").then((data) => {
+      if (!cancelled && data) setLocationProfile(data as unknown as LocationProfile)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [expanded, locationName, novelId])
 
   return (
     <div className={cn(
@@ -700,37 +709,25 @@ function DetailPanel({
         </Button>
       </div>
 
-      {/* Location info (only in expanded mode) */}
+      {/* Location full card (only in expanded mode) */}
       {expanded && (
-        <div className="space-y-3 text-xs text-muted-foreground">
-          {/* Parent chain */}
-          <div>
-            <span className="text-[10px] text-muted-foreground/70">层级链: </span>
-            <span>{parentChain.length > 0 ? parentChain.join(" > ") + " > " : ""}{locationName}</span>
+        <div className="space-y-2">
+          {/* Compact chain */}
+          <div className="text-[10px] text-muted-foreground">
+            {parentChain.length > 0 ? parentChain.join(" > ") + " > " : ""}<span className="text-foreground">{locationName}</span>
           </div>
 
-          {/* Tier + frequency */}
-          <div className="flex gap-3">
-            <span className="px-1.5 py-0.5 rounded bg-muted text-[10px]">
-              {TIER_LABELS[currentTier] ?? currentTier}
-            </span>
-          </div>
-
-          {/* Children */}
-          {childLocations.length > 0 && (
-            <div>
-              <span className="text-[10px] text-muted-foreground/70">
-                子地点 ({childLocations.length}):
-              </span>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {childLocations.slice(0, 12).map((c) => (
-                  <span key={c} className="px-1.5 py-0.5 rounded bg-muted text-[10px]">{c}</span>
-                ))}
-                {childLocations.length > 12 && (
-                  <span className="text-[10px] text-muted-foreground">+{childLocations.length - 12}</span>
-                )}
-              </div>
+          {/* Full LocationCard from API */}
+          {locationProfile ? (
+            <div className="border rounded-md p-2 max-h-[400px] overflow-y-auto">
+              <LocationCard
+                profile={locationProfile}
+                onEntityClick={() => {}}
+                novelId={novelId}
+              />
             </div>
+          ) : (
+            <div className="text-xs text-muted-foreground py-4 text-center">加载地点信息...</div>
           )}
 
           <hr className="border-border" />
