@@ -509,7 +509,7 @@ export function rebuildHierarchy(
   onProgress?: (message: string) => void,
 ): Promise<HierarchyRebuildResult> {
   return new Promise((resolve, reject) => {
-    fetch(`${getBase()}/novels/${novelId}/world-structure/rebuild-hierarchy`, {
+    fetch(`${getBase()}/novels/${novelId}/world-structure/rebuild-hierarchy-v2`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })

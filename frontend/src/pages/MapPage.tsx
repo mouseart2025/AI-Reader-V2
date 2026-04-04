@@ -878,25 +878,16 @@ export default function MapPage() {
                   if (!novelId || rebuilding) return
                   setRebuilding(true)
                   try {
-                    // Step 1: Rebuild hierarchy
+                    // Step 1: Rebuild hierarchy (v2 — auto-applies via GeoOrchestrator)
                     setRebuildProgress("层级重建中...")
-                    const res = await rebuildHierarchy(novelId, (msg) => setRebuildProgress(`层级: ${msg}`))
-                    // Auto-apply hierarchy changes
-                    if (res.changes.length > 0) {
-                      setRebuildProgress("应用层级变更...")
-                      const autoSelected = res.changes.filter(c => c.auto_select)
-                      if (autoSelected.length > 0) {
-                        await applyHierarchyChanges(novelId, autoSelected, res.location_tiers)
-                      }
-                    }
+                    await rebuildHierarchy(novelId, (msg) => setRebuildProgress(`层级: ${msg}`))
                     // Step 2: Spatial completion
                     setRebuildProgress("空间补全中...")
                     const compRes = await spatialCompletion(novelId, (msg) => setRebuildProgress(`补全: ${msg}`))
                     // Step 3: Reload map
                     setRebuildProgress("重新加载地图...")
                     setReloadTrigger(t => t + 1)
-                    const total = (res.changes.length > 0 ? `${res.changes.length} 层级变更` : "层级无变化")
-                      + `, ${compRes.relations_added} 空间关系`
+                    const total = `层级已优化 (Edmonds), ${compRes.relations_added} 空间关系`
                     setToast(`智能重绘完成: ${total}`)
                     setTimeout(() => setToast(null), 6000)
                   } catch (e) {
