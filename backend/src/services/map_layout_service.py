@@ -1922,8 +1922,9 @@ class ConstraintSolver:
                 golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
                 frac = (idx + 0.5) / n_children  # 0..1
                 # Adaptive radius: scale with sqrt(n_children) for better spread
-                adaptive_r = base_jitter * max(1.0, math.sqrt(n_children / 5))
-                max_r = min(canvas_w, canvas_h) * 0.3
+                # v0.68: tighter spread to keep children near parent (was 0.3 max → 0.12)
+                adaptive_r = base_jitter * max(0.6, math.sqrt(n_children / 8))
+                max_r = min(canvas_w, canvas_h) * 0.12
                 adaptive_r = min(adaptive_r, max_r)
                 r = adaptive_r * (0.3 + 0.7 * math.sqrt(frac)) + 8 * loc.get("level", 0)
                 angle = idx * golden_angle
@@ -3206,7 +3207,8 @@ def place_unresolved_near_neighbors(
         # Golden-angle circular scatter around anchor
         ax, ay = anchor
         jitter_angle = orphan_idx * 2.4  # golden angle ≈ 137.5°
-        jitter_r = base_jitter + base_jitter * 0.3 * (orphan_idx % 8)
+        # v0.68: tighter scatter to keep unresolved near their anchor
+        jitter_r = base_jitter * 0.5 + base_jitter * 0.2 * (orphan_idx % 8)
         x = ax + jitter_r * math.cos(jitter_angle)
         y = ay + jitter_r * math.sin(jitter_angle)
         x = max(50, min(canvas_w - 50, x))
