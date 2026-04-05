@@ -188,6 +188,12 @@ class GeoOrchestrator:
         ws.location_tiers = dict(snapshot.location_tiers)
         await world_structure_store.save(self.novel_id, ws)
 
+        # Invalidate map cache after hierarchy change
+        from src.services.visualization_service import _map_cache
+        keys_to_remove = [k for k in _map_cache if k.startswith(self.novel_id)]
+        for k in keys_to_remove:
+            del _map_cache[k]
+
         metrics = HierarchyMetrics.compute(snapshot)
         return {
             "version": snapshot.version,

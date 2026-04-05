@@ -714,10 +714,20 @@ def _enhance_constraints(
     return spatial_constraints
 
 
+_map_cache: dict[str, tuple[float, dict]] = {}  # key → (timestamp, data)
+_MAP_CACHE_TTL = 300  # 5 minutes
+
 async def get_map_data(
     novel_id: str, chapter_start: int, chapter_end: int,
     layer_id: str | None = None,
 ) -> dict:
+    import time as _time
+    cache_key = f"{novel_id}:{chapter_start}:{chapter_end}:{layer_id or ''}"
+    if cache_key in _map_cache:
+        ts, cached = _map_cache[cache_key]
+        if _time.time() - ts < _MAP_CACHE_TTL:
+            return cached
+
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
 
     loc_info: dict[str, dict] = {}
@@ -1504,6 +1514,8 @@ async def get_map_data(
         result["world_structure"] = ws_summary
         result["layer_layouts"] = layer_layouts
 
+    # Cache result
+    _map_cache[cache_key] = (_time.time(), result)
     return result
 
 
