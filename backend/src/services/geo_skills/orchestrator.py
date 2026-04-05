@@ -186,6 +186,38 @@ class GeoOrchestrator:
         old_parents = len(ws.location_parents)
         ws.location_parents = dict(snapshot.location_parents)
         ws.location_tiers = dict(snapshot.location_tiers)
+
+        # ── Re-detect layers after parent changes ──
+        # Parent changes may invalidate old layer propagation (e.g., a location
+        # was under 天庭→celestial but is now under 傲来国→overworld).
+        # Reset all non-keyword-detected layers to overworld, then re-propagate.
+        from src.services.world_structure_agent import WorldStructureAgent
+        agent = WorldStructureAgent(self.novel_id)
+        agent.structure = ws
+
+        # Step 1: Reset all layers to overworld
+        for loc_name in list(ws.location_layer_map.keys()):
+            ws.location_layer_map[loc_name] = "overworld"
+
+        # Step 2: Re-detect layers from keywords
+        for loc_name in ws.location_tiers:
+            detected = agent._detect_layer(loc_name, "")
+            if detected:
+                agent._ensure_layer_exists(detected)
+                ws.location_layer_map[loc_name] = detected
+
+        # Step 3: Re-propagate from parents (child inherits parent's non-overworld layer)
+        for _ in range(5):
+            changed = False
+            for child, parent in ws.location_parents.items():
+                p_layer = ws.location_layer_map.get(parent, "overworld")
+                c_layer = ws.location_layer_map.get(child, "overworld")
+                if p_layer != "overworld" and c_layer == "overworld":
+                    ws.location_layer_map[child] = p_layer
+                    changed = True
+            if not changed:
+                break
+
         await world_structure_store.save(self.novel_id, ws)
 
         # Invalidate map cache after hierarchy change
