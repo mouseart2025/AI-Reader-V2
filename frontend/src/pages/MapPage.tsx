@@ -264,7 +264,9 @@ export default function MapPage() {
 
     for (const loc of afterMention) {
       const tier = loc.tier ?? "city"
-      if (!skipCollapse && COLLAPSED_TIERS.has(tier) && loc.parent && !expandedNodes.has(loc.parent)) {
+      // v0.68: Never collapse high-frequency locations (core landmarks)
+      const isCoreLandmark = loc.mention_count >= 8
+      if (!skipCollapse && !isCoreLandmark && COLLAPSED_TIERS.has(tier) && loc.parent && !expandedNodes.has(loc.parent)) {
         // Collapsed — count it under its parent
         childCount.set(loc.parent, (childCount.get(loc.parent) ?? 0) + 1)
       } else {

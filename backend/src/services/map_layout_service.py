@@ -3683,8 +3683,9 @@ def generate_landmasses(
     median_nn_grid = median_nn / cell_size
     # Generous threshold: merge nearby clusters into larger continents.
     # Higher k_factor = larger landmasses, fewer isolated islands.
-    k_factor = min(4.0, 1.5 + 0.5 * math.log2(max(2, n)))
-    #   n=3→k=2.3, n=10→k=3.2, n=100→k=3.8, n=200→k=4.0
+    # v0.68: raised cap from 4.0→5.5 to compensate for tighter child spread
+    k_factor = min(5.5, 1.8 + 0.6 * math.log2(max(2, n)))
+    #   n=3→k=2.7, n=10→k=3.8, n=100→k=5.2, n=200→k=5.5
     threshold = median_nn_grid * k_factor
 
     # Content-driven adjustment (ocean ratio — only actual seas count)
@@ -3692,9 +3693,10 @@ def generate_landmasses(
     ocean_ratio = ocean_count / max(1, n)
     threshold *= max(0.6, 1.0 - ocean_ratio * 0.4)
 
-    # Minimum landmass coverage guarantee (25% of canvas)
+    # Minimum landmass coverage guarantee (35% of canvas)
+    # v0.68: raised from 25%→35% to ensure dense location clusters form connected land
     canvas_area_grid = grid_w * grid_h
-    min_area = canvas_area_grid * 0.25
+    min_area = canvas_area_grid * 0.35
     min_threshold = math.sqrt(min_area / math.pi)
     threshold = max(threshold, min_threshold)
 
