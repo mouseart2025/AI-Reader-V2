@@ -1,0 +1,61 @@
+{
+  "_description": "Tier分类规则 - C类校验。基于中文地名后缀+上下文的tier推断",
+  "_source": "西游记 errata 2026-04-05 + 人工推导",
+  "suffix_rules": {
+    "_desc": "后缀→tier 规则（优先级：越特殊的越靠前）",
+    "县": {"tier": "city", "notes": "行政区划，不应为region"},
+    "郡": {"tier": "city", "notes": "行政区划，不应为region"},
+    "州": {"tier": "city", "notes": "州为城级(宋/明清/封神)；三国/fantasy→kingdom(省级)。朝代感知动态覆盖"},
+    "府": {"tier": "city", "notes": "府通常为州/城级；但 XX府邸/XX人名府 → site"},
+    "国": {"tier": "kingdom", "notes": "标准国家级"},
+    "洲": {"tier": "continent", "notes": "大陆级"},
+    "界": {"tier": "realm_or_region", "notes": "天界/冥界=realm；XX界（如山界/流沙河界）=region，不应独立为city"},
+    "殿": {"tier": "building", "notes": "单体建筑"},
+    "宫": {"tier": "site", "notes": "宫殿群；但天宫/龙宫可能是更高级别"},
+    "寺": {"tier": "site", "notes": "寺庙群"},
+    "观": {"tier": "site", "notes": "道观"},
+    "庙": {"tier": "site", "notes": "小庙"},
+    "洞": {"tier": "site", "notes": "洞穴"},
+    "山": {"tier": "region", "notes": "山区"},
+    "岭": {"tier": "region", "notes": "山岭"},
+    "河": {"tier": "region", "notes": "河流"},
+    "江": {"tier": "region", "notes": "江河"},
+    "海": {"tier": "region", "notes": "海域"},
+    "湖": {"tier": "region", "notes": "湖泊"},
+    "林": {"tier": "region", "notes": "森林"},
+    "城": {"tier": "city", "notes": "城市"},
+    "镇": {"tier": "city", "notes": "城镇"},
+    "市": {"tier": "city", "notes": "市集/城市，不应为kingdom"},
+    "村": {"tier": "site", "notes": "村庄"},
+    "庄": {"tier": "site", "notes": "庄园/村落"},
+    "门": {"tier": "building", "notes": "门"},
+    "楼": {"tier": "building", "notes": "楼阁"},
+    "亭": {"tier": "building", "notes": "亭子"},
+    "台": {"tier": "building", "notes": "台阁"},
+    "桥": {"tier": "building", "notes": "桥梁"}
+  },
+  "special_nodes": {
+    "_desc": "特殊节点 tier 覆盖（通过名称关键词识别）",
+    "realm_keywords": {
+      "tier": "realm",
+      "names": ["天庭", "天界", "仙界", "神界", "佛界", "魔界", "幽冥界", "冥界", "地府", "阎罗殿"],
+      "notes": "界域级别，应独立为 realm tier 或映射到层（layer）"
+    }
+  },
+  "compound_rules": {
+    "_desc": "复合规则：前缀+后缀组合判定",
+    "person_house": {
+      "_desc": "人名府/仙府/YY宅 → site",
+      "patterns": [".*大圣府$", ".*仙府$", ".*宅$", "魏征府", "齐天府"]
+    },
+    "generic_non_independent": {
+      "_desc": "X界/X境界 不应独立为 city，应归为父节点的 region extension",
+      "suffixes": ["界", "境界", "地界"]
+    }
+  },
+  "inversion_check": {
+    "_desc": "tier倒置检查：子节点 rank 不应 > 父节点 rank",
+    "rank_order": ["world", "realm", "continent", "kingdom", "city", "region", "site", "building"],
+    "_note": "rank小在前，父节点rank应≤子节点rank"
+  }
+}

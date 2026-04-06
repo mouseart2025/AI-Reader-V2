@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.67.2-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.69.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -125,6 +125,8 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.69.0 | 2026-04-06 | 朝代感知地名分类+原文上下文校验 — 三层校验方法论完整实现: Layer 2 朝代感知"州"分类(三国→kingdom/封神→city/红楼→city, era自动检测) + Layer 3 TextVerifier上下文提取(60字窗口snippet证据) + 上下文感知"府"分类(荣国府→site/大名府→city) + "X处"细分(贾母处→valid/鸳鸯自尽处→error) + 原文存在性校验(850K字<0.5s) + 5本小说gold标准(5941节点) + 407 tests |
+| v0.68.0 | 2026-04-05 | 地图渲染质量 — 大陆覆盖优化+核心地标不折叠+子地点分布收紧(海洋漂移修复)+智能重绘后层重检测+map布局缓存(5分钟TTL)+自动清缓存 |
 | v0.67.2 | 2026-04-05 | 增量Edmonds重构+编辑器双栏布局+智能重绘秒级完成 — Edmonds从全量重建改为增量修复(golden_P 59%→97%)+名字包含规则(306修正)+编辑模式开关+双栏详情卡片+父级搜索选择器+标记无效地点+进度对话框+管线精简(LLM依赖移除,<1s完成)+352 tests |
 | v0.67.0 | 2026-04-03 | 地点层级质量跃迁 — Geographic Agent Skill 架构 + Edmonds全局最优树算法(McDonald 2005) + 领域知识先验注入 — 将层级构建建模为"最大权有向生成树"组合优化问题，用Chu-Liu/Edmonds算法130ms求解(替代5-10min LLM依赖) + 不可变快照版本链(回滚/A-B对比) + 西游记144条黄金标准 — golden_P 40%→97% + avg_depth 2.78→3.13 + max_children 103→39 + 智谱GLM兼容性修复 + 352 tests |
 | v0.66.0 | 2026-03-30 | AliasResolver重构 — Canonical选名(3字全名优先+频率fallback+绰号降权) + 防桥接(相似名阻断+归属冲突检测扩展+集体引用blocklist) + 阅读页per-chapter上下文高亮 — 核心人物canonical 0%→84%(水浒35/35,红楼18/24,西游5/10) + 跨人物灾难合并消除(阮氏三兄弟独立,宝钗/凤姐独立) + 352 tests |

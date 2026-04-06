@@ -252,7 +252,20 @@ class EdmondsResolver(GeoSkill):
             len(base_parents), orphans_filled, cycles_broken,
         )
 
-        # ── Phase 4: Degree balancing ──
+        # ── Phase 4: Phantom parent lift (Phase 1b from errata analysis) ──
+        # 当父节点mention count极低但子节点爆炸, LLM倾向于幻觉地把附近地点
+        # 都归给这个弱证据锚点. 将零证据子节点上提到grandparent.
+        # 出自西游记 errata: 紫云山(mc=1)→27 kids, 黑风山(mc=2)→26 kids 等案例.
+        parents, phantoms_lifted = self._lift_phantom_parent_children(
+            parents, freq, uber_root
+        )
+        if phantoms_lifted:
+            logger.info(
+                "EdmondsResolver: lifted %d weak children from phantom parents",
+                phantoms_lifted,
+            )
+
+        # ── Phase 5: Degree balancing ──
         _MAX_CHILDREN = 30
         parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN)
 
@@ -270,6 +283,55 @@ class EdmondsResolver(GeoSkill):
             len(parents), max_ch, top[0][0] if top else "?",
         )
         return result
+
+    @staticmethod
+    def _lift_phantom_parent_children(
+        parents: dict[str, str],
+        freq: Counter,
+        uber_root: str,
+        phantom_mc_threshold: int = 2,
+        phantom_children_threshold: int = 10,
+        target_children: int = 9,
+    ) -> tuple[dict[str, str], int]:
+        """Lift zero-evidence children from low-mc high-child parents.
+
+        Algorithm:
+          1. Count children per parent
+          2. For each phantom parent (mc<=2, children>=10):
+             - Identify mc=0 children (no chapter evidence)
+             - Reparent them to grandparent (phantom's own parent)
+             - Stop when children_count reaches target_children
+        """
+        if not parents:
+            return parents, 0
+        children_by_parent: dict[str, list[str]] = {}
+        for child, parent in parents.items():
+            children_by_parent.setdefault(parent, []).append(child)
+
+        lifted = 0
+        new_parents = dict(parents)
+        for phantom, children in children_by_parent.items():
+            if phantom == uber_root:
+                continue
+            phantom_mc = freq.get(phantom, 0)
+            if phantom_mc > phantom_mc_threshold:
+                continue
+            if len(children) < phantom_children_threshold:
+                continue
+            grandparent = new_parents.get(phantom, uber_root) or uber_root
+            # Sort children by mc ascending (lift weakest first)
+            children_sorted = sorted(children, key=lambda c: (freq.get(c, 0), c))
+            remaining = len(children)
+            for c in children_sorted:
+                if remaining <= target_children:
+                    break
+                if freq.get(c, 0) > 0:
+                    # 有章节证据, 不上提
+                    continue
+                new_parents[c] = grandparent
+                lifted += 1
+                remaining -= 1
+        return new_parents, lifted
 
     @staticmethod
     def _find_uber_root(parents: dict[str, str]) -> str | None:

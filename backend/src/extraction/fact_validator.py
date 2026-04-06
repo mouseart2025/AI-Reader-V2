@@ -306,6 +306,42 @@ _GENERIC_FACILITY_NAMES = frozenset({
     "教室",
 })
 
+# ---------------------------------------------------------------------------
+# Extended directional/relative phrases (Phase 1b, from errata KB)
+# 方位词/相对方位词 - 从西游记 errata 收集的 A-方位泛称 类别
+# ---------------------------------------------------------------------------
+_DIRECTIONAL_RELATIVE_PHRASES = frozenset({
+    # 四面八方
+    "东方", "西方", "南方", "北方",
+    "东南", "东北", "西南", "西北",
+    "正东", "正西", "正南", "正北",
+    "正南方", "正北方", "正东方", "正西方",
+    "东边", "西边", "南边", "北边",
+    # 山川相对位置
+    "山中", "山下", "山上", "山后", "山前", "山顶", "山脚", "山背后",
+    "洞中", "洞内", "洞外", "洞口", "洞前", "洞后",
+    "城东", "城西", "城南", "城北", "城中", "城内", "城外",
+    # 天地水中
+    "天上", "云端", "云中", "云上", "九霄", "九霄云", "九霄空", "霄汉",
+    "波中", "水底", "海藏中", "涧底", "崖边",
+    # 泛称
+    "凡间", "当空", "正中", "正上", "正下",
+})
+
+# 佛道概念词 - A-概念非地名
+_BUDDHIST_CONCEPTS = frozenset({
+    "人道", "仙道", "贵道", "神道", "鬼道", "畜生道",
+    "饿鬼道", "地狱道", "天道", "修罗道",
+    "六道", "三界",
+    "五仙", "五虫",
+})
+
+# 描述性短语后缀 - A-描述性短语
+_DESCRIPTIVE_SUFFIXES = ("之处", "所在", "所在处", "之地")
+
+# 人物称号后缀 - A-非地名
+_PERSON_TITLE_SUFFIXES = ("大王", "大圣", "大仙", "真人", "娘娘", "天尊", "帝君")
+
 # Hardcoded fallback blocklist — catches common cases the rules might miss
 _FALLBACK_GEO_BLOCKLIST = frozenset({
     "外面", "里面", "前方", "后方", "旁边", "附近", "远处", "近处",
@@ -702,6 +738,29 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     if name in _FALLBACK_GEO_BLOCKLIST:
         return "fallback blocklist"
 
+    # Rule 4b-bis: Directional/relative phrases (A-方位泛称 from errata KB)
+    if name in _DIRECTIONAL_RELATIVE_PHRASES:
+        return "directional/relative phrase"
+
+    # Rule 4b-ter: Buddhist/Daoist concepts (A-概念非地名)
+    if name in _BUDDHIST_CONCEPTS:
+        return "buddhist concept"
+
+    # Rule 4b-quater: Descriptive phrases ending with "处/之处/所在/之地"
+    # "三藏被擒处", "王夫人处" 类描述短语
+    if n >= 2 and name.endswith("处") and not name.endswith(("出处", "住处", "去处", "归处")):
+        # 过滤人名+处 / 动词+处 模式
+        # 保留有意义的地方名: 如"张家处"不算, 但"贾母处"算 (描述+人名开头)
+        return "descriptive phrase (X+处)"
+    if name.endswith(_DESCRIPTIVE_SUFFIXES):
+        return "descriptive phrase"
+
+    # Rule 4b-quinque: Person title suffixes (A-非地名 - people not places)
+    # "XX大王"/"XX大圣" 等人物称号
+    if n >= 3 and name.endswith(_PERSON_TITLE_SUFFIXES):
+        # 豁免: 历史君主 (如"秦始皇"类不会进地点提取), 以及明确地点后缀组合
+        return "person title, not location"
+
     # Rule 4c: Genre-specific facility filtering (v0.63.0 Story 4.1)
     # Fantasy/wuxia: allow expanded whitelist (洞天, 福地, 仙府 etc.)
     if genre in ("fantasy", "wuxia") and name in _FANTASY_LOCATION_WHITELIST:
@@ -985,11 +1044,28 @@ _CHAR_VARIANTS: dict[str, str] = {
 }
 
 
+# 已知专名的精确修正表 (exact-match, 不用字符级替换以避免误伤).
+# 源: 西游记 errata 人工标注. 这些名字LLM倾向于选同音字但与原文不符.
+_EXACT_NAME_CORRECTIONS: dict[str, str] = {
+    "南膳部洲": "南赡部洲",  # 四大部洲之一, 原文赡
+    "典膳所": "典赡所",      # 西游记原文用赡
+    "南瞻部洲": "南赡部洲",  # LLM另一种变体
+    "南赊部洲": "南赡部洲",  # 另一变体
+}
+
+
 def _normalize_char_variants(name: str) -> str:
     """Replace archaic/variant CJK characters with their standard equivalents."""
+    # 第一轮: 专名精确修正 (安全, 不会误伤)
+    if name in _EXACT_NAME_CORRECTIONS:
+        return _EXACT_NAME_CORRECTIONS[name]
+    # 第二轮: 字符级替换 (仅真正的archaic chars, 不含多义字如"膳")
     for old, new in _CHAR_VARIANTS.items():
         if old in name:
             name = name.replace(old, new)
+    # 第三轮: 替换后再次检查专名表 (处理"南膳部洲"→字符替换→"南赡部洲"重复匹配)
+    if name in _EXACT_NAME_CORRECTIONS:
+        return _EXACT_NAME_CORRECTIONS[name]
     return name
 
 

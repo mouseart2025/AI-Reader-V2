@@ -64,6 +64,47 @@ class TestGenericLocation:
         assert _is_generic_location("花果山") is None
         assert _is_generic_location("东胜神洲") is None
 
+    def test_directional_phrases_filtered(self):
+        """Phase 1b KB: 方位词/相对方位过滤 (A-方位泛称)."""
+        assert _is_generic_location("东方") is not None
+        assert _is_generic_location("正南方") is not None
+        assert _is_generic_location("云端") is not None
+        assert _is_generic_location("九霄空") is not None
+        assert _is_generic_location("城东") is not None
+        assert _is_generic_location("凡间") is not None
+
+    def test_buddhist_concepts_filtered(self):
+        """Phase 1b KB: 佛道概念 (A-概念非地名)."""
+        assert _is_generic_location("人道") is not None
+        assert _is_generic_location("仙道") is not None
+        assert _is_generic_location("五仙") is not None
+        assert _is_generic_location("五虫") is not None
+        assert _is_generic_location("六道") is not None
+
+    def test_descriptive_phrases_filtered(self):
+        """Phase 1b KB: 描述性短语 (A-描述性短语)."""
+        assert _is_generic_location("贾母处") is not None
+        assert _is_generic_location("王夫人处") is not None
+        assert _is_generic_location("三藏被擒处") is not None
+        assert _is_generic_location("张三之处") is not None
+
+    def test_descriptive_phrase_exemptions(self):
+        """合法 X+处 名词不应被过滤."""
+        assert _is_generic_location("出处") is None
+        assert _is_generic_location("住处") is None
+        assert _is_generic_location("去处") is None
+        assert _is_generic_location("归处") is None
+
+    def test_person_title_filtered(self):
+        """Phase 1b KB: 人物称号 (A-非地名)."""
+        assert _is_generic_location("牛魔大王") is not None
+        assert _is_generic_location("太白金星大仙") is not None
+
+    def test_residence_fu_kept(self):
+        """荣国府/宁国府等 residence 应保留."""
+        assert _is_generic_location("荣国府") is None
+        assert _is_generic_location("宁国府") is None
+
 
 # ── _is_generic_person tests ────────────────────────────────────
 
