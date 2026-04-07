@@ -128,6 +128,7 @@ def eval_topology(novel_id: str, novel_name: str) -> dict | None:
     golden_map = {
         "journey_to_west": "golden_standard_journey_to_west.json",
         "dream_of_red_chamber": "golden_standard_dream_of_red_chamber.json",
+        "water_margin": "golden_standard_water_margin.json",
     }
     golden_file = golden_map.get(novel_name)
     if not golden_file:

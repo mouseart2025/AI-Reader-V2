@@ -29,7 +29,7 @@ def compute_topology_metrics(
     for loc in golden_locations:
         name = loc.get("name", "")
         parent = loc.get("correct_parent")
-        if not name:
+        if not name or loc.get("tier") == "DELETE":
             continue
         if parent:
             golden_parents[name] = parent

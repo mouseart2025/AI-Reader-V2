@@ -218,6 +218,12 @@ class GeoOrchestrator:
             if not changed:
                 break
 
+        # Step 4: Inject virtual layer root nodes under uber_root
+        # Goal: 天下's children should be layer roots only, not a flat mix.
+        # For each non-overworld layer, re-parent its top-level locations under
+        # a layer root node (either an existing location or a virtual one).
+        self._inject_layer_roots(ws)
+
         await world_structure_store.save(self.novel_id, ws)
 
         # Invalidate map cache after hierarchy change
@@ -238,6 +244,101 @@ class GeoOrchestrator:
                 "root_count": metrics.root_count,
             },
         }
+
+    @staticmethod
+    def _inject_layer_roots(ws) -> None:
+        """Inject virtual layer root nodes so 天下's children are grouped by layer.
+
+        Before: 天下 → [东胜神洲, 天庭, 幽冥界, 庄院, ...] (flat mix)
+        After:  天下 → [主世界, 天界, 冥界/地府, 海底/龙宫]
+                主世界 → [东胜神洲, 西牛贺洲, ...]
+                天界 → [天庭, 离恨天, ...]
+
+        For each layer with locations:
+        1. Find the layer's display name from ws.layers
+        2. If an existing location matches that name, promote it as root
+        3. Otherwise create a virtual node
+        4. Re-parent all 天下-children in that layer under the root
+        """
+        parents = ws.location_parents
+        tiers = ws.location_tiers
+        layer_map = ws.location_layer_map
+
+        # Find uber_root (天下 or equivalent)
+        uber_root = None
+        for name, tier in tiers.items():
+            if tier == "world":
+                uber_root = name
+                break
+        if not uber_root:
+            # Fallback: find node with no parent that has most children
+            for name in tiers:
+                if name not in parents or not parents.get(name):
+                    uber_root = name
+                    break
+        if not uber_root:
+            return
+
+        # Phase A: Fix cross-layer parenting — locations whose parent is
+        # in a different layer should be detached to become layer top-level.
+        # e.g., 龙宫(underwater) parent=黑风山(overworld) → parent=uber_root
+        for child in list(parents.keys()):
+            parent = parents[child]
+            c_layer = layer_map.get(child, "overworld")
+            p_layer = layer_map.get(parent, "overworld")
+            if c_layer != "overworld" and p_layer != c_layer and parent != uber_root:
+                parents[child] = uber_root
+
+        # Collect uber_root's direct children, grouped by layer
+        children_by_layer: dict[str, list[str]] = {}
+        for child, parent in parents.items():
+            if parent == uber_root:
+                layer = layer_map.get(child, "overworld")
+                children_by_layer.setdefault(layer, []).append(child)
+
+        # Build layer_id → display name mapping from ws.layers
+        layer_names: dict[str, str] = {}
+        for layer_def in ws.layers:
+            if hasattr(layer_def, "layer_id"):
+                layer_names[layer_def.layer_id] = layer_def.name
+            elif isinstance(layer_def, dict):
+                layer_names[layer_def.get("layer_id", "")] = layer_def.get("name", "")
+
+        # For each layer (including overworld), create/find a root and re-parent
+        for layer_id, children in children_by_layer.items():
+            if len(children) <= 1:
+                continue  # single child → already clean
+
+            root_name = layer_names.get(layer_id, layer_id)
+
+            # Check if an existing child can serve as root
+            # (location name matches layer display name, or is the largest subtree)
+            existing_root = None
+            for c in children:
+                if c == root_name or c in root_name.split("/"):
+                    existing_root = c
+                    break
+
+            if existing_root:
+                # Use existing location as root — re-parent siblings under it
+                for c in children:
+                    if c != existing_root:
+                        parents[c] = existing_root
+                logger.info(
+                    "Layer root [%s]: %s (existing, %d children adopted)",
+                    layer_id, existing_root, len(children) - 1,
+                )
+            else:
+                # Create virtual node
+                parents[root_name] = uber_root
+                tiers[root_name] = "continent" if layer_id == "overworld" else "realm"
+                layer_map[root_name] = layer_id
+                for c in children:
+                    parents[c] = root_name
+                logger.info(
+                    "Layer root [%s]: %s (virtual, %d children)",
+                    layer_id, root_name, len(children),
+                )
 
     async def get_version_history(self) -> list[dict]:
         """Get version history with metrics for paper tracking."""

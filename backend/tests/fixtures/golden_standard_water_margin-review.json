@@ -1,0 +1,2048 @@
+{
+  "_meta": {
+    "novel": "water_margin",
+    "novel_title": "水浒传",
+    "annotation_rules": [
+      "correct_parent: 正确的直接上级地点 (不跳层)",
+      "tier: continent|kingdom|region|city|site|building",
+      "水浒传背景为宋代，'州'=city级别",
+      "只需纠正错误项，正确的保持不动",
+      "不确定的在 _note 中说明"
+    ],
+    "total_locations": 254
+  },
+  "locations": [
+    {
+      "name": "天下",
+      "mention_count": 36,
+      "children_count": 30,
+      "correct_parent": null,
+      "tier": "world",
+      "_note": ""
+    },
+    {
+      "name": "淮西",
+      "mention_count": 0,
+      "children_count": 5,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "王庆割据政权所在区域，下辖临淮州/南丰/荆南/云安/隆中山等"
+    },
+    {
+      "name": "辽国",
+      "mention_count": 6,
+      "children_count": 12,
+      "correct_parent": "天下",
+      "tier": "kingdom",
+      "_note": ""
+    },
+    {
+      "name": "官道",
+      "mention_count": 5,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称道路（大路）"
+    },
+    {
+      "name": "昭德府",
+      "mention_count": 3,
+      "children_count": 1,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "宋代府城，属河东路（今山西长治/潞安）"
+    },
+    {
+      "name": "代州",
+      "mention_count": 1,
+      "children_count": 6,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "宋代州级行政区，属河东路"
+    },
+    {
+      "name": "信州",
+      "mention_count": 1,
+      "children_count": 5,
+      "correct_parent": "天下",
+      "tier": "city",
+      "_note": "宋代州级行政区（今江西上饶），小说中属江西"
+    },
+    {
+      "name": "沂州",
+      "mention_count": 1,
+      "children_count": 7,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": "宋代州级行政区（今山东临沂）"
+    },
+    {
+      "name": "贺太守府",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "人物府邸名称，非独立地名，无法确认具体归属"
+    },
+    {
+      "name": "山东",
+      "mention_count": 69,
+      "children_count": 30,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": ""
+    },
+    {
+      "name": "京畿",
+      "mention_count": 58,
+      "children_count": 25,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": ""
+    },
+    {
+      "name": "梁山泊",
+      "mention_count": 53,
+      "children_count": 28,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "梁山泊是济州管下的水寨/山寨，但因其在小说中的核心地位和大量下属节点，保留为site级别。parent山东可接受"
+    },
+    {
+      "name": "河北",
+      "mention_count": 44,
+      "children_count": 30,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": ""
+    },
+    {
+      "name": "清风山",
+      "mention_count": 5,
+      "children_count": 6,
+      "correct_parent": "青州",
+      "tier": "site",
+      "_note": "清风山是青州地面的山寨"
+    },
+    {
+      "name": "华阴县",
+      "mention_count": 4,
+      "children_count": 0,
+      "correct_parent": "华州",
+      "tier": "city",
+      "_note": "华州华阴县，宋代县级行政区"
+    },
+    {
+      "name": "阳谷县",
+      "mention_count": 4,
+      "children_count": 11,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": "宋代县级行政区（东平府管辖）"
+    },
+    {
+      "name": "永清县",
+      "mention_count": 3,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "伊阙山",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": "西京",
+      "tier": "site",
+      "_note": "西京城南三十里外的山，原文明确"
+    },
+    {
+      "name": "大松林",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "site",
+      "_note": "松林，非行政区"
+    },
+    {
+      "name": "房山",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": "河北",
+      "tier": "site",
+      "_note": "山名"
+    },
+    {
+      "name": "扬子江",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": "天下",
+      "tier": "site",
+      "_note": "扬子江（长江）横跨多个区域，非河北所属，parent归天下"
+    },
+    {
+      "name": "沂水县",
+      "mention_count": 2,
+      "children_count": 8,
+      "correct_parent": "沂州",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "登云山",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "山名"
+    },
+    {
+      "name": "贵溪县",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "信州",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "赤松林",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "site",
+      "_note": "鲁智深剪径之处，位于去东京路上，非信州"
+    },
+    {
+      "name": "龙虎山",
+      "mention_count": 2,
+      "children_count": 9,
+      "correct_parent": "信州",
+      "tier": "site",
+      "_note": "山名，信州龙虎山"
+    },
+    {
+      "name": "中山",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "中山府，宋代河北路州府级（今河北定州）"
+    },
+    {
+      "name": "北邙山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "西京",
+      "tier": "site",
+      "_note": "北邙山属西京管下，原文明确"
+    },
+    {
+      "name": "南坪山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "代州",
+      "tier": "site",
+      "_note": "山名；原文中未找到此名，可能为误提取"
+    },
+    {
+      "name": "南山北岭",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称'南边的山北边的岭'"
+    },
+    {
+      "name": "后山",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "梁山泊",
+      "tier": "site",
+      "_note": "梁山泊后山，方位描述"
+    },
+    {
+      "name": "四望高山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，指'四面瞭望的高山'，泛称"
+    },
+    {
+      "name": "大伾山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "原文中未找到此名，可能为误提取"
+    },
+    {
+      "name": "太行山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "site",
+      "_note": "太行山横跨河北/河东，parent归河北可接受"
+    },
+    {
+      "name": "寿张县",
+      "mention_count": 1,
+      "children_count": 9,
+      "correct_parent": "济州",
+      "tier": "city",
+      "_note": "宋代县级行政区，济州管辖"
+    },
+    {
+      "name": "寿春县界",
+      "mention_count": 1,
+      "children_count": 10,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "县界（县境交界处），非行政区本身"
+    },
+    {
+      "name": "山左丛林",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，指'山左边的丛林'，方位描述"
+    },
+    {
+      "name": "嵩山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "site",
+      "_note": "山名"
+    },
+    {
+      "name": "文安县",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "方山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "盖州",
+      "tier": "site",
+      "_note": "盖州城外十里地名"
+    },
+    {
+      "name": "昌平县界",
+      "mention_count": 1,
+      "children_count": 7,
+      "correct_parent": "河北",
+      "tier": "site",
+      "_note": "县界（县境），非行政区本身"
+    },
+    {
+      "name": "松树林",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称松树林"
+    },
+    {
+      "name": "枪竿岭",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "代州",
+      "tier": "site",
+      "_note": "岭名"
+    },
+    {
+      "name": "树林",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称树林"
+    },
+    {
+      "name": "水泊",
+      "mention_count": 1,
+      "children_count": 10,
+      "correct_parent": "梁山泊",
+      "tier": "site",
+      "_note": "梁山水泊的简称，是梁山泊的水域部分"
+    },
+    {
+      "name": "汶上县",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "济州",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "沂岭",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "沂水县",
+      "tier": "site",
+      "_note": "岭名"
+    },
+    {
+      "name": "沙门岛",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "沙门岛是流放之地（今山东蓬莱附近），非贺太守府所属"
+    },
+    {
+      "name": "淮河",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "天下",
+      "tier": "site",
+      "_note": "淮河为大河流，横跨多区域，非沂州所属"
+    },
+    {
+      "name": "牛头山",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "东京",
+      "tier": "site",
+      "_note": "山名，东京附近"
+    },
+    {
+      "name": "独鹿山",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "site",
+      "_note": "山名"
+    },
+    {
+      "name": "祥符县",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "city",
+      "_note": "宋代县级行政区（东京辖县）"
+    },
+    {
+      "name": "芦苇泊",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称芦苇水泊"
+    },
+    {
+      "name": "芦苇荆棘林",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称芦苇荆棘丛"
+    },
+    {
+      "name": "茈谷",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "伊阙山",
+      "tier": "site",
+      "_note": "山谷名"
+    },
+    {
+      "name": "莱县",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "原文'禹州、载州、莱县三处是东京所属'，应归京畿"
+    },
+    {
+      "name": "蒲州解良县",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "蒲州解良县在河东（今山西运城），非沂州"
+    },
+    {
+      "name": "蔡河",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "site",
+      "_note": "河流名，东京附近"
+    },
+    {
+      "name": "长林",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称长林/树林"
+    },
+    {
+      "name": "陈留县",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "宋代县级行政区，近东京（今河南开封陈留），非梁山泊所属"
+    },
+    {
+      "name": "雁门县",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "代州",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "高岭",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "京畿",
+      "tier": "site",
+      "_note": "岭名"
+    },
+    {
+      "name": "东京",
+      "mention_count": 48,
+      "children_count": 30,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "济州",
+      "mention_count": 20,
+      "children_count": 21,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "山东济州",
+      "mention_count": 13,
+      "children_count": 16,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": "济州的带区域前缀写法，与62号济州重复，建议合并"
+    },
+    {
+      "name": "蓟州",
+      "mention_count": 13,
+      "children_count": 18,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "青州",
+      "mention_count": 10,
+      "children_count": 25,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "沧州",
+      "mention_count": 9,
+      "children_count": 14,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "北京大名府",
+      "mention_count": 8,
+      "children_count": 2,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "北京大名府在河北路"
+    },
+    {
+      "name": "大名府",
+      "mention_count": 8,
+      "children_count": 8,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "大名府在河北路"
+    },
+    {
+      "name": "孟州",
+      "mention_count": 7,
+      "children_count": 30,
+      "correct_parent": "河南",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "杭州",
+      "mention_count": 7,
+      "children_count": 7,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "润州",
+      "mention_count": 7,
+      "children_count": 8,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "睦州",
+      "mention_count": 7,
+      "children_count": 7,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "苏州",
+      "mention_count": 7,
+      "children_count": 7,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "宿太尉府",
+      "mention_count": 6,
+      "children_count": 4,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "宿太尉的府邸，建筑物"
+    },
+    {
+      "name": "幽州",
+      "mention_count": 6,
+      "children_count": 5,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "开封府",
+      "mention_count": 6,
+      "children_count": 4,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "开封府是东京的府衙（官署建筑）"
+    },
+    {
+      "name": "歙州",
+      "mention_count": 6,
+      "children_count": 7,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "江州",
+      "mention_count": 6,
+      "children_count": 28,
+      "correct_parent": "天下",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "盖州",
+      "mention_count": 6,
+      "children_count": 12,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "卫州",
+      "mention_count": 5,
+      "children_count": 5,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "原文'打破盖州，早晚便要攻打卫州'，卫州与盖州相邻，属河东/河北交界"
+    },
+    {
+      "name": "宛州",
+      "mention_count": 5,
+      "children_count": 2,
+      "correct_parent": "河南",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "檀州",
+      "mention_count": 5,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "泰安州",
+      "mention_count": 5,
+      "children_count": 10,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "西京",
+      "mention_count": 5,
+      "children_count": 3,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "霸州",
+      "mention_count": 5,
+      "children_count": 5,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "高太尉府",
+      "mention_count": 5,
+      "children_count": 30,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "高太尉的府邸，建筑物"
+    },
+    {
+      "name": "凌州",
+      "mention_count": 4,
+      "children_count": 13,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "北京",
+      "mention_count": 4,
+      "children_count": 3,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "北京大名府的简称，在河北路"
+    },
+    {
+      "name": "太尉府",
+      "mention_count": 4,
+      "children_count": 4,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "太尉府邸，建筑物"
+    },
+    {
+      "name": "太师府",
+      "mention_count": 4,
+      "children_count": 3,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "蔡太师府邸，建筑物"
+    },
+    {
+      "name": "常州",
+      "mention_count": 4,
+      "children_count": 9,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": "常州为方腊占据八州之一，属两浙"
+    },
+    {
+      "name": "昭德城",
+      "mention_count": 4,
+      "children_count": 14,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "昭德城即昭德府城，属河东"
+    },
+    {
+      "name": "浔阳江",
+      "mention_count": 4,
+      "children_count": 1,
+      "correct_parent": "江州",
+      "tier": "site",
+      "_note": "江河名，非行政区"
+    },
+    {
+      "name": "高唐州",
+      "mention_count": 4,
+      "children_count": 11,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "东平府",
+      "mention_count": 3,
+      "children_count": 3,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": "东平府在山东"
+    },
+    {
+      "name": "东昌府",
+      "mention_count": 3,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "威胜州",
+      "mention_count": 3,
+      "children_count": 0,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "宣州",
+      "mention_count": 3,
+      "children_count": 0,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": "宣州为方腊八州之一"
+    },
+    {
+      "name": "扬州",
+      "mention_count": 3,
+      "children_count": 3,
+      "correct_parent": "淮南",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "揭阳镇",
+      "mention_count": 3,
+      "children_count": 1,
+      "correct_parent": "江州",
+      "tier": "site",
+      "_note": "镇级，非城市级"
+    },
+    {
+      "name": "清风镇",
+      "mention_count": 3,
+      "children_count": 8,
+      "correct_parent": "青州",
+      "tier": "site",
+      "_note": "镇级"
+    },
+    {
+      "name": "湖州",
+      "mention_count": 3,
+      "children_count": 0,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": "湖州为方腊八州之一"
+    },
+    {
+      "name": "登州",
+      "mention_count": 3,
+      "children_count": 4,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": "原文'山东海边有个州郡，唤做登州'"
+    },
+    {
+      "name": "盖州城",
+      "mention_count": 3,
+      "children_count": 4,
+      "correct_parent": "盖州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "阳城",
+      "mention_count": 3,
+      "children_count": 0,
+      "correct_parent": "盖州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "华州",
+      "mention_count": 2,
+      "children_count": 9,
+      "correct_parent": "关西",
+      "tier": "city",
+      "_note": "华州在关西（陕西）"
+    },
+    {
+      "name": "双林镇",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "蓟州",
+      "tier": "site",
+      "_note": "镇级"
+    },
+    {
+      "name": "安山镇",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "镇级，东平府附近"
+    },
+    {
+      "name": "宛州城",
+      "mention_count": 2,
+      "children_count": 1,
+      "correct_parent": "宛州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "寇州",
+      "mention_count": 2,
+      "children_count": 1,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": "寇州在山东地面，非梁山泊管辖"
+    },
+    {
+      "name": "平望镇",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "两浙",
+      "tier": "site",
+      "_note": "平望镇在苏州/秀州附近（今吴江），非楚州"
+    },
+    {
+      "name": "房州",
+      "mention_count": 2,
+      "children_count": 7,
+      "correct_parent": "天下",
+      "tier": "city",
+      "_note": "房州在今湖北，非孟州管辖"
+    },
+    {
+      "name": "杭州城",
+      "mention_count": 2,
+      "children_count": 9,
+      "correct_parent": "杭州",
+      "tier": "city",
+      "_note": "杭州城是杭州的城池"
+    },
+    {
+      "name": "楚州",
+      "mention_count": 2,
+      "children_count": 6,
+      "correct_parent": "天下",
+      "tier": "city",
+      "_note": "楚州在淮南地区，非乌龙岭所属"
+    },
+    {
+      "name": "武冈镇",
+      "mention_count": 2,
+      "children_count": 5,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "镇级，梁山泊前往路上经过的镇"
+    },
+    {
+      "name": "汝宁州",
+      "mention_count": 2,
+      "children_count": 5,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "汝宁州在今河南驻马店，不属孟州"
+    },
+    {
+      "name": "济州城",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "济州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "涿州",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "涿州在河北路"
+    },
+    {
+      "name": "渭州",
+      "mention_count": 2,
+      "children_count": 9,
+      "correct_parent": "关西",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "秀州",
+      "mention_count": 2,
+      "children_count": 6,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "蓟州城",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "蓟州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "西京城",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "西京",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "越州",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": "越州在两浙"
+    },
+    {
+      "name": "陈州",
+      "mention_count": 2,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "陈州在京畿地区"
+    },
+    {
+      "name": "陕州",
+      "mention_count": 2,
+      "children_count": 6,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "陕州在西京管下，原文'该配西京管下陕州牢城'"
+    },
+    {
+      "name": "颖州",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "颖州在今安徽阜阳，宋代属京畿路；'安徽'非小说用语"
+    },
+    {
+      "name": "东京开封府",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "东城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "盖州城",
+      "tier": "site",
+      "_note": "方位名（城的东面），非独立行政区"
+    },
+    {
+      "name": "临淮州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "淮西",
+      "tier": "city",
+      "_note": "临淮州在淮西，非少华山管辖"
+    },
+    {
+      "name": "凌州城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "凌州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "北京城",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "北京",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "华州城",
+      "mention_count": 1,
+      "children_count": 2,
+      "correct_parent": "华州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "南城",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "盖州城",
+      "tier": "site",
+      "_note": "方位名（城的南面），非独立行政区"
+    },
+    {
+      "name": "南州城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "孟州",
+      "tier": "city",
+      "_note": "不确定，可能为误提取或笔误"
+    },
+    {
+      "name": "博浪城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "蓟州",
+      "tier": "site",
+      "_note": "石牌坊上的地名，小地方"
+    },
+    {
+      "name": "吴江",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "两浙",
+      "tier": "city",
+      "_note": "吴江在苏州/秀州附近（今江苏），非江州"
+    },
+    {
+      "name": "唐州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "原文中所有'唐州'实为'高唐州'的误切分"
+    },
+    {
+      "name": "太原县城",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "太原在河东"
+    },
+    {
+      "name": "孟州城",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "孟州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "宛子城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "梁山泊",
+      "tier": "site",
+      "_note": "梁山泊内的小城（蓼儿洼附近）"
+    },
+    {
+      "name": "山东泰安州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "嵩州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "幽州城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "幽州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "房州城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "房州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "村镇",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称'村镇'"
+    },
+    {
+      "name": "歙州城",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "歙州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "汝州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "汝州在京畿/河南"
+    },
+    {
+      "name": "汤镇",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "杭州",
+      "tier": "site",
+      "_note": "镇级"
+    },
+    {
+      "name": "汴梁城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "洳州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "润州城",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "润州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "清河镇",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "杭州",
+      "tier": "site",
+      "_note": "原文'杭州旧宋以前唤做清河镇'，是杭州旧名"
+    },
+    {
+      "name": "滕州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "瑞龙镇",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "青州",
+      "tier": "site",
+      "_note": "镇级"
+    },
+    {
+      "name": "睢州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "睦州城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "睦州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "禹州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "苏州城",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "苏州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "荆门镇",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": "镇级，梁山泊附近但非其下属"
+    },
+    {
+      "name": "许州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "载州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "邓州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "邺城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": "邺城在河北（今河北临漳），非贺太守府所属"
+    },
+    {
+      "name": "郑州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "郓城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "济州",
+      "tier": "city",
+      "_note": "统一用济州作为parent"
+    },
+    {
+      "name": "郓州",
+      "mention_count": 1,
+      "children_count": 10,
+      "correct_parent": "山东",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "阳翟州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "阳翟州在京畿路"
+    },
+    {
+      "name": "陕州城",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "陕州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "雄州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "河北",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "青州城",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "青州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "颖昌州",
+      "mention_count": 1,
+      "children_count": 0,
+      "correct_parent": "京畿",
+      "tier": "city",
+      "_note": "颖昌州在京畿路"
+    },
+    {
+      "name": "高唐州城",
+      "mention_count": 1,
+      "children_count": 1,
+      "correct_parent": "高唐州",
+      "tier": "city",
+      "_note": ""
+    },
+    {
+      "name": "江南",
+      "mention_count": 25,
+      "children_count": 15,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "江南是大区域名（方腊地盘），应为region级"
+    },
+    {
+      "name": "金沙滩",
+      "mention_count": 25,
+      "children_count": 2,
+      "correct_parent": "梁山泊",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "河南",
+      "mention_count": 22,
+      "children_count": 11,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "河南是大区域名"
+    },
+    {
+      "name": "关西",
+      "mention_count": 21,
+      "children_count": 6,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "关西是大区域名（陕西）"
+    },
+    {
+      "name": "郓城县",
+      "mention_count": 15,
+      "children_count": 15,
+      "correct_parent": "济州",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "江西",
+      "mention_count": 9,
+      "children_count": 0,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "江西是大区域名"
+    },
+    {
+      "name": "二龙山",
+      "mention_count": 7,
+      "children_count": 2,
+      "correct_parent": "青州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "吊桥",
+      "mention_count": 7,
+      "children_count": 1,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，城门设施（吊桥），在多个城池都出现"
+    },
+    {
+      "name": "州衙",
+      "mention_count": 7,
+      "children_count": 0,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非特定地名，泛称'州衙'，在渭州/沧州等多处出现"
+    },
+    {
+      "name": "殿帅府",
+      "mention_count": 7,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "殿帅府在东京，高俅的官署"
+    },
+    {
+      "name": "济州州衙",
+      "mention_count": 7,
+      "children_count": 1,
+      "correct_parent": "济州",
+      "tier": "building",
+      "_note": "济州的官衙"
+    },
+    {
+      "name": "陈桥驿",
+      "mention_count": 7,
+      "children_count": 1,
+      "correct_parent": "京畿",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "三关",
+      "mention_count": 5,
+      "children_count": 3,
+      "correct_parent": "梁山泊",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "南丰",
+      "mention_count": 5,
+      "children_count": 4,
+      "correct_parent": "淮西",
+      "tier": "city",
+      "_note": "南丰府，王庆占据的八军州之一"
+    },
+    {
+      "name": "宝珠寺",
+      "mention_count": 5,
+      "children_count": 0,
+      "correct_parent": "二龙山",
+      "tier": "building",
+      "_note": "寺庙=建筑"
+    },
+    {
+      "name": "岳庙",
+      "mention_count": 5,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "酸枣门外岳庙，在东京，非高太尉府"
+    },
+    {
+      "name": "桃花山",
+      "mention_count": 5,
+      "children_count": 4,
+      "correct_parent": "青州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "济州大牢",
+      "mention_count": 5,
+      "children_count": 0,
+      "correct_parent": "济州",
+      "tier": "building",
+      "_note": "牢狱=建筑"
+    },
+    {
+      "name": "清溪县",
+      "mention_count": 5,
+      "children_count": 4,
+      "correct_parent": "睦州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "荆南",
+      "mention_count": 5,
+      "children_count": 7,
+      "correct_parent": "淮西",
+      "tier": "city",
+      "_note": "荆南为王庆八军州之一"
+    },
+    {
+      "name": "郓城县衙",
+      "mention_count": 5,
+      "children_count": 0,
+      "correct_parent": "郓城县",
+      "tier": "building",
+      "_note": "县衙=建筑"
+    },
+    {
+      "name": "郓州地面",
+      "mention_count": 5,
+      "children_count": 2,
+      "correct_parent": "郓州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "东溪村",
+      "mention_count": 4,
+      "children_count": 5,
+      "correct_parent": "郓城县",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "九宫县",
+      "mention_count": 4,
+      "children_count": 8,
+      "correct_parent": "蓟州",
+      "tier": "city",
+      "_note": "宋代县级行政区"
+    },
+    {
+      "name": "孟州道",
+      "mention_count": 4,
+      "children_count": 6,
+      "correct_parent": "孟州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "少华山",
+      "mention_count": 4,
+      "children_count": 8,
+      "correct_parent": "华州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "晁盖庄",
+      "mention_count": 4,
+      "children_count": 3,
+      "correct_parent": "东溪村",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "牢城营",
+      "mention_count": 4,
+      "children_count": 3,
+      "correct_parent": "江州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "石碣村",
+      "mention_count": 4,
+      "children_count": 6,
+      "correct_parent": "济州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "陵川",
+      "mention_count": 4,
+      "children_count": 3,
+      "correct_parent": "河东",
+      "tier": "city",
+      "_note": "陵川县，属河东路"
+    },
+    {
+      "name": "十字坡",
+      "mention_count": 3,
+      "children_count": 3,
+      "correct_parent": "孟州道",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "安平寨",
+      "mention_count": 3,
+      "children_count": 3,
+      "correct_parent": "孟州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "宋兵寨",
+      "mention_count": 3,
+      "children_count": 3,
+      "correct_parent": "盖州",
+      "tier": "site",
+      "_note": "盖州城外的宋军营寨"
+    },
+    {
+      "name": "淮南",
+      "mention_count": 3,
+      "children_count": 4,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "淮南是大区域名"
+    },
+    {
+      "name": "土冈",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "天下",
+      "tier": "site",
+      "_note": "荆湖非小说用语，parent不确定"
+    },
+    {
+      "name": "山西",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "山西是大区域名"
+    },
+    {
+      "name": "报恩寺",
+      "mention_count": 2,
+      "children_count": 7,
+      "correct_parent": "蓟州",
+      "tier": "building",
+      "_note": "蓟州城内的寺庙"
+    },
+    {
+      "name": "揭阳岭",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "江州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "新安县",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "孟州",
+      "tier": "city",
+      "_note": "县级行政区"
+    },
+    {
+      "name": "曾头市",
+      "mention_count": 2,
+      "children_count": 12,
+      "correct_parent": "凌州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "独龙山",
+      "mention_count": 2,
+      "children_count": 6,
+      "correct_parent": "蓟州",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "荆湖",
+      "mention_count": 2,
+      "children_count": 6,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "原文中未找到'荆湖'，可能为误提取"
+    },
+    {
+      "name": "陕西",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "陕西是大区域名"
+    },
+    {
+      "name": "马行街",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "东京",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "丁字路口",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称道路路口"
+    },
+    {
+      "name": "东京城外",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "东京",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "云安",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": "淮西",
+      "tier": "city",
+      "_note": "云安军，王庆八军州之一"
+    },
+    {
+      "name": "城墙",
+      "mention_count": 1,
+      "children_count": 25,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称城墙"
+    },
+    {
+      "name": "大树",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，泛称大树"
+    },
+    {
+      "name": "建康府",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "江南",
+      "tier": "city",
+      "_note": "建康府即金陵（今南京），属江南"
+    },
+    {
+      "name": "景阳冈",
+      "mention_count": 1,
+      "children_count": 5,
+      "correct_parent": "阳谷县",
+      "tier": "site",
+      "_note": "景阳冈在阳谷县"
+    },
+    {
+      "name": "毛太公庄",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": "山东",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "瓦罐寺",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "京畿",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "还道村",
+      "mention_count": 1,
+      "children_count": 6,
+      "correct_parent": "郓城县",
+      "tier": "site",
+      "_note": ""
+    },
+    {
+      "name": "隆中山",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "淮西",
+      "tier": "site",
+      "_note": "隆中山在宛州（淮西）附近，非孟州"
+    },
+    {
+      "name": "黄军阵",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，指辽国的黄色军阵（阵型）"
+    },
+    {
+      "name": "河东",
+      "mention_count": 26,
+      "children_count": 21,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "河东是大区域名（今山西），包含太原，不是太原的下级"
+    },
+    {
+      "name": "忠义堂",
+      "mention_count": 17,
+      "children_count": 0,
+      "correct_parent": "梁山泊",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "聚义厅",
+      "mention_count": 16,
+      "children_count": 0,
+      "correct_parent": "梁山泊",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "北门",
+      "mention_count": 13,
+      "children_count": 1,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非特定地名，泛称'北门'，在多处城池出现"
+    },
+    {
+      "name": "两浙",
+      "mention_count": 11,
+      "children_count": 30,
+      "correct_parent": "天下",
+      "tier": "region",
+      "_note": "两浙是大区域名，包含杭州等八州"
+    },
+    {
+      "name": "梁山泊聚义厅",
+      "mention_count": 11,
+      "children_count": 0,
+      "correct_parent": "梁山泊",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "文德殿",
+      "mention_count": 8,
+      "children_count": 0,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "文德殿是皇宫中的殿堂，在东京，非太师府"
+    },
+    {
+      "name": "延安府",
+      "mention_count": 7,
+      "children_count": 3,
+      "correct_parent": "关西",
+      "tier": "city",
+      "_note": "宋代府级行政区"
+    },
+    {
+      "name": "五台山",
+      "mention_count": 6,
+      "children_count": 12,
+      "correct_parent": "河东",
+      "tier": "site",
+      "_note": "山名"
+    },
+    {
+      "name": "独龙冈",
+      "mention_count": 5,
+      "children_count": 4,
+      "correct_parent": "独龙山",
+      "tier": "site",
+      "_note": "山冈名"
+    },
+    {
+      "name": "乌龙岭",
+      "mention_count": 4,
+      "children_count": 30,
+      "correct_parent": "两浙",
+      "tier": "site",
+      "_note": "山岭名"
+    },
+    {
+      "name": "壶关",
+      "mention_count": 4,
+      "children_count": 4,
+      "correct_parent": "河东",
+      "tier": "site",
+      "_note": "关隘名"
+    },
+    {
+      "name": "李师师家",
+      "mention_count": 4,
+      "children_count": 3,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "帮源洞",
+      "mention_count": 3,
+      "children_count": 3,
+      "correct_parent": "清溪县",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "五台山寺",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": "五台山",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "南丰城",
+      "mention_count": 2,
+      "children_count": 8,
+      "correct_parent": "南丰",
+      "tier": "city",
+      "_note": "南丰的城池"
+    },
+    {
+      "name": "太公庄院",
+      "mention_count": 2,
+      "children_count": 3,
+      "correct_parent": "少华山",
+      "tier": "building",
+      "_note": ""
+    },
+    {
+      "name": "辽国中军",
+      "mention_count": 2,
+      "children_count": 4,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，指辽国的中军（军事编制）"
+    },
+    {
+      "name": "酸枣门外廨宇",
+      "mention_count": 2,
+      "children_count": 5,
+      "correct_parent": "东京",
+      "tier": "building",
+      "_note": "酸枣门是东京的城门，改parent为东京"
+    },
+    {
+      "name": "泗州",
+      "mention_count": 1,
+      "children_count": 5,
+      "correct_parent": "天下",
+      "tier": "city",
+      "_note": "泗州是州级行政区（今安徽），非两浙"
+    },
+    {
+      "name": "纪山",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": "荆南",
+      "tier": "site",
+      "_note": "山名"
+    },
+    {
+      "name": "纪山北十里外",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": null,
+      "tier": "DELETE",
+      "_note": "非地名，方位描述'纪山北十里外'"
+    },
+    {
+      "name": "荆南城",
+      "mention_count": 1,
+      "children_count": 4,
+      "correct_parent": "荆南",
+      "tier": "city",
+      "_note": "荆南的城池"
+    },
+    {
+      "name": "西湖",
+      "mention_count": 1,
+      "children_count": 3,
+      "correct_parent": "杭州",
+      "tier": "site",
+      "_note": "杭州西湖"
+    }
+  ]
+}

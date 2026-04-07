@@ -1,7 +1,483 @@
 {
-  "_instructions": "标注说明: is_correct_grouping=true表示别名组正确. wrong_aliases列出不应在此组的别名. missing_aliases列出应加入的别名.",
-  "_novel": "dream_of_red_chamber",
-  "_total": 0,
-  "alias_groups": [],
-  "_annotation_notes": "系统未提取出任何别名组。以下为应有的主要别名组（缺失项）：贾宝玉=[宝玉], 林黛玉=[黛玉,颦儿,林姑娘], 薛宝钗=[宝钗], 王熙凤=[凤姐,凤辣子], 史湘云=[湘云], 贾母=[老太太,史太君], 香菱=[英莲,甄英莲], 薛宝琴=[宝琴], 贾琏=[琏二爷]"
+  "_instructions": "请检查每个别名组: is_correct(组内所有成员是否为同一人物), wrong_members(不属于此人物的别名), missing_members(遗漏的已知别名)",
+  "_novel": "红楼梦",
+  "_total": 30,
+  "_review_notes": "已对照红楼梦原文逐组审校，修正了 is_correct_grouping 判断、wrong_aliases / missing_aliases 内容，并将逗号分隔字符串拆为数组。",
+  "alias_groups": [
+    {
+      "notes": "好太爷是晴雯对宝玉的戏称（第五十一回），语境为撒娇/讽刺，非稳定别名，宜移除。宝二爷、混世魔王均为原文高频别名。",
+      "canonical_name": "宝玉",
+      "system_aliases": [
+        "二叔叔",
+        "哥儿",
+        "好太爷",
+        "宝叔叔",
+        "宝哥儿",
+        "富贵闲人",
+        "怡红主人",
+        "文妙真人",
+        "无事忙",
+        "绛洞花主",
+        "菩萨哥儿",
+        "贾宝玉"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "宝二爷",
+        "混世魔王"
+      ],
+      "wrong_aliases": [
+        "好太爷"
+      ]
+    },
+    {
+      "notes": "小女是叙述用语（甄士隐/林如海称自己女儿），非黛玉专属别名。蠢才是宝玉戏称，在文中也用于晴雯，非稳定别名。潇湘子出现在第四十二回回目'潇湘子雅谑补余香'，是探春给黛玉的戏称，勉强可留但不如潇湘妃子稳定。林丫头、林姑娘均为高频称呼。",
+      "canonical_name": "林黛玉",
+      "system_aliases": [
+        "多病西施",
+        "小女",
+        "潇湘妃子",
+        "潇湘子",
+        "蠢才",
+        "颦儿",
+        "颦颦",
+        "黛玉"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [
+        "林丫头",
+        "林姑娘"
+      ],
+      "wrong_aliases": [
+        "小女",
+        "蠢才"
+      ]
+    },
+    {
+      "notes": "姑爷在红楼梦中多用于刘姥姥称女婿狗儿、金桂房中人称薛蟠、迎春出嫁后称孙绍祖等，并非薛蟠专属。薛大叔在文中由贾蔷、贾蓉等人使用，确指薛蟠。",
+      "canonical_name": "薛蟠",
+      "system_aliases": [
+        "呆霸王",
+        "姑爷",
+        "文起",
+        "薛呆子",
+        "薛大傻子",
+        "薛大叔",
+        "薛老大",
+        "蟠儿"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "薛大哥哥"
+      ],
+      "wrong_aliases": [
+        "姑爷"
+      ]
+    },
+    {
+      "notes": "贾琏别名组正确。琏二爷也是常见称呼但已在系统中以'琏二叔'等形式体现。",
+      "canonical_name": "贾琏",
+      "system_aliases": [
+        "琏二叔",
+        "琏二哥",
+        "琏侄",
+        "琏儿",
+        "琏爷"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "琏二爷"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "二内兄是林如海对贾政的称呼，属关系性称谓而非个人别名，且'大内兄'指贾赦，说明这是说话人视角的亲属称谓，非贾政固有别名。贾存周是贾政的字。",
+      "canonical_name": "贾政",
+      "system_aliases": [
+        "二内兄",
+        "姨爹",
+        "政老",
+        "政老爹",
+        "贾存周"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "二老爷"
+      ],
+      "wrong_aliases": [
+        "二内兄"
+      ]
+    },
+    {
+      "notes": "我母亲是贾兰称李纨时的关系称谓（第十三回贾芸也说'我母亲'指自己的母亲），不专指李纨，故为wrong。大奶奶是李纨在荣府的常用称呼。",
+      "canonical_name": "李纨",
+      "system_aliases": [
+        "宫裁",
+        "我母亲",
+        "李宫裁",
+        "李氏",
+        "稻香老农"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [
+        "大奶奶"
+      ],
+      "wrong_aliases": [
+        "我母亲"
+      ]
+    },
+    {
+      "notes": "小丫头子是泛称，不专指香菱。有命无运之物是癞头僧对英莲的描述性评语，非稳定别名。菱角是宝玉讲笑话中的物品谐音，非别名。英莲→香菱→秋菱是她的本名与改名。",
+      "canonical_name": "香菱",
+      "system_aliases": [
+        "小丫头子",
+        "有命无运之物",
+        "秋菱",
+        "英莲",
+        "菱角"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [],
+      "wrong_aliases": [
+        "小丫头子",
+        "有命无运之物",
+        "菱角"
+      ]
+    },
+    {
+      "notes": "原文第五十八回元春谥号为'贤淑贵妃'，此为谥号可保留。但第十六回封号为'贤德妃'，应补入。",
+      "canonical_name": "元春",
+      "system_aliases": [
+        "元妃",
+        "娘娘",
+        "贤淑贵妃",
+        "贵妃",
+        "贾妃"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "元贵妃",
+        "贤德妃"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "二舅母在原文中指王夫人（黛玉视角：'二舅母生的有个表兄'），非探春别名。探春的浑名'玫瑰花'见第六十五回兴儿语。",
+      "canonical_name": "探春",
+      "system_aliases": [
+        "二舅母",
+        "秋爽居士",
+        "蕉下客",
+        "贾探春"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [
+        "三姑娘",
+        "玫瑰花"
+      ],
+      "wrong_aliases": [
+        "二舅母"
+      ]
+    },
+    {
+      "notes": "珍老大出现于第一百五回亲友对话中确指贾珍。珍大爷是常用尊称。",
+      "canonical_name": "贾珍",
+      "system_aliases": [
+        "珍儿",
+        "珍哥儿",
+        "珍爷",
+        "珍老大"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "珍大爷"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "环儿小子出现在贾母口中（第九十九回），确指贾环，但属口语化评语非稳定别名，可保留亦可移除。",
+      "canonical_name": "贾环",
+      "system_aliases": [
+        "环儿",
+        "环儿小子",
+        "环哥儿",
+        "环老三"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "环三爷"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "冷面二郎（亦作'冷二郎'）是柳湘莲的外号，见第六十六回。",
+      "canonical_name": "柳湘莲",
+      "system_aliases": [
+        "小柳儿",
+        "柳二郎",
+        "柳相公",
+        "柳道爷"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "冷面二郎",
+        "冷二郎"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "大舅太爷、二舅太爷出现于第一百零八回凤姐与贾琏对话，指的分别是王子腾和王子胜兄弟，非都指王子腾。大舅太爷指已故的王子腾，二舅太爷指王子胜。九省统制（第十六回）、九省都检点（第五十三回）均指王子腾的官衔。",
+      "canonical_name": "王子腾",
+      "system_aliases": [
+        "二舅太爷",
+        "大舅太爷",
+        "母舅",
+        "舅太爷"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [
+        "九省统制",
+        "九省都检点"
+      ],
+      "wrong_aliases": [
+        "二舅太爷"
+      ]
+    },
+    {
+      "notes": "兰小子出现于凤姐口中（第五十五回等）和贾母口中，确指贾兰。",
+      "canonical_name": "贾兰",
+      "system_aliases": [
+        "兰儿",
+        "兰哥",
+        "兰哥儿",
+        "兰小子"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "张道士别名组正确。张真人是更常见的称呼。",
+      "canonical_name": "张道士",
+      "system_aliases": [
+        "大幻仙人",
+        "张爷爷",
+        "终了真人",
+        "老神仙"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "张真人"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "枕霞居士在原文中未见明确出现，但枕霞旧友为湘云诗社号（第三十七回）。史大姑娘是常见称呼。",
+      "canonical_name": "史湘云",
+      "system_aliases": [
+        "云儿",
+        "枕霞旧友",
+        "湘云"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "史大姑娘"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "姑子是泛称尼姑/道姑的通称，在原文中用于多人（如智能儿、净虚等），非妙玉专属。槛内人是宝玉自称，非妙玉别名；槛外人/槛外之人才是妙玉自称。",
+      "canonical_name": "妙玉",
+      "system_aliases": [
+        "姑子",
+        "槛外人",
+        "畸人"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [],
+      "wrong_aliases": [
+        "姑子"
+      ]
+    },
+    {
+      "notes": "金星玻璃（简称'玻璃'）确为芳官的另一个外号，见第六十三回。",
+      "canonical_name": "芳官",
+      "system_aliases": [
+        "温都里纳",
+        "耶律雄奴",
+        "雄奴"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "金星玻璃"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "二姨是关系称谓，在文中可指多人（如贾琏称尤二姐为'二姨'，但王熙凤也可能被下人如此称呼），作为尤二姐别名勉强可接受但不够精确。",
+      "canonical_name": "尤二姐",
+      "system_aliases": [
+        "二姐儿",
+        "二姨",
+        "二姨儿"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "尤二姨"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "小后生是叙述者/凤姐对秦钟的初见描述（第七回），非稳定别名。鲸卿是秦钟的字。",
+      "canonical_name": "秦钟",
+      "system_aliases": [
+        "秦哥儿",
+        "秦相公",
+        "鲸卿"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "施主是僧道对一般人的通称，绝非甄士隐专属。原文第一回癞头僧称甄士隐为'施主'，但后文也大量用于其他场景。甄费是甄士隐的本名。",
+      "canonical_name": "甄士隐",
+      "system_aliases": [
+        "士隐",
+        "施主",
+        "甄费"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [],
+      "wrong_aliases": [
+        "施主"
+      ]
+    },
+    {
+      "notes": "老太太（出现约497次）是贾母最高频的称呼之一，必须补入。太君即'史太君'。",
+      "canonical_name": "贾母",
+      "system_aliases": [
+        "外祖母",
+        "老祖宗"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "老太太",
+        "史太君"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "蹄子在原文中是骂丫鬟的通用语（凤姐骂平儿、宝玉等场景），非晴雯专属别名。芙蓉女儿来自宝玉的《芙蓉女儿诔》。",
+      "canonical_name": "晴雯",
+      "system_aliases": [
+        "芙蓉女儿",
+        "蹄子"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [],
+      "wrong_aliases": [
+        "蹄子"
+      ]
+    },
+    {
+      "notes": "蓉大爷是常见称呼。",
+      "canonical_name": "贾蓉",
+      "system_aliases": [
+        "蓉儿",
+        "蓉哥儿"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "蓉大爷"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "别名组正确。",
+      "canonical_name": "贾芸",
+      "system_aliases": [
+        "芸儿",
+        "芸哥儿"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "芸二爷"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "大舅母在原文中指邢夫人（黛玉视角第三回：'这是你大舅母'），非迎春别名。菱洲即紫菱洲的简称，是迎春的诗社号。二姑娘、二木头均为迎春别名。",
+      "canonical_name": "迎春",
+      "system_aliases": [
+        "大舅母",
+        "菱洲"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [
+        "二姑娘",
+        "二木头"
+      ],
+      "wrong_aliases": [
+        "大舅母"
+      ]
+    },
+    {
+      "notes": "别名组正确。",
+      "canonical_name": "宝琴",
+      "system_aliases": [
+        "琴儿",
+        "薛宝琴"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "琴姑娘"
+      ],
+      "wrong_aliases": []
+    },
+    {
+      "notes": "大内兄是林如海称贾赦的关系称谓，非贾赦固有别名。大老爷是贾赦在府中的常用称呼。",
+      "canonical_name": "贾赦",
+      "system_aliases": [
+        "大内兄",
+        "赦老"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "大老爷",
+        "贾恩侯"
+      ],
+      "wrong_aliases": [
+        "大内兄"
+      ]
+    },
+    {
+      "notes": "封氏闻得并非别名，而是原文'封氏闻得此信'的误截断。封氏孺人为叙述中的正式称谓。甄夫人可作为补充。系统错误地将叙述文本截断当作名字。",
+      "canonical_name": "封氏",
+      "system_aliases": [
+        "封氏孺人",
+        "封氏闻得"
+      ],
+      "is_correct_grouping": false,
+      "missing_aliases": [],
+      "wrong_aliases": [
+        "封氏闻得"
+      ]
+    },
+    {
+      "notes": "凤姐（652次）是最高频称呼，琏二奶奶（22次）和凤丫头（53次）也是重要别名。凤哥/凤辣子均已在系统中。",
+      "canonical_name": "王熙凤",
+      "system_aliases": [
+        "凤哥",
+        "凤辣子"
+      ],
+      "is_correct_grouping": true,
+      "missing_aliases": [
+        "凤姐",
+        "琏二奶奶",
+        "凤丫头"
+      ],
+      "wrong_aliases": []
+    }
+  ]
 }

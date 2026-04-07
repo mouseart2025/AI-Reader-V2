@@ -79,3 +79,4 @@ backend/audit_reports/
 
 # BMAD claude commands
 .claude/commands/bmad*
+backend/data/hierarchy_validation/backups/*.sqlite3

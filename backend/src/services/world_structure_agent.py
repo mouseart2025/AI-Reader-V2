@@ -1849,19 +1849,30 @@ class WorldStructureAgent:
             return None
         # Realm detection — match longest keyword first to prefer
         # "真仙界" over "仙界", "三体游戏世界" over "三体世界"
+        # Sci-fi realm keywords (太阳系/银河系/三体*) are skipped for
+        # historical/wuxia/fantasy genres to avoid false matches.
+        _SCIFI_LAYER_IDS = {"solarsystem", "galaxy", "trisolaris", "trisolaris-game"}
+        genre = self.structure.novel_genre_hint if self.structure else ""
+        skip_scifi = genre in ("historical", "wuxia", "fantasy")
         best_kw = ""
         best_layer = None
         for kw, (layer_id, _) in _REALM_LAYER_KEYWORDS.items():
+            if skip_scifi and layer_id in _SCIFI_LAYER_IDS:
+                continue
             if kw in name and len(kw) > len(best_kw):
                 best_kw = kw
                 best_layer = layer_id
         if best_layer:
             return best_layer
 
-        # Sci-fi fallback: assign to cosmic layers by keyword
-        for keywords, layer_id in _SCIFI_LAYER_RULES:
-            if any(kw in name for kw in keywords):
-                return layer_id
+        # Sci-fi fallback: assign to cosmic layers by keyword.
+        # Only apply for urban/realistic/unknown genres — historical/wuxia/fantasy
+        # novels have "太阳阵", "火星阵" etc. that are NOT astronomy.
+        genre = self.structure.novel_genre_hint if self.structure else ""
+        if genre not in ("historical", "wuxia", "fantasy"):
+            for keywords, layer_id in _SCIFI_LAYER_RULES:
+                if any(kw in name for kw in keywords):
+                    return layer_id
 
         return None
 
