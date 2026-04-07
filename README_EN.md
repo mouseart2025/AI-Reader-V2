@@ -12,6 +12,8 @@
 
 > **[Chinese Version / 中文版](./README.md)**
 
+> **Notice:** This project is under active development with rapid iteration focused on improving analysis quality. It has **not yet reached production readiness**. The web dev build and desktop installers are provided for **early preview only** — analysis results may contain significant errors. Feedback is welcome, but please do not rely on the output for formal academic research or literary analysis.
+
 **Open-source AI novel analysis tool** — Upload any TXT/Markdown novel and let AI automatically extract character relationships, location hierarchies, and event timelines, generating interactive knowledge graphs, world maps, timelines, and more. Supports local Ollama and cloud LLMs. 100% local data storage, no telemetry.
 
 <p align="center">
