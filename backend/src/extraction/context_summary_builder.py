@@ -173,6 +173,13 @@ class ContextSummaryBuilder:
         if world_section:
             sections.append(world_section)
 
+        # Geographic state document (accumulated knowledge from prior chapters)
+        geo_state = self._build_geo_state_section(
+            chapter_facts, chapter_num, location_parents, location_tiers,
+        )
+        if geo_state:
+            sections.append(geo_state)
+
         # Entity dictionary injection (pre-scan results)
         dict_section = await self._build_dictionary_section(novel_id)
         if dict_section:
@@ -582,6 +589,100 @@ class ContextSummaryBuilder:
                 lines.append(chain_str)
 
         return "\n".join(lines) if len(lines) > 1 else ""
+
+    @staticmethod
+    def _build_geo_state_section(
+        chapter_facts: list[ChapterFact],
+        chapter_num: int,
+        location_parents: dict[str, str] | None,
+        location_tiers: dict[str, str] | None,
+    ) -> str:
+        """Build geographic state document from accumulated chapter knowledge.
+
+        This is the "geographic diary" — a structured summary of confirmed
+        spatial knowledge that gives the extraction LLM full geographic context.
+
+        Contains:
+        1. Journey progress — where the characters have traveled so far
+        2. Extraction rules — what NOT to extract (generic room names, etc.)
+        3. Current location context — where the story is right now
+
+        Injected into each chapter's LLM prompt to prevent:
+        - Over-extraction of generic room names (方丈/禅堂)
+        - Wrong parent assignments (LLM can see confirmed hierarchy)
+        - Direction inversions (LLM knows which locations are larger)
+        """
+        if not chapter_facts:
+            # No prior chapters — return static rules only
+            return (
+                "### 地点提取规则\n"
+                "- 仅提取专有地名，不提取通用建筑名（方丈、禅堂、客房、前殿、后院等）\n"
+                "- 不要合成 X国城池、X国皇宫 等复合名，直接用原文地名\n"
+                "- X处 如果 X 是人名则不是地点（如 贾母处）\n"
+                "- parent 必须是直接上级，不要跳层"
+            )
+
+        lines: list[str] = []
+
+        # ── 1. Journey progress ──
+        # Extract primary setting from each chapter to build travel path
+        settings: list[tuple[int, str]] = []
+        for fact in chapter_facts:
+            ch = fact.chapter_id
+            # Find the most mentioned location in this chapter
+            loc_freq: Counter = Counter()
+            for loc in (fact.locations or []):
+                if loc.name and loc.role == "setting":
+                    loc_freq[loc.name] += 1
+            if not loc_freq:
+                for loc in (fact.locations or []):
+                    if loc.name:
+                        loc_freq[loc.name] += 1
+            if loc_freq:
+                top_loc = loc_freq.most_common(1)[0][0]
+                if not settings or settings[-1][1] != top_loc:
+                    settings.append((ch, top_loc))
+
+        if settings:
+            lines.append("### 旅程进度")
+            # Compact: show last 10 stops
+            recent = settings[-10:]
+            path_parts = []
+            for ch, loc in recent:
+                # Add tier info if available
+                tier = (location_tiers or {}).get(loc, "")
+                tier_tag = f"({tier})" if tier else ""
+                path_parts.append(f"{loc}{tier_tag}")
+            lines.append("最近路线: " + " → ".join(path_parts))
+            lines.append(f"当前位于: **{settings[-1][1]}** (第{settings[-1][0]}回)")
+            lines.append("")
+
+        # ── 2. Extraction rules ──
+        lines.append("### 地点提取规则")
+        lines.append("- 仅提取专有地名，不提取通用建筑名（方丈、禅堂、客房、前殿、后院、草亭、东廊等）")
+        lines.append('- 不要合成 X国城池、X国皇宫 等复合名，直接用原文中出现的地名')
+        lines.append('- 方位描述不是地名（东关厢、前殿宇、南门头 等临时方位不要提取为独立地点）')
+        lines.append('- X处 如果 X 是人名则不是地点')
+        lines.append("- parent 必须是直接上级，不要跳层")
+        lines.append("- 物品不是地点（龙床、铁笼、油锅、芭蕉树等不要提取）")
+
+        # Dynamic rule: if we're on a westward journey, new locations default to 西牛贺洲
+        if settings and location_tiers:
+            current = settings[-1][1]
+            # Check if current location is in 西牛贺洲 subtree
+            if location_parents:
+                chain = []
+                node = current
+                for _ in range(10):
+                    p = location_parents.get(node)
+                    if not p:
+                        break
+                    chain.append(p)
+                    node = p
+                if "西牛贺洲" in chain:
+                    lines.append("- 当前在西牛贺洲境内，新发现的山/洞/国/城 parent 默认填写其所在的已知国家或西牛贺洲")
+
+        return "\n".join(lines) if lines else ""
 
     async def _build_world_structure_section(self, novel_id: str) -> str:
         """Load WorldStructure and format as context section. Returns empty if trivial."""
