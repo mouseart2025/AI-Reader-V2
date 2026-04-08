@@ -1,0 +1,1092 @@
+{
+  "_instructions": "检查别名组: is_correct_grouping=true/false. wrong_aliases列出不属于此人的别名. missing_aliases列出遗漏的别名",
+  "_novel": "西游记",
+  "_total": 92,
+  "alias_groups": [
+    {
+      "canonical_name": "沙僧",
+      "system_aliases": [
+        "三师弟",
+        "三徒弟",
+        "兄弟",
+        "卷帘大将",
+        "卷帘将军",
+        "小沙僧",
+        "师弟",
+        "徒弟",
+        "悟净",
+        "晦气脸的和尚",
+        "晦气色的和尚",
+        "沙和尚",
+        "沙四官",
+        "沙四官儿",
+        "沙尼",
+        "沙师",
+        "沙师弟",
+        "沙悟净",
+        "沙流精",
+        "沙长老",
+        "沙门",
+        "老沙",
+        "那沙僧",
+        "金身罗汉"
+      ],
+      "mention_count": 75,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "兄弟",
+        "师弟",
+        "徒弟",
+        "那沙僧"
+      ],
+      "missing_aliases": [],
+      "_note": "兄弟/师弟/徒弟是泛称称谓非别名；那沙僧只是叙述指代"
+    },
+    {
+      "canonical_name": "猪八戒",
+      "system_aliases": [
+        "二哥",
+        "二师兄",
+        "二徒弟",
+        "兄弟",
+        "八戒",
+        "净坛使者",
+        "劣货",
+        "呆子",
+        "呆孽畜",
+        "囊糟食的夯货",
+        "大天蓬",
+        "天蓬",
+        "天蓬元帅",
+        "夯货",
+        "师兄",
+        "弼马温",
+        "徒弟",
+        "悟能",
+        "朱三官",
+        "朱三官儿",
+        "猪刚鬣",
+        "猪外公",
+        "猪师",
+        "猪悟能",
+        "猪祖宗",
+        "猪精",
+        "猪长老",
+        "老朱",
+        "老爷",
+        "老猪",
+        "贤弟",
+        "那呆子"
+      ],
+      "mention_count": 59,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "兄弟",
+        "师兄",
+        "弼马温",
+        "徒弟",
+        "老爷",
+        "贤弟"
+      ],
+      "missing_aliases": [
+        "长嘴和尚"
+      ],
+      "_note": "应与'八戒'组合并。弼马温是孙悟空的别名非猪八戒；兄弟/师兄/徒弟/老爷/贤弟是泛称"
+    },
+    {
+      "canonical_name": "唐僧",
+      "system_aliases": [
+        "三藏",
+        "三藏法师",
+        "东土唐僧",
+        "东土大唐和尚",
+        "东土老爷",
+        "取经之人",
+        "取经僧",
+        "取经的长老",
+        "和尚",
+        "唐三藏",
+        "唐圣僧",
+        "唐御弟",
+        "唐朝来的和尚",
+        "唐老师父",
+        "唐老爷",
+        "唐长老",
+        "圣僧",
+        "尊师",
+        "师父",
+        "御弟",
+        "我弟子",
+        "法师",
+        "老和尚",
+        "老师",
+        "老师父",
+        "胖和尚",
+        "贫僧",
+        "那长老",
+        "金蝉子",
+        "金蝉长老",
+        "长老",
+        "陈玄奘"
+      ],
+      "mention_count": 42,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "和尚",
+        "尊师",
+        "师父",
+        "我弟子",
+        "老和尚",
+        "老师",
+        "老师父",
+        "那长老",
+        "长老",
+        "法师"
+      ],
+      "missing_aliases": [
+        "玄奘",
+        "江流",
+        "江流儿",
+        "金蝉长老"
+      ],
+      "_note": "应与'三藏'组和'唐三藏'组合并。和尚/师父/老师/长老/法师等是泛称，非唐僧专有别名"
+    },
+    {
+      "canonical_name": "行者",
+      "system_aliases": [
+        "你这厮",
+        "哥哥",
+        "哥啊",
+        "外公",
+        "大圣",
+        "孙叔叔",
+        "孙外公",
+        "孙大圣",
+        "孙悟空",
+        "孙老爷",
+        "孙行者",
+        "孙长老",
+        "师兄",
+        "弼马温",
+        "悟空",
+        "我小和尚",
+        "泼孽障",
+        "泼猢狲",
+        "泼猴",
+        "猢狲",
+        "猴儿",
+        "猴头",
+        "猴王",
+        "猴精",
+        "神僧",
+        "立帝货",
+        "老孙",
+        "老爷",
+        "贫僧",
+        "那厮",
+        "那猴子",
+        "齐天大圣"
+      ],
+      "mention_count": 37,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "你这厮",
+        "哥哥",
+        "哥啊",
+        "外公",
+        "师兄",
+        "老爷",
+        "贫僧",
+        "那厮",
+        "泼孽障",
+        "神僧",
+        "我小和尚"
+      ],
+      "missing_aliases": [
+        "者行孙",
+        "蟭蟟虫"
+      ],
+      "_note": "应与'孙悟空'/'孙大圣'/'孙行者'组合并。你这厮/哥哥/外公/师兄/老爷/贫僧/那厮是泛称；泼孽障可指任何妖怪"
+    },
+    {
+      "canonical_name": "孙悟空",
+      "system_aliases": [
+        "外公",
+        "大圣",
+        "大圣啊",
+        "大圣曾养过马",
+        "大圣爷爷",
+        "大师兄",
+        "大徒弟",
+        "大王",
+        "孙二哥",
+        "孙二官",
+        "孙二官儿",
+        "孙大圣",
+        "孙师",
+        "孙老爷",
+        "孙行者",
+        "孙长老",
+        "小和尚",
+        "师兄",
+        "师父",
+        "弼马温",
+        "徒弟",
+        "悟空",
+        "我",
+        "我老孙",
+        "斗战胜佛",
+        "泼猴",
+        "泼魔",
+        "爷爷",
+        "猢狲",
+        "猴儿",
+        "猴和尚",
+        "猴头",
+        "猴王",
+        "猴精",
+        "瘦鬼",
+        "美猴王",
+        "老孙",
+        "行者",
+        "那汉子",
+        "高徒",
+        "齐天大圣"
+      ],
+      "mention_count": 36,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "外公",
+        "大圣啊",
+        "大圣曾养过马",
+        "大王",
+        "小和尚",
+        "师父",
+        "徒弟",
+        "我",
+        "我老孙",
+        "泼魔",
+        "爷爷",
+        "瘦鬼",
+        "那汉子",
+        "高徒"
+      ],
+      "missing_aliases": [
+        "立帝货",
+        "蟭蟟虫",
+        "者行孙"
+      ],
+      "_note": "应与'行者'/'孙大圣'/'孙行者'组合并。大圣啊/大圣曾养过马不是别名是感叹句/描述；外公/大王/师父/徒弟/我/爷爷/瘦鬼/那汉子/高徒是泛称；泼魔泛指妖怪"
+    },
+    {
+      "canonical_name": "三藏",
+      "system_aliases": [
+        "取经的人物",
+        "唐三藏",
+        "唐僧",
+        "唐朝法师",
+        "唐长老",
+        "圣僧",
+        "师父",
+        "御弟圣僧",
+        "江流",
+        "法师",
+        "玄奘法师",
+        "老和尚",
+        "老师父",
+        "老爷",
+        "贫僧",
+        "长老"
+      ],
+      "mention_count": 29,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "取经的人物",
+        "师父",
+        "老和尚",
+        "老师父",
+        "老爷",
+        "贫僧",
+        "长老",
+        "法师"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'唐僧'组和'唐三藏'组合并。取经的人物是描述；师父/老和尚/老师父/老爷/贫僧/长老/法师是泛称"
+    },
+    {
+      "canonical_name": "八戒",
+      "system_aliases": [
+        "二师兄",
+        "呆子",
+        "天蓬",
+        "天蓬元帅",
+        "夯货",
+        "悟能",
+        "猪八戒",
+        "猪刚鬣",
+        "猪悟能",
+        "老爷",
+        "老猪",
+        "那呆子",
+        "长嘴和尚"
+      ],
+      "mention_count": 21,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "老爷"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'猪八戒'组合并。老爷是泛称"
+    },
+    {
+      "canonical_name": "玉皇大帝",
+      "system_aliases": [
+        "万岁",
+        "主公",
+        "五帝",
+        "大天尊",
+        "天主",
+        "天尊",
+        "玉帝",
+        "玉皇",
+        "玉皇天尊",
+        "老官儿",
+        "陛下"
+      ],
+      "mention_count": 19,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "万岁",
+        "主公",
+        "五帝",
+        "老官儿",
+        "陛下"
+      ],
+      "missing_aliases": [],
+      "_note": "万岁/主公/陛下是对任何君王的泛称；五帝是'三皇五帝'典故或泛指天帝群体；老官儿是泛称，太白金星组里也有"
+    },
+    {
+      "canonical_name": "唐三藏",
+      "system_aliases": [
+        "三藏",
+        "唐僧",
+        "唐大哥",
+        "唐大官儿",
+        "唐御弟",
+        "唐长老",
+        "圣僧",
+        "师父",
+        "弟子",
+        "御弟",
+        "御弟哥哥",
+        "玄奘",
+        "老爷",
+        "贫僧",
+        "长老",
+        "陈玄奘"
+      ],
+      "mention_count": 18,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "师父",
+        "弟子",
+        "老爷",
+        "贫僧",
+        "长老"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'唐僧'组和'三藏'组合并。师父/弟子/老爷/贫僧/长老是泛称"
+    },
+    {
+      "canonical_name": "观音菩萨",
+      "system_aliases": [
+        "七佛之师",
+        "大慈",
+        "女真人",
+        "尊者",
+        "广力大士",
+        "慈尊",
+        "慈悲主",
+        "慈悲的教主",
+        "我佛如来",
+        "老母",
+        "菩萨",
+        "观世音",
+        "观世音菩萨",
+        "观音",
+        "观音尊者"
+      ],
+      "mention_count": 14,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "七佛之师",
+        "尊者",
+        "我佛如来",
+        "老母",
+        "菩萨"
+      ],
+      "missing_aliases": [
+        "南海观世音",
+        "救苦尊"
+      ],
+      "_note": "应与'观世音菩萨'组合并。我佛如来是如来佛祖的别名不是观音的；七佛之师是尊称但小说中悟空骂她时用的称呼，勉强算；菩萨/尊者/老母是泛称"
+    },
+    {
+      "canonical_name": "太上老君",
+      "system_aliases": [
+        "李老君",
+        "老君",
+        "老官",
+        "老官儿",
+        "老祖",
+        "道祖"
+      ],
+      "mention_count": 12,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "老官",
+        "老官儿",
+        "老祖"
+      ],
+      "missing_aliases": [],
+      "_note": "老官/老官儿/老祖是泛称，不是太上老君专属"
+    },
+    {
+      "canonical_name": "白龙马",
+      "system_aliases": [
+        "八部天龙马",
+        "小龙",
+        "玉龙三太子",
+        "白马",
+        "马",
+        "龙子",
+        "龙马"
+      ],
+      "mention_count": 10,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "马"
+      ],
+      "missing_aliases": [
+        "西海飞龙",
+        "八部天龙广力菩萨"
+      ],
+      "_note": "应与'白马'组合并。马是泛称"
+    },
+    {
+      "canonical_name": "孙大圣",
+      "system_aliases": [
+        "哥哥",
+        "外公",
+        "大哥",
+        "大圣",
+        "孙悟空",
+        "孙行者",
+        "小妖",
+        "悟空",
+        "我",
+        "泼猢狲",
+        "泼猴",
+        "猢狲",
+        "猢狲儿",
+        "猴儿",
+        "猴头",
+        "猴王",
+        "美猴王",
+        "老孙",
+        "者行孙",
+        "蟭蟟虫",
+        "行者",
+        "贼猴",
+        "齐天大圣"
+      ],
+      "mention_count": 10,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "哥哥",
+        "外公",
+        "大哥",
+        "小妖",
+        "我",
+        "贼猴"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'孙悟空'/'行者'/'孙行者'组合并。哥哥/外公/大哥/我是泛称；小妖是泛称指小妖怪；贼猴是骂语泛称"
+    },
+    {
+      "canonical_name": "白马",
+      "system_aliases": [
+        "小龙",
+        "玉龙三太子",
+        "白龙马",
+        "西海飞龙",
+        "那马",
+        "马",
+        "龙马"
+      ],
+      "mention_count": 10,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "那马",
+        "马"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'白龙马'组合并。那马/马是泛称"
+    },
+    {
+      "canonical_name": "哪吒三太子",
+      "system_aliases": [
+        "三坛海会大神",
+        "三太子",
+        "哪吒",
+        "哪吒太子",
+        "太子",
+        "孩儿",
+        "小儿曹",
+        "愚父子",
+        "这大圣"
+      ],
+      "mention_count": 9,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "太子",
+        "孩儿",
+        "小儿曹",
+        "愚父子",
+        "这大圣"
+      ],
+      "missing_aliases": [],
+      "_note": "太子/孩儿是泛称；小儿曹是贬称非别名；愚父子指李天王与哪吒父子是自谦语而非别名；这大圣是叙述指代非哪吒"
+    },
+    {
+      "canonical_name": "牛魔王",
+      "system_aliases": [
+        "令兄",
+        "令尊",
+        "大力王",
+        "大哥",
+        "大王",
+        "家兄",
+        "平天大圣",
+        "父王",
+        "牛君",
+        "牛大哥",
+        "牛爷爷",
+        "牛王",
+        "老大王",
+        "老牛",
+        "长兄",
+        "魔王"
+      ],
+      "mention_count": 9,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "令兄",
+        "令尊",
+        "大哥",
+        "大王",
+        "家兄",
+        "父王",
+        "老大王",
+        "长兄",
+        "魔王"
+      ],
+      "missing_aliases": [],
+      "_note": "令兄/令尊/大哥/大王/家兄/父王/老大王/长兄/魔王都是泛称或亲属代称，非牛魔王专属别名"
+    },
+    {
+      "canonical_name": "太白金星",
+      "system_aliases": [
+        "太白星",
+        "李金星",
+        "李长庚",
+        "老公公",
+        "老叟",
+        "老官儿",
+        "老者",
+        "老身",
+        "老长庚",
+        "金星",
+        "长庚星",
+        "长庚老儿"
+      ],
+      "mention_count": 8,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "老公公",
+        "老叟",
+        "老官儿",
+        "老者",
+        "老身"
+      ],
+      "missing_aliases": [],
+      "_note": "老公公/老叟/老官儿/老者是泛称；老身是自谦语，太白金星化身老妇时用，非专属别名"
+    },
+    {
+      "canonical_name": "托塔李天王",
+      "system_aliases": [
+        "天王",
+        "天王道",
+        "李天王",
+        "李靖",
+        "父王"
+      ],
+      "mention_count": 8,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "天王道",
+        "父王"
+      ],
+      "missing_aliases": [
+        "托塔天王"
+      ],
+      "_note": "天王道是叙述'天王道：...'的误提取；父王是泛称（哪吒称父亲）"
+    },
+    {
+      "canonical_name": "如来",
+      "system_aliases": [
+        "世尊",
+        "佛如来",
+        "佛爷爷",
+        "佛祖",
+        "如来佛祖",
+        "我佛如来",
+        "至尊",
+        "释迦如来",
+        "释迦牟尼"
+      ],
+      "mention_count": 8,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "至尊"
+      ],
+      "missing_aliases": [
+        "如来佛",
+        "释迦牟尼佛"
+      ],
+      "_note": "至尊是泛称尊称非如来专属"
+    },
+    {
+      "canonical_name": "文武多官",
+      "system_aliases": [
+        "众卿",
+        "众官",
+        "众臣",
+        "多官",
+        "文武",
+        "文武众卿",
+        "文武百官",
+        "群臣",
+        "黎民"
+      ],
+      "mention_count": 8,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "众卿",
+        "众官",
+        "众臣",
+        "多官",
+        "文武",
+        "文武众卿",
+        "文武百官",
+        "群臣",
+        "黎民"
+      ],
+      "missing_aliases": [],
+      "_note": "文武多官不是人物而是群体泛称，整组应标记为非人物实体。黎民更是指百姓群体"
+    },
+    {
+      "canonical_name": "四值功曹",
+      "system_aliases": [
+        "功曹"
+      ],
+      "mention_count": 8,
+      "is_correct_grouping": true,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": "四值功曹是天庭群体角色，功曹是其简称，可以接受"
+    },
+    {
+      "canonical_name": "光禄寺官",
+      "system_aliases": [
+        "光禄寺三部"
+      ],
+      "mention_count": 8,
+      "is_correct_grouping": false,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": "光禄寺官不是具体人物而是职位泛称，整组应标记为非人物实体"
+    },
+    {
+      "canonical_name": "唐太宗",
+      "system_aliases": [
+        "万岁",
+        "上邦皇帝",
+        "主公",
+        "唐王",
+        "大唐王",
+        "太宗",
+        "太宗文皇帝",
+        "当今世民",
+        "我王",
+        "李世民",
+        "皇帝",
+        "陛下"
+      ],
+      "mention_count": 7,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "万岁",
+        "上邦皇帝",
+        "主公",
+        "我王",
+        "皇帝",
+        "陛下"
+      ],
+      "missing_aliases": [],
+      "_note": "万岁/皇帝/陛下/主公/我王/上邦皇帝都是泛称，非唐太宗专属"
+    },
+    {
+      "canonical_name": "观世音菩萨",
+      "system_aliases": [
+        "南海观世音",
+        "救苦尊",
+        "活观音菩萨",
+        "菩萨",
+        "观音",
+        "观音菩萨"
+      ],
+      "mention_count": 6,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "菩萨"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'观音菩萨'组合并。菩萨是泛称"
+    },
+    {
+      "canonical_name": "金头揭谛",
+      "system_aliases": [
+        "揭谛"
+      ],
+      "mention_count": 6,
+      "is_correct_grouping": true,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": "揭谛是其简称，正确"
+    },
+    {
+      "canonical_name": "孙行者",
+      "system_aliases": [
+        "外公老爷",
+        "大圣",
+        "大圣爷爷",
+        "孙大圣",
+        "孙悟空",
+        "师兄",
+        "悟空",
+        "爷爷",
+        "猴王",
+        "老孙",
+        "行者",
+        "雷公",
+        "齐天大圣"
+      ],
+      "mention_count": 6,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "外公老爷",
+        "师兄",
+        "爷爷",
+        "雷公"
+      ],
+      "missing_aliases": [],
+      "_note": "应与'孙悟空'/'行者'/'孙大圣'组合并。外公老爷/师兄/爷爷是泛称；雷公是外貌描述性泛称非正式别名"
+    },
+    {
+      "canonical_name": "王母娘娘",
+      "system_aliases": [
+        "娘娘",
+        "王母"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "娘娘"
+      ],
+      "missing_aliases": [],
+      "_note": "娘娘是泛称，对后妃均可用"
+    },
+    {
+      "canonical_name": "魏征",
+      "system_aliases": [
+        "人曹官",
+        "贤卿",
+        "魏丞相",
+        "魏征丞相"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": true,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": "人曹官/贤卿虽有泛称性质，但在西游记特定语境中均专指魏征，可接受"
+    },
+    {
+      "canonical_name": "木叉",
+      "system_aliases": [
+        "二小儿",
+        "善财",
+        "惠岸",
+        "惠岸行者",
+        "木叉行者"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "二小儿",
+        "善财"
+      ],
+      "missing_aliases": [],
+      "_note": "二小儿是李天王自称'二小儿名木叉'的叙述语非别名；善财指善财童子（红孩儿），非木叉"
+    },
+    {
+      "canonical_name": "广目天王",
+      "system_aliases": [
+        "天王"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "天王"
+      ],
+      "missing_aliases": [],
+      "_note": "天王是泛称，四大天王均可称天王"
+    },
+    {
+      "canonical_name": "二魔",
+      "system_aliases": [
+        "二大王",
+        "二怪",
+        "象奴",
+        "象王",
+        "象精",
+        "贤弟"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "贤弟"
+      ],
+      "missing_aliases": [],
+      "_note": "贤弟是泛称。二魔指狮驼岭白象精，象奴/象王/象精是其专称，可保留"
+    },
+    {
+      "canonical_name": "红孩儿",
+      "system_aliases": [
+        "二舅爷",
+        "善财童子",
+        "圣婴大王",
+        "妖怪",
+        "妖王",
+        "妖精",
+        "妖魔",
+        "小畜生",
+        "愚男",
+        "火云洞洞主",
+        "牛圣婴",
+        "童子",
+        "贤郎",
+        "那怪",
+        "魔王"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "二舅爷",
+        "妖怪",
+        "妖王",
+        "妖精",
+        "妖魔",
+        "小畜生",
+        "童子",
+        "贤郎",
+        "那怪",
+        "魔王"
+      ],
+      "missing_aliases": [],
+      "_note": "妖怪/妖王/妖精/妖魔/那怪/魔王是泛称；二舅爷是称谓；小畜生是骂语泛称；童子/贤郎是泛称"
+    },
+    {
+      "canonical_name": "阿傩",
+      "system_aliases": [
+        "二尊者",
+        "尊者"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "尊者"
+      ],
+      "missing_aliases": [],
+      "_note": "尊者是泛称，迦叶也称尊者"
+    },
+    {
+      "canonical_name": "增长天王",
+      "system_aliases": [
+        "天王"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "天王"
+      ],
+      "missing_aliases": [],
+      "_note": "天王是泛称，四大天王均可称天王"
+    },
+    {
+      "canonical_name": "八大金刚",
+      "system_aliases": [
+        "八金刚",
+        "金刚"
+      ],
+      "mention_count": 5,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "金刚"
+      ],
+      "missing_aliases": [],
+      "_note": "金刚是泛称，不仅指八大金刚"
+    },
+    {
+      "canonical_name": "秦广王",
+      "system_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "mention_count": 4,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "missing_aliases": [],
+      "_note": "十代阎王/十王是十殿阎王的集体称呼，不是秦广王专属别名"
+    },
+    {
+      "canonical_name": "宋帝王",
+      "system_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "mention_count": 4,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "missing_aliases": [],
+      "_note": "十代阎王/十王是十殿阎王的集体称呼，不是宋帝王专属别名"
+    },
+    {
+      "canonical_name": "阎罗王",
+      "system_aliases": [
+        "五殿阎罗王",
+        "十代阎王",
+        "十王"
+      ],
+      "mention_count": 4,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "missing_aliases": [],
+      "_note": "十代阎王/十王是十殿阎王的集体称呼；五殿阎罗王是正确别名"
+    },
+    {
+      "canonical_name": "平等王",
+      "system_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "mention_count": 4,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "missing_aliases": [],
+      "_note": "十代阎王/十王是十殿阎王的集体称呼，不是平等王专属别名"
+    },
+    {
+      "canonical_name": "泰山王",
+      "system_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "mention_count": 4,
+      "is_correct_grouping": false,
+      "wrong_aliases": [
+        "十代阎王",
+        "十王"
+      ],
+      "missing_aliases": [],
+      "_note": "十代阎王/十王是十殿阎王的集体称呼，不是泰山王专属别名"
+    }
+  ],
+  "_merge_groups": [
+    {
+      "canonical_name_recommended": "孙悟空",
+      "groups_to_merge": [
+        "行者",
+        "孙悟空",
+        "孙大圣",
+        "孙行者"
+      ],
+      "_note": "同一人物的四个canonical分组，应合并为一组"
+    },
+    {
+      "canonical_name_recommended": "唐僧",
+      "groups_to_merge": [
+        "唐僧",
+        "三藏",
+        "唐三藏"
+      ],
+      "_note": "同一人物的三个canonical分组，应合并为一组"
+    },
+    {
+      "canonical_name_recommended": "猪八戒",
+      "groups_to_merge": [
+        "猪八戒",
+        "八戒"
+      ],
+      "_note": "同一人物的两个canonical分组，应合并为一组"
+    },
+    {
+      "canonical_name_recommended": "观音菩萨",
+      "groups_to_merge": [
+        "观音菩萨",
+        "观世音菩萨"
+      ],
+      "_note": "同一人物的两个canonical分组，应合并为一组"
+    },
+    {
+      "canonical_name_recommended": "白龙马",
+      "groups_to_merge": [
+        "白龙马",
+        "白马"
+      ],
+      "_note": "同一人物的两个canonical分组，应合并为一组"
+    }
+  ],
+  "_non_character_groups": [
+    {
+      "canonical_name": "文武多官",
+      "_note": "非人物实体，是群体泛称，建议整组删除"
+    },
+    {
+      "canonical_name": "光禄寺官",
+      "_note": "非人物实体，是职位泛称，建议整组删除"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ from src.db.sqlite_db import get_connection
 from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError, ExtractionMeta
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
+from src.extraction.name_resolver import NameResolver
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
 from src.infra.llm_client import LLMError, LLMParseError, LLMTimeoutError, LlmUsage, get_llm_client
 from src.models.world_structure import WorldStructure
@@ -362,6 +363,15 @@ class AnalysisService:
         except Exception as e:
             logger.warning("Failed to build name corrections: %s", e)
 
+        # NameResolver: unify character name variants at extraction time.
+        # This prevents alias fragmentation (行者/孙悟空 → 孙悟空 everywhere).
+        name_resolver = NameResolver()
+        try:
+            _dict_entries_for_resolver = await entity_dictionary_store.get_all(novel_id)
+            name_resolver.load_from_entity_dictionary(_dict_entries_for_resolver)
+        except Exception as e:
+            logger.warning("Failed to load NameResolver from entity_dictionary: %s", e)
+
         for chapter_num in range(chapter_start, chapter_end + 1):
             # Check for pause/cancel signal
             signal = self._task_signals.get(task_id, "running")
@@ -506,6 +516,10 @@ class AnalysisService:
                 # Validate
                 await self._broadcast_stage(novel_id, chapter_num, "验证数据")
                 fact = validator.validate(fact)
+
+                # Resolve name variants → canonical (upstream alias unification)
+                fact = name_resolver.resolve(fact)
+                name_resolver.accumulate_from_chapter(fact)
 
                 # Update world structure (never blocks pipeline)
                 await self._broadcast_stage(novel_id, chapter_num, "更新世界结构")

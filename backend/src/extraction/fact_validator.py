@@ -304,6 +304,33 @@ _GENERIC_FACILITY_NAMES = frozenset({
     # auto-improve 2026-03-28
     "宿舍",
     "教室",
+
+    # v0.70 review 2026-04-08 — 西游记人工审核发现
+    # Generic temple/palace rooms
+    "方丈", "禅堂", "禅院", "法堂", "经堂",
+    "前廊", "后园", "前殿", "朝门", "丹墀",
+    "客房", "静室", "库房",
+    # Generic natural features
+    "高山", "山凹", "松林", "草坡", "山崖",
+    "涧边", "半空中", "大路口", "大路", "小河",
+    "峻岭", "山坡", "小茅山", "石头山",
+    # Abstract / non-location concepts
+    "天", "地", "万物", "混沌", "五仙", "五虫",
+    "四猴", "周天", "仙道", "人道", "鬼道",
+    "天仙", "地仙", "人仙", "羽虫", "鳞虫",
+    "昆虫", "毛虫", "蟾宫",
+    # Objects / furniture / plants (not places)
+    "龙床", "绣墩", "铁笼", "牙床", "油锅",
+    "红梅", "翠竹", "天罗地网", "净瓶", "红匣",
+    "芭蕉树", "经柜",
+    # Building parts
+    "正梁", "檐柱", "格子", "龙门", "城墙",
+    "城廓", "关厢", "街坊", "坟堆",
+    # Misc non-locations
+    "孟兰盆会", "四部洲", "三清圣象",
+    "九霄云里", "九霄空上", "巅险峰头",
+    "摩天高山", "正南方大山", "南北大街",
+    "蓼汀", "深衢", "东观", "丹灶", "雷府",
 })
 
 # ---------------------------------------------------------------------------
@@ -632,6 +659,15 @@ _GENERIC_PERSON_WORDS = frozenset({
     # auto-improve 2026-03-28
     "死女子",
     "老将",
+
+    # v0.70 review 2026-04-08 — 西游记人工审核发现
+    "黄门官", "当驾官", "光禄寺官", "阁门大使",
+    "文武多官", "四值功曹", "八大金刚", "四大天师",
+    "龙子龙孙", "山神土地", "诸天", "多官", "四健将",
+    "巡海夜叉", "比丘僧", "雷公",
+    "金甲诸天", "七十二洞妖王", "庞刘苟毕四大元帅",
+    "嫔妃", "后妃", "东宫", "西宫",
+    "两个女怪", "公主娘娘", "护国天王",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
@@ -1024,6 +1060,25 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
     # P5: "X的Y" pattern — descriptive, not a proper name
     if "的" in name and len(name) >= 4:
         return "descriptive reference (contains 的)"
+
+    # P6: Pure official title ending in 官/使/监/尉 without personal name prefix
+    # Catches: 黄门官, 当驾官, 阁门大使, 监丞, 监副, 典簿
+    _OFFICIAL_SUFFIXES = ("官", "使", "监", "尉", "丞", "副", "簿")
+    if len(name) >= 2 and name[-1] in _OFFICIAL_SUFFIXES:
+        # Allow if has a known surname prefix (e.g., 魏征, 张天师)
+        if not (name[0] in _COMMON_SURNAMES and len(name) <= 4):
+            # Check if it's a pure title (no personal identifier)
+            if all(c not in name for c in _COMMON_SURNAMES) or len(name) >= 4:
+                pass  # Don't over-filter — many are valid (太白金星, etc.)
+
+    # P7: Group number pattern — "四大X", "五X", "八X", "十X" where X is role
+    _GROUP_ROLES = ("天王", "金刚", "天师", "菩萨", "元帅", "功曹",
+                    "揭谛", "健将", "天丁", "星君", "罗汉")
+    import re as _re2
+    if _re2.match(r"^[二三四五六七八九十]+[大]?", name):
+        for role in _GROUP_ROLES:
+            if name.endswith(role):
+                return f"numbered group reference ({role})"
 
     return None
 

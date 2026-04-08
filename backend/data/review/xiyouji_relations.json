@@ -1,0 +1,807 @@
+{
+  "_instructions": "检查关系: correct_type填正确的关系类型. correct_category填family/intimate/hierarchical/social/hostile/other",
+  "_novel": "西游记",
+  "_total": 80,
+  "relations": [
+    {
+      "person_a": "沙僧",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 35,
+      "first_seen": "ch23",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "行者",
+      "system_type": "师徒",
+      "mention_count": 32,
+      "first_seen": "ch16",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "沙僧",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 32,
+      "first_seen": "ch23",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 31,
+      "first_seen": "ch20",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "猪八戒",
+      "system_type": "师徒",
+      "mention_count": 29,
+      "first_seen": "ch21",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "沙僧",
+      "system_type": "师徒",
+      "mention_count": 29,
+      "first_seen": "ch25",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "八戒",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 27,
+      "first_seen": "ch24",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 27,
+      "first_seen": "ch25",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "沙僧",
+      "system_type": "师徒",
+      "mention_count": 25,
+      "first_seen": "ch20",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "孙悟空",
+      "system_type": "师徒",
+      "mention_count": 25,
+      "first_seen": "ch22",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "猪八戒",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 18,
+      "first_seen": "ch21",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "行者",
+      "system_type": "师徒",
+      "mention_count": 17,
+      "first_seen": "ch21",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "八戒",
+      "system_type": "师徒",
+      "mention_count": 17,
+      "first_seen": "ch24",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "沙僧",
+      "system_type": "师徒",
+      "mention_count": 14,
+      "first_seen": "ch44",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "八戒",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 13,
+      "first_seen": "ch24",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "猪八戒",
+      "system_type": "师徒",
+      "mention_count": 12,
+      "first_seen": "ch44",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "孙悟空",
+      "system_type": "师徒",
+      "mention_count": 11,
+      "first_seen": "ch14",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "老魔",
+      "system_type": "结拜兄弟",
+      "mention_count": 8,
+      "first_seen": "ch33",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙大圣",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 7,
+      "first_seen": "ch45",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "猪八戒",
+      "system_type": "师徒",
+      "mention_count": 6,
+      "first_seen": "ch20",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "观音菩萨",
+      "system_type": "上下级",
+      "mention_count": 6,
+      "first_seen": "ch22",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙大圣",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 6,
+      "first_seen": "ch49",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "托塔李天王",
+      "system_type": "父子",
+      "mention_count": 5,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "孙行者",
+      "system_type": "师徒",
+      "mention_count": 5,
+      "first_seen": "ch17",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙行者",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 5,
+      "first_seen": "ch38",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "牛魔王",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 5,
+      "first_seen": "ch42",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "虎力大仙",
+      "person_b": "鹿力大仙",
+      "system_type": "同门",
+      "mention_count": 5,
+      "first_seen": "ch44",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "羊力大仙",
+      "person_b": "虎力大仙",
+      "system_type": "同门",
+      "mention_count": 5,
+      "first_seen": "ch44",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙行者",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 5,
+      "first_seen": "ch46",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "太白金星",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 4,
+      "first_seen": "ch3",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "太上老君",
+      "person_b": "孙悟空",
+      "system_type": "变化",
+      "mention_count": 4,
+      "first_seen": "ch6",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐太宗",
+      "person_b": "魏征",
+      "system_type": "君臣",
+      "mention_count": 4,
+      "first_seen": "ch9",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "木叉",
+      "person_b": "观音菩萨",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch12",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "孙悟空",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch14",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "行者",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch15",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "老魔",
+      "system_type": "敌对",
+      "mention_count": 4,
+      "first_seen": "ch34",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "羊力大仙",
+      "person_b": "鹿力大仙",
+      "system_type": "同门",
+      "mention_count": 4,
+      "first_seen": "ch44",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "孙大圣",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch55",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "牛魔王",
+      "person_b": "罗刹女",
+      "system_type": "夫妻",
+      "mention_count": 4,
+      "first_seen": "ch59",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "罗刹女",
+      "person_b": "行者",
+      "system_type": "上下级",
+      "mention_count": 4,
+      "first_seen": "ch59",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三魔",
+      "person_b": "老魔",
+      "system_type": "结拜兄弟",
+      "mention_count": 4,
+      "first_seen": "ch75",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "美猴王",
+      "person_b": "通背猿猴",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch1",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "太白金星",
+      "person_b": "孙悟空",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "托塔李天王",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "托塔李天王",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "孙悟空",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "牛魔王",
+      "system_type": "结拜兄弟",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "太上老君",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch5",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "如来",
+      "person_b": "阿傩",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch8",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐太宗",
+      "person_b": "泾河龙王",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch9",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "白马",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 3,
+      "first_seen": "ch16",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "行者",
+      "person_b": "观音菩萨",
+      "system_type": "求救",
+      "mention_count": 3,
+      "first_seen": "ch17",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "猪刚鬣",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 3,
+      "first_seen": "ch18",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "猪八戒",
+      "person_b": "黄袍怪",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch28",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "宝象国国王",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch29",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "行者",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "沙僧",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "孙悟空",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch34",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "牛魔王",
+      "person_b": "红孩儿",
+      "system_type": "父子",
+      "mention_count": 3,
+      "first_seen": "ch40",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "红孩儿",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch41",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "孙行者",
+      "system_type": "师徒",
+      "mention_count": 3,
+      "first_seen": "ch44",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "孙大圣",
+      "system_type": "师徒",
+      "mention_count": 3,
+      "first_seen": "ch49",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "李天王",
+      "system_type": "父子",
+      "mention_count": 3,
+      "first_seen": "ch52",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch52",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "如来",
+      "person_b": "孙悟空",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch58",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "八戒",
+      "person_b": "唐三藏",
+      "system_type": "师徒",
+      "mention_count": 3,
+      "first_seen": "ch64",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "老魔",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch75",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "三魔",
+      "person_b": "二魔",
+      "system_type": "结拜兄弟",
+      "mention_count": 3,
+      "first_seen": "ch76",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "千里眼",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "玉皇大帝",
+      "person_b": "顺风耳",
+      "system_type": "君臣",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "须菩提祖师",
+      "system_type": "师徒",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "傲来国·樵夫",
+      "person_b": "孙悟空",
+      "system_type": "指引",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "增长天王",
+      "person_b": "孙悟空",
+      "system_type": "朋友",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "蛟魔王",
+      "system_type": "结拜兄弟",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "狮狔王",
+      "system_type": "结拜兄弟",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "猕猴王",
+      "system_type": "结拜兄弟",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "玉皇大帝",
+      "person_b": "齐天大圣",
+      "system_type": "敌对",
+      "mention_count": 2,
+      "first_seen": "ch5",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "太上老君",
+      "person_b": "齐天大圣",
+      "system_type": "敌对",
+      "mention_count": 2,
+      "first_seen": "ch5",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    },
+    {
+      "person_a": "玉皇大帝",
+      "person_b": "王母娘娘",
+      "system_type": "夫妻",
+      "mention_count": 2,
+      "first_seen": "ch5",
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
+    }
+  ]
+}

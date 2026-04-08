@@ -188,6 +188,26 @@ class TierClassifier(GeoSkill):
 
             new_tier = tier
 
+            # Rule 8: Specific name-based tier overrides (from human review)
+            _TIER_OVERRIDES = {
+                # 天庭 is a region within 天界, not a continent
+                "天庭": "region",
+                # 幽冥界 is a region within 冥界, not a continent
+                "幽冥界": "region",
+                # 齐天大圣府 is a site (personal residence), not kingdom
+                "齐天大圣府": "site",
+                "齐天府": "site",
+                # 东土大唐 is a kingdom
+                "东土大唐": "kingdom",
+            }
+            override = _TIER_OVERRIDES.get(name)
+            if override and tier != override:
+                new_tier = override
+
+            # Rule 9: X部洲 → continent (四大部洲 pattern)
+            elif name.endswith("部洲") and tier != "continent":
+                new_tier = "continent"
+
             # Rule 7: Dynasty-aware 州 reclassification
             # "部洲" (e.g. 南赡部洲) is handled by 2-char suffix → continent, skip.
             # Only apply to nodes with real evidence (mc≥2); zero/single-evidence
