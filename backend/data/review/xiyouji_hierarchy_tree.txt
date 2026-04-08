@@ -1,0 +1,185 @@
+天下 (world)
+  ├─ 龙宫 (tier=site, mc=1, ch=6) [underwater]
+    ├─ 水晶宫 (tier=site, mc=7, ch=0) [underwater]
+    ├─ 水府 (tier=site, mc=3, ch=3) [underwater]
+      ├─ 水府之西 (tier=site, mc=1, ch=0) [underwater]
+      ├─ 草堂 (tier=building, mc=1, ch=0) [underwater]
+      ├─ 厨房 (tier=building, mc=0, ch=0) [underwater]
+    ├─ 万圣龙宫 (tier=site, mc=2, ch=0) [underwater]
+    ├─ 东洋海底 (tier=site, mc=1, ch=0) [underwater]
+    ├─ 泾河水府 (tier=building, mc=1, ch=0) [underwater]
+    ├─ 流沙河水府 (tier=site, mc=1, ch=0) [underwater]
+  ├─ 主世界 (tier=continent, mc=0, ch=24)
+    ├─ 西牛贺洲 (tier=continent, mc=75, ch=52)
+      ├─ 灵山 (tier=region, mc=14, ch=10)
+      ├─ 高山 (tier=region, mc=9, ch=25)
+      ├─ 天竺国 (tier=kingdom, mc=9, ch=11)
+      ├─ 西海 (tier=region, mc=6, ch=2)
+      ├─ 宝象国 (tier=kingdom, mc=6, ch=10)
+      ├─ 平顶山 (tier=region, mc=5, ch=4)
+      ├─ 号山 (tier=region, mc=5, ch=3)
+      ├─ 五台山 (tier=region, mc=5, ch=3)
+      ├─ 流沙河 (tier=region, mc=4, ch=4)
+      ├─ 万寿山 (tier=region, mc=4, ch=3)
+      ├─ 碗子山 (tier=region, mc=4, ch=3)
+      ├─ 乌鸡国 (tier=kingdom, mc=4, ch=8)
+      ├─ 火焰山 (tier=region, mc=4, ch=5)
+      ├─ 车迟国 (tier=kingdom, mc=4, ch=7)
+      ├─ 通天河 (tier=region, mc=4, ch=37)
+      ├─ 金皘山 (tier=region, mc=4, ch=4)
+      ├─ 朱紫国 (tier=kingdom, mc=4, ch=8)
+      ├─ 黑风山 (tier=region, mc=3, ch=2)
+      ├─ 西梁女国 (tier=kingdom, mc=3, ch=9)
+      ├─ 翠云山 (tier=region, mc=3, ch=3)
+      ├─ 祭赛国 (tier=kingdom, mc=3, ch=6)
+      ├─ 麒麟山 (tier=region, mc=3, ch=3)
+      ├─ 狮驼岭 (tier=region, mc=3, ch=5)
+      ├─ 峨眉山 (tier=region, mc=3, ch=2)
+      ├─ 比丘国 (tier=kingdom, mc=3, ch=7)
+      ├─ 陷空山 (tier=region, mc=3, ch=2)
+      ├─ 灵台方寸山 (tier=region, mc=2, ch=3)
+      ├─ 观音院 (tier=building, mc=2, ch=1)
+      ├─ 白虎岭 (tier=region, mc=2, ch=2)
+      ├─ 压龙山 (tier=region, mc=2, ch=3)
+      ├─ 昆仑山 (tier=region, mc=2, ch=2)
+      ├─ 黑水河 (tier=region, mc=2, ch=4)
+      ├─ 积雷山 (tier=region, mc=2, ch=3)
+      ├─ 乱石山 (tier=region, mc=2, ch=3)
+      ├─ 小雷音寺 (tier=site, mc=2, ch=6)
+      ├─ 盘丝岭 (tier=region, mc=2, ch=3)
+      ├─ 隐雾山 (tier=region, mc=2, ch=4)
+      ├─ 玉华州 (tier=city, mc=2, ch=2)
+      ├─ 铜台府 (tier=kingdom, mc=2, ch=6)
+      ├─ 观音禅院 (tier=building, mc=1, ch=3)
+      ├─ 松柏林 (tier=region, mc=1, ch=2)
+      ├─ 宝象城 (tier=city, mc=1, ch=2)
+      ├─ 黄风岭 (tier=region, mc=1, ch=3)
+      ├─ 荆棘岭 (tier=region, mc=1, ch=3)
+      ├─ 驼罗庄 (tier=site, mc=1, ch=3)
+      ├─ 七绝山 (tier=region, mc=1, ch=3)
+      ├─ 紫云山 (tier=region, mc=1, ch=3)
+      ├─ 前山 (tier=region, mc=1, ch=2)
+      ├─ 蛇盘山 (tier=region, mc=1, ch=2)
+      ├─ 灭法国 (tier=kingdom, mc=1, ch=6)
+      ├─ 布金禅寺 (tier=site, mc=1, ch=2)
+      ├─ 舍卫国 (tier=kingdom, mc=1, ch=6)
+    ├─ 东胜神洲 (tier=continent, mc=25, ch=10)
+      ├─ 傲来国 (tier=kingdom, mc=12, ch=4)
+      ├─ 东海 (tier=region, mc=11, ch=0)
+      ├─ 东洋大海 (tier=region, mc=9, ch=4)
+      ├─ 乌斯藏国界 (tier=region, mc=4, ch=2)
+      ├─ 福陵山 (tier=region, mc=3, ch=1)
+      ├─ 小须弥山 (tier=region, mc=2, ch=1)
+      ├─ 蓬莱山 (tier=region, mc=2, ch=0)
+      ├─ 阎浮世界 (tier=region, mc=1, ch=0)
+      ├─ 乌斯藏界 (tier=region, mc=1, ch=1)
+      ├─ 南胜神洲 (tier=?, mc=0, ch=0)
+    ├─ 南海 (tier=region, mc=14, ch=8)
+      ├─ 落伽山 (tier=region, mc=6, ch=4)
+      ├─ 普陀落伽山 (tier=region, mc=5, ch=1)
+      ├─ 普陀山 (tier=region, mc=2, ch=0)
+      ├─ 南海普陀山 (tier=region, mc=1, ch=0)
+      ├─ 南洋苦海 (tier=region, mc=1, ch=0)
+      ├─ 落伽仙景界 (tier=region, mc=1, ch=0)
+      ├─ 大西天 (tier=site, mc=1, ch=1)
+      ├─ 周天 (tier=site, mc=1, ch=1)
+    ├─ 南赡部洲 (tier=site, mc=7, ch=1)
+      ├─ 南赡部洲海边 (tier=site, mc=1, ch=0)
+    ├─ 南膳部洲 (tier=site, mc=7, ch=2)
+      ├─ 东土大唐 (tier=site, mc=5, ch=0)
+      ├─ 两界山 (tier=region, mc=4, ch=1)
+    ├─ 北俱芦洲 (tier=continent, mc=7, ch=0)
+    ├─ 南瞻部洲 (tier=continent, mc=2, ch=0)
+    ├─ 极乐世界 (tier=region, mc=2, ch=0)
+    ├─ 江南 (tier=site, mc=2, ch=4)
+      ├─ 江州 (tier=city, mc=8, ch=7)
+      ├─ 均州城 (tier=city, mc=1, ch=0)
+      ├─ 巩州城 (tier=city, mc=1, ch=1)
+      ├─ 洪州 (tier=site, mc=1, ch=3)
+    ├─ 八百里黄风岭 (tier=region, mc=2, ch=5)
+      ├─ 黄风洞 (tier=site, mc=2, ch=1)
+      ├─ 净桶 (tier=site, mc=2, ch=0)
+      ├─ 卧虎石 (tier=site, mc=1, ch=0)
+      ├─ 青岱 (tier=site, mc=1, ch=0)
+      ├─ 黄风山上 (tier=site, mc=1, ch=0)
+    ├─ 须弥山 (tier=region, mc=2, ch=1)
+      ├─ 须弥山摩耳崖 (tier=site, mc=1, ch=0)
+    ├─ 河南 (tier=site, mc=1, ch=0)
+    ├─ 西番哈咇国 (tier=kingdom, mc=1, ch=2)
+      ├─ 瑶阙 (tier=site, mc=1, ch=0)
+      ├─ 西番哈咇国界 (tier=region, mc=1, ch=0)
+    ├─ 河东 (tier=site, mc=1, ch=0)
+    ├─ 清华仙府 (tier=kingdom, mc=1, ch=2)
+      ├─ 清华洞 (tier=site, mc=1, ch=3)
+      ├─ 阳间 (tier=site, mc=1, ch=0)
+    ├─ 佛界 (tier=continent, mc=1, ch=1)
+      ├─ 佛祖 (tier=site, mc=1, ch=10)
+    ├─ 金山 (tier=region, mc=1, ch=2)
+      ├─ 镇海禅林寺 (tier=site, mc=2, ch=4)
+      ├─ 金山寺 (tier=site, mc=1, ch=1)
+    ├─ 双叉岭 (tier=region, mc=1, ch=2)
+      ├─ 河州卫 (tier=site, mc=3, ch=2)
+      ├─ 刘家庄园 (tier=site, mc=1, ch=0)
+    ├─ 北海 (tier=city, mc=1, ch=0)
+    ├─ 狮驼国 (tier=site, mc=1, ch=0)
+    ├─ 京城 (tier=city, mc=1, ch=1)
+      ├─ 殷丞相府 (tier=site, mc=1, ch=1)
+    ├─ 灌洲 (tier=continent, mc=1, ch=1)
+      ├─ 灌江口 (tier=site, mc=1, ch=1)
+    ├─ 京畿 (tier=site, mc=0, ch=1)
+      ├─ 开封府 (tier=site, mc=1, ch=1)
+    ├─ 山东 (tier=site, mc=0, ch=1)
+      ├─ 泰山 (tier=region, mc=1, ch=0)
+  ├─ 天界 (tier=realm, mc=0, ch=5) [celestial]
+    ├─ 天庭 (tier=continent, mc=29, ch=30) [celestial]
+      ├─ 南天门 (tier=building, mc=14, ch=2) [celestial]
+      ├─ 通明殿 (tier=building, mc=7, ch=0) [celestial]
+      ├─ 兜率宫 (tier=site, mc=5, ch=3) [celestial]
+      ├─ 灵霄殿 (tier=building, mc=4, ch=1) [celestial]
+      ├─ 瑶池 (tier=site, mc=3, ch=0) [celestial]
+      ├─ 东天门 (tier=building, mc=3, ch=0) [celestial]
+      ├─ 蟠桃园 (tier=site, mc=2, ch=0) [celestial]
+      ├─ 齐天大圣府 (tier=kingdom, mc=2, ch=2) [celestial]
+      ├─ 兜率天宫 (tier=site, mc=2, ch=2) [celestial]
+      ├─ 斩妖台 (tier=building, mc=2, ch=1) [celestial]
+      ├─ 斗牛宫 (tier=site, mc=2, ch=0) [celestial]
+      ├─ 披香殿 (tier=building, mc=2, ch=0) [celestial]
+      ├─ 御马监 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 七宝灵台 (tier=building, mc=1, ch=0) [celestial]
+      ├─ 玉京金阙 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 太玄宝宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 洞阳玉馆 (tier=building, mc=1, ch=0) [celestial]
+      ├─ 广目天王宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 弥罗宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 北天门 (tier=building, mc=1, ch=1) [celestial]
+      ├─ 东观 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 彤华宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 乌浩宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 光明宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 观星台 (tier=building, mc=1, ch=0) [celestial]
+      ├─ 云楼宫 (tier=site, mc=1, ch=2) [celestial]
+      ├─ 九天应元府 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 妙岩宫 (tier=site, mc=1, ch=0) [celestial]
+      ├─ 大千甘露殿 (tier=building, mc=1, ch=0) [celestial]
+      ├─ 月宫 (tier=site, mc=1, ch=1) [celestial]
+    ├─ 西天门 (tier=building, mc=4, ch=1) [celestial]
+      ├─ 西天门外 (tier=site, mc=1, ch=0) [celestial]
+    ├─ 三十三天 (tier=site, mc=2, ch=1) [celestial]
+      ├─ 三十三天宫 (tier=site, mc=1, ch=0) [celestial]
+    ├─ 离恨天 (tier=site, mc=2, ch=0) [celestial]
+    ├─ 大罗天 (tier=site, mc=2, ch=0) [celestial]
+  ├─ 冥界/地府 (tier=realm, mc=0, ch=2) [underworld]
+    ├─ 幽冥界 (tier=continent, mc=4, ch=5) [underworld]
+      ├─ 森罗殿 (tier=building, mc=5, ch=1) [underworld]
+      ├─ 翠云宫 (tier=site, mc=3, ch=0) [underworld]
+      ├─ 十八层地狱 (tier=site, mc=1, ch=0) [underworld]
+      ├─ 六道轮回之所 (tier=site, mc=1, ch=1) [underworld]
+      ├─ 阴山 (tier=region, mc=1, ch=0) [underworld]
+    ├─ 幽冥地府 (tier=kingdom, mc=2, ch=7) [underworld]
+      ├─ 鬼门关 (tier=site, mc=2, ch=0) [underworld]
+      ├─ 枉死城 (tier=city, mc=2, ch=0) [underworld]
+      ├─ 幽冥背阴山 (tier=region, mc=1, ch=0) [underworld]
+      ├─ 金桥 (tier=site, mc=1, ch=0) [underworld]
+      ├─ 银桥 (tier=site, mc=1, ch=0) [underworld]
+      ├─ 奈河桥 (tier=site, mc=1, ch=0) [underworld]
+      ├─ 剐龙台 (tier=building, mc=1, ch=0) [underworld]

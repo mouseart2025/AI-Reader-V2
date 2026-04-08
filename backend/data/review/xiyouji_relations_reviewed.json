@@ -1,0 +1,912 @@
+{
+  "_instructions": "检查关系: correct_type填正确的关系类型. correct_category填family/intimate/hierarchical/social/hostile/other",
+  "_novel": "西游记",
+  "_total": 80,
+  "relations": [
+    {
+      "person_a": "沙僧",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 35,
+      "first_seen": "ch23",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "行者",
+      "system_type": "师徒",
+      "mention_count": 32,
+      "first_seen": "ch16",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "沙僧",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 32,
+      "first_seen": "ch23",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 31,
+      "first_seen": "ch20",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "猪八戒",
+      "system_type": "师徒",
+      "mention_count": 29,
+      "first_seen": "ch21",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "沙僧",
+      "system_type": "师徒",
+      "mention_count": 29,
+      "first_seen": "ch25",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "八戒",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 27,
+      "first_seen": "ch24",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 27,
+      "first_seen": "ch25",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "沙僧",
+      "system_type": "师徒",
+      "mention_count": 25,
+      "first_seen": "ch20",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "孙悟空",
+      "system_type": "师徒",
+      "mention_count": 25,
+      "first_seen": "ch22",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "猪八戒",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 18,
+      "first_seen": "ch21",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "行者",
+      "system_type": "师徒",
+      "mention_count": 17,
+      "first_seen": "ch21",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "八戒",
+      "system_type": "师徒",
+      "mention_count": 17,
+      "first_seen": "ch24",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "沙僧",
+      "system_type": "师徒",
+      "mention_count": 14,
+      "first_seen": "ch44",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "八戒",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 13,
+      "first_seen": "ch24",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "猪八戒",
+      "system_type": "师徒",
+      "mention_count": 12,
+      "first_seen": "ch44",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "孙悟空",
+      "system_type": "师徒",
+      "mention_count": 11,
+      "first_seen": "ch14",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "老魔",
+      "system_type": "结拜兄弟",
+      "mention_count": 8,
+      "first_seen": "ch33",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": ""
+    },
+    {
+      "person_a": "孙大圣",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 7,
+      "first_seen": "ch45",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "猪八戒",
+      "system_type": "师徒",
+      "mention_count": 6,
+      "first_seen": "ch20",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "观音菩萨",
+      "system_type": "上下级",
+      "mention_count": 6,
+      "first_seen": "ch22",
+      "correct_type": "护法与指引",
+      "correct_category": "hierarchical",
+      "_note": "观音是取经事业的总策划和监督者，悟空受其节制。非严格上下级但有层级关系"
+    },
+    {
+      "person_a": "孙大圣",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 6,
+      "first_seen": "ch49",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "托塔李天王",
+      "system_type": "父子",
+      "mention_count": 5,
+      "first_seen": "ch4",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "孙行者",
+      "system_type": "师徒",
+      "mention_count": 5,
+      "first_seen": "ch17",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "孙行者",
+      "person_b": "猪八戒",
+      "system_type": "师兄弟",
+      "mention_count": 5,
+      "first_seen": "ch38",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "牛魔王",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 5,
+      "first_seen": "ch42",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": "因红孩儿事件及芭蕉扇争夺而为敌"
+    },
+    {
+      "person_a": "虎力大仙",
+      "person_b": "鹿力大仙",
+      "system_type": "同门",
+      "mention_count": 5,
+      "first_seen": "ch44",
+      "correct_type": "同门",
+      "correct_category": "social",
+      "_note": "车迟国三妖道"
+    },
+    {
+      "person_a": "羊力大仙",
+      "person_b": "虎力大仙",
+      "system_type": "同门",
+      "mention_count": 5,
+      "first_seen": "ch44",
+      "correct_type": "同门",
+      "correct_category": "social",
+      "_note": "车迟国三妖道"
+    },
+    {
+      "person_a": "孙行者",
+      "person_b": "沙僧",
+      "system_type": "师兄弟",
+      "mention_count": 5,
+      "first_seen": "ch46",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "同为唐僧徒弟"
+    },
+    {
+      "person_a": "太白金星",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 4,
+      "first_seen": "ch3",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "太上老君",
+      "person_b": "孙悟空",
+      "system_type": "变化",
+      "mention_count": 4,
+      "first_seen": "ch6",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": "system_type'变化'有误。太上老君曾在八卦炉中锻炼孙悟空，后在金兜山收回坐骑青牛。总体为对立关系"
+    },
+    {
+      "person_a": "唐太宗",
+      "person_b": "魏征",
+      "system_type": "君臣",
+      "mention_count": 4,
+      "first_seen": "ch9",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "木叉",
+      "person_b": "观音菩萨",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch12",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": "木叉（惠岸行者）是观音菩萨的徒弟"
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "孙悟空",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch14",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "行者",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch15",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "老魔",
+      "system_type": "敌对",
+      "mention_count": 4,
+      "first_seen": "ch34",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": ""
+    },
+    {
+      "person_a": "羊力大仙",
+      "person_b": "鹿力大仙",
+      "system_type": "同门",
+      "mention_count": 4,
+      "first_seen": "ch44",
+      "correct_type": "同门",
+      "correct_category": "social",
+      "_note": "车迟国三妖道"
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "孙大圣",
+      "system_type": "师徒",
+      "mention_count": 4,
+      "first_seen": "ch55",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "牛魔王",
+      "person_b": "罗刹女",
+      "system_type": "夫妻",
+      "mention_count": 4,
+      "first_seen": "ch59",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": ""
+    },
+    {
+      "person_a": "罗刹女",
+      "person_b": "行者",
+      "system_type": "上下级",
+      "mention_count": 4,
+      "first_seen": "ch59",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": "罗刹女因红孩儿之事与行者为仇，非上下级"
+    },
+    {
+      "person_a": "三魔",
+      "person_b": "老魔",
+      "system_type": "结拜兄弟",
+      "mention_count": 4,
+      "first_seen": "ch75",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": ""
+    },
+    {
+      "person_a": "美猴王",
+      "person_b": "通背猿猴",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch1",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "美猴王是花果山之王，通背猿猴是其属下猴臣，主仆关系"
+    },
+    {
+      "person_a": "太白金星",
+      "person_b": "孙悟空",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": "相识",
+      "correct_category": "social",
+      "_note": "太白金星曾两次招安孙悟空，是调停者而非上下级"
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "托塔李天王",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "托塔李天王",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": "相识",
+      "correct_category": "social",
+      "_note": "二者曾为敌（大闹天宫），后多次合作降妖。无上下级关系"
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "孙悟空",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": "相识",
+      "correct_category": "social",
+      "_note": "曾交战后和解，多次合作降妖。无上下级关系"
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "牛魔王",
+      "system_type": "结拜兄弟",
+      "mention_count": 3,
+      "first_seen": "ch4",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": "早年结拜为七弟兄，后因红孩儿等事件转为敌对。取早期主要关系"
+    },
+    {
+      "person_a": "太上老君",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch5",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": "太上老君虽地位崇高，但在天庭体制中受玉帝统辖"
+    },
+    {
+      "person_a": "如来",
+      "person_b": "阿傩",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch8",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": "如来与阿傩是佛祖与弟子关系，应为师徒而非君臣"
+    },
+    {
+      "person_a": "唐太宗",
+      "person_b": "泾河龙王",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch9",
+      "correct_type": "冤债",
+      "correct_category": "hostile",
+      "_note": "泾河龙王因违天条被斩，向唐太宗索命。非对等敌对，是冤债关系"
+    },
+    {
+      "person_a": "白马",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 3,
+      "first_seen": "ch16",
+      "correct_type": "同行",
+      "correct_category": "social",
+      "_note": "白马（白龙马）与行者是取经同伴，非严格师兄弟关系"
+    },
+    {
+      "person_a": "行者",
+      "person_b": "观音菩萨",
+      "system_type": "求救",
+      "mention_count": 3,
+      "first_seen": "ch17",
+      "correct_type": "护法与指引",
+      "correct_category": "hierarchical",
+      "_note": "行者多次求观音菩萨帮助降妖。求救只是互动方式，核心关系是观音指导悟空护法取经"
+    },
+    {
+      "person_a": "猪刚鬣",
+      "person_b": "行者",
+      "system_type": "师兄弟",
+      "mention_count": 3,
+      "first_seen": "ch18",
+      "correct_type": "师兄弟",
+      "correct_category": "social",
+      "_note": "猪刚鬣即猪八戒，与行者（孙悟空）为师兄弟。此条为重复关系对（人物别名）"
+    },
+    {
+      "person_a": "猪八戒",
+      "person_b": "黄袍怪",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch28",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": ""
+    },
+    {
+      "person_a": "唐僧",
+      "person_b": "宝象国国王",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch29",
+      "correct_type": "相识",
+      "correct_category": "social",
+      "_note": "唐僧是过路僧人，非宝象国臣子。应为相识/社交关系"
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "行者",
+      "system_type": "上下级",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": "二魔（银角大王）与行者是敌对关系，非上下级"
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "沙僧",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": ""
+    },
+    {
+      "person_a": "二魔",
+      "person_b": "孙悟空",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch34",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": ""
+    },
+    {
+      "person_a": "牛魔王",
+      "person_b": "红孩儿",
+      "system_type": "父子",
+      "mention_count": 3,
+      "first_seen": "ch40",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": ""
+    },
+    {
+      "person_a": "红孩儿",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch41",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": ""
+    },
+    {
+      "person_a": "唐三藏",
+      "person_b": "孙行者",
+      "system_type": "师徒",
+      "mention_count": 3,
+      "first_seen": "ch44",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "三藏",
+      "person_b": "孙大圣",
+      "system_type": "师徒",
+      "mention_count": 3,
+      "first_seen": "ch49",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "李天王",
+      "system_type": "父子",
+      "mention_count": 3,
+      "first_seen": "ch52",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": ""
+    },
+    {
+      "person_a": "哪吒三太子",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch52",
+      "correct_type": "合作",
+      "correct_category": "social",
+      "_note": "哪吒与行者在第52回后多次合作降妖，非敌对。early ch4曾交战但后和解"
+    },
+    {
+      "person_a": "如来",
+      "person_b": "孙悟空",
+      "system_type": "君臣",
+      "mention_count": 3,
+      "first_seen": "ch58",
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "_note": "如来是佛界至尊，孙悟空归于佛门后受其管辖，上下级比君臣更准确"
+    },
+    {
+      "person_a": "八戒",
+      "person_b": "唐三藏",
+      "system_type": "师徒",
+      "mention_count": 3,
+      "first_seen": "ch64",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "老魔",
+      "person_b": "行者",
+      "system_type": "敌对",
+      "mention_count": 3,
+      "first_seen": "ch75",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": ""
+    },
+    {
+      "person_a": "三魔",
+      "person_b": "二魔",
+      "system_type": "结拜兄弟",
+      "mention_count": 3,
+      "first_seen": "ch76",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": ""
+    },
+    {
+      "person_a": "千里眼",
+      "person_b": "玉皇大帝",
+      "system_type": "君臣",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "玉皇大帝",
+      "person_b": "顺风耳",
+      "system_type": "君臣",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": "君臣",
+      "correct_category": "hierarchical",
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "须菩提祖师",
+      "system_type": "师徒",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": "师徒",
+      "correct_category": "hierarchical",
+      "_note": "孙悟空早年拜须菩提祖师学艺"
+    },
+    {
+      "person_a": "傲来国·樵夫",
+      "person_b": "孙悟空",
+      "system_type": "指引",
+      "mention_count": 2,
+      "first_seen": "ch1",
+      "correct_type": "指引",
+      "correct_category": "social",
+      "_note": "樵夫指引孙悟空找到须菩提祖师"
+    },
+    {
+      "person_a": "增长天王",
+      "person_b": "孙悟空",
+      "system_type": "朋友",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": "相识",
+      "correct_category": "social",
+      "_note": "增长天王是天庭守门将，与悟空仅为相识。悟空后在第24回与其猜枚耍子，关系友善但非朋友"
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "蛟魔王",
+      "system_type": "结拜兄弟",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "狮狔王",
+      "system_type": "结拜兄弟",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": ""
+    },
+    {
+      "person_a": "孙悟空",
+      "person_b": "猕猴王",
+      "system_type": "结拜兄弟",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "correct_type": "结拜兄弟",
+      "correct_category": "intimate",
+      "_note": ""
+    },
+    {
+      "person_a": "玉皇大帝",
+      "person_b": "齐天大圣",
+      "system_type": "敌对",
+      "mention_count": 2,
+      "first_seen": "ch5",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": "大闹天宫期间的对立"
+    },
+    {
+      "person_a": "太上老君",
+      "person_b": "齐天大圣",
+      "system_type": "敌对",
+      "mention_count": 2,
+      "first_seen": "ch5",
+      "correct_type": "敌对",
+      "correct_category": "hostile",
+      "_note": "大闹天宫期间，老君曾以八卦炉炼之"
+    },
+    {
+      "person_a": "玉皇大帝",
+      "person_b": "王母娘娘",
+      "system_type": "夫妻",
+      "mention_count": 2,
+      "first_seen": "ch5",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "西游记原文未明确二者为夫妻，但第五回'时有太上老君在上，王母娘娘在后'暗示其关系，传统神话中为夫妻"
+    }
+  ],
+  "_duplicate_relation_groups": [
+    {
+      "canonical_pair": [
+        "孙悟空",
+        "唐僧"
+      ],
+      "relation": "师徒",
+      "fragmented_pairs": [
+        [
+          "三藏",
+          "行者"
+        ],
+        [
+          "唐僧",
+          "猪八戒→应为孙悟空"
+        ],
+        [
+          "唐僧",
+          "孙悟空"
+        ],
+        [
+          "唐僧",
+          "行者"
+        ],
+        [
+          "三藏",
+          "八戒→"
+        ],
+        [
+          "唐三藏",
+          "孙悟空"
+        ],
+        [
+          "唐三藏",
+          "行者"
+        ],
+        [
+          "唐僧",
+          "孙行者"
+        ],
+        [
+          "唐三藏",
+          "孙行者"
+        ],
+        [
+          "三藏",
+          "孙大圣"
+        ],
+        [
+          "唐僧",
+          "孙大圣"
+        ],
+        [
+          "三藏",
+          "孙悟空"
+        ]
+      ],
+      "_note": "由于人物别名未合并，同一师徒关系被拆成12条。合并人物别名后应仅保留1条"
+    },
+    {
+      "canonical_pair": [
+        "孙悟空",
+        "猪八戒"
+      ],
+      "relation": "师兄弟",
+      "fragmented_count": 7,
+      "_note": "行者/孙悟空/孙大圣/孙行者 × 猪八戒/八戒 的别名组合，应合并为1条"
+    },
+    {
+      "canonical_pair": [
+        "孙悟空",
+        "沙僧"
+      ],
+      "relation": "师兄弟",
+      "fragmented_count": 5,
+      "_note": "同上别名碎片化"
+    },
+    {
+      "canonical_pair": [
+        "猪八戒",
+        "沙僧"
+      ],
+      "relation": "师兄弟",
+      "fragmented_count": 3,
+      "_note": "八戒/猪八戒 × 沙僧 别名碎片"
+    },
+    {
+      "canonical_pair": [
+        "唐僧",
+        "沙僧"
+      ],
+      "relation": "师徒",
+      "fragmented_count": 4,
+      "_note": "三藏/唐僧/唐三藏 × 沙僧"
+    },
+    {
+      "canonical_pair": [
+        "唐僧",
+        "猪八戒"
+      ],
+      "relation": "师徒",
+      "fragmented_count": 5,
+      "_note": "三藏/唐僧/唐三藏 × 猪八戒/八戒"
+    }
+  ]
+}

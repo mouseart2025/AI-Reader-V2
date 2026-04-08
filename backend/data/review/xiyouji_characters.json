@@ -1,0 +1,727 @@
+{
+  "_instructions": "检查每个人物: is_valid_character=true(真实人物)/false(泛称/非人物). correct_name填写正确的canonical名(如有误). _note写备注",
+  "_novel": "西游记",
+  "_total": 1006,
+  "characters": [
+    {
+      "name": "沙僧",
+      "mention_count": 75,
+      "first_chapter": 20,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "猪八戒",
+      "mention_count": 59,
+      "first_chapter": 20,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "唐僧",
+      "mention_count": 42,
+      "first_chapter": 17,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "行者",
+      "mention_count": 37,
+      "first_chapter": 15,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "孙悟空",
+      "mention_count": 36,
+      "first_chapter": 2,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "三藏",
+      "mention_count": 29,
+      "first_chapter": 14,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "八戒",
+      "mention_count": 21,
+      "first_chapter": 24,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "玉皇大帝",
+      "mention_count": 19,
+      "first_chapter": 1,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "唐三藏",
+      "mention_count": 18,
+      "first_chapter": 14,
+      "last_chapter": 98,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "观音菩萨",
+      "mention_count": 14,
+      "first_chapter": 8,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "太上老君",
+      "mention_count": 12,
+      "first_chapter": 5,
+      "last_chapter": 74,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "黄门官",
+      "mention_count": 10,
+      "first_chapter": 12,
+      "last_chapter": 94,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "白马",
+      "mention_count": 10,
+      "first_chapter": 16,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "白龙马",
+      "mention_count": 10,
+      "first_chapter": 31,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "孙大圣",
+      "mention_count": 10,
+      "first_chapter": 34,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "牛魔王",
+      "mention_count": 9,
+      "first_chapter": 3,
+      "last_chapter": 61,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "哪吒三太子",
+      "mention_count": 9,
+      "first_chapter": 4,
+      "last_chapter": 83,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "太白金星",
+      "mention_count": 8,
+      "first_chapter": 3,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "托塔李天王",
+      "mention_count": 8,
+      "first_chapter": 4,
+      "last_chapter": 61,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "四值功曹",
+      "mention_count": 8,
+      "first_chapter": 5,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "如来",
+      "mention_count": 8,
+      "first_chapter": 8,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "光禄寺官",
+      "mention_count": 8,
+      "first_chapter": 12,
+      "last_chapter": 94,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "文武多官",
+      "mention_count": 8,
+      "first_chapter": 12,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "唐太宗",
+      "mention_count": 7,
+      "first_chapter": 9,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "当驾官",
+      "mention_count": 7,
+      "first_chapter": 9,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "观世音菩萨",
+      "mention_count": 6,
+      "first_chapter": 6,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "金头揭谛",
+      "mention_count": 6,
+      "first_chapter": 15,
+      "last_chapter": 90,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "孙行者",
+      "mention_count": 6,
+      "first_chapter": 38,
+      "last_chapter": 94,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "增长天王",
+      "mention_count": 5,
+      "first_chapter": 4,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "王母娘娘",
+      "mention_count": 5,
+      "first_chapter": 5,
+      "last_chapter": 74,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "阿傩",
+      "mention_count": 5,
+      "first_chapter": 7,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "魏征",
+      "mention_count": 5,
+      "first_chapter": 8,
+      "last_chapter": 12,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "木叉",
+      "mention_count": 5,
+      "first_chapter": 12,
+      "last_chapter": 83,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "广目天王",
+      "mention_count": 5,
+      "first_chapter": 16,
+      "last_chapter": 90,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "二魔",
+      "mention_count": 5,
+      "first_chapter": 33,
+      "last_chapter": 77,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "红孩儿",
+      "mention_count": 5,
+      "first_chapter": 40,
+      "last_chapter": 59,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "八大金刚",
+      "mention_count": 5,
+      "first_chapter": 52,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "巡海夜叉",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 43,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "龙女",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "秦广王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "宋帝王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "阎罗王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "平等王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "泰山王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "都市王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "卞城王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "转轮王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "葛仙翁",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "张天师",
+      "mention_count": 4,
+      "first_chapter": 4,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "赤脚大仙",
+      "mention_count": 4,
+      "first_chapter": 5,
+      "last_chapter": 22,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "四大天师",
+      "mention_count": 4,
+      "first_chapter": 7,
+      "last_chapter": 87,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "揭谛",
+      "mention_count": 4,
+      "first_chapter": 8,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "龙子龙孙",
+      "mention_count": 4,
+      "first_chapter": 9,
+      "last_chapter": 63,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "日值功曹",
+      "mention_count": 4,
+      "first_chapter": 15,
+      "last_chapter": 91,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "山神土地",
+      "mention_count": 4,
+      "first_chapter": 15,
+      "last_chapter": 50,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "诸天",
+      "mention_count": 4,
+      "first_chapter": 17,
+      "last_chapter": 66,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "阁门大使",
+      "mention_count": 4,
+      "first_chapter": 29,
+      "last_chapter": 45,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "多官",
+      "mention_count": 4,
+      "first_chapter": 30,
+      "last_chapter": 95,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "老魔",
+      "mention_count": 4,
+      "first_chapter": 33,
+      "last_chapter": 77,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "三太子",
+      "mention_count": 4,
+      "first_chapter": 37,
+      "last_chapter": 93,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "罗刹女",
+      "mention_count": 4,
+      "first_chapter": 40,
+      "last_chapter": 61,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "敖顺",
+      "mention_count": 4,
+      "first_chapter": 41,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "陈清",
+      "mention_count": 4,
+      "first_chapter": 47,
+      "last_chapter": 99,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "善财童子",
+      "mention_count": 4,
+      "first_chapter": 49,
+      "last_chapter": 84,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "太监",
+      "mention_count": 4,
+      "first_chapter": 68,
+      "last_chapter": 93,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "须菩提祖师",
+      "mention_count": 3,
+      "first_chapter": 1,
+      "last_chapter": 59,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "蛟魔王",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 41,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "猕猴王",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 41,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "忤官王",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "地藏王菩萨",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 97,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "四健将",
+      "mention_count": 3,
+      "first_chapter": 4,
+      "last_chapter": 6,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "巨灵神",
+      "mention_count": 3,
+      "first_chapter": 4,
+      "last_chapter": 83,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "燃灯古佛",
+      "mention_count": 3,
+      "first_chapter": 5,
+      "last_chapter": 100,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "迦叶",
+      "mention_count": 3,
+      "first_chapter": 7,
+      "last_chapter": 77,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "比丘僧",
+      "mention_count": 3,
+      "first_chapter": 8,
+      "last_chapter": 98,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "张氏",
+      "mention_count": 3,
+      "first_chapter": 8,
+      "last_chapter": 97,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "殷开山",
+      "mention_count": 3,
+      "first_chapter": 8,
+      "last_chapter": 11,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "泾河龙王",
+      "mention_count": 3,
+      "first_chapter": 9,
+      "last_chapter": 43,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "夜叉",
+      "mention_count": 3,
+      "first_chapter": 9,
+      "last_chapter": 92,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "雷公",
+      "mention_count": 3,
+      "first_chapter": 9,
+      "last_chapter": 52,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    }
+  ]
+}

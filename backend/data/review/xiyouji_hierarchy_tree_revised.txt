@@ -1,0 +1,257 @@
+天下 (world)
+  ├─ 主世界 (tier=realm, mc=0) ← [修正] tier: continent→realm
+    ├─ 南赡部洲 (tier=continent, mc=7) ← [修正] tier: site→continent; 合并 南膳部洲(mc=7)/南瞻部洲(mc=2)
+      ├─ 东土大唐 (tier=kingdom, mc=5) ← [修正] tier: site→kingdom; parent: 南膳部洲→南赡部洲
+        ├─ 长安城 (tier=city, mc=8) ← [修正] parent: 江州→南赡部洲(实际挂东土大唐下)
+          ├─ 皇宫 (tier=site, mc=8)
+            ├─ 金銮殿 (tier=building, mc=15)
+            ├─ 金銮宝殿 (tier=building, mc=6)
+            ├─ 凌烟阁 (tier=building, mc=1)
+            ├─ 文渊殿 (tier=building, mc=1)
+            ├─ 东华门 (tier=building, mc=1)
+            ├─ ...其他宫殿建筑
+          ├─ 化生寺 (tier=site, mc=2)
+          ├─ 洪福寺 (tier=site, mc=2)
+          ├─ 山川坛 (tier=site, mc=1)
+          ├─ 望经楼 (tier=building, mc=1)
+          ├─ 雁塔寺 (tier=site, mc=1)
+          ├─ 誊黄寺 (tier=site, mc=1)
+          ├─ 魏征丞相府 (tier=site, mc=1)
+          ├─ ...
+      ├─ 江南 (tier=region, mc=2) ← [修正] tier: site→region
+        ├─ 江州 (tier=city, mc=8) ← [修正] parent: 江南→南赡部洲(实际挂江南下)
+        ├─ 洪州 (tier=city, mc=1)
+        ├─ 均州城 (tier=city, mc=1)
+        ├─ 巩州城 (tier=city, mc=1)
+      ├─ 河南 (tier=region, mc=1) ← [修正] tier: site→region
+      ├─ 河东 (tier=region, mc=1) ← [修正] tier: site→region
+      ├─ 山东 (tier=region, mc=0) ← [修正] tier: site→region
+        ├─ 泰山 (tier=region, mc=1)
+      ├─ 京畿 (tier=region, mc=0) ← [修正] tier: site→region
+        ├─ 开封府 (tier=site, mc=1)
+      ├─ 京城 (tier=city, mc=1) ← [修正] parent: 主世界→南赡部洲
+      ├─ 两界山 (tier=region, mc=4)
+        ├─ 五行山 (tier=region, mc=3)
+      ├─ 双叉岭 (tier=region, mc=1)
+        ├─ 河州卫 (tier=site, mc=3)
+      ├─ 南赡部洲海边 (tier=site, mc=1)
+    ├─ 西牛贺洲 (tier=continent, mc=75)
+      ├─ 灵山 (tier=region, mc=14)
+        ├─ 雷音寺/大雷音寺 (tier=site, mc=6+2) ← [修正] 大雷音寺parent: 天竺国→灵山
+          ├─ 珍楼 (tier=building, mc=3)
+          ├─ 三山门 (tier=building, mc=1)
+          ├─ 护法堂 (tier=building, mc=1)
+          ├─ 浮屠塔 (tier=building, mc=1)
+        ├─ 雷音宝刹 (tier=site, mc=3)
+        ├─ 玉真观 (tier=site, mc=3)
+        ├─ 凌云渡 (tier=site, mc=2)
+        ├─ 化龙池 (tier=site, mc=1)
+        ├─ 灵鹫高峰/鹫峰 (tier=site, mc=1)
+      ├─ 西天 (tier=region, mc=8) ← [修正] tier: site→region; parent: 灵山→西牛贺洲
+      ├─ 天竺国 (tier=kingdom, mc=9)
+        ├─ 金平府 (tier=city, mc=2) ← [修正] tier: kingdom→city
+          ├─ 慈云寺 (tier=site, mc=2)
+          ├─ 青龙山 (tier=region, mc=2)
+          ├─ 旻天县 (tier=site, mc=2)
+          ├─ 金灯桥 (tier=site, mc=2)
+        ├─ 玉华县 (tier=region, mc=1)
+          ├─ 玉华王府 (tier=site, mc=3)
+          ├─ 竹节山 (tier=site, mc=2)
+        ├─ 百脚山 (tier=region, mc=2)
+        ├─ 凤仙郡 (tier=city, mc=2) ← [修正] tier: region→city
+        ├─ 宝华山 (tier=region, mc=2)
+        ├─ 毛颖山 (tier=region, mc=2)
+        ├─ 豹头山 (tier=site, mc=1)
+        ├─ 天竺国皇宫 (tier=site, mc=1)
+      ├─ 宝象国 (tier=kingdom, mc=6)
+        ├─ 昭阳宫 (tier=site, mc=2)
+        ├─ 银安殿 (tier=building, mc=2)
+        ├─ 鳷鹊宫 (tier=site, mc=2)
+        ├─ 金亭馆驿 (tier=site, mc=1)
+        ├─ ...
+      ├─ 乌鸡国 (tier=kingdom, mc=4)
+        ├─ 宝林寺 (tier=site, mc=4)
+        ├─ 御花园 (tier=site, mc=7)
+        ├─ 御水河 (tier=region, mc=2)
+        ├─ ...
+      ├─ 车迟国 (tier=kingdom, mc=4)
+        ├─ 三清观 (tier=site, mc=3)
+        ├─ 智渊寺 (tier=site, mc=3)
+        ├─ ...
+      ├─ 朱紫国 (tier=kingdom, mc=4)
+        ├─ 会同馆 (tier=building, mc=3)
+        ├─ 麒麟山 (tier=region, mc=3)
+          ├─ 獬豸洞 (tier=site, mc=2)
+        ├─ ...
+      ├─ 西梁女国 (tier=kingdom, mc=3) ← 合并 西梁国(mc=1)
+        ├─ 五凤楼 (tier=building, mc=5)
+        ├─ 解阳山 (tier=region, mc=2)
+        ├─ 毒敌山 (tier=region, mc=1)
+        ├─ 子母河 (tier=region, mc=1) ← [修正] parent: 灭法国→西梁女国
+        ├─ ...
+      ├─ 祭赛国 (tier=kingdom, mc=3)
+        ├─ 护国金光寺/金光寺 (tier=site, mc=1)
+        ├─ 五色琉璃塔 (tier=building, mc=1)
+        ├─ ...
+      ├─ 比丘国 (tier=kingdom, mc=3)
+      ├─ 灭法国 (tier=kingdom, mc=1) ← 后改名钦法国
+      ├─ 舍卫国 (tier=kingdom, mc=1)
+      ├─ 铜台府 (tier=city, mc=2) ← [修正] tier: kingdom→city
+        ├─ 地灵县 (tier=site, mc=2)
+        ├─ 寇员外家 (tier=building, mc=2)
+        ├─ ...
+      ├─ 傲来国 (tier=kingdom, mc=12) ← [注意] 原在东胜神洲下，地理上正确
+      ...(以下略，傲来国实际在东胜神洲)
+      ├─ 花果山 (tier=region, mc=13) ...(在傲来国下)
+      ├─ 平顶山 (tier=region, mc=5)
+        ├─ 莲花洞 (tier=site, mc=4)
+        ├─ ...
+      ├─ 号山 (tier=region, mc=5)
+        ├─ 枯松涧 (tier=site, mc=6)
+          ├─ 火云洞 (tier=site, mc=6)
+        ├─ 松林 (tier=region→DELETE, mc=5) ← [删除] 泛称
+      ├─ 五台山 (tier=region, mc=5)
+      ├─ 火焰山 (tier=region, mc=4)
+      ├─ 通天河 (tier=region, mc=4)
+        ├─ 陈家庄 (tier=site, mc=4)
+      ├─ 流沙河 (tier=region, mc=4)
+      ├─ 万寿山 (tier=region, mc=4)
+        ├─ 五庄观 (tier=site, mc=3)
+      ├─ 碗子山 (tier=region, mc=4)
+        ├─ 波月洞 (tier=site, mc=4)
+      ├─ 金皘山 (tier=region, mc=4)
+      ├─ 狮驼岭 (tier=region, mc=3)
+        ├─ 八百里狮驼岭 (tier=region, mc=3)
+        ├─ 狮驼洞 (tier=site, mc=3)
+        ├─ 狮驼城 (tier=city, mc=1)
+      ├─ 陷空山 (tier=region, mc=3)
+        ├─ 无底洞 (tier=site, mc=3)
+      ├─ 翠云山 (tier=region, mc=3)
+        ├─ 芭蕉洞 (tier=site, mc=3)
+      ├─ 积雷山 (tier=region, mc=2)
+        ├─ 摩云洞 (tier=site, mc=2)
+      ├─ 乱石山 (tier=region, mc=2)
+        ├─ 碧波潭 (tier=site, mc=2)
+      ├─ 黑风山 (tier=region, mc=3)
+        ├─ 黑风洞 (tier=site, mc=3)
+      ├─ 黑水河 (tier=region, mc=2)
+      ├─ 白虎岭 (tier=region, mc=2)
+      ├─ 盘丝岭 (tier=region, mc=2)
+        ├─ 盘丝洞 (tier=site, mc=2)
+        ├─ 濯垢泉 (tier=site, mc=2)
+      ├─ 隐雾山 (tier=region, mc=2)
+        ├─ 折岳连环洞 (tier=site, mc=1)
+      ├─ 灵台方寸山 (tier=region, mc=2)
+        ├─ 斜月三星洞 (tier=site, mc=2)
+      ├─ 紫云山 (tier=region, mc=1)
+        ├─ 千花洞 (tier=site, mc=1)
+        ├─ 黄花观 (tier=site, mc=1)
+      ├─ 荆棘岭 (tier=region, mc=1)
+      ├─ 七绝山 (tier=region, mc=1)
+      ├─ 布金禅寺 (tier=site, mc=1)
+      ├─ 驼罗庄 (tier=site, mc=1)
+      ├─ 小雷音寺 (tier=site, mc=2)
+      ├─ 黄风岭 (tier=region, mc=1)
+      ├─ 蛇盘山 (tier=region, mc=1)
+      ├─ 压龙山 (tier=region, mc=2)
+      ├─ 昆仑山 (tier=region, mc=2)
+      ├─ 峨眉山 (tier=region, mc=3)
+      ├─ 观音禅院 (tier=site, mc=1) ← [修正] tier: building→site
+      ├─ 西洋大海 (tier=region, mc=2) ← [修正] parent: 灭法国→西牛贺洲
+      ├─ 西海 (tier=region, mc=6)
+      ├─ 狮驼国 (tier=kingdom, mc=1) ← [修正] parent: 主世界→西牛贺洲
+      ├─ 西番哈咇国 (tier=kingdom, mc=1) ← [修正] parent: 主世界→西牛贺洲
+      ├─ 斯哈哩国 (tier=kingdom, mc=1) ← [修正] parent: 黑风山→西牛贺洲
+    ├─ 东胜神洲 (tier=continent, mc=25)
+      ├─ 傲来国 (tier=kingdom, mc=12)
+        ├─ 花果山 (tier=region, mc=13)
+          ├─ 水帘洞 (tier=site, mc=10)
+            ├─ 铁板桥 (tier=site, mc=2)
+          ├─ 芳草坡 (tier=site, mc=2)
+        ├─ 坎源山 (tier=region, mc=1)
+      ├─ 东海 (tier=region, mc=11)
+      ├─ 东洋大海 (tier=region, mc=9)
+        ├─ 蓬莱仙境 (tier=region, mc=1)
+        ├─ 瀛洲海岛 (tier=region, mc=1)
+      ├─ 蓬莱山 (tier=region, mc=2)
+    ├─ 北俱芦洲 (tier=continent, mc=7)
+    ├─ 南海 (tier=region, mc=14)
+      ├─ 落伽山/普陀落伽山/普陀山 (tier=region, mc=6+5+2) ← [合并]
+        ├─ 潮音洞 (tier=site, mc=7)
+          ├─ 宝莲池/莲花池 (tier=site, mc=2)
+          ├─ 宝莲台 (tier=building, mc=2)
+        ├─ 紫竹林 (tier=site, mc=5) ← [修正] tier: region→site
+    ├─ 极乐世界 (tier=region, mc=2)
+    ├─ 须弥山 (tier=region, mc=2)
+    ├─ 金山 (tier=region, mc=1)
+      ├─ 金山寺 (tier=site, mc=1)
+      ├─ 镇海禅林寺 (tier=site, mc=2)
+    ├─ 北海 (tier=region, mc=1) ← [修正] tier: city→region
+    ├─ 灌洲 (tier=region, mc=1) ← [修正] tier: continent→region
+      ├─ 灌江口 (tier=site, mc=1)
+  ├─ 天界 (tier=realm, mc=0) [celestial]
+    ├─ 天庭 (tier=region, mc=29) [celestial] ← [修正] tier: continent→region
+      ├─ 灵霄宝殿 (tier=building, mc=11) ← [修正] parent: 兜率天宫→天庭
+      ├─ 灵霄殿 (tier=building, mc=4)
+      ├─ 南天门 (tier=site, mc=14) ← [修正] tier: building→site
+      ├─ 通明殿 (tier=building, mc=7)
+      ├─ 兜率宫 (tier=site, mc=5)
+        ├─ 丹房 (tier=building, mc=2)
+      ├─ 兜率天宫 (tier=site, mc=2)
+        ├─ 朱陵丹台 (tier=building, mc=1)
+      ├─ 瑶池 (tier=site, mc=3)
+      ├─ 蟠桃园 (tier=site, mc=2)
+      ├─ 齐天大圣府 (tier=site, mc=2) ← [修正] tier: kingdom→site
+        ├─ 安静司 (tier=building, mc=2)
+        ├─ 宁神司 (tier=building, mc=2)
+      ├─ 御马监 (tier=site, mc=1)
+      ├─ 东天门 (tier=building, mc=3)
+      ├─ 北天门 (tier=building, mc=1)
+      ├─ 斩妖台 (tier=building, mc=2)
+      ├─ 披香殿 (tier=building, mc=2)
+      ├─ 斗牛宫 (tier=site, mc=2)
+      ├─ 弥罗宫 (tier=site, mc=1)
+      ├─ 云楼宫 (tier=site, mc=1)
+      ├─ 月宫 (tier=site, mc=1)
+        ├─ 广寒宫 (tier=building, mc=1)
+      ├─ ...其他天庭建筑/宫殿
+    ├─ 西天门 (tier=site, mc=4) ← [修正] parent: 天界→天庭
+    ├─ 三十三天 (tier=site, mc=2)
+    ├─ 离恨天 (tier=site, mc=2)
+    ├─ 大罗天 (tier=site, mc=2)
+  ├─ 冥界/地府 (tier=realm, mc=0) [underworld]
+    ├─ 幽冥界 (tier=region, mc=4) [underworld] ← [修正] tier: continent→region
+      ├─ 森罗殿 (tier=building, mc=5)
+      ├─ 翠云宫 (tier=site, mc=3)
+      ├─ 十八层地狱 (tier=site, mc=1)
+      ├─ 六道轮回之所 (tier=site, mc=1)
+      ├─ 阴山 (tier=region, mc=1)
+    ├─ 幽冥地府 (tier=region, mc=2) ← [修正] tier: kingdom→region
+      ├─ 鬼门关 (tier=site, mc=2)
+      ├─ 枉死城 (tier=city, mc=2)
+      ├─ 奈河桥 (tier=site, mc=1)
+      ├─ 金桥 (tier=site, mc=1)
+      ├─ 银桥 (tier=site, mc=1)
+      ├─ 剐龙台 (tier=building, mc=1)
+  ├─ 龙宫 (tier=site, mc=1) [underwater]
+    ├─ 水晶宫 (tier=site, mc=7)
+    ├─ 水府 (tier=site, mc=3)
+    ├─ 万圣龙宫 (tier=site, mc=2)
+    ├─ ...
+
+=== 已删除的条目 (共131个) ===
+类别1: 人物/称谓误提取 → 佛祖、菩萨、圣僧、罗汉、揭谛、比丘、优婆夷塞、金刚、丁甲、功曹、伽蓝、土地
+类别2: 泛称建筑 → 方丈、禅堂、后园、朝门、城池、丹墀、金殿、前殿、法堂、便殿、朝房、客房、库房、仓房、寝宫、道房、厨房等
+类别3: 泛称自然地物 → 高山、山凹、松林、草坡、山崖、涧边、半空中、大路口、高峰等
+类别4: 抽象概念/非地名 → 天、地、万物、混沌、五仙、五虫、四猴、周天、仙道/人道/鬼道等
+类别5: 物品/家具/植物 → 龙床、红梅、翠竹、铁笼、油锅、石狮子、天罗地网等
+
+=== 应合并的重复地点 ===
+1. 南赡部洲 / 南膳部洲 / 南瞻部洲 → 统一为"南赡部洲"
+2. 普陀落伽山 / 落伽山 / 普陀山 / 南海普陀山 → 统一为"落伽山"(全称"普陀落伽山")
+3. 高老庄 / 高家庄 → 统一为"高老庄"
+4. 西梁国 / 西梁女国 → 统一为"西梁女国"
+5. 灭法国 / 钦法国 → 为改名前后关系，保留两条但标注关联
+6. 大雷音寺 / 雷音寺 → 统一为"大雷音寺"
+7. 八百里黄风岭 / 黄风岭 → 为全称/简称关系
+8. 乌斯藏国界 / 乌斯藏界 → 统一

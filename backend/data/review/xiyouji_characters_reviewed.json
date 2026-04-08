@@ -1,0 +1,727 @@
+{
+  "_instructions": "检查每个人物: is_valid_character=true(真实人物)/false(泛称/非人物). correct_name填写正确的canonical名(如有误). _note写备注",
+  "_novel": "西游记",
+  "_total": 1006,
+  "characters": [
+    {
+      "name": "沙僧",
+      "mention_count": 75,
+      "first_chapter": 20,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "猪八戒",
+      "mention_count": 59,
+      "first_chapter": 20,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "唐僧",
+      "mention_count": 42,
+      "first_chapter": 17,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "行者",
+      "mention_count": 37,
+      "first_chapter": 15,
+      "last_chapter": 99,
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "_note": "行者是孙悟空的常用称呼，应合并到孙悟空"
+    },
+    {
+      "name": "孙悟空",
+      "mention_count": 36,
+      "first_chapter": 2,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "三藏",
+      "mention_count": 29,
+      "first_chapter": 14,
+      "last_chapter": 99,
+      "is_valid_character": true,
+      "correct_name": "唐僧",
+      "_note": "三藏是唐僧的法号，应合并到唐僧"
+    },
+    {
+      "name": "八戒",
+      "mention_count": 21,
+      "first_chapter": 24,
+      "last_chapter": 99,
+      "is_valid_character": true,
+      "correct_name": "猪八戒",
+      "_note": "八戒是猪八戒的简称，应合并到猪八戒"
+    },
+    {
+      "name": "玉皇大帝",
+      "mention_count": 19,
+      "first_chapter": 1,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "唐三藏",
+      "mention_count": 18,
+      "first_chapter": 14,
+      "last_chapter": 98,
+      "is_valid_character": true,
+      "correct_name": "唐僧",
+      "_note": "唐三藏是唐僧的全称，应合并到唐僧"
+    },
+    {
+      "name": "观音菩萨",
+      "mention_count": 14,
+      "first_chapter": 8,
+      "last_chapter": 99,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "太上老君",
+      "mention_count": 12,
+      "first_chapter": 5,
+      "last_chapter": 74,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "黄门官",
+      "mention_count": 10,
+      "first_chapter": 12,
+      "last_chapter": 94,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，指宫中传旨太监，非固定人物"
+    },
+    {
+      "name": "白马",
+      "mention_count": 10,
+      "first_chapter": 16,
+      "last_chapter": 99,
+      "is_valid_character": true,
+      "correct_name": "白龙马",
+      "_note": "白马是白龙马的常用称呼，应合并"
+    },
+    {
+      "name": "白龙马",
+      "mention_count": 10,
+      "first_chapter": 31,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "孙大圣",
+      "mention_count": 10,
+      "first_chapter": 34,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "_note": "孙大圣是孙悟空的尊称，应合并到孙悟空"
+    },
+    {
+      "name": "牛魔王",
+      "mention_count": 9,
+      "first_chapter": 3,
+      "last_chapter": 61,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "哪吒三太子",
+      "mention_count": 9,
+      "first_chapter": 4,
+      "last_chapter": 83,
+      "is_valid_character": true,
+      "correct_name": "哪吒",
+      "_note": "哪吒三太子可简称哪吒"
+    },
+    {
+      "name": "太白金星",
+      "mention_count": 8,
+      "first_chapter": 3,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "托塔李天王",
+      "mention_count": 8,
+      "first_chapter": 4,
+      "last_chapter": 61,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "四值功曹",
+      "mention_count": 8,
+      "first_chapter": 5,
+      "last_chapter": 99,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体角色（值日值夜值月值年功曹），非单一人物"
+    },
+    {
+      "name": "如来",
+      "mention_count": 8,
+      "first_chapter": 8,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "即如来佛祖/释迦牟尼"
+    },
+    {
+      "name": "光禄寺官",
+      "mention_count": 8,
+      "first_chapter": 12,
+      "last_chapter": 94,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "职位泛称，非固定人物，各国光禄寺官不同"
+    },
+    {
+      "name": "文武多官",
+      "mention_count": 8,
+      "first_chapter": 12,
+      "last_chapter": 100,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体泛称，指文武百官，非人物"
+    },
+    {
+      "name": "唐太宗",
+      "mention_count": 7,
+      "first_chapter": 9,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "即李世民"
+    },
+    {
+      "name": "当驾官",
+      "mention_count": 7,
+      "first_chapter": 9,
+      "last_chapter": 100,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，指当值侍驾的官员，非固定人物"
+    },
+    {
+      "name": "观世音菩萨",
+      "mention_count": 6,
+      "first_chapter": 6,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": "观音菩萨",
+      "_note": "观世音菩萨是观音菩萨的全称，应合并"
+    },
+    {
+      "name": "金头揭谛",
+      "mention_count": 6,
+      "first_chapter": 15,
+      "last_chapter": 90,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "护法神之一"
+    },
+    {
+      "name": "孙行者",
+      "mention_count": 6,
+      "first_chapter": 38,
+      "last_chapter": 94,
+      "is_valid_character": true,
+      "correct_name": "孙悟空",
+      "_note": "孙行者是孙悟空的另一称呼，应合并"
+    },
+    {
+      "name": "增长天王",
+      "mention_count": 5,
+      "first_chapter": 4,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "四大天王之一"
+    },
+    {
+      "name": "王母娘娘",
+      "mention_count": 5,
+      "first_chapter": 5,
+      "last_chapter": 74,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "阿傩",
+      "mention_count": 5,
+      "first_chapter": 7,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "如来二弟子之一"
+    },
+    {
+      "name": "魏征",
+      "mention_count": 5,
+      "first_chapter": 8,
+      "last_chapter": 12,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "唐太宗朝丞相"
+    },
+    {
+      "name": "木叉",
+      "mention_count": 5,
+      "first_chapter": 12,
+      "last_chapter": 83,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "即惠岸行者，观音菩萨徒弟，托塔天王次子"
+    },
+    {
+      "name": "广目天王",
+      "mention_count": 5,
+      "first_chapter": 16,
+      "last_chapter": 90,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "四大天王之一"
+    },
+    {
+      "name": "二魔",
+      "mention_count": 5,
+      "first_chapter": 33,
+      "last_chapter": 77,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "狮驼岭白象精，又称象王"
+    },
+    {
+      "name": "红孩儿",
+      "mention_count": 5,
+      "first_chapter": 40,
+      "last_chapter": 59,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "圣婴大王，牛魔王之子"
+    },
+    {
+      "name": "八大金刚",
+      "mention_count": 5,
+      "first_chapter": 52,
+      "last_chapter": 100,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体角色，八位金刚的总称，非单一人物"
+    },
+    {
+      "name": "巡海夜叉",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 43,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，巡海的夜叉不止一个，非固定人物"
+    },
+    {
+      "name": "龙女",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "观音菩萨身边的捧珠龙女"
+    },
+    {
+      "name": "秦广王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第一殿"
+    },
+    {
+      "name": "宋帝王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第三殿"
+    },
+    {
+      "name": "阎罗王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第五殿"
+    },
+    {
+      "name": "平等王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第六殿"
+    },
+    {
+      "name": "泰山王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第七殿"
+    },
+    {
+      "name": "都市王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第八殿"
+    },
+    {
+      "name": "卞城王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第九殿"
+    },
+    {
+      "name": "转轮王",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "十殿阎王第十殿"
+    },
+    {
+      "name": "葛仙翁",
+      "mention_count": 4,
+      "first_chapter": 3,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "天庭四大天师之一"
+    },
+    {
+      "name": "张天师",
+      "mention_count": 4,
+      "first_chapter": 4,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "天庭四大天师之一"
+    },
+    {
+      "name": "赤脚大仙",
+      "mention_count": 4,
+      "first_chapter": 5,
+      "last_chapter": 22,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "四大天师",
+      "mention_count": 4,
+      "first_chapter": 7,
+      "last_chapter": 87,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体角色（张道陵、葛仙翁、许旌阳、丘弘济），非单一人物"
+    },
+    {
+      "name": "揭谛",
+      "mention_count": 4,
+      "first_chapter": 8,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": "金头揭谛",
+      "_note": "揭谛在小说中主要指金头揭谛，应合并"
+    },
+    {
+      "name": "龙子龙孙",
+      "mention_count": 4,
+      "first_chapter": 9,
+      "last_chapter": 63,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体泛称，指龙王的子孙后代，非固定人物"
+    },
+    {
+      "name": "日值功曹",
+      "mention_count": 4,
+      "first_chapter": 15,
+      "last_chapter": 91,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "四值功曹之一，专职角色"
+    },
+    {
+      "name": "山神土地",
+      "mention_count": 4,
+      "first_chapter": 15,
+      "last_chapter": 50,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体泛称，各处山神土地不同，非固定人物"
+    },
+    {
+      "name": "诸天",
+      "mention_count": 4,
+      "first_chapter": 17,
+      "last_chapter": 66,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体泛称，指二十四路诸天神将，非单一人物"
+    },
+    {
+      "name": "阁门大使",
+      "mention_count": 4,
+      "first_chapter": 29,
+      "last_chapter": 45,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "职位泛称，指各国朝门通报官员，非固定人物"
+    },
+    {
+      "name": "多官",
+      "mention_count": 4,
+      "first_chapter": 30,
+      "last_chapter": 95,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，文武多官的简称，非人物"
+    },
+    {
+      "name": "老魔",
+      "mention_count": 4,
+      "first_chapter": 33,
+      "last_chapter": 77,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "在平顶山莲花洞指金角大王，在狮驼岭指青毛狮子精，需按语境区分"
+    },
+    {
+      "name": "三太子",
+      "mention_count": 4,
+      "first_chapter": 37,
+      "last_chapter": 93,
+      "is_valid_character": true,
+      "correct_name": "哪吒",
+      "_note": "三太子即哪吒三太子的简称，应合并"
+    },
+    {
+      "name": "罗刹女",
+      "mention_count": 4,
+      "first_chapter": 40,
+      "last_chapter": 61,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "铁扇公主，牛魔王之妻"
+    },
+    {
+      "name": "敖顺",
+      "mention_count": 4,
+      "first_chapter": 41,
+      "last_chapter": 92,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "北海龙王"
+    },
+    {
+      "name": "陈清",
+      "mention_count": 4,
+      "first_chapter": 47,
+      "last_chapter": 99,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "陈家庄村民，通天河故事中人物"
+    },
+    {
+      "name": "善财童子",
+      "mention_count": 4,
+      "first_chapter": 49,
+      "last_chapter": 84,
+      "is_valid_character": true,
+      "correct_name": "红孩儿",
+      "_note": "善财童子即红孩儿皈依后的法号，应合并"
+    },
+    {
+      "name": "太监",
+      "mention_count": 4,
+      "first_chapter": 68,
+      "last_chapter": 93,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，指宫中太监，非固定人物"
+    },
+    {
+      "name": "须菩提祖师",
+      "mention_count": 3,
+      "first_chapter": 1,
+      "last_chapter": 59,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "孙悟空的师父"
+    },
+    {
+      "name": "蛟魔王",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 41,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "七大圣之一"
+    },
+    {
+      "name": "猕猴王",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 41,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "七大圣之一"
+    },
+    {
+      "name": "忤官王",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 58,
+      "is_valid_character": true,
+      "correct_name": "仵官王",
+      "_note": "小说中两处分别写作'忤官王'和'仵官王'，以第十一回出场的'仵官王'为准"
+    },
+    {
+      "name": "地藏王菩萨",
+      "mention_count": 3,
+      "first_chapter": 3,
+      "last_chapter": 97,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "冥界之主"
+    },
+    {
+      "name": "四健将",
+      "mention_count": 3,
+      "first_chapter": 4,
+      "last_chapter": 6,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "群体角色，花果山四个猴将，非单一人物"
+    },
+    {
+      "name": "巨灵神",
+      "mention_count": 3,
+      "first_chapter": 4,
+      "last_chapter": 83,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "天庭先锋大将"
+    },
+    {
+      "name": "燃灯古佛",
+      "mention_count": 3,
+      "first_chapter": 5,
+      "last_chapter": 100,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "过去佛"
+    },
+    {
+      "name": "迦叶",
+      "mention_count": 3,
+      "first_chapter": 7,
+      "last_chapter": 77,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "如来弟子之一"
+    },
+    {
+      "name": "比丘僧",
+      "mention_count": 3,
+      "first_chapter": 8,
+      "last_chapter": 98,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，指佛门中的比丘（男性出家人），非固定人物"
+    },
+    {
+      "name": "张氏",
+      "mention_count": 3,
+      "first_chapter": 8,
+      "last_chapter": 97,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "陈光蕊之母，唐僧祖母"
+    },
+    {
+      "name": "殷开山",
+      "mention_count": 3,
+      "first_chapter": 8,
+      "last_chapter": 11,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "唐僧外祖父，唐朝丞相"
+    },
+    {
+      "name": "泾河龙王",
+      "mention_count": 3,
+      "first_chapter": 9,
+      "last_chapter": 43,
+      "is_valid_character": true,
+      "correct_name": null,
+      "_note": "因违天条被魏征梦斩"
+    },
+    {
+      "name": "夜叉",
+      "mention_count": 3,
+      "first_chapter": 9,
+      "last_chapter": 92,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称，指龙宫中的夜叉，非固定人物"
+    },
+    {
+      "name": "雷公",
+      "mention_count": 3,
+      "first_chapter": 9,
+      "last_chapter": 52,
+      "is_valid_character": false,
+      "correct_name": null,
+      "_note": "泛称/外貌描述词，小说中多用于形容孙悟空外貌，非人物角色"
+    }
+  ]
+}

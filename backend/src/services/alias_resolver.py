@@ -202,6 +202,13 @@ _GENERIC_PERSON_ALIASES = frozenset({
     "小子", "毛头小子", "黄毛小子", "小兄弟",
     "乡巴佬", "土包子", "土小子",
     "傀儡", "巨猿", "骷髅", "鬼头",
+    # v0.70 review 2026-04-08 — 西游记人工审核发现
+    "外公", "贤弟", "陛下", "万岁",
+    "长老", "贫僧", "老和尚", "老师", "老师父",
+    "尊师", "我弟子", "那长老",
+    "劣货", "呆子", "泼孽障", "泼猢狲", "小畜生",
+    "夯货", "囊糟食的夯货",
+    "十王", "十代阎王",
 })
 
 _TITLE_PREFIXES = frozenset({
@@ -291,6 +298,15 @@ def _alias_safety_level(alias: str) -> int:
     # Level 0: spouse pattern — "X娘子" should not merge into X
     if n >= 3 and alias.endswith(("娘子", "之妻", "媳妇儿", "夫人")):
         return 0
+
+    # Level 0: narrative fragment — contains verbs/particles, clearly not a name
+    # Catches: "大圣曾养过马", "天王道", "大圣啊", "愚父子"
+    _NARRATIVE_MARKERS = ("曾", "道", "说", "啊", "呀", "了", "吧", "呢", "吗", "过")
+    if n >= 3 and any(m in alias for m in _NARRATIVE_MARKERS):
+        # Only block if the marker is NOT part of a real name
+        # e.g., "过海金梁" is OK, "大圣曾养过马" is not
+        if n >= 5:  # Long enough to be a fragment
+            return 0
 
     # Level 1: suspicious — overly long, collectives, numeric prefixes
     _NUM_CHARS = "一二三四五六七八九十两百千万几数"
