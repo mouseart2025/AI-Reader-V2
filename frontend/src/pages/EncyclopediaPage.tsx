@@ -24,6 +24,12 @@ interface CategoryStats {
   concept_categories: Record<string, number>
 }
 
+interface VariantHint {
+  canonical: string
+  variant_type: "typo" | "char_variant"
+  note: string
+}
+
 interface EncEntry {
   name: string
   type: string
@@ -35,6 +41,7 @@ interface EncEntry {
   depth?: number
   tier?: string
   icon?: string
+  variant_hint?: VariantHint
 }
 
 interface ConceptDetail {
@@ -530,6 +537,11 @@ export default function EncyclopediaPage() {
                           title={conflictMap[entry.name].map((c) => c.description).join("; ")}
                         />
                       )}
+                      {entry.variant_hint && (
+                        <span className="text-[10px] px-1 py-0.5 rounded flex-shrink-0 bg-amber-500/15 text-amber-600 dark:text-amber-400" title={entry.variant_hint.note}>
+                          {entry.variant_hint.variant_type === "typo" ? "疑似笔误" : "字形变体"} → {entry.variant_hint.canonical}
+                        </span>
+                      )}
                       {entry.tier && TIER_LABELS[entry.tier] && (
                         <span className={cn("text-[10px] px-1 py-0.5 rounded flex-shrink-0", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
                           {TIER_LABELS[entry.tier]}
@@ -570,6 +582,11 @@ export default function EncyclopediaPage() {
                           <span className="text-[10px] text-muted-foreground px-1 py-0.5 rounded bg-muted">
                             {TYPE_LABELS[entry.type] ?? entry.category}
                           </span>
+                          {entry.variant_hint && (
+                            <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400" title={entry.variant_hint.note}>
+                              {entry.variant_hint.variant_type === "typo" ? "疑似笔误" : "字形变体"} → {entry.variant_hint.canonical}
+                            </span>
+                          )}
                           {entry.type === "location" && entry.tier && TIER_LABELS[entry.tier] && (
                             <span className={cn("text-[10px] px-1 py-0.5 rounded", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
                               {TIER_LABELS[entry.tier]}

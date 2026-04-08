@@ -165,9 +165,13 @@ async def get_encyclopedia_entries(
                         "first_chapter": chapter_id,
                     }
 
-    # Inject chapter_count into every entry
+    # Inject chapter_count and variant hints into every entry
+    from src.extraction.fact_validator import get_name_variant_hint
     for name, entry in entries.items():
         entry["chapter_count"] = len(entry_chapters.get(name, set()))
+        hint = get_name_variant_hint(name)
+        if hint:
+            entry["variant_hint"] = hint
 
     result = list(entries.values())
 

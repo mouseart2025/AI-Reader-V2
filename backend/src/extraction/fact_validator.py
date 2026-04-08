@@ -1124,6 +1124,34 @@ def _normalize_char_variants(name: str) -> str:
     return name
 
 
+def get_name_variant_hint(name: str) -> dict | None:
+    """Check if a name is a known typo/variant and return hint info.
+
+    Returns dict with keys: canonical, variant_type, note.
+    Returns None if name is already canonical.
+    """
+    # Check exact corrections (typos, LLM variants)
+    canonical = _EXACT_NAME_CORRECTIONS.get(name)
+    if canonical:
+        return {
+            "canonical": canonical,
+            "variant_type": "typo",
+            "note": f"疑似笔误：{name} → {canonical}",
+        }
+    # Check character-level variants
+    normalized = name
+    for old, new in _CHAR_VARIANTS.items():
+        if old in normalized:
+            normalized = normalized.replace(old, new)
+    if normalized != name:
+        return {
+            "canonical": normalized,
+            "variant_type": "char_variant",
+            "note": f"字形变体：{name} → {normalized}",
+        }
+    return None
+
+
 def _clamp_name(name: str) -> str:
     """Clean and truncate location name."""
     name = name.strip()
