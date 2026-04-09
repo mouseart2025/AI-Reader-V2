@@ -881,11 +881,68 @@ class AnalysisService:
         self._live_timing.pop(novel_id, None)
         logger.info("Task %s completed for novel %s", task_id, novel_id)
 
-        # Auto-trigger spatial completion (non-fatal, independent background task)
+        # Auto-trigger post-analysis pipeline (non-fatal, independent background tasks)
         if final_status in ("completed", "completed_with_errors"):
+            # 1. Hierarchy rebuild (Edmonds, no LLM, <1s) — must run before spatial
+            asyncio.create_task(
+                self._auto_rebuild_hierarchy(novel_id),
+                name=f"auto-rebuild-{novel_id}",
+            )
+            # 2. Spatial completion (LLM, ~60-300s)
             asyncio.create_task(
                 self._auto_spatial_completion(novel_id),
                 name=f"spatial-completion-{novel_id}",
+            )
+
+    async def _auto_rebuild_hierarchy(self, novel_id: str) -> None:
+        """Background task: rebuild hierarchy via Edmonds pipeline after analysis.
+
+        Uses GeoOrchestrator v2 (TierClassifier → VoteBuilder → KnowledgePrior
+        → EdmondsResolver). No LLM, deterministic, <1s. Automatically applies
+        result to WorldStructure so the user gets a complete hierarchy
+        without manual "智能重绘".
+        """
+        try:
+            from src.db import novel_store
+            from src.services.geo_skills.orchestrator import GeoOrchestrator
+            from src.services.geo_skills.tier_classifier import TierClassifier
+            from src.services.geo_skills.vote_builder import VoteBuilder
+            from src.services.geo_skills.knowledge_prior import KnowledgePrior
+            from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+
+            novel = await novel_store.get_novel(novel_id)
+            title = novel.get("title", "") if novel else ""
+
+            orch = GeoOrchestrator(novel_id)
+            orch.add_skill("tier", TierClassifier(novel_id))
+            orch.add_skill("votes", VoteBuilder(novel_id))
+            orch.add_skill("prior", KnowledgePrior(novel_title=title))
+            orch.add_skill("edmonds", EdmondsResolver())
+
+            # Consume all progress events (pipeline runs via async generator)
+            async for event in orch.run():
+                logger.debug("auto-rebuild %s: [%s] %s", novel_id, event.stage, event.message)
+
+            # Apply to WorldStructure
+            result = await orch.apply_to_world_structure()
+            logger.info(
+                "Auto hierarchy rebuild for %s: v%s, parents %s",
+                novel_id,
+                result.get("version", "?"),
+                result.get("new_parents", "?"),
+            )
+
+            # Notify frontend that hierarchy was updated
+            await manager.broadcast(novel_id, {
+                "type": "hierarchy_updated",
+                "message": "层级结构已自动重建",
+                "version": result.get("version"),
+            })
+
+        except Exception:
+            logger.warning(
+                "Auto hierarchy rebuild failed for %s (non-fatal)",
+                novel_id, exc_info=True,
             )
 
     async def _auto_spatial_completion(self, novel_id: str) -> None:
