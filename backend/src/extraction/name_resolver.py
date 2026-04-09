@@ -48,17 +48,44 @@ class NameResolver:
 
         Args:
             entries: list of EntityDictionaryEntry with .name, .aliases, .entity_type
+
+        Canonical selection: when an entry's alias is also a primary dict entry
+        with higher prescan frequency, use the higher-frequency name as canonical.
+        This prevents rare formal names (陈玄奘 freq=14) from overriding common
+        names (唐僧 freq=829).
         """
+        # Build frequency map: primary entry name → prescan frequency
+        entry_freq: dict[str, int] = {}
+        for entry in entries:
+            if entry.entity_type == "person" and entry.name not in _GENERIC_BLOCK:
+                entry_freq[entry.name] = entry.frequency
+
         for entry in entries:
             if entry.entity_type != "person":
                 continue
-            canonical = entry.name
-            if canonical in _GENERIC_BLOCK:
+            if entry.name in _GENERIC_BLOCK:
                 continue
+
+            # Pick canonical: among entry.name + aliases that are also primary
+            # entries, prefer the highest prescan frequency.
+            canonical = entry.name
+            best_freq = entry.frequency
             for alias in (entry.aliases or []):
-                if alias and alias != canonical and alias not in _GENERIC_BLOCK:
-                    if _alias_safety_level(alias) >= 1:  # not hard-blocked
-                        self._canonical_map[alias] = canonical
+                alias_freq = entry_freq.get(alias, 0)
+                if alias_freq > best_freq and alias not in _GENERIC_BLOCK:
+                    canonical = alias
+                    best_freq = alias_freq
+
+            # Map all aliases → canonical
+            all_names = {entry.name} | set(entry.aliases or [])
+            for name in all_names:
+                if name and name != canonical and name not in _GENERIC_BLOCK:
+                    if _alias_safety_level(name) >= 1:  # not hard-blocked
+                        # Don't overwrite existing mapping to a higher-freq canonical
+                        existing = self._canonical_map.get(name)
+                        if existing and entry_freq.get(existing, 0) > best_freq:
+                            continue
+                        self._canonical_map[name] = canonical
 
         logger.info("NameResolver loaded %d mappings from entity_dictionary",
                      len(self._canonical_map))

@@ -54,6 +54,61 @@ class TestNameResolverMapping:
         assert "师父" not in nr._canonical_map  # blocked
 
 
+class TestCanonicalFromDictFrequency:
+    """Test that load_from_entity_dictionary picks highest-frequency name as canonical."""
+
+    def test_prefer_common_name_over_formal(self):
+        """唐僧(freq=829) should beat 陈玄奘(freq=14) as canonical."""
+        from src.models.entity_dict import EntityDictEntry
+        nr = NameResolver()
+        nr.load_from_entity_dictionary([
+            EntityDictEntry(name="陈玄奘", entity_type="person", frequency=14,
+                            aliases=["唐僧", "三藏法师"], source="llm"),
+            EntityDictEntry(name="唐僧", entity_type="person", frequency=829,
+                            aliases=["三藏", "唐三藏", "御弟"], source="freq"),
+        ])
+        # 陈玄奘 should map to 唐僧 (higher freq), not the other way around
+        assert nr._canonical_map.get("陈玄奘") == "唐僧"
+        assert "唐僧" not in nr._canonical_map  # 唐僧 IS the canonical
+        assert nr._canonical_map.get("三藏") == "唐僧"
+        assert nr._canonical_map.get("三藏法师") == "唐僧"
+
+    def test_prefer_common_name_zhu_bajie(self):
+        """猪八戒(freq=182) should beat 猪刚鬣(freq=5)."""
+        from src.models.entity_dict import EntityDictEntry
+        nr = NameResolver()
+        nr.load_from_entity_dictionary([
+            EntityDictEntry(name="猪刚鬣", entity_type="person", frequency=5,
+                            aliases=["猪八戒", "八戒", "呆子"], source="llm"),
+            EntityDictEntry(name="猪八戒", entity_type="person", frequency=182,
+                            aliases=["八戒", "天蓬元帅"], source="freq"),
+        ])
+        assert nr._canonical_map.get("猪刚鬣") == "猪八戒"
+        assert "猪八戒" not in nr._canonical_map
+
+    def test_single_entry_uses_entry_name(self):
+        """When no alias is a primary entry, use entry.name as canonical."""
+        from src.models.entity_dict import EntityDictEntry
+        nr = NameResolver()
+        nr.load_from_entity_dictionary([
+            EntityDictEntry(name="孙悟空", entity_type="person", frequency=152,
+                            aliases=["行者", "猴王", "大圣"], source="freq"),
+        ])
+        assert nr._canonical_map.get("行者") == "孙悟空"
+        assert nr._canonical_map.get("猴王") == "孙悟空"
+        assert "孙悟空" not in nr._canonical_map
+
+    def test_non_person_entries_ignored(self):
+        """Non-person entries should not create mappings."""
+        from src.models.entity_dict import EntityDictEntry
+        nr = NameResolver()
+        nr.load_from_entity_dictionary([
+            EntityDictEntry(name="花果山", entity_type="location", frequency=50,
+                            aliases=["水帘洞"], source="freq"),
+        ])
+        assert nr.mapping_count == 0
+
+
 class TestNameResolverResolve:
     """Test that resolve() correctly rewrites ChapterFact fields."""
 
