@@ -308,6 +308,64 @@ uv sync              # Install/update Python dependencies
 uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 ```
 
+## Development Process — MANDATORY
+
+### Change Risk Levels
+
+Every code change MUST be classified before implementation:
+
+| Level | Scope | Examples | Required Verification |
+|-------|-------|---------|----------------------|
+| **L1** | Safe, additive | Add blocklist words, UI text, comments, docs | `uv run pytest tests/ -x -q` |
+| **L2** | Logic tweak | Change thresholds, weights, filter rules, add API fields | L1 + verify with 1 novel's data |
+| **L3** | Pipeline structural | New pipeline component, refactor data flow, change canonical/alias/hierarchy logic | L1 + impact analysis + integration tests |
+
+### L3 Impact Analysis (MANDATORY for pipeline changes)
+
+Before writing any L3 code, document in the commit or conversation:
+
+```
+改动: [what]
+涉及管线阶段: [extraction / validation / aggregation / visualization]
+上游输入假设: [what this component expects]
+下游输出影响: [who consumes the output, what changes]
+共享逻辑检查: [grep for existing implementations of same logic]
+```
+
+### Pipeline Critical Files
+
+Changes to these files are **L3 by default** and require integration test verification:
+
+- `src/extraction/name_resolver.py` — name resolution during extraction
+- `src/services/alias_resolver.py` — alias deduplication and canonical selection
+- `src/services/name_authority.py` — single source of truth for name decisions
+- `src/extraction/fact_validator.py` — entity filtering rules
+- `src/services/world_structure_agent.py` — hierarchy building
+- `src/services/geo_skills/` — hierarchy rebuild pipeline
+- `src/services/visualization_service.py` — graph/map data output
+- `src/services/entity_aggregator.py` — entity profile aggregation
+- `src/services/analysis_service.py` — analysis pipeline orchestration
+
+After modifying any of these, run: `uv run pytest tests/test_naming_pipeline_integration.py tests/test_golden_standard.py tests/test_name_authority.py -v`
+
+### Single Source of Truth Principle
+
+Core logic MUST have exactly ONE implementation. Before adding new logic, grep for existing implementations:
+
+| Logic | Authority | DO NOT duplicate in |
+|-------|-----------|-------------------|
+| Canonical name selection | `name_authority.pick_canonical()` | NameResolver, AliasResolver, FactValidator |
+| Generic person filtering | `name_authority.alias_safety_level()` | NameResolver, AliasResolver |
+| Nickname/title detection | `name_authority.is_nickname_or_title()` | AliasResolver |
+| Location suffix ranking | `geo_skills/tier_classifier.py` | world_structure_agent, fact_validator |
+
+### Version Discipline
+
+- **Patch (x.y.Z)**: Bug fixes, safe additive changes
+- **Minor (x.Y.0)**: New features, L2/L3 changes
+- Version bump + desktop build only when shipping to other devices or users
+- Before EMNLP data freeze: designate a Release Candidate version, then bug-fixes only
+
 ## Database Schema (SQLite)
 
 15 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`, `bookmarks`.
@@ -318,6 +376,6 @@ uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 - **Privacy**: Data stays local. Cloud mode only sends LLM requests to the configured API endpoint — no telemetry
 - **Dual LLM backend**: `LLM_PROVIDER=ollama` (default, local) or `LLM_PROVIDER=openai` (cloud). Cloud supports 10 providers: DeepSeek, MiniMax, Qwen, Moonshot, Zhipu, SiliconFlow, Yi, OpenAI, Gemini, Anthropic. Anthropic uses a separate `AnthropicClient` (`anthropic_client.py`) with `x-api-key` auth and `/v1/messages` endpoint; all others use `OpenAICompatibleClient`. `LLM_PROVIDER_FORMAT` (`"openai"` | `"anthropic"`) is set automatically by `update_cloud_config()` and controls which client is instantiated by `get_llm_client()`.
 - **Apple Silicon optimized**: Targets M1/M2/M3/M4 with MPS acceleration for embeddings
-- **Testing**: Backend pytest (140 tests: chapter splitter, fact validator, alias resolver, export, settings, cost tracking). Frontend vitest (novelPaths, spatialLabels). CI via `.github/workflows/test.yml`. Run: `cd backend && uv run pytest tests/` / `cd frontend && npx vitest run`
+- **Testing**: Backend pytest (482 tests: chapter splitter, fact validator, alias resolver, name authority, naming pipeline integration, golden standard regression, hierarchy validator, export, settings, cost tracking). Frontend vitest (novelPaths, spatialLabels). CI via `.github/workflows/test.yml`. Run: `cd backend && uv run pytest tests/` / `cd frontend && npx vitest run`
 - **TypeScript strict mode**: `strict: true`, `noUnusedLocals`, `noUnusedParameters` enabled
 - **Build chunking**: Vite manual chunks split vendor-react, vendor-graph, vendor-ui
