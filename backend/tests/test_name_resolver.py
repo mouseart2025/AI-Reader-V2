@@ -7,7 +7,8 @@ before DB save, preventing alias fragmentation.
 import pytest
 from collections import Counter
 
-from src.extraction.name_resolver import NameResolver, _GENERIC_BLOCK
+from src.extraction.name_resolver import NameResolver
+from src.services.name_authority import is_blocked_name
 from src.models.chapter_fact import (
     ChapterFact, CharacterFact, RelationshipFact, EventFact,
 )
@@ -34,9 +35,9 @@ class TestNameResolverMapping:
 
     def test_generic_blocked(self):
         """Generic terms should not enter canonical_map."""
-        assert "哥哥" in _GENERIC_BLOCK
-        assert "师父" in _GENERIC_BLOCK
-        assert "外公" in _GENERIC_BLOCK
+        assert is_blocked_name("哥哥")
+        assert is_blocked_name("师父")
+        assert is_blocked_name("外公")
 
     def test_accumulate_from_chapter(self):
         """accumulate_from_chapter adds new aliases from chapter facts."""

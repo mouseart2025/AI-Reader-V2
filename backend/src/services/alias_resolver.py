@@ -17,6 +17,7 @@ from collections import defaultdict
 
 from src.db.sqlite_db import get_connection
 from src.extraction.fact_validator import _normalize_char_variants
+from src.services import name_authority
 
 logger = logging.getLogger(__name__)
 
@@ -238,118 +239,17 @@ _TITLE_SUFFIXES_2 = frozenset({
 
 
 def _alias_safety_level(alias: str) -> int:
-    """Return alias safety level: 0=hard-block, 1=soft-block(suspicious), 2=safe."""
-    if not alias or len(alias) < 1:
-        return 0
+    """Return alias safety level: 0=hard-block, 1=soft-block(suspicious), 2=safe.
 
-    n = len(alias)
-
-    # Level 0: absolute block — kinship terms, 的 phrases, trailing kinship suffixes
-    if alias in _KINSHIP_TERMS:
-        return 0
-    if "的" in alias:
-        return 0
-    if n >= 3:
-        tail2 = alias[-2:]
-        if tail2 in {"他妈", "她妈", "他爸", "她爸", "他姐", "她姐",
-                      "他哥", "她哥", "他弟", "她弟", "他奶", "她奶",
-                      "妈妈", "爸爸", "哥哥", "弟弟", "姐姐", "妹妹",
-                      "夫妇", "两口", "老婆", "师父", "师傅",
-                      "奶奶", "嫂子", "媳妇", "姨妈", "姨娘", "姑妈",
-                      "大爷", "二爷", "三爷", "丫头", "姑娘"}:
-            return 0
-
-    # Level 0: generic person references — these are the #1 cause of false bridges
-    if alias in _GENERIC_PERSON_ALIASES:
-        return 0
-
-    # Level 0: pure title/rank words
-    if alias in _TITLE_PREFIXES:
-        return 0
-
-    # Level 0: structural patterns — address/role terms that bridge unrelated people
-    # Pattern: 那+role (那贼, 那厮, 那汉) — deictics
-    if n >= 2 and alias[0] in "那这" and n <= 4:
-        return 0
-    # Pattern: 老/小+role (老兄, 小弟, 老爷, 小人) when in generic sets
-    if n == 2 and alias[0] in "老小" and alias[1] in "兄弟爷娘人的儿":
-        return 0
-    # Pattern: surname+兄/弟/妹 (陇兄, 曲兄, 蜂兄, 鱼兄) — xianxia courtesy address
-    if n == 2 and alias[1] in "兄弟妹姐":
-        return 0
-
-    # Level 0: surname + generic title pattern (e.g., "韩前辈", "林道友", "王师兄")
-    # These are contextual address forms, not stable aliases.
-    if 3 <= n <= 5:
-        for suffix in _TITLE_SUFFIXES_2:
-            if n > len(suffix) and alias.endswith(suffix):
-                return 0
-
-    # Level 0: location suffixes in person aliases — prevents merging
-    # "探春卧室"→探春, "蘅芜苑"→宝钗 type pollution
-    _LOCATION_SUFFIXES_BLOCK = (
-        "苑", "院", "殿", "堂", "寺", "庵", "楼", "阁", "亭", "庙",
-        "宫", "府", "城", "村", "镇", "县", "州", "洞", "山", "洲",
-        "卧室", "书房", "花园", "客栈", "酒店", "牢房", "营寨",
-    )
-    if n >= 3 and alias.endswith(_LOCATION_SUFFIXES_BLOCK):
-        return 0
-
-    # Level 0: spouse pattern — "X娘子" should not merge into X
-    if n >= 3 and alias.endswith(("娘子", "之妻", "媳妇儿", "夫人")):
-        return 0
-
-    # Level 0: narrative fragment — contains verbs/particles, clearly not a name
-    # Catches: "大圣曾养过马", "天王道", "大圣啊", "愚父子"
-    _NARRATIVE_MARKERS = ("曾", "道", "说", "啊", "呀", "了", "吧", "呢", "吗", "过")
-    if n >= 3 and any(m in alias for m in _NARRATIVE_MARKERS):
-        # Only block if the marker is NOT part of a real name
-        # e.g., "过海金梁" is OK, "大圣曾养过马" is not
-        if n >= 5:  # Long enough to be a fragment
-            return 0
-
-    # Level 1: suspicious — overly long, collectives, numeric prefixes
-    _NUM_CHARS = "一二三四五六七八九十两百千万几数"
-    _MEASURE_WORDS = "个位名条只头群队批把道尊座对双副件匹株棵颗朵阵帮伙"
-    if n > 8:
-        return 1
-    # Collective markers — "众猴", "群妖", "孩儿们", "小的们", "三阮", "阮氏三雄"
-    if alias[0] in "众群各" or alias.endswith("们"):
-        return 1
-    # Numeric collective — "三X" when referring to groups (三阮, 五虎)
-    # But allow known names like "三藏", "八戒", "九叔" — these have non-surname 2nd chars
-    # that are clearly name characters, not family surnames used in group refs.
-    _COMMON_SURNAMES = "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜戚谢邹柏水窦章云苏潘葛奚范彭郎鲁韦昌马苗凤花方俞任袁柳鲍史唐费廉岑薛雷贺倪汤阮"
-    if n == 2 and alias[0] in _NUM_CHARS and alias[0] not in "一":
-        if alias[1] in _COMMON_SURNAMES:
-            return 1  # "三阮", "二张" etc. — surname-based group ref
-    # Collective group references — "X氏三雄", "X家三昆仲", "X氏兄弟"
-    if "三雄" in alias or "三昆仲" in alias or "兄弟" in alias[-2:]:
-        return 1
-    # Single-char aliases — too ambiguous to be reliable
-    if n == 1:
-        return 1
-    # Numeric prefix — "两个仙女", "七八十渔人", "三个人" — not person names
-    # Only block when 2nd char is a measure word or another digit, confirming
-    # quantity phrase. Legitimate names like "二愣子", "一灯大师" pass through.
-    if alias[0] in _NUM_CHARS and n >= 3:
-        # "百/千/万/几/数" almost never start legitimate names → always block
-        if alias[0] in "百千万几数":
-            return 1
-        # For 一-十/两: block only if followed by measure word or another digit
-        if alias[1] in _MEASURE_WORDS or alias[1] in _NUM_CHARS:
-            return 1
-
-    # Level 2: safe
-    return 2
+    Delegates to name_authority.alias_safety_level() — single source of truth.
+    This wrapper is kept for backward compatibility with external callers.
+    """
+    return name_authority.alias_safety_level(alias)
 
 
 def _is_unsafe_alias(alias: str) -> bool:
-    """Check if an alias is unsafe to use as a Union-Find key.
-
-    Backward-compatible wrapper around _alias_safety_level().
-    """
-    return _alias_safety_level(alias) < 2
+    """Check if an alias is unsafe to use as a Union-Find key."""
+    return name_authority.is_unsafe_alias(alias)
 
 
 # ── Core function ─────────────────────────────────
@@ -718,85 +618,21 @@ _NICKNAME_PREFIXES = frozenset({
 
 
 def _is_nickname_or_title(name: str) -> bool:
-    """Check if a name looks like a nickname (绰号), courtesy name, or title form."""
-    n = len(name)
-    if n < 2:
-        return False
-    # Surname + title suffix (韩大夫, 林教头, 宋押司)
-    if any(name.endswith(t) for t in _TITLE_SUFFIXES):
-        return True
-    # Known nickname suffix patterns
-    if any(name.endswith(s) for s in _NICKNAME_SUFFIXES):
-        return True
-    # Known nickname prefix patterns
-    if any(name.startswith(p) for p in _NICKNAME_PREFIXES):
-        return True
-    # X+称谓 pattern for 红楼梦 (宝二爷, 琏二爷, 珠大嫂子)
-    if n >= 3 and name[-1] in "爷奶" and name[-2] in "大二三四五六七八九":
-        return True
-    if n >= 4 and name.endswith(("奶奶", "姑娘", "丫头")):
-        return True
-    # "老X" / "X老" patterns for honorifics (老祖宗, 老太太)
-    if name.startswith("老") and n >= 3 and name not in ("老子",):
-        return True
-    return False
+    """Check if a name looks like a nickname, courtesy name, or title form.
+
+    Delegates to name_authority — single source of truth.
+    """
+    return name_authority.is_nickname_or_title(name)
 
 
 def _pick_canonical(members: list[str], freq: dict[str, int],
                     dict_primary_names: set[str] | None = None) -> str:
     """Pick the best canonical name from an alias group.
 
-    Strategy (v0.66): frequency-first with nickname/title demotion.
-    1. dict_primary single member → return directly
-    2. Multiple candidates → frequency × safety_weight, with length tier as tiebreaker
-    3. Nicknames, courtesy names, and titles get demoted via weight factor
-
-    This replaces the v0.65 tier-first approach that incorrectly preferred
-    3-char names (宋公明) over high-frequency 2-char names (宋江).
+    Delegates to name_authority.pick_canonical() — single source of truth.
+    This wrapper is kept for backward compatibility with _groups_to_map().
     """
-    # Priority 1: If a member is a known entity from pre-scan dictionary, prefer it
-    if dict_primary_names:
-        dict_members = [m for m in members if m in dict_primary_names
-                        and m not in _CANONICAL_BLOCKLIST
-                        and not _is_nickname_or_title(m)]
-        if len(dict_members) == 1:
-            return dict_members[0]
-        if not dict_members:
-            # All dict members are titles/nicknames — try without title filter
-            dict_members = [m for m in members if m in dict_primary_names
-                            and m not in _CANONICAL_BLOCKLIST]
-        if dict_members:
-            # Multiple dict names in same group — pick by frequency (not tier)
-            members = dict_members
-
-    # Filter out generic terms that should never be canonical
-    candidates = [m for m in members if m not in _CANONICAL_BLOCKLIST]
-    if not candidates:
-        candidates = members
-
-    # Filter out nicknames/titles for cleaner candidate pool
-    clean = [m for m in candidates if not _is_nickname_or_title(m) and len(m) >= 2]
-    if not clean:
-        clean = [m for m in candidates if len(m) >= 2]
-    if not clean:
-        clean = candidates
-
-    # Strategy: prefer 3-char full names (surname+given) if they have
-    # meaningful frequency (≥50), indicating the text actually uses the
-    # full name. This handles:
-    #   孙悟空(152) > 悟空(374)  — full name used enough → prefer it
-    #   陈玄奘(14) < 唐僧(829)  — full name barely used → skip it
-    #   猪八戒(182) > 八戒(1700) — full name used enough → prefer it
-    _FULL_NAME_MIN_FREQ = 50
-    three_char = [m for m in clean if len(m) == 3
-                  and freq.get(m, 0) >= _FULL_NAME_MIN_FREQ]
-    if len(three_char) == 1:
-        return three_char[0]
-    if three_char:
-        return max(three_char, key=lambda m: freq.get(m, 0))
-
-    # No qualifying 3-char full name — pick highest frequency among clean names
-    return max(clean, key=lambda m: freq.get(m, 0))
+    return name_authority.pick_canonical(members, freq, dict_primary_names)
 
 
 def _groups_to_map(uf: _UnionFind, freq: dict[str, int],

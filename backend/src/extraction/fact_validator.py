@@ -173,48 +173,16 @@ _VEHICLE_WORDS = frozenset({
     # Sci-fi vehicles/objects
     "飞船", "母舰", "战舰", "穿梭机",
 
-    # auto-improve 2026-03-28
-    "九霄",
-
-    # auto-improve 2026-03-28
-    "半空",
-
-    # auto-improve 2026-03-28
-    "无数仙域",
-
-    # auto-improve 2026-03-28
-    "坎宫之地",
-
-    # auto-improve 2026-03-28
-    "翠幄青紬车",
-
-    # auto-improve 2026-03-28
-    "夕阳",
-    "抛物面天线",
-
-    # auto-improve 2026-03-28
-    "东边",
-    "人",
-    "北边",
-    "南边",
-    "地狱",
-    "天",
-    "恶鬼",
-    "畜生",
-    "西边",
-    "阿修罗",
-    "青石",
-    "青石岩",
-    "青石棋局",
-
-    # auto-improve 2026-03-28
-    "黄吉普车",
-
-    # auto-improve 2026-03-28
-    "区域",
-
-    # auto-improve 2026-03-28
-    "孙玉厚家",
+    # auto-improve 2026-03-28 — vehicles
+    "翠幄青紬车", "黄吉普车",
+    # auto-improve 2026-03-28 — equipment/objects (not locations)
+    "抛物面天线", "青石", "青石棋局",
+    # auto-improve 2026-03-28 — generic non-locations
+    "九霄", "半空", "夕阳", "天", "人", "区域",
+    "无数仙域", "坎宫之地",
+    "东边", "北边", "南边", "西边",
+    "地狱", "恶鬼", "畜生", "阿修罗",
+    "青石岩", "孙玉厚家",
 })
 
 # Furniture / object names — these are never locations

@@ -13,6 +13,8 @@ Sources for canonical mapping (in priority order):
 3. Current chapter's own new_aliases
 
 Safety: only merges explicit alias mappings. No fuzzy matching.
+
+v0.70.3: All name decisions delegated to name_authority (single source of truth).
 """
 
 from __future__ import annotations
@@ -21,19 +23,13 @@ import logging
 from collections import Counter
 
 from src.models.chapter_fact import ChapterFact
-from src.services.alias_resolver import _alias_safety_level
+from src.services.name_authority import (
+    alias_safety_level,
+    is_blocked_name,
+    pick_canonical,
+)
 
 logger = logging.getLogger(__name__)
-
-# Generic terms that should NEVER become canonical names or be used as mapping keys
-_GENERIC_BLOCK = frozenset({
-    "哥哥", "弟弟", "姐姐", "妹妹", "外公", "师父", "师傅", "徒弟",
-    "师兄", "师弟", "师姐", "师妹", "大哥", "大王", "大爷", "二爷",
-    "老爷", "贤弟", "兄弟", "长老", "贫僧", "法师", "和尚", "陛下",
-    "万岁", "圣上", "菩萨", "老师", "那厮", "泼猴", "呆子", "那长老",
-    "老和尚", "小妖", "妖精", "妖怪", "那怪", "客官", "官人",
-    "前辈", "晚辈", "道友", "仙子", "主人", "夫君",
-})
 
 
 class NameResolver:
@@ -49,41 +45,42 @@ class NameResolver:
         Args:
             entries: list of EntityDictionaryEntry with .name, .aliases, .entity_type
 
-        Canonical selection: when an entry's alias is also a primary dict entry
-        with higher prescan frequency, use the higher-frequency name as canonical.
-        This prevents rare formal names (陈玄奘 freq=14) from overriding common
-        names (唐僧 freq=829).
+        Canonical selection delegated to name_authority.pick_canonical(),
+        ensuring consistency with AliasResolver's downstream canonical choice.
         """
         # Build frequency map: primary entry name → prescan frequency
         entry_freq: dict[str, int] = {}
         for entry in entries:
-            if entry.entity_type == "person" and entry.name not in _GENERIC_BLOCK:
+            if entry.entity_type == "person" and not is_blocked_name(entry.name):
                 entry_freq[entry.name] = entry.frequency
 
         for entry in entries:
             if entry.entity_type != "person":
                 continue
-            if entry.name in _GENERIC_BLOCK:
+            if is_blocked_name(entry.name):
                 continue
 
-            # Pick canonical: among entry.name + aliases that are also primary
-            # entries, prefer the highest prescan frequency.
-            canonical = entry.name
-            best_freq = entry.frequency
+            # Collect dict-primary candidates for canonical selection
+            candidates = [entry.name]
+            freq_map = {entry.name: entry.frequency}
+            dict_primaries = {entry.name}
             for alias in (entry.aliases or []):
-                alias_freq = entry_freq.get(alias, 0)
-                if alias_freq > best_freq and alias not in _GENERIC_BLOCK:
-                    canonical = alias
-                    best_freq = alias_freq
+                if alias in entry_freq and not is_blocked_name(alias):
+                    candidates.append(alias)
+                    freq_map[alias] = entry_freq[alias]
+                    dict_primaries.add(alias)
+
+            # Use shared canonical selection — same logic as AliasResolver
+            canonical = pick_canonical(candidates, freq_map, dict_primaries)
 
             # Map all aliases → canonical
             all_names = {entry.name} | set(entry.aliases or [])
             for name in all_names:
-                if name and name != canonical and name not in _GENERIC_BLOCK:
-                    if _alias_safety_level(name) >= 1:  # not hard-blocked
+                if name and name != canonical and not is_blocked_name(name):
+                    if alias_safety_level(name) >= 1:  # not hard-blocked
                         # Don't overwrite existing mapping to a higher-freq canonical
                         existing = self._canonical_map.get(name)
-                        if existing and entry_freq.get(existing, 0) > best_freq:
+                        if existing and entry_freq.get(existing, 0) > freq_map.get(canonical, 0):
                             continue
                         self._canonical_map[name] = canonical
 
@@ -101,8 +98,8 @@ class NameResolver:
             self._freq[name] += 1
             for alias in (char.new_aliases or []):
                 if (alias and alias != name
-                        and alias not in _GENERIC_BLOCK
-                        and _alias_safety_level(alias) >= 1):
+                        and not is_blocked_name(alias)
+                        and alias_safety_level(alias) >= 1):
                     existing = self._canonical_map.get(alias)
                     if existing and existing != name:
                         # Conflict: alias points to two different canonicals.
@@ -158,13 +155,12 @@ class NameResolver:
                 if c:
                     oe.character = c
 
-        # 5. Resolve new_aliases: ensure aliases point to canonical
+        # 5. Clean new_aliases: remove blocked names
         for char in fact.characters:
             if char.new_aliases:
-                # Remove aliases that are themselves canonical names
                 char.new_aliases = [
                     a for a in char.new_aliases
-                    if a not in _GENERIC_BLOCK and a != char.name
+                    if not is_blocked_name(a) and a != char.name
                 ]
 
         if resolved_count > 0:
