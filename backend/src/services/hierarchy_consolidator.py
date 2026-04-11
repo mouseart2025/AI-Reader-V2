@@ -1261,6 +1261,37 @@ def consolidate_hierarchy(
     )
     changes_made += catchall_adopted
 
+    # ── Step 13 (v0.71.1): Phantom cleanup ──
+    # 移除证据弱 + 无必要性的幻影节点:
+    # - 不在 parent_votes 里(无章节提及)
+    # - 不是任何节点的父(没有后代)
+    # - 不是 uber_root / 主世界
+    # 这类节点是历史骨架残留或 rebuild 中间产物,会膨胀 world_structure.
+    if parent_votes:
+        _UBER_ROOT_NAMES = {"天下", "主世界", "世界", uber_root}
+        parent_set = {p for p in location_parents.values() if p}
+        mentioned = set(parent_votes.keys())
+        # Also count nodes mentioned as parents (they got parent votes from children)
+        for child_votes in parent_votes.values():
+            mentioned.update(child_votes.keys())
+
+        phantom_candidates = [
+            n for n in list(location_tiers.keys())
+            if n not in _UBER_ROOT_NAMES
+            and n not in mentioned
+            and n not in parent_set       # no children → not a required scaffold
+            and n not in location_parents  # no parent edge either
+        ]
+        phantoms_removed = 0
+        for n in phantom_candidates:
+            location_tiers.pop(n, None)
+            phantoms_removed += 1
+        if phantoms_removed:
+            logger.info(
+                "Phantom cleanup: removed %d zero-evidence leaf nodes", phantoms_removed
+            )
+            changes_made += phantoms_removed
+
     # ── Final stats ──
     final_roots = _get_roots(location_parents)
     logger.info(

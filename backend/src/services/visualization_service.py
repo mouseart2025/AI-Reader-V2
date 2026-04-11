@@ -120,9 +120,48 @@ async def get_graph_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
     from src.services.relation_utils import classify_relation_category
+    from src.services.name_authority import (
+        CANONICAL_BLOCKLIST,
+        GENERIC_PERSON_ALIASES,
+        is_surname_plus_shi,
+    )
 
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
     alias_map = await build_alias_map(novel_id)
+
+    # Build the set of "known canonical names" — names that appear as values
+    # in alias_map. Override-rescued primaries (e.g. 薛姨妈, 王夫人 in 红楼梦)
+    # are dict-registered characters.
+    known_canonicals = set(alias_map.values())
+
+    def _skip_person_name(name: str) -> bool:
+        """v0.71.1: narrow post-aggregation filter for generic names that
+        remain in chapter_facts persisted BEFORE the new safety rules were
+        added (e.g. 李氏 / 太太 / 老太太 / 贾母等 / 飞东洋...鹦哥).
+
+        Uses a NARROW blocklist to avoid false positives on override-rescued
+        primaries like 王夫人/薛姨妈 (which end with "夫人/姨妈" and hit the
+        structural spouse-pattern rule but are real characters).
+        """
+        if name in alias_map or name in known_canonicals:
+            return False  # known entity — trust alias_map
+        # Explicit blocklist (太太/老太太/奶奶/那呆子/取经人/老孙 ...)
+        if name in CANONICAL_BLOCKLIST:
+            return True
+        # Kinship/generic person terms (覆盖 李氏/王氏 会误伤真实)
+        # 只过滤那些明确的"X等"/集合引用
+        if name in GENERIC_PERSON_ALIASES:
+            return True
+        # 姓+氏 模式 (李氏/王氏/甄氏)
+        if is_surname_plus_shi(name):
+            return True
+        # "X等" 集合引用 (贾母等/宝玉等)
+        if len(name) >= 3 and name.endswith("等"):
+            return True
+        # 长描述性名称 (飞东洋游普世感恩行孝黄毛红嘴白鹦哥)
+        if len(name) >= 10:
+            return True
+        return False
 
     # Collect person nodes
     person_chapters: dict[str, set[int]] = defaultdict(set)
@@ -142,6 +181,8 @@ async def get_graph_data(
         ch = fact.chapter_id
 
         for char in fact.characters:
+            if _skip_person_name(char.name):
+                continue
             canonical = alias_map.get(char.name, char.name)
             person_chapters[canonical].add(ch)
             if char.name != canonical:
@@ -162,6 +203,8 @@ async def get_graph_data(
 
         # Track character visits to org-type locations
         for char in fact.characters:
+            if _skip_person_name(char.name):
+                continue
             canonical = alias_map.get(char.name, char.name)
             for loc_name in char.locations_in_chapter:
                 loc_canonical = alias_map.get(loc_name, loc_name)
@@ -169,6 +212,8 @@ async def get_graph_data(
                     person_org_visits[canonical][loc_canonical] += 1
 
         for rel in fact.relationships:
+            if _skip_person_name(rel.person_a) or _skip_person_name(rel.person_b):
+                continue
             a = alias_map.get(rel.person_a, rel.person_a)
             b = alias_map.get(rel.person_b, rel.person_b)
             if a == b:

@@ -16,7 +16,8 @@ ARCH_SUFFIXES = frozenset(
 # in many different buildings (e.g. 荣国府's 夹道 vs 甄家's 夹道).
 HOMONYM_PRONE_NAMES = frozenset({
     # Passages / entrances
-    "夹道", "角门", "后门", "侧门", "正门", "大门", "二门", "垂花门",
+    "夹道", "角门", "后门", "侧门", "正门", "大门", "二门", "三门", "垂花门",
+    "前门", "山门", "辕门", "朝门", "仪门",
     "甬道", "走廊", "过道", "回廊", "穿堂", "抄手游廊",
     # Rooms / chambers
     "上房", "正房", "正室", "里间", "外间", "外间房", "内室", "内房",
@@ -25,17 +26,24 @@ HOMONYM_PRONE_NAMES = frozenset({
     # Halls
     "前厅", "后堂", "正厅", "大厅", "花厅", "偏厅", "中堂",
     "配殿", "偏殿", "抱厦",
+    # Palace / imperial buildings — each kingdom has one,
+    # must be disambiguated by parent (朱紫国·皇宫 vs 乌鸡国·皇宫)
+    "皇宫", "后宫", "内宫", "正宫", "偏宫",
+    "金殿", "正殿", "后殿", "前殿", "内殿",
+    "御花园", "后花园", "御书房",
+    "金銮殿", "大雄宝殿",
     # Outdoor spaces
-    "后院", "前院", "院子", "花园", "后花园",
-    # Generic facilities
+    "后院", "前院", "院子", "花园", "庭院",
+    # Generic facilities — same name appears in many kingdoms/houses
     "仓库", "马厩", "马棚", "门房", "倒座",
+    "馆驿", "驿馆",
     # Natural terrain — same name at different locations
     "树林", "山洞", "小路", "山坡", "河边", "湖边", "草地",
     "森林", "密林", "林中", "溪边", "崖边", "洞口",
     "山脚", "山腰", "山顶", "岸边", "路边", "林间",
     "水潭", "深潭", "石洞", "山谷", "峡谷",
     # Military / temporary encampments
-    "中军帐", "辕门", "营地", "军营", "帐篷", "大帐", "营寨", "阵前",
+    "中军帐", "营地", "军营", "帐篷", "大帐", "营寨", "阵前",
 })
 
 
