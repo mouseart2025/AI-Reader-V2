@@ -289,18 +289,29 @@ class EdmondsResolver(GeoSkill):
         parents: dict[str, str],
         freq: Counter,
         uber_root: str,
-        phantom_mc_threshold: int = 2,
-        phantom_children_threshold: int = 10,
-        target_children: int = 9,
+        phantom_mc_threshold: int = 3,
+        phantom_children_threshold: int = 5,
+        target_children: int = 3,
     ) -> tuple[dict[str, str], int]:
         """Lift zero-evidence children from low-mc high-child parents.
 
+        v0.71.1 tightened thresholds — original settings (mc<=2, kids>=10)
+        missed the majority of phantom catch-alls found in cross-novel audit:
+          - 陷空山(mc=3,kids=29)  馒头庵(mc=3,kids=20)
+          - 柴扉(mc=0,kids=9)      西行路上(mc=1,kids=7)
+          - 哈咇国(mc=0,kids=8)    本省(mc=1,kids=14)
+
+        New defaults(mc<=3, kids>=5, target=3)加上 ratio 检测捕获它们.
+        Also lift children with mc<=1 (not just mc=0) since single-chapter
+        evidence under a phantom parent is unreliable.
+
         Algorithm:
           1. Count children per parent
-          2. For each phantom parent (mc<=2, children>=10):
-             - Identify mc=0 children (no chapter evidence)
-             - Reparent them to grandparent (phantom's own parent)
-             - Stop when children_count reaches target_children
+          2. For each phantom parent:
+             a) phantom_mc <= phantom_mc_threshold  AND
+             b) len(children) >= phantom_children_threshold  AND
+             c) (ratio check) children / max(mc, 1) >= 3
+          3. Lift children with mc <= 1 to grandparent until remaining <= target
         """
         if not parents:
             return parents, 0
@@ -318,6 +329,10 @@ class EdmondsResolver(GeoSkill):
                 continue
             if len(children) < phantom_children_threshold:
                 continue
+            # Ratio guard: only lift if the imbalance is severe
+            ratio = len(children) / max(phantom_mc, 1)
+            if ratio < 3:
+                continue
             grandparent = new_parents.get(phantom, uber_root) or uber_root
             # Sort children by mc ascending (lift weakest first)
             children_sorted = sorted(children, key=lambda c: (freq.get(c, 0), c))
@@ -325,8 +340,9 @@ class EdmondsResolver(GeoSkill):
             for c in children_sorted:
                 if remaining <= target_children:
                     break
-                if freq.get(c, 0) > 0:
-                    # 有章节证据, 不上提
+                # v0.71.1: also lift mc=1 children (not just mc=0). Single-
+                # chapter evidence under a phantom is unreliable.
+                if freq.get(c, 0) > 1:
                     continue
                 new_parents[c] = grandparent
                 lifted += 1
