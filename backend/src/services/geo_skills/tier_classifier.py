@@ -199,6 +199,27 @@ class TierClassifier(GeoSkill):
                 "齐天府": "site",
                 # 东土大唐 is a kingdom
                 "东土大唐": "kingdom",
+                # v0.71.1 红楼梦 京城相关 — 修复 WorldStructureAgent Layer 4
+                # fallback 把 都中 判成 site 导致的 cascade 降级 (神京/大荒山/
+                # 石头城/扬州 全部错降为 building/region)
+                "都中": "city",       # 京城之内,清代北京
+                "神京": "city",       # 神京 = 京城
+                "京都": "city",       # 京都 = 京城
+                "京师": "city",       # 京师 = 京城
+                "石头城": "city",     # 南京古称
+                "金陵": "city",       # 南京
+                "扬州": "city",       # 扬州府
+                "姑苏": "city",       # 苏州古称
+                "苏州": "city",       # 苏州
+                "长安城": "city",     # 长安(古代京城)
+                "长安": "city",
+                "大荒山": "region",   # 红楼梦开篇神话地点(非凡人世界)
+                "青埂峰": "site",     # 大荒山青埂峰
+                "无稽崖": "site",     # 大荒山无稽崖
+                # v0.71.1 红楼梦 府邸建筑群
+                "大观园": "region",   # 园林群,含多座建筑
+                "荣国府": "region",   # 国公府邸群 (已在 _NAME_SUFFIX_TIER 但 Layer 5 会压低)
+                "宁国府": "region",
             }
             override = _TIER_OVERRIDES.get(name)
             if override and tier != override:
