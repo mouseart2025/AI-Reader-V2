@@ -19,6 +19,10 @@ from __future__ import annotations
 # ═══════════════════════════════════════════════════════════════
 
 KINSHIP_TERMS = frozenset({
+    # v0.71.1 — 红楼梦常用称谓(原缺失)
+    "太太", "大太太", "二太太", "三太太",
+    "老太太", "大奶奶", "二奶奶", "三奶奶", "四奶奶",
+    "老太爷", "大太爷",
     # Direct family
     "哥哥", "弟弟", "姐姐", "妹妹", "妈妈", "爸爸", "爸", "妈",
     "父亲", "母亲", "儿子", "女儿", "妻子", "丈夫", "老婆", "老公",
@@ -192,7 +196,53 @@ CANONICAL_BLOCKLIST = frozenset({
     "陛下", "万岁", "圣上", "菩萨", "老师", "那厮", "泼猴",
     "呆子", "妖精", "妖怪", "客官", "仙子",
     "老和尚", "那长老", "老师父",
+
+    # v0.71.1 — 古典小说第一人称自称戏称(老孙/老猪/老沙/老朱 来自西游记主角自称)
+    # "老X" 2-char 形式是人物自称时的幽默用语,不应作 canonical
+    "老孙", "老猪", "老沙", "老朱", "老牛", "老龙",
+    "本大仙", "本大圣", "本大王",
+    # v0.71.1 cross-novel audit 2026-04-11 — 红楼梦称谓被当人物
+    # 家族称谓 — 红楼梦里 "太太/奶奶/夫人" 都是场景性称呼,多人共用
+    "太太", "奶奶", "大奶奶", "二奶奶", "三奶奶", "四奶奶",
+    "大太太", "二太太", "三太太", "老太太",
+    "夫人", "大夫人", "二夫人", "三夫人",
+    "姑娘", "大姑娘", "二姑娘", "三姑娘", "四姑娘", "五姑娘",
+    "嬷嬷", "奶妈", "老嬷嬷", "老奶妈",
+    "太爷", "老太爷", "大太爷", "二太爷",
+    "老祖宗", "老太君", "老寿星",
+    # 西游记追加 — 那X/这X 结构命中 level 0 但 canonical 也要屏蔽
+    "那呆子", "那猴子", "那怪物", "那泼猴", "那老儿",
+    "这呆子", "这猴子", "这泼猴",
+    # 西游记追加 — 戏称/代称
+    "取经人", "取经僧", "毛脸雷公嘴", "雷公爷爷", "孙外公",
+    "美猴王",  # 这是石猴变形,虽然人气高但应保留 孙悟空 canonical
 })
+
+# v0.71.1 — 姓+氏 模式(红楼梦李氏/王氏/张氏...)
+# 通用称谓(古代婚后女子通称),多人共用,不应作 canonical
+# 覆盖百家姓常见 100+ 姓
+_COMMON_SURNAMES_FOR_MS = frozenset(
+    "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张"
+    "孔曹严华金魏陶姜戚谢邹喻柏水窦章云苏潘葛奚范"
+    "彭郎鲁韦昌马苗凤花方俞任袁柳酆鲍史唐费廉岑薛"
+    "雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元"
+    "卜顾孟平黄和穆萧尹姚邵湛汪祁毛禹狄米贝明臧计伏"
+    "成戴谈宋茅庞熊纪舒屈项祝董梁甘甄贾薛林沙"
+    "邢尤焦桂闻柴慕"
+)
+
+
+def is_surname_plus_shi(name: str) -> bool:
+    """Check if name matches '姓+氏' pattern (李氏/王氏/赵氏).
+
+    Red Chamber Dream uses this as a title for married women — multiple
+    characters share the same '姓氏' label, so it must not be canonical.
+    """
+    return (
+        len(name) == 2
+        and name[1] == "氏"
+        and name[0] in _COMMON_SURNAMES_FOR_MS
+    )
 
 # Surname + title suffixes for address terms (韩大夫, 林教头)
 TITLE_SUFFIXES = frozenset({
@@ -213,6 +263,14 @@ NICKNAME_SUFFIXES = frozenset({
     "天王", "太岁", "阎罗", "金刚", "罗汉", "菩萨",
     "公明", "学究", "俊义",
     "行者", "头陀", "道人", "和尚", "禅师",
+    # v0.71.1 — 旧职/尊号/道号 (西游记/神话题材)
+    "大将",  # 卷帘大将 (沙僧的天宫旧职)
+    "上仙", "上人",  # 道号尊称
+    "星君", "真君", "真人",  # 道教尊号
+    "天尊", "上帝", "大帝",  # 道教最高尊号
+    "太君", "老太君",  # 史老太君(贾母别称)
+    "雷公",  # 泛称
+    "大王且住手", "何往",  # 语气句尾,显然不是名字
 })
 
 NICKNAME_PREFIXES = frozenset({
@@ -261,8 +319,15 @@ def alias_safety_level(alias: str) -> int:
     if alias in TITLE_PREFIXES:
         return 0
 
+    # Level 0: 姓+氏 pattern (李氏/王氏 in 红楼梦 — generic title for married women)
+    if is_surname_plus_shi(alias):
+        return 0
+
     # Level 0: structural patterns
     if n >= 2 and alias[0] in "那这" and n <= 4:
+        return 0
+    # v0.71.1: "X等" 集合引用 (贾母等, 宝玉等, 王夫人等)
+    if n >= 3 and alias.endswith("等"):
         return 0
     if n == 2 and alias[0] in "老小" and alias[1] in "兄弟爷娘人的儿":
         return 0
@@ -355,6 +420,16 @@ def is_nickname_or_title(name: str) -> bool:
     # "老X" patterns (老祖宗, 老太太)
     if name.startswith("老") and n >= 3 and name not in ("老子",):
         return True
+    # v0.71.1: 那X/这X narrative reference (那呆子, 那长老, 那怪物)
+    # 2-4 chars starting with 那/这 — descriptive demonstrative forms
+    if n >= 2 and n <= 4 and name[0] in "那这":
+        return True
+    # v0.71.1: 姓+氏 pattern (李氏/王氏) — 红楼梦多人共用称谓
+    if is_surname_plus_shi(name):
+        return True
+    # v0.71.1: 取X / X僧 / X人 叙事代称(取经人, 取经僧)
+    if name.startswith("取经") and n <= 4:
+        return True
     return False
 
 
@@ -396,14 +471,28 @@ def pick_canonical(members: list[str], freq: dict[str, int],
     if not clean:
         clean = candidates
 
-    # Prefer 3-char full names with meaningful frequency
+    # Prefer 3-char full names with meaningful frequency.
+    # 老规则:3-char freq ≥ 50 就无条件胜出 — 这让 "陈玄奘(87)" 盖过 "三藏(1325)"
+    # 新规则(v0.71.1):3-char 在 2-char_max/3-char_max < 10 时胜出 —
+    # 即 2-char 没有压倒性多数时,保留文化规范的 3-char 全名.
+    # 阈值 10x 的依据:
+    #   - 陈玄奘(87) vs 三藏(1325) = 15.2x → 失败 → 2-char 胜 ✓
+    #   - 猪八戒(182) vs 八戒(1700) = 9.3x  → 成功 → 3-char 胜 ✓
+    #   - 孙悟空(152) vs 悟空(374)  = 2.5x  → 成功 → 3-char 胜 ✓
     _FULL_NAME_MIN_FREQ = 50
+    _FULL_NAME_DOMINANCE_RATIO = 10  # 2-char 超过 3-char 超过 10 倍才能盖过
     three_char = [m for m in clean if len(m) == 3
                   and freq.get(m, 0) >= _FULL_NAME_MIN_FREQ]
-    if len(three_char) == 1:
-        return three_char[0]
+    two_char = [m for m in clean if len(m) == 2
+                and freq.get(m, 0) >= _FULL_NAME_MIN_FREQ]
     if three_char:
-        return max(three_char, key=lambda m: freq.get(m, 0))
+        top_three_freq = max(freq.get(m, 0) for m in three_char)
+        top_two_freq = max((freq.get(m, 0) for m in two_char), default=0)
+        # 3-char 胜出条件:2-char 没有压倒性多数(<10 倍)
+        if top_two_freq < top_three_freq * _FULL_NAME_DOMINANCE_RATIO:
+            if len(three_char) == 1:
+                return three_char[0]
+            return max(three_char, key=lambda m: freq.get(m, 0))
 
     # Fallback: highest frequency
     return max(clean, key=lambda m: freq.get(m, 0))

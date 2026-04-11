@@ -299,6 +299,24 @@ _GENERIC_FACILITY_NAMES = frozenset({
     "九霄云里", "九霄空上", "巅险峰头",
     "摩天高山", "正南方大山", "南北大街",
     "蓼汀", "深衢", "东观", "丹灶", "雷府",
+
+    # v0.71.1 cross-novel audit (2026-04-11)
+    # — 西游记 catch-all 垃圾桶父节点 / 描述词误作地点
+    "柴扉",  # "柴门" 的雅称,诗意指代贫家,非地名
+    "假山",  # 园林装饰物,不是独立地点(红楼大观园 catch-all)
+    "山石",  # 园林装饰物(红楼 catch-all)
+    "池中",  # 方位描述(红楼 catch-all)
+    # 注:"洞府" 在 _FANTASY_LOCATION_WHITELIST 内,fantasy 类型保留
+    "洞府门前", "洞府门外",
+    "荒野", "荒山",
+    "大山", "大洞", "大川",
+    "西行路上", "西行道上", "取经路上",  # xiyouji 描述性路径
+    "东土", "西土", "南土", "北土",  # 泛称方位,不是具体地点
+    # — 描述性"方位+建筑" 短语 (红楼高频)
+    "东南角", "西北角", "东北角", "西南角",
+    "东南角井边", "西边院子", "东边院子",
+    "园子里", "铺子里", "村子里", "庄子里",
+    "西边穿堂", "西边穿堂儿",
 })
 
 # ---------------------------------------------------------------------------
@@ -636,6 +654,23 @@ _GENERIC_PERSON_WORDS = frozenset({
     "金甲诸天", "七十二洞妖王", "庞刘苟毕四大元帅",
     "嫔妃", "后妃", "东宫", "西宫",
     "两个女怪", "公主娘娘", "护国天王",
+
+    # v0.71.1 cross-novel audit 2026-04-11
+    # — 红楼梦称谓(场景性,多人共用)
+    "太太", "大太太", "二太太", "三太太", "老太太",
+    "奶奶", "大奶奶", "二奶奶", "三奶奶", "四奶奶",
+    "夫人", "大夫人", "二夫人", "三夫人",
+    "姑娘", "大姑娘", "二姑娘", "三姑娘", "四姑娘", "五姑娘",
+    "嬷嬷", "老嬷嬷", "奶妈", "老奶妈",
+    "太爷", "老太爷", "大太爷", "二太爷",
+    "老祖宗", "老寿星",  # 指代贾母的泛称
+    # — 西游记戏称/代称(那X 结构 + 取经路人称号)
+    "那呆子", "那猴子", "那怪物", "那泼猴", "那老儿",
+    "这呆子", "这猴子", "这泼猴",
+    "取经人", "取经僧",
+    "毛脸雷公嘴", "雷公爷爷", "孙外公",
+    # — 集合名/泛称(xiyouji audit)
+    "群猴", "五百阿罗", "土地神祗", "夜叉", "太监", "樵子",
 })
 
 # Pure title words — when used alone (no surname prefix), not a valid character name
@@ -1047,6 +1082,17 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
         for role in _GROUP_ROLES:
             if name.endswith(role):
                 return f"numbered group reference ({role})"
+
+    # P8 (v0.71.1): 姓+氏 pattern — 红楼梦多人共用的称谓 (李氏/王氏/甄氏)
+    # Delegates to name_authority single source of truth.
+    from src.services.name_authority import is_surname_plus_shi
+    if is_surname_plus_shi(name):
+        return "surname+氏 (generic title for married women)"
+
+    # P9 (v0.71.1): Descriptive long names (n >= 10) — 通常是 LLM 把描述当角色名
+    # 例:"飞东洋游普世感恩行孝黄毛红嘴白鹦哥" (15字)
+    if len(name) >= 10:
+        return f"descriptive long name ({len(name)} chars)"
 
     return None
 
@@ -1474,7 +1520,18 @@ class FactValidator:
                             break
                 if is_hallucinated:
                     continue
-            valid.append(loc.model_copy(update={"name": name}))
+            # Normalize parent field through the same pipeline (_clamp_name →
+            # character variants → exact corrections). Without this, parent
+            # strings like "南膳部洲" stay unnormalized and become phantom nodes.
+            normalized_parent = loc.parent
+            if normalized_parent:
+                normalized_parent = _clamp_name(normalized_parent)
+                normalized_parent = _LOCATION_NAME_NORMALIZE.get(
+                    normalized_parent, normalized_parent
+                )
+            valid.append(
+                loc.model_copy(update={"name": name, "parent": normalized_parent})
+            )
 
         # Validate peers field
         cleaned_valid = []
@@ -1766,7 +1823,8 @@ class FactValidator:
         for loc in locations:
             parent = loc.parent
             if parent:
-                parent = _LOCATION_NAME_NORMALIZE.get(parent.strip(), parent.strip())
+                parent = _clamp_name(parent)
+                parent = _LOCATION_NAME_NORMALIZE.get(parent, parent)
             if parent and parent not in existing_names and parent not in to_add:
                 to_add[parent] = LocationFact(
                     name=parent,

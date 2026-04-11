@@ -422,30 +422,44 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         uf.union(name, alias)
 
     # ── Ingest entity_dictionary ──
-    # Only use entries with a real entity_type (skip 'unknown' noise like "行者笑", "者道")
     # First pass: collect all primary entity names for conflict detection.
     # Entity dictionary entries (from pre-scan) override the generic blocklist:
     # if the pre-scan LLM identified "三叔" as a specific person entity, it should
     # be treated as a named character, not a generic kinship term.
+    #
+    # v0.71.1: unknown-type entries are NO LONGER unconditionally skipped.
+    # High-frequency unknown entries (e.g. "齐天大圣" freq=102 in 西游记) still
+    # need their aliases rescued, even if we don't promote them to primaries.
+    _UNKNOWN_RESCUE_MIN_FREQ = 30
     for row in dict_rows:
         entity_type = row["entity_type"] or "unknown"
-        if entity_type == "unknown":
+        frequency = row["frequency"] or 0
+        if entity_type == "unknown" and frequency < _UNKNOWN_RESCUE_MIN_FREQ:
             continue
         name = _normalize_char_variants(row["name"])
         level = _alias_safety_level(name)
+        # Only promote to primary if type is person AND name is safe.
+        # unknown-type entries pass through to the rescue branch below
+        # (they union their aliases but don't become primaries themselves).
+        if entity_type == "unknown":
+            continue  # first pass: skip unknown, handled in second pass rescue
         if level >= 2:
             dict_primary_names.add(name)
-        elif level == 0 and entity_type == "person" and (row["frequency"] or 0) >= 10:
+        elif level == 0 and entity_type == "person" and frequency >= 10:
             # Pre-scan identified this as a high-frequency person entity — override
             # the generic blocklist. E.g., "三叔" in 凡人修仙传 is a specific character.
             dict_primary_names.add(name)
             logger.info("Dict override for blocked name '%s' (freq=%d, type=%s)",
-                        name, row["frequency"] or 0, entity_type)
+                        name, frequency, entity_type)
 
     # Second pass: build Union-Find groups
     for row in dict_rows:
         entity_type = row["entity_type"] or "unknown"
-        if entity_type == "unknown":
+        frequency = row["frequency"] or 0
+        # v0.71.1: allow unknown-type entries through if freq is high enough,
+        # so their alias groups (e.g. 齐天大圣 → {齐天大圣, 大圣, 猴王, 老孙})
+        # get rescued via the blocked-name branch below.
+        if entity_type == "unknown" and frequency < _UNKNOWN_RESCUE_MIN_FREQ:
             continue
 
         name = _normalize_char_variants(row["name"])
