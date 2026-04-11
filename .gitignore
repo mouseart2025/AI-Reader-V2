@@ -80,3 +80,14 @@ backend/audit_reports/
 # BMAD claude commands
 .claude/commands/bmad*
 backend/data/hierarchy_validation/backups/*.sqlite3
+
+# Internal dev tools (moved to ai-reader-internal repo)
+.claude/skills/
+_bmad-output/
+_bmad/
+marketing/
+docs/
+interaction-design/
+PRD.md
+PRD-v1.0.md
+*研究报告.md
