@@ -25,9 +25,17 @@ chroma/
 .DS_Store
 Thumbs.db
 
-# Environment
+# Environment & secrets (defense-in-depth)
 .env
-.env.local
+.env.*
+!.env.example
+*.secret
+*_secret*
+credentials.json
+credentials.yaml
+*private_key*
+*.pem
+*.key
 
 # Internal / private content
 _bmad/
