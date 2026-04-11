@@ -375,15 +375,37 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
         # trace to different known primary entities.
         # Catches shared titles ("大刀", "天王", "杨制使", "水军头领") that
         # the LLM assigns as aliases to multiple different characters.
+        #
+        # v0.71.1 substring exception: allow merge when one name is a strict
+        # suffix of the other with length difference 1 (i.e., surname + given
+        # name vs given name alone). This fixes the 红楼梦 "贾X" split:
+        #   贾宝玉 ⊃ 宝玉, 薛宝钗 ⊃ 宝钗, 贾探春 ⊃ 探春, 贾惜春 ⊃ 惜春, 贾迎春 ⊃ 迎春
+        # Prefix relationships (阮小 ⊂ 阮小二) are still blocked upstream by
+        # `_similar_name_conflict` (Layer 0).
         if source != "dict":
             name_primary = _alias_to_dict_primary.get(name)
             alias_primary = _alias_to_dict_primary.get(alias)
             if name_primary and alias_primary and name_primary != alias_primary:
-                logger.debug(
-                    "Alias ownership conflict (%s): '%s' (→%s) vs '%s' (→%s), block",
-                    source, name, name_primary, alias, alias_primary,
+                shorter, longer = (
+                    (name, alias) if len(name) < len(alias) else (alias, name)
                 )
-                return
+                is_surname_suffix = (
+                    len(shorter) >= 2
+                    and len(longer) - len(shorter) == 1
+                    and longer.endswith(shorter)
+                )
+                if is_surname_suffix:
+                    logger.info(
+                        "Substring exception (%s): '%s' ⊂ '%s', allow merge",
+                        source, shorter, longer,
+                    )
+                    # Fall through to normal merge logic
+                else:
+                    logger.debug(
+                        "Alias ownership conflict (%s): '%s' (→%s) vs '%s' (→%s), block",
+                        source, name, name_primary, alias, alias_primary,
+                    )
+                    return
 
         if alias not in uf.parent:
             uf.union(name, alias)
