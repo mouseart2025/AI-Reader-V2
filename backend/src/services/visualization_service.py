@@ -125,6 +125,7 @@ async def get_graph_data(
         GENERIC_PERSON_ALIASES,
         is_surname_plus_shi,
     )
+    from src.extraction.fact_validator import _is_generic_person
 
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
     alias_map = await build_alias_map(novel_id)
@@ -160,6 +161,12 @@ async def get_graph_data(
             return True
         # 长描述性名称 (飞东洋游普世感恩行孝黄毛红嘴白鹦哥)
         if len(name) >= 10:
+            return True
+        # v0.71.1: delegate to FactValidator 的集合名/群X/众X/_GENERIC_PERSON_WORDS 检测.
+        # 这条检查 name_authority 的 CANONICAL_BLOCKLIST 覆盖不到的旧数据
+        # (群猴/五百阿罗/土地神祗 等)。_is_generic_person 不检测结构 level-0
+        # 所以不会误伤被 override 救活的 王夫人/薛姨妈.
+        if _is_generic_person(name) is not None:
             return True
         return False
 

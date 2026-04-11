@@ -303,6 +303,13 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
             (novel_id,),
         )
         fact_rows = await cursor.fetchall()
+
+        # Source 3 (v0.71.1): novel title → knowledge prior lookup
+        cursor = await conn.execute(
+            "SELECT title FROM novels WHERE id = ?", (novel_id,)
+        )
+        title_row = await cursor.fetchone()
+        novel_title = (title_row["title"] if title_row else "") or ""
     finally:
         await conn.close()
 
@@ -566,6 +573,43 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
                     # First character to claim an alias "owns" it — later conflicts are blocked
                     _alias_to_dict_primary.setdefault(alias, name)
                     _safe_union(name, alias, "fact")
+
+    # v0.71.1 knowledge prior merge — authoritative alias groups for well-known
+    # classical novels (西游记/红楼梦/水浒传/三国演义). Bypasses all Union-Find
+    # safety layers because these groups are curated by hand. Fixes cases where
+    # Pre-scan LLM creates SEPARATE primary entries for the same character that
+    # never share an alias (e.g. 孙悟空 / 石猴 / 猴精 in 西游记).
+    #
+    # Proactively adds ALL group members to UF, even names that would normally
+    # be filtered as unsafe (e.g. "观音菩萨" ends with title suffix 菩萨; "薛姨妈"
+    # ends with tail blocklist 姨妈). For these classical novels they are the
+    # canonical forms used throughout the text.
+    from src.services.person_knowledge_prior import get_person_priors
+    priors = get_person_priors(novel_title)
+    if priors:
+        prior_merges = 0
+        for group in priors:
+            if len(group) < 2:
+                continue
+            anchor = group[0]
+            freq.setdefault(anchor, 0)
+            uf.find(anchor)  # force-register anchor
+            # Also register anchor as its own dict_primary so canonical
+            # selection trusts it.
+            dict_primary_names.add(anchor)
+            _alias_to_dict_primary.setdefault(anchor, anchor)
+            for other in group[1:]:
+                freq.setdefault(other, 0)
+                uf.find(other)
+                if uf.find(anchor) != uf.find(other):
+                    uf.union(anchor, other)
+                    prior_merges += 1
+                # Register alias ownership pointing to anchor
+                _alias_to_dict_primary[other] = anchor
+        logger.info(
+            "Knowledge prior (%s): merged %d alias pairs across %d groups",
+            novel_title, prior_merges, len(priors),
+        )
 
     # Second pass: merge deferred pairs with strong chapter evidence.
     # Direct uf.union() bypasses all layers — the chapter evidence threshold
