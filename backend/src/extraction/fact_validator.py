@@ -930,6 +930,46 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     if any(name.endswith(s) for s in _NOISE_SUFFIXES):
         return f"noise suffix ({name[-2:]})"
 
+    # v0.71.1 — Phase B S6: cross-novel structural patterns
+    # Rule 20: "X国界/X城池/X城门/X城头/X城外" — descriptive admin suffix variants.
+    # These are references like "border/walled city/gate" — never canonical locations.
+    # Blocked for n > suffix_len + 1 (must have a real prefix name).
+    _VARIANT_SUFFIXES = ("国界", "城池", "城门", "城头", "城外", "城内", "城中")
+    for vs in _VARIANT_SUFFIXES:
+        if n > len(vs) + 1 and name.endswith(vs):
+            return f"administrative variant suffix ({vs})"
+
+    # Rule 21: "X山路/X山顶/X山下/X山脚/X山道/X山口" — mountain-descriptor phrases.
+    # Always descriptive ("path up the mountain", "mountain peak" etc.), never
+    # a standalone location name.
+    _MOUNTAIN_DESC_SUFFIXES = ("山路", "山顶", "山脚", "山下", "山道", "山口", "山腰")
+    for ms in _MOUNTAIN_DESC_SUFFIXES:
+        if n > len(ms) + 1 and name.endswith(ms):
+            return f"mountain descriptor suffix ({ms})"
+
+    # Rule 22: "X + 边/旁/岸/口/头" describing locations near a feature
+    # 东南角井边 / 苇坑边 / 大观园山石边 / 沁芳桥头 / 山脚边
+    # These are positional references relative to a landmark.
+    if n >= 4 and name[-1] in "边旁岸口头":
+        # Count how many chars are geographic feature words
+        feature_chars = sum(1 for c in name[:-1] if c in _GEO_GENERIC_SUFFIXES)
+        # If half or more of the prefix chars are generic geo features, it's descriptive
+        if feature_chars >= (n - 1) // 2:
+            return f"positional landmark reference ({name[-1]})"
+
+    # Rule 23: "方位 + 名词 + 位置" — 东南角井边 / 西边穿堂儿 / 大观园山石边
+    # Pattern: starts with a direction word followed by compound nouns
+    _DIRECTION_PREFIXES = ("东南", "西南", "东北", "西北", "正东", "正西", "正南", "正北")
+    if n >= 5:
+        for dp in _DIRECTION_PREFIXES:
+            if name.startswith(dp):
+                return f"direction prefix compound ({dp})"
+
+    # Rule 24: "X处/X中屋子里" — nested positional, clearly descriptive
+    if n >= 5 and (name.endswith("屋子里") or name.endswith("屋中")
+                    or name.endswith("房子里") or name.endswith("院子里")):
+        return "nested room phrase"
+
     return None
 
 

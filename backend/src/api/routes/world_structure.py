@@ -1084,6 +1084,7 @@ async def rebuild_hierarchy_v2(novel_id: str):
             from src.services.geo_skills.knowledge_prior import KnowledgePrior
             from src.services.geo_skills.reviewer_skill import ReviewerSkill
             from src.services.geo_skills.tier_classifier import TierClassifier
+            from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
             from src.services.geo_skills.snapshot import HierarchyMetrics
 
             title = novel.get("title", "")
@@ -1092,12 +1093,15 @@ async def rebuild_hierarchy_v2(novel_id: str):
             orch = GeoOrchestrator(novel_id)
             # Incremental pipeline: respect LLM extraction + targeted fixes
             # Lean pipeline: no LLM dependencies, completes in <1s
-            # (SkeletonClassifier/VoteResolver/Consolidator/ReviewerSkill removed —
-            #  incremental Edmonds preserves LLM extraction quality, no need to re-review)
+            # v0.71.1: SuffixNormalizer runs LAST so its variant merges
+            # (乌斯藏国界→乌斯藏国, 石头城→都中 etc.) have the final say.
+            # Running before Edmonds allowed name-containment/vote weights
+            # to re-override the merges.
             orch.add_skill("tier", TierClassifier(novel_id))
             orch.add_skill("votes", VoteBuilder(novel_id))
             orch.add_skill("prior", KnowledgePrior(novel_title=title))
             orch.add_skill("edmonds", EdmondsResolver())
+            orch.add_skill("suffix", SuffixNormalizer())
 
             # Run pipeline, convert ProgressEvents to SSE
             async for event in orch.run():
