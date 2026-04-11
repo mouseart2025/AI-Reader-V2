@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.70.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.71.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.69.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.69.1/AI.Reader_0.69.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.69.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.69.1/AI.Reader_0.69.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.71.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.1/AI.Reader_0.71.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.71.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.1/AI.Reader_0.71.1_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -127,6 +127,12 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.71.1 | 2026-04-12 | 跨本质量守护(西游+红楼重分析后) — 关系图canonical崩溃修复: Phase A 7项(字形归一化+HOMONYM扩充+BLOCKLIST扩称谓/戏称+nickname扩大将/太君/那X+unknown rescue+幻影清理+pick_canonical 3-char 10x阈值) + B3 Layer 0.5 substring例外(红楼"贾X"前缀5对合并:贾宝玉/贾探春/贾惜春/贾迎春/薛宝钗) + Phase C 人物知识先验(西游14组+红楼16组:孙悟空/贾母/观音等) + S3 TierClassifier红楼京城覆盖 + S4 phantom lift门槛收紧(catch-all 27→19) + S6 FactValidator规则20-24(X国界/X城池/X山路/X山顶) + S2 SuffixNormalizer新GeoSkill(60+后缀变体合并) + Phase C地点先验(石头城/金陵/神京→都中) + 483 tests |
+| v0.71.0 | 2026-04-10 | 命名质量守护+分析后自动层级重建(Edmonds管线)+开发过程规范(L1/L2/L3分级+影响分析+单一事实来源) + 482 tests |
+| v0.70.3 | 2026-04-10 | 命名管线质量守护体系(name_authority.py 单一入口+canonical回归守卫) |
+| v0.70.2 | 2026-04-09 | 修复NameResolver canonical选择倒退 |
+| v0.70.1 | 2026-04-08 | GeoStateDoc地理状态注入+百科字形变体提示 |
+| v0.70.0 | 2026-04-08 | 提取管线质量修正: NameResolver+泛称升级+地点知识 |
 | v0.69.1 | 2026-04-07 | 层级架构修正+副本分离 — 天下→层根节点(主世界/天界/冥界/龙宫)自动注入, 跨层parent关系断开修复, sci-fi层检测genre门控(水浒太阳阵不再触发太阳系层) + 407 tests |
 | v0.69.0 | 2026-04-06 | 朝代感知地名分类+原文上下文校验 — 三层校验方法论完整实现: Layer 2 朝代感知"州"分类(三国→kingdom/封神→city/红楼→city, era自动检测) + Layer 3 TextVerifier上下文提取(60字窗口snippet证据) + 上下文感知"府"分类(荣国府→site/大名府→city) + "X处"细分(贾母处→valid/鸳鸯自尽处→error) + 原文存在性校验(850K字<0.5s) + 5本小说gold标准(5941节点) + 407 tests |
 | v0.68.0 | 2026-04-05 | 地图渲染质量 — 大陆覆盖优化+核心地标不折叠+子地点分布收紧(海洋漂移修复)+智能重绘后层重检测+map布局缓存(5分钟TTL)+自动清缓存 |
