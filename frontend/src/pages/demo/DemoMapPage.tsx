@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDemoData } from "@/app/DemoContext"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
+import { GeoMap } from "@/components/visualization/GeoMap"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import type { MapData } from "@/api/types"
 
@@ -145,28 +146,42 @@ export default function DemoMapPage() {
         </span>
       </div>
 
-      {/* Map */}
+      {/* Map — switch between GeoMap (real-world via Leaflet) and NovelMap
+          (procedural fantasy-style) based on layout_mode. Mirrors production
+          MapPage.tsx so 红楼梦/三国/水浒 (geographic mode) render with real
+          Chinese map background instead of empty fantasy canvas. */}
       <div className="flex-1 overflow-hidden">
-        <NovelMap
-          ref={novelMapRef}
-          locations={filteredLocations}
-          layout={filteredLayout}
-          allLocations={locations}
-          allLayout={layout}
-          layoutMode={mapData.layout_mode ?? "hierarchy"}
-          terrainUrl={mapData.terrain_url ?? null}
-          visibleLocationNames={visibleNames}
-          revealedLocationNames={new Set(mapData.revealed_location_names ?? [])}
-          regionBoundaries={mapData.region_boundaries}
-          portals={mapData.portals}
-          rivers={mapData.rivers}
-          canvasSize={mapData.canvas_size}
-          spatialScale={mapData.spatial_scale ?? undefined}
-          locationConflicts={mapData.location_conflicts}
-          collapsedChildCount={collapsedChildCount}
-          onLocationClick={handleLocationClick}
-          onToggleExpand={handleToggleExpand}
-        />
+        {mapData.layout_mode === "geographic" && mapData.geo_coords ? (
+          <GeoMap
+            locations={filteredLocations}
+            geoCoords={mapData.geo_coords}
+            onLocationClick={handleLocationClick}
+          />
+        ) : (
+          <NovelMap
+            ref={novelMapRef}
+            locations={filteredLocations}
+            layout={filteredLayout}
+            allLocations={locations}
+            allLayout={layout}
+            layoutMode={mapData.layout_mode ?? "hierarchy"}
+            terrainUrl={mapData.terrain_url ?? null}
+            visibleLocationNames={visibleNames}
+            revealedLocationNames={new Set(mapData.revealed_location_names ?? [])}
+            regionBoundaries={mapData.region_boundaries}
+            portals={mapData.portals}
+            rivers={mapData.rivers}
+            roads={mapData.roads}
+            landmasses={mapData.landmasses}
+            shelves={mapData.shelves}
+            canvasSize={mapData.canvas_size}
+            spatialScale={mapData.spatial_scale ?? undefined}
+            locationConflicts={mapData.location_conflicts}
+            collapsedChildCount={collapsedChildCount}
+            onLocationClick={handleLocationClick}
+            onToggleExpand={handleToggleExpand}
+          />
+        )}
       </div>
     </div>
   )
