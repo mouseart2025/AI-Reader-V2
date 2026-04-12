@@ -220,6 +220,25 @@ class TierClassifier(GeoSkill):
                 "大观园": "region",   # 园林群,含多座建筑
                 "荣国府": "region",   # 国公府邸群 (已在 _NAME_SUFFIX_TIER 但 Layer 5 会压低)
                 "宁国府": "region",
+                # v0.71.2 水浒传宋朝路名(province-level)
+                # 这些是宋代行政路名,无 suffix 后缀,需显式标 region
+                "河北": "region", "河南": "region", "河东": "region",
+                "京东": "region", "京西": "region", "京畿": "region",
+                "江南": "region", "江北": "region",
+                "淮南": "region", "淮西": "region", "淮东": "region",
+                "关西": "region", "陕西": "region", "山西": "region",
+                "山东": "region", "山南": "region",
+                "两浙": "region", "两广": "region",
+                # v0.71.2 水浒传/三国演义历史地名
+                "辽国": "kingdom",  # 北方辽国
+                "京师": "city",     # 京师 = 京城
+                "汴京": "city",     # 北宋首都(开封别名)
+                "东京": "city",     # 北宋东京 = 开封
+                "西京": "city",     # 北宋西京 = 洛阳
+                "北京": "city",     # 北宋北京 = 大名府
+                "南京": "city",     # 北宋南京 = 应天府
+                "建康": "city",     # 南京古称
+                "燕京": "city",     # 辽朝燕京
             }
             override = _TIER_OVERRIDES.get(name)
             if override and tier != override:
