@@ -3,8 +3,8 @@ name = "ai-reader"
 version = "0.71.1"
 description = "AI Reader - 中文小说分析桌面应用"
 authors = ["leonfeng"]
-license = ""
-repository = ""
+license = "AGPL-3.0"
+repository = "https://github.com/mouseart2025/AI-Reader-V2"
 edition = "2021"
 rust-version = "1.77.2"
 
