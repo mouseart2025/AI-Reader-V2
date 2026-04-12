@@ -785,6 +785,13 @@ def _split_by_matches(
         if mode == "separator":
             title = _derive_separator_title(chapter_num, content)
 
+        # v0.71.2: title sanity check — if extracted title is actually a body
+        # paragraph (long + contains sentence punctuation), replace with generic
+        # "第N节" name. Catches cases like 鼠疫 where 5-part structure has no
+        # section titles and the splitter accidentally captured paragraph text.
+        if title and (len(title) > 40 or any(ch in title for ch in "。！？")):
+            title = f"第 {chapter_num} 节"
+
         chapters.append(
             ChapterInfo(
                 chapter_num=chapter_num,
