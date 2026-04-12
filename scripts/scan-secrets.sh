@@ -60,9 +60,11 @@ case "$MODE" in
     ;;
   --history)
     echo "Scanning full history (slow)..."
-    HITS=$(git log --all -p 2>/dev/null | grep -cE 'sk-[A-Za-z0-9_-]{30,}|ghp_[A-Za-z0-9]{36}|AKIA[0-9A-Z]{16}|-----BEGIN.*PRIVATE KEY' || true)
+    # Exclude scan-secrets.sh itself from matches — it contains pattern
+    # strings that self-match in git log diffs.
+    HITS=$(git log --all -p -- ':!scripts/scan-secrets.sh' 2>/dev/null | grep -cE 'sk-[A-Za-z0-9_-]{30,}|ghp_[A-Za-z0-9]{36}|AKIA[0-9A-Z]{16}|-----BEGIN.*PRIVATE KEY' || true)
     if [ "$HITS" -gt 0 ]; then
-      echo "❌ $HITS potential secrets in git history — run: git log --all -p | grep -E 'sk-|ghp_|AKIA|BEGIN.*PRIVATE KEY'"
+      echo "❌ $HITS potential secrets in git history — run: git log --all -p -- ':!scripts/scan-secrets.sh' | grep -E 'sk-|ghp_|AKIA|BEGIN.*PRIVATE KEY'"
       exit 1
     fi
     echo "✓ git history clean"
