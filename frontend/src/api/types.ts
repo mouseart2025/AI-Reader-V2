@@ -186,8 +186,10 @@ export interface EnvironmentCheck {
   ollama_running?: boolean
   ollama_status?: "not_installed" | "installed_not_running" | "running"
   ollama_url?: string
-  required_model?: string
-  model_available?: boolean
+  required_model?: string  // backwards compat — same value as recommended_model
+  recommended_model?: string  // v0.71.3+: the suggested default (e.g. "qwen3:8b")
+  model_available?: boolean  // v0.71.3+: true if ANY Ollama model is installed
+  recommended_model_installed?: boolean  // v0.71.3+: true if the specific recommended model is installed
   available_models?: (OllamaModel | string)[]
   // Cloud mode fields
   llm_base_url?: string

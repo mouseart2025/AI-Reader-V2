@@ -26,7 +26,7 @@ from src.infra.config import (
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-REQUIRED_MODEL = "qwen2.5:7b"
+REQUIRED_MODEL = "qwen3:8b"  # renamed semantically "recommended"; fallback default only
 
 # ── Model recommendation catalog ──────────────────
 
@@ -211,7 +211,8 @@ async def get_settings():
             "llm_model": get_model_name(),
             "ollama_base_url": OLLAMA_BASE_URL,
             "ollama_model": config.OLLAMA_MODEL,
-            "required_model": REQUIRED_MODEL,
+            "required_model": REQUIRED_MODEL,  # backwards compat
+            "recommended_model": REQUIRED_MODEL,
             "context_window": config.CONTEXT_WINDOW_SIZE,
             "llm_quality_review": config.LLM_QUALITY_REVIEW,
         }
@@ -1026,8 +1027,14 @@ async def _check_ollama() -> dict:
         "ollama_running": False,
         "ollama_status": "not_installed" if not ollama_installed else "installed_not_running",
         "ollama_url": OLLAMA_BASE_URL,
+        # Kept for backwards compatibility — front-end prefers `recommended_model`.
         "required_model": REQUIRED_MODEL,
+        "recommended_model": REQUIRED_MODEL,
+        # v0.71.3: "model_available" now means "any usable Ollama model installed"
+        # (v0.71.2 and earlier required an exact match, blocking users with
+        # qwen3.5:9b or other equivalent models — see GitHub issue #9).
         "model_available": False,
+        "recommended_model_installed": False,
         "available_models": [],
     }
 
@@ -1048,7 +1055,12 @@ async def _check_ollama() -> dict:
                     for m in models_raw
                 ]
                 model_names = [m.get("name", "") for m in models_raw]
-                result["model_available"] = any(
+                # Loose match — any Ollama model counts as "available" since
+                # users can switch via switch_to_ollama API or env OLLAMA_MODEL.
+                result["model_available"] = len(model_names) > 0
+                # Strict match — kept as a hint for the UI to guide new users
+                # toward the recommended default.
+                result["recommended_model_installed"] = any(
                     m == REQUIRED_MODEL
                     or m.startswith(REQUIRED_MODEL + ":")
                     or (

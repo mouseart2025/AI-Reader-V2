@@ -1,6 +1,6 @@
 [project]
 name = "ai-reader-v2-backend"
-version = "0.71.2"
+version = "0.71.3"
 description = "AI Reader V2 Backend - Novel analysis with local LLM"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -23,6 +23,7 @@ dependencies = [
     "reportlab>=4.4.10",
     "matplotlib>=3.9.4",
     "anthropic>=0.86.0",
+    "python-louvain>=0.16",
 ]
 
 [dependency-groups]

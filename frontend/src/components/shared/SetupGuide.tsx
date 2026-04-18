@@ -117,7 +117,7 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
                 />
                 <div className="flex-1">
                   <p className="font-medium">
-                    下载模型 ({env?.required_model ?? "qwen2.5:7b"})
+                    下载模型 ({env?.recommended_model ?? env?.required_model ?? "qwen3:8b"})
                   </p>
                   {modelOk ? (
                     <p className="text-muted-foreground text-sm">
@@ -132,7 +132,7 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
                         在终端运行：
                       </p>
                       <code className="bg-muted block rounded px-3 py-2 text-sm">
-                        ollama pull {env?.required_model ?? "qwen2.5:7b"}
+                        ollama pull {env?.recommended_model ?? env?.required_model ?? "qwen3:8b"}
                       </code>
                     </div>
                   ) : (

@@ -22,7 +22,7 @@ import {
   validateCloudApi,
   switchLlmMode,
 } from "@/api/client"
-import type { CloudProvider, EnvironmentCheck } from "@/api/types"
+import type { CloudProvider, EnvironmentCheck, OllamaModel } from "@/api/types"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
 
 interface InlineLlmSetupProps {
@@ -310,18 +310,47 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
           </div>
         )}
 
-        {ollamaStatus === "running" && env?.model_available && (
-          <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-1.5">
-            <Check className="h-4 w-4" /> Ollama 就绪，模型：{env.required_model}
-          </div>
-        )}
-
-        {ollamaStatus === "running" && !env?.model_available && (
-          <div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-400">
-            Ollama 运行中，但推荐模型 {env?.required_model} 未安装。
-            请运行：<code className="bg-muted rounded px-1 text-xs">ollama pull {env?.required_model}</code>
-          </div>
-        )}
+        {(() => {
+          if (ollamaStatus !== "running") return null
+          const recommended = env?.recommended_model ?? env?.required_model ?? "qwen3:8b"
+          const recommendedInstalled = env?.recommended_model_installed ?? env?.model_available ?? false
+          const availableList = (env?.available_models ?? [])
+            .map((m) => (typeof m === "string" ? m : (m as OllamaModel).name))
+            .filter((n): n is string => !!n)
+          // State A: recommended model is installed → green, use it
+          if (recommendedInstalled) {
+            return (
+              <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-1.5">
+                <Check className="h-4 w-4" /> Ollama 就绪，模型：{recommended}
+              </div>
+            )
+          }
+          // State B: some other model is installed but not the recommended one
+          if (env?.model_available && availableList.length > 0) {
+            return (
+              <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Check className="h-4 w-4" /> 检测到已安装 {availableList.length} 个本地模型
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  可直接使用：{availableList.slice(0, 3).join("、")}
+                  {availableList.length > 3 ? ` 等 ${availableList.length} 个` : ""}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  如需切换到推荐模型 <code className="bg-muted rounded px-1">{recommended}</code>:
+                  <code className="bg-muted rounded px-1 ml-1">ollama pull {recommended}</code>
+                </div>
+              </div>
+            )
+          }
+          // State C: no models installed
+          return (
+            <div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-400">
+              Ollama 运行中，但未检测到已安装模型。
+              请运行：<code className="bg-muted rounded px-1 text-xs">ollama pull {recommended}</code>
+            </div>
+          )
+        })()}
 
         <div className="flex gap-2">
           <Button
@@ -342,7 +371,14 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
           {ollamaStatus === "running" && env?.model_available && (
             <Button
               onClick={async () => {
-                await switchLlmMode("ollama", env?.required_model ?? undefined)
+                // v0.71.3: prefer recommended if installed, else first available
+                const recommended = env?.recommended_model ?? env?.required_model ?? "qwen3:8b"
+                const recommendedInstalled = env?.recommended_model_installed ?? false
+                const availableList = (env?.available_models ?? [])
+                  .map((m) => (typeof m === "string" ? m : (m as OllamaModel).name))
+                  .filter((n): n is string => !!n)
+                const chosen = recommendedInstalled ? recommended : (availableList[0] ?? recommended)
+                await switchLlmMode("ollama", chosen)
                 useLlmInfoStore.getState().fetch(true)
                 onReady()
               }}
