@@ -191,14 +191,13 @@ class OpenAICompatibleClient:
         }
 
     def _make_client(self, timeout: float | httpx.Timeout) -> httpx.AsyncClient:
-        """Create httpx client that bypasses system proxy.
+        """Create httpx client honoring system proxy env vars.
 
-        httpx reads http_proxy/https_proxy env vars by default. If the proxy
-        is down (common with Clash/V2Ray toggling), all requests fail. Using a
-        direct AsyncHTTPTransport bypasses env proxy entirely.
+        trust_env=True is required for users in geo-restricted regions who
+        reach Anthropic/OpenAI via Clash/V2Ray. If proxy is down, requests
+        fail with a clear ConnectError (preferable to silent 403 geo-block).
         """
-        transport = httpx.AsyncHTTPTransport()
-        return httpx.AsyncClient(transport=transport, timeout=timeout)
+        return httpx.AsyncClient(trust_env=True, timeout=timeout)
 
     async def generate(
         self,

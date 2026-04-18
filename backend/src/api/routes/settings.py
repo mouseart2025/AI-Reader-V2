@@ -57,6 +57,8 @@ MODEL_CATALOG = [
 
 # ── Cloud provider presets ────────────────────────
 
+# TODO: replace with live /v1/models lookup per-provider at settings page load.
+# These hard-coded lists go stale every 3-6 months. Last audit: 2026-04-18.
 CLOUD_PROVIDERS = [
     # 国产模型
     {
@@ -120,16 +122,33 @@ CLOUD_PROVIDERS = [
         "id": "openai",
         "name": "OpenAI",
         "base_url": "https://api.openai.com/v1",
-        "default_model": "gpt-4.1-mini",
-        "models": ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3-mini"],
+        "default_model": "gpt-5-mini",
+        "models": [
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "o3-mini",
+        ],
         "api_format": "openai",
     },
     {
         "id": "anthropic",
         "name": "Anthropic（Claude）",
         "base_url": "https://api.anthropic.com",
-        "default_model": "claude-sonnet-4-5",
-        "models": ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5"],
+        "default_model": "claude-sonnet-4-6",
+        "models": [
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4-5",
+            "claude-haiku-4-5",
+        ],
         "api_format": "anthropic",
     },
     {
@@ -480,8 +499,8 @@ async def validate_cloud_api(req: ValidateCloudRequest):
 
     try:
         base = req.base_url.rstrip("/")
-        transport = httpx.AsyncHTTPTransport()
-        async with httpx.AsyncClient(timeout=10.0, transport=transport) as client:
+        # trust_env=True so HTTPS_PROXY is honored (geo-restricted regions)
+        async with httpx.AsyncClient(timeout=10.0, trust_env=True) as client:
             if is_anthropic:
                 headers = {
                     "x-api-key": req.api_key,
@@ -1061,8 +1080,9 @@ async def _check_openai() -> dict:
         base = config.LLM_BASE_URL.rstrip("/")
         from src.infra.config import LLM_PROVIDER_FORMAT
         is_anthropic = LLM_PROVIDER_FORMAT == "anthropic"
-        transport = httpx.AsyncHTTPTransport()
-        async with httpx.AsyncClient(timeout=15.0, transport=transport) as client:
+        # trust_env=True so HTTPS_PROXY / https_proxy env vars are honored
+        # (needed for Anthropic from geo-restricted regions)
+        async with httpx.AsyncClient(timeout=15.0, trust_env=True) as client:
             if is_anthropic:
                 headers = {
                     "x-api-key": config.LLM_API_KEY,

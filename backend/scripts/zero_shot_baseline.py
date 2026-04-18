@@ -1,31 +1,74 @@
-"""Zero-shot LLM baseline for EMNLP paper.
+"""Zero-shot LLM baseline — per-chapter extraction with a simple prompt.
 
-Sends raw chapter text to Claude with a simple extraction prompt (no CoT,
-no context injection, no FactValidator) and compares with AI Reader's
-full pipeline output.
+Tests: what does raw LLM extraction (no CoT guide, no context injection, no
+FactValidator) produce when aggregated across a whole novel? The result is
+the lower bound for the "what does LLM alone buy us" question.
 
 Usage:
-    cd backend && uv run python scripts/zero_shot_baseline.py
+    cd backend && uv run python scripts/zero_shot_baseline.py --novel xiyouji
+    cd backend && uv run python scripts/zero_shot_baseline.py --novel honglou --max-chapters 20
+    cd backend && uv run python scripts/zero_shot_baseline.py --all  # all 5 novels
+
+Each chapter's extraction is cached; re-runs skip already-done chapters.
 """
 
+from __future__ import annotations
+
+import argparse
 import asyncio
 import json
 import os
 import sqlite3
 import sys
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Load backend/.env (same convention as src.infra.config) so ANTHROPIC_API_KEY
+# is sourced from the repo's .env rather than whatever leaks in from the shell.
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(Path(__file__).parent.parent / ".env", override=True)
+
 DB_PATH = os.path.expanduser("~/.ai-reader-v2/data.db")
-FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures"
+OUTPUT_ROOT = Path(
+    "/Users/leonfeng/Baiduyun/AISoul/ai-reader-internal/paper/evaluation/v071/baselines/zero_shot"
+)
 
-# Novel: Journey to the West (v2)
-NOVEL_ID = "4e5904eb-37b9-4da6-b7ac-13e63dd8a200"
+# novel_id values that the v071 benchmarks target (see paper/evaluation/v071/*.json)
+NOVELS: dict[str, dict] = {
+    "xiyouji": {
+        "title": "西游记",
+        "novel_id": "3b2ef56c-1a55-466a-a7d1-34272446a198",
+        "gold_file": "tests/fixtures/golden_standard_journey_to_west.json",
+    },
+    "honglou": {
+        "title": "红楼梦",
+        "novel_id": "c384901a-8b71-437a-af35-b5ec1c56c696",
+        "gold_file": "tests/fixtures/golden_standard_dream_of_red_chamber.json",
+    },
+    "shuihu": {
+        "title": "水浒传",
+        "novel_id": "4ac43c73-f67b-427c-8d6d-e766a1423977",
+        "gold_file": "tests/fixtures/golden_standard_water_margin.json",
+    },
+    "sanguo": {
+        "title": "三国演义",
+        "novel_id": "b1287ef6-c215-4bd2-842c-cb04aec5eb70",
+        "gold_file": None,
+    },
+    "fengshen": {
+        "title": "封神演义",
+        "novel_id": "53013970-effd-4f50-aef7-728ca13de69a",
+        "gold_file": None,
+    },
+}
 
-# Simple extraction prompt — no CoT, no context, no suffix rules
-ZERO_SHOT_PROMPT = """请从以下小说章节文本中提取结构化信息，以 JSON 格式输出。
+MODEL = "claude-sonnet-4-20250514"
+MAX_CHAPTER_CHARS = 12000
+
+PROMPT = """请从以下小说章节文本中提取结构化信息，以 JSON 格式输出。
 
 提取以下内容：
 1. characters: 所有出现的人物角色，包含 name 和 description
@@ -46,211 +89,216 @@ ZERO_SHOT_PROMPT = """请从以下小说章节文本中提取结构化信息，�
 """
 
 
-async def run_zero_shot(chapter_texts: list[tuple[int, str]]):
-    """Run zero-shot extraction on multiple chapters."""
+def parse_json_from_llm(content: str) -> dict:
+    """Strip markdown fences and parse JSON from LLM response."""
+    text = content.strip()
+    if "```json" in text:
+        text = text.split("```json", 1)[1].split("```", 1)[0]
+    elif "```" in text:
+        text = text.split("```", 1)[1].split("```", 1)[0]
+    return json.loads(text)
+
+
+async def extract_chapter(client, ch_num: int, text: str) -> dict:
+    resp = await client.messages.create(
+        model=MODEL,
+        max_tokens=8192,
+        messages=[{"role": "user", "content": PROMPT + text[:MAX_CHAPTER_CHARS]}],
+    )
+    content = resp.content[0].text
+    data = parse_json_from_llm(content)
+    data["_chapter"] = ch_num
+    data["_input_tokens"] = resp.usage.input_tokens
+    data["_output_tokens"] = resp.usage.output_tokens
+    return data
+
+
+async def run_for_novel(slug: str, max_chapters: int | None = None, concurrency: int = 2):
+    meta = NOVELS[slug]
+    novel_id = meta["novel_id"]
+    title = meta["title"]
+
+    out_dir = OUTPUT_ROOT / slug / "chapters"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        "SELECT chapter_num, content FROM chapters WHERE novel_id=? AND content IS NOT NULL ORDER BY chapter_num",
+        (novel_id,),
+    ).fetchall()
+    conn.close()
+
+    if max_chapters:
+        rows = rows[:max_chapters]
+
+    print(f"\n=== {title} ({slug}) — {len(rows)} chapters, model={MODEL} ===")
+
     import anthropic
 
     client = anthropic.AsyncAnthropic()
-    model_name = "claude-sonnet-4-20250514"
+    sem = asyncio.Semaphore(concurrency)
+    total_in = 0
+    total_out = 0
+    done = 0
+    errors: list[int] = []
 
-    print(f"  Using: {model_name}")
-    results = []
+    async def worker(ch_num: int, text: str):
+        nonlocal total_in, total_out, done
+        cache = out_dir / f"ch{ch_num:04d}.json"
+        if cache.exists():
+            data = json.loads(cache.read_text())
+            total_in += data.get("_input_tokens", 0)
+            total_out += data.get("_output_tokens", 0)
+            done += 1
+            return
+        async with sem:
+            try:
+                data = await extract_chapter(client, ch_num, text)
+                cache.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+                total_in += data["_input_tokens"]
+                total_out += data["_output_tokens"]
+                done += 1
+                if done % 10 == 0:
+                    print(f"  [{done}/{len(rows)}] tokens so far: in={total_in:,} out={total_out:,}")
+            except Exception as e:
+                print(f"  Ch.{ch_num} ERROR: {e}")
+                errors.append(ch_num)
 
-    for ch_num, text in chapter_texts:
-        print(f"  Chapter {ch_num}: extracting...", end=" ", flush=True)
+    await asyncio.gather(*(worker(ch, txt) for ch, txt in rows))
+
+    # Sonnet 4 pricing: $3/MTok input, $15/MTok output
+    cost = total_in / 1_000_000 * 3 + total_out / 1_000_000 * 15
+    print(f"  Done: {done}/{len(rows)}. Errors: {len(errors)}. Input={total_in:,} Output={total_out:,} Cost≈${cost:.2f}")
+    if errors:
+        print(f"  Failed chapters: {errors[:20]}{'…' if len(errors) > 20 else ''}")
+
+    return aggregate_novel(slug)
+
+
+def aggregate_novel(slug: str) -> dict:
+    """Aggregate cached per-chapter extractions and compute summary."""
+    out_dir = OUTPUT_ROOT / slug / "chapters"
+    files = sorted(out_dir.glob("ch*.json"))
+    if not files:
+        return {}
+
+    all_chars: Counter[str] = Counter()
+    all_locs: Counter[str] = Counter()
+    parents: dict[str, Counter[str]] = {}
+    contains_total = 0
+    contains_rank_ok = 0
+    contains_rank_bad = 0
+    chapters_loaded = 0
+
+    try:
+        from src.extraction.fact_validator import _get_contains_rank
+    except Exception:
+        _get_contains_rank = lambda _n: None  # type: ignore
+
+    for f in files:
         try:
-            resp = await client.messages.create(
-                model=model_name,
-                max_tokens=8192,
-                messages=[{
-                    "role": "user",
-                    "content": ZERO_SHOT_PROMPT + text[:12000],
-                }],
-            )
-            response = resp.content[0].text
-            content = response
+            data = json.loads(f.read_text())
+        except Exception:
+            continue
+        chapters_loaded += 1
+        for ch in data.get("characters") or []:
+            name = (ch.get("name") or "").strip()
+            if name:
+                all_chars[name] += 1
+        for loc in data.get("locations") or []:
+            name = (loc.get("name") or "").strip()
+            parent = (loc.get("parent") or "").strip()
+            if name:
+                all_locs[name] += 1
+                if parent and parent.lower() not in ("none", "null", ""):
+                    parents.setdefault(name, Counter())[parent] += 1
+        for sr in data.get("spatial_relationships") or []:
+            if sr.get("relation_type") != "contains":
+                continue
+            contains_total += 1
+            src = sr.get("source") or ""
+            tgt = sr.get("target") or ""
+            if not src or not tgt:
+                continue
+            src_rank = _get_contains_rank(src)
+            tgt_rank = _get_contains_rank(tgt)
+            if src_rank is not None and tgt_rank is not None:
+                if src_rank <= tgt_rank:
+                    contains_rank_ok += 1
+                else:
+                    contains_rank_bad += 1
 
-            # Parse JSON from response
-            # Try to find JSON block
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
+    # Majority-vote parent per child (mimics greedy voting aggregation)
+    best_parent: dict[str, str] = {}
+    for child, cnt in parents.items():
+        best_parent[child] = cnt.most_common(1)[0][0]
 
-            data = json.loads(content)
-            results.append((ch_num, data))
-            chars = len(data.get("characters", []))
-            locs = len(data.get("locations", []))
-            rels = len(data.get("relationships", []))
-            spats = len(data.get("spatial_relationships", []))
-            print(f"chars={chars} locs={locs} rels={rels} spatial={spats}")
-        except Exception as e:
-            print(f"ERROR: {e}")
-            results.append((ch_num, None))
+    # Structural metrics
+    parent_to_kids: dict[str, set[str]] = {}
+    for child, parent in best_parent.items():
+        parent_to_kids.setdefault(parent, set()).add(child)
+    max_children = max((len(v) for v in parent_to_kids.values()), default=0)
+    all_nodes = set(best_parent.keys()) | set(best_parent.values())
+    roots = all_nodes - set(best_parent.keys())
 
-    return results
-
-
-def compare_with_pipeline(zero_shot_results: list, pipeline_facts: list):
-    """Compare zero-shot vs pipeline extraction quality."""
-
-    # Load golden standards
-    with open(FIXTURES / "golden_standard_journey_to_west.json") as f:
-        golden_locs = json.load(f)["locations"]
-    golden_parents = {l["name"]: l["correct_parent"] for l in golden_locs if l.get("correct_parent")}
-
-    # Load character annotations
-    anno_path = FIXTURES / "annotation_templates" / "annotate_characters_journey_to_west.json"
-    with open(anno_path) as f:
-        char_annos = json.load(f)["characters"]
-    valid_chars = {c["name"] for c in char_annos if c.get("is_valid_character") is True}
-    invalid_chars = {c["name"] for c in char_annos if c.get("is_valid_character") is False}
-    anno_chars = valid_chars | invalid_chars
-
-    print("\n" + "=" * 60)
-    print("  ZERO-SHOT vs PIPELINE COMPARISON")
-    print("=" * 60)
-
-    # ── Character comparison ──
-    # Aggregate across all chapters
-    zs_chars = Counter()
-    pipeline_chars = Counter()
-    for ch_num, zs_data in zero_shot_results:
-        if zs_data:
-            for ch in zs_data.get("characters", []):
-                zs_chars[ch.get("name", "")] += 1
-
-    for fact in pipeline_facts:
-        for ch in fact.get("characters", []):
-            pipeline_chars[ch.get("name", "")] += 1
-
-    # Check against annotations
-    zs_top50 = [name for name, _ in zs_chars.most_common(50)]
-    pipe_top50 = [name for name, _ in pipeline_chars.most_common(50)]
-
-    zs_valid = sum(1 for n in zs_top50 if n in valid_chars)
-    zs_invalid = sum(1 for n in zs_top50 if n in invalid_chars)
-    pipe_valid = sum(1 for n in pipe_top50 if n in valid_chars)
-    pipe_invalid = sum(1 for n in pipe_top50 if n in invalid_chars)
-
-    print("\n--- CHARACTERS (top-50 overlap with annotations) ---")
-    print(f"  Zero-shot:  {zs_valid} valid, {zs_invalid} invalid in top-50")
-    print(f"  Pipeline:   {pipe_valid} valid, {pipe_invalid} invalid in top-50")
-    print(f"  Zero-shot unique chars: {len(zs_chars)}")
-    print(f"  Pipeline unique chars:  {len(pipeline_chars)}")
-
-    # ── Location hierarchy comparison ──
-    # Build parent maps from zero-shot
-    zs_parents = {}
-    for ch_num, zs_data in zero_shot_results:
-        if zs_data:
-            for loc in zs_data.get("locations", []):
-                name = loc.get("name", "")
-                parent = loc.get("parent")
-                if name and parent and parent != "None" and parent != "null":
-                    zs_parents[name] = parent
-
-    # Pipeline parents from DB
-    conn = sqlite3.connect(DB_PATH)
-    row = conn.execute("SELECT structure_json FROM world_structures WHERE novel_id=?", (NOVEL_ID,)).fetchone()
-    conn.close()
-    pipe_parents = json.loads(row[0]).get("location_parents", {}) if row else {}
-
-    # Evaluate against golden standard
-    from src.utils.topology_metrics import compute_topology_metrics
-    zs_metrics = compute_topology_metrics(zs_parents, golden_locs)
-    pipe_metrics = compute_topology_metrics(pipe_parents, golden_locs)
-
-    print("\n--- LOCATION HIERARCHY ---")
-    print(f"  {'Metric':<25} {'Zero-shot':>10} {'Pipeline':>10} {'Delta':>10}")
-    print(f"  {'-'*55}")
-    for key in ["parent_precision", "parent_recall", "chain_accuracy"]:
-        zs_val = zs_metrics[key]
-        pipe_val = pipe_metrics[key]
-        delta = (pipe_val - zs_val) * 100
-        print(f"  {key:<25} {zs_val*100:>9.1f}% {pipe_val*100:>9.1f}% {delta:>+9.1f}pp")
-
-    # ── Contains direction ──
-    zs_contains_total = 0
-    zs_contains_correct = 0
-    for ch_num, zs_data in zero_shot_results:
-        if zs_data:
-            for sr in zs_data.get("spatial_relationships", []):
-                if sr.get("relation_type") == "contains":
-                    zs_contains_total += 1
-                    source = sr.get("source", "")
-                    target = sr.get("target", "")
-                    from src.extraction.fact_validator import _get_contains_rank
-                    src_rank = _get_contains_rank(source)
-                    tgt_rank = _get_contains_rank(target)
-                    if src_rank is not None and tgt_rank is not None:
-                        if src_rank <= tgt_rank:  # Correct direction
-                            zs_contains_correct += 1
-
-    print(f"\n--- CONTAINS DIRECTION (zero-shot) ---")
-    if zs_contains_total:
-        print(f"  Total contains: {zs_contains_total}")
-        print(f"  Correct direction: {zs_contains_correct} ({zs_contains_correct/zs_contains_total*100:.1f}%)")
-        print(f"  Inverted: {zs_contains_total - zs_contains_correct} ({(zs_contains_total-zs_contains_correct)/zs_contains_total*100:.1f}%)")
-    else:
-        print("  No contains relationships extracted")
-
-    # ── Summary table for paper ──
-    print("\n" + "=" * 60)
-    print("  PAPER TABLE: Zero-shot vs Full Pipeline")
-    print("=" * 60)
-    print(f"  {'Metric':<30} {'Claude Zero-shot':>16} {'AI Reader':>12} {'Δ':>8}")
-    print(f"  {'-'*66}")
-    print(f"  {'Location Hierarchy P':<30} {zs_metrics['parent_precision']*100:>15.1f}% {pipe_metrics['parent_precision']*100:>11.1f}% {(pipe_metrics['parent_precision']-zs_metrics['parent_precision'])*100:>+7.1f}pp")
-    print(f"  {'Chain Accuracy':<30} {zs_metrics['chain_accuracy']*100:>15.1f}% {pipe_metrics['chain_accuracy']*100:>11.1f}% {(pipe_metrics['chain_accuracy']-zs_metrics['chain_accuracy'])*100:>+7.1f}pp")
-    if zs_contains_total:
-        zs_dir_acc = zs_contains_correct / zs_contains_total * 100
-        print(f"  {'Contains Direction Acc':<30} {zs_dir_acc:>15.1f}% {'—':>12} {'—':>8}")
-
-    return {
-        "zero_shot_metrics": zs_metrics,
-        "pipeline_metrics": pipe_metrics,
-        "zero_shot_chars": len(zs_chars),
-        "pipeline_chars": len(pipeline_chars),
-        "zero_shot_parents": len(zs_parents),
-        "zero_shot_contains_total": zs_contains_total,
-        "zero_shot_contains_correct": zs_contains_correct,
+    summary = {
+        "slug": slug,
+        "chapters_loaded": chapters_loaded,
+        "unique_characters": len(all_chars),
+        "unique_locations": len(all_locs),
+        "top30_characters": all_chars.most_common(30),
+        "top30_locations": all_locs.most_common(30),
+        "parent_assignments": len(best_parent),
+        "parents_map": best_parent,
+        "max_children": max_children,
+        "root_count": len(roots),
+        "contains_total": contains_total,
+        "contains_rank_ok": contains_rank_ok,
+        "contains_rank_bad": contains_rank_bad,
     }
+
+    # Parent precision against gold (if available)
+    meta = NOVELS[slug]
+    if meta.get("gold_file"):
+        gold_path = Path(__file__).parent.parent / meta["gold_file"]
+        if gold_path.exists():
+            try:
+                from src.utils.topology_metrics import compute_topology_metrics
+
+                gold_locs = json.loads(gold_path.read_text()).get("locations", [])
+                topo = compute_topology_metrics(best_parent, gold_locs)
+                summary["topology"] = topo
+            except Exception as e:
+                summary["topology_error"] = str(e)
+
+    out_file = OUTPUT_ROOT / slug / "aggregate.json"
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str))
+    print(f"  Aggregate saved: {out_file}")
+    return summary
 
 
 async def main():
-    # Load first 5 chapters from DB
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        "SELECT chapter_num, content FROM chapters WHERE novel_id=? ORDER BY chapter_num LIMIT 5",
-        (NOVEL_ID,),
-    ).fetchall()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--novel", choices=list(NOVELS.keys()), help="Run for a single novel")
+    ap.add_argument("--all", action="store_true", help="Run for all 5 novels")
+    ap.add_argument("--max-chapters", type=int, default=None, help="Cap chapters (debug)")
+    ap.add_argument("--concurrency", type=int, default=2)
+    ap.add_argument("--aggregate-only", action="store_true", help="Skip LLM calls; re-aggregate cached files")
+    args = ap.parse_args()
 
-    # Also load pipeline facts for comparison
-    fact_rows = conn.execute(
-        "SELECT fact_json FROM chapter_facts WHERE novel_id=? ORDER BY chapter_id LIMIT 5",
-        (NOVEL_ID,),
-    ).fetchall()
-    conn.close()
+    if args.all:
+        targets = list(NOVELS.keys())
+    elif args.novel:
+        targets = [args.novel]
+    else:
+        ap.error("choose --novel <slug> or --all")
 
-    chapter_texts = [(r[0], r[1]) for r in rows if r[1]]
-    pipeline_facts = [json.loads(r[0]) for r in fact_rows]
-
-    print(f"Loaded {len(chapter_texts)} chapters for zero-shot extraction")
-    print(f"Zero-shot baseline experiment\n")
-
-    # Run zero-shot extraction
-    print("=== Zero-shot Extraction ===")
-    results = await run_zero_shot(chapter_texts)
-
-    # Compare
-    comparison = compare_with_pipeline(results, pipeline_facts)
-
-    # Save results
-    output_path = Path("/Users/leonfeng/Baiduyun/AISoul/ai-reader-internal/paper/evaluation/zero_shot_results.json")
-    with open(output_path, "w") as f:
-        json.dump(comparison, f, indent=2, default=str)
-    print(f"\nResults saved to {output_path}")
+    for slug in targets:
+        if args.aggregate_only:
+            aggregate_novel(slug)
+        else:
+            await run_for_novel(slug, max_chapters=args.max_chapters, concurrency=args.concurrency)
 
 
 if __name__ == "__main__":

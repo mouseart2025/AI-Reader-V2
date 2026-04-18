@@ -49,9 +49,8 @@ class AnthropicClient:
         }
 
     def _make_client(self, timeout: float | httpx.Timeout) -> httpx.AsyncClient:
-        """Create httpx client bypassing system proxy (same rationale as OpenAI client)."""
-        transport = httpx.AsyncHTTPTransport()
-        return httpx.AsyncClient(transport=transport, timeout=timeout)
+        """Create httpx client honoring env proxy (required for geo-restricted regions)."""
+        return httpx.AsyncClient(trust_env=True, timeout=timeout)
 
     async def generate(
         self,

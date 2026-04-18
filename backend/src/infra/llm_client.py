@@ -308,7 +308,7 @@ def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient:
                 _client = AnthropicClient(
                     base_url=_cfg.LLM_BASE_URL,
                     api_key=_cfg.LLM_API_KEY,
-                    model=_cfg.LLM_MODEL or "claude-sonnet-4-5",
+                    model=_cfg.LLM_MODEL or "claude-sonnet-4-6",
                 )
             else:
                 from src.infra.openai_client import OpenAICompatibleClient
