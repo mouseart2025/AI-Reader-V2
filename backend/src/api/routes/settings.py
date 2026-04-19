@@ -272,11 +272,32 @@ async def start_ollama():
 
 
 def _get_total_ram_gb() -> float:
-    """Get total system RAM in GB using os.sysconf (macOS/Linux)."""
+    """Get total system RAM in GB (cross-platform)."""
     try:
-        total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
-        return round(total / (1024**3), 1)
-    except (ValueError, OSError):
+        if platform.system() == "Windows":
+            import ctypes
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullExtendedVirtual", ctypes.c_ulonglong)
+                ]
+            
+            memory_status = MEMORYSTATUSEX()
+            memory_status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(memory_status))
+            return round(memory_status.ullTotalPhys / (1024**3), 1)
+        else:
+            # macOS/Linux
+            total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+            return round(total / (1024**3), 1)
+    except (ValueError, OSError, ImportError):
         return 0.0
 
 
