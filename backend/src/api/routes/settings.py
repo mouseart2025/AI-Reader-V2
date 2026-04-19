@@ -413,6 +413,9 @@ async def set_default_model(req: SetDefaultModelRequest):
     # Also update runtime config
     config.OLLAMA_MODEL = req.model
 
+    # Reset LLM client to use the new model
+    config._reset_llm_client()
+
     # Re-detect context window for the new model
     from src.infra.context_budget import detect_and_update_context_window
     await detect_and_update_context_window()

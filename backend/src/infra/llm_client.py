@@ -318,5 +318,8 @@ def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient:
                     model=_cfg.LLM_MODEL or "gpt-4o",
                 )
         else:
-            _client = LLMClient()
+            _client = LLMClient(
+                base_url=_cfg.OLLAMA_BASE_URL,
+                model=_cfg.OLLAMA_MODEL,
+            )
     return _client
