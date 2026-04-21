@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { fetchNovel } from "@/api/client"
 import type { Novel } from "@/api/types"
+import { useI18n } from "@/i18n"
 
 const FloatingChatPanel = lazy(() =>
   import("@/components/chat/FloatingChatPanel").then((m) => ({ default: m.FloatingChatPanel })),
@@ -12,15 +13,15 @@ import { Button } from "@/components/ui/button"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 
 const NAV_TABS = [
-  { key: "read", label: "阅读", path: "/read" },
-  { key: "analysis", label: "分析", path: "/analysis" },
-  { key: "timeline", label: "时间线", path: "/timeline" },
-  { key: "graph", label: "关系图", path: "/graph" },
-  { key: "map", label: "地图", path: "/map" },
-  { key: "encyclopedia", label: "百科", path: "/encyclopedia" },
-  { key: "chat", label: "问答", path: "/chat" },
-  { key: "conflicts", label: "冲突", path: "/conflicts" },
-  { key: "export", label: "导出", path: "/export" },
+  { key: "read", labelKey: "nav.reading", path: "/read" },
+  { key: "analysis", labelKey: "nav.analysis", path: "/analysis" },
+  { key: "timeline", labelKey: "nav.timeline", path: "/timeline" },
+  { key: "graph", labelKey: "nav.relationGraph", path: "/graph" },
+  { key: "map", labelKey: "nav.map", path: "/map" },
+  { key: "encyclopedia", labelKey: "nav.encyclopedia", path: "/encyclopedia" },
+  { key: "chat", labelKey: "nav.chat", path: "/chat" },
+  { key: "conflicts", labelKey: "nav.conflicts", path: "/conflicts" },
+  { key: "export", labelKey: "nav.export", path: "/export" },
 ] as const
 
 // Map tour steps 1-3 to nav tab keys
@@ -37,6 +38,7 @@ const TOUR_TAB_MAP: Record<number, string> = {
 export function NovelLayout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [novel, setNovel] = useState<Novel | null>(null)
   const { currentStep, dismissed, nextStep, dismiss } = useTourStore()
 
@@ -81,7 +83,7 @@ export function NovelLayout() {
                 size="xs"
                 onClick={() => navigate(`${tab.path}/${novelId}`)}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </Button>
               {tourTabKey === tab.key && (
                 <GuidedTourBubble
