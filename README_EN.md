@@ -125,6 +125,15 @@ The i18n boundary is intentional: changing the UI language does not translate up
 
 See [Internationalization Integration Plan](./I18N_PLAN.md) for the phased FE/BE checklist and tooling plan.
 
+Frontend i18n maintenance commands:
+
+```bash
+cd frontend
+npm run i18n:extract   # list candidate hardcoded user-visible strings
+npm run i18n:check     # validate locale key coverage and interpolation variables
+npm run i18n:sync      # align target locale files with the zh-CN source keys
+```
+
 ## Documentation
 
 - 📋 [Contributing](./CONTRIBUTING.md) — Development setup, code conventions, PR process

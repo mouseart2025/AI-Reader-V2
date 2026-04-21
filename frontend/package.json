@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "i18n:extract": "node scripts/i18n/index.mjs extract",
+    "i18n:check": "node scripts/i18n/index.mjs check",
+    "i18n:sync": "node scripts/i18n/index.mjs sync",
     "build:demo": "vite build --outDir ../../ai-reader-internal/landing/demo --base /demo/",
     "tauri": "tauri",
     "build:desktop": "tauri build"

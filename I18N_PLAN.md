@@ -249,36 +249,36 @@ remains the default locale until the project maintainers decide otherwise.
 
 ## Phase 9: Tooling And Quality Gates
 
-- [ ] Add a small local i18n toolkit for extraction, checking, and synchronization.
-  - [ ] Place scripts under `scripts/i18n/` or `frontend/scripts/i18n/` depending on maintainer preference.
-  - [ ] Keep tools dependency-light and runnable from npm scripts or Python/Node directly.
-  - [ ] Document tool usage in this plan or a dedicated i18n contributor guide.
-- [ ] Add an `extract` tool to discover candidate user-visible strings.
-  - [ ] Scan frontend `.ts` and `.tsx` files with a TypeScript-aware parser when practical.
-  - [ ] Detect JSX text nodes, string literals in common UI props, toast messages, dialog text, placeholders, titles, and aria labels.
+- [x] Add a small local i18n toolkit for extraction, checking, and synchronization.
+  - [x] Place scripts under `frontend/scripts/i18n/`.
+  - [x] Keep tools dependency-light and runnable from npm scripts or Node directly.
+  - [x] Document tool usage in this plan and `README_EN.md`.
+- [x] Add an `extract` tool to discover candidate user-visible strings.
+  - [x] Scan frontend `.ts` and `.tsx` files with a TypeScript-aware parser.
+  - [x] Detect JSX text nodes, string literals in common UI props, toast messages, dialog text, placeholders, titles, and aria labels.
   - [ ] Scan backend `.py` files for likely user-facing error, progress, export, and validation messages.
-  - [ ] Output a reviewable report with file path, line number, source string, suggested key, and category.
-  - [ ] Avoid auto-editing source files in the first version; generate candidates for manual review.
-- [ ] Add a `check` tool to prevent missing or stale translation keys.
-  - [ ] Fail when a translation key used in source is missing from any required locale file.
+  - [x] Output a reviewable report with file path, line number, source string, suggested key, and category.
+  - [x] Avoid auto-editing source files in the first version; generate candidates for manual review.
+- [x] Add a `check` tool to prevent missing or stale translation keys.
+  - [x] Fail when a translation key used in source is missing from any required locale file.
   - [ ] Fail or warn when locale files contain unused keys.
-  - [ ] Detect duplicate keys and inconsistent interpolation variables across locales.
-  - [ ] Detect hardcoded CJK UI strings outside allowlisted files and comments.
+  - [x] Detect duplicate keys and inconsistent interpolation variables across locales.
+  - [x] Detect hardcoded CJK UI strings outside locale files and comments.
   - [ ] Support an allowlist for Chinese NLP data, prompts, fixtures, demo content, and tests.
-- [ ] Add a `sync` tool to keep locale files aligned.
-  - [ ] Add missing keys from the source locale into target locale files with empty values or source-text placeholders.
-  - [ ] Preserve stable key ordering for clean diffs.
+- [x] Add a `sync` tool to keep locale files aligned.
+  - [x] Add missing keys from the source locale into target locale files with source-text placeholders.
+  - [x] Preserve stable key ordering for clean diffs.
   - [ ] Preserve translator comments or metadata where possible.
-  - [ ] Optionally remove or mark stale keys after review.
-  - [ ] Generate a summary of added, removed, stale, and untranslated keys.
+  - [x] Remove stale target keys after matching the source locale.
+  - [x] Generate a summary of added, removed, stale, and untranslated keys.
 - [ ] Add a `report` tool for progress tracking.
   - [ ] Count translated, untranslated, stale, and missing keys by locale.
   - [ ] Count remaining hardcoded strings by module.
   - [ ] Emit Markdown for PR descriptions and review checklists.
-- [ ] Add npm script wrappers.
-  - [ ] `npm run i18n:extract`
-  - [ ] `npm run i18n:check`
-  - [ ] `npm run i18n:sync`
+- [x] Add npm script wrappers.
+  - [x] `npm run i18n:extract`
+  - [x] `npm run i18n:check`
+  - [x] `npm run i18n:sync`
   - [ ] `npm run i18n:report`
 - [ ] Add CI integration for the checker after the initial migration stabilizes.
   - [ ] Run `i18n:check` on pull requests.
@@ -308,7 +308,7 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] Settings full migration.
   - [x] Language selector.
   - [x] `vi` locale pack and flag-backed language choices.
-  - [ ] Initial `i18n:extract`, `i18n:check`, and `i18n:sync` tooling.
+  - [x] Initial `i18n:extract`, `i18n:check`, and `i18n:sync` tooling.
 - [ ] Suggested PR 3:
   - [ ] Reading, analysis, visualization, chat, export page migration.
   - [ ] Domain label maps.
@@ -334,4 +334,5 @@ remains the default locale until the project maintainers decide otherwise.
 - [ ] Tests cover frontend fallback, backend fallback, and export localization.
 - [x] Documentation explains the difference between UI language, source language, and AI output language.
 - [ ] Contributors can add a new locale by adding locale files and passing checks.
-- [ ] Local tooling can extract candidate strings, check key coverage, sync locale files, and report translation progress.
+- [x] Local tooling can extract candidate strings, check key coverage, and sync locale files.
+- [ ] Local tooling can report translation progress.
