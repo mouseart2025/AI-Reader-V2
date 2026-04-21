@@ -31,6 +31,10 @@ export const zhCN = {
   "router.demoErrorTitle": "Demo 页面加载出错",
   "router.openHonglouDemo": "打开红楼梦 Demo",
   "router.returnHome": "返回首页",
+  "settings.interfaceLanguage": "界面语言",
+  "settings.interfaceLanguageDescription": "切换应用界面语言。该设置只影响 UI 文案，不会翻译小说原文、实体名称或 AI 分析结果。",
+  "settings.language": "语言",
+  "settings.languageCurrent": "当前语言：{{language}}",
   "settings.open": "设置",
 } as const
 

@@ -33,5 +33,9 @@ export const en: Record<TranslationKey, string> = {
   "router.demoErrorTitle": "Demo page failed to load",
   "router.openHonglouDemo": "Open Dream of the Red Chamber Demo",
   "router.returnHome": "Back Home",
+  "settings.interfaceLanguage": "Interface Language",
+  "settings.interfaceLanguageDescription": "Switch the application interface language. This only changes UI text; it does not translate novel text, entity names, or AI analysis results.",
+  "settings.language": "Language",
+  "settings.languageCurrent": "Current language: {{language}}",
   "settings.open": "Settings",
 }

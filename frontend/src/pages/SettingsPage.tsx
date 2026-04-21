@@ -7,8 +7,14 @@ import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
 import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
+import { useI18n, type Locale } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { isTauri } from "@/api/sidecarBridge"
+
+const LOCALE_LABELS: Record<Locale, string> = {
+  "zh-CN": "简体中文",
+  en: "English",
+}
 
 function openExternal(url: string) {
   if (isTauri) {
@@ -38,6 +44,7 @@ function formatDateTime(iso: string | null): string {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const { locale, setLocale, supportedLocales, t } = useI18n()
   const [envCheck, setEnvCheck] = useState<EnvironmentCheck | null>(null)
   const [envLoading, setEnvLoading] = useState(true)
   const [novels, setNovels] = useState<Novel[]>([])
@@ -451,9 +458,9 @@ export default function SettingsPage() {
           className="text-muted-foreground text-sm hover:underline"
           onClick={() => navigate("/")}
         >
-          &larr; 书架
+          &larr; {t("nav.bookshelf")}
         </button>
-        <span className="text-sm font-medium">设置</span>
+        <span className="text-sm font-medium">{t("settings.open")}</span>
       </header>
 
       <div className="flex-1 overflow-auto" id="settings-scroll">
@@ -462,6 +469,7 @@ export default function SettingsPage() {
           <div className="max-w-2xl mx-auto flex gap-1 px-6 py-1.5 overflow-x-auto">
             {[
               { id: "sec-engine", label: "AI 引擎" },
+              { id: "sec-language", label: t("settings.interfaceLanguage") },
               { id: "sec-usage", label: "使用统计" },
               { id: "sec-reading", label: "阅读偏好" },
               { id: "sec-data", label: "数据管理" },
@@ -1220,6 +1228,36 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
+          </section>
+
+          {/* Interface Language */}
+          <section id="sec-language" className="scroll-mt-12">
+            <h2 className="text-base font-medium mb-4">{t("settings.interfaceLanguage")}</h2>
+            <div className="border rounded-lg p-4 space-y-3">
+              <div>
+                <label htmlFor="settings-locale" className="text-sm block mb-2">
+                  {t("settings.language")}
+                </label>
+                <select
+                  id="settings-locale"
+                  value={locale}
+                  onChange={(e) => setLocale(e.target.value as Locale)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none"
+                >
+                  {supportedLocales.map((item) => (
+                    <option key={item} value={item}>
+                      {LOCALE_LABELS[item]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.interfaceLanguageDescription")}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {t("settings.languageCurrent", { language: LOCALE_LABELS[locale] })}
+              </p>
+            </div>
           </section>
 
           {/* Usage & Budget */}
