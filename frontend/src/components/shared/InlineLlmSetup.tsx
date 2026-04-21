@@ -1,7 +1,6 @@
 /**
- * InlineLlmSetup — 内联 AI 引擎配置器
- * 两列卡片布局：云端 API（推荐） / 本地 Ollama
- * 用于分析页，当 LLM 未配置时替代原有黄色警告
+ * InlineLlmSetup - inline AI engine configuration.
+ * Used on the analysis page when no LLM is configured.
  */
 
 import { useCallback, useEffect, useState } from "react"
@@ -23,6 +22,7 @@ import {
   switchLlmMode,
 } from "@/api/client"
 import type { CloudProvider, EnvironmentCheck, OllamaModel } from "@/api/types"
+import { useI18n } from "@/i18n"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
 
 interface InlineLlmSetupProps {
@@ -33,6 +33,7 @@ interface InlineLlmSetupProps {
 const RECOMMENDED_IDS = ["deepseek", "minimax", "qwen"]
 
 export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
+  const { t } = useI18n()
   const [mode, setMode] = useState<"cloud" | "local" | null>(null)
   const [providers, setProviders] = useState<CloudProvider[]>([])
   const [env, setEnv] = useState<EnvironmentCheck | null>(null)
@@ -70,7 +71,7 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
         currentProvider.id
       )
       if (!result.valid) {
-        setValidResult({ valid: false, error: result.error || "验证失败" })
+        setValidResult({ valid: false, error: result.error || t("shared.llmSetup.validationFailed") })
         return
       }
 
@@ -96,22 +97,28 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
     } catch (err) {
       setValidResult({
         valid: false,
-        error: err instanceof Error ? err.message : "配置失败",
+        error: err instanceof Error ? err.message : t("shared.llmSetup.configFailed"),
       })
     } finally {
       setValidating(false)
     }
-  }, [currentProvider, apiKey, onReady])
+  }, [currentProvider, apiKey, onReady, t])
 
   const ollamaStatus = env?.ollama_status ?? "not_installed"
+  const formatModelList = (models: string[]) => {
+    const visible = models.slice(0, 3).join(t("common.listSeparator"))
+    return models.length > 3
+      ? `${visible}${t("shared.llmSetup.moreModelsSuffix", { count: models.length })}`
+      : visible
+  }
 
   // Mode selection screen
   if (mode === null) {
     return (
       <div className="rounded-xl border bg-card p-6">
-        <h3 className="text-base font-semibold mb-1">配置 AI 引擎</h3>
+        <h3 className="text-base font-semibold mb-1">{t("shared.llmSetup.title")}</h3>
         <p className="text-sm text-muted-foreground mb-5">
-          分析小说需要 AI 引擎支持，请选择一种方式：
+          {t("shared.llmSetup.description")}
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -121,12 +128,12 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
             className="group relative rounded-lg border-2 border-transparent bg-muted/50 p-5 text-left transition hover:border-blue-500/50 hover:bg-blue-500/5"
           >
             <div className="absolute top-3 right-3 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
-              推荐
+              {t("shared.llmSetup.recommended")}
             </div>
             <Cloud className="h-8 w-8 text-blue-500 mb-3" />
-            <h4 className="font-semibold">☁️ 云端 API</h4>
+            <h4 className="font-semibold">{t("shared.llmSetup.cloudApi")}</h4>
             <p className="text-xs text-muted-foreground mt-1">
-              30 秒配置，无需安装，分析速度快
+              {t("shared.llmSetup.cloudDescription")}
             </p>
           </button>
 
@@ -136,9 +143,9 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
             className="group rounded-lg border-2 border-transparent bg-muted/50 p-5 text-left transition hover:border-green-500/50 hover:bg-green-500/5"
           >
             <HardDrive className="h-8 w-8 text-green-500 mb-3" />
-            <h4 className="font-semibold">💻 本地 Ollama</h4>
+            <h4 className="font-semibold">{t("shared.llmSetup.localOllama")}</h4>
             <p className="text-xs text-muted-foreground mt-1">
-              隐私优先，数据不出本机
+              {t("shared.llmSetup.localDescription")}
             </p>
           </button>
         </div>
@@ -151,29 +158,29 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
     return (
       <div className="rounded-xl border bg-card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold">☁️ 云端 API 配置</h3>
+          <h3 className="text-base font-semibold">{t("shared.llmSetup.cloudConfigTitle")}</h3>
           <button
             onClick={() => setMode(null)}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            ← 返回
+            {t("common.back")}
           </button>
         </div>
 
         <div className="space-y-4">
           {/* Provider select */}
           <div>
-            <label className="text-sm font-medium mb-1.5 block">AI 提供商</label>
+            <label className="text-sm font-medium mb-1.5 block">{t("shared.llmSetup.provider")}</label>
             <Select value={selectedProvider} onValueChange={setSelectedProvider}>
               <SelectTrigger>
-                <SelectValue placeholder="选择提供商..." />
+                <SelectValue placeholder={t("shared.llmSetup.providerPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {providers
                   .filter((p) => RECOMMENDED_IDS.includes(p.id))
                   .map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.id === "deepseek" ? "（推荐）" : ""}
+                      {p.name} {p.id === "deepseek" ? t("shared.llmSetup.recommendedSuffix") : ""}
                     </SelectItem>
                   ))}
                 {providers
@@ -190,10 +197,10 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
           {/* API Key */}
           {selectedProvider && (
             <div>
-              <label className="text-sm font-medium mb-1.5 block">API Key</label>
+              <label className="text-sm font-medium mb-1.5 block">{t("shared.llmSetup.apiKey")}</label>
               <Input
                 type="password"
-                placeholder="粘贴你的 API Key..."
+                placeholder={t("shared.llmSetup.apiKeyPlaceholder")}
                 value={apiKey}
                 onChange={(e) => {
                   setApiKey(e.target.value)
@@ -202,7 +209,7 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
               />
               {currentProvider && (
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  模型：{currentProvider.default_model}
+                  {t("shared.llmSetup.modelLabel", { model: currentProvider.default_model })}
                 </p>
               )}
             </div>
@@ -219,7 +226,7 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
             >
               {validResult.valid ? (
                 <span className="flex items-center gap-1.5">
-                  <Check className="h-4 w-4" /> 配置成功！正在准备分析...
+                  <Check className="h-4 w-4" /> {t("shared.llmSetup.configSuccessPreparing")}
                 </span>
               ) : (
                 validResult.error
@@ -234,9 +241,9 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
             className="w-full"
           >
             {validating ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> 验证中...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("shared.llmSetup.validating")}</>
             ) : (
-              "验证并开始"
+              t("shared.llmSetup.validateAndStart")
             )}
           </Button>
         </div>
@@ -248,12 +255,12 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold">💻 本地 Ollama</h3>
+        <h3 className="text-base font-semibold">{t("shared.llmSetup.localOllama")}</h3>
         <button
           onClick={() => setMode(null)}
           className="text-xs text-muted-foreground hover:text-foreground"
         >
-          ← 返回
+          {t("common.back")}
         </button>
       </div>
 
@@ -271,20 +278,20 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
           />
           <span className="text-sm">
             {ollamaStatus === "running"
-              ? "Ollama 运行中"
+              ? t("shared.llmSetup.ollamaRunning")
               : ollamaStatus === "installed_not_running"
-                ? "Ollama 已安装但未运行"
-                : "Ollama 未安装"}
+                ? t("shared.llmSetup.ollamaInstalledNotRunning")
+                : t("shared.llmSetup.ollamaNotInstalled")}
           </span>
         </div>
 
         {/* Installation guide */}
         {ollamaStatus === "not_installed" && (
           <div className="rounded-md bg-muted/50 p-4 space-y-2">
-            <p className="text-sm font-medium">安装步骤：</p>
+            <p className="text-sm font-medium">{t("shared.llmSetup.installSteps")}</p>
             <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
               <li>
-                访问{" "}
+                {t("shared.llmSetup.installVisit")}{" "}
                 <a
                   href="https://ollama.com"
                   target="_blank"
@@ -293,20 +300,20 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
                 >
                   ollama.com <ExternalLink className="h-3 w-3" />
                 </a>{" "}
-                下载安装
+                {t("shared.llmSetup.installDownload")}
               </li>
-              <li>安装完成后启动 Ollama</li>
+              <li>{t("shared.llmSetup.installStartOllama")}</li>
               <li>
-                运行命令：<code className="bg-muted rounded px-1 text-xs">ollama pull qwen3:8b</code>
+                {t("shared.llmSetup.runCommand")}<code className="bg-muted rounded px-1 text-xs">ollama pull qwen3:8b</code>
               </li>
-              <li>回到此页面，点击下方按钮检测</li>
+              <li>{t("shared.llmSetup.returnAndDetect")}</li>
             </ol>
           </div>
         )}
 
         {ollamaStatus === "installed_not_running" && (
           <div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-400">
-            请启动 Ollama 应用，然后点击下方按钮重新检测
+            {t("shared.llmSetup.startOllamaAndRetry")}
           </div>
         )}
 
@@ -321,7 +328,7 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
           if (recommendedInstalled) {
             return (
               <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400 flex items-center gap-1.5">
-                <Check className="h-4 w-4" /> Ollama 就绪，模型：{recommended}
+                <Check className="h-4 w-4" /> {t("shared.llmSetup.ollamaReadyModel", { model: recommended })}
               </div>
             )
           }
@@ -330,14 +337,13 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
             return (
               <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400 space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <Check className="h-4 w-4" /> 检测到已安装 {availableList.length} 个本地模型
+                  <Check className="h-4 w-4" /> {t("shared.llmSetup.localModelsDetected", { count: availableList.length })}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  可直接使用：{availableList.slice(0, 3).join("、")}
-                  {availableList.length > 3 ? ` 等 ${availableList.length} 个` : ""}
+                  {t("shared.llmSetup.availableModels", { models: formatModelList(availableList) })}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  如需切换到推荐模型 <code className="bg-muted rounded px-1">{recommended}</code>:
+                  {t("shared.llmSetup.switchToRecommended")} <code className="bg-muted rounded px-1">{recommended}</code>:
                   <code className="bg-muted rounded px-1 ml-1">ollama pull {recommended}</code>
                 </div>
               </div>
@@ -346,8 +352,8 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
           // State C: no models installed
           return (
             <div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-700 dark:text-yellow-400">
-              Ollama 运行中，但未检测到已安装模型。
-              请运行：<code className="bg-muted rounded px-1 text-xs">ollama pull {recommended}</code>
+              {t("shared.llmSetup.ollamaRunningNoModels")}
+              {t("shared.llmSetup.pleaseRun")}<code className="bg-muted rounded px-1 text-xs">ollama pull {recommended}</code>
             </div>
           )
         })()}
@@ -366,7 +372,7 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
               }
             }}
           >
-            {checking ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />检测中...</> : "重新检测"}
+            {checking ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("shared.llmSetup.detecting")}</> : t("shared.llmSetup.redetect")}
           </Button>
           {ollamaStatus === "running" && env?.model_available && (
             <Button
@@ -383,7 +389,7 @@ export function InlineLlmSetup({ onReady }: InlineLlmSetupProps) {
                 onReady()
               }}
             >
-              开始使用
+              {t("shared.llmSetup.startUsing")}
             </Button>
           )}
         </div>

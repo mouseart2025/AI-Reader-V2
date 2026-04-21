@@ -120,11 +120,12 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] `frontend/src/desktop/BookshelfCard.tsx`
   - [ ] `frontend/src/desktop/DragDropOverlay.tsx`
   - [ ] `frontend/src/desktop/SecurityGuide.tsx`
-- [ ] Migrate global shared components.
+  - [ ] Migrate global shared components.
   - [ ] Theme toggle labels.
   - [ ] Welcome banner.
-  - [ ] Feature discovery and guided tour text.
-  - [ ] Cost preview dialog.
+  - [x] Feature discovery and guided tour text.
+  - [x] Cost preview dialog.
+  - [x] Inline LLM setup and contextual guide card.
   - [x] Floating chat panel labels, quick questions, and system FAQ responses.
   - [x] Entity card drawer shell and card-section controls.
 - [ ] Verify both web and desktop shell builds.
@@ -144,11 +145,11 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] File validation messages.
   - [ ] Split diagnosis messages.
   - [ ] Duplicate import prompts.
-- [ ] Migrate analysis workflow.
+  - [ ] Migrate analysis workflow.
   - [ ] `frontend/src/pages/AnalysisPage.tsx`
   - [ ] Progress/status labels.
   - [ ] Pause/resume/retry labels.
-  - [ ] Budget and model setup prompts.
+  - [x] Shared budget and model setup prompts.
 - [ ] Migrate visualization pages.
   - [ ] `frontend/src/pages/GraphPage.tsx`
   - [ ] `frontend/src/pages/MapPage.tsx`
@@ -182,6 +183,7 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Series Bible export module and template labels.
   - [x] Item, location, and organization card section/stat labels.
   - [x] Person card relation categories, section labels, scene labels, and stat labels.
+  - [x] Shared onboarding/setup labels for contextual guide, discovery bar, tour bubble, cost preview, and inline LLM setup.
 - [ ] Keep API enum values stable and translate only display labels.
 - [ ] Add date/time/number formatting helpers.
   - [ ] Dates in Settings and backups.
@@ -277,7 +279,7 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Detect hardcoded CJK UI strings outside locale files and comments.
   - [ ] Support an allowlist for Chinese NLP data, prompts, fixtures, demo content, and tests.
     - [x] Allowlist frontend demo novel metadata as source content.
-    - [x] Ignore non-UI Set membership data, CSS class maps, and HTML entity icon tokens.
+    - [x] Ignore non-UI Set membership data, CSS class maps, HTML entity icon tokens, and code snippets.
     - [ ] Add broader allowlist categories for prompts, fixtures, and NLP dictionaries.
 - [x] Add a `sync` tool to keep locale files aligned.
   - [x] Add missing keys from the source locale into target locale files with source-text placeholders.
@@ -329,6 +331,7 @@ remains the default locale until the project maintainers decide otherwise.
     - [x] Export page.
     - [x] Entity card drawer shell and item/location/organization cards.
     - [x] Person card and entity scene snippets.
+    - [x] Shared onboarding/setup components.
   - [x] Series Bible export labels.
   - [ ] Remaining domain label maps.
 - [ ] Suggested PR 4:

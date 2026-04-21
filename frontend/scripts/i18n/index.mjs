@@ -363,7 +363,9 @@ function extractCandidates() {
 
     function visit(node) {
       if (ts.isJsxText(node)) {
-        add(node, "jsx-text", node.getText(sourceFile))
+        if (!isInsideJsxElement(node, "code")) {
+          add(node, "jsx-text", node.getText(sourceFile))
+        }
       } else if (
         isStringLiteralNode(node) &&
         !isImportOrExportPath(node) &&
@@ -394,6 +396,18 @@ function extractCandidates() {
 
 function isStringLiteralNode(node) {
   return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+}
+
+function isInsideJsxElement(node, tagName) {
+  let current = node.parent
+  while (current && !ts.isSourceFile(current)) {
+    if (ts.isJsxElement(current)) {
+      const name = current.openingElement.tagName.getText()
+      if (name === tagName) return true
+    }
+    current = current.parent
+  }
+  return false
 }
 
 function isTypeOnlyString(node) {
