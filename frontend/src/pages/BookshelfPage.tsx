@@ -62,24 +62,30 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { UploadDialog } from "@/components/shared/UploadDialog"
 import { WelcomeBanner } from "@/components/shared/WelcomeBanner"
 import { ContextualGuideCard } from "@/components/shared/ContextualGuideCard"
+import { useI18n, type Locale } from "@/i18n"
 
 type SortKey = "recent" | "title" | "chapters" | "words"
 
-function formatWordCount(count: number): string {
-  if (count >= 10000) return `${(count / 10000).toFixed(1)}万字`
-  return `${count}字`
+function getDateLocale(locale: Locale): string {
+  if (locale === "vi") return "vi-VN"
+  return locale
 }
 
-function formatDate(dateStr: string | null): string {
+function formatWordCount(count: number, t: ReturnType<typeof useI18n>["t"]): string {
+  if (count >= 10000) return t("bookshelf.wordCountWan", { count: (count / 10000).toFixed(1) })
+  return t("bookshelf.wordCount", { count })
+}
+
+function formatDate(dateStr: string | null, locale: Locale, t: ReturnType<typeof useI18n>["t"]): string {
   if (!dateStr) return ""
   const d = new Date(dateStr + "Z")
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const diffDays = Math.floor(diffMs / 86400000)
-  if (diffDays === 0) return "今天"
-  if (diffDays === 1) return "昨天"
-  if (diffDays < 30) return `${diffDays}天前`
-  return d.toLocaleDateString("zh-CN")
+  if (diffDays === 0) return t("date.today")
+  if (diffDays === 1) return t("date.yesterday")
+  if (diffDays < 30) return t("date.daysAgo", { count: diffDays })
+  return d.toLocaleDateString(getDateLocale(locale))
 }
 
 // Generate a stable cover gradient from the title string
@@ -114,6 +120,8 @@ function NovelCard({
   onClick: (novel: Novel) => void
   onNavigate: (path: string) => void
 }) {
+  const { locale, t } = useI18n()
+
   return (
     <Card
       className="group cursor-pointer transition-shadow hover:shadow-md"
@@ -126,19 +134,19 @@ function NovelCard({
         >
           {novel.is_sample && (
             <div className="absolute top-2 left-2 rounded-full bg-white/20 px-2 py-0.5 backdrop-blur-sm">
-              <span className="text-[10px] font-medium text-white/90">内置样本</span>
+              <span className="text-[10px] font-medium text-white/90">{t("bookshelf.builtInSample")}</span>
             </div>
           )}
           {analysisStatus === "running" && (
             <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
               <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />
-              <span className="text-[10px] font-medium text-white/90">分析中</span>
+              <span className="text-[10px] font-medium text-white/90">{t("analysis.running")}</span>
             </div>
           )}
           {analysisStatus === "paused" && (
             <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
               <span className="inline-block size-1.5 rounded-full bg-yellow-400" />
-              <span className="text-[10px] font-medium text-white/90">已暂停</span>
+              <span className="text-[10px] font-medium text-white/90">{t("analysis.paused")}</span>
             </div>
           )}
           <div className="px-4 text-center text-white">
@@ -161,30 +169,30 @@ function NovelCard({
 
       <CardContent className="space-y-2 text-sm">
         <div className="text-muted-foreground flex items-center justify-between">
-          <span>{novel.total_chapters} 章</span>
-          <span>{formatWordCount(novel.total_words)}</span>
+          <span>{t("common.chapterCount", { count: novel.total_chapters })}</span>
+          <span>{formatWordCount(novel.total_words, t)}</span>
         </div>
 
         {/* Analysis progress */}
         {novel.analysis_progress >= 1 && !novel.failed_count ? (
           <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
             <CheckCircle className="h-3.5 w-3.5" />
-            <span>分析完成</span>
+            <span>{t("analysis.completed")}</span>
           </div>
         ) : novel.analysis_progress >= 1 && novel.failed_count > 0 ? (
           <div className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-400">
             <CheckCircle className="h-3.5 w-3.5" />
-            <span>分析完成（{novel.failed_count} 章失败）</span>
+            <span>{t("analysis.completedWithFailures", { count: novel.failed_count })}</span>
           </div>
         ) : (
           <div className="space-y-1">
             <div className="text-muted-foreground flex justify-between text-xs">
-              <span>分析进度</span>
+              <span>{t("analysis.progress")}</span>
               <span>
                 {Math.round(novel.analysis_progress * 100)}%
                 {novel.failed_count > 0 && (
                   <span className="text-yellow-600 dark:text-yellow-400 ml-1">
-                    ({novel.failed_count} 章失败)
+                    {t("analysis.failedChapters", { count: novel.failed_count })}
                   </span>
                 )}
               </span>
@@ -196,11 +204,16 @@ function NovelCard({
         {/* Reading progress */}
         <div className="space-y-1">
           <div className="text-muted-foreground flex justify-between text-xs">
-            <span>阅读进度</span>
+            <span>{t("bookshelf.readingProgress")}</span>
             {novel.reading_progress > 0 ? (
-              <span>第 {Math.round(novel.reading_progress * novel.total_chapters)}/{novel.total_chapters} 章</span>
+              <span>
+                {t("bookshelf.readingChapterProgress", {
+                  current: Math.round(novel.reading_progress * novel.total_chapters),
+                  total: novel.total_chapters,
+                })}
+              </span>
             ) : (
-              <span className="opacity-60">尚未开始阅读</span>
+              <span className="opacity-60">{t("bookshelf.notStartedReading")}</span>
             )}
           </div>
           {novel.reading_progress > 0 && (
@@ -213,10 +226,10 @@ function NovelCard({
         {/* Quick-access buttons */}
         <div className="flex w-full gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {[
-            { label: "分析", path: `/analysis/${novel.id}` },
-            { label: "关系图", path: `/graph/${novel.id}` },
-            { label: "百科", path: `/encyclopedia/${novel.id}` },
-            { label: "问答", path: `/chat/${novel.id}` },
+            { label: t("nav.analysis"), path: `/analysis/${novel.id}` },
+            { label: t("nav.relationGraph"), path: `/graph/${novel.id}` },
+            { label: t("nav.encyclopedia"), path: `/encyclopedia/${novel.id}` },
+            { label: t("nav.chat"), path: `/chat/${novel.id}` },
           ].map((link) => (
             <Button
               key={link.label}
@@ -236,8 +249,8 @@ function NovelCard({
         <div className="flex w-full items-center justify-between">
           <span className="text-muted-foreground text-xs">
             {novel.last_opened
-              ? `${formatDate(novel.last_opened)}阅读`
-              : `导入于${formatDate(novel.created_at)}`}
+              ? t("bookshelf.lastRead", { date: formatDate(novel.last_opened, locale, t) })
+              : t("bookshelf.importedAt", { date: formatDate(novel.created_at, locale, t) })}
           </span>
           <Button
             variant="ghost"
@@ -257,18 +270,20 @@ function NovelCard({
 }
 
 function EmptyState({ onUpload }: { onUpload: () => void }) {
+  const { t } = useI18n()
+
   return (
     <div className="flex flex-col items-center justify-center py-32">
       <Library className="text-muted-foreground/40 mb-6 h-20 w-20" />
       <h2 className="text-muted-foreground mb-2 text-xl font-semibold">
-        还没有导入小说
+        {t("bookshelf.emptyTitle")}
       </h2>
       <p className="text-muted-foreground/60 mb-8 text-sm">
-        上传 .txt 或 .md 文件开始阅读和分析
+        {t("bookshelf.emptyDescription")}
       </p>
       <Button size="lg" onClick={onUpload}>
         <Upload className="mr-2 h-5 w-5" />
-        上传小说
+        {t("bookshelf.uploadNovel")}
       </Button>
     </div>
   )
@@ -276,6 +291,7 @@ function EmptyState({ onUpload }: { onUpload: () => void }) {
 
 export default function BookshelfPage() {
   const navigate = useNavigate()
+  const { locale, t } = useI18n()
   const { novels, loading, fetchNovels, removeNovel } = useNovelStore()
   const [search, setSearch] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("recent")
@@ -323,7 +339,7 @@ export default function BookshelfPage() {
     return [...result].sort((a, b) => {
       switch (sortKey) {
         case "title":
-          return a.title.localeCompare(b.title, "zh-CN")
+          return a.title.localeCompare(b.title, getDateLocale(locale))
         case "chapters":
           return b.total_chapters - a.total_chapters
         case "words":
@@ -336,7 +352,7 @@ export default function BookshelfPage() {
         }
       }
     })
-  }, [novels, search, sortKey])
+  }, [novels, search, sortKey, locale])
 
   const sampleNovels = useMemo(
     () => novels.filter((n) => n.is_sample),
@@ -429,13 +445,13 @@ export default function BookshelfPage() {
     }
     // For multiple novels, let user pick (using a simple prompt for now)
     const names = novels.map((n, i) => `${i + 1}. ${n.title}`).join("\n")
-    const choice = window.prompt(`选择要导出的小说（输入序号）：\n${names}`)
+    const choice = window.prompt(t("bookshelf.exportPrompt", { names }))
     if (!choice) return
     const idx = parseInt(choice) - 1
     if (idx >= 0 && idx < novels.length) {
       window.open(exportNovelUrl(novels[idx].id), "_blank")
     }
-  }, [novels])
+  }, [novels, t])
 
   const handleImportData = useCallback(async (file: File) => {
     try {
@@ -444,30 +460,39 @@ export default function BookshelfPage() {
       setImportFile(file)
       setUploadOpen(true)
     } catch (err) {
-      alert(err instanceof Error ? err.message : "导入预览失败")
+      alert(err instanceof Error ? err.message : t("bookshelf.importPreviewFailed"))
     }
-  }, [])
+  }, [t])
 
   const handleBackupExport = useCallback(async () => {
     try {
       await downloadBackupExport()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "备份导出失败")
+      alert(err instanceof Error ? err.message : t("bookshelf.backupExportFailed"))
     }
-  }, [])
+  }, [t])
 
   const handleBackupImport = useCallback(async (file: File) => {
     try {
       const preview = await previewBackupImport(file)
-      const msg = `备份包含 ${preview.novel_count} 本小说\n${preview.conflict_count > 0 ? `其中 ${preview.conflict_count} 本与现有数据冲突` : ""}\n确认恢复？`
+      const conflictLine = preview.conflict_count > 0
+        ? "\n" + t("bookshelf.backupRestoreConflictLine", { count: preview.conflict_count })
+        : ""
+      const msg = t("bookshelf.backupRestoreConfirm", {
+        count: preview.novel_count,
+        conflictLine,
+      })
       if (!window.confirm(msg)) return
       const result = await confirmBackupImport(file, "skip")
-      alert(`恢复完成：导入 ${result.imported} 本，跳过 ${result.skipped} 本`)
+      alert(t("bookshelf.backupRestoreComplete", {
+        imported: result.imported,
+        skipped: result.skipped,
+      }))
       await loadNovels()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "恢复失败")
+      alert(err instanceof Error ? err.message : t("bookshelf.backupRestoreFailed"))
     }
-  }, [loadNovels])
+  }, [loadNovels, t])
 
   return (
     <div
@@ -481,7 +506,7 @@ export default function BookshelfPage() {
         <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5">
           <div className="flex flex-col items-center gap-2 text-primary">
             <Upload className="h-12 w-12" />
-            <p className="text-lg font-medium">松开文件以上传</p>
+            <p className="text-lg font-medium">{t("bookshelf.dropToUpload")}</p>
           </div>
         </div>
       )}
@@ -490,7 +515,7 @@ export default function BookshelfPage() {
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <BookOpen className="text-primary h-7 w-7" />
-          <h1 className="text-2xl font-bold">书架</h1>
+          <h1 className="text-2xl font-bold">{t("nav.bookshelf")}</h1>
           <span className="text-[10px] text-muted-foreground/50 tabular-nums self-end mb-0.5">
             v{__APP_VERSION__}
           </span>
@@ -498,11 +523,11 @@ export default function BookshelfPage() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
-            设置
+            {t("settings.open")}
           </Button>
           <Button onClick={() => setUploadOpen(true)}>
             <Upload className="mr-2 h-4 w-4" />
-            上传小说
+            {t("bookshelf.uploadNovel")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -513,20 +538,20 @@ export default function BookshelfPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleExportNovel} disabled={novels.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
-                导出小说数据
+                {t("bookshelf.exportNovelData")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => importFileRef.current?.click()}>
                 <Upload className="mr-2 h-4 w-4" />
-                导入小说数据
+                {t("bookshelf.importNovelData")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleBackupExport}>
                 <Database className="mr-2 h-4 w-4" />
-                备份全部数据
+                {t("bookshelf.backupAllData")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => backupImportRef.current?.click()}>
                 <Database className="mr-2 h-4 w-4" />
-                恢复备份
+                {t("bookshelf.restoreBackup")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -563,7 +588,7 @@ export default function BookshelfPage() {
             <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               ref={searchRef}
-              placeholder="搜索书名或作者... (按 / 聚焦)"
+              placeholder={t("bookshelf.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -578,10 +603,10 @@ export default function BookshelfPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recent">最近打开</SelectItem>
-              <SelectItem value="title">按书名</SelectItem>
-              <SelectItem value="chapters">按章节数</SelectItem>
-              <SelectItem value="words">按字数</SelectItem>
+              <SelectItem value="recent">{t("bookshelf.sort.recent")}</SelectItem>
+              <SelectItem value="title">{t("bookshelf.sort.title")}</SelectItem>
+              <SelectItem value="chapters">{t("bookshelf.sort.chapters")}</SelectItem>
+              <SelectItem value="words">{t("bookshelf.sort.words")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -595,15 +620,15 @@ export default function BookshelfPage() {
       {/* Content */}
       {loading ? (
         <div className="text-muted-foreground flex justify-center py-32 text-sm">
-          加载中...
+          {t("common.loading")}
         </div>
       ) : novels.length === 0 ? (
         <EmptyState onUpload={() => setUploadOpen(true)} />
       ) : filtered.length === 0 ? (
         <div className="col-span-full flex flex-col items-center gap-2 py-12 text-muted-foreground">
           <Search className="size-8 opacity-40" />
-          <p className="text-sm">没有找到匹配的小说</p>
-          <Button variant="ghost" size="sm" onClick={() => setSearch("")}>清除搜索</Button>
+          <p className="text-sm">{t("bookshelf.noMatches")}</p>
+          <Button variant="ghost" size="sm" onClick={() => setSearch("")}>{t("bookshelf.clearSearch")}</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -644,26 +669,29 @@ export default function BookshelfPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogTitle>{t("bookshelf.confirmDeleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
-                <p>确定要删除《{deleteTarget?.title}》吗？此操作不可撤销。</p>
+                <p>{t("bookshelf.confirmDeleteDescription", { title: deleteTarget?.title ?? "" })}</p>
                 <p className="mt-1 text-xs">
-                  将同时删除：{deleteTarget?.total_chapters} 章内容
-                  {deleteTarget && deleteTarget.analysis_progress > 0 ? "、分析数据" : ""}
-                  、对话记录、书签等所有关联数据
+                  {t("bookshelf.confirmDeleteRelatedData", {
+                    chapters: deleteTarget?.total_chapters ?? 0,
+                    analysisData: deleteTarget && deleteTarget.analysis_progress > 0
+                      ? t("bookshelf.deleteAnalysisDataSuffix")
+                      : "",
+                  })}
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
             >
-              {deleting ? "删除中..." : "删除"}
+              {deleting ? t("common.deleting") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

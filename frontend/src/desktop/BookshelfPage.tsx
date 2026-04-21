@@ -14,6 +14,7 @@ import { SecurityGuide } from "./SecurityGuide"
 import { UploadDialog } from "@/components/shared/UploadDialog"
 import { WelcomeBanner } from "@/components/shared/WelcomeBanner"
 import { HelpCircle, Upload, Settings, FileUp, BookOpen } from "lucide-react"
+import { useI18n } from "@/i18n"
 
 interface PreviewResult {
   title: string
@@ -35,6 +36,7 @@ interface ImportResult {
 
 export default function DesktopBookshelfPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [novels, setNovels] = useState<Novel[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -106,11 +108,11 @@ export default function DesktopBookshelfPage() {
           .catch(() => {}),
       ])
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载小说列表失败")
+      setError(err instanceof Error ? err.message : t("desktop.loadNovelsFailed"))
     } finally {
       setLoading(false)
     }
-  }, [sidecarReady])
+  }, [sidecarReady, t])
 
   useEffect(() => {
     loadNovels()
@@ -138,7 +140,7 @@ export default function DesktopBookshelfPage() {
       const preview = await invoke<PreviewResult>("preview_air_file", { path: filePath })
 
       if (!preview.has_precomputed) {
-        setToast({ message: "此 .air 文件版本过旧，请使用最新版 AI Reader 重新导出", type: "error" })
+        setToast({ message: t("desktop.airOutdated"), type: "error" })
         return
       }
 
@@ -146,8 +148,8 @@ export default function DesktopBookshelfPage() {
       if (preview.is_duplicate) {
         const { confirm } = await import("@tauri-apps/plugin-dialog")
         const confirmed = await confirm(
-          `「${preview.title}」已存在，导入将覆盖现有数据`,
-          { title: "覆盖已有数据？", kind: "warning" }
+          t("desktop.overwriteExistingMessage", { title: preview.title }),
+          { title: t("desktop.overwriteExistingTitle"), kind: "warning" }
         )
         if (!confirmed) return
         overwrite = true
@@ -167,7 +169,7 @@ export default function DesktopBookshelfPage() {
       }
 
       await loadNovels()
-      setToast({ message: `「${preview.title}」导入成功`, type: "success" })
+      setToast({ message: t("desktop.importSuccess", { title: preview.title }), type: "success" })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setToast({ message: msg, type: "error" })
@@ -175,35 +177,35 @@ export default function DesktopBookshelfPage() {
       importingRef.current = false
       setImporting(false)
     }
-  }, [loadNovels])
+  }, [loadNovels, t])
 
   /** Delete novel via REST API */
   const handleDelete = useCallback(async (novelId: string, title: string) => {
     try {
       const { confirm } = await import("@tauri-apps/plugin-dialog")
       const confirmed = await confirm(
-        `确定删除「${title}」？删除后数据将无法恢复`,
-        { title: "删除小说", kind: "warning" }
+        t("desktop.deleteConfirmMessage", { title }),
+        { title: t("desktop.deleteNovelTitle"), kind: "warning" }
       )
       if (!confirmed) return
 
       const { deleteNovel } = await import("@/api/client")
       await deleteNovel(novelId)
       await loadNovels()
-      setToast({ message: `「${title}」已删除`, type: "success" })
+      setToast({ message: t("desktop.deletedSuccess", { title }), type: "success" })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setToast({ message: msg, type: "error" })
     }
-  }, [loadNovels])
+  }, [loadNovels, t])
 
   /** .air import button click */
   const handleImportClick = useCallback(async () => {
     try {
       const { open } = await import("@tauri-apps/plugin-dialog")
       const path = await open({
-        title: "选择 .air 分析数据文件",
-        filters: [{ name: "AIR 分析数据", extensions: ["air"] }],
+        title: t("desktop.selectAirFile"),
+        filters: [{ name: t("desktop.airAnalysisData"), extensions: ["air"] }],
         multiple: false,
       })
       if (path) {
@@ -213,13 +215,13 @@ export default function DesktopBookshelfPage() {
       const msg = err instanceof Error ? err.message : String(err)
       setToast({ message: msg, type: "error" })
     }
-  }, [handleAirImport])
+  }, [handleAirImport, t])
 
   /** HTML5 drag-and-drop .txt/.md files → auto-open UploadDialog */
   const handleNativeDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     if (uploadOpen) {
-      setToast({ message: "正在处理上一个文件，请关闭后重试", type: "error" })
+      setToast({ message: t("desktop.processingPreviousFile"), type: "error" })
       return
     }
     const files = Array.from(e.dataTransfer.files)
@@ -230,11 +232,11 @@ export default function DesktopBookshelfPage() {
     })
     if (txtFiles.length === 0) return
     if (txtFiles.length > 1) {
-      setToast({ message: "一次只能上传一本小说", type: "error" })
+      setToast({ message: t("desktop.singleNovelOnly"), type: "error" })
     }
     setDragTxtFile(txtFiles[0])
     setUploadOpen(true)
-  }, [uploadOpen])
+  }, [uploadOpen, t])
 
   // Listen for file association: .air file opened via double-click
   useEffect(() => {
@@ -260,22 +262,22 @@ export default function DesktopBookshelfPage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
         {sidecarError ? (
           <div className="text-center">
-            <p className="text-lg font-semibold text-red-400">后端启动失败</p>
+            <p className="text-lg font-semibold text-red-400">{t("desktop.backendStartFailed")}</p>
             <p className="mt-2 text-sm text-muted-foreground">{sidecarError}</p>
             <button
               onClick={() => window.location.reload()}
               className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
             >
-              重试
+              {t("common.retry")}
             </button>
           </div>
         ) : (
           <div className="text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-            <p className="text-sm text-muted-foreground">正在启动分析引擎...</p>
+            <p className="text-sm text-muted-foreground">{t("desktop.startingAnalysisEngine")}</p>
             {sidecarElapsed > 5 && (
               <p className="mt-2 text-xs text-muted-foreground/60">
-                首次启动需要约 30-60 秒，请耐心等待 ({sidecarElapsed}s)
+                {t("desktop.firstLaunchHint", { seconds: sidecarElapsed })}
               </p>
             )}
           </div>
@@ -303,11 +305,11 @@ export default function DesktopBookshelfPage() {
                 rel="noopener"
                 className="self-end mb-0.5 rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-400 hover:bg-blue-500/30 transition"
               >
-                v{newVersion} 可用
+                {t("desktop.newVersionAvailable", { version: newVersion })}
               </a>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">中文小说智能分析平台</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("desktop.productTagline")}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -315,7 +317,7 @@ export default function DesktopBookshelfPage() {
             className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500"
           >
             <FileUp className="size-4" />
-            上传小说
+            {t("bookshelf.uploadNovel")}
           </button>
           <button
             onClick={handleImportClick}
@@ -323,7 +325,7 @@ export default function DesktopBookshelfPage() {
             className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
           >
             <Upload className="size-4" />
-            {importing ? "导入中..." : "导入 .air"}
+            {importing ? t("desktop.importing") : t("desktop.importAir")}
           </button>
           <button
             onClick={() => navigate("/settings")}
@@ -336,7 +338,7 @@ export default function DesktopBookshelfPage() {
             target="_blank"
             rel="noopener"
             className="text-muted-foreground hover:text-foreground transition"
-            title="使用文档"
+            title={t("desktop.docs")}
           >
             <BookOpen className="size-4" />
           </a>
@@ -374,15 +376,15 @@ export default function DesktopBookshelfPage() {
               onClick={() => loadNovels()}
               className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
             >
-              重试
+              {t("common.retry")}
             </button>
           </div>
         )}
 
         {!loading && !error && novels.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20">
-            <p className="mb-2 text-lg font-medium text-muted-foreground">暂无小说</p>
-            <p className="text-sm text-muted-foreground">点击上方「上传小说」上传 TXT 文件开始分析</p>
+            <p className="mb-2 text-lg font-medium text-muted-foreground">{t("desktop.noNovels")}</p>
+            <p className="text-sm text-muted-foreground">{t("desktop.noNovelsDescription")}</p>
           </div>
         )}
 
@@ -397,13 +399,13 @@ export default function DesktopBookshelfPage() {
                 {activeAnalysisMap.get(String(novel.id)) === "running" && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-green-500/20 px-2 py-0.5">
                     <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />
-                    <span className="text-[10px] font-medium text-green-400">分析中</span>
+                    <span className="text-[10px] font-medium text-green-400">{t("analysis.running")}</span>
                   </div>
                 )}
                 {activeAnalysisMap.get(String(novel.id)) === "paused" && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-2 py-0.5">
                     <span className="inline-block size-1.5 rounded-full bg-yellow-400" />
-                    <span className="text-[10px] font-medium text-yellow-400">已暂停</span>
+                    <span className="text-[10px] font-medium text-yellow-400">{t("analysis.paused")}</span>
                   </div>
                 )}
                 <h3 className="font-semibold text-foreground group-hover:text-blue-400 transition">
@@ -413,21 +415,21 @@ export default function DesktopBookshelfPage() {
                   <p className="mt-1 text-xs text-muted-foreground">{novel.author}</p>
                 )}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {novel.total_chapters} 章
+                  {t("common.chapterCount", { count: novel.total_chapters })}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
-                    {novel.analysis_progress >= 1 && !novel.failed_count ? "分析完成" :
+                    {novel.analysis_progress >= 1 && !novel.failed_count ? t("analysis.completed") :
                      novel.analysis_progress >= 1 && novel.failed_count > 0
-                       ? <span className="text-yellow-400">分析完成（{novel.failed_count} 章失败）</span> :
+                       ? <span className="text-yellow-400">{t("analysis.completedWithFailures", { count: novel.failed_count })}</span> :
                      novel.analysis_progress > 0
                        ? <>
-                           分析 {Math.round(novel.analysis_progress * 100)}%
+                           {t("analysis.progressPercent", { percent: Math.round(novel.analysis_progress * 100) })}
                            {novel.failed_count > 0 && (
-                             <span className="text-yellow-400 ml-1">({novel.failed_count} 章失败)</span>
+                             <span className="text-yellow-400 ml-1">{t("analysis.failedChapters", { count: novel.failed_count })}</span>
                            )}
                          </> :
-                     "未分析"}
+                     t("analysis.notAnalyzed")}
                   </span>
                   <button
                     onClick={(e) => {
@@ -436,7 +438,7 @@ export default function DesktopBookshelfPage() {
                     }}
                     className="text-xs text-muted-foreground hover:text-red-400 transition opacity-0 group-hover:opacity-100"
                   >
-                    删除
+                    {t("common.delete")}
                   </button>
                 </div>
               </button>

@@ -7,14 +7,43 @@ import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
 import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
-import { useI18n, type Locale } from "@/i18n"
+import { useI18n, type Locale, type TranslationKey } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { isTauri } from "@/api/sidecarBridge"
+import cnFlag from "@/assets/flags/cn.svg"
+import usFlag from "@/assets/flags/us.svg"
+import vnFlag from "@/assets/flags/vn.svg"
 
 const LOCALE_LABELS: Record<Locale, string> = {
   "zh-CN": "简体中文",
   en: "English",
+  vi: "Tiếng Việt",
 }
+
+const LOCALE_FLAGS: Record<Locale, string> = {
+  "zh-CN": cnFlag,
+  en: usFlag,
+  vi: vnFlag,
+}
+
+const FONT_SIZE_LABEL_KEYS = {
+  small: "settings.reading.font.small",
+  medium: "settings.reading.font.medium",
+  large: "settings.reading.font.large",
+  xlarge: "settings.reading.font.xlarge",
+} as const satisfies Record<keyof typeof FONT_SIZE_MAP, TranslationKey>
+
+const LINE_HEIGHT_LABEL_KEYS = {
+  compact: "settings.reading.lineHeight.compact",
+  normal: "settings.reading.lineHeight.normal",
+  loose: "settings.reading.lineHeight.loose",
+} as const satisfies Record<keyof typeof LINE_HEIGHT_MAP, TranslationKey>
+
+const THEME_LABEL_KEYS = {
+  light: "settings.reading.theme.light",
+  dark: "settings.reading.theme.dark",
+  system: "settings.reading.theme.system",
+} as const satisfies Record<"light" | "dark" | "system", TranslationKey>
 
 function openExternal(url: string) {
   if (isTauri) {
@@ -468,13 +497,13 @@ export default function SettingsPage() {
         <nav className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
           <div className="max-w-2xl mx-auto flex gap-1 px-6 py-1.5 overflow-x-auto">
             {[
-              { id: "sec-engine", label: "AI 引擎" },
+              { id: "sec-engine", label: t("settings.nav.aiEngine") },
               { id: "sec-language", label: t("settings.interfaceLanguage") },
-              { id: "sec-usage", label: "使用统计" },
-              { id: "sec-reading", label: "阅读偏好" },
-              { id: "sec-data", label: "数据管理" },
-              { id: "sec-backup", label: "全量备份" },
-              { id: "sec-privacy", label: "统计与隐私" },
+              { id: "sec-usage", label: t("settings.nav.usage") },
+              { id: "sec-reading", label: t("settings.nav.reading") },
+              { id: "sec-data", label: t("settings.nav.data") },
+              { id: "sec-backup", label: t("settings.nav.backup") },
+              { id: "sec-privacy", label: t("settings.nav.privacy") },
             ].map((s) => (
               <button
                 key={s.id}
@@ -490,7 +519,7 @@ export default function SettingsPage() {
         <div className="max-w-2xl mx-auto p-6 space-y-8">
           {/* AI Engine Configuration — Unified Tabbed Interface */}
           <section id="sec-engine" className="scroll-mt-12">
-            <h2 className="text-base font-medium mb-4">AI 引擎</h2>
+            <h2 className="text-base font-medium mb-4">{t("settings.nav.aiEngine")}</h2>
 
             {/* Active engine status banner */}
             {envCheck && !envLoading && (
@@ -1235,21 +1264,35 @@ export default function SettingsPage() {
             <h2 className="text-base font-medium mb-4">{t("settings.interfaceLanguage")}</h2>
             <div className="border rounded-lg p-4 space-y-3">
               <div>
-                <label htmlFor="settings-locale" className="text-sm block mb-2">
+                <span className="text-sm block mb-2">
                   {t("settings.language")}
-                </label>
-                <select
-                  id="settings-locale"
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value as Locale)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-blue-500 focus:outline-none"
-                >
+                </span>
+                <div className="grid gap-2 sm:grid-cols-3">
                   {supportedLocales.map((item) => (
-                    <option key={item} value={item}>
-                      {LOCALE_LABELS[item]}
-                    </option>
+                    <button
+                      key={item}
+                      type="button"
+                      aria-pressed={locale === item}
+                      className={cn(
+                        "flex items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        locale === item
+                          ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-200"
+                          : "border-border bg-background hover:bg-muted",
+                      )}
+                      onClick={() => setLocale(item)}
+                    >
+                      <img
+                        src={LOCALE_FLAGS[item]}
+                        alt=""
+                        className="h-5 w-7 shrink-0 rounded-[2px] object-cover ring-1 ring-border"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{LOCALE_LABELS[item]}</span>
+                        <span className="block text-[10px] text-muted-foreground">{item}</span>
+                      </span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 {t("settings.interfaceLanguageDescription")}
@@ -1262,7 +1305,7 @@ export default function SettingsPage() {
 
           {/* Usage & Budget */}
           <section id="sec-usage" className="scroll-mt-12">
-            <h2 className="text-base font-medium mb-4">使用统计</h2>
+            <h2 className="text-base font-medium mb-4">{t("settings.nav.usage")}</h2>
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm">月度预算</span>
@@ -1426,11 +1469,11 @@ export default function SettingsPage() {
 
           {/* Reading Preferences */}
           <section id="sec-reading" className="scroll-mt-12">
-            <h2 className="text-base font-medium mb-4">阅读偏好</h2>
+            <h2 className="text-base font-medium mb-4">{t("settings.readingPreferences")}</h2>
             <div className="border rounded-lg p-4 space-y-4">
               {/* Font size */}
               <div>
-                <span className="text-sm block mb-2">字号</span>
+                <span className="text-sm block mb-2">{t("settings.reading.fontSize")}</span>
                 <div className="flex gap-2">
                   {(Object.keys(FONT_SIZE_MAP) as Array<keyof typeof FONT_SIZE_MAP>).map((size) => (
                     <Button
@@ -1439,18 +1482,18 @@ export default function SettingsPage() {
                       size="xs"
                       onClick={() => setFontSize(size)}
                     >
-                      {{ small: "小", medium: "中", large: "大", xlarge: "特大" }[size]}
+                      {t(FONT_SIZE_LABEL_KEYS[size])}
                     </Button>
                   ))}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  当前: {FONT_SIZE_MAP[fontSize]}
+                  {t("settings.reading.current", { value: FONT_SIZE_MAP[fontSize] })}
                 </p>
               </div>
 
               {/* Line height */}
               <div>
-                <span className="text-sm block mb-2">行距</span>
+                <span className="text-sm block mb-2">{t("settings.reading.lineHeight")}</span>
                 <div className="flex gap-2">
                   {(Object.keys(LINE_HEIGHT_MAP) as Array<keyof typeof LINE_HEIGHT_MAP>).map((lh) => (
                     <Button
@@ -1459,27 +1502,27 @@ export default function SettingsPage() {
                       size="xs"
                       onClick={() => setLineHeight(lh)}
                     >
-                      {{ compact: "紧凑", normal: "正常", loose: "宽松" }[lh]}
+                      {t(LINE_HEIGHT_LABEL_KEYS[lh])}
                     </Button>
                   ))}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  当前: {{ compact: "1.6x", normal: "2.0x", loose: "2.6x" }[lineHeight]}
+                  {t("settings.reading.current", { value: { compact: "1.6x", normal: "2.0x", loose: "2.6x" }[lineHeight] })}
                 </p>
               </div>
 
               {/* Theme */}
               <div>
-                <span className="text-sm block mb-2">外观</span>
+                <span className="text-sm block mb-2">{t("settings.reading.appearance")}</span>
                 <div className="flex gap-2">
-                  {([["light", "浅色"], ["dark", "深色"], ["system", "跟随系统"]] as const).map(([value, label]) => (
+                  {(["light", "dark", "system"] as const).map((value) => (
                     <Button
                       key={value}
                       variant={theme === value ? "default" : "outline"}
                       size="xs"
                       onClick={() => setTheme(value)}
                     >
-                      {label}
+                      {t(THEME_LABEL_KEYS[value])}
                     </Button>
                   ))}
                 </div>
@@ -1489,7 +1532,7 @@ export default function SettingsPage() {
 
           {/* Data Management */}
           <section id="sec-data" className="scroll-mt-12">
-            <h2 className="text-base font-medium mb-4">数据管理</h2>
+            <h2 className="text-base font-medium mb-4">{t("settings.nav.data")}</h2>
             <div className="border rounded-lg p-4 space-y-4">
               {novels.length === 0 ? (
                 <p className="text-sm text-muted-foreground">暂无导入的小说</p>
@@ -1622,7 +1665,7 @@ export default function SettingsPage() {
 
           {/* Full Backup / Restore */}
           <section id="sec-backup" className="scroll-mt-12">
-            <h2 className="text-base font-medium mb-4">全量备份</h2>
+            <h2 className="text-base font-medium mb-4">{t("settings.nav.backup")}</h2>
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-3">
                 <Button
@@ -1769,7 +1812,7 @@ export default function SettingsPage() {
 
           {/* Usage Analytics & Privacy */}
           <section id="sec-privacy" className="scroll-mt-12">
-            <h2 className="text-base font-medium mb-4">使用统计与隐私</h2>
+            <h2 className="text-base font-medium mb-4">{t("settings.nav.privacy")}</h2>
             <div className="border rounded-lg p-4 space-y-4">
               {/* Privacy toggle */}
               <div className="flex items-center justify-between">

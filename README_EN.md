@@ -119,11 +119,11 @@ Open http://localhost:5173. Upload a TXT novel → Analyze → View visualizatio
 
 ## Internationalization Roadmap
 
-AI Reader V2 currently focuses on Chinese novel analysis, and many UI strings are still implemented as Chinese text in frontend and backend modules. A full i18n integration is planned to make the application easier to use, translate, and maintain across languages.
+AI Reader V2 keeps `zh-CN` as the default/source locale and now has a lightweight frontend i18n foundation for `zh-CN`, `en`, and `vi`. The Settings page includes a language selector with China, United States, and Vietnam flag assets, and the initial shell/bookshelf surfaces are being migrated from hardcoded UI strings to typed translation keys.
 
-The proposed direction is to keep `zh-CN` as the default/source locale, add locale files for additional interface languages, and separate UI translation from source novel content, extracted entity names, and AI-generated analysis data. Frontend UI text, backend user-facing API messages, WebSocket progress messages, and export document labels should share a consistent locale strategy over time.
+The i18n boundary is intentional: changing the UI language does not translate uploaded novel text, extracted entity names, source quotes, or AI-generated analysis results. Backend user-facing API messages, WebSocket progress messages, export document labels, and local i18n tooling are still tracked as follow-up phases.
 
-See [Internationalization Integration Plan](./I18N_PLAN.md) for the phased FE/BE checklist.
+See [Internationalization Integration Plan](./I18N_PLAN.md) for the phased FE/BE checklist and tooling plan.
 
 ## Documentation
 

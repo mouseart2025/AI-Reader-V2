@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 import { en } from "./locales/en"
+import { vi } from "./locales/vi"
 import { zhCN, type TranslationKey } from "./locales/zh-CN"
 
-export const SUPPORTED_LOCALES = ["zh-CN", "en"] as const
+export const SUPPORTED_LOCALES = ["zh-CN", "en", "vi"] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
+export type { TranslationKey }
 
 type TranslationParams = Record<string, number | string>
 
@@ -20,12 +22,13 @@ const STORAGE_KEY = "ai-reader.locale"
 const messages: Record<Locale, Record<TranslationKey, string>> = {
   "zh-CN": zhCN,
   en,
+  vi,
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
 function isLocale(value: string | null): value is Locale {
-  return value === "zh-CN" || value === "en"
+  return SUPPORTED_LOCALES.includes(value as Locale)
 }
 
 function getStoredLocale(): Locale {

@@ -29,7 +29,7 @@ remains the default locale until the project maintainers decide otherwise.
 - [x] Define supported locale IDs:
   - [x] `zh-CN` for Simplified Chinese.
   - [x] `en` for English.
-  - [ ] `vi` can be added after the base system is stable.
+  - [x] `vi` for Vietnamese.
 - [x] Define fallback order:
   - [x] Active locale.
   - [x] `zh-CN`.
@@ -86,6 +86,7 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] `frontend/src/i18n/index.tsx`
   - [x] `frontend/src/i18n/locales/zh-CN.ts`
   - [x] `frontend/src/i18n/locales/en.ts`
+  - [x] `frontend/src/i18n/locales/vi.ts`
 - [ ] Add a typed translation function or hook.
   - [x] Support plain strings.
   - [x] Support variable interpolation.
@@ -98,6 +99,8 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Persist selected locale.
 - [x] Add a small language selector.
   - [x] Prefer Settings first.
+  - [x] Add `zh-CN`, `en`, and `vi` options.
+  - [x] Add China, United States, and Vietnam flag assets.
   - [ ] Desktop title bar or bookshelf entry can be added later.
 - [ ] Add tests for translation lookup and fallback behavior.
 - [x] Keep default behavior identical when locale is `zh-CN`.
@@ -112,9 +115,9 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] `frontend/src/app/DesktopLayout.tsx`
   - [x] `frontend/src/app/DemoLayout.tsx`
 - [ ] Migrate bookshelf and desktop landing surfaces.
-  - [ ] `frontend/src/pages/BookshelfPage.tsx`
-  - [ ] `frontend/src/desktop/BookshelfPage.tsx`
-  - [ ] `frontend/src/desktop/BookshelfCard.tsx`
+  - [x] `frontend/src/pages/BookshelfPage.tsx`
+  - [x] `frontend/src/desktop/BookshelfPage.tsx`
+  - [x] `frontend/src/desktop/BookshelfCard.tsx`
   - [ ] `frontend/src/desktop/DragDropOverlay.tsx`
   - [ ] `frontend/src/desktop/SecurityGuide.tsx`
 - [ ] Migrate global shared components.
@@ -300,8 +303,11 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] App shell and navigation migration.
   - [x] Documentation updates.
 - [ ] Suggested PR 2:
-  - [ ] Bookshelf, upload/import, Settings migration.
+  - [x] Bookshelf web/desktop landing migration.
+  - [ ] Upload/import full workflow migration.
+  - [ ] Settings full migration.
   - [x] Language selector.
+  - [x] `vi` locale pack and flag-backed language choices.
   - [ ] Initial `i18n:extract`, `i18n:check`, and `i18n:sync` tooling.
 - [ ] Suggested PR 3:
   - [ ] Reading, analysis, visualization, chat, export page migration.
