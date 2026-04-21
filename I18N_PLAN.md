@@ -1,0 +1,294 @@
+# Internationalization Integration Plan
+
+This document tracks a phased plan for adding first-class internationalization
+(i18n) across the full AI Reader V2 application.
+
+The goal is to support multiple interface languages without changing analysis
+quality, data models, or Chinese-language NLP assumptions unexpectedly. Chinese
+remains the default locale until the project maintainers decide otherwise.
+
+## Goals
+
+- [ ] Add a single locale model shared by frontend, backend, desktop, and demo builds.
+- [ ] Keep `zh-CN` as the default and source locale during the first implementation phase.
+- [ ] Add locale packs without requiring repeated edits to feature components.
+- [ ] Separate UI text translation from AI-generated content and source novel content.
+- [ ] Make backend user-facing messages locale-aware where they are shown directly in the UI.
+- [ ] Keep extraction prompts, Chinese NLP rules, and analysis heuristics stable unless a locale-specific behavior is explicitly designed.
+- [ ] Add tooling that prevents new hardcoded user-visible strings from spreading.
+
+## Non-Goals
+
+- [ ] Do not translate uploaded novels or demo novel content automatically.
+- [ ] Do not translate extracted entity names, source quotes, or AI-generated analysis results by default.
+- [ ] Do not rewrite the extraction pipeline for non-Chinese novels in the initial i18n work.
+- [ ] Do not replace Chinese NLP resources such as jieba dictionaries as part of basic UI localization.
+
+## Locale Architecture
+
+- [ ] Define supported locale IDs:
+  - [ ] `zh-CN` for Simplified Chinese.
+  - [ ] `en` for English.
+  - [ ] `vi` can be added after the base system is stable.
+- [ ] Define fallback order:
+  - [ ] Active locale.
+  - [ ] `zh-CN`.
+  - [ ] Translation key or source text for missing entries.
+- [ ] Define locale ownership:
+  - [ ] Frontend owns user interface labels, buttons, empty states, dialogs, navigation, and validation hints.
+  - [ ] Backend owns API error messages, progress stages, export labels, server-side validation messages, and generated document headings.
+  - [ ] Shared API contracts pass stable codes where possible, not translated prose.
+- [ ] Define locale persistence:
+  - [ ] Web build: local storage or existing settings store.
+  - [ ] Desktop build: Tauri/store-backed settings if available.
+  - [ ] Backend requests: explicit locale header or query value.
+- [ ] Define locale negotiation:
+  - [ ] User-selected language takes priority.
+  - [ ] Browser/system language can be used only as an initial default.
+  - [ ] Backend should not guess differently from frontend.
+
+## Phase 0: Baseline Audit
+
+- [ ] Inventory all frontend hardcoded user-visible strings.
+  - [ ] `frontend/src/app`
+  - [ ] `frontend/src/pages`
+  - [ ] `frontend/src/components`
+  - [ ] `frontend/src/desktop`
+  - [ ] `frontend/src/api`
+  - [ ] `frontend/src/lib`
+  - [ ] `frontend/src/providers`
+- [ ] Classify frontend strings:
+  - [ ] Navigation labels.
+  - [ ] Form labels and placeholders.
+  - [ ] Button labels.
+  - [ ] Toasts and status messages.
+  - [ ] Empty/error/loading states.
+  - [ ] Accessibility labels and titles.
+  - [ ] Demo marketing or install prompts.
+  - [ ] Domain taxonomy labels.
+- [ ] Inventory backend user-facing strings.
+  - [ ] API route error details.
+  - [ ] Analysis progress stage names.
+  - [ ] Export document labels and headings.
+  - [ ] Backup/import/export validation messages.
+  - [ ] Conflict detector severity labels and summaries.
+  - [ ] Settings/provider validation messages.
+- [ ] Classify backend strings:
+  - [ ] Safe to localize immediately.
+  - [ ] Data contract values that require stable enum mapping.
+  - [ ] Prompt or NLP logic that should not be localized in the first pass.
+- [ ] Add an audit report with counts by module and category.
+- [ ] Decide the first target locale pack for the initial PR.
+
+## Phase 1: Frontend I18n Foundation
+
+- [ ] Add a lightweight frontend i18n module.
+  - [ ] `frontend/src/i18n/index.ts`
+  - [ ] `frontend/src/i18n/locales/zh-CN.json`
+  - [ ] `frontend/src/i18n/locales/en.json`
+- [ ] Add a typed translation function or hook.
+  - [ ] Support plain strings.
+  - [ ] Support variable interpolation.
+  - [ ] Support plural-like formatting where needed.
+  - [ ] Support missing key fallback.
+- [ ] Add an i18n provider near the app root.
+  - [ ] Integrate with `frontend/src/app/providers.tsx`.
+  - [ ] Expose current locale.
+  - [ ] Expose locale switching.
+  - [ ] Persist selected locale.
+- [ ] Add a small language selector.
+  - [ ] Prefer Settings first.
+  - [ ] Desktop title bar or bookshelf entry can be added later.
+- [ ] Add tests for translation lookup and fallback behavior.
+- [ ] Keep default behavior identical when locale is `zh-CN`.
+
+## Phase 2: Frontend Core Shell Migration
+
+- [ ] Migrate route/loading/error shell strings.
+  - [ ] `frontend/src/app/router.tsx`
+  - [ ] `frontend/src/app/App.tsx`
+- [ ] Migrate navigation layouts.
+  - [ ] `frontend/src/app/NovelLayout.tsx`
+  - [ ] `frontend/src/app/DesktopLayout.tsx`
+  - [ ] `frontend/src/app/DemoLayout.tsx`
+- [ ] Migrate bookshelf and desktop landing surfaces.
+  - [ ] `frontend/src/pages/BookshelfPage.tsx`
+  - [ ] `frontend/src/desktop/BookshelfPage.tsx`
+  - [ ] `frontend/src/desktop/BookshelfCard.tsx`
+  - [ ] `frontend/src/desktop/DragDropOverlay.tsx`
+  - [ ] `frontend/src/desktop/SecurityGuide.tsx`
+- [ ] Migrate global shared components.
+  - [ ] Theme toggle labels.
+  - [ ] Welcome banner.
+  - [ ] Feature discovery and guided tour text.
+  - [ ] Cost preview dialog.
+- [ ] Verify both web and desktop shell builds.
+
+## Phase 3: Frontend Feature Page Migration
+
+- [ ] Migrate reading workflow.
+  - [ ] `frontend/src/pages/ReadingPage.tsx`
+  - [ ] `frontend/src/pages/ScreenplayPage.tsx`
+  - [ ] `frontend/src/components/shared/ScenePanel.tsx`
+  - [ ] `frontend/src/components/shared/TextPreviewPanel.tsx`
+- [ ] Migrate upload/import workflow.
+  - [ ] `frontend/src/components/shared/UploadDialog.tsx`
+  - [ ] Regex template labels.
+  - [ ] File validation messages.
+  - [ ] Split diagnosis messages.
+  - [ ] Duplicate import prompts.
+- [ ] Migrate analysis workflow.
+  - [ ] `frontend/src/pages/AnalysisPage.tsx`
+  - [ ] Progress/status labels.
+  - [ ] Pause/resume/retry labels.
+  - [ ] Budget and model setup prompts.
+- [ ] Migrate visualization pages.
+  - [ ] `frontend/src/pages/GraphPage.tsx`
+  - [ ] `frontend/src/pages/MapPage.tsx`
+  - [ ] `frontend/src/pages/TimelinePage.tsx`
+  - [ ] `frontend/src/pages/FactionsPage.tsx`
+  - [ ] `frontend/src/pages/EncyclopediaPage.tsx`
+  - [ ] `frontend/src/pages/ConflictsPage.tsx`
+- [ ] Migrate chat and export pages.
+  - [ ] `frontend/src/pages/ChatPage.tsx`
+  - [ ] `frontend/src/pages/ExportPage.tsx`
+- [ ] Migrate demo pages.
+  - [ ] `frontend/src/pages/demo/*`
+- [ ] Avoid translating source novel text, entity names, and quoted evidence.
+
+## Phase 4: Frontend Domain Labels And Formatting
+
+- [ ] Centralize domain label maps.
+  - [ ] Entity types.
+  - [ ] Relation categories.
+  - [ ] Location tiers.
+  - [ ] Scene tones.
+  - [ ] Scene event types.
+  - [ ] Organization/faction labels.
+  - [ ] Conflict severity labels.
+- [ ] Keep API enum values stable and translate only display labels.
+- [ ] Add date/time/number formatting helpers.
+  - [ ] Dates in Settings and backups.
+  - [ ] Chapter counts and word counts.
+  - [ ] File sizes.
+  - [ ] Token/cost formatting.
+- [ ] Add locale-aware document titles.
+- [ ] Add missing translation detection in development.
+
+## Phase 5: Backend I18n Foundation
+
+- [ ] Add backend locale utilities.
+  - [ ] Locale parsing.
+  - [ ] Fallback handling.
+  - [ ] Translation lookup.
+  - [ ] Interpolation.
+- [ ] Add backend locale files.
+  - [ ] `backend/src/i18n/locales/zh-CN.json`
+  - [ ] `backend/src/i18n/locales/en.json`
+- [ ] Define how the frontend passes locale to backend.
+  - [ ] `Accept-Language` header.
+  - [ ] Optional explicit `X-AI-Reader-Locale` header.
+  - [ ] WebSocket initialization message or query parameter.
+- [ ] Add request-level locale resolution for REST APIs.
+- [ ] Add connection-level locale resolution for WebSocket APIs.
+- [ ] Add tests for backend locale fallback.
+- [ ] Keep backend logs in a stable developer language or structured codes.
+
+## Phase 6: Backend User-Facing API Messages
+
+- [ ] Replace direct API error prose with stable error codes plus localized messages.
+- [ ] Localize upload/import/export errors.
+- [ ] Localize backup validation messages.
+- [ ] Localize settings validation messages.
+- [ ] Localize Ollama/cloud provider health messages where shown in the UI.
+- [ ] Localize analysis progress stages.
+  - [ ] Context building.
+  - [ ] AI extraction.
+  - [ ] Data validation.
+  - [ ] World-structure update.
+  - [ ] Scene analysis.
+  - [ ] Hierarchy optimization.
+  - [ ] Overview generation.
+  - [ ] Completion.
+- [ ] Localize WebSocket event messages without changing event names.
+- [ ] Keep machine-readable event types unchanged.
+
+## Phase 7: Backend Exports And Generated Documents
+
+- [ ] Localize document export headings.
+  - [ ] Markdown.
+  - [ ] DOCX.
+  - [ ] XLSX.
+  - [ ] PDF.
+- [ ] Localize template names and descriptions.
+- [ ] Localize table headers.
+- [ ] Localize section headings.
+- [ ] Localize footer text and generated-by labels.
+- [ ] Add locale option to export requests.
+- [ ] Ensure exported filenames can be localized safely.
+- [ ] Preserve entity names, source quotes, and analysis data in original language unless the user explicitly requests translation.
+
+## Phase 8: AI Prompts, Analysis Output, And Locale Boundaries
+
+- [ ] Document which prompts remain Chinese-specific.
+- [ ] Add prompt comments explaining why extraction prompts are not basic UI i18n.
+- [ ] Decide whether UI locale should influence generated summaries.
+- [ ] If localized AI output is supported later, add explicit settings:
+  - [ ] Analysis output language.
+  - [ ] UI language.
+  - [ ] Source text language.
+- [ ] Keep source-language extraction as a separate project from UI localization.
+- [ ] Avoid silent translation of evidence or entity names.
+- [ ] Add tests to ensure locale changes do not alter core extraction contracts unexpectedly.
+
+## Phase 9: Tooling And Quality Gates
+
+- [ ] Add a script to scan frontend files for hardcoded CJK UI strings.
+- [ ] Add a script to scan backend user-facing modules for hardcoded CJK messages.
+- [ ] Allowlist intentional Chinese NLP data and prompt files.
+- [ ] Add CI checks for missing translation keys.
+- [ ] Add CI checks for unused translation keys.
+- [ ] Add TypeScript checks for translation key safety if the chosen approach supports it.
+- [ ] Add unit tests for locale switching.
+- [ ] Add integration tests for REST locale headers.
+- [ ] Add WebSocket locale tests for analysis progress messages.
+- [ ] Add export snapshot tests per locale.
+
+## Phase 10: Migration And PR Strategy
+
+- [ ] Keep each PR reviewable and focused.
+- [ ] Suggested PR 1:
+  - [ ] Frontend i18n foundation.
+  - [ ] `zh-CN` and `en` locale files.
+  - [ ] App shell and navigation migration.
+  - [ ] Documentation updates.
+- [ ] Suggested PR 2:
+  - [ ] Bookshelf, upload/import, Settings migration.
+  - [ ] Language selector.
+  - [ ] Frontend missing-key tooling.
+- [ ] Suggested PR 3:
+  - [ ] Reading, analysis, visualization, chat, export page migration.
+  - [ ] Domain label maps.
+- [ ] Suggested PR 4:
+  - [ ] Backend locale foundation.
+  - [ ] API and WebSocket localized messages.
+- [ ] Suggested PR 5:
+  - [ ] Export document localization.
+  - [ ] Backend tests and snapshots.
+- [ ] Suggested PR 6:
+  - [ ] Hardcoded string scanning in CI.
+  - [ ] Cleanup and documentation.
+
+## Acceptance Checklist
+
+- [ ] The app can switch locale without reload where practical.
+- [ ] Missing translations fall back predictably.
+- [ ] UI language does not change uploaded novel content.
+- [ ] UI language does not change extracted entity IDs, names, or API enum values.
+- [ ] Web, desktop, and demo builds use the same frontend locale layer.
+- [ ] REST APIs and WebSockets can return localized user-facing messages.
+- [ ] Exported documents can be generated in the selected UI/export locale.
+- [ ] Tests cover frontend fallback, backend fallback, and export localization.
+- [ ] Documentation explains the difference between UI language, source language, and AI output language.
+- [ ] Contributors can add a new locale by adding locale files and passing checks.
+

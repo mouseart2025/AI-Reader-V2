@@ -117,10 +117,19 @@ Open http://localhost:5173. Upload a TXT novel → Analyze → View visualizatio
 | LLM | Ollama (local) or OpenAI-compatible API (cloud, 10 providers) |
 | Chinese NLP | jieba segmentation + entity pre-scanning |
 
+## Internationalization Roadmap
+
+AI Reader V2 currently focuses on Chinese novel analysis, and many UI strings are still implemented as Chinese text in frontend and backend modules. A full i18n integration is planned to make the application easier to use, translate, and maintain across languages.
+
+The proposed direction is to keep `zh-CN` as the default/source locale, add locale files for additional interface languages, and separate UI translation from source novel content, extracted entity names, and AI-generated analysis data. Frontend UI text, backend user-facing API messages, WebSocket progress messages, and export document labels should share a consistent locale strategy over time.
+
+See [Internationalization Integration Plan](./I18N_PLAN.md) for the phased FE/BE checklist.
+
 ## Documentation
 
 - 📋 [Contributing](./CONTRIBUTING.md) — Development setup, code conventions, PR process
 - 🏗️ [Architecture](./CLAUDE.md) — Full architecture design, code conventions, data models
+- 🌐 [Internationalization Plan](./I18N_PLAN.md) — Phased checklist for frontend and backend i18n integration
 - 💼 [Commercial License](./LICENSE-COMMERCIAL.md) — Commercial usage terms
 
 ## License
