@@ -10,9 +10,9 @@ remains the default locale until the project maintainers decide otherwise.
 ## Goals
 
 - [ ] Add a single locale model shared by frontend, backend, desktop, and demo builds.
-- [ ] Keep `zh-CN` as the default and source locale during the first implementation phase.
-- [ ] Add locale packs without requiring repeated edits to feature components.
-- [ ] Separate UI text translation from AI-generated content and source novel content.
+- [x] Keep `zh-CN` as the default and source locale during the first implementation phase.
+- [x] Add locale packs without requiring repeated edits to feature components.
+- [x] Separate UI text translation from AI-generated content and source novel content.
 - [ ] Make backend user-facing messages locale-aware where they are shown directly in the UI.
 - [ ] Keep extraction prompts, Chinese NLP rules, and analysis heuristics stable unless a locale-specific behavior is explicitly designed.
 - [ ] Add tooling that prevents new hardcoded user-visible strings from spreading.
@@ -26,20 +26,20 @@ remains the default locale until the project maintainers decide otherwise.
 
 ## Locale Architecture
 
-- [ ] Define supported locale IDs:
-  - [ ] `zh-CN` for Simplified Chinese.
-  - [ ] `en` for English.
+- [x] Define supported locale IDs:
+  - [x] `zh-CN` for Simplified Chinese.
+  - [x] `en` for English.
   - [ ] `vi` can be added after the base system is stable.
-- [ ] Define fallback order:
-  - [ ] Active locale.
-  - [ ] `zh-CN`.
-  - [ ] Translation key or source text for missing entries.
+- [x] Define fallback order:
+  - [x] Active locale.
+  - [x] `zh-CN`.
+  - [x] Translation key or source text for missing entries.
 - [ ] Define locale ownership:
   - [ ] Frontend owns user interface labels, buttons, empty states, dialogs, navigation, and validation hints.
   - [ ] Backend owns API error messages, progress stages, export labels, server-side validation messages, and generated document headings.
   - [ ] Shared API contracts pass stable codes where possible, not translated prose.
 - [ ] Define locale persistence:
-  - [ ] Web build: local storage or existing settings store.
+  - [x] Web build: local storage or existing settings store.
   - [ ] Desktop build: Tauri/store-backed settings if available.
   - [ ] Backend requests: explicit locale header or query value.
 - [ ] Define locale negotiation:
@@ -82,35 +82,35 @@ remains the default locale until the project maintainers decide otherwise.
 
 ## Phase 1: Frontend I18n Foundation
 
-- [ ] Add a lightweight frontend i18n module.
-  - [ ] `frontend/src/i18n/index.ts`
-  - [ ] `frontend/src/i18n/locales/zh-CN.json`
-  - [ ] `frontend/src/i18n/locales/en.json`
+- [x] Add a lightweight frontend i18n module.
+  - [x] `frontend/src/i18n/index.tsx`
+  - [x] `frontend/src/i18n/locales/zh-CN.ts`
+  - [x] `frontend/src/i18n/locales/en.ts`
 - [ ] Add a typed translation function or hook.
-  - [ ] Support plain strings.
-  - [ ] Support variable interpolation.
+  - [x] Support plain strings.
+  - [x] Support variable interpolation.
   - [ ] Support plural-like formatting where needed.
-  - [ ] Support missing key fallback.
-- [ ] Add an i18n provider near the app root.
-  - [ ] Integrate with `frontend/src/app/providers.tsx`.
-  - [ ] Expose current locale.
-  - [ ] Expose locale switching.
-  - [ ] Persist selected locale.
-- [ ] Add a small language selector.
-  - [ ] Prefer Settings first.
+  - [x] Support missing key fallback.
+- [x] Add an i18n provider near the app root.
+  - [x] Integrate with `frontend/src/app/providers.tsx`.
+  - [x] Expose current locale.
+  - [x] Expose locale switching.
+  - [x] Persist selected locale.
+- [x] Add a small language selector.
+  - [x] Prefer Settings first.
   - [ ] Desktop title bar or bookshelf entry can be added later.
 - [ ] Add tests for translation lookup and fallback behavior.
-- [ ] Keep default behavior identical when locale is `zh-CN`.
+- [x] Keep default behavior identical when locale is `zh-CN`.
 
 ## Phase 2: Frontend Core Shell Migration
 
-- [ ] Migrate route/loading/error shell strings.
-  - [ ] `frontend/src/app/router.tsx`
-  - [ ] `frontend/src/app/App.tsx`
-- [ ] Migrate navigation layouts.
-  - [ ] `frontend/src/app/NovelLayout.tsx`
-  - [ ] `frontend/src/app/DesktopLayout.tsx`
-  - [ ] `frontend/src/app/DemoLayout.tsx`
+- [x] Migrate route/loading/error shell strings.
+  - [x] `frontend/src/app/router.tsx`
+  - [x] `frontend/src/app/App.tsx` has no visible strings to migrate.
+- [x] Migrate navigation layouts.
+  - [x] `frontend/src/app/NovelLayout.tsx`
+  - [x] `frontend/src/app/DesktopLayout.tsx`
+  - [x] `frontend/src/app/DemoLayout.tsx`
 - [ ] Migrate bookshelf and desktop landing surfaces.
   - [ ] `frontend/src/pages/BookshelfPage.tsx`
   - [ ] `frontend/src/desktop/BookshelfPage.tsx`
@@ -123,6 +123,8 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] Feature discovery and guided tour text.
   - [ ] Cost preview dialog.
 - [ ] Verify both web and desktop shell builds.
+  - [x] Web build with `npm run build`.
+  - [ ] Desktop build.
 
 ## Phase 3: Frontend Feature Page Migration
 
@@ -173,6 +175,7 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] File sizes.
   - [ ] Token/cost formatting.
 - [ ] Add locale-aware document titles.
+  - [x] App shell document titles for migrated layouts.
 - [ ] Add missing translation detection in development.
 
 ## Phase 5: Backend I18n Foundation
@@ -292,13 +295,13 @@ remains the default locale until the project maintainers decide otherwise.
 
 - [ ] Keep each PR reviewable and focused.
 - [ ] Suggested PR 1:
-  - [ ] Frontend i18n foundation.
-  - [ ] `zh-CN` and `en` locale files.
-  - [ ] App shell and navigation migration.
-  - [ ] Documentation updates.
+  - [x] Frontend i18n foundation.
+  - [x] `zh-CN` and `en` locale files.
+  - [x] App shell and navigation migration.
+  - [x] Documentation updates.
 - [ ] Suggested PR 2:
   - [ ] Bookshelf, upload/import, Settings migration.
-  - [ ] Language selector.
+  - [x] Language selector.
   - [ ] Initial `i18n:extract`, `i18n:check`, and `i18n:sync` tooling.
 - [ ] Suggested PR 3:
   - [ ] Reading, analysis, visualization, chat, export page migration.
@@ -315,14 +318,14 @@ remains the default locale until the project maintainers decide otherwise.
 
 ## Acceptance Checklist
 
-- [ ] The app can switch locale without reload where practical.
-- [ ] Missing translations fall back predictably.
-- [ ] UI language does not change uploaded novel content.
-- [ ] UI language does not change extracted entity IDs, names, or API enum values.
-- [ ] Web, desktop, and demo builds use the same frontend locale layer.
+- [x] The app can switch locale without reload where practical.
+- [x] Missing translations fall back predictably.
+- [x] UI language does not change uploaded novel content.
+- [x] UI language does not change extracted entity IDs, names, or API enum values.
+- [x] Web, desktop, and demo builds use the same frontend locale layer.
 - [ ] REST APIs and WebSockets can return localized user-facing messages.
 - [ ] Exported documents can be generated in the selected UI/export locale.
 - [ ] Tests cover frontend fallback, backend fallback, and export localization.
-- [ ] Documentation explains the difference between UI language, source language, and AI output language.
+- [x] Documentation explains the difference between UI language, source language, and AI output language.
 - [ ] Contributors can add a new locale by adding locale files and passing checks.
 - [ ] Local tooling can extract candidate strings, check key coverage, sync locale files, and report translation progress.
