@@ -1,13 +1,23 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
-import { en } from "./locales/en"
-import { vi } from "./locales/vi"
-import { zhCN, type TranslationKey } from "./locales/zh-CN"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  getCurrentLocale,
+  setCurrentLocale,
+  subscribeLocale,
+  SUPPORTED_LOCALES,
+  translate,
+  type Locale,
+  type TranslationKey,
+  type TranslationParams,
+} from "./runtime"
 
-export const SUPPORTED_LOCALES = ["zh-CN", "en", "vi"] as const
-export type Locale = (typeof SUPPORTED_LOCALES)[number]
-export type { TranslationKey }
-
-type TranslationParams = Record<string, number | string>
+export {
+  getCurrentLocale,
+  isLocale,
+  setCurrentLocale,
+  SUPPORTED_LOCALES,
+  translate,
+} from "./runtime"
+export type { Locale, TranslationKey, TranslationParams } from "./runtime"
 
 type I18nContextValue = {
   locale: Locale
@@ -16,52 +26,19 @@ type I18nContextValue = {
   t: (key: TranslationKey, params?: TranslationParams) => string
 }
 
-const DEFAULT_LOCALE: Locale = "zh-CN"
-const STORAGE_KEY = "ai-reader.locale"
-
-const messages: Record<Locale, Record<TranslationKey, string>> = {
-  "zh-CN": zhCN,
-  en,
-  vi,
-}
-
 const I18nContext = createContext<I18nContextValue | null>(null)
 
-function isLocale(value: string | null): value is Locale {
-  return SUPPORTED_LOCALES.includes(value as Locale)
-}
-
-function getStoredLocale(): Locale {
-  if (typeof window === "undefined") return DEFAULT_LOCALE
-
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    return isLocale(stored) ? stored : DEFAULT_LOCALE
-  } catch {
-    return DEFAULT_LOCALE
-  }
-}
-
-function formatMessage(template: string, params?: TranslationParams) {
-  if (!params) return template
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(params[key] ?? ""))
-}
-
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => getStoredLocale())
+  const [locale, setLocaleState] = useState<Locale>(() => getCurrentLocale())
+
+  useEffect(() => subscribeLocale(setLocaleState), [])
 
   const setLocale = useCallback((nextLocale: Locale) => {
-    setLocaleState(nextLocale)
-    try {
-      window.localStorage.setItem(STORAGE_KEY, nextLocale)
-    } catch {
-      // Storage may be unavailable in restricted environments.
-    }
+    setCurrentLocale(nextLocale)
   }, [])
 
   const t = useCallback((key: TranslationKey, params?: TranslationParams) => {
-    const template = messages[locale][key] || messages[DEFAULT_LOCALE][key] || key
-    return formatMessage(template, params)
+    return translate(key, params)
   }, [locale])
 
   const value = useMemo<I18nContextValue>(() => ({

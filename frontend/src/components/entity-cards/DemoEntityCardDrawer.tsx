@@ -19,6 +19,7 @@ import { PersonCard } from "./PersonCard"
 import { LocationCard } from "./LocationCard"
 import { ItemCard } from "./ItemCard"
 import { OrgCard } from "./OrgCard"
+import { useI18n, translate } from "@/i18n"
 
 interface GraphNode {
   id: string
@@ -76,7 +77,7 @@ function buildDemoProfile(
         other_person: src === name ? tgt : src,
         stages: [{
           chapters: e.chapters ?? [],
-          relation_type: e.relation_type ?? "相关",
+          relation_type: e.relation_type ?? translate("entity.relatedShort"),
           evidences: [] as string[],
           evidence: "",
         }],
@@ -156,6 +157,7 @@ function buildDemoProfile(
 }
 
 export function DemoEntityCardDrawer() {
+  const { t } = useI18n()
   const { novelSlug } = useParams()
   const navigate = useNavigate()
   const { data } = useDemoData()
@@ -192,9 +194,9 @@ export function DemoEntityCardDrawer() {
     if (built) {
       setProfile(built)
     } else {
-      setError("未找到该实体的 Demo 数据")
+      setError(t("entity.demoDataNotFound"))
     }
-  }, [open, currentCrumb?.name, currentCrumb?.type, graphData, encEntries, setProfile, setError])
+  }, [open, currentCrumb?.name, currentCrumb?.type, graphData, encEntries, setProfile, setError, t])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
@@ -264,7 +266,7 @@ export function DemoEntityCardDrawer() {
         <div className="flex-1 overflow-y-auto px-4">
           {loading && (
             <div className="flex h-32 items-center justify-center">
-              <p className="text-sm text-slate-400">加载中...</p>
+              <p className="text-sm text-slate-400">{t("common.loading")}</p>
             </div>
           )}
 
@@ -293,7 +295,7 @@ export function DemoEntityCardDrawer() {
               {/* Demo CTA */}
               <div className="my-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-center">
                 <p className="text-sm text-blue-300">
-                  下载完整版体验场景索引等更多功能
+                  {t("entity.demoCta")}
                 </p>
               </div>
 
@@ -302,29 +304,29 @@ export function DemoEntityCardDrawer() {
                 {profile.type === "person" && (
                   <>
                     <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/graph`) }}>
-                      关系图
+                      {t("nav.relationGraph")}
                     </button>
                     <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/timeline`) }}>
-                      时间线
+                      {t("nav.timeline")}
                     </button>
                     <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
-                      百科
+                      {t("nav.encyclopedia")}
                     </button>
                   </>
                 )}
                 {profile.type === "location" && (
                   <>
                     <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/map`) }}>
-                      地图
+                      {t("nav.map")}
                     </button>
                     <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
-                      百科
+                      {t("nav.encyclopedia")}
                     </button>
                   </>
                 )}
                 {(profile.type === "item" || profile.type === "org") && (
                   <button className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500 hover:text-white" onClick={() => { close(); navigate(`/demo/${novelSlug}/encyclopedia`) }}>
-                    百科
+                    {t("nav.encyclopedia")}
                   </button>
                 )}
               </div>
@@ -346,7 +348,7 @@ export function DemoEntityCardDrawer() {
             <p className="mb-3 text-sm">{conceptPopup.definition}</p>
             {conceptPopup.related.length > 0 && (
               <div className="text-xs text-slate-400">
-                <span>相关：</span>{conceptPopup.related.join("、")}
+                <span>{t("entity.related")}</span>{conceptPopup.related.join("、")}
               </div>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { fetchEntityScenes } from "@/api/client"
+import { useI18n } from "@/i18n"
 import { CardSection, ChapterTag } from "./CardSection"
 
 interface SceneItem {
@@ -13,12 +14,15 @@ interface SceneItem {
 }
 
 const TONE_COLORS: Record<string, string> = {
+  // These tone values come from analysis output and should stay untranslated.
   "战斗": "text-red-600 dark:text-red-400",
   "紧张": "text-orange-600 dark:text-orange-400",
   "悲伤": "text-blue-600 dark:text-blue-400",
   "欢乐": "text-yellow-600 dark:text-yellow-400",
   "平静": "text-green-600 dark:text-green-400",
 }
+
+const NON_DISPLAY_ROLES = new Set(["提及"])
 
 interface EntityScenesProps {
   novelId: string
@@ -27,6 +31,7 @@ interface EntityScenesProps {
 }
 
 export function EntityScenes({ novelId, entityName, onChapterClick }: EntityScenesProps) {
+  const { t } = useI18n()
   const [scenes, setScenes] = useState<SceneItem[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -40,17 +45,19 @@ export function EntityScenes({ novelId, entityName, onChapterClick }: EntityScen
   if (!loaded || scenes.length === 0) return null
 
   return (
-    <CardSection title="参与场景" defaultLimit={5}>
+    <CardSection title={t("entity.scenes.title")} defaultLimit={5}>
       {scenes.map((s, i) => (
         <div key={i} className="text-sm">
           <ChapterTag chapter={s.chapter} onClick={onChapterClick} />
-          <span className="ml-1.5 font-medium">{s.title || `场景${s.index + 1}`}</span>
+          <span className="ml-1.5 font-medium">
+            {s.title || t("entity.scenes.fallbackTitle", { index: s.index + 1 })}
+          </span>
           {s.emotional_tone && (
             <span className={`ml-1 text-[10px] ${TONE_COLORS[s.emotional_tone] ?? "text-muted-foreground"}`}>
               {s.emotional_tone}
             </span>
           )}
-          {s.role && s.role !== "提及" && (
+          {s.role && !NON_DISPLAY_ROLES.has(s.role) && (
             <span className="ml-1 text-[10px] text-muted-foreground">
               ({s.role})
             </span>

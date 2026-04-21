@@ -37,6 +37,11 @@ const USER_VISIBLE_PROPS = new Set([
   "title",
 ])
 
+const EXTRACT_FILE_ALLOWLIST = new Set([
+  // Demo novel names are source/demo content, not interface copy.
+  "src/api/demoNovelMap.ts",
+])
+
 const COMMANDS = new Set(["extract", "check", "sync"])
 
 function main() {
@@ -311,6 +316,7 @@ function scanTranslationKeyUsage() {
 
   for (const filePath of sourceFiles()) {
     if (isLocaleFile(filePath)) continue
+    if (EXTRACT_FILE_ALLOWLIST.has(relativeFile(filePath))) continue
     const text = fs.readFileSync(filePath, "utf8")
     const sourceFile = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, true, filePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
 
@@ -339,6 +345,7 @@ function extractCandidates() {
 
   for (const filePath of sourceFiles()) {
     if (isLocaleFile(filePath)) continue
+    if (EXTRACT_FILE_ALLOWLIST.has(relativeFile(filePath))) continue
     const text = fs.readFileSync(filePath, "utf8")
     const sourceFile = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, true, filePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
 
@@ -357,7 +364,12 @@ function extractCandidates() {
     function visit(node) {
       if (ts.isJsxText(node)) {
         add(node, "jsx-text", node.getText(sourceFile))
-      } else if (isStringLiteralNode(node) && !isImportOrExportPath(node)) {
+      } else if (
+        isStringLiteralNode(node) &&
+        !isImportOrExportPath(node) &&
+        !isTypeOnlyString(node) &&
+        !isKeywordString(node)
+      ) {
         const attrName = getJsxAttributeName(node)
         if (attrName && USER_VISIBLE_ATTRS.has(attrName)) {
           add(node, `jsx-attr:${attrName}`, node.text)
@@ -382,6 +394,17 @@ function extractCandidates() {
 
 function isStringLiteralNode(node) {
   return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+}
+
+function isTypeOnlyString(node) {
+  return ts.isLiteralTypeNode(node.parent)
+}
+
+function isKeywordString(node) {
+  if (!ts.isArrayLiteralExpression(node.parent)) return false
+  const property = node.parent.parent
+  if (!ts.isPropertyAssignment(property)) return false
+  return getPropertyName(property.name) === "keywords"
 }
 
 function isImportOrExportPath(node) {
@@ -414,7 +437,11 @@ function isVisiblePropertyValue(node) {
 }
 
 function isObviousNonUiString(node) {
+  if (isSetMembershipString(node)) return true
+
   if (ts.isPropertyAssignment(node.parent)) {
+    if (node.parent.name === node && isCssClassString(node.parent.initializer)) return true
+
     const name = getPropertyName(node.parent.name)
     if (name && ["id", "key", "path", "slug", "type", "value"].includes(name)) return true
   }
@@ -423,6 +450,19 @@ function isObviousNonUiString(node) {
     if (["className", "href", "rel", "target", "type", "value"].includes(name)) return true
   }
   return false
+}
+
+function isSetMembershipString(node) {
+  const array = node.parent
+  if (!ts.isArrayLiteralExpression(array)) return false
+  const expression = array.parent
+  return ts.isNewExpression(expression) && getCallName(expression.expression) === "Set"
+}
+
+function isCssClassString(node) {
+  const value = getStringValue(unwrapExpression(node))
+  if (value == null) return false
+  return /\b(?:bg|text|border|ring|dark|hover|focus|rounded|px|py|mx|my|flex|grid|size|w|h|gap|items|justify)-/.test(value)
 }
 
 function getCallName(expression) {
@@ -460,6 +500,7 @@ function normalizeText(text) {
 function isLikelyUserVisible(text) {
   if (!text) return false
   if (text.length < 2) return false
+  if (/^&(?:#x?[0-9a-f]+|\w+);$/i.test(text)) return false
   if (/^https?:\/\//.test(text)) return false
   if (/^[./@#\w-]+$/.test(text) && !hasCjk(text)) return false
   return /[\p{L}\p{N}\p{Script=Han}]/u.test(text)

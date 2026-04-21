@@ -7,6 +7,7 @@ import {
   fetchMessages,
 } from "@/api/client"
 import { isTauri, getSidecarWsUrl } from "@/api/sidecarBridge"
+import { translate } from "@/i18n"
 
 interface ChatState {
   // Panel state
@@ -216,14 +217,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
             break
           }
           case "error": {
-            const errContent = msg.message || "请求出错，请稍后重试"
+            const errContent = msg.message || translate("chat.requestError")
             const state = get()
             // Show error as an assistant message so user sees feedback
             const errMsg: ChatMessage = {
               id: nextMsgId(),
               conversation_id: state.activeConversationId ?? "",
               role: "assistant",
-              content: `[错误] ${errContent}`,
+              content: translate("chat.errorMessage", { message: errContent }),
               sources: [],
               created_at: new Date().toISOString(),
             }

@@ -1,3 +1,5 @@
+import type { TranslationKey } from "@/i18n"
+
 export interface Novel {
   id: string
   title: string
@@ -780,22 +782,30 @@ export interface SeriesBibleRequest {
 
 export interface SeriesBibleTemplate {
   id: string
-  name: string
-  description: string
+  nameKey: TranslationKey
+  descriptionKey: TranslationKey
 }
 
 export const SERIES_BIBLE_MODULES = [
-  { id: "characters", label: "人物档案" },
-  { id: "relations", label: "关系网络" },
-  { id: "locations", label: "地点百科" },
-  { id: "items", label: "物品道具" },
-  { id: "orgs", label: "组织势力" },
-  { id: "timeline", label: "时间线" },
+  { id: "characters", labelKey: "export.module.characters" },
+  { id: "relations", labelKey: "export.module.relations" },
+  { id: "locations", labelKey: "export.module.locations" },
+  { id: "items", labelKey: "export.module.items" },
+  { id: "orgs", labelKey: "export.module.orgs" },
+  { id: "timeline", labelKey: "export.module.timeline" },
 ] as const
 
 export const SERIES_BIBLE_TEMPLATES = [
-  { id: "complete", name: "通用模板", description: "完整世界观文档，含全部模块" },
-  { id: "author", name: "网文作者套件", description: "人物设定卡 + 势力分布 + 时间线大纲" },
+  {
+    id: "complete",
+    nameKey: "export.template.complete.name",
+    descriptionKey: "export.template.complete.description",
+  },
+  {
+    id: "author",
+    nameKey: "export.template.author.name",
+    descriptionKey: "export.template.author.description",
+  },
 ] as const
 
 // ── Scenes (Screenplay Mode) ─────────────────────

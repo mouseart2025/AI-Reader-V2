@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react"
 import type { LocationProfile } from "@/api/types"
 import { fetchLocationSpatialSummary } from "@/api/client"
 import { translateSpatialType, translateSpatialValue } from "@/lib/spatialLabels"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 import { LocationMiniMap } from "./LocationMiniMap"
@@ -22,6 +23,7 @@ interface SpatialRelation {
 }
 
 export const LocationCard = memo(function LocationCard({ profile, onEntityClick, onChapterClick, novelId }: LocationCardProps) {
+  const { t } = useI18n()
   const { descriptions, visitors, events, stats } = profile
 
   const residents = visitors.filter((v) => v.is_resident)
@@ -57,18 +59,18 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
       {/* B. Spatial Hierarchy */}
       <div className="border-b py-3">
         <h4 className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-          空间层级
+          {t("entity.location.hierarchy")}
         </h4>
         <div className="text-sm">
           {profile.parent && (
             <div className="mb-1">
-              <span className="text-muted-foreground">上级：</span>
+              <span className="text-muted-foreground">{t("entity.location.parent")}</span>
               <EntityLink name={profile.parent} type="location" onClick={onEntityClick} />
             </div>
           )}
           {profile.children.length > 0 && (
             <div>
-              <span className="text-muted-foreground">下辖：</span>
+              <span className="text-muted-foreground">{t("entity.location.children")}</span>
               {profile.children.map((child, i) => (
                 <span key={child}>
                   {i > 0 && <span className="text-muted-foreground">、</span>}
@@ -78,14 +80,14 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
             </div>
           )}
           {!profile.parent && profile.children.length === 0 && (
-            <p className="text-muted-foreground">无层级关系</p>
+            <p className="text-muted-foreground">{t("entity.location.noHierarchy")}</p>
           )}
         </div>
       </div>
 
       {/* B2. Spatial Relationships */}
       {spatialRels.length > 0 && (
-        <CardSection title="空间关系" defaultLimit={5}>
+        <CardSection title={t("entity.location.spatialRelations")} defaultLimit={5}>
           {spatialRels.map((rel, i) => {
             const other = rel.source === profile.name ? rel.target : rel.source
             return (
@@ -93,7 +95,7 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
                 <span className="text-muted-foreground text-xs mr-1">{translateSpatialType(rel.relation_type)}</span>
                 <EntityLink name={other} type="location" onClick={onEntityClick} />
                 {rel.value && <span className="text-muted-foreground text-xs ml-1">({translateSpatialValue(rel.value)})</span>}
-                <span className="text-muted-foreground text-[10px] ml-1">{rel.chapters.length}章</span>
+                <span className="text-muted-foreground text-[10px] ml-1">{t("common.chapterCount", { count: rel.chapters.length })}</span>
               </div>
             )
           })}
@@ -101,7 +103,7 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
       )}
 
       {/* C. Descriptions */}
-      <CardSection title="环境描写" defaultLimit={3}>
+      <CardSection title={t("entity.location.descriptions")} defaultLimit={3}>
         {descriptions.map((d, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={d.chapter} onClick={onChapterClick} />
@@ -111,24 +113,24 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
       </CardSection>
 
       {/* D. Visitors */}
-      <CardSection title="到访人物" defaultLimit={10}>
+      <CardSection title={t("entity.location.visitors")} defaultLimit={10}>
         {[...residents, ...passersby].map((v) => (
           <div key={v.name} className="flex items-center gap-2 text-sm">
             <EntityLink name={v.name} type="person" onClick={onEntityClick} />
             {v.is_resident && (
               <span className="rounded bg-green-100 px-1 text-[10px] text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                常驻
+                {t("entity.location.resident")}
               </span>
             )}
             <span className="text-muted-foreground text-xs">
-              {v.chapters.length}章
+              {t("common.chapterCount", { count: v.chapters.length })}
             </span>
           </div>
         ))}
       </CardSection>
 
       {/* E. Events */}
-      <CardSection title="发生事件" defaultLimit={5}>
+      <CardSection title={t("entity.location.events")} defaultLimit={5}>
         {events.map((ev, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={ev.chapter} onClick={onChapterClick} />
@@ -144,12 +146,12 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">
-            数据统计
+            {t("entity.dataStats")}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {Object.entries(stats).map(([k, v]) => (
               <div key={k} className="rounded-md bg-muted/50 px-2 py-1 text-sm">
-                <span className="text-muted-foreground text-xs">{formatStatLabel(k)}</span>
+                <span className="text-muted-foreground text-xs">{t(getLocationStatLabelKey(k))}</span>
                 <div className="font-medium">{v}</div>
               </div>
             ))}
@@ -160,12 +162,12 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
   )
 })
 
-function formatStatLabel(key: string): string {
-  const labels: Record<string, string> = {
-    chapter_count: "提及章节",
-    first_chapter: "首次出现",
-    visitor_count: "到访人数",
-    event_count: "事件数",
+function getLocationStatLabelKey(key: string): TranslationKey {
+  const labels: Record<string, TranslationKey> = {
+    chapter_count: "entity.stat.mentionedChapters",
+    first_chapter: "entity.stat.firstAppearance",
+    visitor_count: "entity.stat.visitorCount",
+    event_count: "entity.stat.eventCount",
   }
-  return labels[key] ?? key
+  return labels[key] ?? "entity.stat.unknown"
 }

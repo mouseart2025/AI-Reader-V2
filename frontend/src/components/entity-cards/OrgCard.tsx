@@ -1,5 +1,6 @@
 import { memo } from "react"
 import type { OrgProfile } from "@/api/types"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
@@ -11,6 +12,7 @@ interface OrgCardProps {
   novelId?: string
 }
 
+// These values match extraction output from the backend and should stay untranslated.
 const LEAVE_ACTIONS = new Set(["离开", "阵亡", "叛出", "逐出", "退出", "离去", "战死"])
 
 const ORG_REL_COLORS: Record<string, string> = {
@@ -27,6 +29,7 @@ const ORG_REL_COLORS: Record<string, string> = {
 }
 
 export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapterClick, novelId }: OrgCardProps) {
+  const { t } = useI18n()
   const { member_events, org_relations, stats } = profile
 
   // Group member events by member
@@ -62,7 +65,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
 
       {/* Current Members */}
       {currentMembers.length > 0 && (
-        <CardSection title="当前成员" defaultLimit={10}>
+        <CardSection title={t("entity.org.currentMembers")} defaultLimit={10}>
           {currentMembers.map(([member, events]) => {
             const lastEvent = events[events.length - 1]
             return (
@@ -80,7 +83,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
       )}
 
       {/* Member History */}
-      <CardSection title="成员变动" defaultLimit={10}>
+      <CardSection title={t("entity.org.memberHistory")} defaultLimit={10}>
         {Array.from(memberMap.entries()).map(([member, events]) => (
           <div key={member} className="text-sm">
             <EntityLink name={member} type="person" onClick={onEntityClick} />
@@ -95,7 +98,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
       </CardSection>
 
       {/* Org Relations */}
-      <CardSection title="组织关系" defaultLimit={10}>
+      <CardSection title={t("entity.org.relations")} defaultLimit={10}>
         {org_relations.map((rel, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={rel.chapter} onClick={onChapterClick} />
@@ -119,12 +122,12 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">
-            数据统计
+            {t("entity.dataStats")}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {Object.entries(stats).map(([k, v]) => (
               <div key={k} className="rounded-md bg-muted/50 px-2 py-1 text-sm">
-                <span className="text-muted-foreground text-xs">{formatStatLabel(k)}</span>
+                <span className="text-muted-foreground text-xs">{t(getOrgStatLabelKey(k))}</span>
                 <div className="font-medium">{v}</div>
               </div>
             ))}
@@ -135,11 +138,11 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
   )
 })
 
-function formatStatLabel(key: string): string {
-  const labels: Record<string, string> = {
-    chapter_count: "相关章节",
-    first_chapter: "首次出现",
-    member_event_count: "成员变动数",
+function getOrgStatLabelKey(key: string): TranslationKey {
+  const labels: Record<string, TranslationKey> = {
+    chapter_count: "entity.stat.relatedChapters",
+    first_chapter: "entity.stat.firstAppearance",
+    member_event_count: "entity.stat.memberEventCount",
   }
-  return labels[key] ?? key
+  return labels[key] ?? "entity.stat.unknown"
 }

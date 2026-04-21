@@ -125,6 +125,8 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] Welcome banner.
   - [ ] Feature discovery and guided tour text.
   - [ ] Cost preview dialog.
+  - [x] Floating chat panel labels, quick questions, and system FAQ responses.
+  - [x] Entity card drawer shell and card-section controls.
 - [ ] Verify both web and desktop shell builds.
   - [x] Web build with `npm run build`.
   - [ ] Desktop build.
@@ -155,11 +157,17 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] `frontend/src/pages/EncyclopediaPage.tsx`
   - [ ] `frontend/src/pages/ConflictsPage.tsx`
 - [ ] Migrate chat and export pages.
-  - [ ] `frontend/src/pages/ChatPage.tsx`
-  - [ ] `frontend/src/pages/ExportPage.tsx`
+  - [x] `frontend/src/pages/ChatPage.tsx`
+  - [x] `frontend/src/pages/ExportPage.tsx`
+  - [x] `frontend/src/components/chat/FloatingChatPanel.tsx`
+  - [x] `frontend/src/lib/systemFaq.ts`
 - [ ] Migrate demo pages.
   - [ ] `frontend/src/pages/demo/*`
 - [ ] Avoid translating source novel text, entity names, and quoted evidence.
+- [x] Migrate frontend API-client fallback UI messages.
+  - [x] Upload progress fallback errors.
+  - [x] Hierarchy/spatial streaming fallback errors.
+  - [x] Default chat title and Series Bible fallback filenames.
 
 ## Phase 4: Frontend Domain Labels And Formatting
 
@@ -171,6 +179,9 @@ remains the default locale until the project maintainers decide otherwise.
   - [ ] Scene event types.
   - [ ] Organization/faction labels.
   - [ ] Conflict severity labels.
+  - [x] Series Bible export module and template labels.
+  - [x] Item, location, and organization card section/stat labels.
+  - [x] Person card relation categories, section labels, scene labels, and stat labels.
 - [ ] Keep API enum values stable and translate only display labels.
 - [ ] Add date/time/number formatting helpers.
   - [ ] Dates in Settings and backups.
@@ -265,6 +276,9 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Detect duplicate keys and inconsistent interpolation variables across locales.
   - [x] Detect hardcoded CJK UI strings outside locale files and comments.
   - [ ] Support an allowlist for Chinese NLP data, prompts, fixtures, demo content, and tests.
+    - [x] Allowlist frontend demo novel metadata as source content.
+    - [x] Ignore non-UI Set membership data, CSS class maps, and HTML entity icon tokens.
+    - [ ] Add broader allowlist categories for prompts, fixtures, and NLP dictionaries.
 - [x] Add a `sync` tool to keep locale files aligned.
   - [x] Add missing keys from the source locale into target locale files with source-text placeholders.
   - [x] Preserve stable key ordering for clean diffs.
@@ -311,7 +325,12 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Initial `i18n:extract`, `i18n:check`, and `i18n:sync` tooling.
 - [ ] Suggested PR 3:
   - [ ] Reading, analysis, visualization, chat, export page migration.
-  - [ ] Domain label maps.
+    - [x] Chat page and floating chat panel.
+    - [x] Export page.
+    - [x] Entity card drawer shell and item/location/organization cards.
+    - [x] Person card and entity scene snippets.
+  - [x] Series Bible export labels.
+  - [ ] Remaining domain label maps.
 - [ ] Suggested PR 4:
   - [ ] Backend locale foundation.
   - [ ] API and WebSocket localized messages.

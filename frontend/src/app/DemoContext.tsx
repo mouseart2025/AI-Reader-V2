@@ -5,6 +5,7 @@
 import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react"
 import { preloadAllDemoData, clearDemoCache, loadDemoChapterContent, type DemoDataBundle, type DemoChapterContent } from "@/api/demoDataAdapter"
 import { getDemoNovel, type DemoNovelInfo } from "@/api/demoNovelMap"
+import { useI18n } from "@/i18n"
 
 export interface DemoContextValue {
   slug: string
@@ -28,6 +29,7 @@ interface DemoProviderProps {
 }
 
 export function DemoProvider({ slug, children }: DemoProviderProps) {
+  const { t } = useI18n()
   const [data, setData] = useState<DemoDataBundle | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,17 +53,19 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
         setLoading(false)
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "加载 Demo 数据失败")
+        setError(err instanceof Error ? err.message : t("demo.loadDataFailed"))
         setLoading(false)
       })
-  }, [slug, novelInfo])
+  }, [slug, novelInfo, t])
 
   if (!novelInfo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
-          <p className="text-lg font-semibold text-red-400">未知的 Demo 小说</p>
-          <p className="mt-2 text-sm text-slate-400">「{slug}」不是有效的 Demo 标识</p>
+          <p className="text-lg font-semibold text-red-400">{t("demo.unknownNovelTitle")}</p>
+          <p className="mt-2 text-sm text-slate-400">
+            {t("demo.invalidNovelSlug", { slug })}
+          </p>
         </div>
       </div>
     )
@@ -72,7 +76,9 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-          <p className="text-sm text-slate-400">正在加载「{novelInfo.title}」Demo 数据...</p>
+          <p className="text-sm text-slate-400">
+            {t("demo.loadingData", { title: novelInfo.title })}
+          </p>
         </div>
       </div>
     )
@@ -82,7 +88,7 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
-          <p className="text-lg font-semibold text-red-400">加载失败</p>
+          <p className="text-lg font-semibold text-red-400">{t("demo.loadFailed")}</p>
           <p className="mt-2 text-sm text-slate-400">{error}</p>
         </div>
       </div>

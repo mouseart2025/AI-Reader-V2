@@ -1,5 +1,6 @@
 import { memo } from "react"
 import type { ItemProfile } from "@/api/types"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 
@@ -11,6 +12,7 @@ interface ItemCardProps {
 }
 
 export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapterClick, novelId }: ItemCardProps) {
+  const { t } = useI18n()
   const { flow, related_items, stats } = profile
 
   return (
@@ -31,7 +33,7 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
       </div>
 
       {/* Flow Chain */}
-      <CardSection title="持有流转" defaultLimit={10}>
+      <CardSection title={t("entity.item.flow")} defaultLimit={10}>
         {flow.map((f, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={f.chapter} onClick={onChapterClick} />
@@ -53,7 +55,7 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
       </CardSection>
 
       {/* Related Items */}
-      <CardSection title="关联物品" defaultLimit={10}>
+      <CardSection title={t("entity.item.relatedItems")} defaultLimit={10}>
         {related_items.map((name) => (
           <div key={name} className="text-sm">
             <EntityLink name={name} type="item" onClick={onEntityClick} />
@@ -68,12 +70,12 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">
-            数据统计
+            {t("entity.dataStats")}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {Object.entries(stats).map(([k, v]) => (
               <div key={k} className="rounded-md bg-muted/50 px-2 py-1 text-sm">
-                <span className="text-muted-foreground text-xs">{formatStatLabel(k)}</span>
+                <span className="text-muted-foreground text-xs">{t(getItemStatLabelKey(k))}</span>
                 <div className="font-medium">{v}</div>
               </div>
             ))}
@@ -84,11 +86,11 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
   )
 })
 
-function formatStatLabel(key: string): string {
-  const labels: Record<string, string> = {
-    chapter_count: "出现章节",
-    first_chapter: "首次出现",
-    flow_count: "流转次数",
+function getItemStatLabelKey(key: string): TranslationKey {
+  const labels: Record<string, TranslationKey> = {
+    chapter_count: "entity.stat.appearanceChapters",
+    first_chapter: "entity.stat.firstAppearance",
+    flow_count: "entity.stat.flowCount",
   }
-  return labels[key] ?? key
+  return labels[key] ?? "entity.stat.unknown"
 }

@@ -26,6 +26,7 @@ import type {
   WorldStructureData,
   WorldStructureOverride,
 } from "./types"
+import { translate } from "@/i18n"
 import { isTauri, getSidecarBaseUrl } from "./sidecarBridge"
 
 function getBase(): string {
@@ -90,20 +91,20 @@ export function uploadNovelWithProgress(
         try {
           resolve(JSON.parse(xhr.responseText) as UploadPreviewResponse)
         } catch {
-          reject(new Error("解析响应失败"))
+          reject(new Error(translate("api.responseParseFailed")))
         }
       } else {
         try {
           const body = JSON.parse(xhr.responseText)
-          reject(new Error(body?.detail ?? `上传失败: ${xhr.status}`))
+          reject(new Error(body?.detail ?? translate("api.uploadFailedWithStatus", { status: xhr.status })))
         } catch {
-          reject(new Error(`上传失败: ${xhr.status}`))
+          reject(new Error(translate("api.uploadFailedWithStatus", { status: xhr.status })))
         }
       }
     })
 
-    xhr.addEventListener("error", () => reject(new Error("网络错误")))
-    xhr.addEventListener("abort", () => reject(new Error("上传已取消")))
+    xhr.addEventListener("error", () => reject(new Error(translate("api.networkError"))))
+    xhr.addEventListener("abort", () => reject(new Error(translate("api.uploadCanceled"))))
 
     xhr.open("POST", `${getBase()}/novels/upload`)
     xhr.send(form)
@@ -166,7 +167,7 @@ export function pullOllamaModel(
                 return
               }
               if (data.status === "error") {
-                onError(data.error ?? "未知错误")
+                onError(data.error ?? translate("api.unknownError"))
                 return
               }
             } catch { /* skip parse errors */ }
@@ -547,7 +548,7 @@ export function rebuildHierarchy(
           }
         }
         if (done_received) resolve(result ?? { changes: [], summary: { total: 0 } } as unknown as HierarchyRebuildResult)
-        else reject(new Error("未收到重建结果"))
+        else reject(new Error(translate("api.hierarchyRebuildNoResult")))
       })
       .catch(reject)
   })
@@ -609,7 +610,7 @@ export function spatialCompletion(
           }
         }
         if (result) resolve(result)
-        else reject(new Error("未收到补全结果"))
+        else reject(new Error(translate("api.spatialCompletionNoResult")))
       })
       .catch(reject)
   })
@@ -788,7 +789,7 @@ export function createConversation(
 ): Promise<Conversation> {
   return apiFetch(`/novels/${novelId}/conversations`, {
     method: "POST",
-    body: JSON.stringify({ title: title ?? "新对话" }),
+    body: JSON.stringify({ title: title ?? translate("api.defaultConversationTitle") }),
   })
 }
 
@@ -868,19 +869,19 @@ export async function exportSeriesBible(
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new Error(body?.detail ?? `导出失败: ${res.status}`)
+    throw new Error(body?.detail ?? translate("api.exportFailedWithStatus", { status: res.status }))
   }
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
   const defaultName = req?.format === "docx"
-    ? "设定集.docx"
+    ? translate("api.seriesBibleFilename.docx")
     : req?.format === "xlsx"
-      ? "设定集.xlsx"
+      ? translate("api.seriesBibleFilename.xlsx")
       : req?.format === "pdf"
-        ? "设定集.pdf"
-        : "设定集.md"
+        ? translate("api.seriesBibleFilename.pdf")
+        : translate("api.seriesBibleFilename.md")
   a.download = decodeURIComponent(
     res.headers.get("Content-Disposition")?.match(/filename\*=UTF-8''(.+)/)?.[1] ?? defaultName,
   )
