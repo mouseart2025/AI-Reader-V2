@@ -35,10 +35,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useI18n, type TranslationKey, type TranslationParams } from "@/i18n"
 
-const TYPE_LABELS: Record<string, string> = {
-  person: "人物", location: "地点", item: "物品",
-  org: "组织", concept: "概念", unknown: "未知",
+const TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
+  person: "analysis.entityType.person",
+  location: "analysis.entityType.location",
+  item: "analysis.entityType.item",
+  org: "analysis.entityType.org",
+  concept: "analysis.entityType.concept",
+  unknown: "analysis.entityType.unknown",
 }
 const TYPE_BADGE_COLORS: Record<string, string> = {
   person: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -55,16 +60,40 @@ function formatTokens(n: number): string {
   return String(n)
 }
 
-function formatDuration(ms: number): string {
+type TranslateFn = (key: TranslationKey, params?: TranslationParams) => string
+
+function typeLabel(type: string, t: TranslateFn): string {
+  const key = TYPE_LABEL_KEYS[type]
+  return key ? t(key) : type
+}
+
+function errorTypeLabel(type: string | undefined, t: TranslateFn): string {
+  if (type === "content_policy") return t("analysis.errorType.contentPolicy")
+  if (type === "timeout") return t("analysis.errorType.timeout")
+  if (type === "parse_error") return t("analysis.errorType.parseError")
+  if (type === "http_error") return t("analysis.errorType.httpError")
+  return t("analysis.errorType.unknown")
+}
+
+function formatDuration(ms: number, t: TranslateFn): string {
   const s = Math.round(ms / 1000)
-  if (s < 60) return `${s}秒`
+  if (s < 60) return t("analysis.duration.seconds", { seconds: s })
   const m = Math.floor(s / 60)
-  if (m < 60) return `${m}分${s % 60}秒`
+  if (m < 60) return t("analysis.duration.minutesSeconds", { minutes: m, seconds: s % 60 })
   const h = Math.floor(m / 60)
-  return `${h}小时${m % 60}分`
+  return t("analysis.duration.hoursMinutes", { hours: h, minutes: m % 60 })
+}
+
+function formatEstimateMinutes(totalMin: number, t: TranslateFn): string {
+  if (totalMin < 60) return t("analysis.duration.minutes", { minutes: totalMin })
+  return t("analysis.duration.hoursMinutes", {
+    hours: Math.floor(totalMin / 60),
+    minutes: totalMin % 60,
+  })
 }
 
 export default function AnalysisPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
   const [novel, setNovel] = useState<Novel | null>(null)
@@ -157,10 +186,13 @@ export default function AnalysisPage() {
     } else if (pct >= 0.8 && !budgetWarning80Ref.current) {
       budgetWarning80Ref.current = true
       const remaining = costStats.monthly_budget_cny - costStats.monthly_used_cny
-      setBudgetToast(`本月云端预算已用 ${Math.round(pct * 100)}%，剩余 ¥${Math.max(0, remaining).toFixed(2)}`)
+      setBudgetToast(t("analysis.budget.warningToast", {
+        percent: Math.round(pct * 100),
+        remaining: Math.max(0, remaining).toFixed(2),
+      }))
       setTimeout(() => setBudgetToast(null), 5000)
     }
-  }, [costStats])
+  }, [costStats, t])
 
   // Reload data when retry completes (retryProgress: non-null → null)
   useEffect(() => {
@@ -168,9 +200,9 @@ export default function AnalysisPage() {
     prevRetryProgressRef.current = retryProgress
     if (wasRetrying && retryProgress === null && novelId) {
       // Retry finished — reload task & failed chapters
-      getLatestAnalysisTask(novelId).then(({ task: t, stats: s, quality: q, failed_chapters: fc }) => {
-        if (t) {
-          setTask(t)
+      getLatestAnalysisTask(novelId).then(({ task: latestTask, stats: s, quality: q, failed_chapters: fc }) => {
+        if (latestTask) {
+          setTask(latestTask)
           setQualitySummary(q ?? null)
           if (s) useAnalysisStore.setState({ stats: s })
         }
@@ -178,13 +210,13 @@ export default function AnalysisPage() {
           failedChapters: (fc ?? []).map((f) => ({
             chapter: f.chapter_num,
             title: f.title,
-            error: f.analysis_error ?? "Unknown error",
+            error: f.analysis_error ?? t("analysis.errorType.unknown"),
             error_type: f.error_type,
           })),
         })
       }).catch(() => {})
     }
-  }, [retryProgress, novelId, setTask, setQualitySummary])
+  }, [retryProgress, novelId, setTask, setQualitySummary, t])
 
   // Reset budget warning refs when starting new analysis
   useEffect(() => {
@@ -283,7 +315,7 @@ export default function AnalysisPage() {
               failedChapters: latestFailed.map((fc) => ({
                 chapter: fc.chapter_num,
                 title: fc.title,
-                error: fc.analysis_error ?? "Unknown error",
+                error: fc.analysis_error ?? t("analysis.errorType.unknown"),
                 error_type: fc.error_type,
               })),
             })
@@ -346,7 +378,7 @@ export default function AnalysisPage() {
       cancelled = true
       disconnectWs()
     }
-  }, [novelId, setTask, connectWs, disconnectWs, resetProgress, loadPrescanData])
+  }, [novelId, setTask, connectWs, disconnectWs, resetProgress, loadPrescanData, t])
 
   // Poll prescan status when running
   useEffect(() => {
@@ -542,7 +574,7 @@ export default function AnalysisPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">加载中...</p>
+        <p className="text-muted-foreground">{t("common.loading")}</p>
       </div>
     )
   }
@@ -550,9 +582,9 @@ export default function AnalysisPage() {
   if (!novel) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">未找到该小说</p>
+        <p className="text-muted-foreground">{t("analysis.notFound")}</p>
         <Button variant="outline" onClick={() => navigate("/")}>
-          返回书架
+          {t("analysis.backToBookshelf")}
         </Button>
       </div>
     )
@@ -564,8 +596,10 @@ export default function AnalysisPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">{novel.title}</h1>
         <p className="text-muted-foreground text-sm">
-          共 {novel.total_chapters} 章 &middot;{" "}
-          {novel.total_words.toLocaleString()} 字
+          {t("analysis.novelStats", {
+            chapters: novel.total_chapters,
+            words: novel.total_words.toLocaleString(),
+          })}
         </p>
       </div>
 
@@ -608,7 +642,7 @@ export default function AnalysisPage() {
               )}
               {isRunning ? (
                 <>
-                  正在分析...
+                  {t("analysis.runningDetailed")}
                   {stageLabel && (
                     <span className="text-sm font-normal text-muted-foreground ml-1">
                       {stageLabel}
@@ -620,58 +654,64 @@ export default function AnalysisPage() {
                     </Badge>
                   )}
                 </>
-              ) : "已暂停"}
+              ) : t("analysis.paused")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="mb-1 flex justify-between text-sm">
                 <span>
-                  第 {currentChapter} 章 / 共 {totalChapters} 章
+                  {t("analysis.chapterProgress", {
+                    current: currentChapter,
+                    total: totalChapters,
+                  })}
                 </span>
                 <span>{progress}%</span>
               </div>
               <Progress value={progress} />
               {timingStats && (
                 <div className="mt-1.5 text-muted-foreground text-sm flex flex-wrap gap-x-3">
-                  <span>本章 {formatDuration(timingStats.last_chapter_ms)}</span>
-                  <span>均速 {formatDuration(timingStats.avg_chapter_ms)}/章</span>
-                  <span>已用 {formatDuration(timingStats.elapsed_total_ms)}</span>
-                  <span>预计剩余 {formatDuration(timingStats.eta_ms)}</span>
+                  <span>{t("analysis.timing.currentChapter", { duration: formatDuration(timingStats.last_chapter_ms, t) })}</span>
+                  <span>{t("analysis.timing.average", { duration: formatDuration(timingStats.avg_chapter_ms, t) })}</span>
+                  <span>{t("analysis.timing.elapsed", { duration: formatDuration(timingStats.elapsed_total_ms, t) })}</span>
+                  <span>{t("analysis.timing.eta", { duration: formatDuration(timingStats.eta_ms, t) })}</span>
                 </div>
               )}
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-center">
-              <StatCard label="实体" value={stats.entities} />
-              <StatCard label="关系" value={stats.relations} />
-              <StatCard label="事件" value={stats.events} />
+              <StatCard label={t("analysis.stat.entities")} value={stats.entities} />
+              <StatCard label={t("analysis.stat.relations")} value={stats.relations} />
+              <StatCard label={t("analysis.stat.events")} value={stats.events} />
             </div>
 
             {costStats?.is_cloud && (
               <div className="rounded-md border p-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">已用 Token</span>
+                  <span className="text-muted-foreground">{t("analysis.cost.tokensUsed")}</span>
                   <span className="font-mono text-xs">
-                    {formatTokens(costStats.total_input_tokens)} 入 / {formatTokens(costStats.total_output_tokens)} 出
+                    {t("analysis.cost.tokenBreakdown", {
+                      input: formatTokens(costStats.total_input_tokens),
+                      output: formatTokens(costStats.total_output_tokens),
+                    })}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">已花费</span>
+                  <span className="text-muted-foreground">{t("analysis.cost.spent")}</span>
                   <span>
                     ¥{costStats.total_cost_cny}
                     <span className="text-muted-foreground text-xs ml-1">(${costStats.total_cost_usd})</span>
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">预估剩余</span>
+                  <span className="text-muted-foreground">{t("analysis.cost.estimatedRemaining")}</span>
                   <span>
                     ¥{costStats.estimated_remaining_cny}
                     <span className="text-muted-foreground text-xs ml-1">(${costStats.estimated_remaining_usd})</span>
                   </span>
                 </div>
                 <div className="flex justify-between border-t pt-1.5 font-medium">
-                  <span>预估总计</span>
+                  <span>{t("analysis.cost.estimatedTotal")}</span>
                   <span>
                     ¥{(costStats.total_cost_cny + costStats.estimated_remaining_cny).toFixed(2)}
                     <span className="text-muted-foreground text-xs ml-1">
@@ -686,18 +726,18 @@ export default function AnalysisPage() {
               {isRunning && (
                 <>
                   <Button variant="outline" onClick={handlePause}>
-                    暂停
+                    {t("analysis.pause")}
                   </Button>
                   <Button variant="destructive" onClick={handleCancel}>
-                    取消
+                    {t("common.cancel")}
                   </Button>
                 </>
               )}
               {isPaused && (
                 <>
-                  <Button onClick={handleResume}>继续</Button>
+                  <Button onClick={handleResume}>{t("common.continue")}</Button>
                   <Button variant="destructive" onClick={handleCancel}>
-                    取消
+                    {t("common.cancel")}
                   </Button>
                 </>
               )}
@@ -712,45 +752,50 @@ export default function AnalysisPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className={`inline-block size-2 rounded-full ${isCompletedWithErrors ? "bg-yellow-500" : "bg-blue-500"}`} />
-              {isCompletedWithErrors ? "分析完成（部分章节失败）" : "分析完成"}
+              {isCompletedWithErrors ? t("analysis.completedPartial") : t("analysis.completed")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4 text-center">
-              <StatCard label="实体" value={stats.entities} />
-              <StatCard label="关系" value={stats.relations} />
-              <StatCard label="事件" value={stats.events} />
+              <StatCard label={t("analysis.stat.entities")} value={stats.entities} />
+              <StatCard label={t("analysis.stat.relations")} value={stats.relations} />
+              <StatCard label={t("analysis.stat.events")} value={stats.events} />
             </div>
             <p className="text-muted-foreground text-sm">
-              已分析第 {task?.chapter_start} - {task?.chapter_end} 章
+              {t("analysis.completedRange", {
+                start: task?.chapter_start ?? 0,
+                end: task?.chapter_end ?? 0,
+              })}
             </p>
             {task?.timing_summary && (
               <div className="rounded-md border p-3 text-sm flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                <span>总耗时 {formatDuration(task.timing_summary.total_ms)}</span>
-                <span>均速 {formatDuration(task.timing_summary.avg_chapter_ms)}/章</span>
-                <span>最快 {formatDuration(task.timing_summary.min_chapter_ms)}</span>
-                <span>最慢 {formatDuration(task.timing_summary.max_chapter_ms)}</span>
+                <span>{t("analysis.timing.total", { duration: formatDuration(task.timing_summary.total_ms, t) })}</span>
+                <span>{t("analysis.timing.average", { duration: formatDuration(task.timing_summary.avg_chapter_ms, t) })}</span>
+                <span>{t("analysis.timing.fastest", { duration: formatDuration(task.timing_summary.min_chapter_ms, t) })}</span>
+                <span>{t("analysis.timing.slowest", { duration: formatDuration(task.timing_summary.max_chapter_ms, t) })}</span>
               </div>
             )}
             {qualitySummary && (totalChapters > 0) && (
               <div className="rounded-md border p-3 text-sm space-y-1">
-                <span className="text-muted-foreground text-xs font-medium">分析质量</span>
+                <span className="text-muted-foreground text-xs font-medium">{t("analysis.quality.title")}</span>
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground">
-                  <span>{totalChapters - (qualitySummary.truncated_chapters + qualitySummary.segmented_chapters)} 章完整提取</span>
+                  <span>{t("analysis.quality.completeExtracted", {
+                    count: totalChapters - (qualitySummary.truncated_chapters + qualitySummary.segmented_chapters),
+                  })}</span>
                   {qualitySummary.truncated_chapters > 0 && (
                     <span className="text-yellow-600 dark:text-yellow-400">
-                      {qualitySummary.truncated_chapters} 章被截断（Token不足）
+                      {t("analysis.quality.truncated", { count: qualitySummary.truncated_chapters })}
                     </span>
                   )}
                   {qualitySummary.segmented_chapters > 0 && (
-                    <span>{qualitySummary.segmented_chapters} 章使用分段提取</span>
+                    <span>{t("analysis.quality.segmented", { count: qualitySummary.segmented_chapters })}</span>
                   )}
                 </div>
               </div>
             )}
             {costStats?.is_cloud && costStats.total_cost_usd > 0 && (
               <div className="rounded-md border p-3 text-sm flex justify-between">
-                <span className="text-muted-foreground">本次分析费用</span>
+                <span className="text-muted-foreground">{t("analysis.cost.thisRun")}</span>
                 <span className="font-medium">
                   ¥{costStats.total_cost_cny}
                   <span className="text-muted-foreground text-xs ml-1">(${costStats.total_cost_usd})</span>
@@ -762,13 +807,13 @@ export default function AnalysisPage() {
             )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleReanalyze}>
-                重新分析
+                {t("analysis.reanalyze")}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => setShowClearConfirm(true)}
               >
-                清除所有数据
+                {t("analysis.clearAllData")}
               </Button>
             </div>
           </CardContent>
@@ -781,19 +826,19 @@ export default function AnalysisPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="inline-block size-2 rounded-full bg-gray-400" />
-              分析已取消
+              {t("analysis.cancelled")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4 text-sm">
-              已在第 {task?.current_chapter} 章停止。已完成的分析数据已保留。
+              {t("analysis.cancelledDescription", { chapter: task?.current_chapter ?? 0 })}
             </p>
             <Button
               variant="destructive"
               size="sm"
               onClick={() => setShowClearConfirm(true)}
             >
-              清除所有数据
+              {t("analysis.clearAllData")}
             </Button>
           </CardContent>
         </Card>
@@ -804,7 +849,7 @@ export default function AnalysisPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>失败章节 ({failedChapters.length})</span>
+              <span>{t("analysis.failedChaptersTitle", { count: failedChapters.length })}</span>
               {!isActive && novelId && (
                 <Button
                   variant="outline"
@@ -816,14 +861,18 @@ export default function AnalysisPage() {
                     try {
                       await retryFailedChapters(novelId)
                     } catch (err) {
-                      setError(`重试失败: ${String(err)}`)
+                      setError(t("analysis.retryFailed", { error: String(err) }))
                       setRetrying(false)
                     }
                   }}
                 >
                   {retryProgress
-                    ? `重试中 ${retryProgress.done}/${retryProgress.total} (第${retryProgress.currentChapter}章)`
-                    : retrying ? "重试中..." : "重试失败章节"}
+                    ? t("analysis.retryProgress", {
+                      done: retryProgress.done,
+                      total: retryProgress.total,
+                      chapter: retryProgress.currentChapter,
+                    })
+                    : retrying ? t("analysis.retrying") : t("analysis.retryFailedChapters")}
                 </Button>
               )}
             </CardTitle>
@@ -836,7 +885,7 @@ export default function AnalysisPage() {
                   className="flex items-center justify-between rounded-md border p-2 text-sm"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="shrink-0">第 {fc.chapter} 章</span>
+                    <span className="shrink-0">{t("analysis.chapterTitle", { chapter: fc.chapter })}</span>
                     {fc.title && (
                       <span className="text-muted-foreground truncate text-xs">{fc.title}</span>
                     )}
@@ -850,11 +899,7 @@ export default function AnalysisPage() {
                             ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                             : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                       }`}>
-                        {fc.error_type === "content_policy" ? "内容审核"
-                          : fc.error_type === "timeout" ? "超时"
-                          : fc.error_type === "parse_error" ? "解析失败"
-                          : fc.error_type === "http_error" ? "HTTP错误"
-                          : "未知错误"}
+                        {errorTypeLabel(fc.error_type, t)}
                       </span>
                     )}
                     <span
@@ -875,11 +920,11 @@ export default function AnalysisPage() {
       {!isActive && (
         <Card>
           <CardHeader>
-            <CardTitle>开始分析</CardTitle>
+            <CardTitle>{t("analysis.startTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              使用 AI 逐章分析小说，提取人物、关系、地点、事件、物品、组织等结构化信息。已完成的章节将自动跳过。
+              {t("analysis.startDescription")}
             </p>
 
             {/* Range toggle */}
@@ -891,14 +936,14 @@ export default function AnalysisPage() {
                   onChange={(e) => setShowRangeMode(e.target.checked)}
                   className="mr-2"
                 />
-                指定章节范围
+                {t("analysis.rangeMode")}
               </label>
             </div>
 
             {showRangeMode && (
               <div className="flex items-end gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="range-start">起始章</Label>
+                  <Label htmlFor="range-start">{t("analysis.rangeStart")}</Label>
                   <Input
                     id="range-start"
                     type="number"
@@ -910,7 +955,7 @@ export default function AnalysisPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="range-end">结束章</Label>
+                  <Label htmlFor="range-end">{t("analysis.rangeEnd")}</Label>
                   <Input
                     id="range-end"
                     type="number"
@@ -922,7 +967,7 @@ export default function AnalysisPage() {
                   />
                 </div>
                 <span className="text-muted-foreground pb-2 text-sm">
-                  / 共 {novel.total_chapters} 章
+                  {t("analysis.totalChaptersSuffix", { count: novel.total_chapters })}
                 </span>
               </div>
             )}
@@ -932,11 +977,11 @@ export default function AnalysisPage() {
                 onClick={() => handleStartAnalysis(false)}
                 disabled={starting || isActive || llmAvailable === false}
               >
-                {starting ? "启动中..." : "开始分析"}
+                {starting ? t("analysis.starting") : t("analysis.startTitle")}
               </Button>
               {(isCompleted || isCancelled) && (
                 <Button variant="outline" onClick={handleReanalyze}>
-                  强制重新分析
+                  {t("analysis.forceReanalyze")}
                 </Button>
               )}
               {/* Time estimate */}
@@ -947,8 +992,10 @@ export default function AnalysisPage() {
                 const totalMin = Math.ceil((chapters * secPerChapter) / 60)
                 return (
                   <span className="text-xs text-muted-foreground">
-                    预计需要 {totalMin < 60 ? `${totalMin} 分钟` : `${Math.floor(totalMin / 60)} 小时 ${totalMin % 60} 分钟`}
-                    {isCloud ? "（云端）" : "（本地）"}
+                    {t("analysis.estimatedTime", {
+                      duration: formatEstimateMinutes(totalMin, t),
+                      mode: isCloud ? t("analysis.mode.cloud") : t("analysis.mode.local"),
+                    })}
                   </span>
                 )
               })()}
@@ -964,15 +1011,15 @@ export default function AnalysisPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认重新分析</AlertDialogTitle>
+            <AlertDialogTitle>{t("analysis.reanalyzeConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              将重新分析所选范围内的所有章节（包括已完成的），现有分析数据将被覆盖。
+              {t("analysis.reanalyzeConfirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmReanalyze}>
-              确认重新分析
+              {t("analysis.reanalyzeConfirmAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -985,19 +1032,19 @@ export default function AnalysisPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认清除所有分析数据</AlertDialogTitle>
+            <AlertDialogTitle>{t("analysis.clearConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              此操作将删除该小说的所有分析结果，包括：章节提取数据、世界结构、地图布局缓存、用户坐标覆盖、分析任务记录。小说文本本身不会被删除。此操作不可撤销。
+              {t("analysis.clearConfirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={clearing}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={clearing}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleClearData}
               disabled={clearing}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {clearing ? "清除中..." : "确认清除"}
+              {clearing ? t("analysis.clearing") : t("analysis.clearConfirmAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1016,17 +1063,19 @@ export default function AnalysisPage() {
       <AlertDialog open={showBudgetExceeded} onOpenChange={setShowBudgetExceeded}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>已达月度预算上限</AlertDialogTitle>
+            <AlertDialogTitle>{t("analysis.budget.exceededTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              本月云端 AI 消费已达预算上限 ¥{costStats?.monthly_budget_cny?.toFixed(0)}。
+              {t("analysis.budget.exceededDescription", {
+                budget: costStats?.monthly_budget_cny?.toFixed(0) ?? "0",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <Button variant="outline" onClick={() => { setShowBudgetExceeded(false); handlePause() }}>
-              暂停分析
+              {t("analysis.pauseAnalysis")}
             </Button>
             <Button variant="outline" onClick={() => setShowBudgetExceeded(false)}>
-              继续分析
+              {t("analysis.continueAnalysis")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1070,6 +1119,7 @@ function PrescanCard({
   onToggleExpand: () => void
   onTrigger: () => void
 }) {
+  const { t } = useI18n()
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const e of entities) {
@@ -1096,16 +1146,16 @@ function PrescanCard({
           {status === "completed" && (
             <span className="inline-block size-2 rounded-full bg-blue-500" />
           )}
-          实体预扫描
+          {t("analysis.prescan.title")}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {/* Pending */}
         {status === "pending" && (
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-sm">等待扫描</span>
+            <span className="text-muted-foreground text-sm">{t("analysis.prescan.waiting")}</span>
             <Button size="sm" onClick={onTrigger} disabled={loading}>
-              {loading ? "启动中..." : "开始扫描"}
+              {loading ? t("analysis.starting") : t("analysis.prescan.start")}
             </Button>
           </div>
         )}
@@ -1131,7 +1181,7 @@ function PrescanCard({
               />
             </svg>
             <span className="text-muted-foreground text-sm">
-              正在扫描...
+              {t("analysis.prescan.scanning")}
               {llmLabel && <span className="ml-1 opacity-70">{llmLabel}</span>}
             </span>
           </div>
@@ -1140,9 +1190,9 @@ function PrescanCard({
         {/* Failed */}
         {status === "failed" && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-red-600 dark:text-red-400">扫描失败</span>
+            <span className="text-sm text-red-600 dark:text-red-400">{t("analysis.prescan.failed")}</span>
             <Button size="sm" variant="outline" onClick={onTrigger} disabled={loading}>
-              重试
+              {t("common.retry")}
             </Button>
           </div>
         )}
@@ -1153,7 +1203,7 @@ function PrescanCard({
             {/* Summary: total + type badges */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">
-                共 {entityCount} 个实体
+                {t("analysis.prescan.totalEntities", { count: entityCount })}
               </span>
               {Object.entries(typeCounts).map(([type, count]) => (
                 <Badge
@@ -1164,7 +1214,7 @@ function PrescanCard({
                     TYPE_BADGE_COLORS[type] || TYPE_BADGE_COLORS.unknown,
                   )}
                 >
-                  {TYPE_LABELS[type] || type} {count}
+                  {typeLabel(type, t)} {count}
                 </Badge>
               ))}
             </div>
@@ -1184,7 +1234,7 @@ function PrescanCard({
                         TYPE_BADGE_COLORS[e.entity_type] || TYPE_BADGE_COLORS.unknown,
                       )}
                     >
-                      {TYPE_LABELS[e.entity_type] || e.entity_type}
+                      {typeLabel(e.entity_type, t)}
                     </Badge>
                     <span className="font-medium">{e.name}</span>
                     {e.aliases.length > 0 && (
@@ -1206,14 +1256,16 @@ function PrescanCard({
                 onClick={onToggleExpand}
                 className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
               >
-                {expanded ? "收起" : `展开全部 (${entities.length})`}
+                {expanded
+                  ? t("common.collapse")
+                  : t("analysis.prescan.expandAll", { count: entities.length })}
               </button>
             )}
 
             {/* Re-scan button */}
             <div className="pt-1">
               <Button size="sm" variant="outline" onClick={onTrigger} disabled={loading}>
-                重新扫描
+                {t("analysis.prescan.rescan")}
               </Button>
             </div>
           </div>

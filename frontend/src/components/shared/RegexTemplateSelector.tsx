@@ -3,6 +3,7 @@ import { Clock, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useI18n, type TranslationKey } from "@/i18n"
 import {
   Select,
   SelectContent,
@@ -14,12 +15,12 @@ import {
 } from "@/components/ui/select"
 
 const TEMPLATES = [
-  { id: "blank_lines", label: "按空行分隔", regex: "\\n\\n\\n+" },
-  { id: "separator", label: "按分隔线 (---/===)", regex: "^[*=\\-]{3,}" },
-  { id: "numbered", label: "按编号标题 (1. / 2.)", regex: "^\\d+[.、]" },
-  { id: "jp_chapter", label: '按"第X帖"', regex: "^第.{1,6}[帖贴]" },
-  { id: "cn_numbered", label: "按中文数字 (一、二、)", regex: "^[一二三四五六七八九十百]+、" },
-  { id: "custom", label: "自定义正则", regex: "" },
+  { id: "blank_lines", labelKey: "shared.regexTemplate.blankLines", regex: "\\n\\n\\n+" },
+  { id: "separator", labelKey: "shared.regexTemplate.separator", regex: "^[*=\\-]{3,}" },
+  { id: "numbered", labelKey: "shared.regexTemplate.numbered", regex: "^\\d+[.、]" },
+  { id: "jp_chapter", labelKey: "shared.regexTemplate.jpChapter", regex: "^第.{1,6}[帖贴]" },
+  { id: "cn_numbered", labelKey: "shared.regexTemplate.cnNumbered", regex: "^[一二三四五六七八九十百]+、" },
+  { id: "custom", labelKey: "shared.regexTemplate.custom", regex: "" },
 ] as const
 
 const STORAGE_KEY = "ai-reader-custom-regex-history"
@@ -61,15 +62,18 @@ function saveRecentRegex(regex: string): void {
   }
 }
 
-function formatTimeAgo(iso: string): string {
+function formatTimeAgo(
+  iso: string,
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+): string {
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return "刚刚"
-  if (minutes < 60) return `${minutes}分钟前`
+  if (minutes < 1) return t("date.justNow")
+  if (minutes < 60) return t("date.minutesAgo", { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
+  if (hours < 24) return t("date.hoursAgo", { count: hours })
   const days = Math.floor(hours / 24)
-  return `${days}天前`
+  return t("date.daysAgo", { count: days })
 }
 
 interface Props {
@@ -78,6 +82,7 @@ interface Props {
 }
 
 export function RegexTemplateSelector({ onApply, disabled }: Props) {
+  const { t } = useI18n()
   const [selected, setSelected] = useState<string>("")
   const [customRegex, setCustomRegex] = useState("")
   const [recentRegexes, setRecentRegexes] = useState<RecentRegex[]>([])
@@ -120,7 +125,7 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
 
   return (
     <div className="space-y-2">
-      <Label className="text-xs">正则模板</Label>
+      <Label className="text-xs">{t("shared.regexTemplate.label")}</Label>
       <div className="flex items-end gap-2">
         <div className="flex-1">
           <Select
@@ -129,14 +134,14 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
             disabled={disabled}
           >
             <SelectTrigger className="h-8 text-sm">
-              <SelectValue placeholder="选择切分模板..." />
+              <SelectValue placeholder={t("shared.regexTemplate.placeholder")} />
             </SelectTrigger>
             <SelectContent>
               {recentRegexes.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="flex items-center gap-1 text-xs">
                     <Clock className="h-3 w-3" />
-                    最近使用
+                    {t("shared.regexTemplate.recent")}
                   </SelectLabel>
                   {recentRegexes.map((r) => (
                     <SelectItem
@@ -149,7 +154,7 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
                           : r.regex}
                       </span>
                       <span className="ml-2 text-muted-foreground">
-                        {formatTimeAgo(r.usedAt)}
+                        {formatTimeAgo(r.usedAt, t)}
                       </span>
                     </SelectItem>
                   ))}
@@ -157,11 +162,11 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
               )}
               <SelectGroup>
                 {recentRegexes.length > 0 && (
-                  <SelectLabel className="text-xs">预设模板</SelectLabel>
+                  <SelectLabel className="text-xs">{t("shared.regexTemplate.presets")}</SelectLabel>
                 )}
-                {TEMPLATES.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.label}
+                {TEMPLATES.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {t(template.labelKey as TranslationKey)}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -176,7 +181,7 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
             disabled={disabled || !customRegex.trim()}
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            应用
+            {t("common.apply")}
           </Button>
         )}
       </div>
@@ -185,7 +190,7 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
           <Input
             value={customRegex}
             onChange={(e) => setCustomRegex(e.target.value)}
-            placeholder="例如: ^第[\d]+章\s*(.*)"
+            placeholder={t("shared.regexTemplate.examplePlaceholder")}
             className="h-8 font-mono text-sm"
             disabled={disabled}
             onKeyDown={(e) => {
@@ -196,7 +201,7 @@ export function RegexTemplateSelector({ onApply, disabled }: Props) {
             }}
           />
           <p className="text-xs text-muted-foreground">
-            正则将以 MULTILINE 模式逐行匹配，匹配位置作为章节分割点
+            {t("shared.regexTemplate.multilineHint")}
           </p>
         </div>
       )}

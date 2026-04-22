@@ -452,12 +452,14 @@ function isVisiblePropertyValue(node) {
 
 function isObviousNonUiString(node) {
   if (isSetMembershipString(node)) return true
+  if (isHeuristicKeywordArrayString(node)) return true
 
   if (ts.isPropertyAssignment(node.parent)) {
     if (node.parent.name === node && isCssClassString(node.parent.initializer)) return true
+    if (node.parent.name === node && isTranslationKeyString(node.parent.initializer)) return true
 
     const name = getPropertyName(node.parent.name)
-    if (name && ["id", "key", "path", "slug", "type", "value"].includes(name)) return true
+    if (name && ["id", "key", "path", "regex", "slug", "type", "value"].includes(name)) return true
   }
   if (ts.isJsxAttribute(node.parent)) {
     const name = node.parent.name.getText()
@@ -473,10 +475,27 @@ function isSetMembershipString(node) {
   return ts.isNewExpression(expression) && getCallName(expression.expression) === "Set"
 }
 
+function isHeuristicKeywordArrayString(node) {
+  let current = node.parent
+  while (current && ts.isArrayLiteralExpression(current.parent)) {
+    current = current.parent
+  }
+  if (!current || !ts.isArrayLiteralExpression(current)) return false
+  const declaration = current.parent
+  if (!ts.isVariableDeclaration(declaration) || !ts.isIdentifier(declaration.name)) return false
+  return /(?:_KW|_KEYWORDS|_TERMS|_TERRAIN)$/.test(declaration.name.text)
+}
+
 function isCssClassString(node) {
   const value = getStringValue(unwrapExpression(node))
   if (value == null) return false
   return /\b(?:bg|text|border|ring|dark|hover|focus|rounded|px|py|mx|my|flex|grid|size|w|h|gap|items|justify)-/.test(value)
+}
+
+function isTranslationKeyString(node) {
+  const value = getStringValue(unwrapExpression(node))
+  if (value == null) return false
+  return /^[a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+$/.test(value)
 }
 
 function getCallName(expression) {
@@ -488,7 +507,11 @@ function getCallName(expression) {
 function sourceFiles() {
   const files = []
   walk(SRC_DIR, files)
-  return files.filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"))
+  return files.filter(
+    (file) =>
+      (file.endsWith(".ts") || file.endsWith(".tsx")) &&
+      !/\.(?:test|spec)\.(?:ts|tsx)$/.test(file),
+  )
 }
 
 function walk(dir, files) {

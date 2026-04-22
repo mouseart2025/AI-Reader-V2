@@ -5,6 +5,7 @@
  */
 
 import { Shield, ExternalLink, CheckCircle } from "lucide-react"
+import { useI18n } from "@/i18n"
 
 interface SecurityGuideProps {
   onDone: () => void
@@ -21,27 +22,31 @@ function detectPlatform(): "macos" | "windows" | "other" {
 }
 
 function MacGuide() {
+  const { t } = useI18n()
+
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-200">macOS Gatekeeper 放行步骤</h3>
-      <Step num={1} text="右键点击 AI Reader 应用图标（不要双击）" />
-      <Step num={2} text='在弹出菜单中选择「打开」' />
-      <Step num={3} text='在确认对话框中点击「打开」按钮' />
+      <h3 className="text-sm font-semibold text-slate-200">{t("desktop.security.macosTitle")}</h3>
+      <Step num={1} text={t("desktop.security.macosStep1")} />
+      <Step num={2} text={t("desktop.security.macosStep2")} />
+      <Step num={3} text={t("desktop.security.macosStep3")} />
       <p className="text-xs text-slate-500">
-        只需操作一次，之后可以正常双击打开应用
+        {t("desktop.security.macosNote")}
       </p>
     </div>
   )
 }
 
 function WindowsGuide() {
+  const { t } = useI18n()
+
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-200">Windows SmartScreen 放行步骤</h3>
-      <Step num={1} text='在 SmartScreen 弹窗中点击「更多信息」' />
-      <Step num={2} text='点击「仍要运行」按钮' />
+      <h3 className="text-sm font-semibold text-slate-200">{t("desktop.security.windowsTitle")}</h3>
+      <Step num={1} text={t("desktop.security.windowsStep1")} />
+      <Step num={2} text={t("desktop.security.windowsStep2")} />
       <p className="text-xs text-slate-500">
-        只需操作一次，之后可以正常启动应用
+        {t("desktop.security.windowsNote")}
       </p>
     </div>
   )
@@ -59,6 +64,7 @@ function Step({ num, text }: { num: number; text: string }) {
 }
 
 export function SecurityGuide({ onDone }: SecurityGuideProps) {
+  const { t } = useI18n()
   const platform = detectPlatform()
 
   return (
@@ -67,16 +73,16 @@ export function SecurityGuide({ onDone }: SecurityGuideProps) {
       <div className="flex items-center gap-3">
         <Shield className="size-8 text-blue-400" />
         <div>
-          <h2 className="text-lg font-bold text-slate-100">安全放行指南</h2>
+          <h2 className="text-lg font-bold text-slate-100">{t("desktop.security.title")}</h2>
           <p className="text-sm text-slate-400">
-            AI Reader 是开源安全软件
+            {t("desktop.security.subtitle")}
           </p>
         </div>
       </div>
 
       {/* Explanation */}
       <p className="text-sm text-slate-400">
-        由于未购买代码签名证书，系统可能会显示安全提示。请按照以下步骤放行应用：
+        {t("desktop.security.description")}
       </p>
 
       {/* Platform-specific guide */}
@@ -99,14 +105,14 @@ export function SecurityGuide({ onDone }: SecurityGuideProps) {
           className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition"
         >
           <ExternalLink className="size-4" />
-          了解更多
+          {t("desktop.security.learnMore")}
         </a>
         <button
           onClick={onDone}
           className="flex items-center gap-1.5 rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
         >
           <CheckCircle className="size-4" />
-          我已完成
+          {t("desktop.security.done")}
         </button>
       </div>
     </div>

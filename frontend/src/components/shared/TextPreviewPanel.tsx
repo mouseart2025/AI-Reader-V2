@@ -10,6 +10,7 @@ import {
 } from "react"
 import { Search, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { useI18n } from "@/i18n"
 
 export interface TextPreviewPanelHandle {
   scrollToChapter: (index: number) => void
@@ -39,6 +40,7 @@ const LINE_HEIGHT = 22
  */
 export const TextPreviewPanel = forwardRef<TextPreviewPanelHandle, Props>(
   function TextPreviewPanel({ rawText, chapterBoundaries, splitPoints, onSplitPointsChange }, ref) {
+    const { t } = useI18n()
     const scrollRef = useRef<HTMLDivElement>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [activeMatchIndex, setActiveMatchIndex] = useState(0)
@@ -201,7 +203,7 @@ export const TextPreviewPanel = forwardRef<TextPreviewPanelHandle, Props>(
               setSearchQuery(e.target.value)
               setActiveMatchIndex(0)
             }}
-            placeholder="搜索原文..."
+            placeholder={t("shared.textPreview.searchPlaceholder")}
             className="h-7 text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -281,7 +283,7 @@ export const TextPreviewPanel = forwardRef<TextPreviewPanelHandle, Props>(
                           e.stopPropagation()
                           handleGapClick(lineIdx)
                         }}
-                        title="移除分割线"
+                        title={t("shared.textPreview.removeSplitLine")}
                       >
                         <X className="h-2.5 w-2.5" />
                       </button>
@@ -293,7 +295,7 @@ export const TextPreviewPanel = forwardRef<TextPreviewPanelHandle, Props>(
                     <div
                       className="absolute -top-1.5 left-3 right-3 h-3 cursor-pointer opacity-0 transition-opacity hover:opacity-100"
                       onClick={() => handleGapClick(lineIdx)}
-                      title="点击插入分割线"
+                      title={t("shared.textPreview.insertSplitLine")}
                       style={{ zIndex: 1 }}
                     >
                       <div className="mt-1 h-0 border-t border-dashed border-red-300 dark:border-red-700" />

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react"
 import { MapPin, ArrowRight, Search } from "lucide-react"
 import type { GeographyChapter } from "@/api/types"
+import { useI18n } from "@/i18n"
 
 interface GeographyPanelProps {
   context: GeographyChapter[]
@@ -8,6 +9,7 @@ interface GeographyPanelProps {
 }
 
 export function GeographyPanel({ context, onLocationClick }: GeographyPanelProps) {
+  const { t } = useI18n()
   const [search, setSearch] = useState("")
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
 
@@ -45,7 +47,7 @@ export function GeographyPanel({ context, onLocationClick }: GeographyPanelProps
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索地点或描述..."
+            placeholder={t("visualization.geography.searchPlaceholder")}
             className="w-full pl-7 pr-2 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
@@ -55,7 +57,9 @@ export function GeographyPanel({ context, onLocationClick }: GeographyPanelProps
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         {filtered.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
-            {context.length === 0 ? "暂无地理描述数据" : "未找到匹配结果"}
+            {context.length === 0
+              ? t("visualization.geography.noData")
+              : t("visualization.geography.noMatches")}
           </p>
         ) : (
           filtered.map((ch) => (
@@ -64,9 +68,9 @@ export function GeographyPanel({ context, onLocationClick }: GeographyPanelProps
                 className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors"
                 onClick={() => toggleChapter(ch.chapter)}
               >
-                <span>第 {ch.chapter} 章</span>
+                <span>{t("visualization.geography.chapterTitle", { chapter: ch.chapter })}</span>
                 <span className="text-muted-foreground">
-                  {ch.entries.length} 条
+                  {t("visualization.geography.entryCount", { count: ch.entries.length })}
                 </span>
               </button>
               {!collapsed.has(ch.chapter) && (

@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { useI18n, type TranslationKey } from "@/i18n"
 import {
   Dialog,
   DialogContent,
@@ -62,43 +63,44 @@ import { RegexTemplateSelector } from "./RegexTemplateSelector"
 const ALLOWED_EXTENSIONS = [".txt", ".md", ".air", ".json"]
 const DATA_IMPORT_EXTENSIONS = [".air", ".json"]
 
-const MODE_LABELS: Record<string, string> = {
-  chapter_zh: "第X章 / 番外",
-  section_zh: "第X回/节/卷/幕/场/部",
-  numbered: "数字编号 (1. / 001)",
-  chapter_en: "英文章节 (Chapter / Part)",
-  markdown: "Markdown 标题",
-  separator: "分隔线 (--- / ===)",
-  heuristic_title: "启发式标题检测",
-  fixed_size: "按字数切分 (~8000字/段)",
+const MODE_LABEL_KEYS: Record<string, TranslationKey> = {
+  chapter_zh: "shared.upload.mode.chapterZh",
+  section_zh: "shared.upload.mode.sectionZh",
+  numbered: "shared.upload.mode.numbered",
+  chapter_en: "shared.upload.mode.chapterEn",
+  markdown: "shared.upload.mode.markdown",
+  separator: "shared.upload.mode.separator",
+  heuristic_title: "shared.upload.mode.heuristicTitle",
+  fixed_size: "shared.upload.mode.fixedSize",
 }
 
-const GENRE_LABELS: Record<string, string> = {
-  novel: "长篇小说",
-  short_collection: "短篇集",
-  essay: "散文",
-  poetry: "诗集",
+const GENRE_LABEL_KEYS: Record<string, TranslationKey> = {
+  novel: "shared.upload.genre.novel",
+  short_collection: "shared.upload.genre.shortCollection",
+  essay: "shared.upload.genre.essay",
+  poetry: "shared.upload.genre.poetry",
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  url: "链接",
-  promo: "推广",
-  template: "站点模板",
-  decoration: "装饰线",
-  repeated: "重复尾注",
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  url: "shared.upload.category.url",
+  promo: "shared.upload.category.promo",
+  template: "shared.upload.category.template",
+  decoration: "shared.upload.category.decoration",
+  repeated: "shared.upload.category.repeated",
 }
 
 /** Diagnosis tags that trigger automatic expansion to split-pane mode */
 const EXPAND_TAGS = new Set(["FALLBACK_USED", "NO_HEADING_MATCH", "SINGLE_HUGE_CHAPTER"])
+const EXPIRED_ERROR_MARKERS = new Set(["过期", "expired"])
 
 /** Friendly user-facing messages for each diagnosis tag (fallback when backend doesn't provide user_message) */
-const DIAGNOSIS_USER_MESSAGES: Record<string, string> = {
-  NO_HEADING_MATCH: "未能自动识别章节格式，请尝试选择切分模式或手动标记",
-  FALLBACK_USED: "已使用备选方式切分，建议确认章节划分是否正确",
-  SINGLE_HUGE_CHAPTER: "整本书被识别为一个章节，可能需要选择其他切分方式",
-  HEADING_TOO_SPARSE: "检测到的章节较少，可能遗漏了部分章节",
-  HEADING_TOO_DENSE: "检测到的章节过多，可能有内容被误识别为标题",
-  MODE_MISMATCH: "检测到两种可能的切分方式，请确认",
+const DIAGNOSIS_USER_MESSAGE_KEYS: Record<string, TranslationKey> = {
+  NO_HEADING_MATCH: "shared.upload.diagnosis.noHeadingMatch",
+  FALLBACK_USED: "shared.upload.diagnosis.fallbackUsed",
+  SINGLE_HUGE_CHAPTER: "shared.upload.diagnosis.singleHugeChapter",
+  HEADING_TOO_SPARSE: "shared.upload.diagnosis.headingTooSparse",
+  HEADING_TOO_DENSE: "shared.upload.diagnosis.headingTooDense",
+  MODE_MISMATCH: "shared.upload.diagnosis.modeMismatch",
 }
 
 function DiagnosisBanner({
@@ -110,10 +112,14 @@ function DiagnosisBanner({
   reSplitting: boolean
   onFixedSizeSplit: () => void
 }) {
+  const { t } = useI18n()
   const [showDetail, setShowDetail] = useState(false)
 
   const userMessage =
-    diagnosis.user_message || DIAGNOSIS_USER_MESSAGES[diagnosis.tag] || diagnosis.message
+    diagnosis.user_message ||
+    (DIAGNOSIS_USER_MESSAGE_KEYS[diagnosis.tag]
+      ? t(DIAGNOSIS_USER_MESSAGE_KEYS[diagnosis.tag])
+      : diagnosis.message)
   const technicalDetail = diagnosis.technical_detail || diagnosis.message
   // Only show expand toggle when technical detail differs from user message
   const hasTechnicalDetail = technicalDetail !== userMessage
@@ -129,16 +135,18 @@ function DiagnosisBanner({
             <button
               type="button"
               className="text-xs underline opacity-60 hover:opacity-100"
-              onClick={() => setShowDetail(!showDetail)}
-            >
-              {showDetail ? "收起详情" : "技术详情"}
+            onClick={() => setShowDetail(!showDetail)}
+          >
+              {showDetail ? t("shared.upload.hideDetails") : t("shared.upload.technicalDetails")}
             </button>
           )}
           {showDetail && hasTechnicalDetail && (
             <div className="rounded bg-black/5 px-2 py-1.5 font-mono text-xs dark:bg-white/5">
               <p>{technicalDetail}</p>
               {diagnosis.original_mode && (
-                <p className="mt-1 opacity-75">原始模式: {diagnosis.original_mode}</p>
+                <p className="mt-1 opacity-75">
+                  {t("shared.upload.originalMode", { mode: diagnosis.original_mode })}
+                </p>
               )}
             </div>
           )}
@@ -165,7 +173,7 @@ function DiagnosisBanner({
             className="text-xs underline opacity-60 hover:opacity-100"
             onClick={() => setShowDetail(!showDetail)}
           >
-            {showDetail ? "收起详情" : "技术详情"}
+            {showDetail ? t("shared.upload.hideDetails") : t("shared.upload.technicalDetails")}
           </button>
         )}
         {showDetail && hasTechnicalDetail && (
@@ -193,10 +201,10 @@ function DiagnosisBanner({
               ) : (
                 <Sparkles className="mr-1.5 h-3 w-3" />
               )}
-              一键按字数切分
+              {t("shared.upload.fixedSizeSplit")}
             </Button>
             <p className="text-xs opacity-60">
-              或在右侧原文中点击 2 个章节标题位置插入标记，然后点击「智能推断模式」自动识别全文章节
+              {t("shared.upload.manualMarkerHint")}
             </p>
           </>
         )}
@@ -207,14 +215,21 @@ function DiagnosisBanner({
 
 type Stage = "select" | "uploading" | "preview" | "duplicate" | "confirming" | "import-preview" | "import-confirming"
 
-function formatWordCount(count: number): string {
-  if (count >= 10000) return `${(count / 10000).toFixed(1)}万字`
-  return `${count}字`
+function formatWordCount(
+  count: number,
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+): string {
+  if (count >= 10000) return t("bookshelf.wordCountWan", { count: (count / 10000).toFixed(1) })
+  return t("bookshelf.wordCount", { count })
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, locale: string): string {
   const d = new Date(dateStr + "Z")
-  return d.toLocaleString("zh-CN")
+  return d.toLocaleString(locale)
+}
+
+function isExpiredError(message: string): boolean {
+  return Array.from(EXPIRED_ERROR_MARKERS).some((marker) => message.includes(marker))
 }
 
 export function UploadDialog({
@@ -233,6 +248,7 @@ export function UploadDialog({
   externalImportPreview?: ImportPreview | null
   externalImportFile?: File | null
 }) {
+  const { locale, t } = useI18n()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textPreviewRef = useRef<TextPreviewPanelHandle>(null)
   const [stage, setStage] = useState<Stage>("select")
@@ -335,11 +351,11 @@ export function UploadDialog({
       const { text } = await fetchRawText(fileHash)
       setRawText(text)
     } catch {
-      setError("无法加载原文预览")
+      setError(t("shared.upload.error.rawPreviewFailed"))
     } finally {
       setRawTextLoading(false)
     }
-  }, [rawText])
+  }, [rawText, t])
 
   const handleExpand = useCallback(() => {
     setIsExpanded(true)
@@ -363,7 +379,7 @@ export function UploadDialog({
       ? "." + file.name.split(".").pop()!.toLowerCase()
       : ""
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      setError("仅支持 .txt / .md / .air / .json 格式")
+      setError(t("shared.upload.error.unsupportedFormat"))
       return
     }
 
@@ -373,11 +389,11 @@ export function UploadDialog({
         try {
           const text = await file.slice(0, 200).text()
           if (!text.includes("format_version")) {
-            setError("该 .json 文件不是 AI Reader 导出的分析数据")
+            setError(t("shared.upload.error.invalidJsonData"))
             return
           }
         } catch {
-          setError("无法读取文件")
+          setError(t("shared.upload.error.readFileFailed"))
           return
         }
       }
@@ -390,7 +406,7 @@ export function UploadDialog({
         setDataImportFile(file)
         setStage("import-preview")
       } catch (err) {
-        setError(err instanceof Error ? err.message : "预览失败")
+        setError(err instanceof Error ? err.message : t("shared.upload.error.previewFailed"))
         setStage("select")
       }
       return
@@ -421,7 +437,7 @@ export function UploadDialog({
 
       setStage("preview")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "上传失败")
+      setError(err instanceof Error ? err.message : t("shared.upload.error.uploadFailed"))
       setStage("select")
     }
   }
@@ -439,7 +455,7 @@ export function UploadDialog({
         })
         setPreview(data)
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "应用手动标记失败"
+        const msg = err instanceof Error ? err.message : t("shared.upload.error.applyManualMarksFailed")
         setError(msg)
         setReSplitting(false)
         return
@@ -462,10 +478,10 @@ export function UploadDialog({
         handleOpenChange(false)
       }, 300)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "导入失败"
-      if (msg.includes("过期") || msg.includes("expired")) {
+      const msg = err instanceof Error ? err.message : t("shared.upload.error.importFailed")
+      if (isExpiredError(msg)) {
         setStage("select")
-        setError("上传数据已过期（超过30分钟），请重新选择文件")
+        setError(t("shared.upload.error.uploadExpired"))
       } else {
         setError(msg)
         setStage("preview")
@@ -491,10 +507,10 @@ export function UploadDialog({
         handleOpenChange(false)
       }, 300)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "覆盖导入失败"
-      if (msg.includes("过期") || msg.includes("expired")) {
+      const msg = err instanceof Error ? err.message : t("shared.upload.error.overwriteImportFailed")
+      if (isExpiredError(msg)) {
         setStage("select")
-        setError("上传数据已过期（超过30分钟），请重新选择文件")
+        setError(t("shared.upload.error.uploadExpired"))
       } else {
         setError(msg)
         setStage("duplicate")
@@ -520,7 +536,7 @@ export function UploadDialog({
         handleOpenChange(false)
       }, 300)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "导入失败")
+      setError(err instanceof Error ? err.message : t("shared.upload.error.importFailed"))
       setStage("import-preview")
     }
   }
@@ -553,10 +569,10 @@ export function UploadDialog({
       ))
       setSplitPoints([]) // Clear manual marks after re-split
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "重新切分失败"
-      if (msg.includes("过期") || msg.includes("expired")) {
+      const msg = err instanceof Error ? err.message : t("shared.upload.error.resplitFailed")
+      if (isExpiredError(msg)) {
         setStage("select")
-        setError("上传数据已过期（超过30分钟），请重新选择文件")
+        setError(t("shared.upload.error.uploadExpired"))
       } else {
         setError(msg)
       }
@@ -603,7 +619,7 @@ export function UploadDialog({
         setSplitPoints([])
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "智能推断失败"
+      const msg = err instanceof Error ? err.message : t("shared.upload.error.inferFailed")
       setError(msg)
     } finally {
       setReSplitting(false)
@@ -624,10 +640,10 @@ export function UploadDialog({
         data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
       ))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "清理失败"
-      if (msg.includes("过期") || msg.includes("expired")) {
+      const msg = err instanceof Error ? err.message : t("shared.upload.error.cleanFailed")
+      if (isExpiredError(msg)) {
         setStage("select")
-        setError("上传数据已过期（超过30分钟），请重新选择文件")
+        setError(t("shared.upload.error.uploadExpired"))
       } else {
         setError(msg)
       }
@@ -661,6 +677,11 @@ export function UploadDialog({
   const isWorking = stage === "confirming" || stage === "import-confirming"
   const diagnosis = preview?.diagnosis
   const hygieneReport = preview?.hygiene_report
+  const modeLabel = (mode: string) => MODE_LABEL_KEYS[mode] ? t(MODE_LABEL_KEYS[mode]) : mode
+  const genreLabel = (genre: string) => GENRE_LABEL_KEYS[genre] ? t(GENRE_LABEL_KEYS[genre]) : genre
+  const categoryLabel = (category: string) => CATEGORY_LABEL_KEYS[category]
+    ? t(CATEGORY_LABEL_KEYS[category])
+    : category
 
   // Auto-expand advanced options when diagnosis indicates a problem
   useEffect(() => {
@@ -679,21 +700,21 @@ export function UploadDialog({
           <DialogHeader>
             <DialogTitle>
               {stage === "select" || stage === "uploading"
-                ? "上传小说"
+                ? t("shared.upload.title.uploadNovel")
                 : stage === "duplicate"
-                  ? "检测到重复文件"
+                  ? t("shared.upload.title.duplicate")
                   : stage === "import-preview" || stage === "import-confirming"
-                    ? "导入分析数据"
-                    : "确认导入"}
+                    ? t("shared.upload.title.importData")
+                    : t("shared.upload.title.confirmImport")}
             </DialogTitle>
             <DialogDescription>
               {stage === "select" || stage === "uploading"
-                ? "选择 .txt / .md 小说文件，或 .air 分析数据包"
+                ? t("shared.upload.description.select")
                 : stage === "duplicate"
-                  ? "该文件已导入过，请选择处理方式"
+                  ? t("shared.upload.description.duplicate")
                   : stage === "import-preview" || stage === "import-confirming"
-                    ? "确认导入分析数据，将包含完整的章节、实体和分析结果"
-                    : "检查章节切分结果，编辑书名和作者后确认导入"}
+                    ? t("shared.upload.description.importData")
+                    : t("shared.upload.description.preview")}
             </DialogDescription>
           </DialogHeader>
 
@@ -723,10 +744,10 @@ export function UploadDialog({
             >
               <Upload className="text-muted-foreground mb-3 h-10 w-10" />
               <p className="text-muted-foreground text-sm">
-                点击或拖拽文件到此处
+                {t("shared.upload.dropTitle")}
               </p>
               <p className="text-muted-foreground/60 mt-1 text-xs">
-                支持 .txt / .md 小说文件，或 .air 分析数据包
+                {t("shared.upload.dropHint")}
               </p>
               <input
                 ref={fileInputRef}
@@ -746,7 +767,7 @@ export function UploadDialog({
             <div className="flex flex-col items-center justify-center gap-3 py-12">
               <Loader2 className="text-primary h-10 w-10 animate-spin" />
               <p className="text-muted-foreground text-sm">
-                {uploadProgress < 100 ? "正在上传文件..." : "正在解析文件..."}
+                {uploadProgress < 100 ? t("shared.upload.uploading") : t("shared.upload.parsing")}
               </p>
               <div className="w-48 space-y-1">
                 <Progress value={uploadProgress} className="h-2" />
@@ -760,34 +781,34 @@ export function UploadDialog({
             <div className="space-y-4">
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                 <div className="rounded-lg border p-4">
-                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">已有版本</p>
+                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">{t("shared.upload.existingVersion")}</p>
                   <p className="font-semibold">{existingNovel.title}</p>
                   {existingNovel.author && (
                     <p className="text-muted-foreground text-sm">{existingNovel.author}</p>
                   )}
                   <div className="text-muted-foreground mt-3 space-y-1 text-sm">
-                    <p>{existingNovel.total_chapters} 章</p>
-                    <p>{formatWordCount(existingNovel.total_words)}</p>
-                    <p>导入于 {formatDate(existingNovel.created_at)}</p>
+                    <p>{t("common.chapterCount", { count: existingNovel.total_chapters })}</p>
+                    <p>{formatWordCount(existingNovel.total_words, t)}</p>
+                    <p>{t("shared.upload.importedAt", { date: formatDate(existingNovel.created_at, locale) })}</p>
                   </div>
                 </div>
                 <ArrowRightLeft className="text-muted-foreground h-5 w-5" />
                 <div className="border-primary/30 rounded-lg border p-4">
-                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">新上传版本</p>
+                  <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">{t("shared.upload.newVersion")}</p>
                   <p className="font-semibold">{preview.title}</p>
                   {preview.author && (
                     <p className="text-muted-foreground text-sm">{preview.author}</p>
                   )}
                   <div className="text-muted-foreground mt-3 space-y-1 text-sm">
-                    <p>{preview.total_chapters} 章</p>
-                    <p>{formatWordCount(preview.total_words)}</p>
-                    <p>刚刚上传</p>
+                    <p>{t("common.chapterCount", { count: preview.total_chapters })}</p>
+                    <p>{formatWordCount(preview.total_words, t)}</p>
+                    <p>{t("shared.upload.justUploaded")}</p>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                选择"覆盖已有版本"将删除旧版本的全部分析数据
+                {t("shared.upload.overwriteWarning")}
               </div>
             </div>
           )}
@@ -800,7 +821,7 @@ export function UploadDialog({
                 {/* Editable metadata */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="novel-title">书名</Label>
+                    <Label htmlFor="novel-title">{t("shared.upload.field.title")}</Label>
                     <Input
                       id="novel-title"
                       value={title}
@@ -809,11 +830,11 @@ export function UploadDialog({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="novel-author">作者</Label>
+                    <Label htmlFor="novel-author">{t("shared.upload.field.author")}</Label>
                     <Input
                       id="novel-author"
                       value={author}
-                      placeholder="未知"
+                      placeholder={t("entity.stat.unknown")}
                       onChange={(e) => setAuthor(e.target.value)}
                       disabled={isWorking}
                     />
@@ -824,22 +845,22 @@ export function UploadDialog({
                 <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                   <span className="flex items-center gap-1">
                     <FileText className="h-4 w-4" />
-                    共 {preview.total_chapters} 章
+                    {t("shared.upload.totalChapters", { count: preview.total_chapters })}
                   </span>
-                  <span>{formatWordCount(preview.total_words)}</span>
+                  <span>{formatWordCount(preview.total_words, t)}</span>
                   {preview.matched_mode && (
                     <span className="text-xs opacity-60">
-                      模式: {MODE_LABELS[preview.matched_mode] ?? preview.matched_mode}
+                      {t("shared.upload.modeLabel", { mode: modeLabel(preview.matched_mode) })}
                     </span>
                   )}
                   {diagnosis?.detected_genre && diagnosis.detected_genre !== "unknown" && (
                     <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                      {GENRE_LABELS[diagnosis.detected_genre] ?? diagnosis.detected_genre}
+                      {genreLabel(diagnosis.detected_genre)}
                     </span>
                   )}
                   {splitPoints.length > 0 && (
                     <span className="text-xs text-red-500">
-                      + {splitPoints.length} 个手动标记
+                      {t("shared.upload.manualMarks", { count: splitPoints.length })}
                     </span>
                   )}
                   {splitPoints.length >= 2 && (
@@ -854,12 +875,12 @@ export function UploadDialog({
                       ) : (
                         <Sparkles className="mr-1 h-3 w-3" />
                       )}
-                      智能推断模式
+                      {t("shared.upload.inferMode")}
                     </Button>
                   )}
                   {splitPoints.length === 1 && (
                     <span className="text-xs text-muted-foreground">
-                      再标记 1 个即可启用智能推断
+                      {t("shared.upload.needOneMoreMark")}
                     </span>
                   )}
                 </div>
@@ -888,11 +909,14 @@ export function UploadDialog({
                       )}
                       <AlertTriangle className="h-4 w-4 shrink-0" />
                       <span className="flex-1 text-left">
-                        检测到 {hygieneReport.total_suspect_lines} 行疑似非正文内容
+                        {t("shared.upload.suspectLines", { count: hygieneReport.total_suspect_lines })}
                         {Object.entries(hygieneReport.by_category).length > 0 && (
                           <span className="ml-1 opacity-75">
                             （{Object.entries(hygieneReport.by_category)
-                              .map(([cat, count]) => `${CATEGORY_LABELS[cat] ?? cat} ${count}`)
+                              .map(([cat, count]) => t("shared.upload.categoryCount", {
+                                category: categoryLabel(cat),
+                                count,
+                              }))
                               .join(" / ")}）
                           </span>
                         )}
@@ -912,7 +936,7 @@ export function UploadDialog({
                         ) : (
                           <Sparkles className="mr-1.5 h-3 w-3" />
                         )}
-                        清理并重新切分
+                        {t("shared.upload.cleanAndResplit")}
                       </Button>
                     </button>
                     {hygieneOpen && hygieneReport.samples.length > 0 && (
@@ -922,7 +946,7 @@ export function UploadDialog({
                             <div key={i} className="flex min-w-0 items-baseline gap-2 text-xs text-orange-700 dark:text-orange-300">
                               <span className="shrink-0 tabular-nums opacity-60">L{s.line_num}</span>
                               <span className="shrink-0 rounded bg-orange-200/60 px-1 py-0.5 text-[10px] font-medium dark:bg-orange-800/40">
-                                {CATEGORY_LABELS[s.category] ?? s.category}
+                                {categoryLabel(s.category)}
                               </span>
                               <span className="min-w-0 truncate">{s.content}</span>
                             </div>
@@ -961,7 +985,7 @@ export function UploadDialog({
                       ) : (
                         <ChevronRight className="h-4 w-4" />
                       )}
-                      高级切分选项
+                      {t("shared.upload.advancedSplitOptions")}
                     </button>
                     {advancedOpen && (
                       <div className="border-t px-3 py-3">
@@ -972,7 +996,7 @@ export function UploadDialog({
                         {reSplitting && (
                           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                             <Loader2 className="h-3 w-3 animate-spin" />
-                            正在重新切分...
+                            {t("shared.upload.resplitting")}
                           </div>
                         )}
                       </div>
@@ -991,13 +1015,13 @@ export function UploadDialog({
                       ) : (
                         <ChevronRight className="h-4 w-4" />
                       )}
-                      调整切分方式
+                      {t("shared.upload.adjustSplitMethod")}
                     </button>
                     {splitOpen && (
                       <div className="space-y-3 border-t px-3 pb-3 pt-2">
                         <div className="flex items-end gap-3">
                           <div className="flex-1 space-y-1.5">
-                            <Label className="text-xs">切分模式</Label>
+                            <Label className="text-xs">{t("shared.upload.splitMode")}</Label>
                             <Select
                               value={selectedMode}
                               onValueChange={setSelectedMode}
@@ -1007,13 +1031,13 @@ export function UploadDialog({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="auto">自动检测</SelectItem>
+                                <SelectItem value="auto">{t("shared.upload.autoDetect")}</SelectItem>
                                 {splitModes.map((m) => (
                                   <SelectItem key={m} value={m}>
-                                    {MODE_LABELS[m] ?? m}
+                                    {modeLabel(m)}
                                   </SelectItem>
                                 ))}
-                                <SelectItem value="custom">自定义正则</SelectItem>
+                                <SelectItem value="custom">{t("shared.regexTemplate.custom")}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1028,21 +1052,21 @@ export function UploadDialog({
                             ) : (
                               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                             )}
-                            重新切分
+                            {t("shared.upload.resplit")}
                           </Button>
                         </div>
                         {selectedMode === "custom" && (
                           <div className="space-y-1.5">
-                            <Label className="text-xs">自定义正则表达式</Label>
+                            <Label className="text-xs">{t("shared.upload.customRegex")}</Label>
                             <Input
                               value={customRegex}
                               onChange={(e) => setCustomRegex(e.target.value)}
-                              placeholder="例如: ^第[\d]+章\s*(.*)"
+                              placeholder={t("shared.regexTemplate.examplePlaceholder")}
                               className="h-8 font-mono text-sm"
                               disabled={reSplitting}
                             />
                             <p className="text-muted-foreground text-xs">
-                              正则将以 MULTILINE 模式逐行匹配，匹配位置作为章节分割点
+                              {t("shared.regexTemplate.multilineHint")}
                             </p>
                           </div>
                         )}
@@ -1055,13 +1079,13 @@ export function UploadDialog({
                 {excludedNums.size > 0 && (
                   <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span>{excludedNums.size} 个章节将被排除（不参与分析）</span>
+                    <span>{t("shared.upload.excludedChapters", { count: excludedNums.size })}</span>
                     <button
                       type="button"
                       className="ml-auto text-amber-600 underline hover:no-underline dark:text-amber-400"
                       onClick={() => setExcludedNums(new Set())}
                     >
-                      全部取消
+                      {t("shared.upload.clearAll")}
                     </button>
                   </div>
                 )}
@@ -1081,7 +1105,7 @@ export function UploadDialog({
                           <input
                             type="checkbox"
                             className="h-3.5 w-3.5 rounded"
-                            title="全选/取消排除"
+                            title={t("shared.upload.toggleExcludeAll")}
                             checked={excludedNums.size > 0 && excludedNums.size === preview.chapters.length}
                             ref={(el) => {
                               if (el) el.indeterminate = excludedNums.size > 0 && excludedNums.size < preview.chapters.length
@@ -1096,8 +1120,8 @@ export function UploadDialog({
                           />
                         </th>
                         <th className="px-3 py-2 text-left font-medium">#</th>
-                        <th className="px-3 py-2 text-left font-medium">章节标题</th>
-                        <th className="px-3 py-2 text-right font-medium">字数</th>
+                        <th className="px-3 py-2 text-left font-medium">{t("shared.upload.chapterTitle")}</th>
+                        <th className="px-3 py-2 text-right font-medium">{t("shared.upload.wordCount")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1140,7 +1164,7 @@ export function UploadDialog({
                                 {ch.title}
                                 {ch.is_suspect && !isExcluded && (
                                   <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
-                                    (疑似非正文)
+                                    {t("shared.upload.suspectNonContent")}
                                   </span>
                                 )}
                               </div>
@@ -1151,7 +1175,7 @@ export function UploadDialog({
                               )}
                             </td>
                             <td className={`px-3 py-1.5 text-right ${isExcluded ? "text-muted-foreground line-through" : "text-muted-foreground"}`}>
-                              {formatWordCount(ch.word_count)}
+                              {formatWordCount(ch.word_count, t)}
                             </td>
                           </tr>
                         )
@@ -1167,7 +1191,7 @@ export function UploadDialog({
                   {rawTextLoading ? (
                     <div className="flex h-full items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-sm text-muted-foreground">加载原文...</span>
+                      <span className="ml-2 text-sm text-muted-foreground">{t("shared.upload.loadingRawText")}</span>
                     </div>
                   ) : rawText ? (
                     <TextPreviewPanel
@@ -1179,7 +1203,7 @@ export function UploadDialog({
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                      无法加载原文
+                      {t("shared.upload.rawTextUnavailable")}
                     </div>
                   )}
                 </div>
@@ -1194,61 +1218,61 @@ export function UploadDialog({
                 <h3 className="text-lg font-semibold">{dataImportPreview.title}</h3>
                 {dataImportPreview.author && (
                   <p className="text-sm text-muted-foreground">
-                    作者：{dataImportPreview.author}
+                    {t("shared.upload.authorLine", { author: dataImportPreview.author })}
                   </p>
                 )}
               </div>
 
               <div className="rounded-md border bg-muted/30 p-4 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">章节</span>
+                  <span className="text-muted-foreground">{t("export.stat.chapters")}</span>
                   <span>
-                    {dataImportPreview.total_chapters} 章
+                    {t("common.chapterCount", { count: dataImportPreview.total_chapters })}
                     <span className="text-muted-foreground ml-1">
-                      · 已分析 {dataImportPreview.analyzed_chapters} 章
+                      · {t("shared.upload.analyzedChapters", { count: dataImportPreview.analyzed_chapters })}
                     </span>
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">字数</span>
-                  <span>{formatWordCount(dataImportPreview.total_words)}</span>
+                  <span className="text-muted-foreground">{t("shared.upload.wordCount")}</span>
+                  <span>{formatWordCount(dataImportPreview.total_words, t)}</span>
                 </div>
                 {(dataImportPreview.entity_dict_count ?? 0) > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">实体词典</span>
-                    <span>{dataImportPreview.entity_dict_count} 个</span>
+                    <span className="text-muted-foreground">{t("shared.upload.entityDictionary")}</span>
+                    <span>{t("export.countItems", { count: dataImportPreview.entity_dict_count ?? 0 })}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">格式版本</span>
+                  <span className="text-muted-foreground">{t("shared.upload.formatVersion")}</span>
                   <span>v{dataImportPreview.format_version}</span>
                 </div>
                 {dataImportPreview.llm_models && dataImportPreview.llm_models.length > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">分析模型</span>
+                    <span className="text-muted-foreground">{t("shared.upload.analysisModel")}</span>
                     <span>{dataImportPreview.llm_models.join(", ")}</span>
                   </div>
                 )}
                 {(dataImportPreview.bookmarks_count ?? 0) > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">书签</span>
-                    <span>{dataImportPreview.bookmarks_count} 个</span>
+                    <span className="text-muted-foreground">{t("shared.upload.bookmarks")}</span>
+                    <span>{t("export.countItems", { count: dataImportPreview.bookmarks_count ?? 0 })}</span>
                   </div>
                 )}
                 {(dataImportPreview.map_overrides_count ?? 0) > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">地图自定义</span>
-                    <span>{dataImportPreview.map_overrides_count} 处</span>
+                    <span className="text-muted-foreground">{t("shared.upload.mapOverrides")}</span>
+                    <span>{t("shared.upload.placeCount", { count: dataImportPreview.map_overrides_count ?? 0 })}</span>
                   </div>
                 )}
                 {(dataImportPreview.conversations_count ?? 0) > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">问答对话</span>
-                    <span>{dataImportPreview.conversations_count} 个</span>
+                    <span className="text-muted-foreground">{t("shared.upload.conversations")}</span>
+                    <span>{t("export.countItems", { count: dataImportPreview.conversations_count ?? 0 })}</span>
                   </div>
                 )}
                 <div className="mt-2 flex justify-between border-t pt-2">
-                  <span className="text-muted-foreground">数据大小</span>
+                  <span className="text-muted-foreground">{t("shared.upload.dataSize")}</span>
                   <span>{(dataImportPreview.data_size_bytes / 1024 / 1024).toFixed(1)} MB</span>
                 </div>
               </div>
@@ -1256,7 +1280,7 @@ export function UploadDialog({
               {dataImportPreview.existing_novel_id && (
                 <div className="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
-                  已存在同名小说，导入将覆盖现有数据
+                  {t("shared.upload.existingNameOverwrite")}
                 </div>
               )}
             </div>
@@ -1275,7 +1299,7 @@ export function UploadDialog({
                 onClick={() => reset()}
                 disabled={stage === "import-confirming"}
               >
-                取消
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={handleDataImportConfirm}
@@ -1284,12 +1308,12 @@ export function UploadDialog({
                 {stage === "import-confirming" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    导入中...
+                    {t("shared.upload.importing")}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    确认导入
+                    {t("shared.upload.confirmImport")}
                   </>
                 )}
               </Button>
@@ -1303,14 +1327,14 @@ export function UploadDialog({
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
               >
-                取消
+                {t("common.cancel")}
               </Button>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleImportAsNew}>
-                  作为新书导入
+                  {t("shared.upload.importAsNew")}
                 </Button>
                 <Button variant="destructive" onClick={handleOverwrite}>
-                  覆盖已有版本
+                  {t("shared.upload.overwriteExisting")}
                 </Button>
               </div>
             </DialogFooter>
@@ -1329,7 +1353,7 @@ export function UploadDialog({
                 onClick={() => reset()}
                 disabled={isWorking}
               >
-                重新选择
+                {t("shared.upload.reselect")}
               </Button>
               {!isExpanded && (
                 <Button
@@ -1338,19 +1362,19 @@ export function UploadDialog({
                   disabled={isWorking}
                 >
                   <Eye className="mr-1.5 h-4 w-4" />
-                  查看原文
+                  {t("shared.upload.viewRawText")}
                 </Button>
               )}
               <Button onClick={handleConfirm} disabled={isWorking || reSplitting}>
                 {isWorking ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    导入中...
+                    {t("shared.upload.importing")}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    确认导入
+                    {t("shared.upload.confirmImport")}
                   </>
                 )}
               </Button>
@@ -1363,15 +1387,15 @@ export function UploadDialog({
       <AlertDialog open={showOverwriteConfirm} onOpenChange={setShowOverwriteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>覆盖手动标记？</AlertDialogTitle>
+            <AlertDialogTitle>{t("shared.upload.overwriteMarksTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              应用正则模板将覆盖当前 {splitPoints.length} 个手动标记，是否继续？
+              {t("shared.upload.overwriteMarksDescription", { count: splitPoints.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleOverwriteConfirmed}>
-              继续
+              {t("common.continue")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

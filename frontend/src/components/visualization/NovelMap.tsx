@@ -35,6 +35,7 @@ import {
   coastlineToPath,
   type Point as CoastPoint,
 } from "@/lib/coastlineGenerator"
+import { useI18n, type TranslationKey, type TranslationParams } from "@/i18n"
 
 // ── Canvas defaults ────────────────────────────────
 const DEFAULT_CANVAS = { width: 1600, height: 900 }
@@ -223,19 +224,24 @@ const TIER_FONT_WEIGHT: Record<string, number> = {
 
 const TIERS = ["continent", "kingdom", "region", "city", "site", "building"] as const
 
-const TIER_LABELS: Record<string, string> = {
-  continent: "大洲",
-  kingdom: "国",
-  region: "区域",
-  city: "城镇",
-  site: "地点",
-  building: "建筑",
+const TIER_LABEL_KEYS: Record<string, TranslationKey> = {
+  continent: "visualization.novelMap.tier.continent",
+  kingdom: "visualization.novelMap.tier.kingdom",
+  region: "visualization.novelMap.tier.region",
+  city: "visualization.novelMap.tier.city",
+  site: "visualization.novelMap.tier.site",
+  building: "visualization.novelMap.tier.building",
 }
 
-function getVisibleTiers(scale: number, scaleDivisor = 1): string {
+type TranslateFn = (key: TranslationKey, params?: TranslationParams) => string
+
+function getVisibleTiers(scale: number, t: TranslateFn, scaleDivisor = 1): string {
   const visible = TIERS.filter((t) => scale >= (TIER_MIN_SCALE[t] ?? 99) / scaleDivisor)
   if (visible.length === 0) return ""
-  return visible.map((t) => TIER_LABELS[t] ?? t).join("/")
+  return visible.map((tier) => {
+    const key = TIER_LABEL_KEYS[tier]
+    return key ? t(key) : tier
+  }).join("/")
 }
 
 // ── Type colors ─────────────────────────────────
@@ -393,6 +399,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     },
     ref,
   ) {
+    const { t } = useI18n()
     const containerRef = useRef<HTMLDivElement>(null)
     const svgRef = useRef<SVGSVGElement | null>(null)
     const roughCanvasRef = useRef<RoughSVG | null>(null)
@@ -1269,7 +1276,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("stroke-width", 1)
             .attr("stroke-opacity", isVisible ? 0.8 : 0.2)
             .append("title")
-            .text(`${pt.location}（途经）`)
+            .text(t("visualization.novelMap.waypointTitle", { location: pt.location }))
         } else {
           // Regular chapter stop: circle
           trajG
@@ -1285,7 +1292,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("stroke-width", 1.5)
             .attr("stroke-opacity", isVisible ? 1 : 0.3)
             .append("title")
-            .text(stay > 1 ? `${pt.location} — 停留 ${stay} 章` : pt.location)
+            .text(stay > 1
+              ? t("visualization.novelMap.stayTitle", { location: pt.location, count: stay })
+              : pt.location)
         }
 
         // Chapter label (only first occurrence at each location)
@@ -1347,7 +1356,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("repeatCount", "indefinite")
         }
       }
-    }, [mapReady, trajectoryPoints, allTrajectoryPoints, layoutMap, darkBg, stayDurations, isPlaying, currentPlayIndex])
+    }, [mapReady, trajectoryPoints, allTrajectoryPoints, layoutMap, darkBg, stayDurations, isPlaying, currentPlayIndex, t])
 
     // ── Auto-pan to follow playback ────────────────────
     useEffect(() => {
@@ -1535,7 +1544,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
         // Tooltip for unconstrained (speculative) placements
         if (isUnconstrained) {
-          hitCircle.append("title").text("推测放置（无空间约束）")
+          hitCircle.append("title").text(t("visualization.novelMap.unconstrainedPlacement"))
         }
 
         // Icon — render as inner SVG group (local coords centered at origin)
@@ -1686,7 +1695,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     }, [
       mapReady, layout, locMap, locations, iconDefs,
       visibleLocationNames, revealedLocationNames, currentLocation, darkBg,
-      collapsedChildCount, spaceThemeProp,
+      collapsedChildCount, spaceThemeProp, t,
     ])
 
     // ── Setup drag behavior (only in edit mode) ──────
@@ -2273,14 +2282,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           className="pointer-events-none absolute bottom-2 left-2 text-[11px] px-2 py-1"
           style={{ color: "rgba(120,120,120,0.8)" }}
         >
-          {getVisibleTiers(currentScale, tierScaleDivisor)}
+          {getVisibleTiers(currentScale, t, tierScaleDivisor)}
         </div>
 
         {/* Toolbar (top-right) */}
         <div className="absolute top-3 right-3 flex flex-col gap-1 z-10">
           <button
             type="button"
-            title="查看全貌"
+            title={t("visualization.novelMap.fitViewTitle")}
             className="rounded border bg-background/90 px-2 py-1 text-sm shadow hover:bg-background"
             onClick={fitToLocations}
           >
@@ -2288,7 +2297,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           </button>
           <button
             type="button"
-            title="放大"
+            title={t("visualization.novelMap.zoomInTitle")}
             className="rounded border bg-background/90 px-2 py-1 text-sm shadow hover:bg-background"
             onClick={() => {
               if (svgRef.current && zoomRef.current) {
@@ -2304,7 +2313,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           </button>
           <button
             type="button"
-            title="缩小"
+            title={t("visualization.novelMap.zoomOutTitle")}
             className="rounded border bg-background/90 px-2 py-1 text-sm shadow hover:bg-background"
             onClick={() => {
               if (svgRef.current && zoomRef.current) {
@@ -2340,7 +2349,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
                   {popup.parent ? ` · ${popup.parent}` : ""}
                 </div>
                 <div className="text-muted-foreground text-[11px] mb-1.5">
-                  出现 {popup.mentionCount} 章
+                  {t("visualization.novelMap.appearsInChapters", { count: popup.mentionCount ?? 0 })}
                 </div>
                 {conflictIndex.has(popup.name) && (
                   <div className="text-[11px] text-red-500 mb-1.5 border-t border-red-200 pt-1">
@@ -2356,20 +2365,20 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
                     setPopup(null)
                   }}
                 >
-                  查看卡片
+                  {t("visualization.novelMap.viewCard")}
                 </button>
                 <button
                   className="text-[11px] text-muted-foreground ml-3"
                   onClick={() => setPopup(null)}
                 >
-                  关闭
+                  {t("common.close")}
                 </button>
               </>
             ) : (
               <>
                 <div className="font-semibold mb-1">{popup.name}</div>
                 <div className="text-muted-foreground text-[11px] mb-1.5">
-                  通往: {popup.targetLayerName}
+                  {t("visualization.novelMap.portalTo", { target: popup.targetLayerName ?? "" })}
                 </div>
                 <button
                   className="text-[11px] text-blue-500 underline"
@@ -2378,13 +2387,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
                     setPopup(null)
                   }}
                 >
-                  进入地图
+                  {t("visualization.novelMap.enterMap")}
                 </button>
                 <button
                   className="text-[11px] text-muted-foreground ml-3"
                   onClick={() => setPopup(null)}
                 >
-                  关闭
+                  {t("common.close")}
                 </button>
               </>
             )}

@@ -14,6 +14,7 @@ import L from "leaflet"
 import type { LatLngBoundsExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
+import { useI18n } from "@/i18n"
 
 // ── Tile layer (no labels — clean canvas for novel markers) ──
 const TILE_URL =
@@ -152,6 +153,7 @@ function ZoomAwareMarkers({
   onEditLocation?: (name: string) => void
   handleDragEnd: (name: string, e: L.DragEndEvent) => void
 }) {
+  const { t } = useI18n()
   const zoom = useZoomLevel()
   const minMention = labelMentionThreshold(zoom)
 
@@ -216,7 +218,7 @@ function ZoomAwareMarkers({
                     <div className="text-xs text-gray-400">{loc.parent}</div>
                   )}
                   <div className="text-xs text-gray-400">
-                    提及 {loc.mention_count ?? 0} 次
+                    {t("visualization.geoMap.mentionCount", { count: loc.mention_count ?? 0 })}
                   </div>
                   <div className="mt-1.5 flex gap-2">
                     <button
@@ -226,7 +228,7 @@ function ZoomAwareMarkers({
                         onLocationClick?.(loc.name)
                       }}
                     >
-                      查看详情
+                      {t("visualization.geoMap.viewDetails")}
                     </button>
                     <button
                       className="text-xs text-red-500 hover:underline"
@@ -235,7 +237,7 @@ function ZoomAwareMarkers({
                         onEditLocation?.(loc.name)
                       }}
                     >
-                      编辑位置
+                      {t("visualization.geoMap.editLocation")}
                     </button>
                   </div>
                 </div>
@@ -261,6 +263,7 @@ export function GeoMap({
   onEditDragEnd,
   onEditCancel,
 }: GeoMapProps) {
+  const { t } = useI18n()
   // Only render locations that have geo coordinates
   const geoLocations = useMemo(
     () => locations.filter((loc) => geoCoords[loc.name]),
@@ -306,13 +309,13 @@ export function GeoMap({
       {editingLocation && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] rounded-full border border-red-300 bg-red-50 px-4 py-1.5 shadow-lg flex items-center gap-2">
           <span className="text-xs text-red-700">
-            拖拽十字丝移动「{editingLocation}」的位置
+            {t("visualization.geoMap.dragToMove", { location: editingLocation })}
           </span>
           <button
             className="text-xs text-red-500 hover:text-red-700 underline"
             onClick={onEditCancel}
           >
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       )}

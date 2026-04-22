@@ -6,12 +6,14 @@
 
 import { useEffect, useState } from "react"
 import { Upload } from "lucide-react"
+import { useI18n } from "@/i18n"
 
 interface DragDropOverlayProps {
   onFileDrop: (path: string) => void
 }
 
 export function DragDropOverlay({ onFileDrop }: DragDropOverlayProps) {
+  const { t } = useI18n()
   const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
@@ -60,8 +62,8 @@ export function DragDropOverlay({ onFileDrop }: DragDropOverlayProps) {
     >
       <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-blue-500 px-16 py-12">
         <Upload className="size-12 text-blue-400" />
-        <p className="text-lg font-medium text-slate-200">释放以导入 .air 文件</p>
-        <p className="text-sm text-slate-400">支持 AI Reader 分析数据</p>
+        <p className="text-lg font-medium text-slate-200">{t("desktop.dragDropTitle")}</p>
+        <p className="text-sm text-slate-400">{t("desktop.dragDropSubtitle")}</p>
       </div>
     </div>
   )

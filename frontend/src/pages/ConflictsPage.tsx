@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams } from "react-router-dom"
 import { apiFetch } from "@/api/client"
 import { Button } from "@/components/ui/button"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 
@@ -21,24 +22,31 @@ interface ConflictsResponse {
   type_counts: Record<string, number>
 }
 
-const SEVERITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  "严重": { label: "严重", color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30" },
-  "一般": { label: "一般", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
-  "提示": { label: "提示", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
+type SeverityLevel = "high" | "medium" | "info"
+
+const SEVERITY_CONFIG: Record<SeverityLevel, { value: string; labelKey: TranslationKey; color: string; bg: string }> = {
+  high: { value: "严重", labelKey: "conflicts.severity.high", color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30" },
+  medium: { value: "一般", labelKey: "conflicts.severity.medium", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
+  info: { value: "提示", labelKey: "conflicts.severity.info", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
 }
 
-const TYPE_CONFIG: Record<string, { label: string; icon: string }> = {
-  ability: { label: "能力矛盾", icon: "⚡" },
-  relation: { label: "关系冲突", icon: "🔗" },
-  location: { label: "地点矛盾", icon: "📍" },
-  death: { label: "死亡连续性", icon: "💀" },
-  direction: { label: "方向矛盾", icon: "🧭" },
-  distance: { label: "距离矛盾", icon: "📏" },
+const TYPE_CONFIG: Record<string, { labelKey: TranslationKey; icon: string }> = {
+  ability: { labelKey: "conflicts.type.ability", icon: "⚡" },
+  relation: { labelKey: "conflicts.type.relation", icon: "🔗" },
+  location: { labelKey: "conflicts.type.location", icon: "📍" },
+  death: { labelKey: "conflicts.type.death", icon: "💀" },
+  direction: { labelKey: "conflicts.type.direction", icon: "🧭" },
+  distance: { labelKey: "conflicts.type.distance", icon: "📏" },
 }
 
-type SeverityFilter = "all" | "严重" | "一般" | "提示"
+type SeverityFilter = "all" | SeverityLevel
+
+function severityConfigByValue(value: string) {
+  return Object.values(SEVERITY_CONFIG).find((config) => config.value === value) ?? SEVERITY_CONFIG.info
+}
 
 export default function ConflictsPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
 
   const [data, setData] = useState<ConflictsResponse | null>(null)
@@ -59,19 +67,19 @@ export default function ConflictsPage() {
         if (!cancelled) setData(res)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "加载失败")
+        if (!cancelled) setError(err instanceof Error ? err.message : t("conflicts.loadFailed"))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
 
     return () => { cancelled = true }
-  }, [novelId])
+  }, [novelId, t])
 
   const filteredConflicts = useMemo(() => {
     if (!data) return []
     if (severityFilter === "all") return data.conflicts
-    return data.conflicts.filter((c) => c.severity === severityFilter)
+    return data.conflicts.filter((c) => c.severity === SEVERITY_CONFIG[severityFilter].value)
   }, [data, severityFilter])
 
   const toggleExpand = useCallback((idx: number) => {
@@ -81,7 +89,7 @@ export default function ConflictsPage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted-foreground">正在检测设定冲突...</p>
+        <p className="text-muted-foreground">{t("conflicts.loading")}</p>
       </div>
     )
   }
@@ -98,9 +106,9 @@ export default function ConflictsPage() {
     <div className="flex-1 overflow-auto">
       <div className="max-w-3xl mx-auto p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-medium">设定冲突检测</h1>
+          <h1 className="text-lg font-medium">{t("conflicts.title")}</h1>
           <span className="text-xs text-muted-foreground">
-            共 {data?.total ?? 0} 个冲突
+            {t("conflicts.count", { count: data?.total ?? 0 })}
           </span>
         </div>
 
@@ -110,13 +118,13 @@ export default function ConflictsPage() {
             {Object.entries(data.severity_counts)
               .filter(([, count]) => count > 0)
               .map(([sev, count]) => {
-                const cfg = SEVERITY_CONFIG[sev]
+                const cfg = severityConfigByValue(sev)
                 return cfg ? (
                   <span
                     key={sev}
                     className={cn("text-xs px-2 py-1 rounded", cfg.bg, cfg.color)}
                   >
-                    {cfg.label}: {count}
+                    {t(cfg.labelKey)}: {count}
                   </span>
                 ) : null
               })}
@@ -125,15 +133,15 @@ export default function ConflictsPage() {
 
         {/* Severity filter */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">筛选</span>
-          {(["all", "严重", "一般", "提示"] as SeverityFilter[]).map((f) => (
+          <span className="text-xs text-muted-foreground">{t("conflicts.filter")}</span>
+          {(["all", "high", "medium", "info"] as SeverityFilter[]).map((f) => (
             <Button
               key={f}
               variant={severityFilter === f ? "default" : "outline"}
               size="xs"
               onClick={() => setSeverityFilter(f)}
             >
-              {f === "all" ? "全部" : f}
+              {f === "all" ? t("conflicts.filterAll") : t(SEVERITY_CONFIG[f].labelKey)}
             </Button>
           ))}
         </div>
@@ -142,14 +150,14 @@ export default function ConflictsPage() {
         {filteredConflicts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {data?.total === 0 ? "未检测到设定冲突" : "当前筛选无结果"}
+              {data?.total === 0 ? t("conflicts.empty") : t("conflicts.noFilteredResults")}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             {filteredConflicts.map((conflict, idx) => {
-              const sevCfg = SEVERITY_CONFIG[conflict.severity] ?? SEVERITY_CONFIG["提示"]
-              const typeCfg = TYPE_CONFIG[conflict.type] ?? { label: conflict.type, icon: "?" }
+              const sevCfg = severityConfigByValue(conflict.severity)
+              const typeCfg = TYPE_CONFIG[conflict.type]
               const isExpanded = expandedIdx === idx
 
               return (
@@ -164,7 +172,7 @@ export default function ConflictsPage() {
                   <div className="flex items-start gap-3 p-3">
                     {/* Type icon */}
                     <span className="text-base flex-shrink-0 mt-0.5">
-                      {typeCfg.icon}
+                      {typeCfg?.icon ?? "?"}
                     </span>
 
                     {/* Content */}
@@ -176,13 +184,13 @@ export default function ConflictsPage() {
                             sevCfg.bg, sevCfg.color,
                           )}
                         >
-                          {sevCfg.label}
+                          {t(sevCfg.labelKey)}
                         </span>
                         <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
-                          {typeCfg.label}
+                          {typeCfg ? t(typeCfg.labelKey) : conflict.type}
                         </span>
                         <span className="text-[10px] text-muted-foreground ml-auto flex-shrink-0">
-                          第{conflict.chapters.join("/")}章
+                          {t("conflicts.chapterList", { chapters: conflict.chapters.join("/") })}
                         </span>
                       </div>
                       <p className="text-sm leading-relaxed">{conflict.description}</p>
@@ -198,7 +206,7 @@ export default function ConflictsPage() {
                   {isExpanded && Object.keys(conflict.details).length > 0 && (
                     <div className="px-3 pb-3 pt-0 ml-8">
                       <div className="text-xs text-muted-foreground space-y-1 border-t pt-2">
-                        <p><span className="font-medium">涉及实体:</span> {conflict.entity}</p>
+                        <p><span className="font-medium">{t("conflicts.involvedEntity")}</span> {conflict.entity}</p>
                         {Object.entries(conflict.details).map(([key, val]) => (
                           <p key={key}>
                             <span className="font-medium">{key}:</span>{" "}

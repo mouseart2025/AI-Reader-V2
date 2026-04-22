@@ -118,16 +118,17 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] `frontend/src/pages/BookshelfPage.tsx`
   - [x] `frontend/src/desktop/BookshelfPage.tsx`
   - [x] `frontend/src/desktop/BookshelfCard.tsx`
-  - [ ] `frontend/src/desktop/DragDropOverlay.tsx`
-  - [ ] `frontend/src/desktop/SecurityGuide.tsx`
+  - [x] `frontend/src/desktop/DragDropOverlay.tsx`
+  - [x] `frontend/src/desktop/SecurityGuide.tsx`
   - [ ] Migrate global shared components.
-  - [ ] Theme toggle labels.
-  - [ ] Welcome banner.
+  - [x] Theme toggle labels.
+  - [x] Welcome banner.
   - [x] Feature discovery and guided tour text.
   - [x] Cost preview dialog.
   - [x] Inline LLM setup and contextual guide card.
   - [x] Floating chat panel labels, quick questions, and system FAQ responses.
   - [x] Entity card drawer shell and card-section controls.
+  - [x] Novel overview card.
 - [ ] Verify both web and desktop shell builds.
   - [x] Web build with `npm run build`.
   - [ ] Desktop build.
@@ -137,26 +138,28 @@ remains the default locale until the project maintainers decide otherwise.
 - [ ] Migrate reading workflow.
   - [ ] `frontend/src/pages/ReadingPage.tsx`
   - [ ] `frontend/src/pages/ScreenplayPage.tsx`
-  - [ ] `frontend/src/components/shared/ScenePanel.tsx`
-  - [ ] `frontend/src/components/shared/TextPreviewPanel.tsx`
-- [ ] Migrate upload/import workflow.
-  - [ ] `frontend/src/components/shared/UploadDialog.tsx`
-  - [ ] Regex template labels.
-  - [ ] File validation messages.
-  - [ ] Split diagnosis messages.
-  - [ ] Duplicate import prompts.
-  - [ ] Migrate analysis workflow.
-  - [ ] `frontend/src/pages/AnalysisPage.tsx`
-  - [ ] Progress/status labels.
-  - [ ] Pause/resume/retry labels.
+  - [x] `frontend/src/components/shared/ScenePanel.tsx`
+  - [x] `frontend/src/components/shared/TextPreviewPanel.tsx`
+- [x] Migrate upload/import workflow.
+  - [x] `frontend/src/components/shared/UploadDialog.tsx`
+  - [x] Regex template labels.
+  - [x] File validation messages.
+  - [x] Split diagnosis messages.
+  - [x] Duplicate import prompts.
+- [ ] Migrate analysis workflow.
+  - [x] `frontend/src/pages/AnalysisPage.tsx`
+  - [x] Progress/status labels.
+  - [x] Pause/resume/retry labels.
   - [x] Shared budget and model setup prompts.
+  - [x] Setup guide labels.
 - [ ] Migrate visualization pages.
   - [ ] `frontend/src/pages/GraphPage.tsx`
   - [ ] `frontend/src/pages/MapPage.tsx`
   - [ ] `frontend/src/pages/TimelinePage.tsx`
   - [ ] `frontend/src/pages/FactionsPage.tsx`
   - [ ] `frontend/src/pages/EncyclopediaPage.tsx`
-  - [ ] `frontend/src/pages/ConflictsPage.tsx`
+  - [x] `frontend/src/pages/ConflictsPage.tsx`
+  - [x] Shared visualization layout, geography panel, map quality panel, and GeoMap controls.
 - [ ] Migrate chat and export pages.
   - [x] `frontend/src/pages/ChatPage.tsx`
   - [x] `frontend/src/pages/ExportPage.tsx`
@@ -174,16 +177,19 @@ remains the default locale until the project maintainers decide otherwise.
 
 - [ ] Centralize domain label maps.
   - [ ] Entity types.
-  - [ ] Relation categories.
+  - [x] Relation categories.
   - [ ] Location tiers.
   - [ ] Scene tones.
   - [ ] Scene event types.
   - [ ] Organization/faction labels.
-  - [ ] Conflict severity labels.
+  - [x] Conflict severity labels.
   - [x] Series Bible export module and template labels.
   - [x] Item, location, and organization card section/stat labels.
   - [x] Person card relation categories, section labels, scene labels, and stat labels.
   - [x] Shared onboarding/setup labels for contextual guide, discovery bar, tour bubble, cost preview, and inline LLM setup.
+  - [x] Novel overview metadata, regex template labels, scene panel filters, and setup guide labels.
+  - [x] Theme toggle and text preview controls.
+  - [x] Shared spatial relation type/value labels.
 - [ ] Keep API enum values stable and translate only display labels.
 - [ ] Add date/time/number formatting helpers.
   - [ ] Dates in Settings and backups.
@@ -279,7 +285,8 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Detect hardcoded CJK UI strings outside locale files and comments.
   - [ ] Support an allowlist for Chinese NLP data, prompts, fixtures, demo content, and tests.
     - [x] Allowlist frontend demo novel metadata as source content.
-    - [x] Ignore non-UI Set membership data, CSS class maps, HTML entity icon tokens, and code snippets.
+    - [x] Ignore non-UI Set membership data, CSS class maps, HTML entity icon tokens, code snippets, regex patterns, and translation-key map keys.
+    - [x] Ignore frontend test files and intentional heuristic keyword arrays.
     - [ ] Add broader allowlist categories for prompts, fixtures, and NLP dictionaries.
 - [x] Add a `sync` tool to keep locale files aligned.
   - [x] Add missing keys from the source locale into target locale files with source-text placeholders.
@@ -320,7 +327,7 @@ remains the default locale until the project maintainers decide otherwise.
   - [x] Documentation updates.
 - [ ] Suggested PR 2:
   - [x] Bookshelf web/desktop landing migration.
-  - [ ] Upload/import full workflow migration.
+  - [x] Upload/import full workflow migration.
   - [ ] Settings full migration.
   - [x] Language selector.
   - [x] `vi` locale pack and flag-backed language choices.
@@ -332,6 +339,10 @@ remains the default locale until the project maintainers decide otherwise.
     - [x] Entity card drawer shell and item/location/organization cards.
     - [x] Person card and entity scene snippets.
     - [x] Shared onboarding/setup components.
+    - [x] Novel overview card, regex template selector, scene panel, and setup guide.
+    - [x] Theme toggle and text preview panel.
+    - [x] Welcome banner and shared visualization panels.
+    - [x] Analysis workflow page and conflict-detection page.
   - [x] Series Bible export labels.
   - [ ] Remaining domain label maps.
 - [ ] Suggested PR 4:
