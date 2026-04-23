@@ -2,7 +2,11 @@
 
 import pytest
 
-from src.services.alias_resolver import _alias_safety_level
+from src.services.alias_resolver import (
+    _alias_safety_level,
+    _apply_known_hotfix_patches,
+    _hotfix_xiyouji_sha_bajie,
+)
 
 
 # ── _alias_safety_level tests ───────────────────────────────────
@@ -98,3 +102,66 @@ class TestAliasSafetyLevel:
 
     def test_empty_blocked(self):
         assert _alias_safety_level("") == 0
+
+
+# ── Hotfix patch tests ──────────────────────────────────────────
+
+
+class TestHotfixXiyoujiShaBajie:
+    """Demo-layer patch correcting 沙僧/八戒 UF mis-merge."""
+
+    def _buggy_map(self):
+        return {
+            "沙僧": "八戒",
+            "沙悟净": "八戒",
+            "沙和尚": "八戒",
+            "悟净": "八戒",
+            "卷帘大将": "八戒",
+            "卷帘": "八戒",
+            "金身罗汉": "八戒",
+            "三徒弟": "八戒",
+            "悟能": "八戒",
+            "猪八戒": "八戒",
+            "那呆子": "八戒",
+            "净坛使者": "八戒",
+            "悟空": "孙悟空",
+        }
+
+    def test_signature_triggers_patch(self):
+        patched = _hotfix_xiyouji_sha_bajie(self._buggy_map())
+        assert patched["沙悟净"] == "沙僧"
+        assert patched["沙和尚"] == "沙僧"
+        assert patched["悟净"] == "沙僧"
+        assert patched["卷帘大将"] == "沙僧"
+        assert patched["卷帘"] == "沙僧"
+        assert patched["金身罗汉"] == "沙僧"
+        assert patched["三徒弟"] == "沙僧"
+
+    def test_bajie_aliases_preserved(self):
+        patched = _hotfix_xiyouji_sha_bajie(self._buggy_map())
+        assert patched["悟能"] == "八戒"
+        assert patched["猪八戒"] == "八戒"
+        assert patched["那呆子"] == "八戒"
+        assert patched["净坛使者"] == "八戒"
+
+    def test_canonical_not_self_mapped(self):
+        patched = _hotfix_xiyouji_sha_bajie(self._buggy_map())
+        assert "沙僧" not in patched
+
+    def test_sha_seng_becomes_canonical(self):
+        patched = _hotfix_xiyouji_sha_bajie(self._buggy_map())
+        assert "沙僧" in set(patched.values())
+
+    def test_no_op_when_signature_absent(self):
+        clean_map = {"悟空": "孙悟空", "沙悟净": "沙僧", "悟能": "八戒"}
+        patched = _hotfix_xiyouji_sha_bajie(clean_map)
+        assert patched == clean_map
+
+    def test_unrelated_entries_untouched(self):
+        patched = _hotfix_xiyouji_sha_bajie(self._buggy_map())
+        assert patched["悟空"] == "孙悟空"
+
+    def test_apply_all_hotfixes_chains_patches(self):
+        patched = _apply_known_hotfix_patches(self._buggy_map())
+        assert patched["沙悟净"] == "沙僧"
+        assert patched["悟能"] == "八戒"

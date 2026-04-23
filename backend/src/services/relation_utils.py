@@ -22,6 +22,7 @@ _RELATION_TYPE_NORM: dict[str, str] = {
     "姑侄": "姑侄", "姨甥": "甥舅",
     "祖孙": "祖孙", "婆媳": "婆媳", "翁媳": "翁媳",
     "妯娌": "妯娌", "姑嫂": "姑嫂", "连襟": "连襟",
+    "嫂叔": "嫂叔", "嫂弟": "嫂叔", "叔嫂": "嫂叔", "弟嫂": "嫂叔",
     "嫡庶": "嫡庶",
     # Blood relations — cousin/in-law
     "表兄弟": "表亲", "表姐妹": "表亲", "表亲": "表亲",
@@ -86,21 +87,26 @@ _RELATION_CATEGORY: dict[str, str] = {
     # Extended family
     "甥舅": "family", "姑侄": "family", "翁媳": "family",
     "妯娌": "family", "姑嫂": "family", "连襟": "family",
+    "嫂叔": "family",
     "嫡庶": "family", "亲家": "family", "亲戚": "family", "族人": "family",
-    # Intimate
-    "夫妻": "intimate", "恋人": "intimate",
+    # Marriage — treated as family (primary kinship institution in classic Chinese novels)
+    "夫妻": "family",
+    # Sworn brotherhood — treated as intimate bond (cultural parallel to family tie)
+    "结拜兄弟": "intimate",
+    # Intimate — romantic only
+    "恋人": "intimate",
     "情敌": "hostile",
     # One-sided / attempted — social, not intimate
     "求亲": "social", "逼婚": "hostile", "爱慕": "social",
-    # Hierarchical
+    # Hierarchical — vertical master-subordinate bonds only
     "师徒": "hierarchical", "主仆": "hierarchical", "君臣": "hierarchical",
     "上下级": "hierarchical",
-    # Social
-    "朋友": "social", "同门": "social", "师兄弟": "social",
-    "结拜兄弟": "social", "同学": "social",
+    # Social — horizontal peer bonds (same-teacher siblings are peers, not hierarchy)
+    "朋友": "social", "同学": "social",
     "同事": "social", "邻居": "social", "搭档": "social",
     "同僚": "social", "盟友": "social", "世交": "social",
     "恩人": "social", "奇遇": "social",
+    "同门": "social", "师兄弟": "social",
     # Hostile
     "敌对": "hostile",
 }

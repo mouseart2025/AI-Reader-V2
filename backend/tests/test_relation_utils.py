@@ -37,6 +37,26 @@ class TestClassifyRelationCategory:
         assert classify_relation_category("求亲") == "social"
         assert classify_relation_category("爱慕") == "social"
 
-    def test_intimate_still_works(self):
-        assert classify_relation_category("夫妻") == "intimate"
+    def test_romantic_lovers_are_intimate(self):
         assert classify_relation_category("恋人") == "intimate"
+
+    def test_marriage_is_family(self):
+        """Marriage is the primary kinship institution, classified as family."""
+        assert classify_relation_category("夫妻") == "family"
+
+    def test_sworn_brotherhood_is_intimate(self):
+        """结拜兄弟 is an intimate cultural bond, not a casual social tie."""
+        assert classify_relation_category("结拜兄弟") == "intimate"
+
+    def test_same_master_peers_are_social(self):
+        """师兄弟 / 同门 are horizontal peers under a shared master, not a vertical
+        master-subordinate tie. Gold annotations (3 novels × 14 rows) consistently
+        label these as social; graph coloring depends on this being a peer bond."""
+        assert classify_relation_category("师兄弟") == "social"
+        assert classify_relation_category("同门") == "social"
+
+    def test_sister_in_law_brother_in_law_is_family(self):
+        """嫂叔 / 嫂弟 are kinship ties through marriage."""
+        assert classify_relation_category("嫂叔") == "family"
+        assert normalize_relation_type("嫂弟") == "嫂叔"
+        assert classify_relation_category(normalize_relation_type("嫂弟")) == "family"
