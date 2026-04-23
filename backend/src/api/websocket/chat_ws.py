@@ -52,12 +52,19 @@ async def chat_ws(websocket: WebSocket, session_id: str):
                     conversation_id=conversation_id,
                 ):
                     await websocket.send_json(chunk)
+            except WebSocketDisconnect:
+                # Client disconnected mid-stream — propagate to outer handler.
+                raise
             except Exception as e:
                 logger.error(f"Chat stream error: {e}", exc_info=True)
-                await websocket.send_json(
-                    {"type": "error", "message": str(e)}
-                )
-                await websocket.send_json({"type": "done"})
+                try:
+                    await websocket.send_json(
+                        {"type": "error", "message": str(e)}
+                    )
+                    await websocket.send_json({"type": "done"})
+                except (WebSocketDisconnect, RuntimeError):
+                    # Client already disconnected — error/done messages can't be sent.
+                    pass
 
     except WebSocketDisconnect:
         logger.debug(f"Chat WS disconnected: session={session_id}")
