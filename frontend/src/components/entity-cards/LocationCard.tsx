@@ -3,6 +3,7 @@ import type { LocationProfile } from "@/api/types"
 import { fetchLocationSpatialSummary } from "@/api/client"
 import { translateSpatialType, translateSpatialValue } from "@/lib/spatialLabels"
 import { useI18n, type TranslationKey } from "@/i18n"
+import { locationTypeLabel, timelineEventTypeLabel } from "@/lib/domainLabels"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 import { LocationMiniMap } from "./LocationMiniMap"
@@ -47,7 +48,7 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
           <div>
             <h3 className="text-lg font-bold">{profile.name}</h3>
             {profile.location_type && (
-              <span className="text-muted-foreground text-xs">{profile.location_type}</span>
+              <span className="text-muted-foreground text-xs">{locationTypeLabel(t, profile.location_type_id, profile.location_type)}</span>
             )}
           </div>
         </div>
@@ -135,6 +136,11 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
           <div key={i} className="text-sm">
             <ChapterTag chapter={ev.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">{ev.summary}</span>
+            {ev.type && (
+              <span className="text-muted-foreground ml-1 text-[10px]">
+                {timelineEventTypeLabel(t, ev.type_id, ev.type)}
+              </span>
+            )}
           </div>
         ))}
       </CardSection>

@@ -1,5 +1,7 @@
 import type { TranslationKey } from "@/i18n"
 
+export type SourceLanguage = "auto" | "zh-CN" | "vi" | "en"
+
 export interface Novel {
   id: string
   title: string
@@ -9,6 +11,7 @@ export interface Novel {
   created_at: string
   updated_at: string
   is_sample: boolean
+  source_language: SourceLanguage
   analysis_progress: number
   failed_count: number
   reading_progress: number
@@ -84,6 +87,7 @@ export interface SplitDiagnosis {
   user_message?: string
   technical_detail?: string
   detected_genre?: string
+  source_language?: SourceLanguage
   original_mode?: string | null
   alternatives_tried?: string[]
 }
@@ -113,6 +117,7 @@ export interface UploadPreviewResponse {
   diagnosis?: SplitDiagnosis | null
   hygiene_report?: HygieneReport | null
   matched_mode?: string | null
+  source_language: SourceLanguage
 }
 
 export interface ConfirmImportRequest {
@@ -120,6 +125,7 @@ export interface ConfirmImportRequest {
   title: string
   author?: string | null
   excluded_chapters?: number[]
+  source_language?: SourceLanguage
 }
 
 export interface ReSplitRequest {
@@ -127,6 +133,7 @@ export interface ReSplitRequest {
   mode?: string | null
   custom_regex?: string | null
   split_points?: number[] | null
+  source_language?: SourceLanguage
 }
 
 export interface CleanAndReSplitRequest {
@@ -405,13 +412,14 @@ export interface PersonProfile {
     stages: {
       chapters: number[]
       relation_type: string
+      relation_type_id?: string
       evidences: string[]
       evidence: string
     }[]
     category: string
   }[]
-  items: { chapter: number; item_name: string; item_type: string; action: string; description: string }[]
-  experiences: { chapter: number; summary: string; type: string; location: string | null }[]
+  items: { chapter: number; item_name: string; item_type: string; item_type_id?: string; action: string; action_id?: string; description: string }[]
+  experiences: { chapter: number; summary: string; type: string; type_id?: string; location: string | null }[]
   stats: Record<string, number>
 }
 
@@ -419,12 +427,13 @@ export interface LocationProfile {
   name: string
   type: "location"
   location_type: string
+  location_type_id?: string
   parent: string | null
   children: string[]
   siblings?: string[]
   descriptions: { chapter: number; description: string }[]
   visitors: { name: string; chapters: number[]; is_resident: boolean }[]
-  events: { chapter: number; summary: string; type: string }[]
+  events: { chapter: number; summary: string; type: string; type_id?: string }[]
   stats: Record<string, number>
 }
 
@@ -432,7 +441,8 @@ export interface ItemProfile {
   name: string
   type: "item"
   item_type: string
-  flow: { chapter: number; action: string; actor: string; recipient: string | null; description: string }[]
+  item_type_id?: string
+  flow: { chapter: number; action: string; action_id?: string; actor: string; recipient: string | null; description: string }[]
   related_items: string[]
   stats: Record<string, number>
 }
@@ -441,8 +451,9 @@ export interface OrgProfile {
   name: string
   type: "org"
   org_type: string
-  member_events: { chapter: number; member: string; role: string | null; action: string; description: string }[]
-  org_relations: { chapter: number; other_org: string; relation_type: string }[]
+  org_type_id?: string
+  member_events: { chapter: number; member: string; role: string | null; action: string; action_id?: string; description: string }[]
+  org_relations: { chapter: number; other_org: string; relation_type: string; relation_type_id?: string }[]
   stats: Record<string, number>
 }
 
@@ -499,6 +510,7 @@ export interface MapLocation {
   id: string
   name: string
   type: string
+  type_id?: string
   parent: string | null
   level: number
   mention_count: number
@@ -828,10 +840,13 @@ export interface Scene {
   // Rich metadata from multi-signal scene extractor
   heading?: string
   time_of_day?: string        // "早" | "午" | "晚" | "夜" | ""
+  time_of_day_id?: string
   emotional_tone?: string     // "战斗" | "紧张" | "悲伤" | "欢乐" | "平静" | ""
+  emotional_tone_id?: string
   key_dialogue?: string[]     // 1-2 key dialogue lines
   character_roles?: SceneCharacterRole[]
   event_type?: string         // "对话" | "战斗" | "旅行" | "描写" | "回忆"
+  event_type_id?: string
   summary?: string            // LLM-generated 20-50 char scene summary
 }
 

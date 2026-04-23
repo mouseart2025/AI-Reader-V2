@@ -6,6 +6,7 @@
 
 import pytest
 
+from src.models.world_structure import WorldStructure
 from src.services.world_structure_agent import WorldStructureAgent, _get_suffix_rank
 
 
@@ -62,6 +63,29 @@ class TestTransitivityCheck:
     def test_empty_parents(self):
         """Empty dict → no violations."""
         assert WorldStructureAgent._check_transitivity({}) == []
+
+
+class TestVietnameseLocationHeuristics:
+    """Vietnamese location names should not rely on Chinese suffix morphology."""
+
+    def test_suffix_rank_skips_vietnamese_names(self):
+        assert _get_suffix_rank("sông Hồng") is None
+        assert _get_suffix_rank("thành Thăng Long") is None
+
+    def test_vietnamese_prefix_tier_fallback(self):
+        agent = WorldStructureAgent.__new__(WorldStructureAgent)
+        agent.structure = WorldStructure.create_default("vi")
+
+        assert agent._classify_tier("sông Hồng", "", None) == "region"
+        assert agent._classify_tier("thành Thăng Long", "", None) == "city"
+        assert agent._classify_tier("bến Chương Dương", "", "sông Hồng") == "site"
+        assert agent._classify_tier("chùa Phổ Minh", "", None) == "site"
+
+    def test_vietnamese_prefix_icon_fallback(self):
+        assert WorldStructureAgent._classify_icon("sông Hồng", "") == "water"
+        assert WorldStructureAgent._classify_icon("thành Thăng Long", "") == "city"
+        assert WorldStructureAgent._classify_icon("bến Chương Dương", "") == "gate"
+        assert WorldStructureAgent._classify_icon("chùa Phổ Minh", "") == "temple"
 
 
 # ── Story 2.2: Temporal weight decay ────────────────────────────

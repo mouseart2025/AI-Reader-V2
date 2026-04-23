@@ -14,6 +14,9 @@ import { novelPath } from "@/lib/novelPaths"
 import { useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { X } from "lucide-react"
+import { useI18n } from "@/i18n"
+import { timelineEventColor, timelineEventTypeId, timelineEventTypeLabel } from "@/lib/domainLabels"
+import { timelineEventSummary } from "@/lib/timelineSummary"
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -22,14 +25,18 @@ interface TimelineEvent {
   chapter: number
   summary: string
   type: string
+  type_id?: string
   importance: string
   participants: string[]
   location: string | null
   is_major?: boolean
   emotional_tone?: string | null
+  emotional_tone_id?: string | null
+  summary_template_id?: string | null
+  summary_args?: Record<string, unknown> | null
 }
 
-type FilterType = "all" | "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "关系变化" | "其他"
+type FilterType = "battle" | "growth" | "social" | "travel" | "character_appearance" | "item_transfer" | "org_change" | "relation_change" | "other"
 
 interface StorylineViewProps {
   events: TimelineEvent[]
@@ -54,20 +61,6 @@ const CHARACTER_PALETTE = [
   "#06b6d4", "#eab308", "#14b8a6", "#f43f5e", "#6366f1", "#84cc16",
 ]
 
-function eventColor(type: string): string {
-  switch (type) {
-    case "战斗": return "#ef4444"
-    case "成长": return "#3b82f6"
-    case "社交": return "#10b981"
-    case "旅行": return "#f97316"
-    case "角色登场": return "#8b5cf6"
-    case "物品交接": return "#eab308"
-    case "组织变动": return "#ec4899"
-    case "关系变化": return "#06b6d4"
-    default: return "#6b7280"
-  }
-}
-
 function eventRadius(importance: string, isMajor?: boolean): number {
   if (isMajor) return 5
   switch (importance) {
@@ -86,6 +79,7 @@ export default function StorylineView({
   novelId,
   filterTypes,
 }: StorylineViewProps) {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
   const setFocusLocation = useVisualizationFocusStore((s) => s.setFocusLocation)
@@ -159,7 +153,7 @@ export default function StorylineView({
       const ids = swimlanes[char] ?? []
       const evts = ids
         .map((id) => eventById.get(id))
-        .filter((e): e is TimelineEvent => e != null && filterTypes.has(e.type as FilterType))
+        .filter((e): e is TimelineEvent => e != null && filterTypes.has(timelineEventTypeId(e.type_id, e.type) as FilterType))
       map.set(char, evts)
     }
     return map
@@ -200,13 +194,16 @@ export default function StorylineView({
   const toggleChar = useCallback((name: string) => {
     setSelectedChars((prev) => {
       if (prev.includes(name)) {
-        if (prev.length <= 1) { setToast("至少保留一个角色"); return prev }
+        if (prev.length <= 1) { setToast(t("timeline.storyline.minOneCharacter")); return prev }
         return prev.filter((c) => c !== name)
       }
-      if (prev.length >= MAX_CHARACTERS) { setToast(`最多选择 ${MAX_CHARACTERS} 个角色`); return prev }
+      if (prev.length >= MAX_CHARACTERS) {
+        setToast(t("timeline.storyline.maxCharacters", { count: MAX_CHARACTERS }))
+        return prev
+      }
       return [...prev, name]
     })
-  }, [])
+  }, [t])
 
   // SVG dimensions
   const svgHeight = useMemo(() => {
@@ -379,7 +376,7 @@ export default function StorylineView({
   if (events.length === 0) {
     return (
       <div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">
-        暂无时间线数据，请先完成章节分析
+        {t("timeline.storyline.empty")}
       </div>
     )
   }
@@ -387,11 +384,11 @@ export default function StorylineView({
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Character selection panel */}
-      <div className="w-[200px] flex-shrink-0 border-r flex flex-col overflow-hidden">
+          <div className="w-[200px] flex-shrink-0 border-r flex flex-col overflow-hidden">
         <div className="p-2 border-b">
           <input
             type="text"
-            placeholder="🔍 搜索角色..."
+            placeholder={t("timeline.storyline.searchCharacters")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-md border bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -422,7 +419,7 @@ export default function StorylineView({
                     isSelected ? "text-foreground font-semibold" : "text-muted-foreground",
                   )}
                   onClick={() => openEntityCard(c.name, "person")}
-                  title={`查看 ${c.name} 档案`}
+                  title={t("timeline.storyline.viewEntity", { name: c.name })}
                 >
                   {c.name}
                 </button>
@@ -433,16 +430,16 @@ export default function StorylineView({
         </div>
 
         <div className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
-          <p>已选 {selectedChars.length} / 共 {sortedCharacters.length}</p>
+          <p>{t("timeline.storyline.selectionCount", { selected: selectedChars.length, total: sortedCharacters.length })}</p>
           <div className="flex gap-2 mt-1">
             <button className="text-primary hover:underline" onClick={() => setSelectedChars(sortedCharacters.slice(0, 10).map((c) => c.name))}>
-              选前10
+              {t("timeline.storyline.selectTop", { count: 10 })}
             </button>
             <button className="text-primary hover:underline" onClick={() => {
               const first = sortedCharacters[0]?.name
               if (first) setSelectedChars([first])
             }}>
-              清空
+              {t("timeline.storyline.keepFirst")}
             </button>
           </div>
         </div>
@@ -452,25 +449,25 @@ export default function StorylineView({
       <div className="flex-1 flex flex-col overflow-hidden" ref={containerRef}>
         {selectedChars.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-            请选择至少一个角色查看其故事线
+            {t("timeline.storyline.selectPrompt")}
           </div>
         ) : (
           <>
             {/* Zoom controls */}
             <div className="flex items-center gap-1 border-b px-3 py-1 flex-shrink-0">
-              <button onClick={handleZoomIn} className="px-2 py-0.5 rounded text-xs border hover:bg-muted transition" title="放大">＋</button>
-              <button onClick={handleZoomOut} className="px-2 py-0.5 rounded text-xs border hover:bg-muted transition" title="缩小">－</button>
-              <button onClick={handleZoomReset} className="px-2 py-0.5 rounded text-xs border hover:bg-muted transition" title="重置">1:1</button>
+              <button onClick={handleZoomIn} className="px-2 py-0.5 rounded text-xs border hover:bg-muted transition" title={t("timeline.storyline.zoomIn")}>＋</button>
+              <button onClick={handleZoomOut} className="px-2 py-0.5 rounded text-xs border hover:bg-muted transition" title={t("timeline.storyline.zoomOut")}>－</button>
+              <button onClick={handleZoomReset} className="px-2 py-0.5 rounded text-xs border hover:bg-muted transition" title={t("timeline.storyline.zoomReset")}>1:1</button>
               <span className="text-[10px] text-muted-foreground ml-1">{Math.round(zoomK * 100)}%</span>
               {/* Legend: event type colors */}
               <div className="w-px h-4 bg-border mx-1" />
-              {[["战斗","#ef4444"],["成长","#3b82f6"],["社交","#10b981"],["旅行","#f97316"],["关系","#06b6d4"],["其他","#6b7280"]].map(([label, color]) => (
-                <span key={label} className="flex items-center gap-0.5">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-[9px] text-muted-foreground">{label}</span>
-                </span>
-              ))}
-              <span className="text-[10px] text-muted-foreground ml-auto">左侧颜色=角色 · 节点颜色=事件类型</span>
+              {(["battle", "growth", "social", "travel", "relation_change", "other"] as const).map((type) => (
+                  <span key={type} className="flex items-center gap-0.5">
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: timelineEventColor(type) }} />
+                    <span className="text-[9px] text-muted-foreground">{timelineEventTypeLabel(t, type)}</span>
+                  </span>
+                ))}
+              <span className="text-[10px] text-muted-foreground ml-auto">{t("timeline.storyline.legendHint")}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto relative">
@@ -555,6 +552,7 @@ export default function StorylineView({
                           const r = eventRadius(best.importance, best.is_major)
                           const isEvtSelected = selectedEvent?.id === best.id
                           const dimmed = selectedEvent != null && !isEvtSelected
+                          const bestSummary = timelineEventSummary(t, best)
 
                           nodes.push(
                             <g key={`${ch}-${char}`}>
@@ -563,14 +561,19 @@ export default function StorylineView({
                               )}
                               <circle
                                 cx={cx} cy={midY} r={r}
-                                fill={eventColor(best.type)}
+                                fill={timelineEventColor(best.type_id, best.type)}
                                 stroke={isEvtSelected ? "#3b82f6" : "none"}
                                 strokeWidth={isEvtSelected ? 2 : 0}
                                 opacity={dimmed ? 0.2 : 1}
                                 className="cursor-pointer"
                                 onMouseEnter={(e) => {
                                   setTooltip({
-                                    event: { ...best, summary: count > 1 ? `[${count}个事件] ${best.summary}` : best.summary },
+                                    event: {
+                                      ...best,
+                                      summary: count > 1
+                                        ? t("timeline.storyline.multiEventSummary", { count, summary: bestSummary })
+                                        : bestSummary,
+                                    },
                                     x: e.clientX, y: e.clientY,
                                   })
                                 }}
@@ -613,7 +616,7 @@ export default function StorylineView({
                     <line
                       key={`conv-${evt.id}`}
                       x1={cx} y1={y1} x2={cx} y2={y2}
-                      stroke={eventColor(evt.type)} strokeWidth={1} strokeDasharray="3,3" opacity={0.3}
+                      stroke={timelineEventColor(evt.type_id, evt.type)} strokeWidth={1} strokeDasharray="3,3" opacity={0.3}
                       className="pointer-events-none"
                     />
                   )
@@ -660,11 +663,11 @@ export default function StorylineView({
                   }}
                 >
                   <div className="font-medium">
-                    第{tooltip.event.chapter}回 · <span style={{ color: eventColor(tooltip.event.type) }}>{tooltip.event.type}</span>
+                    {t("common.chapterShort", { chapter: tooltip.event.chapter })} · <span style={{ color: timelineEventColor(tooltip.event.type_id, tooltip.event.type) }}>{timelineEventTypeLabel(t, tooltip.event.type_id, tooltip.event.type)}</span>
                   </div>
                   <div className="mt-1 text-muted-foreground line-clamp-2">{tooltip.event.summary}</div>
                   <div className="mt-1 text-muted-foreground">
-                    👤 {tooltip.event.participants.slice(0, 5).join("、")}
+                    {t("timeline.participants")} {tooltip.event.participants.slice(0, 5).join(t("common.listSeparator"))}
                     {tooltip.event.participants.length > 5 && ` +${tooltip.event.participants.length - 5}`}
                   </div>
                   {tooltip.event.location && <div className="text-muted-foreground">📍 {tooltip.event.location}</div>}
@@ -677,19 +680,19 @@ export default function StorylineView({
               <div className="detail-panel flex-shrink-0 border-t bg-card px-4 py-3 animate-in slide-in-from-bottom duration-200" style={{ height: DETAIL_HEIGHT }}>
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">📖 第{selectedEvent.chapter}回</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: eventColor(selectedEvent.type) + "20", color: eventColor(selectedEvent.type) }}>
-                      {selectedEvent.type}
+                    <span className="text-sm font-medium">📖 {t("common.chapterShort", { chapter: selectedEvent.chapter })}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: timelineEventColor(selectedEvent.type_id, selectedEvent.type) + "20", color: timelineEventColor(selectedEvent.type_id, selectedEvent.type) }}>
+                      {timelineEventTypeLabel(t, selectedEvent.type_id, selectedEvent.type)}
                     </span>
                   </div>
                   <button className="text-muted-foreground hover:text-foreground" onClick={() => setSelectedEvent(null)}>
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{selectedEvent.summary}</p>
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{timelineEventSummary(t, selectedEvent)}</p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground">参与者:</span>
+                    <span className="text-xs text-muted-foreground">{t("timeline.participants")}</span>
                     {selectedEvent.participants.slice(0, 6).map((p) => (
                       <button
                         key={p}
@@ -711,7 +714,7 @@ export default function StorylineView({
                     )}
                   </div>
                   <button className="text-xs text-primary hover:underline flex-shrink-0" onClick={() => navigate(novelPath(novelId, "read", `chapter=${selectedEvent.chapter}`))}>
-                    前往阅读 →
+                    {t("timeline.storyline.goRead")}
                   </button>
                 </div>
               </div>

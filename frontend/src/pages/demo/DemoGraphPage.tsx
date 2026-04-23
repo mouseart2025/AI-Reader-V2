@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d"
 import { useDemoData } from "@/app/DemoContext"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 
 interface GraphNode {
@@ -40,9 +41,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   social: "#10b981", hostile: "#ef4444", other: "#6b7280",
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  family: "亲属", intimate: "亲密", hierarchical: "主从",
-  social: "友好", hostile: "敌对", other: "其他",
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  family: "graph.category.family",
+  intimate: "graph.category.intimate",
+  hierarchical: "graph.category.hierarchical",
+  social: "graph.category.social",
+  hostile: "graph.category.hostile",
+  other: "graph.category.other",
 }
 
 const ALL_CATEGORIES = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
@@ -94,6 +99,7 @@ function bfsPath(nodeIds: Set<string>, edges: GraphEdge[], startId: string, endI
 }
 
 export default function DemoGraphPage() {
+  const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const isEmbed = searchParams.get("embed") === "1"
   const { data } = useDemoData()
@@ -132,6 +138,11 @@ export default function DemoGraphPage() {
   const lastFrameRef = useRef(0)
 
   const hasPath = pathNodes.size > 1
+
+  const getCategoryLabel = (category: string) => {
+    const key = CATEGORY_LABEL_KEYS[category]
+    return key ? t(key) : category
+  }
 
   // Set smart defaults based on data size
   useEffect(() => {
@@ -347,10 +358,15 @@ export default function DemoGraphPage() {
       {!isEmbed && (
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
           <span className="text-xs text-slate-400">
-            {filtered.nodes.length} 人物 / {filtered.links.length} 关系
+            {t("graph.filteredCounts", {
+              nodes: filtered.nodes.length,
+              totalNodes: graphData.nodes.length,
+              edges: filtered.links.length,
+              totalEdges: graphData.edges.length,
+            })}
           </span>
           <label className="flex items-center gap-1 text-xs">
-            <span className="text-slate-400">出场≥</span>
+            <span className="text-slate-400">{t("demo.graph.minChaptersShort")}</span>
             <input
               type="range"
               min={1}
@@ -362,7 +378,7 @@ export default function DemoGraphPage() {
             <span className="w-6 text-center font-mono text-slate-300">{minChapters}</span>
           </label>
           <label className="flex items-center gap-1 text-xs">
-            <span className="text-slate-400">关系≥</span>
+            <span className="text-slate-400">{t("demo.graph.minRelationsShort")}</span>
             <input
               type="range"
               min={1}
@@ -385,7 +401,7 @@ export default function DemoGraphPage() {
                   border: `1px solid ${hiddenCategories.has(cat) ? "#334155" : CATEGORY_COLORS[cat] + "40"}`,
                 }}
               >
-                {CATEGORY_LABELS[cat]}
+                {getCategoryLabel(cat)}
               </button>
             ))}
           </div>
@@ -398,13 +414,13 @@ export default function DemoGraphPage() {
               onClick={() => { setShowSearchPanel((v) => !v); setShowPathPanel(false) }}
               className={`rounded px-2 py-0.5 text-xs transition ${showSearchPanel ? "bg-blue-500/20 text-blue-400" : "text-slate-400 hover:text-white"}`}
             >
-              搜索
+              {t("demo.graph.search")}
             </button>
             {showSearchPanel && (
               <div className="absolute right-0 top-8 z-20 w-56 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-lg">
                 <input
                   autoFocus
-                  placeholder="输入人物名..."
+                  placeholder={t("demo.graph.searchPlaceholder")}
                   value={nodeSearch}
                   onChange={(e) => setNodeSearch(e.target.value)}
                   className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
@@ -419,7 +435,7 @@ export default function DemoGraphPage() {
                       >
                         <span className="size-2 rounded-full" style={{ backgroundColor: orgColorMap.get(n.org) || "#6b7280" }} />
                         <span>{n.name}</span>
-                        <span className="ml-auto text-slate-500">{n.chapter_count}回</span>
+                        <span className="ml-auto text-slate-500">{t("demo.graph.chapterCountShort", { count: n.chapter_count })}</span>
                       </button>
                     ))}
                   </div>
@@ -434,16 +450,16 @@ export default function DemoGraphPage() {
               onClick={() => { setShowPathPanel((v) => !v); setShowSearchPanel(false) }}
               className={`rounded px-2 py-0.5 text-xs transition ${showPathPanel || hasPath ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:text-white"}`}
             >
-              路径
+              {t("demo.graph.path")}
             </button>
             {showPathPanel && (
               <div className="absolute right-0 top-8 z-20 w-64 rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-lg space-y-2">
                 <p className="text-[10px] text-slate-500">
-                  Shift+点击两个节点，或输入名字搜索
+                  {t("graph.path.description")}
                 </p>
                 <div className="relative">
                   <input
-                    placeholder="人物 A"
+                    placeholder={t("graph.path.personA")}
                     value={pathSearchA}
                     onChange={(e) => setPathSearchA(e.target.value)}
                     onFocus={() => setSearchFocused("a")}
@@ -462,7 +478,7 @@ export default function DemoGraphPage() {
                 </div>
                 <div className="relative">
                   <input
-                    placeholder="人物 B"
+                    placeholder={t("graph.path.personB")}
                     value={pathSearchB}
                     onChange={(e) => setPathSearchB(e.target.value)}
                     onFocus={() => setSearchFocused("b")}
@@ -481,23 +497,23 @@ export default function DemoGraphPage() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={handleSearchPath} className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500 transition">
-                    查找
+                    {t("graph.path.find")}
                   </button>
                   <button onClick={clearPath} className="rounded border border-slate-600 px-3 py-1 text-xs text-slate-400 hover:text-white transition">
-                    清除
+                    {t("graph.path.clear")}
                   </button>
                 </div>
                 {pathStart && !hasPath && (
-                  <p className="text-[10px] text-amber-400">已选起点，请 Shift+点击终点</p>
+                  <p className="text-[10px] text-amber-400">{t("graph.path.startSelected")}</p>
                 )}
                 {pathInfo.length > 1 && (
                   <div className="border-t border-slate-700 pt-2">
-                    <p className="text-[10px] text-slate-400 mb-1">最短路径 ({pathInfo.length - 1} 步)</p>
+                    <p className="text-[10px] text-slate-400 mb-1">{t("graph.path.shortest", { steps: pathInfo.length - 1 })}</p>
                     <p className="text-xs text-amber-300">{pathInfo.join(" → ")}</p>
                   </div>
                 )}
                 {pathInfo.length === 0 && pathSearchA && pathSearchB && (
-                  <p className="text-[10px] text-red-400">未找到路径</p>
+                  <p className="text-[10px] text-red-400">{t("demo.graph.pathNotFound")}</p>
                 )}
               </div>
             )}
@@ -670,9 +686,13 @@ export default function DemoGraphPage() {
             <div className="pointer-events-none absolute right-4 top-4 w-64 rounded-lg border border-slate-700/50 bg-slate-900/95 p-3 shadow-lg backdrop-blur">
               <p className="font-semibold text-white">{node.name}</p>
               {node.org && <p className="text-xs text-slate-400">{node.org}</p>}
-              <p className="mt-1 text-xs text-slate-400">出场 {node.chapter_count} 回 · {nodeEdges.length} 条关系</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {t("demo.graph.hoverStats", { chapters: node.chapter_count, relations: nodeEdges.length })}
+              </p>
               {node.aliases && node.aliases.length > 0 && (
-                <p className="mt-1 text-xs text-slate-500">别名：{node.aliases.join("、")}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {t("demo.graph.aliases", { aliases: node.aliases.join(t("demo.graph.aliasSeparator")) })}
+                </p>
               )}
             </div>
           )
@@ -681,7 +701,7 @@ export default function DemoGraphPage() {
         {/* Shift-click hint */}
         {!isEmbed && !hasPath && !pathStart && (
           <div className="pointer-events-none absolute bottom-4 left-4 text-[10px] text-slate-600">
-            Shift+点击两个节点查找最短路径
+            {t("graph.path.description")}
           </div>
         )}
       </div>

@@ -46,6 +46,10 @@ _RELATION_TYPE_NORM: dict[str, str] = {
     "师徒": "师徒", "师生": "师徒", "师父与弟子": "师徒",
     # Hierarchical — political
     "君臣": "君臣", "上下级": "上下级", "领导与下属": "上下级",
+    "quân thần": "君臣", "vua tôi": "君臣",
+    "cấp trên cấp dưới": "上下级", "trên dưới": "上下级",
+    "chủ tướng thuộc hạ": "上下级", "chủ tướng": "上下级",
+    "bề trên": "上下级", "subordinate": "上下级", "superior": "上下级",
     # Social
     "朋友": "朋友", "友人": "朋友", "好友": "朋友", "挚友": "朋友",
     "旧友": "朋友", "故交": "朋友", "世交": "世交", "故人": "朋友",
@@ -57,12 +61,71 @@ _RELATION_TYPE_NORM: dict[str, str] = {
     "搭档": "搭档", "伙伴": "搭档", "同侪": "同僚",
     "同僚": "同僚", "盟友": "盟友",
     "知己": "朋友", "密友": "朋友", "至交": "朋友",
+    "bạn": "朋友", "bạn bè": "朋友", "bằng hữu": "朋友",
+    "đồng minh": "盟友", "minh hữu": "盟友",
+    "đồng môn": "同门", "đồng liêu": "同僚", "đồng sự": "同事",
+    "friend": "朋友", "ally": "盟友", "colleague": "同事",
     # Hostile
     "敌人": "敌对", "仇人": "敌对", "死敌": "敌对", "对手": "敌对",
     "仇敌": "敌对", "宿敌": "敌对", "仇家": "敌对",
+    "kẻ thù": "敌对", "địch": "敌对", "đối địch": "敌对",
+    "enemy": "敌对", "rival": "敌对", "hostile": "敌对",
+    # Vietnamese / English family and intimate relations
+    "cha con": "父子", "mẹ con": "母子", "phụ tử": "父子", "mẫu tử": "母子",
+    "anh em": "兄弟", "chị em": "姐妹", "huynh đệ": "兄弟",
+    "vợ chồng": "夫妻", "phu thê": "夫妻", "người yêu": "恋人",
+    "father": "父子", "mother": "母子", "brother": "兄弟",
+    "sister": "姐妹", "spouse": "夫妻", "lover": "恋人",
+    # Vietnamese / English teacher-student and service relations
+    "thầy trò": "师徒", "sư đồ": "师徒", "chủ tớ": "主仆",
+    "master disciple": "师徒", "teacher student": "师徒",
+    "master servant": "主仆",
     # Special narrative relations
     "梦中相遇": "奇遇", "救命之恩": "恩人", "恩人": "恩人",
     "灌溉": "其他",
+}
+
+_RELATION_TYPE_IDS: dict[str, str] = {
+    "父子": "family.parent_child",
+    "父女": "family.parent_child",
+    "母子": "family.parent_child",
+    "母女": "family.parent_child",
+    "兄弟": "family.sibling",
+    "兄妹": "family.sibling",
+    "姐弟": "family.sibling",
+    "姐妹": "family.sibling",
+    "结拜兄弟": "social.sworn_sibling",
+    "叔侄": "family.extended",
+    "甥舅": "family.extended",
+    "祖孙": "family.grandparent",
+    "表亲": "family.cousin",
+    "堂亲": "family.cousin",
+    "亲戚": "family.relative",
+    "族人": "family.clan",
+    "夫妻": "intimate.spouse",
+    "恋人": "intimate.lover",
+    "情敌": "hostile.love_rival",
+    "求亲": "social.courtship",
+    "逼婚": "hostile.forced_marriage",
+    "爱慕": "social.admiration",
+    "主仆": "hierarchical.master_servant",
+    "师徒": "hierarchical.teacher_student",
+    "君臣": "hierarchical.ruler_subject",
+    "上下级": "hierarchical.superior_subordinate",
+    "朋友": "social.friend",
+    "同门": "social.same_sect",
+    "师兄弟": "social.fellow_disciple",
+    "同学": "social.classmate",
+    "同事": "social.colleague",
+    "邻居": "social.neighbor",
+    "搭档": "social.partner",
+    "同僚": "social.colleague",
+    "盟友": "social.ally",
+    "世交": "social.family_friend",
+    "恩人": "social.benefactor",
+    "奇遇": "social.encounter",
+    "敌对": "hostile.enemy",
+    "其他": "other",
 }
 
 
@@ -74,6 +137,15 @@ def normalize_relation_type(raw: str) -> str:
         if key in raw:
             return norm
     return raw
+
+
+def relation_type_id(raw: str) -> str:
+    """Return a stable relation type ID for API/i18n consumers."""
+    normalized = normalize_relation_type(raw)
+    if normalized in _RELATION_TYPE_IDS:
+        return _RELATION_TYPE_IDS[normalized]
+    fallback = normalized.strip().casefold().replace(" ", "_") or "unknown"
+    return f"relation.{fallback}"
 
 
 # ── Relation category classification ──

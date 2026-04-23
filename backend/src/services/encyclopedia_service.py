@@ -4,55 +4,71 @@ import json
 from collections import Counter
 
 from src.db import chapter_fact_store
+from src.services import entity_aggregator
+from src.services.entity_identity import (
+    choose_display_name,
+    entity_identity_key,
+    normalize_entity_name,
+    same_entity_name,
+)
+from src.services.domain_labels import concept_category_id, normalize_concept_category
 
 
 async def get_category_stats(novel_id: str) -> dict:
     """Get entity/concept counts by category."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    entities = await entity_aggregator.get_all_entities(novel_id)
+    canonical_by_key = {
+        entity_identity_key(entry.name): entry
+        for entry in entities
+    }
 
-    persons: set[str] = set()
-    locations: set[str] = set()
-    items: set[str] = set()
-    orgs: set[str] = set()
-    concepts: dict[str, set[str]] = {}  # category -> set of names
+    counts = {"person": 0, "location": 0, "item": 0, "org": 0, "concept": 0}
+    for entity in entities:
+        if entity.type in counts:
+            counts[entity.type] += 1
+
+    concepts: dict[str, set[str]] = {}  # category_id -> identity keys
+    concept_labels: dict[str, str] = {}
+    unique_concepts: set[str] = set()
 
     for fact_row in facts:
         fact = fact_row["fact"]
 
-        for ch in fact.get("characters", []):
-            if ch.get("name"):
-                persons.add(ch["name"])
-
-        for loc in fact.get("locations", []):
-            if loc.get("name"):
-                locations.add(loc["name"])
-
-        for ie in fact.get("item_events", []):
-            if ie.get("item_name"):
-                items.add(ie["item_name"])
-
-        for oe in fact.get("org_events", []):
-            if oe.get("org_name"):
-                orgs.add(oe["org_name"])
-
         for nc in fact.get("new_concepts", []):
-            name = nc.get("name", "")
-            cat = nc.get("category", "其他")
-            if name:
-                if cat not in concepts:
-                    concepts[cat] = set()
-                concepts[cat].add(name)
+            name = normalize_entity_name(nc.get("name", ""))
+            if not name:
+                continue
+            key = entity_identity_key(name)
+            merged = canonical_by_key.get(key)
+            if not key or not merged or merged.type != "concept":
+                continue
+            cat = normalize_concept_category(nc.get("category", "其他"))
+            cat_id = concept_category_id(cat)
+            unique_concepts.add(key)
+            if cat_id not in concepts:
+                concepts[cat_id] = set()
+            concepts[cat_id].add(key)
+            concept_labels.setdefault(cat_id, cat)
 
-    total_concepts = sum(len(v) for v in concepts.values())
+    total_concepts = len(unique_concepts)
+    sorted_categories = sorted(
+        concepts.items(),
+        key=lambda item: (concept_labels.get(item[0], item[0]), item[0]),
+    )
 
     return {
-        "total": len(persons) + len(locations) + len(items) + len(orgs) + total_concepts,
-        "person": len(persons),
-        "location": len(locations),
-        "item": len(items),
-        "org": len(orgs),
+        "total": counts["person"] + counts["location"] + counts["item"] + counts["org"] + total_concepts,
+        "person": counts["person"],
+        "location": counts["location"],
+        "item": counts["item"],
+        "org": counts["org"],
         "concept": total_concepts,
-        "concept_categories": {cat: len(names) for cat, names in sorted(concepts.items())},
+        "concept_categories": {cat_id: len(names) for cat_id, names in sorted_categories},
+        "concept_category_labels": {
+            cat_id: concept_labels.get(cat_id, cat_id)
+            for cat_id, _ in sorted_categories
+        },
     }
 
 
@@ -63,11 +79,22 @@ async def get_encyclopedia_entries(
 ) -> list[dict]:
     """Get entity/concept entries for encyclopedia listing."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    merged_entities = await entity_aggregator.get_all_entities(novel_id)
+    entity_categories = {"person", "location", "item", "org", "concept"}
+    concept_filter_id = None
+    if category and category not in entity_categories:
+        raw_filter = category.split(":", 1)[1] if category.startswith("concept:") else category
+        concept_filter_id = concept_category_id(raw_filter)
+    canonical_by_key = {
+        entity_identity_key(entry.name): entry
+        for entry in merged_entities
+    }
 
     # Collect entries with first chapter and definition
     entries: dict[str, dict] = {}
     # Track chapters per entity for chapter_count
     entry_chapters: dict[str, set[int]] = {}
+    entry_name_votes: dict[str, Counter[str]] = {}
 
     for fact_row in facts:
         fact = fact_row["fact"]
@@ -75,12 +102,18 @@ async def get_encyclopedia_entries(
 
         if category is None or category == "person":
             for ch in fact.get("characters", []):
-                name = ch.get("name", "")
-                if not name:
+                raw_name = normalize_entity_name(ch.get("name", ""))
+                if not raw_name:
                     continue
-                entry_chapters.setdefault(name, set()).add(chapter_id)
-                if name not in entries:
-                    entries[name] = {
+                name_key = entity_identity_key(raw_name)
+                merged = canonical_by_key.get(name_key)
+                if not merged or merged.type != "person":
+                    continue
+                name = merged.name
+                entry_chapters.setdefault(name_key, set()).add(chapter_id)
+                entry_name_votes.setdefault(name_key, Counter())[raw_name] += 1
+                if name_key not in entries:
+                    entries[name_key] = {
                         "name": name,
                         "type": "person",
                         "category": "person",
@@ -88,23 +121,29 @@ async def get_encyclopedia_entries(
                         "first_chapter": chapter_id,
                     }
                 # Build a short definition from first appearance
-                if not entries[name]["definition"]:
+                if not entries[name_key]["definition"]:
                     parts = []
                     if ch.get("appearance"):
                         parts.append(ch["appearance"][:50])
                     if ch.get("abilities_gained"):
                         for ab in ch["abilities_gained"][:2]:
                             parts.append(f"{ab.get('dimension', '')}: {ab.get('name', '')}")
-                    entries[name]["definition"] = " | ".join(parts)
+                    entries[name_key]["definition"] = " | ".join(parts)
 
         if category is None or category == "location":
             for loc in fact.get("locations", []):
-                name = loc.get("name", "")
-                if not name:
+                raw_name = normalize_entity_name(loc.get("name", ""))
+                if not raw_name:
                     continue
-                entry_chapters.setdefault(name, set()).add(chapter_id)
-                if name not in entries:
-                    entries[name] = {
+                name_key = entity_identity_key(raw_name)
+                merged = canonical_by_key.get(name_key)
+                if not merged or merged.type != "location":
+                    continue
+                name = merged.name
+                entry_chapters.setdefault(name_key, set()).add(chapter_id)
+                entry_name_votes.setdefault(name_key, Counter())[raw_name] += 1
+                if name_key not in entries:
+                    entries[name_key] = {
                         "name": name,
                         "type": "location",
                         "category": "location",
@@ -112,64 +151,98 @@ async def get_encyclopedia_entries(
                         "first_chapter": chapter_id,
                         "parent": loc.get("parent"),
                     }
+                elif not entries[name_key]["definition"] and (loc.get("description") or loc.get("type")):
+                    entries[name_key]["definition"] = loc.get("description", "") or loc.get("type", "")
+                if not entries[name_key].get("parent") and loc.get("parent"):
+                    entries[name_key]["parent"] = loc.get("parent")
 
         if category is None or category == "item":
             for ie in fact.get("item_events", []):
-                name = ie.get("item_name", "")
-                if not name:
+                raw_name = normalize_entity_name(ie.get("item_name", ""))
+                if not raw_name:
                     continue
-                entry_chapters.setdefault(name, set()).add(chapter_id)
-                if name not in entries:
-                    entries[name] = {
+                name_key = entity_identity_key(raw_name)
+                merged = canonical_by_key.get(name_key)
+                if not merged or merged.type != "item":
+                    continue
+                name = merged.name
+                entry_chapters.setdefault(name_key, set()).add(chapter_id)
+                entry_name_votes.setdefault(name_key, Counter())[raw_name] += 1
+                if name_key not in entries:
+                    entries[name_key] = {
                         "name": name,
                         "type": "item",
                         "category": "item",
                         "definition": f"{ie.get('item_type') or ''} - {(ie.get('description') or '')[:50]}",
                         "first_chapter": chapter_id,
                     }
+                elif not entries[name_key]["definition"] and (ie.get("item_type") or ie.get("description")):
+                    entries[name_key]["definition"] = f"{ie.get('item_type') or ''} - {(ie.get('description') or '')[:50]}"
 
         if category is None or category == "org":
             for oe in fact.get("org_events", []):
-                name = oe.get("org_name", "")
-                if not name:
+                raw_name = normalize_entity_name(oe.get("org_name", ""))
+                if not raw_name:
                     continue
-                entry_chapters.setdefault(name, set()).add(chapter_id)
-                if name not in entries:
-                    entries[name] = {
+                name_key = entity_identity_key(raw_name)
+                merged = canonical_by_key.get(name_key)
+                if not merged or merged.type != "org":
+                    continue
+                name = merged.name
+                entry_chapters.setdefault(name_key, set()).add(chapter_id)
+                entry_name_votes.setdefault(name_key, Counter())[raw_name] += 1
+                if name_key not in entries:
+                    entries[name_key] = {
                         "name": name,
                         "type": "org",
                         "category": "org",
                         "definition": oe.get("org_type", "") or "",
                         "first_chapter": chapter_id,
                     }
+                elif not entries[name_key]["definition"] and oe.get("org_type"):
+                    entries[name_key]["definition"] = oe.get("org_type", "") or ""
 
         if category is None or category == "concept" or (
-            category and category not in ("person", "location", "item", "org")
+            category and category not in entity_categories
         ):
             for nc in fact.get("new_concepts", []):
-                name = nc.get("name", "")
-                cat = nc.get("category", "其他")
-                if not name:
+                raw_name = normalize_entity_name(nc.get("name", ""))
+                cat = normalize_concept_category(nc.get("category", "其他"))
+                cat_id = concept_category_id(cat)
+                if not raw_name:
+                    continue
+                name_key = entity_identity_key(raw_name)
+                merged = canonical_by_key.get(name_key)
+                if not merged or merged.type != "concept":
                     continue
                 # If filtering by specific concept sub-category
-                if category and category not in ("concept", "person", "location", "item", "org"):
-                    if cat != category:
-                        continue
-                entry_chapters.setdefault(name, set()).add(chapter_id)
-                if name not in entries:
-                    entries[name] = {
+                if concept_filter_id and cat_id != concept_filter_id:
+                    continue
+                name = merged.name
+                entry_chapters.setdefault(name_key, set()).add(chapter_id)
+                entry_name_votes.setdefault(name_key, Counter())[raw_name] += 1
+                if name_key not in entries:
+                    entries[name_key] = {
                         "name": name,
                         "type": "concept",
                         "category": cat,
+                        "category_id": cat_id,
                         "definition": (nc.get("definition") or "")[:100],
                         "first_chapter": chapter_id,
                     }
+                elif not entries[name_key]["definition"] and nc.get("definition"):
+                    entries[name_key]["definition"] = (nc.get("definition") or "")[:100]
 
     # Inject chapter_count and variant hints into every entry
     from src.extraction.fact_validator import get_name_variant_hint
-    for name, entry in entries.items():
-        entry["chapter_count"] = len(entry_chapters.get(name, set()))
-        hint = get_name_variant_hint(name)
+    for name_key, entry in entries.items():
+        if name_key in entry_name_votes:
+            entry["name"] = choose_display_name(
+                entry_name_votes[name_key].keys(),
+                entry_name_votes[name_key],
+            ) or entry["name"]
+        entry["chapter_count"] = len(entry_chapters.get(name_key, set()))
+        hint = get_name_variant_hint(entry["name"])
         if hint:
             entry["variant_hint"] = hint
 
@@ -185,15 +258,22 @@ async def get_encyclopedia_entries(
         icons = ws.location_icons or {}
         for entry in result:
             if entry.get("type") == "location":
-                entry["tier"] = tiers.get(entry["name"], "")
-                entry["icon"] = icons.get(entry["name"], "")
+                ws_name = next(
+                    (name for name in tiers if same_entity_name(name, entry["name"])),
+                    entry["name"],
+                )
+                entry["tier"] = tiers.get(ws_name, "")
+                entry["icon"] = icons.get(ws_name, "")
 
     if sort_by == "hierarchy" and (category is None or category == "location"):
         # Override parents with authoritative WorldStructure data
         if ws and ws.location_parents:
             for entry in result:
                 if entry.get("type") == "location":
-                    auth_parent = ws.location_parents.get(entry["name"])
+                    auth_parent = next(
+                        (p for loc_name, p in ws.location_parents.items() if same_entity_name(loc_name, entry["name"])),
+                        None,
+                    )
                     if auth_parent:
                         entry["parent"] = auth_parent
             # Inject virtual parent nodes from location_parents so
@@ -218,7 +298,9 @@ async def get_encyclopedia_entries(
                 })
         result = _sort_by_hierarchy(result)
     elif sort_by == "mentions":
-        result.sort(key=lambda e: -len(entry_chapters.get(e["name"], set())))
+        result.sort(
+            key=lambda e: -len(entry_chapters.get(entity_identity_key(e["name"]), set()))
+        )
     elif sort_by == "chapter":
         result.sort(key=lambda e: e["first_chapter"])
     else:
@@ -281,6 +363,7 @@ def _sort_by_hierarchy(entries: list[dict]) -> list[dict]:
 async def get_concept_detail(novel_id: str, name: str) -> dict | None:
     """Get full detail for a concept entry."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    target_key = entity_identity_key(name)
 
     concept_info: dict | None = None
     excerpts: list[dict] = []
@@ -291,17 +374,20 @@ async def get_concept_detail(novel_id: str, name: str) -> dict | None:
         chapter_id = fact.get("chapter_id", 0)
 
         for nc in fact.get("new_concepts", []):
-            if nc.get("name") == name:
+            raw_name = normalize_entity_name(nc.get("name", ""))
+            if raw_name and entity_identity_key(raw_name) == target_key:
+                cat = normalize_concept_category(nc.get("category", "其他"))
                 if concept_info is None:
                     concept_info = {
                         "name": name,
-                        "category": nc.get("category", "其他"),
+                        "category": cat,
+                        "category_id": concept_category_id(cat),
                         "definition": nc.get("definition", ""),
                         "first_chapter": chapter_id,
                     }
                 # Collect related concepts
                 for rel in nc.get("related", []):
-                    if rel and rel != name:
+                    if rel and entity_identity_key(rel) != target_key:
                         related_concepts.add(rel)
                 # Each chapter mention is an excerpt
                 if nc.get("definition"):
@@ -373,28 +459,39 @@ async def get_location_spatial_summary(novel_id: str, name: str) -> list[dict]:
 async def get_entity_scenes(novel_id: str, entity_name: str) -> list[dict]:
     """Get scenes involving an entity, capped at 30."""
     scenes = await chapter_fact_store.get_all_scenes(novel_id)
+    from src.services.domain_labels import normalize_scene_role, scene_role_id, scene_tone_id
 
     result: list[dict] = []
+    target_key = entity_identity_key(entity_name)
     for scene in scenes:
         # Check if entity appears in characters, location, or summary
         characters = scene.get("characters", [])
-        char_names = [c if isinstance(c, str) else c.get("name", "") for c in characters]
-        location = scene.get("location", "")
+        char_names = [
+            normalize_entity_name(c if isinstance(c, str) else c.get("name", ""))
+            for c in characters
+        ]
+        location = normalize_entity_name(scene.get("location", ""))
         summary = scene.get("summary", "") or scene.get("description", "")
+        summary_key = entity_identity_key(summary)
 
-        if entity_name in char_names or entity_name == location or entity_name in summary:
+        if (
+            any(entity_identity_key(name) == target_key for name in char_names)
+            or entity_identity_key(location) == target_key
+            or (target_key and target_key in summary_key)
+        ):
             # Determine the entity's role in this scene
             role = "提及"
-            if entity_name == location:
+            if entity_identity_key(location) == target_key:
                 role = "场所"
-            elif entity_name in char_names:
+            elif any(entity_identity_key(name) == target_key for name in char_names):
                 # Check character_roles for richer info
                 for cr in scene.get("character_roles", []):
-                    if cr.get("name") == entity_name:
+                    if same_entity_name(cr.get("name", ""), entity_name):
                         role = cr.get("role", "配")
                         break
                 else:
                     role = "出场"
+            role = normalize_scene_role(role)
 
             result.append({
                 "chapter": scene.get("chapter", 0),
@@ -402,8 +499,10 @@ async def get_entity_scenes(novel_id: str, entity_name: str) -> list[dict]:
                 "title": scene.get("title", "") or scene.get("heading", ""),
                 "location": location,
                 "emotional_tone": scene.get("emotional_tone", ""),
+                "emotional_tone_id": scene.get("emotional_tone_id") or scene_tone_id(scene.get("emotional_tone", "")),
                 "summary": (summary or "")[:80],
                 "role": role,
+                "role_id": scene_role_id(role),
             })
             if len(result) >= 30:
                 break

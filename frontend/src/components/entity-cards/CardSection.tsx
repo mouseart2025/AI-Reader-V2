@@ -59,19 +59,21 @@ export function ChapterTag({
   chapter: number
   onClick?: (ch: number) => void
 }) {
+  const { t } = useI18n()
+  const label = t("common.chapterShort", { chapter })
   if (onClick) {
     return (
       <button
         className="text-muted-foreground inline-block cursor-pointer rounded bg-muted px-1.5 py-0.5 text-[10px] hover:underline"
         onClick={() => onClick(chapter)}
       >
-        Ch.{chapter}
+        {label}
       </button>
     )
   }
   return (
     <span className="text-muted-foreground inline-block rounded bg-muted px-1.5 py-0.5 text-[10px]">
-      Ch.{chapter}
+      {label}
     </span>
   )
 }

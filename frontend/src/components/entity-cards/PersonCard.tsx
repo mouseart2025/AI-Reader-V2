@@ -1,6 +1,7 @@
 import { memo } from "react"
 import type { PersonProfile } from "@/api/types"
 import { useI18n, type TranslationKey } from "@/i18n"
+import { itemActionLabel, relationTypeLabel } from "@/lib/domainLabels"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 
@@ -129,19 +130,20 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                       onClick={onEntityClick}
                     />
                     <span className="text-muted-foreground mx-1">—</span>
-                    <span>{latest?.relation_type ?? t("entity.stat.unknown")}</span>
+                    <span>{latest ? relationTypeLabel(t, latest.relation_type_id, latest.relation_type) : t("entity.stat.unknown")}</span>
                     {rel.stages.length > 1 && (
                       <span className="text-muted-foreground ml-1 text-xs">
                         ({rel.stages.map((s, si) => {
                           const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
-                          if (chs.length === 0) return <span key={si}>{s.relation_type}</span>
+                          const relationLabel = relationTypeLabel(t, s.relation_type_id, s.relation_type)
+                          if (chs.length === 0) return <span key={si}>{relationLabel}</span>
                           const tag = chs.length === 1
                             ? formatChapterShort(chs[0])
                             : formatChapterRange(chs[0], chs[chs.length - 1])
                           return (
                             <span key={si}>
                               {si > 0 && " → "}
-                              {s.relation_type}(
+                              {relationLabel}(
                               {onChapterClick ? (
                                 <button
                                   className="cursor-pointer hover:underline"
@@ -212,7 +214,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
         {items.map((it, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={it.chapter} onClick={onChapterClick} />
-            <span className="ml-1.5">{it.action}</span>
+            <span className="ml-1.5">{itemActionLabel(t, it.action_id, it.action)}</span>
             <EntityLink
               name={it.item_name}
               type="item"

@@ -7,12 +7,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDemoData } from "@/app/DemoContext"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
 import { GeoMap } from "@/components/visualization/GeoMap"
+import { useI18n } from "@/i18n"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import type { MapData } from "@/api/types"
 
 const COLLAPSED_TIERS = new Set(["site", "building"])
 
 export default function DemoMapPage() {
+  const { t } = useI18n()
   const { data } = useDemoData()
   const mapData = data.map as unknown as MapData
 
@@ -108,7 +110,7 @@ export default function DemoMapPage() {
   }, [])
 
   if (!mapData || !locations.length) {
-    return <div className="flex h-full items-center justify-center bg-slate-950 text-slate-500">暂无地图数据</div>
+    return <div className="flex h-full items-center justify-center bg-slate-950 text-slate-500">{t("demo.map.noMapData")}</div>
   }
 
   return (
@@ -116,10 +118,10 @@ export default function DemoMapPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
         <span className="text-xs text-slate-400">
-          {filteredLocations.length} / {locations.length} 地点
+          {t("demo.map.locationCount", { shown: filteredLocations.length, total: locations.length })}
         </span>
         <label className="flex items-center gap-1 text-xs">
-          <span className="text-slate-400">提及≥</span>
+          <span className="text-slate-400">{t("demo.map.minMentionsShort")}</span>
           <input
             type="range"
             min={1}
@@ -137,18 +139,18 @@ export default function DemoMapPage() {
             onClick={expandedNodes.size > 0 ? handleCollapseAll : handleExpandAll}
             className="rounded border border-slate-700 bg-slate-800/80 px-2 py-1 text-[11px] text-slate-400 hover:text-white transition-colors"
           >
-            {expandedNodes.size > 0 ? "全部折叠" : `展开子地点`}
+            {expandedNodes.size > 0 ? t("map.collapseAll") : t("demo.map.expandChildLocations")}
           </button>
         )}
 
         <span className="text-xs text-slate-500">
-          模式: {mapData.layout_mode ?? "hierarchy"}
+          {t("demo.map.mode", { mode: mapData.layout_mode ?? "hierarchy" })}
         </span>
       </div>
 
       {/* Map — switch between GeoMap (real-world via Leaflet) and NovelMap
           (procedural fantasy-style) based on layout_mode. Mirrors production
-          MapPage.tsx so 红楼梦/三国/水浒 (geographic mode) render with real
+          MapPage.tsx so classic novels in geographic mode render with real
           Chinese map background instead of empty fantasy canvas. */}
       <div className="flex-1 overflow-hidden">
         {mapData.layout_mode === "geographic" && mapData.geo_coords ? (

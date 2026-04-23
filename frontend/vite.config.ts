@@ -6,6 +6,9 @@ import tailwindcss from "@tailwindcss/vite"
 import { visualizer } from "rollup-plugin-visualizer"
 
 const pkg = JSON.parse(readFileSync("./package.json", "utf-8"))
+const devPort = Number(process.env.VITE_DEV_PORT || process.env.PORT || "5173")
+const apiProxyTarget = process.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"
+const wsProxyTarget = process.env.VITE_WS_BASE_URL || "ws://127.0.0.1:8000"
 
 export default defineConfig({
   plugins: [
@@ -49,7 +52,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
   },
   server: {
-    port: 5173,
+    port: Number.isFinite(devPort) ? devPort : 5173,
     strictPort: true,
     host: process.env.TAURI_DEV_HOST || false,
     hmr: process.env.TAURI_DEV_HOST
@@ -60,11 +63,11 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: apiProxyTarget,
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://localhost:8000",
+        target: wsProxyTarget,
         ws: true,
       },
     },

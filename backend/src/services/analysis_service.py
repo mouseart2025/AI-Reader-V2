@@ -16,6 +16,7 @@ from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
 from src.extraction.name_resolver import NameResolver
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
+from src.extraction.source_language_heuristics import get_source_language_heuristics
 from src.infra.llm_client import LLMError, LLMParseError, LLMTimeoutError, LlmUsage, get_llm_client
 from src.models.world_structure import WorldStructure
 from src.services.cost_service import add_monthly_usage, get_monthly_budget, get_monthly_usage, get_pricing
@@ -23,6 +24,7 @@ from src.services import embedding_service
 from src.services.hierarchy_consolidator import consolidate_hierarchy
 from src.services.visualization_service import invalidate_layout_cache
 from src.services.world_structure_agent import WorldStructureAgent
+from src.utils.source_language import normalize_source_language
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +214,20 @@ class AnalysisService:
         - failed: log warning, continue without dictionary
         - completed: no-op
         """
+        novel = await novel_store.get_novel(novel_id)
+        source_language = normalize_source_language(
+            novel.get("source_language") if novel else None
+        )
+        heuristics = get_source_language_heuristics(source_language)
+        if not heuristics.supports_prescan:
+            logger.info(
+                "Skipping pre-scan for novel %s: source_language=%s has no adapter",
+                novel_id,
+                heuristics.id,
+            )
+            await entity_dictionary_store.update_prescan_status(novel_id, "completed")
+            return
+
         status = await entity_dictionary_store.get_prescan_status(novel_id)
 
         if status == "completed":
@@ -266,6 +282,11 @@ class AnalysisService:
         """Inner analysis loop body."""
         total = chapter_end - chapter_start + 1
         stats = {"entities": 0, "relations": 0, "events": 0}
+        novel_row = await novel_store.get_novel(novel_id)
+        source_language = normalize_source_language(
+            novel_row.get("source_language") if novel_row else None
+        )
+        heuristics = get_source_language_heuristics(source_language)
 
         # Timing tracking
         _chapter_times: list[int] = []
@@ -335,33 +356,39 @@ class AnalysisService:
             "stats": stats,
         })
 
-        # Build name corrections from entity dictionary (numeric-prefix fix).
+        # Build name corrections from entity dictionary (Chinese numeric-prefix fix).
         # E.g., if dictionary has "二愣子" and LLM extracts "愣子", correct it.
-        _NUM_PREFIXES = frozenset("一二三四五六七八九十")
-        try:
-            _dict_entries = await entity_dictionary_store.get_all(novel_id)
-            _corrections: dict[str, str] = {}
-            _dict_names = {e.name for e in _dict_entries}
-            for entry in _dict_entries:
-                name = entry.name
-                if (
-                    len(name) >= 3
-                    and name[0] in _NUM_PREFIXES
-                    and entry.entity_type == "person"
-                ):
-                    short_form = name[1:]
-                    # Only correct if the short form is NOT itself a
-                    # legitimate entity in the dictionary
-                    if short_form not in _dict_names:
-                        _corrections[short_form] = name
-            if _corrections:
-                validator.set_name_corrections(_corrections)
-                logger.info(
-                    "Name corrections loaded: %s",
-                    ", ".join(f"{k}→{v}" for k, v in _corrections.items()),
-                )
-        except Exception as e:
-            logger.warning("Failed to build name corrections: %s", e)
+        if heuristics.uses_chinese_name_corrections:
+            _NUM_PREFIXES = frozenset("一二三四五六七八九十")
+            try:
+                _dict_entries = await entity_dictionary_store.get_all(novel_id)
+                _corrections: dict[str, str] = {}
+                _dict_names = {e.name for e in _dict_entries}
+                for entry in _dict_entries:
+                    name = entry.name
+                    if (
+                        len(name) >= 3
+                        and name[0] in _NUM_PREFIXES
+                        and entry.entity_type == "person"
+                    ):
+                        short_form = name[1:]
+                        # Only correct if the short form is NOT itself a
+                        # legitimate entity in the dictionary
+                        if short_form not in _dict_names:
+                            _corrections[short_form] = name
+                if _corrections:
+                    validator.set_name_corrections(_corrections)
+                    logger.info(
+                        "Name corrections loaded: %s",
+                        ", ".join(f"{k}→{v}" for k, v in _corrections.items()),
+                    )
+            except Exception as e:
+                logger.warning("Failed to build name corrections: %s", e)
+        else:
+            logger.debug(
+                "Skipping Chinese numeric-prefix name corrections for source_language=%s",
+                source_language,
+            )
 
         # NameResolver: unify character name variants at extraction time.
         # This prevents alias fragmentation (行者/孙悟空 → 孙悟空 everywhere).
@@ -467,6 +494,7 @@ class AnalysisService:
                     chapter_text=chapter["content"],
                     context_summary=context,
                     genre_hint=_genre,
+                    source_language=source_language,
                 )
                 # Track quality stats
                 if extraction_meta.is_truncated:
@@ -572,6 +600,7 @@ class AnalysisService:
                 try:
                     scenes = await self.scene_extractor.extract(
                         chapter["content"], chapter_num, fact,
+                        source_language=source_language,
                     )
                     if scenes:
                         await chapter_fact_store.update_scenes(
@@ -710,6 +739,7 @@ class AnalysisService:
                         chapter_id=retry_num,
                         chapter_text=retry_ch["content"],
                         context_summary=ctx,
+                        source_language=source_language,
                     )
                     fact = validator.validate(fact)
                     retry_elapsed = int(time.time() * 1000) - retry_start
@@ -1006,6 +1036,10 @@ class AnalysisService:
         """Background coroutine: retry failed chapters with WS progress."""
         from src.infra import config as _cfg
         ws_struct = await world_structure_store.load(novel_id)
+        novel = await novel_store.get_novel(novel_id)
+        source_language = normalize_source_language(
+            novel.get("source_language") if novel else None
+        )
         loc_parents = ws_struct.location_parents if ws_struct else None
         loc_tiers = dict(ws_struct.location_tiers) if ws_struct and ws_struct.location_tiers else None
         # Per-retry validator to avoid shared state
@@ -1047,6 +1081,7 @@ class AnalysisService:
                     chapter_id=ch_num,
                     chapter_text=ch_content,
                     context_summary=ctx,
+                    source_language=source_language,
                 )
                 fact = _retry_validator.validate(fact)
 

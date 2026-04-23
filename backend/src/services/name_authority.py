@@ -151,6 +151,17 @@ GENERIC_PERSON_ALIASES = frozenset({
     "十王", "十代阎王",
 })
 
+NON_CJK_GENERIC_PERSON_ALIASES = frozenset({
+    # Vietnamese generic references and titles.
+    "ông", "bà", "anh", "chị", "cô", "cậu", "chú", "bác",
+    "người", "một người", "người ấy", "người này", "người đó",
+    "nhà vua", "vua", "quan", "tướng", "vị tướng", "quân sĩ", "người lính",
+    "dân làng", "trưởng lão", "thầy", "sư",
+    # English generic references and titles.
+    "man", "woman", "person", "old man", "old woman", "boy", "girl",
+    "soldier", "guard", "king", "queen", "prince", "princess", "lord", "lady",
+})
+
 TITLE_PREFIXES = frozenset({
     "堂主", "长老", "弟子", "护法", "掌门", "帮主", "教主",
     "师父", "师兄", "师弟", "师姐", "师妹", "师傅",
@@ -244,6 +255,16 @@ def is_surname_plus_shi(name: str) -> bool:
         and name[0] in _COMMON_SURNAMES_FOR_MS
     )
 
+
+def _is_cjk_dominant_name(name: str) -> bool:
+    """Return True when a name is mostly CJK characters."""
+    chars = [ch for ch in name if not ch.isspace()]
+    if not chars:
+        return False
+    cjk_count = sum(1 for ch in chars if "\u4e00" <= ch <= "\u9fff")
+    return cjk_count / len(chars) >= 0.6
+
+
 # Surname + title suffixes for address terms (韩大夫, 林教头)
 TITLE_SUFFIXES = frozenset({
     "大夫", "神医", "仙师", "大人", "长老", "大长老", "前辈", "道友",
@@ -295,6 +316,8 @@ def alias_safety_level(alias: str) -> int:
         return 0
 
     n = len(alias)
+    is_cjk = _is_cjk_dominant_name(alias)
+    non_cjk_key = " ".join(alias.casefold().split())
 
     # Level 0: absolute block — kinship terms, 的 phrases, trailing kinship suffixes
     if alias in KINSHIP_TERMS:
@@ -313,6 +336,8 @@ def alias_safety_level(alias: str) -> int:
 
     # Level 0: generic person references
     if alias in GENERIC_PERSON_ALIASES:
+        return 0
+    if not is_cjk and non_cjk_key in NON_CJK_GENERIC_PERSON_ALIASES:
         return 0
 
     # Level 0: pure title/rank words
@@ -362,7 +387,7 @@ def alias_safety_level(alias: str) -> int:
     # Level 1: suspicious
     _NUM_CHARS = "一二三四五六七八九十两百千万几数"
     _MEASURE_WORDS = "个位名条只头群队批把道尊座对双副件匹株棵颗朵阵帮伙"
-    if n > 8:
+    if is_cjk and n > 8:
         return 1
     if alias[0] in "众群各" or alias.endswith("们"):
         return 1
@@ -405,6 +430,8 @@ def is_nickname_or_title(name: str) -> bool:
     """
     n = len(name)
     if n < 2:
+        return False
+    if not _is_cjk_dominant_name(name):
         return False
     if any(name.endswith(t) for t in TITLE_SUFFIXES):
         return True

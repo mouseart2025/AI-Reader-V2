@@ -990,7 +990,7 @@ async def spatial_completion(novel_id: str):
 
         except Exception as e:
             logger.error("Spatial completion failed for %s", novel_id, exc_info=True)
-            yield _sse("error", f"空间补全失败: {str(e)[:200]}")
+            yield _sse("error", f"Spatial completion failed: {str(e)[:200]}")
 
     return StreamingResponse(
         event_stream(),
@@ -1110,15 +1110,15 @@ async def rebuild_hierarchy_v2(novel_id: str):
 
             # Apply to WorldStructure
             apply_result = await orch.apply_to_world_structure()
-            yield _sse("apply", f"已应用到 WorldStructure (v{apply_result.get('version', '?')})")
+            yield _sse("apply", f"Applied to WorldStructure (v{apply_result.get('version', '?')})")
 
             # Version history (for paper tracking)
             history = await orch.get_version_history()
-            yield _sse("history", "版本历史", versions=history)
+            yield _sse("history", "Version history", versions=history)
 
         except Exception as e:
             logger.error("Hierarchy rebuild v2 failed for %s", novel_id, exc_info=True)
-            yield _sse("error", f"重建失败: {str(e)[:200]}")
+            yield _sse("error", f"Hierarchy rebuild failed: {str(e)[:200]}")
 
     return StreamingResponse(
         event_stream(),

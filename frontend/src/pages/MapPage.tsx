@@ -21,30 +21,32 @@ import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 import { recordTabVisit } from "@/lib/tabTracking"
 import { annealLabels, type AnnealItem } from "@/lib/labelAnnealing"
+import { useI18n, type TranslationKey } from "@/i18n"
 
-const ICON_LEGEND: { icon: string; label: string }[] = [
-  { icon: "capital", label: "都城" },
-  { icon: "city", label: "城市" },
-  { icon: "town", label: "城镇" },
-  { icon: "village", label: "村庄" },
-  { icon: "camp", label: "营地" },
-  { icon: "mountain", label: "山脉" },
-  { icon: "forest", label: "森林" },
-  { icon: "water", label: "水域" },
-  { icon: "desert", label: "沙漠" },
-  { icon: "island", label: "岛屿" },
-  { icon: "temple", label: "寺庙" },
-  { icon: "palace", label: "宫殿" },
-  { icon: "cave", label: "洞穴" },
-  { icon: "tower", label: "塔楼" },
-  { icon: "gate", label: "关隘" },
-  { icon: "portal", label: "传送门" },
-  { icon: "ruins", label: "废墟" },
-  { icon: "sacred", label: "圣地" },
-  { icon: "generic", label: "其他" },
+const ICON_LEGEND: { icon: string; labelKey: TranslationKey }[] = [
+  { icon: "capital", labelKey: "map.icon.capital" },
+  { icon: "city", labelKey: "map.icon.city" },
+  { icon: "town", labelKey: "map.icon.town" },
+  { icon: "village", labelKey: "map.icon.village" },
+  { icon: "camp", labelKey: "map.icon.camp" },
+  { icon: "mountain", labelKey: "map.icon.mountain" },
+  { icon: "forest", labelKey: "map.icon.forest" },
+  { icon: "water", labelKey: "map.icon.water" },
+  { icon: "desert", labelKey: "map.icon.desert" },
+  { icon: "island", labelKey: "map.icon.island" },
+  { icon: "temple", labelKey: "map.icon.temple" },
+  { icon: "palace", labelKey: "map.icon.palace" },
+  { icon: "cave", labelKey: "map.icon.cave" },
+  { icon: "tower", labelKey: "map.icon.tower" },
+  { icon: "gate", labelKey: "map.icon.gate" },
+  { icon: "portal", labelKey: "map.icon.portal" },
+  { icon: "ruins", labelKey: "map.icon.ruins" },
+  { icon: "sacred", labelKey: "map.icon.sacred" },
+  { icon: "generic", labelKey: "map.icon.generic" },
 ]
 
 export default function MapPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
@@ -136,7 +138,7 @@ export default function MapPage() {
   const [exportProgress, setExportProgress] = useState("")
 
   // Loading stage animation
-  const [loadingStage, setLoadingStage] = useState("加载地图数据...")
+  const [loadingStage, setLoadingStage] = useState("")
   const loadingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const loadingStartRef = useRef<number>(0)
 
@@ -200,14 +202,14 @@ export default function MapPage() {
   useEffect(() => {
     if (loading) {
       loadingStartRef.current = Date.now()
-      setLoadingStage("加载地图数据...")
+      setLoadingStage(t("map.loading.data"))
       loadingTimerRef.current = setInterval(() => {
         const elapsed = Date.now() - loadingStartRef.current
-        if (elapsed < 1500) setLoadingStage("加载地图数据...")
-        else if (elapsed < 3000) setLoadingStage("聚合地点与轨迹...")
-        else if (elapsed < 6000) setLoadingStage("计算地理坐标...")
-        else if (elapsed < 10000) setLoadingStage("求解空间布局...")
-        else setLoadingStage("优化布局中，请稍候...")
+        if (elapsed < 1500) setLoadingStage(t("map.loading.data"))
+        else if (elapsed < 3000) setLoadingStage(t("map.loading.aggregating"))
+        else if (elapsed < 6000) setLoadingStage(t("map.loading.geoCoords"))
+        else if (elapsed < 10000) setLoadingStage(t("map.loading.layout"))
+        else setLoadingStage(t("map.loading.optimizing"))
       }, 500)
     } else {
       if (loadingTimerRef.current) {
@@ -220,7 +222,7 @@ export default function MapPage() {
         clearInterval(loadingTimerRef.current)
       }
     }
-  }, [loading])
+  }, [loading, t])
 
   // Debounce mention filter (150ms)
   useEffect(() => {
@@ -396,7 +398,7 @@ export default function MapPage() {
     if (!svgEl || exporting) return
 
     setExporting(true)
-    setExportProgress("准备中...")
+    setExportProgress(t("map.export.preparing"))
 
     try {
       // 1. Clone SVG
@@ -455,9 +457,9 @@ export default function MapPage() {
       })
 
       // 8. Run simulated annealing
-      setExportProgress("正在优化标签布局...")
+      setExportProgress(t("map.export.optimizingLabels"))
       const placements = await annealLabels(items, (pct) => {
-        setExportProgress(`正在优化标签布局... ${Math.round(pct * 100)}%`)
+        setExportProgress(t("map.export.optimizingLabelsPercent", { percent: Math.round(pct * 100) }))
       })
 
       // 9. Apply annealed positions
@@ -503,7 +505,7 @@ export default function MapPage() {
       viewport?.appendChild(watermark)
 
       // 12. Serialize SVG → PNG
-      setExportProgress("正在生成图片...")
+      setExportProgress(t("map.export.generatingImage"))
       const svgStr = new XMLSerializer().serializeToString(clone)
       const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" })
       const url = URL.createObjectURL(blob)
@@ -532,7 +534,7 @@ export default function MapPage() {
 
           setExporting(false)
           setExportProgress("")
-          setToast("地图已导出")
+          setToast(t("map.export.success"))
           setTimeout(() => setToast(null), 3000)
         }, "image/png")
       }
@@ -540,17 +542,17 @@ export default function MapPage() {
         URL.revokeObjectURL(url)
         setExporting(false)
         setExportProgress("")
-        setToast("导出失败")
+        setToast(t("map.export.failed"))
         setTimeout(() => setToast(null), 4000)
       }
       img.src = url
     } catch {
       setExporting(false)
       setExportProgress("")
-      setToast("导出失败")
+      setToast(t("map.export.failed"))
       setTimeout(() => setToast(null), 4000)
     }
-  }, [exporting])
+  }, [exporting, t])
 
   // ── Animation controls ──
   const startPlay = useCallback(() => {
@@ -615,7 +617,7 @@ export default function MapPage() {
     (name: string, lat: number, lng: number) => {
       if (!novelId) return
       saveGeoLocationOverride(novelId, name, lat, lng).then(() => {
-        setToast(`「${name}」位置已更新`)
+        setToast(t("map.toast.geoLocationUpdated", { name }))
         setTimeout(() => setToast(null), 3000)
         // Update local geo_coords immediately for visual feedback
         setMapData((prev) => {
@@ -628,7 +630,7 @@ export default function MapPage() {
       })
       setEditingLocation(null)
     },
-    [novelId],
+    [novelId, t],
   )
 
   const handleEditCancel = useCallback(() => {
@@ -639,11 +641,11 @@ export default function MapPage() {
     (name: string, x: number, y: number) => {
       if (!novelId) return
       saveLocationOverride(novelId, name, x, y).then(() => {
-        setToast("位置已保存，下次刷新地图将以此为锚定")
+        setToast(t("map.toast.locationSaved"))
         setTimeout(() => setToast(null), 3000)
       })
     },
-    [novelId],
+    [novelId, t],
   )
 
   return (
@@ -670,14 +672,14 @@ export default function MapPage() {
 
           {!loading && locations.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-muted-foreground">暂无地点数据</p>
+              <p className="text-muted-foreground">{t("visualization.worldStructure.empty.noLocations")}</p>
             </div>
           )}
 
           {/* Hierarchy mode hint */}
           {!loading && layoutMode === "hierarchy" && locations.length > 0 && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700 shadow">
-              空间约束不足，使用层级布局
+              {t("map.hierarchyFallback")}
             </div>
           )}
 
@@ -693,7 +695,7 @@ export default function MapPage() {
               <div className="rounded-lg border bg-background/90 px-2.5 py-2 w-44">
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-muted-foreground text-[11px]">
-                    最少提及: {minMentions}
+                    {t("map.minMentions", { count: minMentions })}
                   </label>
                   <span className="text-[10px] text-muted-foreground">
                     {filteredLocations.length} / {layerLocations.length}
@@ -717,7 +719,7 @@ export default function MapPage() {
                   onClick={expandedNodes.size > 0 ? handleCollapseAll : handleExpandAll}
                   className="rounded-lg border bg-background/90 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {expandedNodes.size > 0 ? "全部折叠" : "全部展开"}
+                  {expandedNodes.size > 0 ? t("map.collapseAll") : t("map.expandAll")}
                 </button>
               </div>
             )}
@@ -737,11 +739,11 @@ export default function MapPage() {
                   "inline-block size-2 rounded-full",
                   showConflicts ? "bg-red-500" : "bg-muted-foreground/40",
                 )} />
-                冲突 {conflictCount}
+                {t("map.conflictCount", { count: conflictCount })}
               </button>
             )}
 
-            {/* WebGL 渲染器切换 — 隐藏直到副本切换锁死问题修复 */}
+            {/* WebGL renderer toggle hidden until duplicate-switch lockup is fixed */}
 
             {/* Export map button (NovelMap only) */}
             {layoutMode !== "geographic" && (
@@ -759,7 +761,7 @@ export default function MapPage() {
                 ) : (
                   <Download className="h-3 w-3" />
                 )}
-                {exporting ? exportProgress || "导出中..." : "导出全图"}
+                {exporting ? exportProgress || t("map.export.exporting") : t("map.export.fullMap")}
               </button>
             )}
 
@@ -770,7 +772,7 @@ export default function MapPage() {
                   onClick={() => setLegendOpen((v) => !v)}
                   className="text-muted-foreground flex items-center gap-1 text-[10px] hover:text-foreground"
                 >
-                  图例 {legendOpen ? "▾" : "▸"}
+                  {t("map.legend")} {legendOpen ? "▾" : "▸"}
                 </button>
                 {legendOpen && (
                   <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
@@ -778,11 +780,11 @@ export default function MapPage() {
                       <div key={item.icon} className="flex items-center gap-1.5 text-xs">
                         <img
                           src={`${import.meta.env.BASE_URL ?? "/"}map-icons/${item.icon}.svg`}
-                          alt={item.label}
+                          alt={t(item.labelKey)}
                           className="size-3.5 opacity-60"
                           style={{ filter: "invert(0.4)" }}
                         />
-                        {item.label}
+                        {t(item.labelKey)}
                       </div>
                     ))}
                   </div>
@@ -808,9 +810,9 @@ export default function MapPage() {
                   <div className="flex items-center gap-3 border-b px-5 py-4">
                     <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
                     <div>
-                      <h3 className="font-medium">智能重绘进行中</h3>
+                      <h3 className="font-medium">{t("map.rebuild.progressTitle")}</h3>
                       <p className="text-xs text-muted-foreground">
-                        请勿关闭页面，正在优化地点层级结构...
+                        {t("map.rebuild.progressDescription")}
                       </p>
                     </div>
                   </div>
@@ -841,7 +843,7 @@ export default function MapPage() {
                   </div>
                   {/* Footer hint */}
                   <div className="px-5 py-3 border-t text-[10px] text-muted-foreground">
-                    💡 层级优化使用 Edmonds 增量修复算法，保留 LLM 提取的正确层级关系，仅修复结构问题
+                    {t("map.rebuild.algorithmHint")}
                   </div>
                 </div>
               </div>
@@ -855,7 +857,7 @@ export default function MapPage() {
                 {selectedPerson}: {currentLocation}
                 {playing && visibleTrajectory.length > 0 && (
                   <span className="text-muted-foreground ml-1">
-                    (Ch.{visibleTrajectory[visibleTrajectory.length - 1].chapter})
+                    {t("common.chapterShortParen", { chapter: visibleTrajectory[visibleTrajectory.length - 1].chapter })}
                   </span>
                 )}
               </span>
@@ -928,14 +930,14 @@ export default function MapPage() {
                 size="xs"
                 onClick={() => setRightTab("geography")}
               >
-                地理上下文
+                {t("map.rightTab.geography")}
               </Button>
               <Button
                 variant={rightTab === "trajectory" ? "default" : "outline"}
                 size="xs"
                 onClick={() => setRightTab("trajectory")}
               >
-                人物轨迹
+                {t("map.rightTab.trajectory")}
               </Button>
             </div>
             {/* Row 2: Action buttons */}
@@ -953,41 +955,41 @@ export default function MapPage() {
                     setRebuildLogs(prev => [...prev, `${new Date().toLocaleTimeString()} ${msg}`])
                   }
                   try {
-                    addLog("🚀 开始智能重绘...")
-                    addLog("📊 Step 1/3: 层级优化 (Edmonds 增量修复)")
+                    addLog(t("map.rebuild.log.start"))
+                    addLog(t("map.rebuild.log.stepHierarchy"))
                     await rebuildHierarchy(novelId, (msg) => addLog(`  ${msg}`))
-                    addLog("✅ 层级优化完成")
-                    addLog("🔗 Step 2/3: 空间关系补全")
+                    addLog(t("map.rebuild.log.hierarchyDone"))
+                    addLog(t("map.rebuild.log.stepSpatial"))
                     const compRes = await spatialCompletion(novelId, (msg) => addLog(`  ${msg}`))
-                    addLog(`✅ 补全完成: ${compRes.relations_added} 条空间关系`)
-                    addLog("🗺️ Step 3/3: 重新加载地图...")
+                    addLog(t("map.rebuild.log.spatialDone", { count: compRes.relations_added }))
+                    addLog(t("map.rebuild.log.stepReload"))
                     setReloadTrigger(t => t + 1)
-                    addLog("✅ 智能重绘完成！")
+                    addLog(t("map.rebuild.log.done"))
                     setTimeout(() => { setRebuilding(false); setRebuildProgress("") }, 2000)
                   } catch (e) {
-                    addLog(`❌ 失败: ${e instanceof Error ? e.message : "未知错误"}`)
+                    addLog(t("map.rebuild.log.failed", { message: e instanceof Error ? e.message : t("map.unknownError") }))
                     setTimeout(() => { setRebuilding(false); setRebuildProgress("") }, 4000)
                   }
                 }}
               >
                 <RefreshCw className={cn("h-3 w-3 mr-1", rebuilding && "animate-spin")} />
-                {rebuilding ? "重绘中..." : "智能重绘"}
+                {rebuilding ? t("map.rebuild.running") : t("map.rebuild.action")}
               </Button>
               <Button
                 variant={editMode ? "default" : "outline"}
                 size="xs"
                 onClick={() => setEditMode(prev => !prev)}
                 className={editMode ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
-                title="切换编辑模式 (E)"
+                title={t("map.editMode.title")}
               >
-                {editMode ? "✏️ 编辑中" : "🔒 查看"}
+                {editMode ? t("map.editMode.editing") : t("map.editMode.viewing")}
               </Button>
               <Button
                 variant="outline"
                 size="xs"
                 onClick={() => setEditorOpen(true)}
               >
-                编辑世界
+                {t("map.editWorld")}
               </Button>
             </div>
           </div>
@@ -1002,7 +1004,7 @@ export default function MapPage() {
             ) : (
               <div className="p-3">
                 {personList.length === 0 && (
-                  <p className="text-muted-foreground text-xs">暂无轨迹数据</p>
+                  <p className="text-muted-foreground text-xs">{t("map.trajectory.empty")}</p>
                 )}
 
                 {/* Person selector */}
@@ -1021,7 +1023,7 @@ export default function MapPage() {
                     >
                       <span>{person}</span>
                       <span className="text-muted-foreground ml-1">
-                        ({trajectories[person]?.length ?? 0}站)
+                        {t("map.trajectory.stationCountParen", { count: trajectories[person]?.length ?? 0 })}
                       </span>
                     </button>
                   ))}
@@ -1032,16 +1034,16 @@ export default function MapPage() {
                   <div className="border-t pt-3">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs font-medium">
-                        {selectedPerson} ({selectedTrajectory.length}站)
+                        {t("map.trajectory.selectedTitle", { person: selectedPerson, count: selectedTrajectory.length })}
                       </h4>
                       <div className="flex gap-1 items-center">
                         {playing ? (
                           <Button variant="outline" size="xs" onClick={stopPlay}>
-                            停止
+                            {t("map.trajectory.stop")}
                           </Button>
                         ) : (
                           <Button variant="outline" size="xs" onClick={startPlay}>
-                            播放
+                            {t("map.trajectory.play")}
                           </Button>
                         )}
                         {/* Speed control */}
@@ -1083,9 +1085,9 @@ export default function MapPage() {
                           className="w-full h-1 accent-primary"
                         />
                         <div className="flex justify-between text-[10px] text-muted-foreground">
-                          <span>Ch.{selectedTrajectory[0]?.chapter}</span>
+                          <span>{t("common.chapterShort", { chapter: selectedTrajectory[0]?.chapter ?? "" })}</span>
                           <span>
-                            Ch.{selectedTrajectory[selectedTrajectory.length - 1]?.chapter}
+                            {t("common.chapterShort", { chapter: selectedTrajectory[selectedTrajectory.length - 1]?.chapter ?? "" })}
                           </span>
                         </div>
                       </div>
@@ -1138,7 +1140,7 @@ export default function MapPage() {
                                 {point.location}
                               </span>
                               <span className="text-[10px] text-muted-foreground ml-1">
-                                Ch.{point.chapter}
+                                {t("common.chapterShort", { chapter: point.chapter })}
                               </span>
                             </div>
                           </div>
@@ -1166,16 +1168,16 @@ export default function MapPage() {
         <Dialog open={rebuildResult !== null} onOpenChange={(open) => { if (!open) setRebuildResult(null) }}>
           <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>层级变更预览</DialogTitle>
+              <DialogTitle>{t("encyclopedia.rebuild.dialogTitle")}</DialogTitle>
               {rebuildResult && (
                 <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                  <span className="text-green-600">+{rebuildResult.summary.added} 新增</span>
-                  <span className="text-yellow-600">~{rebuildResult.summary.changed} 变更</span>
-                  <span className="text-red-600">-{rebuildResult.summary.removed} 移除</span>
+                  <span className="text-green-600">{t("encyclopedia.rebuild.summaryAdded", { count: rebuildResult.summary.added })}</span>
+                  <span className="text-yellow-600">{t("encyclopedia.rebuild.summaryChanged", { count: rebuildResult.summary.changed })}</span>
+                  <span className="text-red-600">{t("encyclopedia.rebuild.summaryRemoved", { count: rebuildResult.summary.removed })}</span>
                   <span className="mx-1">|</span>
-                  <span>根节点 {rebuildResult.summary.old_root_count} → {rebuildResult.summary.new_root_count}</span>
-                  {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">场景分析</span>}
-                  {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">LLM审查</span>}
+                  <span>{t("encyclopedia.rebuild.rootCount", { old: rebuildResult.summary.old_root_count, next: rebuildResult.summary.new_root_count })}</span>
+                  {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{t("encyclopedia.rebuild.sceneAnalysis")}</span>}
+                  {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">{t("encyclopedia.rebuild.llmReview")}</span>}
                 </div>
               )}
             </DialogHeader>
@@ -1199,11 +1201,11 @@ export default function MapPage() {
                           }}
                         />
                       </th>
-                      <th className="px-2 py-1.5 text-left">地点</th>
-                      <th className="px-2 py-1.5 text-left">原父级</th>
+                      <th className="px-2 py-1.5 text-left">{t("encyclopedia.rebuild.location")}</th>
+                      <th className="px-2 py-1.5 text-left">{t("encyclopedia.rebuild.oldParent")}</th>
                       <th className="w-6 px-1 py-1.5" />
-                      <th className="px-2 py-1.5 text-left">新父级</th>
-                      <th className="w-16 px-2 py-1.5 text-left">类型</th>
+                      <th className="px-2 py-1.5 text-left">{t("encyclopedia.rebuild.newParent")}</th>
+                      <th className="w-16 px-2 py-1.5 text-left">{t("visualization.worldStructure.field.type")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -1237,7 +1239,11 @@ export default function MapPage() {
                             change.change_type === "changed" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
                             change.change_type === "removed" && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
                           )}>
-                            {change.change_type === "added" ? "新增" : change.change_type === "changed" ? "变更" : "移除"}
+                            {change.change_type === "added"
+                              ? t("encyclopedia.rebuild.change.added")
+                              : change.change_type === "changed"
+                                ? t("encyclopedia.rebuild.change.changed")
+                                : t("encyclopedia.rebuild.change.removed")}
                           </span>
                         </td>
                       </tr>
@@ -1249,10 +1255,10 @@ export default function MapPage() {
 
             <DialogFooter className="flex-row items-center gap-2 sm:flex-row">
               <span className="text-xs text-muted-foreground flex-1">
-                已选 {selectedChanges.size} / {rebuildResult?.changes.length ?? 0} 项
+                {t("encyclopedia.rebuild.selectedCount", { selected: selectedChanges.size, total: rebuildResult?.changes.length ?? 0 })}
               </span>
               <Button variant="outline" size="sm" onClick={() => setRebuildResult(null)}>
-                取消
+                {t("common.cancel")}
               </Button>
               <Button
                 size="sm"
@@ -1266,18 +1272,18 @@ export default function MapPage() {
                   applyHierarchyChanges(novelId, selected, rebuildResult.location_tiers)
                     .then((res) => {
                       setRebuildResult(null)
-                      setToast(`层级已更新: ${res.root_count} 个根节点`)
+                      setToast(t("encyclopedia.rebuild.applySuccess", { count: res.root_count }))
                       setTimeout(() => setToast(null), 4000)
                       setReloadTrigger((n) => n + 1)
                     })
                     .catch(() => {
-                      setToast("应用变更失败")
+                      setToast(t("encyclopedia.rebuild.applyFailed"))
                       setTimeout(() => setToast(null), 4000)
                     })
                     .finally(() => setApplying(false))
                 }}
               >
-                {applying ? "应用中..." : `应用 ${selectedChanges.size} 项变更`}
+                {applying ? t("encyclopedia.rebuild.applying") : t("encyclopedia.rebuild.applyChanges", { count: selectedChanges.size })}
               </Button>
             </DialogFooter>
           </DialogContent>

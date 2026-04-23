@@ -18,11 +18,36 @@ from src.models.chapter_fact import (
     SpatialRelationship,
     WorldDeclaration,
 )
+from src.services.domain_labels import (
+    event_type_id,
+    item_action_id,
+    item_type_id,
+    location_type_id,
+    normalize_event_type,
+    normalize_item_action,
+    normalize_item_type,
+    normalize_location_type,
+    normalize_org_action,
+    normalize_org_type,
+    org_action_id,
+    org_type_id,
+)
+from src.services.relation_utils import normalize_relation_type, relation_type_id
 
 logger = logging.getLogger(__name__)
 
+
+def _is_cjk_dominant_name(name: str) -> bool:
+    """Return True when a name is mostly CJK characters."""
+    chars = [ch for ch in name if not ch.isspace()]
+    if not chars:
+        return False
+    cjk_count = sum(1 for ch in chars if "\u4e00" <= ch <= "\u9fff")
+    return cjk_count / len(chars) >= 0.6
+
+
 _VALID_ITEM_ACTIONS = {"出现", "获得", "使用", "赠予", "消耗", "丢失", "损毁"}
-_VALID_ORG_ACTIONS = {"加入", "离开", "晋升", "阵亡", "叛出", "逐出"}
+_VALID_ORG_ACTIONS = {"加入", "离开", "晋升", "阵亡", "叛出", "逐出", "出现", "创建", "成立"}
 _VALID_EVENT_TYPES = {"战斗", "成长", "社交", "旅行", "其他"}
 _VALID_IMPORTANCE = {"high", "medium", "low"}
 _VALID_SPATIAL_RELATION_TYPES = {
@@ -99,6 +124,8 @@ def _get_contains_rank(name: str) -> int | None:
     Used to fix inverted contains relationships.
     """
     if len(name) < 2:
+        return None
+    if not _is_cjk_dominant_name(name):
         return None
     for suffix, rank in _CONTAINS_SUFFIX_RANK:
         if name.endswith(suffix):
@@ -397,6 +424,22 @@ _FALLBACK_GEO_BLOCKLIST = frozenset({
     "偏僻地方", "偏僻之地", "偏僻之处",
     "神秘之处", "神秘地方", "秘密之处", "隐秘之处",
     "安全之处", "安全地方", "隐蔽之处",
+})
+
+_NON_CJK_GENERIC_LOCATION_NAMES = frozenset({
+    # Vietnamese generic/relative place references.
+    "đây", "đó", "nơi này", "nơi ấy", "nơi đó", "chỗ này", "chỗ ấy", "chỗ đó",
+    "thôn", "làng", "đường", "núi", "sông", "suối", "hồ", "chùa", "đền",
+    "phủ", "thành", "thành phố", "thị trấn", "bến",
+    "bên sông", "ven sông", "bờ sông", "dòng sông", "con sông",
+    "trên núi", "dưới núi", "chân núi", "đỉnh núi", "ngọn núi",
+    "trong thành", "ngoài thành", "trong làng", "ngoài làng",
+    "trong chùa", "ngoài chùa", "trên đường", "ven đường",
+    "thế giới", "thiên hạ",
+    # English generic/relative place references.
+    "here", "there", "this place", "that place", "riverbank", "riverside",
+    "the river", "the mountain", "mountaintop", "foothill", "roadside",
+    "world",
 })
 
 # ── Person generic references ─────────────────────────────────────────
@@ -716,6 +759,17 @@ _PURE_TITLE_WORDS = frozenset({
     "副书记",
 })
 
+_NON_CJK_GENERIC_PERSON_WORDS = frozenset({
+    # Vietnamese generic references and titles.
+    "ông", "bà", "anh", "chị", "cô", "cậu", "chú", "bác",
+    "người", "người ấy", "người này", "người đó",
+    "vị tướng", "người lính", "quân sĩ", "nhà vua", "vua", "tướng",
+    "dân làng", "trưởng lão", "thầy", "sư",
+    # English generic references and titles.
+    "man", "woman", "person", "old man", "old woman", "boy", "girl",
+    "soldier", "guard", "king", "queen", "prince", "princess", "lord", "lady",
+})
+
 
 # Fantasy/xianxia: these conceptual terms are valid world-layer locations
 _FANTASY_LOCATION_WHITELIST = frozenset({
@@ -749,6 +803,11 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     Returns a reason string if the name should be filtered, or None if it should be kept.
     """
     n = len(name)
+    is_cjk = _is_cjk_dominant_name(name)
+    non_cjk_key = " ".join(name.casefold().split())
+
+    if not is_cjk and non_cjk_key in _NON_CJK_GENERIC_LOCATION_NAMES:
+        return "non-CJK generic location"
 
     # Rule 1: Single-char generic suffix alone (山, 河, 城, ...)
     if n == 1 and name in _GEO_GENERIC_SUFFIXES:
@@ -816,7 +875,7 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
         return "descriptive phrase (contains 的)"
 
     # Rule 6: Too long → likely a descriptive phrase, not a name
-    if n > 7:
+    if is_cjk and n > 7:
         return "too long for a place name"
 
     # Rule 7: Relative position pattern — [generic word(s)] + [positional suffix]
@@ -997,11 +1056,29 @@ _SUFFIX_TO_TYPE: list[tuple[str, str]] = [
 
 
 def _infer_type_from_name(name: str) -> str:
-    """Infer location type from Chinese name suffix.
+    """Infer location type from language-specific name morphology.
 
     Used when auto-creating LocationFact entries for referenced parents/regions
     that lack explicit type information. Falls back to "区域" if no suffix matches.
     """
+    if not _is_cjk_dominant_name(name):
+        key = " ".join(name.casefold().split())
+        vi_prefix_types = (
+            ("kinh đô", "城市"),
+            ("thành", "城市"),
+            ("làng", "村庄"),
+            ("bến", "渡口"),
+            ("sông", "河流"),
+            ("suối", "溪流"),
+            ("hồ", "湖泊"),
+            ("núi", "山"),
+            ("chùa", "寺庙"),
+            ("đền", "寺庙"),
+            ("phủ", "府"),
+        )
+        for prefix, type_label in vi_prefix_types:
+            if key == prefix or key.startswith(f"{prefix} "):
+                return type_label
     for suffix, type_label in _SUFFIX_TO_TYPE:
         if name.endswith(suffix) and len(name) > len(suffix):
             return type_label
@@ -1046,6 +1123,12 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
     Genre-aware: fantasy allows 仙人/妖兽 etc.; realistic adds title filtering.
     Returns a reason string if filtered, or None if kept.
     """
+    is_cjk = _is_cjk_dominant_name(name)
+    non_cjk_key = " ".join(name.casefold().split())
+
+    if not is_cjk and non_cjk_key in _NON_CJK_GENERIC_PERSON_WORDS:
+        return "non-CJK generic person reference"
+
     # Fantasy whitelist: skip generic check for xianxia character types
     if genre in ("fantasy", "wuxia") and name in _FANTASY_PERSON_WHITELIST:
         return None
@@ -1131,7 +1214,7 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
 
     # P9 (v0.71.1): Descriptive long names (n >= 10) — 通常是 LLM 把描述当角色名
     # 例:"飞东洋游普世感恩行孝黄毛红嘴白鹦哥" (15字)
-    if len(name) >= 10:
+    if is_cjk and len(name) >= 10:
         return f"descriptive long name ({len(name)} chars)"
 
     return None
@@ -1439,8 +1522,9 @@ class FactValidator:
                     alias, owner_name,
                 )
                 continue
-            # Rule 2: alias too long — descriptive phrases, not names
-            if len(alias) > 6:
+            # Rule 2: CJK alias too long — likely a descriptive phrase, not a name.
+            # Vietnamese and other Latin-script names can naturally exceed 6 chars.
+            if _is_cjk_dominant_name(alias) and len(alias) > 6:
                 logger.debug(
                     "Alias too long (%d): '%s' for %s",
                     len(alias), alias, owner_name,
@@ -1477,6 +1561,11 @@ class FactValidator:
         for rel in rels:
             a = _clamp_name(rel.person_a)
             b = _clamp_name(rel.person_b)
+            relation_type = normalize_relation_type(rel.relation_type)
+            previous_type = (
+                normalize_relation_type(rel.previous_type)
+                if rel.previous_type else None
+            )
             if len(a) < _NAME_MIN_LEN or len(b) < _NAME_MIN_LEN:
                 continue
             if a not in char_names or b not in char_names:
@@ -1484,7 +1573,14 @@ class FactValidator:
                     "Dropping relationship %s-%s: person not in characters", a, b
                 )
                 continue
-            valid.append(rel.model_copy(update={"person_a": a, "person_b": b}))
+            valid.append(rel.model_copy(update={
+                "person_a": a,
+                "person_b": b,
+                "relation_type": relation_type,
+                "relation_type_id": relation_type_id(relation_type),
+                "previous_type": previous_type,
+                "previous_type_id": relation_type_id(previous_type) if previous_type else None,
+            }))
         return valid
 
     def _validate_locations(self, locs, characters=None):
@@ -1569,8 +1665,14 @@ class FactValidator:
                 normalized_parent = _LOCATION_NAME_NORMALIZE.get(
                     normalized_parent, normalized_parent
                 )
+            loc_type = normalize_location_type(loc.type)
             valid.append(
-                loc.model_copy(update={"name": name, "parent": normalized_parent})
+                loc.model_copy(update={
+                    "name": name,
+                    "type": loc_type,
+                    "type_id": location_type_id(loc_type),
+                    "parent": normalized_parent,
+                })
             )
 
         # Validate peers field
@@ -1677,11 +1779,18 @@ class FactValidator:
             name = _clamp_name(item.item_name)
             if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
-            action = item.action
+            item_type = normalize_item_type(item.item_type)
+            action = normalize_item_action(item.action)
             if action not in _VALID_ITEM_ACTIONS:
                 action = "出现"
             valid.append(
-                item.model_copy(update={"item_name": name, "action": action})
+                item.model_copy(update={
+                    "item_name": name,
+                    "item_type": item_type,
+                    "item_type_id": item_type_id(item_type),
+                    "action": action,
+                    "action_id": item_action_id(action),
+                })
             )
         return valid
 
@@ -1693,11 +1802,26 @@ class FactValidator:
             name = _clamp_name(org.org_name)
             if len(name) < _NAME_MIN_LEN_OTHER:
                 continue
-            action = org.action
+            org_type = normalize_org_type(org.org_type)
+            action = normalize_org_action(org.action)
             if action not in _VALID_ORG_ACTIONS:
                 action = "加入"
+            org_relation = org.org_relation
+            if org_relation:
+                rel_type = normalize_relation_type(org_relation.type)
+                org_relation = org_relation.model_copy(update={
+                    "type": rel_type,
+                    "type_id": relation_type_id(rel_type),
+                })
             valid.append(
-                org.model_copy(update={"org_name": name, "action": action})
+                org.model_copy(update={
+                    "org_name": name,
+                    "org_type": org_type,
+                    "org_type_id": org_type_id(org_type),
+                    "action": action,
+                    "action_id": org_action_id(action),
+                    "org_relation": org_relation,
+                })
             )
         return valid
 
@@ -1714,10 +1838,16 @@ class FactValidator:
                 continue
             seen_summaries.add(summary_key)
 
-            etype = ev.type if ev.type in _VALID_EVENT_TYPES else "其他"
+            etype = normalize_event_type(ev.type)
+            if etype not in _VALID_EVENT_TYPES:
+                etype = "其他"
             importance = ev.importance if ev.importance in _VALID_IMPORTANCE else "medium"
             valid.append(
-                ev.model_copy(update={"type": etype, "importance": importance})
+                ev.model_copy(update={
+                    "type": etype,
+                    "type_id": event_type_id(etype),
+                    "importance": importance,
+                })
             )
         return valid
 
@@ -1866,9 +1996,17 @@ class FactValidator:
                 parent = _clamp_name(parent)
                 parent = _LOCATION_NAME_NORMALIZE.get(parent, parent)
             if parent and parent not in existing_names and parent not in to_add:
+                reason = _is_generic_location(parent, self._genre)
+                if reason:
+                    logger.debug(
+                        "Skipping auto-added parent location '%s': %s", parent, reason
+                    )
+                    continue
+                inferred_type = _infer_type_from_name(parent)
                 to_add[parent] = LocationFact(
                     name=parent,
-                    type=_infer_type_from_name(parent),
+                    type=inferred_type,
+                    type_id=location_type_id(inferred_type),
                     description="",
                 )
                 logger.debug("Auto-adding parent location: %s (referenced by %s)", parent, loc.name)
@@ -1881,9 +2019,17 @@ class FactValidator:
                 for child in content.get("children", []):
                     child = child.strip()
                     if child and child not in existing_names and child not in to_add:
+                        reason = _is_generic_location(child, self._genre)
+                        if reason:
+                            logger.debug(
+                                "Skipping auto-added region child '%s': %s", child, reason
+                            )
+                            continue
+                        inferred_type = _infer_type_from_name(child)
                         to_add[child] = LocationFact(
                             name=child,
-                            type=_infer_type_from_name(child),
+                            type=inferred_type,
+                            type_id=location_type_id(inferred_type),
                             parent=content.get("parent"),
                             description="",
                         )
@@ -1893,9 +2039,17 @@ class FactValidator:
                 if div_parent and div_parent.strip():
                     div_parent = div_parent.strip()
                     if div_parent not in existing_names and div_parent not in to_add:
+                        reason = _is_generic_location(div_parent, self._genre)
+                        if reason:
+                            logger.debug(
+                                "Skipping auto-added region parent '%s': %s", div_parent, reason
+                            )
+                            continue
+                        inferred_type = _infer_type_from_name(div_parent)
                         to_add[div_parent] = LocationFact(
                             name=div_parent,
-                            type=_infer_type_from_name(div_parent),
+                            type=inferred_type,
+                            type_id=location_type_id(inferred_type),
                             description="",
                         )
                         logger.debug("Auto-adding location from region_division parent: %s", div_parent)
@@ -1906,9 +2060,17 @@ class FactValidator:
                     if loc_name and loc_name.strip():
                         loc_name = loc_name.strip()
                         if loc_name not in existing_names and loc_name not in to_add:
+                            reason = _is_generic_location(loc_name, self._genre)
+                            if reason:
+                                logger.debug(
+                                    "Skipping auto-added portal location '%s': %s", loc_name, reason
+                                )
+                                continue
+                            inferred_type = "地点"
                             to_add[loc_name] = LocationFact(
                                 name=loc_name,
-                                type="地点",
+                                type=inferred_type,
+                                type_id=location_type_id(inferred_type),
                                 description="",
                             )
                             logger.debug("Auto-adding location from portal: %s", loc_name)

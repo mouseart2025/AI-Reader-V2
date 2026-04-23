@@ -42,8 +42,8 @@ export default function DemoLayout() {
   const activeTabConfig = TABS.find((tab) => tab.key === activeTab)
   const tabLabel = activeTabConfig ? t(activeTabConfig.labelKey) : ""
   useEffect(() => {
-    document.title = `${novelTitle} · ${tabLabel} — AI Reader Demo`
-  }, [novelTitle, tabLabel])
+    document.title = `${novelTitle} · ${tabLabel} — ${t("demo.documentTitleSuffix")}`
+  }, [novelTitle, tabLabel, t])
 
   // Story 4.1: Track tab switches for upgrade banner
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
@@ -86,7 +86,7 @@ export default function DemoLayout() {
       {/* Story 4.3: Mobile gate — shown on < md screens instead of full demo */}
       <div className="flex h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center md:hidden">
         <span className="mb-4 text-5xl">📚</span>
-        <h1 className="mb-2 text-xl font-bold text-white">AI Reader V2 Demo</h1>
+        <h1 className="mb-2 text-xl font-bold text-white">{t("demo.appTitle")}</h1>
         <p className="mb-6 text-sm text-slate-400">
           {t("demo.mobileBestDesktop")}
         </p>
@@ -131,7 +131,7 @@ export default function DemoLayout() {
             className="flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-blue-400 transition"
           >
             <span className="text-lg">📚</span>
-            <span>AI Reader Demo</span>
+            <span>{t("demo.logoTitle")}</span>
           </a>
 
           {/* Novel Selector */}
@@ -174,7 +174,7 @@ export default function DemoLayout() {
             rel="noopener noreferrer"
             className="text-sm text-slate-500 hover:text-slate-300 transition"
           >
-            GitHub ↗
+            {t("demo.githubLink")}
           </a>
         </header>
 

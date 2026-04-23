@@ -3,6 +3,7 @@
  */
 import { useMemo, useState } from "react"
 import { useDemoData } from "@/app/DemoContext"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 
 interface Org {
@@ -37,12 +38,30 @@ const TYPE_COLORS: Record<string, string> = {
   宗教: "#f97316",
 }
 
+const TYPE_LABEL_KEYS: Partial<Record<string, TranslationKey>> = {
+  家族: "factions.orgType.family",
+  院落: "demo.factions.orgType.courtyard",
+  寺庙: "demo.factions.orgType.temple",
+  官府: "demo.factions.orgType.government",
+  帮派: "factions.orgType.gang",
+  门派: "factions.orgType.sect",
+  军队: "factions.orgType.army",
+  商铺: "demo.factions.orgType.shop",
+  宗教: "demo.factions.orgType.religion",
+}
+
 export default function DemoFactionsPage() {
+  const { t } = useI18n()
   const { data } = useDemoData()
   const factionsData = data.factions as unknown as FactionsData
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null)
   const openCard = useEntityCardStore((s) => s.openCard)
+
+  const getTypeLabel = (type: string) => {
+    const key = TYPE_LABEL_KEYS[type]
+    return key ? t(key) : type
+  }
 
   const orgTypes = useMemo(() => {
     const types = new Map<string, number>()
@@ -63,7 +82,7 @@ export default function DemoFactionsPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
         <span className="text-xs text-slate-400">
-          {filtered.length} 组织 / {factionsData.orgs.length} 总计
+          {t("factions.orgCount", { shown: filtered.length, total: factionsData.orgs.length })}
         </span>
         <div className="flex flex-wrap gap-1">
           <button
@@ -72,7 +91,7 @@ export default function DemoFactionsPage() {
               !typeFilter ? "bg-blue-500/20 text-blue-400" : "text-slate-500 hover:bg-slate-800"
             }`}
           >
-            全部
+            {t("common.all")}
           </button>
           {orgTypes.map(([type, count]) => (
             <button
@@ -85,7 +104,7 @@ export default function DemoFactionsPage() {
                 border: `1px solid ${typeFilter === type ? (TYPE_COLORS[type] || "#6b7280") + "40" : "#334155"}`,
               }}
             >
-              {type} ({count})
+              {getTypeLabel(type)} ({count})
             </button>
           ))}
         </div>
@@ -109,9 +128,9 @@ export default function DemoFactionsPage() {
                   />
                   <span className="font-medium flex-1 text-slate-200">{org.name}</span>
                   <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
-                    {org.type}
+                    {getTypeLabel(org.type)}
                   </span>
-                  <span className="text-xs text-slate-500">{org.member_count} 人</span>
+                  <span className="text-xs text-slate-500">{t("factions.memberCount", { count: org.member_count })}</span>
                   <span className="text-slate-500 text-xs">{isExpanded ? "▲" : "▼"}</span>
                 </button>
                 {isExpanded && members.length > 0 && (
@@ -129,14 +148,14 @@ export default function DemoFactionsPage() {
                       ))}
                       {members.length > 30 && (
                         <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-500">
-                          +{members.length - 30} 更多
+                          {t("demo.factions.moreMembers", { count: members.length - 30 })}
                         </span>
                       )}
                     </div>
                   </div>
                 )}
                 {isExpanded && members.length === 0 && (
-                  <div className="border-t border-slate-800 px-4 py-3 text-xs text-slate-500">暂无成员数据</div>
+                  <div className="border-t border-slate-800 px-4 py-3 text-xs text-slate-500">{t("demo.factions.noMembers")}</div>
                 )}
               </div>
             )

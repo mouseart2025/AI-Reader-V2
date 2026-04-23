@@ -35,7 +35,7 @@ class EdmondsResolver(GeoSkill):
 
     @property
     def name(self) -> str:
-        return "层级优化"
+        return "Hierarchy optimization"
 
     async def execute(self, snapshot: HierarchySnapshot) -> SkillResult:
         votes = snapshot.parent_votes

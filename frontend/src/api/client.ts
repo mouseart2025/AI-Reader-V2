@@ -20,6 +20,7 @@ import type {
   OverrideType,
   PrescanStatusResponse,
   ReSplitRequest,
+  SourceLanguage,
   SplitModesResponse,
   UploadPreviewResponse,
   UserState,
@@ -57,9 +58,10 @@ export function deleteNovel(novelId: string): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/novels/${novelId}`, { method: "DELETE" })
 }
 
-export async function uploadNovel(file: File): Promise<UploadPreviewResponse> {
+export async function uploadNovel(file: File, sourceLanguage: SourceLanguage = "auto"): Promise<UploadPreviewResponse> {
   const form = new FormData()
   form.append("file", file)
+  form.append("source_language", sourceLanguage)
   const res = await fetch(`${getBase()}/novels/upload`, {
     method: "POST",
     body: form,
@@ -74,11 +76,13 @@ export async function uploadNovel(file: File): Promise<UploadPreviewResponse> {
 export function uploadNovelWithProgress(
   file: File,
   onProgress: (pct: number) => void,
+  sourceLanguage: SourceLanguage = "auto",
 ): Promise<UploadPreviewResponse> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const form = new FormData()
     form.append("file", file)
+    form.append("source_language", sourceLanguage)
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
@@ -846,7 +850,7 @@ export function fetchLocationSpatialSummary(
 export function fetchEntityScenes(
   novelId: string,
   name: string,
-): Promise<{ chapter: number; index: number; title: string; location: string; emotional_tone: string; summary: string; role: string }[]> {
+): Promise<{ chapter: number; index: number; title: string; location: string; emotional_tone: string; emotional_tone_id?: string; summary: string; role: string; role_id?: string }[]> {
   return apiFetch(`/novels/${novelId}/encyclopedia/${encodeURIComponent(name)}/scenes`)
 }
 

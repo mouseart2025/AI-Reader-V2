@@ -1,6 +1,6 @@
 """Novel management endpoints: upload, confirm, list, delete."""
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from src.api.schemas.novels import (
     CleanAndReSplitRequest,
@@ -28,7 +28,7 @@ async def list_novels():
 
 
 @router.post("/upload", response_model=UploadPreviewResponse)
-async def upload_novel(file: UploadFile):
+async def upload_novel(file: UploadFile, source_language: str = Form("auto")):
     """Upload a .txt/.md file and return chapter-split preview."""
     # Validate extension
     filename = file.filename or "unknown.txt"
@@ -46,7 +46,7 @@ async def upload_novel(file: UploadFile):
     if len(content) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="文件大小超过 100MB 限制")
 
-    preview = await novel_service.parse_upload(filename, content)
+    preview = await novel_service.parse_upload(filename, content, source_language=source_language)
     return preview
 
 
@@ -65,6 +65,7 @@ async def re_split_chapters(req: ReSplitRequest):
             mode=req.mode,
             custom_regex=req.custom_regex,
             split_points=req.split_points,
+            source_language=req.source_language,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -117,6 +118,7 @@ async def confirm_import(req: ConfirmImportRequest):
             title=req.title,
             author=req.author,
             excluded_chapters=req.excluded_chapters or None,
+            source_language=req.source_language,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

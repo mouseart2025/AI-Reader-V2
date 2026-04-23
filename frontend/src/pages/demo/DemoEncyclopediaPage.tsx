@@ -7,6 +7,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useDemoData } from "@/app/DemoContext"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import type { EntityType } from "@/api/types"
+import { useI18n, type TranslationKey } from "@/i18n"
 
 interface EncEntry {
   name: string
@@ -38,9 +39,12 @@ const TYPE_COLORS: Record<string, string> = {
   org: "#8b5cf6", concept: "#6b7280",
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  person: "人物", location: "地点", item: "物品",
-  org: "组织", concept: "概念",
+const TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
+  person: "analysis.entityType.person",
+  location: "analysis.entityType.location",
+  item: "analysis.entityType.item",
+  org: "analysis.entityType.org",
+  concept: "analysis.entityType.concept",
 }
 
 const TIER_COLORS: Record<string, string> = {
@@ -48,9 +52,29 @@ const TIER_COLORS: Record<string, string> = {
   region: "#eab308", city: "#3b82f6", site: "#10b981", building: "#64748b",
 }
 
-const TIER_LABELS: Record<string, string> = {
-  world: "世界", continent: "大陆", kingdom: "国",
-  region: "区域", city: "城镇", site: "场所", building: "建筑",
+const TIER_LABEL_KEYS: Record<string, TranslationKey> = {
+  world: "encyclopedia.tier.world",
+  continent: "encyclopedia.tier.continent",
+  kingdom: "encyclopedia.tier.kingdom",
+  region: "encyclopedia.tier.region",
+  city: "encyclopedia.tier.city",
+  site: "encyclopedia.tier.site",
+  building: "encyclopedia.tier.building",
+}
+
+function localizedType(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  type: string,
+  fallback?: string,
+) {
+  return TYPE_LABEL_KEYS[type] ? t(TYPE_LABEL_KEYS[type]) : (fallback ?? type)
+}
+
+function localizedTier(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  tier: string,
+) {
+  return TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier
 }
 
 // ── Build location hierarchy tree ────────────────
@@ -127,6 +151,7 @@ function TreeNodeView({
   expandedNodes: Set<string>
   toggleExpand: (name: string) => void
 }) {
+  const { t } = useI18n()
   const hasChildren = node.children.length > 0
   const isExpanded = expandedNodes.has(node.name)
   const tierColor = TIER_COLORS[node.tier] ?? "#6b7280"
@@ -165,7 +190,7 @@ function TreeNodeView({
         {/* Tier badge */}
         {node.tier && (
           <span className="ml-auto text-[10px] text-slate-600">
-            {TIER_LABELS[node.tier] ?? node.tier}
+            {localizedTier(t, node.tier)}
           </span>
         )}
 
@@ -195,6 +220,7 @@ function TreeNodeView({
 // ── Main component ───────────────────────────────
 
 export default function DemoEncyclopediaPage() {
+  const { t } = useI18n()
   const { data } = useDemoData()
   const encyclopediaData = data.encyclopedia as { entries: EncEntry[] }
   const worldStructure = data.worldStructure as unknown as WorldStructure | null
@@ -341,7 +367,7 @@ export default function DemoEncyclopediaPage() {
               activeTab === "entries" ? "bg-blue-500/20 text-blue-400 font-medium" : "text-slate-500 hover:text-slate-300"
             }`}
           >
-            百科
+            {t("nav.encyclopedia")}
           </button>
           <button
             onClick={() => { setActiveTab("world"); expandTopLevel() }}
@@ -349,7 +375,7 @@ export default function DemoEncyclopediaPage() {
               activeTab === "world" ? "bg-blue-500/20 text-blue-400 font-medium" : "text-slate-500 hover:text-slate-300"
             }`}
           >
-            世界观
+            {t("encyclopedia.worldview.title")}
           </button>
         </div>
 
@@ -361,9 +387,9 @@ export default function DemoEncyclopediaPage() {
                 activeType === null ? "bg-blue-500/20 font-medium text-blue-400" : "text-slate-400 hover:bg-slate-800"
               }`}
             >
-              全部 <span className="text-xs text-slate-500">({entries.length})</span>
+              {t("common.all")} <span className="text-xs text-slate-500">({entries.length})</span>
             </button>
-            {Object.entries(TYPE_LABELS).map(([type, label]) => (
+            {Object.entries(TYPE_LABEL_KEYS).map(([type, labelKey]) => (
               <button
                 key={type}
                 onClick={() => setActiveType(type)}
@@ -375,7 +401,7 @@ export default function DemoEncyclopediaPage() {
                   className="mr-1.5 inline-block h-2 w-2 rounded-full"
                   style={{ backgroundColor: TYPE_COLORS[type] }}
                 />
-                {label}{" "}
+                {t(labelKey)}{" "}
                 <span className="text-xs text-slate-500">({typeCounts[type] ?? 0})</span>
               </button>
             ))}
@@ -385,15 +411,17 @@ export default function DemoEncyclopediaPage() {
         {activeTab === "world" && (
           <div className="space-y-1">
             {/* Tier legend */}
-            <p className="px-1 text-[10px] text-slate-600">地点层级</p>
-            {Object.entries(TIER_LABELS).map(([tier, label]) => (
+            <p className="px-1 text-[10px] text-slate-600">{t("visualization.worldStructure.tab.locations")}</p>
+            {Object.entries(TIER_LABEL_KEYS).map(([tier, labelKey]) => (
               <div key={tier} className="flex items-center gap-1.5 px-2 text-[10px] text-slate-500">
                 <span className="size-2 rounded-full" style={{ backgroundColor: TIER_COLORS[tier] }} />
-                {label}
+                {t(labelKey)}
               </div>
             ))}
             <div className="mt-2 border-t border-slate-800 pt-2 px-1">
-              <p className="text-[10px] text-slate-600">{Object.keys(worldStructure?.location_parents ?? {}).length} 地点层级关系</p>
+              <p className="text-[10px] text-slate-600">
+                {t("demo.encyclopedia.hierarchyRelationCount", { count: Object.keys(worldStructure?.location_parents ?? {}).length })}
+              </p>
             </div>
           </div>
         )}
@@ -407,7 +435,7 @@ export default function DemoEncyclopediaPage() {
             <div className="flex items-center gap-3 border-b border-slate-800 px-4 py-2">
               <input
                 type="text"
-                placeholder="搜索名称或描述..."
+                placeholder={t("demo.encyclopedia.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
@@ -421,11 +449,15 @@ export default function DemoEncyclopediaPage() {
                       sortBy === s ? "bg-blue-500/20 text-blue-400" : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    {s === "name" ? "名称" : s === "chapter" ? "首次出现" : "提及次数"}
+                    {s === "name"
+                      ? t("encyclopedia.sort.name")
+                      : s === "chapter"
+                        ? t("demo.encyclopedia.sort.firstAppearance")
+                        : t("demo.encyclopedia.sort.mentions")}
                   </button>
                 ))}
               </div>
-              <span className="text-xs text-slate-500">{filteredEntries.length} 条</span>
+              <span className="text-xs text-slate-500">{t("demo.encyclopedia.filteredCount", { count: filteredEntries.length })}</span>
             </div>
 
             {/* Entry List + Detail Panel */}
@@ -465,8 +497,8 @@ export default function DemoEncyclopediaPage() {
                                 </span>
                               )}
                               <span className="text-xs text-slate-500">
-                                第{entry.first_chapter}回
-                                {entry.chapter_count ? ` · ${entry.chapter_count}次` : ""}
+                                {t("demo.common.chapterHui", { chapter: entry.first_chapter })}
+                                {entry.chapter_count ? t("demo.encyclopedia.mentionSuffix", { count: entry.chapter_count }) : ""}
                               </span>
                             </div>
                             <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{entry.definition}</p>
@@ -489,17 +521,19 @@ export default function DemoEncyclopediaPage() {
                     <h3 className="text-lg font-semibold text-white">{selectedEntry.name}</h3>
                   </div>
                   <p className="mb-2 text-xs text-slate-400">
-                    {TYPE_LABELS[selectedEntry.type] ?? selectedEntry.type}
+                    {localizedType(t, selectedEntry.type, selectedEntry.type)}
                     {selectedEntry.category && selectedEntry.category !== selectedEntry.type
                       ? ` · ${selectedEntry.category}`
                       : ""}
                   </p>
                   {selectedEntry.tier && (
-                    <p className="mb-2 text-xs text-slate-500">层级: {selectedEntry.tier}</p>
+                    <p className="mb-2 text-xs text-slate-500">
+                      {t("demo.encyclopedia.tierLabel", { tier: localizedTier(t, selectedEntry.tier) })}
+                    </p>
                   )}
                   {selectedEntry.parent && (
                     <p className="mb-2 text-xs text-slate-500">
-                      上级:{" "}
+                      {t("demo.encyclopedia.parentLabel")}{" "}
                       <button
                         className="text-blue-400 hover:underline"
                         onClick={() => {
@@ -518,14 +552,14 @@ export default function DemoEncyclopediaPage() {
                     {selectedEntry.definition}
                   </p>
                   <p className="text-xs text-slate-500">
-                    首次出现: 第{selectedEntry.first_chapter}回
-                    {selectedEntry.chapter_count ? ` · 出现 ${selectedEntry.chapter_count} 次` : ""}
+                    {t("demo.encyclopedia.firstAppearance", { chapter: selectedEntry.first_chapter })}
+                    {selectedEntry.chapter_count ? t("demo.encyclopedia.appearanceSuffix", { count: selectedEntry.chapter_count }) : ""}
                   </p>
                   <button
                     onClick={() => setSelectedEntry(null)}
                     className="mt-4 w-full rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800"
                   >
-                    关闭
+                    {t("common.close")}
                   </button>
                 </div>
               )}
@@ -538,7 +572,7 @@ export default function DemoEncyclopediaPage() {
             <div className="flex items-center gap-3 border-b border-slate-800 px-4 py-2">
               <input
                 type="text"
-                placeholder="搜索地点..."
+                placeholder={t("visualization.worldStructure.searchPlaceholder")}
                 value={worldSearch}
                 onChange={(e) => setWorldSearch(e.target.value)}
                 className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
@@ -555,16 +589,16 @@ export default function DemoEncyclopediaPage() {
                 }}
                 className="rounded px-2 py-1 text-xs text-slate-500 hover:text-slate-300"
               >
-                全部展开
+                {t("map.expandAll")}
               </button>
               <button
                 onClick={() => setExpandedNodes(new Set())}
                 className="rounded px-2 py-1 text-xs text-slate-500 hover:text-slate-300"
               >
-                全部折叠
+                {t("map.collapseAll")}
               </button>
               <span className="text-xs text-slate-500">
-                {filteredTreeRoots.length} 根节点
+                {t("demo.encyclopedia.rootCount", { count: filteredTreeRoots.length })}
               </span>
             </div>
 
@@ -572,7 +606,7 @@ export default function DemoEncyclopediaPage() {
             <div className="flex-1 overflow-auto px-2 py-2">
               {filteredTreeRoots.length === 0 ? (
                 <p className="mt-8 text-center text-sm text-slate-500">
-                  {worldSearch ? "未找到匹配的地点" : "暂无世界观数据"}
+                  {worldSearch ? t("visualization.worldStructure.empty.noMatches") : t("demo.encyclopedia.noWorldData")}
                 </p>
               ) : (
                 filteredTreeRoots.map((root) => (
@@ -609,14 +643,14 @@ export default function DemoEncyclopediaPage() {
             </p>
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>
-                首次出现: 第{conceptPopup.first_chapter}回
-                {conceptPopup.chapter_count ? ` · 出现 ${conceptPopup.chapter_count} 次` : ""}
+                {t("demo.encyclopedia.firstAppearance", { chapter: conceptPopup.first_chapter })}
+                {conceptPopup.chapter_count ? t("demo.encyclopedia.appearanceSuffix", { count: conceptPopup.chapter_count }) : ""}
               </span>
               <button
                 onClick={() => setConceptPopup(null)}
                 className="rounded border border-slate-600 px-3 py-1 text-slate-400 hover:text-white transition"
               >
-                关闭
+                {t("common.close")}
               </button>
             </div>
           </div>

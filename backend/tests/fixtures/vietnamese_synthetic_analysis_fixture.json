@@ -1,0 +1,690 @@
+{
+  "_meta": {
+    "fixture_id": "vietnamese-synthetic-analysis-v1",
+    "title": "Sông Núi Lam Sơn",
+    "author": "Synthetic Regression Fixture",
+    "source_language": "vi",
+    "notes": "Synthetic Vietnamese fixture for split + aggregate analysis regression without calling real LLMs."
+  },
+  "raw_text": "Chương 1 Bến Chương Dương\nTrần Quốc Tuấn đứng bên bến Chương Dương, nhìn dòng sông Hồng cuộn đỏ dưới chân thành.\nPhạm Ngũ Lão bước tới, dâng thư quân và nói rằng quân Đại Việt đã sẵn sàng giữ bến.\n\nChương 2 Thành Thăng Long\nPhạm Ngũ Lão dẫn quân vào thành Thăng Long theo lệnh của Trần Quốc Tuấn.\nTrong thành Thăng Long, quân Đại Việt dẹp xong đám phản loạn còn sót lại.\n\nChương 3 Núi Lam Sơn\nNguyễn Trãi vào núi Lam Sơn yết kiến Lê Lợi.\nNguyễn Trãi dâng Bình Ngô sách và thưa rằng kế lâu dài phải bắt đầu từ lòng dân.\n\nChương 4 Chùa Phổ Minh\nLê Lợi cùng Nguyễn Trãi ghé chùa Phổ Minh để bàn việc kết giao hào kiệt bốn phương.\nTiếng chuông chùa Phổ Minh vang ra giữa chiều, làm cuộc bàn bạc thêm trầm tĩnh.\n\nChương 5 Sông Mã\nLê Lợi cùng Phạm Ngũ Lão vượt sông Mã tại bến Vạn Hà.\nNguyễn Trãi đi theo đoàn nghĩa quân Lam Sơn, ghi lại đường nước và đường bộ cho lần hành quân tới.\n\nChương 6 Ngày Khải Hoàn\nLê Lợi vào thành Thăng Long trong ngày khải hoàn, còn Nguyễn Trãi thảo chiếu mừng chiến thắng.\nTrần Quốc Tuấn đứng trên vọng lâu nhìn đoàn quân trở về, nhớ lại những ngày giữ bến ở Chương Dương.\n",
+  "chapters": [
+    {
+      "chapter_num": 1,
+      "title": "Bến Chương Dương",
+      "content": "Trần Quốc Tuấn đứng bên bến Chương Dương, nhìn dòng sông Hồng cuộn đỏ dưới chân thành.\nPhạm Ngũ Lão bước tới, dâng thư quân và nói rằng quân Đại Việt đã sẵn sàng giữ bến."
+    },
+    {
+      "chapter_num": 2,
+      "title": "Thành Thăng Long",
+      "content": "Phạm Ngũ Lão dẫn quân vào thành Thăng Long theo lệnh của Trần Quốc Tuấn.\nTrong thành Thăng Long, quân Đại Việt dẹp xong đám phản loạn còn sót lại."
+    },
+    {
+      "chapter_num": 3,
+      "title": "Núi Lam Sơn",
+      "content": "Nguyễn Trãi vào núi Lam Sơn yết kiến Lê Lợi.\nNguyễn Trãi dâng Bình Ngô sách và thưa rằng kế lâu dài phải bắt đầu từ lòng dân."
+    },
+    {
+      "chapter_num": 4,
+      "title": "Chùa Phổ Minh",
+      "content": "Lê Lợi cùng Nguyễn Trãi ghé chùa Phổ Minh để bàn việc kết giao hào kiệt bốn phương.\nTiếng chuông chùa Phổ Minh vang ra giữa chiều, làm cuộc bàn bạc thêm trầm tĩnh."
+    },
+    {
+      "chapter_num": 5,
+      "title": "Sông Mã",
+      "content": "Lê Lợi cùng Phạm Ngũ Lão vượt sông Mã tại bến Vạn Hà.\nNguyễn Trãi đi theo đoàn nghĩa quân Lam Sơn, ghi lại đường nước và đường bộ cho lần hành quân tới."
+    },
+    {
+      "chapter_num": 6,
+      "title": "Ngày Khải Hoàn",
+      "content": "Lê Lợi vào thành Thăng Long trong ngày khải hoàn, còn Nguyễn Trãi thảo chiếu mừng chiến thắng.\nTrần Quốc Tuấn đứng trên vọng lâu nhìn đoàn quân trở về, nhớ lại những ngày giữ bến ở Chương Dương."
+    }
+  ],
+  "facts": [
+    {
+      "chapter_num": 1,
+      "fact": {
+        "chapter_id": 1,
+        "novel_id": "vi-fixture",
+        "characters": [
+          {
+            "name": "Trần Quốc Tuấn",
+            "appearance": "vị tướng áo bào sẫm đứng trước gió sông",
+            "locations_in_chapter": ["bến Chương Dương"]
+          },
+          {
+            "name": "Phạm Ngũ Lão",
+            "appearance": "người tướng trẻ giữ giáo dài trước bến",
+            "locations_in_chapter": ["bến Chương Dương"]
+          }
+        ],
+        "relationships": [
+          {
+            "person_a": "Trần Quốc Tuấn",
+            "person_b": "Phạm Ngũ Lão",
+            "relation_type": "上下级",
+            "is_new": true,
+            "evidence": "Trần Quốc Tuấn giao cho Phạm Ngũ Lão giữ bến."
+          }
+        ],
+        "locations": [
+          {
+            "name": "bến Chương Dương",
+            "type": "渡口",
+            "parent": "sông Hồng",
+            "description": "bến lớn bên sông Hồng, nơi quân giữ đường nước",
+            "role": "setting"
+          },
+          {
+            "name": "sông Hồng",
+            "type": "河流",
+            "description": "dòng sông lớn chảy qua miền bắc",
+            "role": "setting"
+          }
+        ],
+        "spatial_relationships": [
+          {
+            "source": "sông Hồng",
+            "target": "bến Chương Dương",
+            "relation_type": "contains",
+            "value": "riverbank",
+            "confidence": "high",
+            "narrative_evidence": "bến Chương Dương nằm bên sông Hồng"
+          }
+        ],
+        "org_events": [
+          {
+            "org_name": "quân Đại Việt",
+            "org_type": "军队",
+            "member": "Trần Quốc Tuấn",
+            "role": "quốc công",
+            "action": "出现"
+          },
+          {
+            "org_name": "quân Đại Việt",
+            "org_type": "军队",
+            "member": "Phạm Ngũ Lão",
+            "role": "tiên phong",
+            "action": "加入"
+          }
+        ],
+        "events": [
+          {
+            "summary": "Trần Quốc Tuấn bàn kế giữ bến Chương Dương",
+            "type": "社交",
+            "importance": "high",
+            "participants": ["Trần Quốc Tuấn", "Phạm Ngũ Lão"],
+            "location": "bến Chương Dương"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_num": 2,
+      "fact": {
+        "chapter_id": 2,
+        "novel_id": "vi-fixture",
+        "characters": [
+          {
+            "name": "Trần Quốc Tuấn",
+            "locations_in_chapter": ["thành Thăng Long"]
+          },
+          {
+            "name": "Phạm Ngũ Lão",
+            "locations_in_chapter": ["thành Thăng Long"]
+          }
+        ],
+        "relationships": [
+          {
+            "person_a": "Trần Quốc Tuấn",
+            "person_b": "Phạm Ngũ Lão",
+            "relation_type": "上下级",
+            "is_new": false,
+            "evidence": "Phạm Ngũ Lão dẫn quân vào thành Thăng Long theo lệnh."
+          }
+        ],
+        "locations": [
+          {
+            "name": "thành Thăng Long",
+            "type": "城市",
+            "description": "kinh thành lớn của Đại Việt",
+            "role": "setting"
+          }
+        ],
+        "org_events": [
+          {
+            "org_name": "quân Đại Việt",
+            "org_type": "军队",
+            "member": "Phạm Ngũ Lão",
+            "role": "tiên phong",
+            "action": "出现"
+          }
+        ],
+        "events": [
+          {
+            "summary": "Phạm Ngũ Lão dẫn quân vào thành Thăng Long",
+            "type": "战斗",
+            "importance": "high",
+            "participants": ["Trần Quốc Tuấn", "Phạm Ngũ Lão"],
+            "location": "thành Thăng Long"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_num": 3,
+      "fact": {
+        "chapter_id": 3,
+        "novel_id": "vi-fixture",
+        "characters": [
+          {
+            "name": "Nguyễn Trãi",
+            "appearance": "người nho sĩ áo xanh mang theo sách lược",
+            "locations_in_chapter": ["núi Lam Sơn"]
+          },
+          {
+            "name": "Lê Lợi",
+            "appearance": "người chủ tướng ngồi giữa doanh trại trên núi",
+            "locations_in_chapter": ["núi Lam Sơn"]
+          }
+        ],
+        "relationships": [
+          {
+            "person_a": "Nguyễn Trãi",
+            "person_b": "Lê Lợi",
+            "relation_type": "君臣",
+            "is_new": true,
+            "evidence": "Nguyễn Trãi vào núi Lam Sơn yết kiến Lê Lợi."
+          }
+        ],
+        "locations": [
+          {
+            "name": "núi Lam Sơn",
+            "type": "山",
+            "description": "ngọn núi làm căn cứ của nghĩa quân",
+            "role": "setting"
+          }
+        ],
+        "item_events": [
+          {
+            "item_name": "Bình Ngô sách",
+            "item_type": "兵书",
+            "action": "赠予",
+            "actor": "Nguyễn Trãi",
+            "recipient": "Lê Lợi",
+            "description": "bản sách nêu kế lâu dài để bình định giặc"
+          }
+        ],
+        "org_events": [
+          {
+            "org_name": "nghĩa quân Lam Sơn",
+            "org_type": "军队",
+            "member": "Lê Lợi",
+            "role": "thủ lĩnh",
+            "action": "出现"
+          },
+          {
+            "org_name": "nghĩa quân Lam Sơn",
+            "org_type": "军队",
+            "member": "Nguyễn Trãi",
+            "role": "mưu sĩ",
+            "action": "加入"
+          }
+        ],
+        "events": [
+          {
+            "summary": "Nguyễn Trãi dâng Bình Ngô sách cho Lê Lợi",
+            "type": "社交",
+            "importance": "high",
+            "participants": ["Nguyễn Trãi", "Lê Lợi"],
+            "location": "núi Lam Sơn"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_num": 4,
+      "fact": {
+        "chapter_id": 4,
+        "novel_id": "vi-fixture",
+        "characters": [
+          {
+            "name": "Nguyễn Trãi",
+            "locations_in_chapter": ["chùa Phổ Minh"]
+          },
+          {
+            "name": "Lê Lợi",
+            "locations_in_chapter": ["chùa Phổ Minh"]
+          }
+        ],
+        "relationships": [
+          {
+            "person_a": "Nguyễn Trãi",
+            "person_b": "Lê Lợi",
+            "relation_type": "君臣",
+            "is_new": false,
+            "evidence": "Hai người bàn việc ở chùa Phổ Minh."
+          }
+        ],
+        "locations": [
+          {
+            "name": "chùa Phổ Minh",
+            "type": "寺庙",
+            "description": "ngôi chùa yên tĩnh dùng làm nơi bàn việc",
+            "role": "setting"
+          }
+        ],
+        "org_events": [
+          {
+            "org_name": "nghĩa quân Lam Sơn",
+            "org_type": "军队",
+            "member": "Nguyễn Trãi",
+            "role": "mưu sĩ",
+            "action": "出现"
+          }
+        ],
+        "events": [
+          {
+            "summary": "Lê Lợi và Nguyễn Trãi bàn việc tại chùa Phổ Minh",
+            "type": "社交",
+            "importance": "medium",
+            "participants": ["Lê Lợi", "Nguyễn Trãi"],
+            "location": "chùa Phổ Minh"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_num": 5,
+      "fact": {
+        "chapter_id": 5,
+        "novel_id": "vi-fixture",
+        "characters": [
+          {
+            "name": "Nguyễn Trãi",
+            "locations_in_chapter": ["sông Mã", "bến Vạn Hà"]
+          },
+          {
+            "name": "Lê Lợi",
+            "locations_in_chapter": ["sông Mã", "bến Vạn Hà"]
+          },
+          {
+            "name": "Phạm Ngũ Lão",
+            "locations_in_chapter": ["sông Mã", "bến Vạn Hà"]
+          }
+        ],
+        "relationships": [
+          {
+            "person_a": "Nguyễn Trãi",
+            "person_b": "Lê Lợi",
+            "relation_type": "君臣",
+            "is_new": false,
+            "evidence": "Nguyễn Trãi đi theo đoàn nghĩa quân Lam Sơn."
+          }
+        ],
+        "locations": [
+          {
+            "name": "sông Mã",
+            "type": "河流",
+            "description": "con sông lớn cắt ngang đường hành quân",
+            "role": "setting"
+          },
+          {
+            "name": "bến Vạn Hà",
+            "type": "渡口",
+            "parent": "sông Mã",
+            "description": "bến vượt sông trên tuyến tiến quân",
+            "role": "setting"
+          }
+        ],
+        "spatial_relationships": [
+          {
+            "source": "sông Mã",
+            "target": "bến Vạn Hà",
+            "relation_type": "contains",
+            "value": "riverbank",
+            "confidence": "high",
+            "narrative_evidence": "bến Vạn Hà nằm bên sông Mã"
+          }
+        ],
+        "org_events": [
+          {
+            "org_name": "nghĩa quân Lam Sơn",
+            "org_type": "军队",
+            "member": "Phạm Ngũ Lão",
+            "role": "tiên phong",
+            "action": "加入",
+            "org_relation": {
+              "other_org": "quân Đại Việt",
+              "type": "盟友"
+            }
+          }
+        ],
+        "events": [
+          {
+            "summary": "Lê Lợi vượt sông Mã cùng Phạm Ngũ Lão",
+            "type": "旅行",
+            "importance": "medium",
+            "participants": ["Lê Lợi", "Phạm Ngũ Lão"],
+            "location": "sông Mã"
+          }
+        ]
+      }
+    },
+    {
+      "chapter_num": 6,
+      "fact": {
+        "chapter_id": 6,
+        "novel_id": "vi-fixture",
+        "characters": [
+          {
+            "name": "Trần Quốc Tuấn",
+            "locations_in_chapter": ["thành Thăng Long"]
+          },
+          {
+            "name": "Nguyễn Trãi",
+            "locations_in_chapter": ["thành Thăng Long"]
+          },
+          {
+            "name": "Lê Lợi",
+            "locations_in_chapter": ["thành Thăng Long"]
+          }
+        ],
+        "relationships": [
+          {
+            "person_a": "Nguyễn Trãi",
+            "person_b": "Lê Lợi",
+            "relation_type": "君臣",
+            "is_new": false,
+            "evidence": "Nguyễn Trãi thảo chiếu mừng chiến thắng cho Lê Lợi."
+          }
+        ],
+        "locations": [
+          {
+            "name": "thành Thăng Long",
+            "type": "城市",
+            "description": "kinh thành nơi đoàn quân khải hoàn trở lại",
+            "role": "setting"
+          }
+        ],
+        "org_events": [
+          {
+            "org_name": "nghĩa quân Lam Sơn",
+            "org_type": "军队",
+            "member": "Lê Lợi",
+            "role": "thủ lĩnh",
+            "action": "出现"
+          }
+        ],
+        "events": [
+          {
+            "summary": "Lê Lợi vào thành Thăng Long, Nguyễn Trãi thảo chiếu khải hoàn",
+            "type": "其他",
+            "importance": "high",
+            "participants": ["Lê Lợi", "Nguyễn Trãi", "Trần Quốc Tuấn"],
+            "location": "thành Thăng Long"
+          }
+        ]
+      }
+    }
+  ],
+  "world_structure": {
+    "novel_id": "vi-fixture",
+    "layers": [
+      {
+        "layer_id": "overworld",
+        "name": "Chính giới",
+        "layer_type": "overworld",
+        "description": "Lớp địa lý chính của truyện"
+      }
+    ],
+    "location_tiers": {
+      "sông Hồng": "region",
+      "bến Chương Dương": "site",
+      "thành Thăng Long": "city",
+      "núi Lam Sơn": "region",
+      "chùa Phổ Minh": "site",
+      "sông Mã": "region",
+      "bến Vạn Hà": "site"
+    },
+    "location_icons": {
+      "sông Hồng": "water",
+      "bến Chương Dương": "gate",
+      "thành Thăng Long": "capital",
+      "núi Lam Sơn": "mountain",
+      "chùa Phổ Minh": "temple",
+      "sông Mã": "water",
+      "bến Vạn Hà": "gate"
+    },
+    "location_parents": {
+      "bến Chương Dương": "sông Hồng",
+      "bến Vạn Hà": "sông Mã"
+    },
+    "spatial_scale": "national",
+    "novel_genre_hint": "historical"
+  },
+  "expected": {
+    "split": {
+      "matched_mode": "chapter_vi",
+      "chapter_count": 6,
+      "titles": [
+        "Bến Chương Dương",
+        "Thành Thăng Long",
+        "Núi Lam Sơn",
+        "Chùa Phổ Minh",
+        "Sông Mã",
+        "Ngày Khải Hoàn"
+      ]
+    },
+    "graph": {
+      "nodes": {
+        "Trần Quốc Tuấn": {
+          "chapter_count": 3,
+          "org": "quân Đại Việt"
+        },
+        "Phạm Ngũ Lão": {
+          "chapter_count": 3,
+          "org": "nghĩa quân Lam Sơn"
+        },
+        "Nguyễn Trãi": {
+          "chapter_count": 4,
+          "org": "nghĩa quân Lam Sơn"
+        },
+        "Lê Lợi": {
+          "chapter_count": 4,
+          "org": "nghĩa quân Lam Sơn"
+        }
+      },
+      "edges": [
+        {
+          "source": "Nguyễn Trãi",
+          "target": "Lê Lợi",
+          "relation_type": "君臣",
+          "weight": 4,
+          "category": "hierarchical"
+        },
+        {
+          "source": "Phạm Ngũ Lão",
+          "target": "Trần Quốc Tuấn",
+          "relation_type": "上下级",
+          "weight": 2,
+          "category": "hierarchical"
+        }
+      ]
+    },
+    "timeline": {
+      "must_include_summaries": [
+        "Trần Quốc Tuấn bàn kế giữ bến Chương Dương",
+        "Phạm Ngũ Lão dẫn quân vào thành Thăng Long",
+        "Nguyễn Trãi dâng Bình Ngô sách cho Lê Lợi",
+        "Lê Lợi và Nguyễn Trãi bàn việc tại chùa Phổ Minh",
+        "Lê Lợi vượt sông Mã cùng Phạm Ngũ Lão",
+        "Lê Lợi vào thành Thăng Long, Nguyễn Trãi thảo chiếu khải hoàn",
+        "Trần Quốc Tuấn 首次登场",
+        "Phạm Ngũ Lão 首次登场",
+        "Nguyễn Trãi 首次登场",
+        "Lê Lợi 首次登场",
+        "Nguyễn Trãi 赠予 Bình Ngô sách → Lê Lợi"
+      ],
+      "relation_event_substrings": [
+        "Trần Quốc Tuấn 与 Phạm Ngũ Lão 建立上下级关系",
+        "Nguyễn Trãi 与 Lê Lợi 建立君臣关系"
+      ]
+    },
+    "category_stats": {
+      "total": 14,
+      "person": 4,
+      "location": 7,
+      "item": 1,
+      "org": 2,
+      "concept": 0,
+      "concept_categories": {}
+    },
+    "encyclopedia": {
+      "persons": [
+        "Lê Lợi",
+        "Nguyễn Trãi",
+        "Phạm Ngũ Lão",
+        "Trần Quốc Tuấn"
+      ],
+      "locations": [
+        "bến Chương Dương",
+        "bến Vạn Hà",
+        "chùa Phổ Minh",
+        "núi Lam Sơn",
+        "sông Hồng",
+        "sông Mã",
+        "thành Thăng Long"
+      ],
+      "items": [
+        "Bình Ngô sách"
+      ],
+      "orgs": [
+        "nghĩa quân Lam Sơn",
+        "quân Đại Việt"
+      ]
+    },
+    "map": {
+      "locations": [
+        "bến Chương Dương",
+        "bến Vạn Hà",
+        "chùa Phổ Minh",
+        "núi Lam Sơn",
+        "sông Hồng",
+        "sông Mã",
+        "thành Thăng Long"
+      ],
+      "location_details": {
+        "bến Chương Dương": {
+          "parent": "sông Hồng",
+          "tier": "site",
+          "icon": "gate",
+          "mention_count": 1
+        },
+        "bến Vạn Hà": {
+          "parent": "sông Mã",
+          "tier": "site",
+          "icon": "gate",
+          "mention_count": 1
+        },
+        "chùa Phổ Minh": {
+          "parent": null,
+          "tier": "site",
+          "icon": "temple",
+          "mention_count": 1
+        },
+        "núi Lam Sơn": {
+          "parent": null,
+          "tier": "region",
+          "icon": "mountain",
+          "mention_count": 1
+        },
+        "sông Hồng": {
+          "parent": null,
+          "tier": "region",
+          "icon": "water",
+          "mention_count": 1
+        },
+        "sông Mã": {
+          "parent": null,
+          "tier": "region",
+          "icon": "water",
+          "mention_count": 1
+        },
+        "thành Thăng Long": {
+          "parent": null,
+          "tier": "city",
+          "icon": "capital",
+          "mention_count": 2
+        }
+      },
+      "spatial_constraints": [
+        {
+          "source": "sông Hồng",
+          "target": "bến Chương Dương",
+          "relation_type": "contains"
+        },
+        {
+          "source": "sông Mã",
+          "target": "bến Vạn Hà",
+          "relation_type": "contains"
+        }
+      ],
+      "trajectory_locations": {
+        "Trần Quốc Tuấn": [
+          "bến Chương Dương",
+          "thành Thăng Long",
+          "thành Thăng Long"
+        ],
+        "Phạm Ngũ Lão": [
+          "bến Chương Dương",
+          "thành Thăng Long",
+          "sông Mã",
+          "bến Vạn Hà"
+        ],
+        "Nguyễn Trãi": [
+          "núi Lam Sơn",
+          "chùa Phổ Minh",
+          "sông Mã",
+          "bến Vạn Hà",
+          "thành Thăng Long"
+        ],
+        "Lê Lợi": [
+          "núi Lam Sơn",
+          "chùa Phổ Minh",
+          "sông Mã",
+          "bến Vạn Hà",
+          "thành Thăng Long"
+        ]
+      },
+      "context_substrings": [
+        "bến lớn bên sông Hồng",
+        "bến Vạn Hà nằm bên sông Mã",
+        "kinh thành lớn của Đại Việt"
+      ]
+    },
+    "factions": {
+      "orgs": [
+        "nghĩa quân Lam Sơn",
+        "quân Đại Việt"
+      ],
+      "members": {
+        "nghĩa quân Lam Sơn": [
+          "Lê Lợi",
+          "Nguyễn Trãi",
+          "Phạm Ngũ Lão"
+        ],
+        "quân Đại Việt": [
+          "Phạm Ngũ Lão",
+          "Trần Quốc Tuấn"
+        ]
+      },
+      "relations": [
+        {
+          "source": "nghĩa quân Lam Sơn",
+          "target": "quân Đại Việt",
+          "type": "盟友"
+        }
+      ]
+    }
+  }
+}

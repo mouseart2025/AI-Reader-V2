@@ -129,7 +129,7 @@ class SuffixNormalizer(GeoSkill):
 
     @property
     def name(self) -> str:
-        return "后缀归一"
+        return "Suffix normalization"
 
     async def execute(self, snapshot: HierarchySnapshot) -> SkillResult:
         tiers = snapshot.location_tiers

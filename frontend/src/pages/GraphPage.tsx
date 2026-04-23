@@ -11,6 +11,8 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { useI18n, type TranslationKey } from "@/i18n"
+import { relationTypeLabel } from "@/lib/domainLabels"
 
 interface GraphNode {
   id: string
@@ -27,7 +29,9 @@ interface GraphEdge {
   source: string | GraphNode
   target: string | GraphNode
   relation_type: string
+  relation_type_id?: string
   all_types?: string[]
+  all_type_ids?: string[]
   weight: number
   chapters: number[]
   category?: string
@@ -49,19 +53,26 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "#6b7280",
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  family: "亲属",
-  intimate: "亲密",
-  hierarchical: "主从",
-  social: "友好",
-  hostile: "敌对",
-  other: "其他",
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  family: "graph.category.family",
+  intimate: "graph.category.intimate",
+  hierarchical: "graph.category.hierarchical",
+  social: "graph.category.social",
+  hostile: "graph.category.hostile",
+  other: "graph.category.other",
 }
 
 const ALL_CATEGORIES = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
 
 function categoryColor(category: string): string {
   return CATEGORY_COLORS[category] ?? "#6b7280"
+}
+
+function localizedCategory(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  category: string,
+) {
+  return CATEGORY_LABEL_KEYS[category] ? t(CATEGORY_LABEL_KEYS[category]) : category
 }
 
 /**
@@ -106,6 +117,7 @@ function bfsPath(nodeIds: Set<string>, edges: GraphEdge[], startId: string, endI
 }
 
 export default function GraphPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
@@ -132,7 +144,7 @@ export default function GraphPage() {
   const [pathSearchB, setPathSearchB] = useState("")
   const [showPathPanel, setShowPathPanel] = useState(false)
   const [pathInfo, setPathInfo] = useState<string[]>([])
-  const [pathSteps, setPathSteps] = useState<{ from: string; to: string; relType: string; category: string }[]>([])
+  const [pathSteps, setPathSteps] = useState<{ from: string; to: string; relType: string; relTypeId?: string; category: string }[]>([])
 
   // Debounced filter values — slider UI updates immediately, graph filtering lags 150ms
   const [debouncedMinChapters, setDebouncedMinChapters] = useState(minChapters)
@@ -312,7 +324,7 @@ export default function GraphPage() {
       edgeMap.set(`${tgt}--${src}`, e)
     }
 
-    const steps: { from: string; to: string; relType: string; category: string }[] = []
+    const steps: { from: string; to: string; relType: string; relTypeId?: string; category: string }[] = []
     const nodeMap = new Map(filteredNodes.map((n) => [n.id, n.name]))
     for (let i = 0; i < path.length - 1; i++) {
       pEdges.add(`${path[i]}--${path[i + 1]}`)
@@ -322,6 +334,7 @@ export default function GraphPage() {
         from: nodeMap.get(path[i]) ?? path[i],
         to: nodeMap.get(path[i + 1]) ?? path[i + 1],
         relType: edge?.relation_type ?? "?",
+        relTypeId: edge?.relation_type_id,
         category: edge?.category ?? "other",
       })
     }
@@ -439,7 +452,7 @@ export default function GraphPage() {
       <div className="relative h-full" ref={containerRef}>
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-            <p className="text-muted-foreground">Loading graph...</p>
+            <p className="text-muted-foreground">{t("graph.loading")}</p>
           </div>
         )}
 
@@ -450,14 +463,14 @@ export default function GraphPage() {
             size="xs"
             onClick={() => { setShowFilters(!showFilters); setShowPathPanel(false) }}
           >
-            筛选
+            {t("graph.filters")}
           </Button>
           <Button
             variant={showPathPanel ? "default" : "outline"}
             size="xs"
             onClick={() => { setShowPathPanel(!showPathPanel); setShowFilters(false) }}
           >
-            路径查找
+            {t("graph.pathFind")}
           </Button>
 
           {/* Category filter chips */}
@@ -475,7 +488,7 @@ export default function GraphPage() {
                 className={cn(hidden && "opacity-50")}
                 style={hidden ? undefined : { backgroundColor: CATEGORY_COLORS[cat], borderColor: CATEGORY_COLORS[cat] }}
               >
-                {CATEGORY_LABELS[cat]} {count}
+                {localizedCategory(t, cat)} {count}
               </Button>
             )
           })}
@@ -484,7 +497,7 @@ export default function GraphPage() {
             <div className="absolute top-8 left-0 w-56 rounded-lg border bg-background p-3 shadow-lg space-y-3">
               <div>
                 <label className="text-muted-foreground text-xs">
-                  最少出场章节: {minChapters}
+                  {t("graph.minChapters", { value: minChapters })}
                 </label>
                 <input
                   type="range"
@@ -497,7 +510,7 @@ export default function GraphPage() {
               </div>
               <div>
                 <label className="text-muted-foreground text-xs">
-                  最少关系强度: {minEdgeWeight}
+                  {t("graph.minEdgeWeight", { value: minEdgeWeight })}
                 </label>
                 <input
                   type="range"
@@ -509,10 +522,15 @@ export default function GraphPage() {
                 />
               </div>
               <p className="text-muted-foreground text-[10px] border-t pt-2">
-                {filteredNodes.length}/{nodes.length} 人物，{filteredEdges.length}/{edges.length} 关系
+                {t("graph.filteredCounts", {
+                  nodes: filteredNodes.length,
+                  totalNodes: nodes.length,
+                  edges: filteredEdges.length,
+                  totalEdges: edges.length,
+                })}
                 {hiddenCategories.size > 0 && (
                   <span className="ml-1 text-amber-600">
-                    ({hiddenCategories.size} 类隐藏)
+                    {t("graph.hiddenCategories", { count: hiddenCategories.size })}
                   </span>
                 )}
               </p>
@@ -522,38 +540,38 @@ export default function GraphPage() {
           {showPathPanel && (
             <div className="absolute top-8 left-0 w-64 rounded-lg border bg-background p-3 shadow-lg space-y-2">
               <p className="text-xs text-muted-foreground">
-                Shift+点击两个人物节点，或输入名字搜索
+                {t("graph.path.description")}
               </p>
               <Input
-                placeholder="人物 A"
+                placeholder={t("graph.path.personA")}
                 value={pathSearchA}
                 onChange={(e) => setPathSearchA(e.target.value)}
                 className="h-7 text-xs"
               />
               <Input
-                placeholder="人物 B"
+                placeholder={t("graph.path.personB")}
                 value={pathSearchB}
                 onChange={(e) => setPathSearchB(e.target.value)}
                 className="h-7 text-xs"
               />
               <div className="flex gap-1">
                 <Button size="xs" onClick={handleSearchPath}>
-                  查找
+                  {t("graph.path.find")}
                 </Button>
                 <Button variant="ghost" size="xs" onClick={clearPath}>
-                  清除
+                  {t("graph.path.clear")}
                 </Button>
               </div>
               {pathInfo.length > 1 && (
                 <div className="border-t pt-2">
                   <p className="text-[10px] text-muted-foreground mb-1">
-                    最短路径 ({pathInfo.length - 1} 步)
+                    {t("graph.path.shortest", { steps: pathInfo.length - 1 })}
                   </p>
                   <div className="text-xs space-y-0.5">
                     {pathSteps.map((step, i) => (
                       <span key={i}>
                         {i === 0 && <span className="font-medium">{step.from}</span>}
-                        <span style={{ color: categoryColor(step.category) }}> →{step.relType}→ </span>
+                        <span style={{ color: categoryColor(step.category) }}> →{relationTypeLabel(t, step.relTypeId, step.relType)}→ </span>
                         <span className="font-medium">{step.to}</span>
                         {i < pathSteps.length - 1 && " "}
                       </span>
@@ -563,7 +581,7 @@ export default function GraphPage() {
               )}
               {pathInfo.length === 0 && pathStart && (
                 <p className="text-[10px] text-amber-600">
-                  已选择起点，请 Shift+点击终点
+                  {t("graph.path.startSelected")}
                 </p>
               )}
             </div>
@@ -579,18 +597,18 @@ export default function GraphPage() {
                   {pathSteps.length > 0 ? pathSteps.map((step, i) => (
                     <span key={i} className="flex items-center gap-0.5">
                       {i === 0 && <span>{step.from}</span>}
-                      <span style={{ color: categoryColor(step.category) }}>→<span className="text-[9px] mx-0.5">{step.relType}</span>→</span>
+                      <span style={{ color: categoryColor(step.category) }}>→<span className="text-[9px] mx-0.5">{relationTypeLabel(t, step.relTypeId, step.relType)}</span>→</span>
                       <span>{step.to}</span>
                     </span>
                   )) : <span>{pathInfo.join(" → ")}</span>}
                 </span>
                 <Button variant="ghost" size="xs" onClick={clearPath}>
-                  清除
+                  {t("graph.path.clear")}
                 </Button>
               </>
             ) : (
               <span className="text-xs text-amber-600">
-                Shift+点击第二个人物查找路径
+                {t("graph.path.clickSecond")}
               </span>
             )}
           </div>
@@ -599,7 +617,7 @@ export default function GraphPage() {
         {/* Legend */}
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
           <div className="rounded-lg border bg-background/90 p-2">
-            <p className="text-muted-foreground mb-1 text-[10px]">关系线</p>
+            <p className="text-muted-foreground mb-1 text-[10px]">{t("graph.legend.relationLines")}</p>
             {ALL_CATEGORIES.map((cat) => {
               const count = categoryCounts[cat] ?? 0
               if (count === 0) return null
@@ -617,7 +635,7 @@ export default function GraphPage() {
                     className="inline-block h-0.5 w-4 rounded-full"
                     style={{ backgroundColor: CATEGORY_COLORS[cat] }}
                   />
-                  <span>{CATEGORY_LABELS[cat]}</span>
+                  <span>{localizedCategory(t, cat)}</span>
                   <span className="text-muted-foreground text-[10px]">{count}</span>
                 </div>
               )
@@ -626,7 +644,7 @@ export default function GraphPage() {
 
           {orgColorMap.size > 0 && (
             <div className="rounded-lg border bg-background/90 p-2">
-              <p className="text-muted-foreground mb-1 text-[10px]">组织</p>
+              <p className="text-muted-foreground mb-1 text-[10px]">{t("graph.legend.organizations")}</p>
               {Array.from(orgColorMap.entries()).map(([org, color]) => (
                 <div key={org} className="flex items-center gap-1.5 text-xs">
                   <span
@@ -647,7 +665,11 @@ export default function GraphPage() {
           height={dimensions.height}
           nodeLabel={(node: GraphNode) => {
             const aliasStr = node.aliases?.length ? ` (${node.aliases.join("/")})` : ""
-            return `${node.name}${aliasStr} — ${node.chapter_count}章${node.org ? ` · ${node.org}` : ""}`
+            return t("graph.nodeLabel", {
+              name: `${node.name}${aliasStr}`,
+              chapters: node.chapter_count,
+              org: node.org ? ` · ${node.org}` : "",
+            })
           }}
           nodeVal={(node: GraphNode) => Math.max(2, Math.sqrt(node.chapter_count) * 2)}
           nodeColor={(node: GraphNode) => {
@@ -822,12 +844,16 @@ export default function GraphPage() {
             return []
           }}
           linkLabel={(edge: GraphEdge) => {
-            const types = edge.all_types ?? [edge.relation_type]
-            const cat = edge.category ? ` [${CATEGORY_LABELS[edge.category] ?? edge.category}]` : ""
+            const rawTypes = edge.all_types ?? [edge.relation_type]
+            const typeIds = edge.all_type_ids ?? (edge.relation_type_id ? [edge.relation_type_id] : [])
+            const types = rawTypes.map((type, index) => relationTypeLabel(t, typeIds[index], type))
+            const category = edge.category
+              ? t("graph.linkLabel.category", { category: localizedCategory(t, edge.category) })
+              : ""
             if (types.length > 1) {
-              return `${types.join("/")} (${edge.weight}章)${cat}`
+              return t("graph.linkLabel.multi", { types: types.join("/"), chapters: edge.weight, category })
             }
-            return `${edge.relation_type} (${edge.weight}章)${cat}`
+            return t("graph.linkLabel.single", { type: types[0] ?? edge.relation_type, chapters: edge.weight, category })
           }}
           linkDirectionalParticles={0}
           onNodeClick={handleNodeClick}

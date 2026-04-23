@@ -28,6 +28,7 @@ class AbilityEntry(BaseModel):
 class RelationStage(BaseModel):
     chapters: list[int]
     relation_type: str
+    relation_type_id: str = ""
     evidences: list[str] = []
 
     @computed_field
@@ -47,7 +48,9 @@ class ItemAssociation(BaseModel):
     chapter: int
     item_name: str
     item_type: str
+    item_type_id: str = ""
     action: str
+    action_id: str = ""
     description: str = ""
 
 
@@ -55,6 +58,7 @@ class PersonExperience(BaseModel):
     chapter: int
     summary: str
     type: str
+    type_id: str = ""
     location: str | None = None
 
 
@@ -88,12 +92,14 @@ class LocationEvent(BaseModel):
     chapter: int
     summary: str
     type: str
+    type_id: str = ""
 
 
 class LocationProfile(BaseModel):
     name: str
     type: str = "location"
     location_type: str = ""
+    location_type_id: str = ""
     parent: str | None = None
     children: list[str] = []
     siblings: list[str] = []
@@ -109,6 +115,7 @@ class LocationProfile(BaseModel):
 class ItemFlowEntry(BaseModel):
     chapter: int
     action: str
+    action_id: str = ""
     actor: str
     recipient: str | None = None
     description: str = ""
@@ -118,6 +125,7 @@ class ItemProfile(BaseModel):
     name: str
     type: str = "item"
     item_type: str = ""
+    item_type_id: str = ""
     flow: list[ItemFlowEntry] = []
     related_items: list[str] = []
     stats: dict = {}
@@ -131,6 +139,7 @@ class OrgMemberEvent(BaseModel):
     member: str
     role: str | None = None
     action: str
+    action_id: str = ""
     description: str = ""
 
 
@@ -138,12 +147,14 @@ class OrgRelationEntry(BaseModel):
     chapter: int
     other_org: str
     relation_type: str
+    relation_type_id: str = ""
 
 
 class OrgProfile(BaseModel):
     name: str
     type: str = "org"
     org_type: str = ""
+    org_type_id: str = ""
     member_events: list[OrgMemberEvent] = []
     org_relations: list[OrgRelationEntry] = []
     stats: dict = {}

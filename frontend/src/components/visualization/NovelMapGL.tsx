@@ -9,6 +9,8 @@ import { useEffect, useRef, useMemo } from "react"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import type { MapLocation, MapLayoutItem, TrajectoryPoint } from "@/api/types"
+import { useI18n } from "@/i18n"
+import { locationTypeLabel } from "@/lib/domainLabels"
 import {
   compositeBaseMap,
   generateParchmentTexture,
@@ -52,6 +54,7 @@ export function NovelMapGL({
   onLocationClick,
   onLocationDragEnd,
 }: NovelMapGLProps) {
+  const { t } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const builtKeyRef = useRef("")
@@ -109,13 +112,14 @@ export function NovelMapGL({
           properties: {
             name: loc.name,
             type: loc.type,
+            typeLabel: locationTypeLabel(t, loc.type_id, loc.type),
             terrainType: resolveTerrainType(loc.icon, loc.tier, loc.type),
             tier: tierToNum(loc.tier),
             mentions: loc.mention_count,
           },
         }
       }),
-    [locations, layoutMap, cw, ch],
+    [locations, layoutMap, cw, ch, t],
   )
 
   // ── 主效果：构建/重建 MapLibre ──
@@ -333,7 +337,7 @@ export function NovelMapGL({
           if (!props) return
           const coords = (e.features![0].geometry as GeoJSON.Point).coordinates.slice() as [number, number]
           popup.setLngLat(coords)
-            .setHTML(`<b>${props.name}</b><br/><span style="opacity:0.7">${props.type} · 提及${props.mentions}次</span>`)
+            .setHTML(`<b>${props.name}</b><br/><span style="opacity:0.7">${props.typeLabel || props.type} · ${t("visualization.geoMap.mentionCount", { count: Number(props.mentions) || 0 })}</span>`)
             .addTo(map)
         })
         map.on("mouseleave", `t${tier}-c`, () => popup.remove())

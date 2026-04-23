@@ -12,7 +12,9 @@ from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
+from src.extraction.source_language_adapter import get_source_language_adapter
 from src.models.chapter_fact import ChapterFact, CharacterFact
+from src.utils.source_language import DEFAULT_SOURCE_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 # Segment splitting thresholds (chars). Only used when budget.segment_enabled.
 _SEGMENT_THRESHOLD_2 = 7000   # >7000 chars -> split into 2 segments
 _SEGMENT_THRESHOLD_3 = 12000  # >12000 chars -> split into 3 segments
+_RECOVERY_SEGMENT_THRESHOLD = 2500
 
 
 @dataclass
@@ -71,6 +74,33 @@ def _split_chapter_text(text: str) -> list[str]:
     segments.append(text[prev:].strip())
 
     return [s for s in segments if s]  # remove empty segments
+
+
+def _split_for_recovery(text: str) -> list[str]:
+    """Force 2-segment recovery for parse-failed chapters when useful."""
+    segments = _split_chapter_text(text)
+    if len(segments) > 1:
+        return segments
+
+    paragraphs = [paragraph.strip() for paragraph in text.splitlines() if paragraph.strip()]
+    if len(paragraphs) >= 4:
+        mid = max(1, len(paragraphs) // 2)
+        return [
+            "\n\n".join(paragraphs[:mid]),
+            "\n\n".join(paragraphs[mid:]),
+        ]
+
+    if len(text) < _RECOVERY_SEGMENT_THRESHOLD:
+        return [text]
+
+    midpoint = len(text) // 2
+    split_at = text.rfind("\n", 0, midpoint)
+    if split_at < len(text) // 4:
+        split_at = text.find("\n", midpoint)
+    if split_at == -1:
+        split_at = midpoint
+
+    return [segment for segment in (text[:split_at].strip(), text[split_at:].strip()) if segment]
 
 
 def _merge_chapter_facts(
@@ -247,12 +277,15 @@ class ChapterFactExtractor:
         self._schema = _build_extraction_schema()
         self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
 
-    def _build_example_text(self) -> str:
+    def _build_example_text(self, source_language: str | None = DEFAULT_SOURCE_LANGUAGE) -> str:
         """Build the few-shot examples section for the user prompt.
 
         For small context windows (≤16K), only 1 example is sent to save ~1.2K
         tokens of input budget.
         """
+        adapter = get_source_language_adapter(source_language)
+        if not adapter.use_default_examples:
+            return ""
         if not self.examples:
             return ""
         budget = get_budget()
@@ -265,11 +298,14 @@ class ChapterFactExtractor:
     def _build_user_prompt(
         self, chapter_id: int, chapter_text: str, example_text: str,
         segment_hint: str = "",
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
     ) -> str:
         """Build the user prompt for a chapter or chapter segment."""
+        adapter = get_source_language_adapter(source_language)
+        heading = adapter.chapter_heading(chapter_id, segment_hint)
         return (
             f"{example_text}"
-            f"## 第 {chapter_id} 章{segment_hint}\n\n{chapter_text}\n\n"
+            f"{heading}\n\n{chapter_text}\n\n"
             "【关键要求】\n"
             "1. characters：宁多勿漏！包含所有有名字或固定称呼的人物。种族/物种名称作为称呼且有具体行为的角色也算（如赤尻马猴、通背猿猴）\n"
             "2. relationships：任何两个人物有互动或提及关系都必须提取，evidence 引用原文。命令/差遣/听令也是关系\n"
@@ -288,6 +324,7 @@ class ChapterFactExtractor:
         chapter_text: str,
         context_summary: str = "",
         genre_hint: str | None = None,
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
     ) -> tuple[ChapterFact, LlmUsage, ExtractionMeta]:
         """Extract ChapterFact from chapter text. Returns (fact, usage, meta).
 
@@ -296,7 +333,11 @@ class ChapterFactExtractor:
         """
         # Inject genre context into system prompt
         genre_context = _GENRE_CONTEXT.get(genre_hint, "") if genre_hint else ""
-        system = self.system_template.replace("{genre_context}", genre_context)
+        source_adapter = get_source_language_adapter(source_language)
+        system = self.system_template.replace(
+            "{genre_context}",
+            f"{genre_context}{source_adapter.system_fragment}",
+        )
         system = system.replace("{context}", context_summary or "（无前序上下文）")
 
         budget = get_budget()
@@ -348,13 +389,13 @@ class ChapterFactExtractor:
                 ", ".join(f"{len(s)}c" for s in segments),
             )
             fact, usage = await self._extract_segmented(
-                system, novel_id, chapter_id, segments,
+                system, novel_id, chapter_id, segments, source_language,
             )
             return fact, usage, meta
 
         # Single segment — original flow with retry
         fact, usage = await self._extract_single(
-            system, novel_id, chapter_id, chapter_text,
+            system, novel_id, chapter_id, chapter_text, source_language,
         )
         return fact, usage, meta
 
@@ -364,10 +405,13 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         chapter_text: str,
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
     ) -> tuple[ChapterFact, LlmUsage]:
         """Extract from a single (non-split) chapter text with retry."""
-        example_text = self._build_example_text()
-        user_prompt = self._build_user_prompt(chapter_id, chapter_text, example_text)
+        example_text = self._build_example_text(source_language)
+        user_prompt = self._build_user_prompt(
+            chapter_id, chapter_text, example_text, source_language=source_language
+        )
 
         # First attempt
         try:
@@ -383,13 +427,31 @@ class ChapterFactExtractor:
         # Retry: truncate text more aggressively
         retry_len = get_budget().retry_len
         truncated = chapter_text[:retry_len] if len(chapter_text) > retry_len else chapter_text
-        retry_prompt = self._build_user_prompt(chapter_id, truncated, example_text)
+        retry_prompt = self._build_user_prompt(
+            chapter_id, truncated, example_text, source_language=source_language
+        )
         retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
         try:
             return await self._call_and_parse(
                 system, retry_prompt, novel_id, chapter_id,
             )
         except Exception as second_err:
+            if self._should_try_segment_recovery(chapter_text, second_err):
+                recovery_segments = _split_for_recovery(chapter_text)
+                if len(recovery_segments) > 1:
+                    logger.warning(
+                        "Chapter %d: falling back to segmented recovery after parse failure (%d segments): %s",
+                        chapter_id, len(recovery_segments), second_err,
+                    )
+                    try:
+                        return await self._extract_segmented(
+                            system, novel_id, chapter_id, recovery_segments, source_language,
+                        )
+                    except Exception as segmented_err:
+                        raise ExtractionError(
+                            f"Extraction failed for chapter {chapter_id} after 2 attempts; "
+                            f"segmented recovery also failed: {segmented_err}"
+                        ) from segmented_err
             raise ExtractionError(
                 f"Extraction failed for chapter {chapter_id} after 2 attempts: {second_err}"
             ) from second_err
@@ -400,20 +462,24 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         segments: list[str],
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
     ) -> tuple[ChapterFact, LlmUsage]:
         """Extract from multiple segments and merge results."""
-        example_text = self._build_example_text()
+        adapter = get_source_language_adapter(source_language)
+        example_text = self._build_example_text(source_language)
         segment_facts: list[ChapterFact] = []
         total_usage = LlmUsage()
 
         for idx, seg_text in enumerate(segments):
-            seg_label = f"（第 {idx + 1}/{len(segments)} 部分）"
+            seg_label = adapter.segment_label(idx + 1, len(segments))
             logger.info(
                 "Chapter %d segment %d/%d: %d chars",
                 chapter_id, idx + 1, len(segments), len(seg_text),
             )
             user_prompt = self._build_user_prompt(
-                chapter_id, seg_text, example_text, segment_hint=seg_label,
+                chapter_id, seg_text, example_text,
+                segment_hint=seg_label,
+                source_language=source_language,
             )
 
             # Each segment gets its own retry
@@ -433,7 +499,9 @@ class ChapterFactExtractor:
                 # Retry once
                 try:
                     retry_prompt = self._build_user_prompt(
-                        chapter_id, seg_text, example_text, segment_hint=seg_label,
+                        chapter_id, seg_text, example_text,
+                        segment_hint=seg_label,
+                        source_language=source_language,
                     )
                     retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
                     fact, seg_usage = await self._call_and_parse(
@@ -473,6 +541,21 @@ class ChapterFactExtractor:
             "timeout", "timed out",
             "nodename", "name resolution", "connection",
             "network", "reset by peer", "broken pipe",
+        ))
+
+    @staticmethod
+    def _should_try_segment_recovery(chapter_text: str, err: Exception) -> bool:
+        """Retry with forced segmentation for parse/validation failures."""
+        if len(chapter_text) < 800:
+            return False
+        msg = str(err).lower()
+        return any(kw in msg for kw in (
+            "json",
+            "parse",
+            "expected dict",
+            "validation",
+            "model_validate",
+            "field required",
         ))
 
     async def _call_and_parse(

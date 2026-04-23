@@ -15,6 +15,7 @@ import type { LatLngBoundsExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
 import { useI18n } from "@/i18n"
+import { locationTypeLabel } from "@/lib/domainLabels"
 
 // ── Tile layer (no labels — clean canvas for novel markers) ──
 const TILE_URL =
@@ -36,15 +37,15 @@ const CROSSHAIR_ICON = L.divIcon({
 })
 
 // ── Location color by type ────────────────────────
-function locationColor(type: string): string {
-  const t = type.toLowerCase()
-  if (t.includes("国") || t.includes("域") || t.includes("界") || t.includes("洲"))
+function locationColor(typeId: string | undefined, type: string): string {
+  const t = `${typeId || ""} ${type}`.toLowerCase()
+  if (t.includes("state") || t.includes("region") || t.includes("国") || t.includes("域") || t.includes("界") || t.includes("洲"))
     return "#3b82f6"
-  if (t.includes("城") || t.includes("镇") || t.includes("都") || t.includes("村"))
+  if (t.includes("city") || t.includes("town") || t.includes("village") || t.includes("城") || t.includes("镇") || t.includes("都") || t.includes("村"))
     return "#10b981"
-  if (t.includes("山") || t.includes("洞") || t.includes("谷") || t.includes("林"))
+  if (t.includes("mountain") || t.includes("山") || t.includes("洞") || t.includes("谷") || t.includes("林"))
     return "#84cc16"
-  if (t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
+  if (t.includes("river") || t.includes("lake") || t.includes("stream") || t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
   return "#6b7280"
 }
 
@@ -163,7 +164,7 @@ function ZoomAwareMarkers({
         const gc = geoCoords[loc.name]!
         const mention = loc.mention_count ?? 1
         const radius = Math.max(5, Math.min(20, 4 + Math.sqrt(mention) * 2))
-        const color = locationColor(loc.type ?? "")
+        const color = locationColor(loc.type_id, loc.type ?? "")
         const isCurrent = loc.name === currentLocation
         const isFocused = loc.name === focusLocation
         const isEditing = loc.name === editingLocation
@@ -212,7 +213,7 @@ function ZoomAwareMarkers({
                 <div className="min-w-[120px]">
                   <div className="font-semibold">{loc.name}</div>
                   {loc.type && (
-                    <div className="text-xs text-gray-500">{loc.type}</div>
+                    <div className="text-xs text-gray-500">{locationTypeLabel(t, loc.type_id, loc.type)}</div>
                   )}
                   {loc.parent && (
                     <div className="text-xs text-gray-400">{loc.parent}</div>

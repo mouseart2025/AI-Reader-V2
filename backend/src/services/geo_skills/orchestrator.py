@@ -66,22 +66,22 @@ class GeoOrchestrator:
         If a skill fails, pipeline continues with previous snapshot.
         """
         # Load or create initial snapshot
-        yield ProgressEvent("init", "正在加载层级快照...")
+        yield ProgressEvent("init", "Loading hierarchy snapshot...")
         snapshot = await self.store.load_latest(self.novel_id)
         if snapshot is None:
             snapshot = await snapshot_from_world_structure(self.novel_id)
             await self.store.save(self.novel_id, snapshot, tag="import")
             yield ProgressEvent(
                 "init",
-                f"从 WorldStructure 导入 v0 快照 "
-                f"({len(snapshot.location_tiers)} 地点, "
+                f"Imported v0 snapshot from WorldStructure "
+                f"({len(snapshot.location_tiers)} locations, "
                 f"{len(snapshot.location_parents)} parents)",
             )
 
         initial_metrics = HierarchyMetrics.compute(snapshot)
         yield ProgressEvent(
             "init",
-            f"基线: {initial_metrics.summary()}",
+            f"Baseline: {initial_metrics.summary()}",
         )
 
         # Run each skill
@@ -93,8 +93,8 @@ class GeoOrchestrator:
             if not result.success:
                 yield ProgressEvent(
                     tag,
-                    f"⚠️ {skill.name} 跳过: {result.error_message[:80]} "
-                    f"({result.duration_ms//1000}s) — 不影响其他步骤",
+                    f"⚠️ {skill.name} skipped: {result.error_message[:80]} "
+                    f"({result.duration_ms//1000}s) — other steps continue",
                 )
                 continue
 
@@ -142,7 +142,7 @@ class GeoOrchestrator:
             yield ProgressEvent(
                 tag,
                 f"✅ {skill.name} ({dur}): "
-                f"深度={metrics.avg_depth:.1f} 最大子节点={metrics.max_children}",
+                f"depth={metrics.avg_depth:.1f} max_children={metrics.max_children}",
                 votes=len(result.new_votes),
                 overrides=len(result.parent_overrides),
                 synonyms=len(result.synonym_pairs),
@@ -152,7 +152,7 @@ class GeoOrchestrator:
         final_metrics = HierarchyMetrics.compute(snapshot)
         yield ProgressEvent(
             "done",
-            f"管线完成: v{snapshot.version}, "
+            f"Pipeline complete: v{snapshot.version}, "
             f"depth {initial_metrics.avg_depth:.2f}→{final_metrics.avg_depth:.2f}, "
             f"max_ch {initial_metrics.max_children}→{final_metrics.max_children}",
             initial_metrics={

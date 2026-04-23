@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS novels (
     total_words     INTEGER DEFAULT 0,
     prescan_status  TEXT DEFAULT 'pending',
     is_sample       INTEGER DEFAULT 0,
+    source_language TEXT DEFAULT 'zh-CN',
     synopsis        TEXT,
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
@@ -213,6 +214,13 @@ async def init_db() -> None:
         try:
             await conn.execute(
                 "ALTER TABLE novels ADD COLUMN is_sample INTEGER DEFAULT 0"
+            )
+        except Exception:
+            pass  # Column already exists
+        # Migration: add source_language to novels for multilingual source analysis
+        try:
+            await conn.execute(
+                "ALTER TABLE novels ADD COLUMN source_language TEXT DEFAULT 'zh-CN'"
             )
         except Exception:
             pass  # Column already exists

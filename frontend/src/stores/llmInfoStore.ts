@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { checkEnvironment } from "@/api/client"
+import { translate } from "@/i18n"
 
 interface LlmInfoState {
   model: string | null
@@ -32,12 +33,14 @@ export const useLlmInfoStore = create<LlmInfoState>((set, get) => ({
   },
 }))
 
-/** Format model label for display: "qwen3:8b（本地）" or "deepseek-chat（云端）" */
+/** Format model label for display, localized by current UI language. */
 export function formatLlmLabel(
   model: string | null | undefined,
   provider: string | null | undefined,
 ): string {
   if (!model) return ""
-  const suffix = provider === "openai" ? "（云端）" : "（本地）"
+  const suffix = provider === "openai"
+    ? translate("analysis.mode.cloud")
+    : translate("analysis.mode.local")
   return `${model}${suffix}`
 }

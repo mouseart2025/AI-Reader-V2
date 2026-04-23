@@ -1,6 +1,7 @@
 import { memo } from "react"
 import type { ItemProfile } from "@/api/types"
 import { useI18n, type TranslationKey } from "@/i18n"
+import { itemActionLabel, itemTypeLabel } from "@/lib/domainLabels"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 
@@ -26,7 +27,7 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
           <div>
             <h3 className="text-lg font-bold">{profile.name}</h3>
             {profile.item_type && (
-              <span className="text-muted-foreground text-xs">{profile.item_type}</span>
+              <span className="text-muted-foreground text-xs">{itemTypeLabel(t, profile.item_type_id, profile.item_type)}</span>
             )}
           </div>
         </div>
@@ -39,7 +40,7 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
             <ChapterTag chapter={f.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">
               <EntityLink name={f.actor} type="person" onClick={onEntityClick} />
-              <span className="mx-1">{f.action}</span>
+              <span className="mx-1">{itemActionLabel(t, f.action_id, f.action)}</span>
               {f.recipient && (
                 <>
                   <span className="text-muted-foreground">→ </span>

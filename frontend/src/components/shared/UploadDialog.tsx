@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { TextPreviewPanel, type TextPreviewPanelHandle } from "./TextPreviewPanel"
 import { RegexTemplateSelector } from "./RegexTemplateSelector"
+import type { SourceLanguage } from "@/api/types"
 
 const ALLOWED_EXTENSIONS = [".txt", ".md", ".air", ".json"]
 const DATA_IMPORT_EXTENSIONS = [".air", ".json"]
@@ -66,6 +67,7 @@ const DATA_IMPORT_EXTENSIONS = [".air", ".json"]
 const MODE_LABEL_KEYS: Record<string, TranslationKey> = {
   chapter_zh: "shared.upload.mode.chapterZh",
   section_zh: "shared.upload.mode.sectionZh",
+  chapter_vi: "shared.upload.mode.chapterVi",
   numbered: "shared.upload.mode.numbered",
   chapter_en: "shared.upload.mode.chapterEn",
   markdown: "shared.upload.mode.markdown",
@@ -87,6 +89,13 @@ const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
   template: "shared.upload.category.template",
   decoration: "shared.upload.category.decoration",
   repeated: "shared.upload.category.repeated",
+}
+
+const SOURCE_LANGUAGE_LABEL_KEYS: Record<SourceLanguage, TranslationKey> = {
+  auto: "shared.upload.sourceLanguage.auto",
+  "zh-CN": "shared.upload.sourceLanguage.zhCN",
+  vi: "shared.upload.sourceLanguage.vi",
+  en: "shared.upload.sourceLanguage.en",
 }
 
 /** Diagnosis tags that trigger automatic expansion to split-pane mode */
@@ -257,6 +266,7 @@ export function UploadDialog({
   const [existingNovel, setExistingNovel] = useState<Novel | null>(null)
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
+  const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>("auto")
 
   // Chapter exclusion state (chapter_nums to exclude)
   const [excludedNums, setExcludedNums] = useState<Set<number>>(new Set())
@@ -301,6 +311,7 @@ export function UploadDialog({
     setExistingNovel(null)
     setTitle("")
     setAuthor("")
+    setSourceLanguage("auto")
     setExcludedNums(new Set())
     setSplitOpen(false)
     setSplitModes([])
@@ -416,8 +427,9 @@ export function UploadDialog({
     setStage("uploading")
     setUploadProgress(0)
     try {
-      const data = await uploadNovelWithProgress(file, setUploadProgress)
+      const data = await uploadNovelWithProgress(file, setUploadProgress, sourceLanguage)
       setPreview(data)
+      setSourceLanguage(data.source_language)
       setTitle(data.title)
       setAuthor(data.author ?? "")
       setExcludedNums(new Set(
@@ -452,8 +464,10 @@ export function UploadDialog({
         const data = await reSplitChapters({
           file_hash: preview.file_hash,
           split_points: splitPoints,
+          source_language: sourceLanguage,
         })
         setPreview(data)
+        setSourceLanguage(data.source_language)
       } catch (err) {
         const msg = err instanceof Error ? err.message : t("shared.upload.error.applyManualMarksFailed")
         setError(msg)
@@ -471,6 +485,7 @@ export function UploadDialog({
         title: title.trim() || preview.title,
         author: author.trim() || null,
         excluded_chapters: excludedNums.size > 0 ? [...excludedNums] : undefined,
+        source_language: sourceLanguage,
       })
       setSimulatedProgress(100)
       setTimeout(() => {
@@ -500,6 +515,7 @@ export function UploadDialog({
         title: title.trim() || preview.title,
         author: author.trim() || null,
         excluded_chapters: excludedNums.size > 0 ? [...excludedNums] : undefined,
+        source_language: sourceLanguage,
       })
       setSimulatedProgress(100)
       setTimeout(() => {
@@ -562,8 +578,10 @@ export function UploadDialog({
         file_hash: preview.file_hash,
         mode: mode ?? undefined,
         custom_regex: regex ?? undefined,
+        source_language: sourceLanguage,
       })
       setPreview(data)
+      setSourceLanguage(data.source_language)
       setExcludedNums(new Set(
         data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
       ))
@@ -615,6 +633,7 @@ export function UploadDialog({
         split_points: splitPoints,
       })
       setPreview(result.preview)
+      setSourceLanguage(result.preview.source_language)
       if (result.inferred_regex) {
         setSplitPoints([])
       }
@@ -636,6 +655,7 @@ export function UploadDialog({
         clean_mode: "conservative",
       })
       setPreview(data)
+      setSourceLanguage(data.source_language)
       setExcludedNums(new Set(
         data.chapters.filter((ch) => ch.is_suspect).map((ch) => ch.chapter_num),
       ))
@@ -682,6 +702,7 @@ export function UploadDialog({
   const categoryLabel = (category: string) => CATEGORY_LABEL_KEYS[category]
     ? t(CATEGORY_LABEL_KEYS[category])
     : category
+  const sourceLanguageLabel = (language: SourceLanguage) => t(SOURCE_LANGUAGE_LABEL_KEYS[language])
 
   // Auto-expand advanced options when diagnosis indicates a problem
   useEffect(() => {
@@ -728,37 +749,60 @@ export function UploadDialog({
 
           {/* Stage: File Select */}
           {stage === "select" && (
-            <div
-              className="border-muted-foreground/25 hover:border-primary/50 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed py-12 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const file = e.dataTransfer.files[0]
-                if (file) handleFileSelect(file)
-              }}
-            >
-              <Upload className="text-muted-foreground mb-3 h-10 w-10" />
-              <p className="text-muted-foreground text-sm">
-                {t("shared.upload.dropTitle")}
-              </p>
-              <p className="text-muted-foreground/60 mt-1 text-xs">
-                {t("shared.upload.dropHint")}
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.air,.json"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t("shared.upload.sourceLanguage.label")}</Label>
+                <Select
+                  value={sourceLanguage}
+                  onValueChange={(value) => setSourceLanguage(value as SourceLanguage)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["auto", "zh-CN", "vi", "en"] as const).map((language) => (
+                      <SelectItem key={language} value={language}>
+                        {sourceLanguageLabel(language)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {t("shared.upload.sourceLanguage.hint")}
+                </p>
+              </div>
+              <div
+                className="border-muted-foreground/25 hover:border-primary/50 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed py-12 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const file = e.dataTransfer.files[0]
                   if (file) handleFileSelect(file)
                 }}
-              />
+              >
+                <Upload className="text-muted-foreground mb-3 h-10 w-10" />
+                <p className="text-muted-foreground text-sm">
+                  {t("shared.upload.dropTitle")}
+                </p>
+                <p className="text-muted-foreground/60 mt-1 text-xs">
+                  {t("shared.upload.dropHint")}
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.air,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleFileSelect(file)
+                  }}
+                />
+              </div>
             </div>
           )}
 
@@ -848,6 +892,9 @@ export function UploadDialog({
                     {t("shared.upload.totalChapters", { count: preview.total_chapters })}
                   </span>
                   <span>{formatWordCount(preview.total_words, t)}</span>
+                  <span className="text-xs opacity-60">
+                    {t("shared.upload.sourceLanguage.summary", { language: sourceLanguageLabel(sourceLanguage) })}
+                  </span>
                   {preview.matched_mode && (
                     <span className="text-xs opacity-60">
                       {t("shared.upload.modeLabel", { mode: modeLabel(preview.matched_mode) })}

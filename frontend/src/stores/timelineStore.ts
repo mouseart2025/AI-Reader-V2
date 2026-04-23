@@ -6,7 +6,16 @@
  */
 import { create } from "zustand"
 
-export type FilterType = "战斗" | "成长" | "社交" | "旅行" | "角色登场" | "物品交接" | "组织变动" | "关系变化" | "其他"
+export type FilterType =
+  | "battle"
+  | "growth"
+  | "social"
+  | "travel"
+  | "character_appearance"
+  | "item_transfer"
+  | "org_change"
+  | "relation_change"
+  | "other"
 
 interface TimelineState {
   filterTypes: Set<FilterType>
@@ -25,7 +34,7 @@ interface TimelineState {
 }
 
 const DEFAULT_FILTERS = new Set<FilterType>([
-  "战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他",
+  "battle", "growth", "social", "travel", "org_change", "relation_change", "other",
 ])
 
 export const useTimelineStore = create<TimelineState>((set) => ({

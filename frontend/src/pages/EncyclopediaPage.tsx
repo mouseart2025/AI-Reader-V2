@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 import { recordTabVisit } from "@/lib/tabTracking"
+import { useI18n, type TranslationKey } from "@/i18n"
+import { conceptCategoryLabel } from "@/lib/domainLabels"
 
 interface CategoryStats {
   total: number
@@ -22,6 +24,7 @@ interface CategoryStats {
   org: number
   concept: number
   concept_categories: Record<string, number>
+  concept_category_labels?: Record<string, string>
 }
 
 interface VariantHint {
@@ -34,6 +37,7 @@ interface EncEntry {
   name: string
   type: string
   category: string
+  category_id?: string
   definition: string
   first_chapter: number
   chapter_count?: number
@@ -47,6 +51,7 @@ interface EncEntry {
 interface ConceptDetail {
   name: string
   category: string
+  category_id?: string
   definition: string
   first_chapter: number
   excerpts: { chapter: number; text: string }[]
@@ -62,22 +67,22 @@ const TYPE_COLORS: Record<string, string> = {
   concept: "#6b7280",
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  person: "人物",
-  location: "地点",
-  item: "物品",
-  org: "组织",
-  concept: "概念",
+const TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
+  person: "analysis.entityType.person",
+  location: "analysis.entityType.location",
+  item: "analysis.entityType.item",
+  org: "analysis.entityType.org",
+  concept: "analysis.entityType.concept",
 }
 
-const TIER_LABELS: Record<string, string> = {
-  world: "世界",
-  continent: "大陆",
-  kingdom: "国",
-  region: "区域",
-  city: "城",
-  site: "场所",
-  building: "建筑",
+const TIER_LABEL_KEYS: Record<string, TranslationKey> = {
+  world: "encyclopedia.tier.world",
+  continent: "encyclopedia.tier.continent",
+  kingdom: "encyclopedia.tier.kingdom",
+  region: "encyclopedia.tier.region",
+  city: "encyclopedia.tier.city",
+  site: "encyclopedia.tier.site",
+  building: "encyclopedia.tier.building",
 }
 
 const TIER_COLORS: Record<string, string> = {
@@ -90,7 +95,37 @@ const TIER_COLORS: Record<string, string> = {
   building: "bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300",
 }
 
+function localizedType(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  type: string,
+  fallback?: string,
+) {
+  return TYPE_LABEL_KEYS[type] ? t(TYPE_LABEL_KEYS[type]) : (fallback ?? type)
+}
+
+function localizedEntryCategory(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  entry: Pick<EncEntry, "type" | "category" | "category_id">,
+) {
+  if (entry.type === "concept") {
+    return conceptCategoryLabel(t, entry.category_id, entry.category)
+  }
+  return localizedType(t, entry.type, entry.category)
+}
+
+function localizedTier(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  tier: string,
+) {
+  return TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier
+}
+
+function variantLabelKey(type: VariantHint["variant_type"]): TranslationKey {
+  return type === "typo" ? "encyclopedia.variant.typo" : "encyclopedia.variant.charVariant"
+}
+
 export default function EncyclopediaPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
@@ -268,22 +303,28 @@ export default function EncyclopediaPage() {
 
   const categoryItems = useMemo(() => {
     if (!stats) return []
-    const items: { key: string | null; label: string; count: number; indent: number }[] = [
-      { key: null, label: "全部", count: stats.total, indent: 0 },
-      { key: "person", label: "人物", count: stats.person, indent: 1 },
-      { key: "location", label: "地点", count: stats.location, indent: 1 },
-      { key: "item", label: "物品", count: stats.item, indent: 1 },
-      { key: "org", label: "组织", count: stats.org, indent: 1 },
-      { key: "concept", label: "概念", count: stats.concept, indent: 1 },
+    const items: { key: string | null; label?: string; labelKey?: TranslationKey; count: number; indent: number }[] = [
+      { key: null, labelKey: "common.all", count: stats.total, indent: 0 },
+      { key: "person", labelKey: "analysis.entityType.person", count: stats.person, indent: 1 },
+      { key: "location", labelKey: "analysis.entityType.location", count: stats.location, indent: 1 },
+      { key: "item", labelKey: "analysis.entityType.item", count: stats.item, indent: 1 },
+      { key: "org", labelKey: "analysis.entityType.org", count: stats.org, indent: 1 },
+      { key: "concept", labelKey: "analysis.entityType.concept", count: stats.concept, indent: 1 },
     ]
     // Add concept sub-categories
-    for (const [cat, count] of Object.entries(stats.concept_categories)) {
-      items.push({ key: cat, label: cat, count, indent: 2 })
+    for (const [categoryId, count] of Object.entries(stats.concept_categories)) {
+      const rawLabel = stats.concept_category_labels?.[categoryId] ?? categoryId
+      items.push({
+        key: `concept:${categoryId}`,
+        label: conceptCategoryLabel(t, categoryId, rawLabel),
+        count,
+        indent: 2,
+      })
     }
     // World view special entry
-    items.push({ key: "__worldview__", label: "世界观", count: 0, indent: 0 })
+    items.push({ key: "__worldview__", labelKey: "encyclopedia.worldview.title", count: 0, indent: 0 })
     return items
-  }, [stats])
+  }, [stats, t])
 
   // Load world structure when worldview tab is selected
   useEffect(() => {
@@ -295,10 +336,10 @@ export default function EncyclopediaPage() {
     <div className="flex h-full flex-col">
       {/* Search bar */}
       <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-1.5">
-        <span className="text-muted-foreground text-xs">搜索</span>
+        <span className="text-muted-foreground text-xs">{t("encyclopedia.search.label")}</span>
         <Input
           type="text"
-          placeholder="搜索实体、概念..."
+          placeholder={t("encyclopedia.search.placeholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-56 h-7 text-xs"
@@ -325,7 +366,7 @@ export default function EncyclopediaPage() {
                     style={{ backgroundColor: TYPE_COLORS[item.key] }}
                   />
                 )}
-                {item.label}
+                {item.labelKey ? t(item.labelKey) : item.label}
               </span>
               <span className="text-muted-foreground">{item.count}</span>
             </button>
@@ -336,27 +377,27 @@ export default function EncyclopediaPage() {
         <div ref={listContainerRef} className="flex-1 overflow-auto">
           {/* Sort controls */}
           <div className={cn("flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10", activeCategory === "__worldview__" && "hidden")}>
-            <span className="text-xs text-muted-foreground">排序</span>
+            <span className="text-xs text-muted-foreground">{t("encyclopedia.sort.label")}</span>
             <Button
               variant={sortBy === "name" ? "default" : "outline"}
               size="xs"
               onClick={() => setSortBy("name")}
             >
-              名称
+              {t("encyclopedia.sort.name")}
             </Button>
             <Button
               variant={sortBy === "chapter" ? "default" : "outline"}
               size="xs"
               onClick={() => setSortBy("chapter")}
             >
-              章节
+              {t("encyclopedia.sort.chapter")}
             </Button>
             <Button
               variant={sortBy === "mentions" ? "default" : "outline"}
               size="xs"
               onClick={() => setSortBy("mentions")}
             >
-              热度
+              {t("encyclopedia.sort.mentions")}
             </Button>
             {activeCategory === "location" && (
               <Button
@@ -364,7 +405,7 @@ export default function EncyclopediaPage() {
                 size="xs"
                 onClick={() => setSortBy("hierarchy")}
               >
-                层级
+                {t("encyclopedia.sort.hierarchy")}
               </Button>
             )}
             {activeCategory === "location" && sortBy === "hierarchy" && (
@@ -375,11 +416,11 @@ export default function EncyclopediaPage() {
                 onClick={() => {
                   if (!novelId || rebuilding) return
                   setRebuilding(true)
-                  setRebuildProgress("正在初始化...")
+                  setRebuildProgress(t("encyclopedia.rebuild.initializing"))
                   rebuildHierarchy(novelId, setRebuildProgress)
                     .then((res) => {
                       if (res.changes.length === 0) {
-                        setToast("层级无变化")
+                        setToast(t("encyclopedia.rebuild.noChange"))
                         setTimeout(() => setToast(null), 4000)
                       } else {
                         setRebuildResult(res)
@@ -387,16 +428,16 @@ export default function EncyclopediaPage() {
                       }
                     })
                     .catch(() => {
-                      setToast("层级重建失败")
+                      setToast(t("encyclopedia.rebuild.failed"))
                       setTimeout(() => setToast(null), 4000)
                     })
                     .finally(() => {
                       setRebuilding(false)
                       setRebuildProgress("")
                     })
-                }}
-              >
-                {rebuilding ? "重建中..." : "重建层级"}
+              }}
+            >
+                {rebuilding ? t("encyclopedia.rebuild.rebuilding") : t("encyclopedia.rebuild.action")}
               </Button>
             )}
             <div className="flex-1" />
@@ -407,19 +448,19 @@ export default function EncyclopediaPage() {
               <span className="text-xs text-green-600">{toast}</span>
             )}
             <span className="text-xs text-muted-foreground">
-              {filteredEntries.length} 条目
+              {t("encyclopedia.entryCount", { count: filteredEntries.length })}
             </span>
           </div>
 
           {activeCategory === "__worldview__" ? (
             <div className="p-4 space-y-4">
               {!worldStructure ? (
-                <p className="text-muted-foreground text-sm">加载中...</p>
+                <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
               ) : (
                 <>
                   {/* Layers */}
                   <div>
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">世界层级</h4>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{t("encyclopedia.worldview.layers")}</h4>
                     <div className="space-y-2">
                       {worldStructure.layers.map((layer) => (
                         <div key={layer.layer_id} className="rounded border p-2">
@@ -430,7 +471,10 @@ export default function EncyclopediaPage() {
                           {layer.description && <p className="text-xs text-muted-foreground">{layer.description}</p>}
                           {layer.regions.length > 0 && (
                             <div className="mt-1 text-xs text-muted-foreground">
-                              {layer.regions.length} 区域: {layer.regions.map((r) => r.name).join("、")}
+                              {t("encyclopedia.worldview.regionList", {
+                                count: layer.regions.length,
+                                regions: layer.regions.map((r) => r.name).join(t("common.listSeparator")),
+                              })}
                             </div>
                           )}
                         </div>
@@ -441,13 +485,15 @@ export default function EncyclopediaPage() {
                   {/* Portals */}
                   {worldStructure.portals.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">传送门 ({worldStructure.portals.length})</h4>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        {t("encyclopedia.worldview.portals", { count: worldStructure.portals.length })}
+                      </h4>
                       <div className="space-y-1">
                         {worldStructure.portals.map((p, i) => (
                           <div key={i} className="text-xs">
                             <span className="font-medium">{p.name}</span>
                             <span className="text-muted-foreground"> {p.source_location} → {p.target_location}</span>
-                            {p.is_bidirectional && <span className="text-muted-foreground"> (双向)</span>}
+                            {p.is_bidirectional && <span className="text-muted-foreground"> {t("visualization.worldStructure.portals.direction.bidirectional")}</span>}
                           </div>
                         ))}
                       </div>
@@ -457,7 +503,7 @@ export default function EncyclopediaPage() {
                   {/* Spatial scale */}
                   {worldStructure.spatial_scale && (
                     <div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">空间尺度</h4>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{t("encyclopedia.worldview.spatialScale")}</h4>
                       <span className="text-sm">{worldStructure.spatial_scale}</span>
                     </div>
                   )}
@@ -465,7 +511,7 @@ export default function EncyclopediaPage() {
                   {/* Genre */}
                   {worldStructure.novel_genre_hint && (
                     <div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">类型</h4>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{t("visualization.worldStructure.field.type")}</h4>
                       <span className="text-sm">{worldStructure.novel_genre_hint}</span>
                     </div>
                   )}
@@ -473,11 +519,11 @@ export default function EncyclopediaPage() {
                   {/* Location stats */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded bg-muted/50 p-2 text-sm">
-                      <span className="text-muted-foreground text-xs block">父子关系</span>
+                      <span className="text-muted-foreground text-xs block">{t("encyclopedia.worldview.parentRelations")}</span>
                       <span className="font-medium">{Object.keys(worldStructure.location_parents).length}</span>
                     </div>
                     <div className="rounded bg-muted/50 p-2 text-sm">
-                      <span className="text-muted-foreground text-xs block">层级分类</span>
+                      <span className="text-muted-foreground text-xs block">{t("encyclopedia.worldview.tierClassifications")}</span>
                       <span className="font-medium">{Object.keys(worldStructure.location_tiers).length}</span>
                     </div>
                   </div>
@@ -486,11 +532,11 @@ export default function EncyclopediaPage() {
             </div>
           ) : loading ? (
             <div className="flex items-center justify-center h-40">
-              <p className="text-muted-foreground text-sm">加载中...</p>
+              <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
             </div>
           ) : filteredEntries.length === 0 ? (
             <div className="flex items-center justify-center h-40">
-              <p className="text-muted-foreground text-sm">暂无数据</p>
+              <p className="text-muted-foreground text-sm">{t("encyclopedia.noData")}</p>
             </div>
           ) : virtualItemCount === 0 ? null : (
             <div
@@ -539,12 +585,12 @@ export default function EncyclopediaPage() {
                       )}
                       {entry.variant_hint && (
                         <span className="text-[10px] px-1 py-0.5 rounded flex-shrink-0 bg-amber-500/15 text-amber-600 dark:text-amber-400" title={entry.variant_hint.note}>
-                          {entry.variant_hint.variant_type === "typo" ? "疑似笔误" : "字形变体"} → {entry.variant_hint.canonical}
+                          {t(variantLabelKey(entry.variant_hint.variant_type))} → {entry.variant_hint.canonical}
                         </span>
                       )}
-                      {entry.tier && TIER_LABELS[entry.tier] && (
+                      {entry.tier && TIER_LABEL_KEYS[entry.tier] && (
                         <span className={cn("text-[10px] px-1 py-0.5 rounded flex-shrink-0", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
-                          {TIER_LABELS[entry.tier]}
+                          {localizedTier(t, entry.tier)}
                         </span>
                       )}
                       {entry.definition && (
@@ -553,7 +599,7 @@ export default function EncyclopediaPage() {
                         </span>
                       )}
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-auto">
-                        Ch.{entry.first_chapter}
+                        {t("common.chapterShort", { chapter: entry.first_chapter })}
                       </span>
                     </div>
                   )
@@ -580,21 +626,21 @@ export default function EncyclopediaPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{entry.name}</span>
                           <span className="text-[10px] text-muted-foreground px-1 py-0.5 rounded bg-muted">
-                            {TYPE_LABELS[entry.type] ?? entry.category}
+                            {localizedEntryCategory(t, entry)}
                           </span>
                           {entry.variant_hint && (
                             <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400" title={entry.variant_hint.note}>
-                              {entry.variant_hint.variant_type === "typo" ? "疑似笔误" : "字形变体"} → {entry.variant_hint.canonical}
+                              {t(variantLabelKey(entry.variant_hint.variant_type))} → {entry.variant_hint.canonical}
                             </span>
                           )}
-                          {entry.type === "location" && entry.tier && TIER_LABELS[entry.tier] && (
+                          {entry.type === "location" && entry.tier && TIER_LABEL_KEYS[entry.tier] && (
                             <span className={cn("text-[10px] px-1 py-0.5 rounded", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
-                              {TIER_LABELS[entry.tier]}
+                              {localizedTier(t, entry.tier)}
                             </span>
                           )}
                           {(entry.chapter_count ?? 0) > 0 && (
                             <span className="text-[10px] text-muted-foreground/70">
-                              {entry.chapter_count}章
+                              {t("common.chapterCount", { count: entry.chapter_count ?? 0 })}
                             </span>
                           )}
                         </div>
@@ -605,7 +651,7 @@ export default function EncyclopediaPage() {
                         )}
                       </div>
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 mt-1">
-                        Ch.{entry.first_chapter}
+                        {t("common.chapterShort", { chapter: entry.first_chapter })}
                       </span>
                     </div>
                   )
@@ -632,21 +678,21 @@ export default function EncyclopediaPage() {
               <div className="space-y-3">
                 {/* Category */}
                 <div>
-                  <span className="text-[10px] text-muted-foreground block mb-0.5">分类</span>
+                  <span className="text-[10px] text-muted-foreground block mb-0.5">{t("encyclopedia.concept.category")}</span>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-muted">
-                    {conceptDetail.category}
+                    {conceptCategoryLabel(t, conceptDetail.category_id, conceptDetail.category)}
                   </span>
                   <button
                     className="text-xs text-muted-foreground ml-2 hover:text-primary hover:underline cursor-pointer"
                     onClick={() => navigate(novelPath(novelId!, "read", `chapter=${conceptDetail.first_chapter}`))}
                   >
-                    首次出现: 第{conceptDetail.first_chapter}章
+                    {t("encyclopedia.concept.firstAppearance", { chapter: conceptDetail.first_chapter })}
                   </button>
                 </div>
 
                 {/* Definition */}
                 <div>
-                  <span className="text-[10px] text-muted-foreground block mb-0.5">定义</span>
+                  <span className="text-[10px] text-muted-foreground block mb-0.5">{t("encyclopedia.concept.definition")}</span>
                   <p className="text-sm">{conceptDetail.definition}</p>
                 </div>
 
@@ -654,7 +700,7 @@ export default function EncyclopediaPage() {
                 {conceptDetail.excerpts.length > 0 && (
                   <div>
                     <span className="text-[10px] text-muted-foreground block mb-1">
-                      原文摘录 ({conceptDetail.excerpts.length})
+                      {t("encyclopedia.concept.excerpts", { count: conceptDetail.excerpts.length })}
                     </span>
                     <div className="space-y-1.5">
                       {conceptDetail.excerpts.map((ex, i) => (
@@ -664,7 +710,7 @@ export default function EncyclopediaPage() {
                             className="text-[10px] text-muted-foreground hover:text-primary hover:underline cursor-pointer"
                             onClick={() => navigate(novelPath(novelId!, "read", `chapter=${ex.chapter}`))}
                           >
-                            — 第{ex.chapter}章
+                            {t("encyclopedia.concept.excerptChapter", { chapter: ex.chapter })}
                           </button>
                         </div>
                       ))}
@@ -676,7 +722,7 @@ export default function EncyclopediaPage() {
                 {conceptDetail.related_concepts.length > 0 && (
                   <div>
                     <span className="text-[10px] text-muted-foreground block mb-1">
-                      关联概念 ({conceptDetail.related_concepts.length})
+                      {t("encyclopedia.concept.relatedConcepts", { count: conceptDetail.related_concepts.length })}
                     </span>
                     <div className="flex flex-wrap gap-1">
                       {conceptDetail.related_concepts.map((c) => (
@@ -701,7 +747,7 @@ export default function EncyclopediaPage() {
                 {conceptDetail.related_entities.length > 0 && (
                   <div>
                     <span className="text-[10px] text-muted-foreground block mb-1">
-                      关联实体 ({conceptDetail.related_entities.length})
+                      {t("encyclopedia.concept.relatedEntities", { count: conceptDetail.related_entities.length })}
                     </span>
                     <div className="space-y-1">
                       {conceptDetail.related_entities.map((e) => (
@@ -718,7 +764,7 @@ export default function EncyclopediaPage() {
                             className="text-muted-foreground hover:text-primary hover:underline cursor-pointer"
                             onClick={() => navigate(novelPath(novelId!, "read", `chapter=${e.chapter}`))}
                           >
-                            (Ch.{e.chapter})
+                            {t("common.chapterShortParen", { chapter: e.chapter })}
                           </button>
                         </div>
                       ))}
@@ -737,16 +783,16 @@ export default function EncyclopediaPage() {
       <Dialog open={rebuildResult !== null} onOpenChange={(open) => { if (!open) setRebuildResult(null) }}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>层级变更预览</DialogTitle>
+            <DialogTitle>{t("encyclopedia.rebuild.dialogTitle")}</DialogTitle>
             {rebuildResult && (
               <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                <span className="text-green-600">+{rebuildResult.summary.added} 新增</span>
-                <span className="text-yellow-600">~{rebuildResult.summary.changed} 变更</span>
-                <span className="text-red-600">-{rebuildResult.summary.removed} 移除</span>
+                <span className="text-green-600">{t("encyclopedia.rebuild.summaryAdded", { count: rebuildResult.summary.added })}</span>
+                <span className="text-yellow-600">{t("encyclopedia.rebuild.summaryChanged", { count: rebuildResult.summary.changed })}</span>
+                <span className="text-red-600">{t("encyclopedia.rebuild.summaryRemoved", { count: rebuildResult.summary.removed })}</span>
                 <span className="mx-1">|</span>
-                <span>根节点 {rebuildResult.summary.old_root_count} → {rebuildResult.summary.new_root_count}</span>
-                {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">场景分析</span>}
-                {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">LLM审查</span>}
+                <span>{t("encyclopedia.rebuild.rootCount", { old: rebuildResult.summary.old_root_count, next: rebuildResult.summary.new_root_count })}</span>
+                {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{t("encyclopedia.rebuild.sceneAnalysis")}</span>}
+                {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">{t("encyclopedia.rebuild.llmReview")}</span>}
               </div>
             )}
           </DialogHeader>
@@ -770,11 +816,11 @@ export default function EncyclopediaPage() {
                         }}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">地点</th>
-                    <th className="px-2 py-1.5 text-left">原父级</th>
+                    <th className="px-2 py-1.5 text-left">{t("encyclopedia.rebuild.location")}</th>
+                    <th className="px-2 py-1.5 text-left">{t("encyclopedia.rebuild.oldParent")}</th>
                     <th className="w-6 px-1 py-1.5" />
-                    <th className="px-2 py-1.5 text-left">新父级</th>
-                    <th className="w-16 px-2 py-1.5 text-left">类型</th>
+                    <th className="px-2 py-1.5 text-left">{t("encyclopedia.rebuild.newParent")}</th>
+                    <th className="w-16 px-2 py-1.5 text-left">{t("visualization.worldStructure.field.type")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -808,7 +854,11 @@ export default function EncyclopediaPage() {
                           change.change_type === "changed" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
                           change.change_type === "removed" && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
                         )}>
-                          {change.change_type === "added" ? "新增" : change.change_type === "changed" ? "变更" : "移除"}
+                          {change.change_type === "added"
+                            ? t("encyclopedia.rebuild.change.added")
+                            : change.change_type === "changed"
+                              ? t("encyclopedia.rebuild.change.changed")
+                              : t("encyclopedia.rebuild.change.removed")}
                         </span>
                       </td>
                     </tr>
@@ -820,10 +870,10 @@ export default function EncyclopediaPage() {
 
           <DialogFooter className="flex-row items-center gap-2 sm:flex-row">
             <span className="text-xs text-muted-foreground flex-1">
-              已选 {selectedChanges.size} / {rebuildResult?.changes.length ?? 0} 项
+              {t("encyclopedia.rebuild.selectedCount", { selected: selectedChanges.size, total: rebuildResult?.changes.length ?? 0 })}
             </span>
             <Button variant="outline" size="sm" onClick={() => setRebuildResult(null)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               size="sm"
@@ -837,7 +887,7 @@ export default function EncyclopediaPage() {
                 applyHierarchyChanges(novelId, selected, rebuildResult.location_tiers)
                   .then((res) => {
                     setRebuildResult(null)
-                    setToast(`层级已更新: ${res.root_count} 个根节点`)
+                    setToast(t("encyclopedia.rebuild.applySuccess", { count: res.root_count }))
                     setTimeout(() => setToast(null), 4000)
                     // Reload entries to reflect new hierarchy
                     setLoading(true)
@@ -846,13 +896,13 @@ export default function EncyclopediaPage() {
                       .finally(() => setLoading(false))
                   })
                   .catch(() => {
-                    setToast("应用变更失败")
+                    setToast(t("encyclopedia.rebuild.applyFailed"))
                     setTimeout(() => setToast(null), 4000)
                   })
                   .finally(() => setApplying(false))
               }}
             >
-              {applying ? "应用中..." : `应用 ${selectedChanges.size} 项变更`}
+              {applying ? t("encyclopedia.rebuild.applying") : t("encyclopedia.rebuild.applyChanges", { count: selectedChanges.size })}
             </Button>
           </DialogFooter>
         </DialogContent>

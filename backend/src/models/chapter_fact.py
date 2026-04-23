@@ -37,14 +37,17 @@ class RelationshipFact(BaseModel):
     person_a: str
     person_b: str
     relation_type: str
+    relation_type_id: str | None = None
     is_new: bool = True
     previous_type: str | None = None
+    previous_type_id: str | None = None
     evidence: str = ""
 
 
 class LocationFact(BaseModel):
     name: str
     type: str
+    type_id: str | None = None
     parent: str | None = None
     parent_evidence: str | None = None  # v0.63.0: evidence for parent assignment (≤30 chars)
     peers: list[str] | None = None  # same-level spatially adjacent/parallel entities
@@ -55,7 +58,9 @@ class LocationFact(BaseModel):
 class ItemEventFact(BaseModel):
     item_name: str
     item_type: str
+    item_type_id: str | None = None
     action: str  # 出现/获得/使用/赠予/消耗/丢失/损毁
+    action_id: str | None = None
     actor: str | None = None
     recipient: str | None = None
     description: str | None = None
@@ -64,14 +69,17 @@ class ItemEventFact(BaseModel):
 class OrgRelation(BaseModel):
     other_org: str
     type: str  # 盟友/敌对/从属/竞争
+    type_id: str | None = None
 
 
 class OrgEventFact(BaseModel):
     org_name: str = ""
     org_type: str = ""
+    org_type_id: str | None = None
     member: str | None = None
     role: str | None = None
     action: str = "其他"  # 加入/离开/晋升/阵亡/叛出/逐出 (default for LLM omission tolerance)
+    action_id: str | None = None
     description: str | None = None
     org_relation: OrgRelation | None = None
 
@@ -79,6 +87,7 @@ class OrgEventFact(BaseModel):
 class EventFact(BaseModel):
     summary: str
     type: str  # 战斗/成长/社交/旅行/其他
+    type_id: str | None = None
     importance: str = "medium"  # high/medium/low
     participants: list[str] = []
     location: str | None = None

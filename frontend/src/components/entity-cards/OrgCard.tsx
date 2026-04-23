@@ -1,6 +1,7 @@
 import { memo } from "react"
 import type { OrgProfile } from "@/api/types"
 import { useI18n, type TranslationKey } from "@/i18n"
+import { isLeavingOrgAction, orgActionLabel, orgTypeLabel, relationTypeLabel } from "@/lib/domainLabels"
 import { cn } from "@/lib/utils"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
@@ -12,10 +13,10 @@ interface OrgCardProps {
   novelId?: string
 }
 
-// These values match extraction output from the backend and should stay untranslated.
-const LEAVE_ACTIONS = new Set(["离开", "阵亡", "叛出", "逐出", "退出", "离去", "战死"])
-
 const ORG_REL_COLORS: Record<string, string> = {
+  "social.ally": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  "hostile.enemy": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  "hierarchical.superior_subordinate": "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   "盟友": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   "联盟": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   "友好": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -42,8 +43,8 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
 
   // Current members: latest action is not a leave action
   const currentMembers = Array.from(memberMap.entries()).filter(([, events]) => {
-    const lastAction = events[events.length - 1].action
-    return !LEAVE_ACTIONS.has(lastAction)
+    const lastEvent = events[events.length - 1]
+    return !isLeavingOrgAction(lastEvent.action_id, lastEvent.action)
   })
 
   return (
@@ -57,7 +58,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
           <div>
             <h3 className="text-lg font-bold">{profile.name}</h3>
             {profile.org_type && (
-              <span className="text-muted-foreground text-xs">{profile.org_type}</span>
+              <span className="text-muted-foreground text-xs">{orgTypeLabel(t, profile.org_type_id, profile.org_type)}</span>
             )}
           </div>
         </div>
@@ -88,7 +89,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
           <div key={member} className="text-sm">
             <EntityLink name={member} type="person" onClick={onEntityClick} />
             <span className="text-muted-foreground ml-1 text-xs">
-              {events.map((e) => `${e.action}${e.role ? `(${e.role})` : ""}`).join(" → ")}
+              {events.map((e) => `${orgActionLabel(t, e.action_id, e.action)}${e.role ? `(${e.role})` : ""}`).join(" → ")}
             </span>
             <span className="ml-1">
               <ChapterTag chapter={events[events.length - 1].chapter} onClick={onChapterClick} />
@@ -106,9 +107,9 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
               <EntityLink name={rel.other_org} type="org" onClick={onEntityClick} />
               <span className={cn(
                 "ml-1 text-[10px] px-1 py-0.5 rounded",
-                ORG_REL_COLORS[rel.relation_type] ?? "bg-muted text-muted-foreground",
+                ORG_REL_COLORS[rel.relation_type_id || rel.relation_type] ?? "bg-muted text-muted-foreground",
               )}>
-                {rel.relation_type}
+                {relationTypeLabel(t, rel.relation_type_id, rel.relation_type)}
               </span>
             </span>
           </div>

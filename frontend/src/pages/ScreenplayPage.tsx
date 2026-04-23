@@ -7,6 +7,15 @@ import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { highlightText } from "@/lib/entityHighlight"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useI18n, type TranslationKey } from "@/i18n"
+import {
+  sceneEventTypeLabel,
+  sceneEventTypeStyle,
+  sceneTimeOfDayLabel,
+  sceneToneLabel,
+  sceneToneStyle,
+  shouldDisplaySceneTone,
+} from "@/lib/domainLabels"
 
 // ── Scene border colors (one per scene, cycling) ─
 
@@ -21,22 +30,28 @@ const SCENE_BORDER_COLORS = [
   "border-l-lime-500",
 ]
 
-// ── Tone / event-type styling ───────────────────
-
-const TONE_STYLES: Record<string, string> = {
-  "战斗": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "紧张": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  "悲伤": "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300",
-  "欢乐": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "平静": "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300",
+const SCREENPLAY_TIME_LABEL_KEYS: Record<string, TranslationKey> = {
+  morning: "screenplay.time.morningScene",
+  noon: "screenplay.time.noonScene",
+  dusk: "screenplay.time.duskScene",
+  night: "screenplay.time.nightScene",
 }
 
-const EVENT_TYPE_STYLES: Record<string, string> = {
-  "对话": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  "战斗": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "旅行": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  "描写": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
-  "回忆": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+const TIME_OF_DAY_IDS: Record<string, string> = {
+  "早": "morning",
+  "晨": "morning",
+  "午": "noon",
+  "晚": "dusk",
+  "暮": "dusk",
+  "夜": "night",
+}
+
+function screenplayTimeLabel(
+  t: (key: TranslationKey, params?: Record<string, number | string>) => string,
+  scene: Scene,
+) {
+  const timeId = scene.time_of_day_id || TIME_OF_DAY_IDS[scene.time_of_day || ""]
+  return timeId && SCREENPLAY_TIME_LABEL_KEYS[timeId] ? t(SCREENPLAY_TIME_LABEL_KEYS[timeId]) : ""
 }
 
 // ── Side-by-side view (N10.2) + Fullscreen view (N10.3) ────────────
@@ -44,6 +59,7 @@ const EVENT_TYPE_STYLES: Record<string, string> = {
 type ViewMode = "split" | "fullscreen"
 
 export default function ScreenplayPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
 
   const [chapters, setChapters] = useState<Chapter[]>([])
@@ -164,7 +180,7 @@ export default function ScreenplayPage() {
         >
           {chapters.map((ch) => (
             <option key={ch.chapter_num} value={ch.chapter_num}>
-              {ch.title || `第${ch.chapter_num}章`}
+              {ch.title || t("screenplay.chapterFallback", { chapter: ch.chapter_num })}
             </option>
           ))}
         </select>
@@ -172,7 +188,7 @@ export default function ScreenplayPage() {
         <div className="flex-1" />
 
         <span className="text-xs text-muted-foreground">
-          {scenes.length} 个场景
+          {t("screenplay.sceneCount", { count: scenes.length })}
         </span>
 
         <div className="flex rounded-md border">
@@ -181,21 +197,21 @@ export default function ScreenplayPage() {
             size="xs"
             onClick={() => setViewMode("split")}
           >
-            并列
+            {t("screenplay.mode.split")}
           </Button>
           <Button
             variant={viewMode === "fullscreen" ? "default" : "ghost"}
             size="xs"
             onClick={() => setViewMode("fullscreen")}
           >
-            独占
+            {t("screenplay.mode.fullscreen")}
           </Button>
         </div>
       </div>
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          加载中...
+          {t("common.loading")}
         </div>
       ) : viewMode === "split" ? (
         <SplitView
@@ -246,12 +262,14 @@ function SplitView({
   onEntityClick: (name: string, type: string) => void
   onSceneClick: (scene: Scene, index: number) => void
 }) {
+  const { t } = useI18n()
+
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left: original text with entity highlighting + scene border bars */}
       <div ref={textRef} className="flex-1 overflow-y-auto border-r p-4">
         {paragraphs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">暂无内容</p>
+          <p className="text-sm text-muted-foreground">{t("screenplay.noContent")}</p>
         ) : (
           paragraphs.map((p, i) => {
             const sceneIdx = paraSceneMap.get(i)
@@ -279,7 +297,7 @@ function SplitView({
       {/* Right: scene list */}
       <div className="w-[22rem] shrink-0 overflow-y-auto p-3">
         {scenes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">未检测到场景</p>
+          <p className="text-sm text-muted-foreground">{t("screenplay.noScenesDetected")}</p>
         ) : (
           scenes.map((scene, i) => (
             <SceneCard
@@ -313,12 +331,13 @@ function FullscreenView({
   onEntityClick: (name: string, type: string) => void
   onSceneClick: (scene: Scene, index: number) => void
 }) {
+  const { t } = useI18n()
   const scene = scenes[activeSceneIndex]
 
   if (!scene) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        暂无场景数据
+        {t("screenplay.noSceneData")}
       </div>
     )
   }
@@ -355,14 +374,11 @@ function FullscreenView({
           <div className="mb-6">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold">
-                场景 {scene.index + 1}: {scene.title}
+                {t("screenplay.sceneTitle", { number: scene.index + 1, title: scene.title })}
               </h2>
               {scene.time_of_day && (
                 <span className="shrink-0 text-sm text-muted-foreground">
-                  {scene.time_of_day === "早" ? "内/外景·晨" :
-                   scene.time_of_day === "午" ? "内/外景·午" :
-                   scene.time_of_day === "晚" ? "内/外景·暮" :
-                   scene.time_of_day === "夜" ? "内景·夜" : ""}
+                  {screenplayTimeLabel(t, scene)}
                 </span>
               )}
             </div>
@@ -374,18 +390,18 @@ function FullscreenView({
                 </span>
               )}
               {scene.event_type && (
-                <span className={cn("rounded px-1.5 py-0.5", EVENT_TYPE_STYLES[scene.event_type] ?? "bg-muted text-muted-foreground")}>
-                  {scene.event_type}
+                <span className={cn("rounded px-1.5 py-0.5", sceneEventTypeStyle(scene.event_type_id, scene.event_type))}>
+                  {sceneEventTypeLabel(t, scene.event_type_id, scene.event_type)}
                 </span>
               )}
               {scene.dialogue_count > 0 && (
                 <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                  {scene.dialogue_count} 段对话
+                  {t("screenplay.dialogueParagraphCount", { count: scene.dialogue_count })}
                 </span>
               )}
               {scene.emotional_tone && (
-                <span className={cn("rounded px-1.5 py-0.5", TONE_STYLES[scene.emotional_tone] ?? "bg-muted text-muted-foreground")}>
-                  {scene.emotional_tone}
+                <span className={cn("rounded px-1.5 py-0.5", sceneToneStyle(scene.emotional_tone_id, scene.emotional_tone))}>
+                  {sceneToneLabel(t, scene.emotional_tone_id, scene.emotional_tone)}
                 </span>
               )}
             </div>
@@ -417,7 +433,7 @@ function FullscreenView({
                     )}
                   >
                     {cr.name}
-                    {cr.role === "主" && <span className="ml-0.5 text-[10px]">(主)</span>}
+                    {cr.role === "主" && <span className="ml-0.5 text-[10px]">{t("shared.scenePanel.mainRole")}</span>}
                   </span>
                 ))}
               </div>
@@ -445,7 +461,7 @@ function FullscreenView({
               ))
             ) : (
               <p className="text-sm text-muted-foreground">
-                （无段落映射）
+                {t("screenplay.noParagraphMapping")}
               </p>
             )}
           </div>
@@ -454,12 +470,12 @@ function FullscreenView({
           {scene.events && scene.events.length > 0 && (
             <div className="mt-6 border-t pt-4">
               <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-                事件
+                {t("screenplay.events")}
               </h3>
               <ul className="space-y-1">
                 {scene.events.map((evt, i) => (
                   <li key={i} className="text-xs text-muted-foreground">
-                    <span className="font-medium">{evt.type || "事件"}</span>
+                    <span className="font-medium">{evt.type || t("screenplay.eventFallback")}</span>
                     {" — "}
                     {evt.summary}
                   </li>
@@ -472,7 +488,7 @@ function FullscreenView({
 
       {/* Bottom nav hint */}
       <div className="border-t px-4 py-1 text-center text-xs text-muted-foreground">
-        ← → 切换场景 | Esc 返回并列模式 | 场景 {activeSceneIndex + 1}/{scenes.length}
+        {t("screenplay.navHint", { current: activeSceneIndex + 1, total: scenes.length })}
       </div>
     </div>
   )
@@ -491,6 +507,8 @@ function SceneCard({
   borderColor: string
   onClick: () => void
 }) {
+  const { t } = useI18n()
+
   return (
     <button
       className={cn(
@@ -512,10 +530,7 @@ function SceneCard({
         </div>
         {scene.time_of_day && (
           <span className="shrink-0 text-[10px] text-muted-foreground">
-            {scene.time_of_day === "早" ? "晨" :
-             scene.time_of_day === "午" ? "午" :
-             scene.time_of_day === "晚" ? "暮" :
-             scene.time_of_day === "夜" ? "夜" : ""}
+            {sceneTimeOfDayLabel(t, scene.time_of_day_id, scene.time_of_day)}
           </span>
         )}
       </div>
@@ -548,7 +563,7 @@ function SceneCard({
               )}
             >
               {cr.name}
-              {cr.role === "主" && <span className="text-[9px]">(主)</span>}
+              {cr.role === "主" && <span className="text-[9px]">{t("shared.scenePanel.mainRole")}</span>}
             </span>
           ))}
           {scene.character_roles.length > 6 && (
@@ -577,22 +592,22 @@ function SceneCard({
         {scene.event_type && (
           <span className={cn(
             "rounded px-1 py-0.5 text-[10px]",
-            EVENT_TYPE_STYLES[scene.event_type] ?? "bg-muted text-muted-foreground",
+            sceneEventTypeStyle(scene.event_type_id, scene.event_type),
           )}>
-            {scene.event_type}
+            {sceneEventTypeLabel(t, scene.event_type_id, scene.event_type)}
           </span>
         )}
         {scene.dialogue_count > 0 && (
           <span className="rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
-            {scene.dialogue_count} 对话
+            {t("shared.scenePanel.dialogueCount", { count: scene.dialogue_count })}
           </span>
         )}
-        {scene.emotional_tone && scene.emotional_tone !== "平静" && (
+        {scene.emotional_tone && shouldDisplaySceneTone(scene.emotional_tone_id, scene.emotional_tone) && (
           <span className={cn(
             "rounded px-1 py-0.5 text-[10px]",
-            TONE_STYLES[scene.emotional_tone] ?? "bg-muted text-muted-foreground",
+            sceneToneStyle(scene.emotional_tone_id, scene.emotional_tone),
           )}>
-            {scene.emotional_tone}
+            {sceneToneLabel(t, scene.emotional_tone_id, scene.emotional_tone)}
           </span>
         )}
       </div>

@@ -8,14 +8,33 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 from functools import lru_cache
 from typing import Any
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
 from src.services.alias_resolver import build_alias_map
-from src.services.relation_utils import classify_relation_category, normalize_relation_type
+from src.services.domain_labels import (
+    event_type_id,
+    item_action_id,
+    item_type_id,
+    location_type_id,
+    normalize_item_action,
+    normalize_item_type,
+    normalize_location_type,
+    normalize_org_action,
+    normalize_org_type,
+    org_action_id,
+    org_type_id,
+)
+from src.services.entity_identity import (
+    choose_display_name,
+    entity_identity_key,
+    normalize_entity_name,
+    same_entity_name,
+)
+from src.services.relation_utils import classify_relation_category, normalize_relation_type, relation_type_id
 from src.models.entity_profiles import (
     AliasEntry,
     AppearanceEntry,
@@ -100,6 +119,30 @@ async def _load_chapter_facts(novel_id: str) -> list[ChapterFact]:
         await conn.close()
 
 
+def _resolve_alias_name(name: str | None, alias_map: dict[str, str]) -> str:
+    normalized = normalize_entity_name(name)
+    if not normalized:
+        return ""
+    return normalize_entity_name(alias_map.get(normalized, alias_map.get(name or "", normalized)))
+
+
+def _names_for_identity(alias_map: dict[str, str], target_name: str) -> set[str]:
+    target_key = entity_identity_key(target_name)
+    names: set[str] = set()
+    normalized_target = normalize_entity_name(target_name)
+    if normalized_target:
+        names.add(normalized_target)
+    for alias, canonical in alias_map.items():
+        alias_name = normalize_entity_name(alias)
+        canonical_name = normalize_entity_name(canonical)
+        if entity_identity_key(alias_name) == target_key or entity_identity_key(canonical_name) == target_key:
+            if alias_name:
+                names.add(alias_name)
+            if canonical_name:
+                names.add(canonical_name)
+    return names
+
+
 # ── Person Aggregation ────────────────────────────
 
 
@@ -111,12 +154,10 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
 
     facts = await _load_chapter_facts(novel_id)
     alias_map = await build_alias_map(novel_id)
+    target_key = entity_identity_key(person_name)
 
     # Build the set of all names that resolve to this person
-    name_set = {person_name}
-    for alias, canonical in alias_map.items():
-        if canonical == person_name:
-            name_set.add(alias)
+    name_set = _names_for_identity(alias_map, person_name)
 
     aliases: list[AliasEntry] = []
     seen_aliases: set[str] = set()
@@ -141,22 +182,25 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
 
         # Characters
         for char in fact.characters:
-            if char.name not in name_set:
+            raw_name = normalize_entity_name(char.name)
+            resolved_name = _resolve_alias_name(char.name, alias_map)
+            if entity_identity_key(raw_name) != target_key and entity_identity_key(resolved_name) != target_key:
                 continue
             chapter_set.add(ch)
             if not first_chapter:
                 first_chapter = ch
 
             # Update first_chapter for alias entries seeded from alias_map
-            if char.name != person_name:
+            if raw_name and raw_name != person_name:
                 for ae in aliases:
-                    if ae.name == char.name and ae.first_chapter == 0:
+                    if ae.name == raw_name and ae.first_chapter == 0:
                         ae.first_chapter = ch
 
             for alias in char.new_aliases:
-                if alias not in seen_aliases and alias != person_name:
-                    seen_aliases.add(alias)
-                    aliases.append(AliasEntry(name=alias, first_chapter=ch))
+                normalized_alias = normalize_entity_name(alias)
+                if normalized_alias and normalized_alias not in seen_aliases and normalized_alias != person_name:
+                    seen_aliases.add(normalized_alias)
+                    aliases.append(AliasEntry(name=normalized_alias, first_chapter=ch))
 
             if char.appearance:
                 _raw_appearances.append((ch, char.appearance))
@@ -173,42 +217,48 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
 
         # Relationships involving this person (any name in name_set)
         for rel in fact.relationships:
-            a_resolved = alias_map.get(rel.person_a, rel.person_a)
-            b_resolved = alias_map.get(rel.person_b, rel.person_b)
-            if a_resolved == person_name:
+            a_resolved = _resolve_alias_name(rel.person_a, alias_map) or normalize_entity_name(rel.person_a)
+            b_resolved = _resolve_alias_name(rel.person_b, alias_map) or normalize_entity_name(rel.person_b)
+            if entity_identity_key(a_resolved) == target_key:
                 other = b_resolved
-            elif b_resolved == person_name:
+            elif entity_identity_key(b_resolved) == target_key:
                 other = a_resolved
             else:
                 continue
-            if other == person_name:
+            if entity_identity_key(other) == target_key:
                 continue  # skip self-relations caused by alias
             _raw_relations[other].append((ch, rel.relation_type, rel.evidence))
 
         # Item events involving this person
         for ie in fact.item_events:
-            actor = alias_map.get(ie.actor, ie.actor) if ie.actor else ""
-            recipient = alias_map.get(ie.recipient, ie.recipient) if ie.recipient else ""
-            if actor == person_name or recipient == person_name:
+            actor = _resolve_alias_name(ie.actor, alias_map) if ie.actor else ""
+            recipient = _resolve_alias_name(ie.recipient, alias_map) if ie.recipient else ""
+            if entity_identity_key(actor) == target_key or entity_identity_key(recipient) == target_key:
                 items.append(
                     ItemAssociation(
                         chapter=ch,
-                        item_name=alias_map.get(ie.item_name, ie.item_name),
-                        item_type=ie.item_type,
-                        action=ie.action,
+                        item_name=normalize_entity_name(ie.item_name),
+                        item_type=normalize_item_type(ie.item_type),
+                        item_type_id=item_type_id(ie.item_type),
+                        action=normalize_item_action(ie.action),
+                        action_id=item_action_id(ie.action),
                         description=ie.description or "",
                     )
                 )
 
         # Events involving this person
         for ev in fact.events:
-            resolved_participants = {alias_map.get(p, p) for p in ev.participants}
-            if person_name in resolved_participants:
+            resolved_participants = {
+                _resolve_alias_name(p, alias_map) or normalize_entity_name(p)
+                for p in ev.participants
+            }
+            if any(entity_identity_key(p) == target_key for p in resolved_participants):
                 experiences.append(
                     PersonExperience(
                         chapter=ch,
                         summary=ev.summary,
                         type=ev.type,
+                        type_id=event_type_id(ev.type),
                         location=ev.location,
                     )
                 )
@@ -294,6 +344,7 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                 merged.append(RelationStage(
                     chapters=[ch],
                     relation_type=normalized,
+                    relation_type_id=relation_type_id(normalized),
                     evidences=[evidence] if evidence else [],
                 ))
 
@@ -363,12 +414,7 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
 
     facts = await _load_chapter_facts(novel_id)
     alias_map = await build_alias_map(novel_id)
-
-    # Build the set of all names that resolve to this location
-    name_set = {location_name}
-    for alias, canonical in alias_map.items():
-        if canonical == location_name:
-            name_set.add(alias)
+    target_key = entity_identity_key(location_name)
 
     location_type = ""
     parent: str | None = None
@@ -382,35 +428,43 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
         ch = fact.chapter_id
 
         for loc in fact.locations:
-            loc_canonical = alias_map.get(loc.name, loc.name)
-            if loc_canonical == location_name:
+            loc_canonical = _resolve_alias_name(loc.name, alias_map) or normalize_entity_name(loc.name)
+            if entity_identity_key(loc_canonical) == target_key or same_entity_name(loc.name, location_name):
                 chapter_set.add(ch)
                 if not location_type and loc.type:
-                    location_type = loc.type
+                    location_type = normalize_location_type(loc.type)
                 if loc.parent and not parent:
-                    parent = alias_map.get(loc.parent, loc.parent)
+                    parent = normalize_entity_name(loc.parent)
                 if loc.description:
                     descriptions.append(
                         LocationDescription(chapter=ch, description=loc.description)
                     )
             # Build parent-child: if this location is someone's parent
-            parent_canonical = alias_map.get(loc.parent, loc.parent) if loc.parent else None
-            if parent_canonical == location_name:
+            parent_canonical = normalize_entity_name(loc.parent) if loc.parent else None
+            if entity_identity_key(parent_canonical) == target_key:
                 children_set.add(loc_canonical)
 
         # Visitors: characters who were at this location
         for char in fact.characters:
-            resolved_locs = {alias_map.get(l, l) for l in char.locations_in_chapter}
-            if location_name in resolved_locs:
-                visitor_canonical = alias_map.get(char.name, char.name)
+            resolved_locs = {
+                _resolve_alias_name(l, alias_map) or normalize_entity_name(l)
+                for l in char.locations_in_chapter
+            }
+            if any(entity_identity_key(loc_name) == target_key for loc_name in resolved_locs):
+                visitor_canonical = _resolve_alias_name(char.name, alias_map) or normalize_entity_name(char.name)
                 visitor_map[visitor_canonical].append(ch)
 
         # Events at this location
         for ev in fact.events:
-            ev_loc = alias_map.get(ev.location, ev.location) if ev.location else None
-            if ev_loc == location_name:
+            ev_loc = normalize_entity_name(ev.location) if ev.location else None
+            if entity_identity_key(ev_loc) == target_key:
                 events.append(
-                    LocationEvent(chapter=ch, summary=ev.summary, type=ev.type)
+                    LocationEvent(
+                        chapter=ch,
+                        summary=ev.summary,
+                        type=ev.type,
+                        type_id=event_type_id(ev.type),
+                    )
                 )
 
     # Override parent and children with authoritative WorldStructure data
@@ -419,13 +473,17 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
         from src.db import world_structure_store
         ws = await world_structure_store.load(novel_id)
         if ws and ws.location_parents:
-            authoritative = ws.location_parents.get(location_name)
+            authoritative_name = next(
+                (name for name in ws.location_parents if entity_identity_key(name) == target_key),
+                None,
+            )
+            authoritative = ws.location_parents.get(authoritative_name) if authoritative_name else None
             if authoritative:
                 parent = authoritative
             # Collect children: all entries whose authoritative parent is this location
             ws_children = {
                 child for child, p in ws.location_parents.items()
-                if p == location_name
+                if entity_identity_key(p) == target_key
             }
             children_set = children_set | ws_children
     except Exception:
@@ -449,7 +507,7 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
             if ws and ws.location_parents:
                 siblings = sorted(
                     child for child, p in ws.location_parents.items()
-                    if p == parent and child != location_name
+                    if same_entity_name(p, parent) and not same_entity_name(child, location_name)
                 )
         except Exception:
             pass
@@ -457,6 +515,7 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
     profile = LocationProfile(
         name=location_name,
         location_type=location_type,
+        location_type_id=location_type_id(location_type),
         parent=parent,
         children=sorted(children_set),
         siblings=siblings,
@@ -486,12 +545,7 @@ async def aggregate_item(novel_id: str, item_name: str) -> ItemProfile:
 
     facts = await _load_chapter_facts(novel_id)
     alias_map = await build_alias_map(novel_id)
-
-    # Build the set of all names that resolve to this item
-    name_set = {item_name}
-    for alias, canonical in alias_map.items():
-        if canonical == item_name:
-            name_set.add(alias)
+    target_key = entity_identity_key(item_name)
 
     item_type = ""
     flow: list[ItemFlowEntry] = []
@@ -503,17 +557,18 @@ async def aggregate_item(novel_id: str, item_name: str) -> ItemProfile:
         chapter_items_in_event: list[str] = []
 
         for ie in fact.item_events:
-            ie_canonical = alias_map.get(ie.item_name, ie.item_name)
-            if ie_canonical == item_name:
+            ie_canonical = normalize_entity_name(ie.item_name)
+            if entity_identity_key(ie_canonical) == target_key:
                 chapter_set.add(ch)
                 if not item_type and ie.item_type:
-                    item_type = ie.item_type
+                    item_type = normalize_item_type(ie.item_type)
                 flow.append(
                     ItemFlowEntry(
                         chapter=ch,
-                        action=ie.action,
-                        actor=alias_map.get(ie.actor, ie.actor) if ie.actor else ie.actor,
-                        recipient=alias_map.get(ie.recipient, ie.recipient) if ie.recipient else ie.recipient,
+                        action=normalize_item_action(ie.action),
+                        action_id=item_action_id(ie.action),
+                        actor=_resolve_alias_name(ie.actor, alias_map) if ie.actor else ie.actor,
+                        recipient=_resolve_alias_name(ie.recipient, alias_map) if ie.recipient else ie.recipient,
                         description=ie.description or "",
                     )
                 )
@@ -522,12 +577,13 @@ async def aggregate_item(novel_id: str, item_name: str) -> ItemProfile:
         # Related items: other items appearing in chapters where this item appears
         if ch in chapter_set:
             for other_name in chapter_items_in_event:
-                if other_name != item_name:
+                if entity_identity_key(other_name) != target_key:
                     related_set.add(other_name)
 
     profile = ItemProfile(
         name=item_name,
         item_type=item_type,
+        item_type_id=item_type_id(item_type),
         flow=flow,
         related_items=sorted(related_set),
         stats={
@@ -552,12 +608,7 @@ async def aggregate_org(novel_id: str, org_name: str) -> OrgProfile:
 
     facts = await _load_chapter_facts(novel_id)
     alias_map = await build_alias_map(novel_id)
-
-    # Build the set of all names that resolve to this org
-    name_set = {org_name}
-    for alias, canonical in alias_map.items():
-        if canonical == org_name:
-            name_set.add(alias)
+    target_key = entity_identity_key(org_name)
 
     org_type = ""
     member_events: list[OrgMemberEvent] = []
@@ -568,18 +619,19 @@ async def aggregate_org(novel_id: str, org_name: str) -> OrgProfile:
         ch = fact.chapter_id
 
         for oe in fact.org_events:
-            oe_canonical = alias_map.get(oe.org_name, oe.org_name)
-            if oe_canonical == org_name:
+            oe_canonical = normalize_entity_name(oe.org_name)
+            if entity_identity_key(oe_canonical) == target_key:
                 chapter_set.add(ch)
                 if not org_type and oe.org_type:
-                    org_type = oe.org_type
+                    org_type = normalize_org_type(oe.org_type)
                 if oe.member:
                     member_events.append(
                         OrgMemberEvent(
                             chapter=ch,
-                            member=alias_map.get(oe.member, oe.member),
+                            member=_resolve_alias_name(oe.member, alias_map),
                             role=oe.role,
-                            action=oe.action,
+                            action=normalize_org_action(oe.action),
+                            action_id=org_action_id(oe.action),
                             description=oe.description or "",
                         )
                     )
@@ -587,14 +639,16 @@ async def aggregate_org(novel_id: str, org_name: str) -> OrgProfile:
                     org_relations.append(
                         OrgRelationEntry(
                             chapter=ch,
-                            other_org=alias_map.get(oe.org_relation.other_org, oe.org_relation.other_org),
-                            relation_type=oe.org_relation.type,
+                            other_org=normalize_entity_name(oe.org_relation.other_org),
+                            relation_type=normalize_relation_type(oe.org_relation.type),
+                            relation_type_id=relation_type_id(oe.org_relation.type),
                         )
                     )
 
     profile = OrgProfile(
         name=org_name,
         org_type=org_type,
+        org_type_id=org_type_id(org_type),
         member_events=member_events,
         org_relations=org_relations,
         stats={
@@ -620,59 +674,74 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
     alias_map = await build_alias_map(novel_id)
 
     entity_map: dict[tuple[str, str], set[int]] = defaultdict(set)
+    entity_name_votes: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
+
+    def register(name: str | None, etype: str, chapter: int) -> None:
+        resolved = _resolve_alias_name(name, alias_map) or normalize_entity_name(name)
+        if not resolved:
+            return
+        key = entity_identity_key(resolved)
+        if not key:
+            return
+        entity_map[(key, etype)].add(chapter)
+        entity_name_votes[(key, etype)][resolved] += 1
 
     for fact in facts:
         ch = fact.chapter_id
 
         for char in fact.characters:
-            canonical = alias_map.get(char.name, char.name)
-            entity_map[(canonical, "person")].add(ch)
+            register(char.name, "person", ch)
 
         for loc in fact.locations:
-            canonical = alias_map.get(loc.name, loc.name)
-            entity_map[(canonical, "location")].add(ch)
+            register(loc.name, "location", ch)
 
         for ie in fact.item_events:
-            canonical = alias_map.get(ie.item_name, ie.item_name)
-            entity_map[(canonical, "item")].add(ch)
+            register(ie.item_name, "item", ch)
 
         for oe in fact.org_events:
-            canonical = alias_map.get(oe.org_name, oe.org_name)
-            entity_map[(canonical, "org")].add(ch)
+            register(oe.org_name, "org", ch)
 
         for nc in fact.new_concepts:
-            entity_map[(nc.name, "concept")].add(ch)
+            register(nc.name, "concept", ch)
 
     # ── Entity type voting: resolve cross-type conflicts ──
     # When the same canonical name appears as multiple types (e.g., 林黛玉 as
     # both person and item), keep only the type with the most chapter appearances.
     _name_type_votes: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for (name, etype), chapters in entity_map.items():
-        _name_type_votes[name][etype] = len(chapters)
+    for (name_key, etype), chapters in entity_map.items():
+        _name_type_votes[name_key][etype] = len(chapters)
 
     _name_winning_type: dict[str, str] = {}
     # Type priority for tie-breaking: person > org > location > item > concept
     _TYPE_PRIORITY = {"person": 5, "org": 4, "location": 3, "item": 2, "concept": 1}
-    for name, type_votes in _name_type_votes.items():
+    for name_key, type_votes in _name_type_votes.items():
         if len(type_votes) > 1:
             # Pick type with most chapters; break ties by type priority
             winner = max(
                 type_votes.items(),
                 key=lambda x: (x[1], _TYPE_PRIORITY.get(x[0], 0)),
             )[0]
-            _name_winning_type[name] = winner
+            _name_winning_type[name_key] = winner
 
     # ── Filter single-character entities ──
     # Non-person: always drop single-char (common nouns like 书/饭/茶)
     # Person: only keep if a longer entity shares it as surname prefix
-    person_names = {name for (name, etype) in entity_map if etype == "person"}
+    person_names = {
+        choose_display_name(entity_name_votes[(name_key, etype)].keys(), entity_name_votes[(name_key, etype)])
+        for (name_key, etype) in entity_map
+        if etype == "person"
+    }
     multi_char_persons = {name for name in person_names if len(name) >= 2}
 
     entities = []
-    for (name, etype), chapters in entity_map.items():
+    for (name_key, etype), chapters in entity_map.items():
         # Skip losing types in cross-type conflicts
-        if name in _name_winning_type and etype != _name_winning_type[name]:
+        if name_key in _name_winning_type and etype != _name_winning_type[name_key]:
             continue
+        name = choose_display_name(
+            entity_name_votes[(name_key, etype)].keys(),
+            entity_name_votes[(name_key, etype)],
+        )
         if len(name) < 2:
             if etype != "person":
                 continue  # drop single-char non-person
