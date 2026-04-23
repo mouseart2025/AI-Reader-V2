@@ -279,6 +279,27 @@ class GeoOrchestrator:
         if not uber_root:
             return
 
+        # Phase 0 (close orphans): The MWA formulation guarantees every non-root
+        # node has an incoming edge from some parent (ultimately uber_root).
+        # Post-Edmonds consolidation can leave nodes without a recorded parent
+        # when all candidate parents get filtered out; make their implicit
+        # attachment to uber_root explicit here. Without this, location_parents
+        # can show multiple disjoint roots (observed on 西游记: 天下+泾河;
+        # 封神演义: 天下+属天界+朝歌或商朝), contradicting the single-root
+        # guarantee that §3.3 claims.
+        #
+        # Two sources of orphans:
+        #   (a) nodes present in tiers/layer_map but missing from parents
+        #   (b) nodes that only appear as parent values (someone's parent but
+        #       itself has no recorded parent) — common when extraction names
+        #       a "super-location" that didn't enter tiers.
+        candidate_nodes = set(tiers.keys()) | {p for p in parents.values() if p}
+        for name in candidate_nodes:
+            if name == uber_root:
+                continue
+            if name not in parents:
+                parents[name] = uber_root
+
         # Phase A: Fix cross-layer parenting — locations whose parent is
         # in a different layer should be detached to become layer top-level.
         # e.g., 龙宫(underwater) parent=黑风山(overworld) → parent=uber_root

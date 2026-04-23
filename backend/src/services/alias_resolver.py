@@ -270,10 +270,59 @@ async def build_alias_map(novel_id: str) -> dict[str, str]:
         return _alias_cache[novel_id]
 
     alias_map = await _build_merged(novel_id)
+    alias_map = _apply_known_hotfix_patches(alias_map)
 
     _alias_cache[novel_id] = alias_map
     if alias_map:
         logger.info("Built alias map for novel %s: %d aliases", novel_id, len(alias_map))
+    return alias_map
+
+
+# ── Known-bug hotfix patches ───────────────────────
+#
+# These patches correct specific UF mis-merges caused by LLM-extracted compound
+# entity names (e.g., "八戒沙僧" forcing 沙僧's aliases into 八戒's canonical
+# group). Each patch detects its bug signature in the current map — if the
+# signature is absent, the patch is a no-op. Once the root cause is fixed in
+# _alias_safety_level (P1 work: down-weight compound names containing 2+ primary
+# entities), these patches become inert and can be removed.
+
+def _hotfix_xiyouji_sha_bajie(alias_map: dict[str, str]) -> dict[str, str]:
+    """Split 沙僧's aliases wrongly merged into 八戒.
+
+    Root cause: entity_dictionary contains compound name "八戒沙僧" (LLM
+    mis-extraction). Its declared aliases pull both canonical identities into
+    the same UF tree; canonical selection picks 八戒 (higher frequency), so
+    every 沙-identity alias ends up pointing at 八戒.
+    """
+    if alias_map.get("沙悟净") != "八戒" and alias_map.get("卷帘大将") != "八戒":
+        return alias_map
+    sha_only_aliases = {
+        "沙僧", "沙悟净", "沙和尚",
+        "悟净",
+        "卷帘大将", "卷帘将", "卷帘",
+        "金身罗汉",
+        "老沙", "小沙僧",
+        "沙四官儿",
+        "三徒弟",
+    }
+    patched = dict(alias_map)
+    moved = 0
+    for alias in list(patched.keys()):
+        if alias in sha_only_aliases and patched[alias] == "八戒":
+            patched[alias] = "沙僧"
+            moved += 1
+    # Canonical names must not map to themselves (alias_map contract).
+    if patched.get("沙僧") == "沙僧":
+        del patched["沙僧"]
+    if moved:
+        logger.info("hotfix_xiyouji_sha_bajie: rerouted %d aliases 八戒→沙僧", moved)
+    return patched
+
+
+def _apply_known_hotfix_patches(alias_map: dict[str, str]) -> dict[str, str]:
+    """Apply all known-bug hotfix patches. No-op when bug signatures are absent."""
+    alias_map = _hotfix_xiyouji_sha_bajie(alias_map)
     return alias_map
 
 
