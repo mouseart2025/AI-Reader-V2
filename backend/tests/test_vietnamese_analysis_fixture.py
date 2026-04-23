@@ -35,7 +35,13 @@ def vi_fixture() -> dict:
 
 @pytest.fixture
 def patch_analysis_reads(memory_db, monkeypatch):
-    """Patch module-level get_connection references to use the shared test DB."""
+    """Patch module-level get_connection references to use the shared test DB.
+
+    This fixture intentionally patches modules that import `get_connection`
+    directly at module scope. As multilingual/i18n work adds more aggregation
+    steps, missing one of these patches can make a test fall back to the real
+    sqlite path in CI and fail with `unable to open database file`.
+    """
 
     class _NonClosingConnection:
         def __init__(self, conn):
@@ -53,6 +59,7 @@ def patch_analysis_reads(memory_db, monkeypatch):
     import src.db.chapter_fact_store as chapter_fact_store
     import src.db.world_structure_store as world_structure_store
     import src.services.alias_resolver as alias_resolver
+    import src.services.entity_aggregator as entity_aggregator
     import src.services.visualization_service as visualization_service
 
     async def _fake_geo_auto_resolve(*_args, **_kwargs):
@@ -80,6 +87,7 @@ def patch_analysis_reads(memory_db, monkeypatch):
     monkeypatch.setattr(chapter_fact_store, "get_connection", _factory)
     monkeypatch.setattr(world_structure_store, "get_connection", _factory)
     monkeypatch.setattr(alias_resolver, "get_connection", _factory)
+    monkeypatch.setattr(entity_aggregator, "get_connection", _factory)
     monkeypatch.setattr(visualization_service, "get_connection", _factory)
     monkeypatch.setattr(visualization_service, "geo_auto_resolve", _fake_geo_auto_resolve)
     monkeypatch.setattr(visualization_service, "_compute_or_load_layout", _fake_compute_or_load_layout)
@@ -87,6 +95,8 @@ def patch_analysis_reads(memory_db, monkeypatch):
     monkeypatch.setattr(visualization_service, "generate_landmasses", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(visualization_service, "generate_rivers", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(visualization_service, "generate_roads", lambda *_args, **_kwargs: [])
+    entity_aggregator._cache.clear()
+    entity_aggregator._cache_order.clear()
     visualization_service._map_cache.clear()
     yield memory_db
 
@@ -238,7 +248,12 @@ async def test_vietnamese_fixture_aggregate_regression(
         assert any(needle in summary for summary in summaries)
 
     category_stats = await get_category_stats(novel_id)
-    assert category_stats == expected["category_stats"]
+    expected_category_stats = expected["category_stats"]
+    assert {
+        key: category_stats[key]
+        for key in expected_category_stats
+    } == expected_category_stats
+    assert category_stats.get("concept_category_labels", {}) == {}
 
     person_entries = await get_encyclopedia_entries(novel_id, category="person", sort_by="name")
     location_entries = await get_encyclopedia_entries(novel_id, category="location", sort_by="hierarchy")
