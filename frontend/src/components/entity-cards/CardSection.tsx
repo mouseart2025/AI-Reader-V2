@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useI18n } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 interface CardSectionProps {
@@ -14,8 +15,9 @@ export function CardSection({
   count,
   defaultLimit = 5,
   children,
-  emptyText = "暂无数据",
+  emptyText,
 }: CardSectionProps) {
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const total = count ?? children.length
   const showToggle = total > defaultLimit
@@ -30,7 +32,7 @@ export function CardSection({
         )}
       </h4>
       {total === 0 ? (
-        <p className="text-muted-foreground text-sm">{emptyText}</p>
+        <p className="text-muted-foreground text-sm">{emptyText ?? t("entity.emptyData")}</p>
       ) : (
         <>
           <div className="space-y-1.5">{visible}</div>
@@ -40,8 +42,8 @@ export function CardSection({
               onClick={() => setExpanded(!expanded)}
             >
               {expanded
-                ? "收起"
-                : `共 ${total} 项 ▸ 查看全部`}
+                ? t("entity.showLess")
+                : t("entity.showAll", { count: total })}
             </button>
           )}
         </>
@@ -57,19 +59,21 @@ export function ChapterTag({
   chapter: number
   onClick?: (ch: number) => void
 }) {
+  const { t } = useI18n()
+  const label = t("common.chapterShort", { chapter })
   if (onClick) {
     return (
       <button
         className="text-muted-foreground inline-block cursor-pointer rounded bg-muted px-1.5 py-0.5 text-[10px] hover:underline"
         onClick={() => onClick(chapter)}
       >
-        Ch.{chapter}
+        {label}
       </button>
     )
   }
   return (
     <span className="text-muted-foreground inline-block rounded bg-muted px-1.5 py-0.5 text-[10px]">
-      Ch.{chapter}
+      {label}
     </span>
   )
 }

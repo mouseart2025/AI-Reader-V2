@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom"
 import { X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Novel } from "@/api/types"
+import { useI18n } from "@/i18n"
 import { novelPath } from "@/lib/novelPaths"
 
 const STORAGE_KEY = "ai-reader-ftue-dismissed"
 
 export function WelcomeBanner({ sampleNovels }: { sampleNovels: Novel[] }) {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem(STORAGE_KEY) === "1"
@@ -29,7 +31,7 @@ export function WelcomeBanner({ sampleNovels }: { sampleNovels: Novel[] }) {
       <button
         onClick={handleDismiss}
         className="absolute top-3 right-3 rounded-full p-1 text-white/70 transition hover:bg-white/20 hover:text-white"
-        aria-label="关闭"
+        aria-label={t("common.close")}
       >
         <X className="h-4 w-4" />
       </button>
@@ -39,9 +41,9 @@ export function WelcomeBanner({ sampleNovels }: { sampleNovels: Novel[] }) {
           <Sparkles className="h-6 w-6" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-bold">欢迎使用 AI Reader！</h2>
+          <h2 className="text-lg font-bold">{t("shared.welcome.title")}</h2>
           <p className="mt-1 text-sm text-white/85 leading-relaxed">
-            这{sampleNovels.length === 1 ? "本名著" : `${sampleNovels.length}本名著`}已预先分析完成，点击即可探索人物关系图、世界地图、时间线等 7 种可视化
+            {t("shared.welcome.description", { count: sampleNovels.length })}
           </p>
           <div className="mt-4 flex items-center gap-3">
             <Button
@@ -49,7 +51,7 @@ export function WelcomeBanner({ sampleNovels }: { sampleNovels: Novel[] }) {
               className="bg-white text-blue-700 hover:bg-white/90"
               size="sm"
             >
-              开始探索
+              {t("shared.welcome.startExploring")}
             </Button>
           </div>
         </div>

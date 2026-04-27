@@ -8,15 +8,16 @@ import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom"
 import { DemoProvider } from "./DemoContext"
 import { DemoEntityCardDrawer } from "@/components/entity-cards/DemoEntityCardDrawer"
 import { getAllDemoNovels } from "@/api/demoNovelMap"
+import { useI18n } from "@/i18n"
 
 const TABS = [
-  { key: "reading", label: "阅读", icon: "📃" },
-  { key: "graph", label: "图谱", icon: "🕸️" },
-  { key: "map", label: "地图", icon: "🗺️" },
-  { key: "timeline", label: "时间线", icon: "⏳" },
-  { key: "encyclopedia", label: "百科", icon: "📖" },
-  { key: "factions", label: "势力", icon: "⚔️" },
-  { key: "export", label: "导出", icon: "💾" },
+  { key: "reading", labelKey: "nav.reading", icon: "📃" },
+  { key: "graph", labelKey: "nav.graph", icon: "🕸️" },
+  { key: "map", labelKey: "nav.map", icon: "🗺️" },
+  { key: "timeline", labelKey: "nav.timeline", icon: "⏳" },
+  { key: "encyclopedia", labelKey: "nav.encyclopedia", icon: "📖" },
+  { key: "factions", labelKey: "nav.factions", icon: "⚔️" },
+  { key: "export", labelKey: "nav.export", icon: "💾" },
 ] as const
 
 /** Compute landing page URL from Vite base path */
@@ -26,6 +27,7 @@ export default function DemoLayout() {
   const { novelSlug = "honglou" } = useParams<{ novelSlug: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useI18n()
   const novels = getAllDemoNovels()
 
   // Embed mode: render only the page content, no chrome
@@ -37,10 +39,11 @@ export default function DemoLayout() {
 
   // Dynamic document title
   const novelTitle = novels.find((n) => n.slug === novelSlug)?.title ?? novelSlug
-  const tabLabel = TABS.find((t) => t.key === activeTab)?.label ?? ""
+  const activeTabConfig = TABS.find((tab) => tab.key === activeTab)
+  const tabLabel = activeTabConfig ? t(activeTabConfig.labelKey) : ""
   useEffect(() => {
-    document.title = `${novelTitle} · ${tabLabel} — AI Reader Demo`
-  }, [novelTitle, tabLabel])
+    document.title = `${novelTitle} · ${tabLabel} — ${t("demo.documentTitleSuffix")}`
+  }, [novelTitle, tabLabel, t])
 
   // Story 4.1: Track tab switches for upgrade banner
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
@@ -83,23 +86,23 @@ export default function DemoLayout() {
       {/* Story 4.3: Mobile gate — shown on < md screens instead of full demo */}
       <div className="flex h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center md:hidden">
         <span className="mb-4 text-5xl">📚</span>
-        <h1 className="mb-2 text-xl font-bold text-white">AI Reader V2 Demo</h1>
+        <h1 className="mb-2 text-xl font-bold text-white">{t("demo.appTitle")}</h1>
         <p className="mb-6 text-sm text-slate-400">
-          交互式分析 Demo 需要桌面浏览器获得最佳体验
+          {t("demo.mobileBestDesktop")}
         </p>
         {/* Screenshot placeholders */}
         <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
           <div className="flex-shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 p-4 w-48 h-32 flex items-center justify-center">
-            <span className="text-xs text-slate-500">🕸️ 关系图</span>
+            <span className="text-xs text-slate-500">{t("demo.previewRelationGraph")}</span>
           </div>
           <div className="flex-shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 p-4 w-48 h-32 flex items-center justify-center">
-            <span className="text-xs text-slate-500">🗺️ 世界地图</span>
+            <span className="text-xs text-slate-500">{t("demo.previewWorldMap")}</span>
           </div>
           <div className="flex-shrink-0 rounded-lg border border-slate-700/50 bg-slate-900 p-4 w-48 h-32 flex items-center justify-center">
-            <span className="text-xs text-slate-500">⏳ 时间线</span>
+            <span className="text-xs text-slate-500">{t("demo.previewTimeline")}</span>
           </div>
         </div>
-        <p className="mb-4 text-xs text-slate-500">在桌面浏览器打开此链接获得完整交互体验</p>
+        <p className="mb-4 text-xs text-slate-500">{t("demo.openOnDesktop")}</p>
         <div className="flex gap-3">
           <a
             href="https://github.com/mouseart2025/AI-Reader-V2"
@@ -107,13 +110,13 @@ export default function DemoLayout() {
             rel="noopener noreferrer"
             className="rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition"
           >
-            GitHub 下载
+            {t("demo.githubDownload")}
           </a>
           <a
             href={LANDING_URL}
             className="rounded-md border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-300 hover:border-blue-500 hover:text-white transition"
           >
-            返回首页
+            {t("demo.returnHome")}
           </a>
         </div>
       </div>
@@ -128,7 +131,7 @@ export default function DemoLayout() {
             className="flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-blue-400 transition"
           >
             <span className="text-lg">📚</span>
-            <span>AI Reader Demo</span>
+            <span>{t("demo.logoTitle")}</span>
           </a>
 
           {/* Novel Selector */}
@@ -157,7 +160,7 @@ export default function DemoLayout() {
                 }`}
               >
                 <span className="mr-1">{tab.icon}</span>
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </nav>
@@ -171,7 +174,7 @@ export default function DemoLayout() {
             rel="noopener noreferrer"
             className="text-sm text-slate-500 hover:text-slate-300 transition"
           >
-            GitHub ↗
+            {t("demo.githubLink")}
           </a>
         </header>
 
@@ -187,12 +190,12 @@ export default function DemoLayout() {
         {showUpgradeBanner && (
           <div
             role="complementary"
-            aria-label="安装引导"
+            aria-label={t("demo.upgradeBannerLabel")}
             className="flex items-center justify-between border-t border-slate-700/50 bg-slate-900 px-4 py-3 text-white animate-slide-up"
           >
             <p className="text-sm text-slate-300">
               <span className="mr-1">💡</span>
-              想分析自己的小说？下载 AI Reader V2，5 分钟开始使用
+              {t("demo.upgradePrompt")}
             </p>
             <div className="flex items-center gap-3">
               <a
@@ -201,18 +204,18 @@ export default function DemoLayout() {
                 rel="noopener noreferrer"
                 className="rounded-md bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-600 transition"
               >
-                免费下载
+                {t("demo.freeDownload")}
               </a>
               <a
                 href={LANDING_URL.replace(/\/$/, "") + "/#download"}
                 className="hidden rounded-md border border-slate-600 px-4 py-1.5 text-sm text-slate-300 hover:text-white hover:border-slate-400 transition lg:block"
               >
-                快速开始
+                {t("demo.quickStart")}
               </a>
               <button
                 onClick={dismissBanner}
                 className="ml-2 text-slate-500 hover:text-white transition"
-                aria-label="关闭"
+                aria-label={t("common.close")}
               >
                 ✕
               </button>

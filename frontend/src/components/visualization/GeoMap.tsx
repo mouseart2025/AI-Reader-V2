@@ -14,6 +14,8 @@ import L from "leaflet"
 import type { LatLngBoundsExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
+import { useI18n } from "@/i18n"
+import { locationTypeLabel } from "@/lib/domainLabels"
 
 // ── Tile layer (no labels — clean canvas for novel markers) ──
 const TILE_URL =
@@ -35,15 +37,15 @@ const CROSSHAIR_ICON = L.divIcon({
 })
 
 // ── Location color by type ────────────────────────
-function locationColor(type: string): string {
-  const t = type.toLowerCase()
-  if (t.includes("国") || t.includes("域") || t.includes("界") || t.includes("洲"))
+function locationColor(typeId: string | undefined, type: string): string {
+  const t = `${typeId || ""} ${type}`.toLowerCase()
+  if (t.includes("state") || t.includes("region") || t.includes("国") || t.includes("域") || t.includes("界") || t.includes("洲"))
     return "#3b82f6"
-  if (t.includes("城") || t.includes("镇") || t.includes("都") || t.includes("村"))
+  if (t.includes("city") || t.includes("town") || t.includes("village") || t.includes("城") || t.includes("镇") || t.includes("都") || t.includes("村"))
     return "#10b981"
-  if (t.includes("山") || t.includes("洞") || t.includes("谷") || t.includes("林"))
+  if (t.includes("mountain") || t.includes("山") || t.includes("洞") || t.includes("谷") || t.includes("林"))
     return "#84cc16"
-  if (t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
+  if (t.includes("river") || t.includes("lake") || t.includes("stream") || t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
   return "#6b7280"
 }
 
@@ -152,6 +154,7 @@ function ZoomAwareMarkers({
   onEditLocation?: (name: string) => void
   handleDragEnd: (name: string, e: L.DragEndEvent) => void
 }) {
+  const { t } = useI18n()
   const zoom = useZoomLevel()
   const minMention = labelMentionThreshold(zoom)
 
@@ -161,7 +164,7 @@ function ZoomAwareMarkers({
         const gc = geoCoords[loc.name]!
         const mention = loc.mention_count ?? 1
         const radius = Math.max(5, Math.min(20, 4 + Math.sqrt(mention) * 2))
-        const color = locationColor(loc.type ?? "")
+        const color = locationColor(loc.type_id, loc.type ?? "")
         const isCurrent = loc.name === currentLocation
         const isFocused = loc.name === focusLocation
         const isEditing = loc.name === editingLocation
@@ -210,13 +213,13 @@ function ZoomAwareMarkers({
                 <div className="min-w-[120px]">
                   <div className="font-semibold">{loc.name}</div>
                   {loc.type && (
-                    <div className="text-xs text-gray-500">{loc.type}</div>
+                    <div className="text-xs text-gray-500">{locationTypeLabel(t, loc.type_id, loc.type)}</div>
                   )}
                   {loc.parent && (
                     <div className="text-xs text-gray-400">{loc.parent}</div>
                   )}
                   <div className="text-xs text-gray-400">
-                    提及 {loc.mention_count ?? 0} 次
+                    {t("visualization.geoMap.mentionCount", { count: loc.mention_count ?? 0 })}
                   </div>
                   <div className="mt-1.5 flex gap-2">
                     <button
@@ -226,7 +229,7 @@ function ZoomAwareMarkers({
                         onLocationClick?.(loc.name)
                       }}
                     >
-                      查看详情
+                      {t("visualization.geoMap.viewDetails")}
                     </button>
                     <button
                       className="text-xs text-red-500 hover:underline"
@@ -235,7 +238,7 @@ function ZoomAwareMarkers({
                         onEditLocation?.(loc.name)
                       }}
                     >
-                      编辑位置
+                      {t("visualization.geoMap.editLocation")}
                     </button>
                   </div>
                 </div>
@@ -261,6 +264,7 @@ export function GeoMap({
   onEditDragEnd,
   onEditCancel,
 }: GeoMapProps) {
+  const { t } = useI18n()
   // Only render locations that have geo coordinates
   const geoLocations = useMemo(
     () => locations.filter((loc) => geoCoords[loc.name]),
@@ -306,13 +310,13 @@ export function GeoMap({
       {editingLocation && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] rounded-full border border-red-300 bg-red-50 px-4 py-1.5 shadow-lg flex items-center gap-2">
           <span className="text-xs text-red-700">
-            拖拽十字丝移动「{editingLocation}」的位置
+            {t("visualization.geoMap.dragToMove", { location: editingLocation })}
           </span>
           <button
             className="text-xs text-red-500 hover:text-red-700 underline"
             onClick={onEditCancel}
           >
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       )}

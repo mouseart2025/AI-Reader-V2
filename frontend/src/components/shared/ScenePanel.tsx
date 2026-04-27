@@ -3,6 +3,17 @@ import { cn } from "@/lib/utils"
 import type { Scene } from "@/api/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useI18n } from "@/i18n"
+import {
+  SCENE_TONE_FILTERS,
+  sceneEventTypeLabel,
+  sceneEventTypeStyle,
+  sceneTimeOfDayLabel,
+  sceneToneId,
+  sceneToneLabel,
+  sceneToneStyle,
+  shouldDisplaySceneTone,
+} from "@/lib/domainLabels"
 
 // ── Scene border colors (one per scene, cycling) ─
 
@@ -17,24 +28,6 @@ export const SCENE_BORDER_COLORS = [
   "border-l-lime-500",
 ]
 
-// ── Tone / event-type styling ───────────────────
-
-export const TONE_STYLES: Record<string, string> = {
-  "战斗": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "紧张": "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  "悲伤": "bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300",
-  "欢乐": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "平静": "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300",
-}
-
-export const EVENT_TYPE_STYLES: Record<string, string> = {
-  "对话": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  "战斗": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "旅行": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  "描写": "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
-  "回忆": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-}
-
 // ── Scene Card ──────────────────────────────────
 
 export function SceneCard({
@@ -48,6 +41,10 @@ export function SceneCard({
   borderColor: string
   onClick: () => void
 }) {
+  const { t } = useI18n()
+  const eventTypeText = sceneEventTypeLabel(t, scene.event_type_id, scene.event_type)
+  const toneText = sceneToneLabel(t, scene.emotional_tone_id, scene.emotional_tone)
+
   return (
     <button
       className={cn(
@@ -69,10 +66,7 @@ export function SceneCard({
         </div>
         {scene.time_of_day && (
           <span className="shrink-0 text-[10px] text-muted-foreground">
-            {scene.time_of_day === "早" ? "晨" :
-             scene.time_of_day === "午" ? "午" :
-             scene.time_of_day === "晚" ? "暮" :
-             scene.time_of_day === "夜" ? "夜" : ""}
+            {sceneTimeOfDayLabel(t, scene.time_of_day_id, scene.time_of_day)}
           </span>
         )}
       </div>
@@ -105,7 +99,7 @@ export function SceneCard({
               )}
             >
               {cr.name}
-              {cr.role === "主" && <span className="text-[9px]">(主)</span>}
+              {cr.role === "主" && <span className="text-[9px]">{t("shared.scenePanel.mainRole")}</span>}
             </span>
           ))}
           {scene.character_roles.length > 6 && (
@@ -134,22 +128,22 @@ export function SceneCard({
         {scene.event_type && (
           <span className={cn(
             "rounded px-1 py-0.5 text-[10px]",
-            EVENT_TYPE_STYLES[scene.event_type] ?? "bg-muted text-muted-foreground",
+            sceneEventTypeStyle(scene.event_type_id, scene.event_type),
           )}>
-            {scene.event_type}
+            {eventTypeText}
           </span>
         )}
         {scene.dialogue_count > 0 && (
           <span className="rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
-            {scene.dialogue_count} 对话
+            {t("shared.scenePanel.dialogueCount", { count: scene.dialogue_count })}
           </span>
         )}
-        {scene.emotional_tone && scene.emotional_tone !== "平静" && (
+        {scene.emotional_tone && shouldDisplaySceneTone(scene.emotional_tone_id, scene.emotional_tone) && (
           <span className={cn(
             "rounded px-1 py-0.5 text-[10px]",
-            TONE_STYLES[scene.emotional_tone] ?? "bg-muted text-muted-foreground",
+            sceneToneStyle(scene.emotional_tone_id, scene.emotional_tone),
           )}>
-            {scene.emotional_tone}
+            {toneText}
           </span>
         )}
       </div>
@@ -158,8 +152,6 @@ export function SceneCard({
 }
 
 // ── Scene Panel (right sidebar for ReadingPage) ─
-
-const FILTER_TONES = ["战斗", "紧张", "悲伤", "欢乐", "平静"] as const
 
 export function ScenePanel({
   scenes,
@@ -182,6 +174,7 @@ export function ScenePanel({
   onGoAnalysis?: () => void
   onRetry?: () => void
 }) {
+  const { t } = useI18n()
   const isAnalyzed = analysisStatus === "completed"
   const [filterChar, setFilterChar] = useState("")
   const [filterTone, setFilterTone] = useState<string | null>(null)
@@ -196,7 +189,7 @@ export function ScenePanel({
       )
     }
     if (filterTone) {
-      result = result.filter((s) => s.emotional_tone === filterTone)
+      result = result.filter((s) => sceneToneId(s.emotional_tone_id, s.emotional_tone) === filterTone)
     }
     return result
   }, [scenes, filterChar, filterTone])
@@ -205,8 +198,8 @@ export function ScenePanel({
     <div className="flex h-full w-72 shrink-0 flex-col border-l">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="text-sm font-medium">剧本场景</span>
-        <Button variant="ghost" size="icon-xs" onClick={onClose} title="收起">
+        <span className="text-sm font-medium">{t("shared.scenePanel.title")}</span>
+        <Button variant="ghost" size="icon-xs" onClick={onClose} title={t("common.collapse")}>
           <XIcon className="size-4" />
         </Button>
       </div>
@@ -214,10 +207,10 @@ export function ScenePanel({
       {/* Error state */}
       {error ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-          <p className="text-sm text-destructive">场景加载失败</p>
+          <p className="text-sm text-destructive">{t("shared.scenePanel.loadFailed")}</p>
           {onRetry && (
             <Button size="sm" variant="outline" onClick={onRetry}>
-              重试
+              {t("common.retry")}
             </Button>
           )}
         </div>
@@ -228,11 +221,11 @@ export function ScenePanel({
             <AnalysisIcon className="size-5 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground">
-            当前章节尚未分析，无法生成场景数据
+            {t("shared.scenePanel.notAnalyzed")}
           </p>
           {onGoAnalysis && (
             <Button size="sm" onClick={onGoAnalysis}>
-              前往分析
+              {t("shared.scenePanel.goAnalysis")}
             </Button>
           )}
         </div>
@@ -241,29 +234,34 @@ export function ScenePanel({
           {/* Scene count + filter */}
           <div className="space-y-1.5 border-b px-3 py-1.5">
             <span className="text-xs text-muted-foreground">
-              {loading ? "加载中..." : `${filteredScenes.length}/${scenes.length} 个场景`}
+              {loading
+                ? t("common.loading")
+                : t("shared.scenePanel.sceneCount", {
+                    shown: filteredScenes.length,
+                    total: scenes.length,
+                  })}
             </span>
             {!loading && scenes.length > 0 && (
               <>
                 <Input
-                  placeholder="搜索角色..."
+                  placeholder={t("shared.scenePanel.searchCharacter")}
                   value={filterChar}
                   onChange={(e) => setFilterChar(e.target.value)}
                   className="h-6 text-xs"
                 />
                 <div className="flex flex-wrap gap-1">
-                  {FILTER_TONES.map((tone) => (
+                  {SCENE_TONE_FILTERS.map((tone) => (
                     <button
                       key={tone}
                       className={cn(
                         "rounded px-1.5 py-0.5 text-[10px] transition-colors",
                         filterTone === tone
-                          ? TONE_STYLES[tone] ?? "bg-primary text-primary-foreground"
+                          ? sceneToneStyle(tone)
                           : "bg-muted text-muted-foreground hover:bg-accent",
                       )}
                       onClick={() => setFilterTone(filterTone === tone ? null : tone)}
                     >
-                      {tone}
+                      {sceneToneLabel(t, tone)}
                     </button>
                   ))}
                 </div>
@@ -274,10 +272,10 @@ export function ScenePanel({
           {/* Scene list */}
           <div className="flex-1 overflow-y-auto p-2">
             {loading ? (
-              <p className="text-sm text-muted-foreground">加载场景...</p>
+              <p className="text-sm text-muted-foreground">{t("shared.scenePanel.loadingScenes")}</p>
             ) : filteredScenes.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {scenes.length === 0 ? "未检测到场景" : "无匹配场景"}
+                {scenes.length === 0 ? t("shared.scenePanel.noScenes") : t("shared.scenePanel.noMatchedScenes")}
               </p>
             ) : (
               filteredScenes.map((scene) => (

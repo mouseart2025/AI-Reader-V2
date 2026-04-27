@@ -11,6 +11,7 @@ import {
 import type { Chapter, EntitySummary } from "@/api/types"
 import { SERIES_BIBLE_MODULES, SERIES_BIBLE_TEMPLATES } from "@/api/types"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 const FORMATS = [
@@ -24,6 +25,7 @@ type ExportTab = "bible" | "data"
 
 export default function ExportPage() {
   const { novelId } = useParams<{ novelId: string }>()
+  const { t } = useI18n()
 
   const [activeTab, setActiveTab] = useState<ExportTab>("bible")
 
@@ -115,7 +117,7 @@ export default function ExportPage() {
     if (!novelId || selectedModules.length === 0) return
     setExporting(true)
     setError(null)
-    setProgress("正在收集数据...")
+    setProgress(t("export.collectingData"))
     try {
       await exportSeriesBible(novelId, {
         template,
@@ -125,12 +127,12 @@ export default function ExportPage() {
         chapter_end: chapterEnd || undefined,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "导出失败")
+      setError(err instanceof Error ? err.message : t("export.failed"))
     } finally {
       setExporting(false)
       setProgress(null)
     }
-  }, [novelId, format, template, selectedModules, chapterStart, chapterEnd])
+  }, [novelId, format, template, selectedModules, chapterStart, chapterEnd, t])
 
   const handleAirExport = useCallback(async () => {
     if (!novelId) return
@@ -166,7 +168,7 @@ export default function ExportPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="max-w-2xl mx-auto p-6 space-y-6">
-        <h1 className="text-lg font-medium">导出</h1>
+        <h1 className="text-lg font-medium">{t("nav.export")}</h1>
 
         {/* Tab bar */}
         <div className="flex gap-2 border-b pb-0">
@@ -179,7 +181,7 @@ export default function ExportPage() {
             )}
             onClick={() => setActiveTab("bible")}
           >
-            设定集
+            {t("export.tab.seriesBible")}
           </button>
           <button
             className={cn(
@@ -190,7 +192,7 @@ export default function ExportPage() {
             )}
             onClick={() => setActiveTab("data")}
           >
-            分析数据
+            {t("export.tab.analysisData")}
           </button>
         </div>
 
@@ -199,7 +201,7 @@ export default function ExportPage() {
           <div className="space-y-6">
             {/* Format selection */}
             <section>
-              <h2 className="text-sm font-medium mb-3">导出格式</h2>
+              <h2 className="text-sm font-medium mb-3">{t("export.formatTitle")}</h2>
               <div className="grid grid-cols-4 gap-3">
                 {FORMATS.map((f) => (
                   <button
@@ -217,7 +219,7 @@ export default function ExportPage() {
                   >
                     <span className="text-sm font-medium block">{f.label}</span>
                     <span className="text-[10px] text-muted-foreground">
-                      {f.available ? f.ext : "即将推出"}
+                      {f.available ? f.ext : t("export.comingSoon")}
                     </span>
                   </button>
                 ))}
@@ -226,22 +228,22 @@ export default function ExportPage() {
 
             {/* Template selection */}
             <section>
-              <h2 className="text-sm font-medium mb-3">选择模板</h2>
+              <h2 className="text-sm font-medium mb-3">{t("export.templateTitle")}</h2>
               <div className="space-y-2">
-                {SERIES_BIBLE_TEMPLATES.map((t) => (
+                {SERIES_BIBLE_TEMPLATES.map((templateOption) => (
                   <button
-                    key={t.id}
+                    key={templateOption.id}
                     className={cn(
                       "w-full text-left border rounded-lg p-3 transition-colors",
-                      template === t.id
+                      template === templateOption.id
                         ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
                         : "hover:border-blue-300",
                     )}
-                    onClick={() => setTemplate(t.id)}
+                    onClick={() => setTemplate(templateOption.id)}
                   >
-                    <span className="text-sm font-medium">{t.name}</span>
+                    <span className="text-sm font-medium">{t(templateOption.nameKey)}</span>
                     <span className="text-xs text-muted-foreground ml-2">
-                      {t.description}
+                      {t(templateOption.descriptionKey)}
                     </span>
                   </button>
                 ))}
@@ -252,12 +254,12 @@ export default function ExportPage() {
             {(format === "markdown" || format === "word" || format === "excel" || format === "pdf") && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-medium">导出模块</h2>
+                  <h2 className="text-sm font-medium">{t("export.modulesTitle")}</h2>
                   <button
                     className="text-xs text-blue-500 hover:underline"
                     onClick={selectAllModules}
                   >
-                    全选
+                    {t("export.selectAll")}
                   </button>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -277,7 +279,7 @@ export default function ExportPage() {
                         checked={selectedModules.includes(m.id)}
                         onChange={() => toggleModule(m.id)}
                       />
-                      <span className="text-sm">{m.label}</span>
+                      <span className="text-sm">{t(m.labelKey)}</span>
                     </label>
                   ))}
                 </div>
@@ -287,13 +289,13 @@ export default function ExportPage() {
             {/* Chapter range */}
             {totalChapters > 0 && (
               <section>
-                <h2 className="text-sm font-medium mb-3">章节范围</h2>
+                <h2 className="text-sm font-medium mb-3">{t("export.chapterRange")}</h2>
                 <div className="flex items-center gap-3">
                   <input
                     type="number"
                     min={1}
                     max={totalChapters}
-                    placeholder="起始章"
+                    placeholder={t("export.chapterStart")}
                     value={chapterStart ?? ""}
                     onChange={(e) => setChapterStart(e.target.value ? Number(e.target.value) : null)}
                     className="w-24 border rounded-md px-2 py-1.5 text-sm"
@@ -303,13 +305,13 @@ export default function ExportPage() {
                     type="number"
                     min={1}
                     max={totalChapters}
-                    placeholder="结束章"
+                    placeholder={t("export.chapterEnd")}
                     value={chapterEnd ?? ""}
                     onChange={(e) => setChapterEnd(e.target.value ? Number(e.target.value) : null)}
                     className="w-24 border rounded-md px-2 py-1.5 text-sm"
                   />
                   <span className="text-xs text-muted-foreground">
-                    共 {totalChapters} 章（留空导出全部）
+                    {t("export.chapterRangeHint", { count: totalChapters })}
                   </span>
                 </div>
               </section>
@@ -331,14 +333,14 @@ export default function ExportPage() {
                 className="w-full"
               >
                 {exporting
-                  ? "导出中..."
+                  ? t("export.exporting")
                   : format === "word"
-                    ? "导出 Word"
+                    ? t("export.exportWord")
                     : format === "excel"
-                      ? "导出 Excel"
+                      ? t("export.exportExcel")
                       : format === "pdf"
-                        ? "导出 PDF"
-                        : "导出 Markdown"}
+                        ? t("export.exportPdf")
+                        : t("export.exportMarkdown")}
               </Button>
               {error && (
                 <p className="text-xs text-red-500 mt-2">{error}</p>
@@ -352,9 +354,9 @@ export default function ExportPage() {
           <div className="space-y-6">
             <section className="rounded-lg border p-5 space-y-4">
               <div>
-                <h2 className="text-sm font-semibold">导出分析数据</h2>
+                <h2 className="text-sm font-semibold">{t("export.dataTitle")}</h2>
                 <p className="text-xs text-muted-foreground mt-1">
-                  导出完整分析数据包（.air），可分享给其他 AI Reader 用户直接导入使用。
+                  {t("export.dataDescription")}
                 </p>
               </div>
 
@@ -367,38 +369,38 @@ export default function ExportPage() {
               ) : (
                 <div className="rounded-md border bg-muted/30 p-4 space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">章节</span>
+                    <span className="text-muted-foreground">{t("export.stat.chapters")}</span>
                     <span>
-                      {activeChapters} 章
+                      {t("common.chapterCount", { count: activeChapters })}
                       {analyzedChapters > 0 && (
                         <span className="text-muted-foreground ml-1">
-                          （已分析 {analyzedChapters} 章）
+                          {t("export.analyzedChaptersSuffix", { count: analyzedChapters })}
                         </span>
                       )}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">人物</span>
-                    <span>{entityCounts["person"] ?? 0} 个</span>
+                    <span className="text-muted-foreground">{t("export.stat.people")}</span>
+                    <span>{t("export.countItems", { count: entityCounts["person"] ?? 0 })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">关系</span>
-                    <span>{relationCount} 条</span>
+                    <span className="text-muted-foreground">{t("export.stat.relations")}</span>
+                    <span>{t("export.countRelations", { count: relationCount })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">地点</span>
-                    <span>{entityCounts["location"] ?? 0} 个</span>
+                    <span className="text-muted-foreground">{t("export.stat.locations")}</span>
+                    <span>{t("export.countItems", { count: entityCounts["location"] ?? 0 })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">物品</span>
-                    <span>{entityCounts["item"] ?? 0} 个</span>
+                    <span className="text-muted-foreground">{t("export.stat.items")}</span>
+                    <span>{t("export.countItems", { count: entityCounts["item"] ?? 0 })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">组织</span>
-                    <span>{entityCounts["org"] ?? 0} 个</span>
+                    <span className="text-muted-foreground">{t("export.stat.orgs")}</span>
+                    <span>{t("export.countItems", { count: entityCounts["org"] ?? 0 })}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2 mt-2">
-                    <span className="text-muted-foreground">预估大小</span>
+                    <span className="text-muted-foreground">{t("export.estimatedSize")}</span>
                     <span>~{estimatedSizeMB} MB</span>
                   </div>
                 </div>
@@ -409,12 +411,12 @@ export default function ExportPage() {
                 disabled={airExporting || analyzedChapters === 0}
                 className="w-full"
               >
-                {airExporting ? "正在导出..." : "导出 .air 文件"}
+                {airExporting ? t("export.exportingAir") : t("export.exportAir")}
               </Button>
 
               {analyzedChapters === 0 && !statsLoading && (
                 <p className="text-xs text-amber-500">
-                  尚无已分析章节，请先完成分析后再导出。
+                  {t("export.noAnalyzedChapters")}
                 </p>
               )}
             </section>

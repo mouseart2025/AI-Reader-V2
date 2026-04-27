@@ -1,10 +1,12 @@
 import { Moon, Sun, Monitor } from "lucide-react"
 import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 
 const CYCLE = ["light", "dark", "system"] as const
 
 export function ThemeToggle() {
+  const { t } = useI18n()
   const { theme, setTheme } = useThemeStore()
 
   const next = () => {
@@ -19,7 +21,11 @@ export function ThemeToggle() {
       className="h-8 w-8"
       onClick={next}
       title={
-        theme === "light" ? "浅色模式" : theme === "dark" ? "深色模式" : "跟随系统"
+        theme === "light"
+          ? t("shared.themeToggle.lightMode")
+          : theme === "dark"
+            ? t("shared.themeToggle.darkMode")
+            : t("shared.themeToggle.systemMode")
       }
     >
       {theme === "light" && <Sun className="h-4 w-4" />}

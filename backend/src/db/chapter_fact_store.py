@@ -4,6 +4,7 @@ import json
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
+from src.services.domain_labels import normalize_scene_labels
 
 
 async def insert_chapter_fact(
@@ -121,7 +122,8 @@ async def update_scenes(
     """Store LLM-extracted scenes for a chapter."""
     conn = await get_connection()
     try:
-        scenes_text = json.dumps(scenes, ensure_ascii=False)
+        normalized_scenes = [normalize_scene_labels(dict(scene)) for scene in scenes]
+        scenes_text = json.dumps(normalized_scenes, ensure_ascii=False)
         await conn.execute(
             """
             UPDATE chapter_facts SET scenes_json = ?
@@ -148,7 +150,7 @@ async def get_chapter_scenes(novel_id: str, chapter_id: int) -> list[dict] | Non
         row = await cursor.fetchone()
         if row is None or row["scenes_json"] is None:
             return None
-        return json.loads(row["scenes_json"])
+        return [normalize_scene_labels(scene) for scene in json.loads(row["scenes_json"])]
     finally:
         await conn.close()
 
@@ -178,6 +180,7 @@ async def get_all_scenes(novel_id: str) -> list[dict]:
             for idx, scene in enumerate(scenes):
                 scene["chapter"] = row["chapter_id"]
                 scene.setdefault("index", idx)
+                normalize_scene_labels(scene)
                 result.append(scene)
         return result
     finally:

@@ -21,6 +21,7 @@ import logging
 import re
 
 from src.db import chapter_fact_store, chapter_store
+from src.services.domain_labels import normalize_scene_labels
 
 logger = logging.getLogger(__name__)
 
@@ -549,7 +550,7 @@ def _build_rich_scene(
     # --- Events in this scene range ---
     scene_events = _get_events_in_range(events, paragraph_range, all_paragraphs)
 
-    return {
+    return normalize_scene_labels({
         "index": index,
         "chapter": chapter_num,
         "title": title,
@@ -566,7 +567,7 @@ def _build_rich_scene(
         "key_dialogue": key_dialogue,
         "character_roles": character_roles[:10],
         "event_type": event_type,
-    }
+    })
 
 
 def _extract_heading(paragraphs: list[str]) -> str:

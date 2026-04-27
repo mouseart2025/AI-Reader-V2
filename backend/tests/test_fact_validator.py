@@ -3,11 +3,14 @@
 import pytest
 
 from src.extraction.fact_validator import (
+    FactValidator,
     _get_contains_rank,
+    _infer_type_from_name,
     _is_generic_location,
     _is_generic_person,
     _normalize_char_variants,
 )
+from src.models.chapter_fact import ChapterFact
 from src.utils.location_names import is_homonym_prone
 
 
@@ -105,6 +108,14 @@ class TestGenericLocation:
         assert _is_generic_location("荣国府") is None
         assert _is_generic_location("宁国府") is None
 
+    def test_vietnamese_locations_with_diacritics_pass(self):
+        for name in ["bến Chương Dương", "thành Thăng Long", "chùa Phổ Minh", "núi Lam Sơn", "sông Hồng"]:
+            assert _is_generic_location(name) is None, f"{name} should pass"
+
+    def test_vietnamese_generic_locations_filtered(self):
+        for name in ["bên sông", "trong thành", "chân núi", "nơi ấy"]:
+            assert _is_generic_location(name) is not None, f"{name} should be filtered"
+
 
 # ── _is_generic_person tests ────────────────────────────────────
 
@@ -152,6 +163,122 @@ class TestGenericPerson:
         assert _is_generic_person("韩立") is None
         assert _is_generic_person("唐僧") is None
         assert _is_generic_person("牛魔王") is None
+
+    def test_vietnamese_person_names_pass(self):
+        assert _is_generic_person("Trần Quốc Tuấn") is None
+        assert _is_generic_person("Phạm Ngũ Lão") is None
+        assert _is_generic_person("Nguyễn Trãi") is None
+
+    def test_vietnamese_generic_person_filtered(self):
+        assert _is_generic_person("vị tướng") is not None
+        assert _is_generic_person("người lính") is not None
+
+
+class TestVietnameseFactValidation:
+    """End-to-end validation for Vietnamese source facts."""
+
+    def test_vietnamese_names_aliases_and_locations_survive_validation(self):
+        fact = ChapterFact.model_validate({
+            "chapter_id": 1,
+            "novel_id": "vi-validator",
+            "characters": [
+                {
+                    "name": "Trần Quốc Tuấn",
+                    "new_aliases": ["Hưng Đạo Vương"],
+                    "locations_in_chapter": ["bến Chương Dương"],
+                },
+                {
+                    "name": "Phạm Ngũ Lão",
+                    "locations_in_chapter": ["bến Chương Dương"],
+                },
+            ],
+            "relationships": [
+                {
+                    "person_a": "Trần Quốc Tuấn",
+                    "person_b": "Phạm Ngũ Lão",
+                    "relation_type": "cấp trên cấp dưới",
+                    "is_new": True,
+                    "evidence": "Trần Quốc Tuấn giao việc giữ bến cho Phạm Ngũ Lão.",
+                }
+            ],
+            "locations": [
+                {
+                    "name": "bến Chương Dương",
+                    "type": "bến",
+                    "parent": "sông Hồng",
+                    "role": "setting",
+                },
+                {
+                    "name": "bên sông",
+                    "type": "địa điểm",
+                    "role": "referenced",
+                },
+            ],
+            "spatial_relationships": [
+                {
+                    "source": "sông Hồng",
+                    "target": "bến Chương Dương",
+                    "relation_type": "contains",
+                    "value": "riverbank",
+                    "confidence": "high",
+                }
+            ],
+            "events": [
+                {
+                    "summary": "Trần Quốc Tuấn bàn kế giữ bến Chương Dương",
+                    "type": "xã giao",
+                    "importance": "high",
+                    "participants": ["Trần Quốc Tuấn", "Phạm Ngũ Lão"],
+                    "location": "bến Chương Dương",
+                }
+            ],
+            "item_events": [
+                {
+                    "item_name": "Bình Ngô sách",
+                    "item_type": "sách lược",
+                    "action": "trao",
+                    "actor": "Nguyễn Trãi",
+                    "recipient": "Lê Lợi",
+                }
+            ],
+            "org_events": [
+                {
+                    "org_name": "quân Đại Việt",
+                    "org_type": "quân đội",
+                    "member": "Phạm Ngũ Lão",
+                    "action": "gia nhập",
+                }
+            ],
+        })
+
+        validated = FactValidator(genre="historical").validate(fact)
+
+        character_by_name = {character.name: character for character in validated.characters}
+        assert set(character_by_name) == {"Trần Quốc Tuấn", "Phạm Ngũ Lão"}
+        assert character_by_name["Trần Quốc Tuấn"].new_aliases == ["Hưng Đạo Vương"]
+
+        location_by_name = {location.name: location for location in validated.locations}
+        assert "bến Chương Dương" in location_by_name
+        assert "sông Hồng" in location_by_name
+        assert "bên sông" not in location_by_name
+        assert location_by_name["bến Chương Dương"].type == "渡口"
+        assert location_by_name["bến Chương Dương"].type_id == "ferry"
+        assert location_by_name["sông Hồng"].type == "河流"
+
+        assert len(validated.relationships) == 1
+        assert validated.relationships[0].relation_type == "上下级"
+        assert validated.relationships[0].relation_type_id == "hierarchical.superior_subordinate"
+        assert len(validated.spatial_relationships) == 1
+        assert validated.events[0].type == "社交"
+        assert validated.events[0].type_id == "social"
+        assert validated.item_events[0].item_type == "兵书"
+        assert validated.item_events[0].item_type_id == "strategy_book"
+        assert validated.item_events[0].action == "赠予"
+        assert validated.item_events[0].action_id == "give"
+        assert validated.org_events[0].org_type == "军队"
+        assert validated.org_events[0].org_type_id == "army"
+        assert validated.org_events[0].action == "加入"
+        assert validated.org_events[0].action_id == "join"
 
 
 # ── is_homonym_prone tests ──────────────────────────────────────
@@ -462,6 +589,10 @@ class TestSuffixRank:
         assert _get_contains_rank("水帘洞") == 5    # 洞→site
         assert _get_contains_rank("怡红院") == 6    # 院→building
 
+    def test_non_cjk_names_do_not_use_chinese_suffix_rank(self):
+        assert _get_contains_rank("bến Chương Dương") is None
+        assert _get_contains_rank("thành Thăng Long") is None
+
     def test_full_hierarchy_direction(self):
         """Verify the complete chain: continent < kingdom < region < city < site < building."""
         chain = ["东胜神洲", "傲来国", "花果山", "长安城", "水帘洞", "灵霄宝殿"]
@@ -470,3 +601,17 @@ class TestSuffixRank:
             assert ranks[i] < ranks[i + 1], (
                 f"{chain[i]}({ranks[i]}) should be < {chain[i+1]}({ranks[i+1]})"
             )
+
+
+class TestLocationTypeInference:
+    """Language-specific fallback type inference for referenced locations."""
+
+    def test_vietnamese_prefix_type_inference(self):
+        assert _infer_type_from_name("sông Hồng") == "河流"
+        assert _infer_type_from_name("bến Chương Dương") == "渡口"
+        assert _infer_type_from_name("chùa Phổ Minh") == "寺庙"
+        assert _infer_type_from_name("thành Thăng Long") == "城市"
+
+    def test_chinese_suffix_type_inference_stable(self):
+        assert _infer_type_from_name("花果山") == "山"
+        assert _infer_type_from_name("水帘洞") == "洞府"

@@ -96,6 +96,58 @@ def test_mode_chapter_en():
     assert not r.is_fallback
 
 
+def test_mode_chapter_vi():
+    body = "Đây là nội dung chương, có nhân vật, địa điểm và diễn biến câu chuyện.\n" * 30
+    text = _make_text([
+        ("Chương 1: Khởi đầu", body),
+        ("Chương 2 - Gặp lại", body),
+        ("Hồi III Mưa trên bến cũ", body),
+    ])
+    r = split_chapters_ex(text, source_language="vi")
+    assert r.matched_mode == "chapter_vi"
+    assert len(r.chapters) >= 3
+    assert r.chapters[0].title == "Khởi đầu"
+    assert not r.is_fallback
+
+
+def test_mode_chapter_vi_ignores_body_line_starting_with_ket_and_keeps_long_title():
+    body = ("Đây là nội dung chương, có nhân vật, địa điểm và diễn biến câu chuyện.\n" * 20).strip()
+    chapter_16_body = (
+        body
+        + "\n\nKết quả là, có rất nhiều đồng môn nghe được tin tức bọn tỷ thí, "
+        + "liền kéo đến theo dõi, trợ uy, hình thành liên minh, hai phía bây giờ "
+        + "tràn ngập địch ý, hỏa bạo cục diện.\n\n"
+        + "Hết thảy việc này cũng đã nói rõ ràng rằng thủ đoạn bảo vệ tính mạng vừa rồi "
+        + "của Hàn Lập đã rút hết đại bộ phận thể lực của hắn.\n\n"
+        + "Hồi lâu sau, hắn mới giơ một bàn tay lên, dùng ánh mắt như nhìn bảo bối "
+        + "đã đánh mất từ lâu.\n\n"
+        + body
+    )
+    text = _make_text([
+        ("Chương 11: Chương 11: Bình nan khai (Cái bình khó mở)", body),
+        ("Chương 16: Chương 16: Tiểu toán bàn", chapter_16_body),
+        ("Chương 17: Chương 17: Lệ sư huynh(1)", body),
+        ("Chương 18: Chương 18: Lệ sư huynh(2)", body),
+    ])
+
+    r = split_chapters_ex(text, source_language="vi")
+
+    assert r.matched_mode == "chapter_vi"
+    assert [ch.title for ch in r.chapters] == [
+        "Chương 11: Bình nan khai (Cái bình khó mở)",
+        "Chương 16: Tiểu toán bàn",
+        "Chương 17: Lệ sư huynh(1)",
+        "Chương 18: Lệ sư huynh(2)",
+    ]
+
+
+def test_source_language_vi_fallback_labels():
+    text = "Một đoạn văn không có tiêu đề chương rõ ràng.\n" * 20
+    r = split_chapters_ex(text, mode="fixed_size", source_language="vi")
+    assert r.matched_mode == "fixed_size"
+    assert r.chapters[0].title.startswith("Đoạn")
+
+
 def test_mode_markdown():
     text = _make_text([
         ("# 第一节", _body()),

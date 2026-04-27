@@ -4,6 +4,7 @@
  */
 import { useState } from "react"
 import { useDemoData } from "@/app/DemoContext"
+import { useI18n, type TranslationKey } from "@/i18n"
 
 type ExportFormat = "markdown" | "docx" | "xlsx" | "pdf"
 
@@ -12,26 +13,28 @@ interface FormatInfo {
   label: string
   icon: string
   ext: string
-  description: string
+  descriptionKey: TranslationKey
   proOnly: boolean
 }
 
 const FORMATS: FormatInfo[] = [
-  { key: "markdown", label: "Markdown", icon: "📝", ext: ".md", description: "通用纯文本格式，适合版本控制和知识库", proOnly: false },
-  { key: "docx", label: "Word", icon: "📄", ext: ".docx", description: "排版精美的设定集文档，适合编辑和分享", proOnly: true },
-  { key: "xlsx", label: "Excel", icon: "📊", ext: ".xlsx", description: "结构化数据表格，适合数据分析和筛选", proOnly: true },
-  { key: "pdf", label: "PDF", icon: "📕", ext: ".pdf", description: "打印就绪的出版级设定集", proOnly: true },
+  { key: "markdown", label: "Markdown", icon: "📝", ext: ".md", descriptionKey: "demo.export.format.markdown.description", proOnly: false },
+  { key: "docx", label: "Word", icon: "📄", ext: ".docx", descriptionKey: "demo.export.format.docx.description", proOnly: true },
+  { key: "xlsx", label: "Excel", icon: "📊", ext: ".xlsx", descriptionKey: "demo.export.format.xlsx.description", proOnly: true },
+  { key: "pdf", label: "PDF", icon: "📕", ext: ".pdf", descriptionKey: "demo.export.format.pdf.description", proOnly: true },
 ]
 
 export default function DemoExportPage() {
+  const { t } = useI18n()
   const { novelInfo } = useDemoData()
   const [activeFormat, setActiveFormat] = useState<ExportFormat>("markdown")
+  const activeFormatInfo = FORMATS.find((f) => f.key === activeFormat)
 
   return (
     <div className="flex h-full flex-col bg-slate-950">
       {/* Format selector bar */}
       <div className="flex items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
-        <span className="text-xs text-slate-400">导出格式</span>
+        <span className="text-xs text-slate-400">{t("export.formatTitle")}</span>
         <div className="flex gap-1">
           {FORMATS.map((f) => (
             <button
@@ -57,11 +60,11 @@ export default function DemoExportPage() {
           {/* Format description */}
           <div className="mb-6 text-center">
             <h2 className="text-lg font-bold text-white">
-              {FORMATS.find((f) => f.key === activeFormat)?.icon}{" "}
-              {FORMATS.find((f) => f.key === activeFormat)?.label} 导出预览
+              {activeFormatInfo?.icon}{" "}
+              {t("demo.export.previewTitle", { format: activeFormatInfo?.label ?? "" })}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              {FORMATS.find((f) => f.key === activeFormat)?.description}
+              {activeFormatInfo ? t(activeFormatInfo.descriptionKey) : ""}
             </p>
           </div>
 
@@ -183,9 +186,9 @@ export default function DemoExportPage() {
 
           {/* Export CTA */}
           <div className="mt-8 rounded-lg border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
-            <p className="mb-2 text-sm font-semibold text-slate-300">安装完整版即可导出你自己的小说设定集</p>
+            <p className="mb-2 text-sm font-semibold text-slate-300">{t("demo.export.ctaTitle")}</p>
             <p className="mb-4 text-xs text-slate-500">
-              Markdown (免费) · Word / Excel / PDF (Pro)
+              {t("demo.export.ctaFormats")}
             </p>
             <div className="flex justify-center gap-3">
               <a
@@ -194,13 +197,13 @@ export default function DemoExportPage() {
                 rel="noopener noreferrer"
                 className="inline-block rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition"
               >
-                免费下载
+                {t("demo.freeDownload")}
               </a>
               <a
                 href="https://ai-reader.cc/#download"
                 className="inline-block rounded-md border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-300 hover:border-blue-500 hover:text-white transition"
               >
-                快速开始
+                {t("demo.quickStart")}
               </a>
             </div>
           </div>

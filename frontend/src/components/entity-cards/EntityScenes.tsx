@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
 import { fetchEntityScenes } from "@/api/client"
+import { useI18n } from "@/i18n"
+import { sceneRoleLabel, sceneToneLabel, shouldDisplaySceneRole } from "@/lib/domainLabels"
 import { CardSection, ChapterTag } from "./CardSection"
 
 interface SceneItem {
@@ -8,11 +10,18 @@ interface SceneItem {
   title: string
   location: string
   emotional_tone: string
+  emotional_tone_id?: string
   summary: string
   role: string
+  role_id?: string
 }
 
 const TONE_COLORS: Record<string, string> = {
+  battle: "text-red-600 dark:text-red-400",
+  tense: "text-orange-600 dark:text-orange-400",
+  sad: "text-blue-600 dark:text-blue-400",
+  joyful: "text-yellow-600 dark:text-yellow-400",
+  calm: "text-green-600 dark:text-green-400",
   "战斗": "text-red-600 dark:text-red-400",
   "紧张": "text-orange-600 dark:text-orange-400",
   "悲伤": "text-blue-600 dark:text-blue-400",
@@ -27,6 +36,7 @@ interface EntityScenesProps {
 }
 
 export function EntityScenes({ novelId, entityName, onChapterClick }: EntityScenesProps) {
+  const { t } = useI18n()
   const [scenes, setScenes] = useState<SceneItem[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -40,19 +50,21 @@ export function EntityScenes({ novelId, entityName, onChapterClick }: EntityScen
   if (!loaded || scenes.length === 0) return null
 
   return (
-    <CardSection title="参与场景" defaultLimit={5}>
+    <CardSection title={t("entity.scenes.title")} defaultLimit={5}>
       {scenes.map((s, i) => (
         <div key={i} className="text-sm">
           <ChapterTag chapter={s.chapter} onClick={onChapterClick} />
-          <span className="ml-1.5 font-medium">{s.title || `场景${s.index + 1}`}</span>
+          <span className="ml-1.5 font-medium">
+            {s.title || t("entity.scenes.fallbackTitle", { index: s.index + 1 })}
+          </span>
           {s.emotional_tone && (
-            <span className={`ml-1 text-[10px] ${TONE_COLORS[s.emotional_tone] ?? "text-muted-foreground"}`}>
-              {s.emotional_tone}
+            <span className={`ml-1 text-[10px] ${TONE_COLORS[s.emotional_tone_id || s.emotional_tone] ?? "text-muted-foreground"}`}>
+              {sceneToneLabel(t, s.emotional_tone_id, s.emotional_tone)}
             </span>
           )}
-          {s.role && s.role !== "提及" && (
+          {s.role && shouldDisplaySceneRole(s.role_id, s.role) && (
             <span className="ml-1 text-[10px] text-muted-foreground">
-              ({s.role})
+              ({sceneRoleLabel(t, s.role_id, s.role)})
             </span>
           )}
           {s.summary && (

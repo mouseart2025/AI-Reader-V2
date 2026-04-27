@@ -12,9 +12,14 @@ import logging
 import re
 from collections import Counter
 
-from src.db import entity_dictionary_store
+from src.db import entity_dictionary_store, novel_store
 from src.db.sqlite_db import get_connection
+from src.extraction.source_language_heuristics import (
+    get_source_language_heuristics,
+    scan_vietnamese_prescan_candidates,
+)
 from src.models.entity_dict import EntityDictEntry
+from src.utils.source_language import normalize_source_language
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +178,17 @@ class EntityPreScanner:
 
         Phase 2 (LLM classification) is called after Phase 1 if available.
         """
-        logger.info("预扫描开始: novel_id=%s", novel_id)
+        novel = await novel_store.get_novel(novel_id)
+        source_language = normalize_source_language(
+            novel.get("source_language") if novel else None
+        )
+        heuristics = get_source_language_heuristics(source_language)
+
+        logger.info(
+            "预扫描开始: novel_id=%s source_language=%s",
+            novel_id,
+            heuristics.id,
+        )
         await entity_dictionary_store.update_prescan_status(novel_id, "running")
 
         try:
@@ -188,7 +203,7 @@ class EntityPreScanner:
 
             # Phase 1: Statistical scan (CPU-bound, run in thread)
             candidates = await asyncio.to_thread(
-                self._phase1_scan, chapters, titles, full_text
+                self._phase1_scan, chapters, titles, full_text, heuristics.id
             )
 
             logger.info(
@@ -196,17 +211,25 @@ class EntityPreScanner:
                 len(candidates), novel_id,
             )
 
-            # Phase 2: LLM classification (implemented in Story 8.3)
-            try:
-                candidates = await self._classify_with_llm(candidates)
+            # Phase 2: LLM classification. The existing prompt is Chinese
+            # oriented, so non-Chinese source languages use Phase 1 only until
+            # they get their own classifier prompt.
+            if heuristics.uses_llm_prescan_classifier:
+                try:
+                    candidates = await self._classify_with_llm(candidates)
+                    logger.info(
+                        "Phase 2 完成: %d 个实体, novel_id=%s",
+                        len(candidates), novel_id,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Phase 2 LLM 分类失败，使用 Phase 1 统计结果",
+                        exc_info=True,
+                    )
+            else:
                 logger.info(
-                    "Phase 2 完成: %d 个实体, novel_id=%s",
-                    len(candidates), novel_id,
-                )
-            except Exception:
-                logger.warning(
-                    "Phase 2 LLM 分类失败，使用 Phase 1 统计结果",
-                    exc_info=True,
+                    "Phase 2 跳过: source_language=%s 尚无专用分类提示",
+                    heuristics.id,
                 )
 
             # Save to DB
@@ -263,8 +286,20 @@ class EntityPreScanner:
         chapters: list[str],
         titles: list[str],
         full_text: str,
+        source_language: str | None = None,
     ) -> list[EntityDictEntry]:
         """Run all Phase 1 statistical scans and merge candidates."""
+        heuristics = get_source_language_heuristics(source_language)
+        if heuristics.id == "vi":
+            return scan_vietnamese_prescan_candidates(
+                chapters,
+                titles,
+                full_text,
+                self._extract_sample_context,
+            )
+        if not heuristics.uses_chinese_prescan:
+            return []
+
         # 1a. jieba word frequency
         word_freq = self._scan_word_freq(full_text)
 
@@ -710,4 +745,3 @@ class EntityPreScanner:
         result = [c for c in candidates if c.name not in rejected]
 
         return result
-

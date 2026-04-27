@@ -11,25 +11,28 @@ import {
   type NovelStats,
 } from "@/api/client"
 import type { Novel } from "@/api/types"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { novelPath } from "@/lib/novelPaths"
 
 const ENTITY_STAT_ITEMS = [
-  { key: "person", label: "人物", color: "text-blue-500", page: "encyclopedia" },
-  { key: "location", label: "地点", color: "text-green-500", page: "encyclopedia" },
-  { key: "item", label: "物品", color: "text-orange-500", page: "encyclopedia" },
-  { key: "org", label: "组织", color: "text-purple-500", page: "factions" },
-  { key: "concept", label: "概念", color: "text-gray-500", page: "encyclopedia" },
+  { key: "person", labelKey: "export.stat.people", color: "text-blue-500", page: "encyclopedia" },
+  { key: "location", labelKey: "export.stat.locations", color: "text-green-500", page: "encyclopedia" },
+  { key: "item", labelKey: "export.stat.items", color: "text-orange-500", page: "encyclopedia" },
+  { key: "org", labelKey: "export.stat.orgs", color: "text-purple-500", page: "factions" },
+  { key: "concept", labelKey: "shared.novelOverview.concepts", color: "text-gray-500", page: "encyclopedia" },
 ] as const
 
-function formatDuration(ms: number): string {
+function formatDuration(ms: number, t: (key: TranslationKey, params?: Record<string, number | string>) => string): string {
   if (!ms) return "—"
   const seconds = Math.floor(ms / 1000)
-  if (seconds < 60) return `${seconds}s`
+  if (seconds < 60) return t("shared.novelOverview.duration.seconds", { count: seconds })
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}min`
+  if (minutes < 60) return t("shared.novelOverview.duration.minutes", { count: minutes })
   const hours = Math.floor(minutes / 60)
   const remainMin = minutes % 60
-  return remainMin > 0 ? `${hours}h ${remainMin}min` : `${hours}h`
+  return remainMin > 0
+    ? t("shared.novelOverview.duration.hoursMinutes", { hours, minutes: remainMin })
+    : t("shared.novelOverview.duration.hours", { count: hours })
 }
 
 export function NovelOverviewCard({
@@ -39,6 +42,7 @@ export function NovelOverviewCard({
   novel: Novel
   novelId: string
 }) {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [stats, setStats] = useState<NovelStats | null>(null)
   const [collapsed, setCollapsed] = useState(() => {
@@ -84,14 +88,16 @@ export function NovelOverviewCard({
         setSynopsisText(synopsis)
         setStats((prev) => prev ? { ...prev, synopsis } : prev)
       } else {
-        setGenerateError("生成失败，请稍后重试或手动输入")
+        setGenerateError(t("shared.novelOverview.generateFailedManual"))
       }
     } catch (e) {
-      setGenerateError(`生成失败：${e instanceof Error ? e.message : "网络错误"}`)
+      setGenerateError(t("shared.novelOverview.generateFailedWithMessage", {
+        message: e instanceof Error ? e.message : t("api.networkError"),
+      }))
     } finally {
       setGenerating(false)
     }
-  }, [novelId])
+  }, [novelId, t])
 
   const handleSaveSynopsis = useCallback(async () => {
     try {
@@ -126,25 +132,25 @@ export function NovelOverviewCard({
           <h3 className="font-semibold truncate">{novel.title}</h3>
           <p className="text-xs text-muted-foreground">
             {novel.author && <span>{novel.author} · </span>}
-            {stats.chapters.total - stats.chapters.excluded} 章 ·{" "}
+            {t("common.chapterCount", { count: stats.chapters.total - stats.chapters.excluded })} ·{" "}
             {novel.total_words >= 10000
-              ? `${(novel.total_words / 10000).toFixed(1)}万字`
-              : `${novel.total_words}字`}
+              ? t("bookshelf.wordCountWan", { count: (novel.total_words / 10000).toFixed(1) })
+              : t("bookshelf.wordCount", { count: novel.total_words })}
             {stats.chapters.analyzed > 0 && (
               <span>
-                {" "}· 分析进度{" "}
-                {Math.round(
-                  (stats.chapters.analyzed /
-                    Math.max(stats.chapters.total - stats.chapters.excluded, 1)) *
-                    100,
-                )}
-                %
+                {" "}· {t("shared.novelOverview.analysisProgress", {
+                  percent: Math.round(
+                    (stats.chapters.analyzed /
+                      Math.max(stats.chapters.total - stats.chapters.excluded, 1)) *
+                      100,
+                  ),
+                })}
               </span>
             )}
           </p>
         </div>
         <span className="text-xs text-muted-foreground shrink-0">
-          {collapsed ? "展开" : "收起"}
+          {collapsed ? t("common.expand") : t("common.collapse")}
         </span>
       </button>
 
@@ -159,7 +165,7 @@ export function NovelOverviewCard({
                 rows={4}
                 value={synopsisText}
                 onChange={(e) => setSynopsisText(e.target.value)}
-                placeholder="输入小说简介..."
+                placeholder={t("shared.novelOverview.synopsisPlaceholder")}
               />
               <div className="flex gap-2 justify-end">
                 <button
@@ -167,22 +173,22 @@ export function NovelOverviewCard({
                   onClick={() => {
                     setSynopsisText(stats.synopsis ?? "")
                     setSynopsisEditing(false)
-                  }}
-                >
-                  取消
+                }}
+              >
+                  {t("common.cancel")}
                 </button>
                 <button
                   className="text-xs text-primary hover:underline"
                   onClick={handleSaveSynopsis}
                 >
-                  保存
+                  {t("common.save")}
                 </button>
               </div>
             </div>
           ) : synopsisText ? (
             <div
               className="text-sm text-muted-foreground leading-relaxed cursor-pointer hover:text-foreground transition-colors"
-              title="点击编辑"
+              title={t("shared.novelOverview.editTitle")}
               onClick={() => setSynopsisEditing(true)}
             >
               {synopsisText}
@@ -195,16 +201,16 @@ export function NovelOverviewCard({
                   onClick={handleGenerate}
                   disabled={generating}
                 >
-                  {generating ? "AI 生成中，请稍候..." : "生成小说简介"}
+                  {generating ? t("shared.novelOverview.generating") : t("shared.novelOverview.generateSynopsis")}
                 </button>
                 <span className="text-xs text-muted-foreground">
-                  或
+                  {t("common.or")}
                 </span>
                 <button
                   className="text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => setSynopsisEditing(true)}
                 >
-                  手动输入
+                  {t("shared.novelOverview.manualInput")}
                 </button>
               </div>
               {generateError && (
@@ -213,21 +219,22 @@ export function NovelOverviewCard({
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              分析完成后可自动生成简介
+              {t("shared.novelOverview.autoAfterAnalysis")}
             </p>
           )}
 
           {/* Entity stats grid */}
           {isAnalyzed && (
             <div className="grid grid-cols-5 gap-2">
-              {ENTITY_STAT_ITEMS.map(({ key, label, color, page }) => {
+              {ENTITY_STAT_ITEMS.map(({ key, labelKey, color, page }) => {
                 const count = stats.entities[key as keyof typeof stats.entities] ?? 0
+                const label = t(labelKey as TranslationKey)
                 return (
                   <button
                     key={key}
                     className="rounded-md border bg-muted/30 px-2 py-2 text-center hover:bg-accent/50 transition-colors"
                     onClick={() => navigate(novelPath(novelId, page))}
-                    title={`查看${label}`}
+                    title={t("shared.novelOverview.viewEntity", { label })}
                   >
                     <div className={`text-lg font-bold ${color}`}>{count}</div>
                     <div className="text-[10px] text-muted-foreground">{label}</div>
@@ -241,10 +248,10 @@ export function NovelOverviewCard({
           {isAnalyzed && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               {stats.llm_models.length > 0 && (
-                <span>分析模型：{stats.llm_models.join(", ")}</span>
+                <span>{t("shared.novelOverview.analysisModel", { models: stats.llm_models.join(", ") })}</span>
               )}
               {stats.total_extraction_ms > 0 && (
-                <span>分析耗时：{formatDuration(stats.total_extraction_ms)}</span>
+                <span>{t("shared.novelOverview.analysisDuration", { duration: formatDuration(stats.total_extraction_ms, t) })}</span>
               )}
             </div>
           )}

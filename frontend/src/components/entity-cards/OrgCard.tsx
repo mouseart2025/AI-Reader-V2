@@ -1,5 +1,7 @@
 import { memo } from "react"
 import type { OrgProfile } from "@/api/types"
+import { useI18n, type TranslationKey } from "@/i18n"
+import { isLeavingOrgAction, orgActionLabel, orgTypeLabel, relationTypeLabel } from "@/lib/domainLabels"
 import { cn } from "@/lib/utils"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
@@ -11,9 +13,10 @@ interface OrgCardProps {
   novelId?: string
 }
 
-const LEAVE_ACTIONS = new Set(["离开", "阵亡", "叛出", "逐出", "退出", "离去", "战死"])
-
 const ORG_REL_COLORS: Record<string, string> = {
+  "social.ally": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  "hostile.enemy": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  "hierarchical.superior_subordinate": "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   "盟友": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   "联盟": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   "友好": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -27,6 +30,7 @@ const ORG_REL_COLORS: Record<string, string> = {
 }
 
 export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapterClick, novelId }: OrgCardProps) {
+  const { t } = useI18n()
   const { member_events, org_relations, stats } = profile
 
   // Group member events by member
@@ -39,8 +43,8 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
 
   // Current members: latest action is not a leave action
   const currentMembers = Array.from(memberMap.entries()).filter(([, events]) => {
-    const lastAction = events[events.length - 1].action
-    return !LEAVE_ACTIONS.has(lastAction)
+    const lastEvent = events[events.length - 1]
+    return !isLeavingOrgAction(lastEvent.action_id, lastEvent.action)
   })
 
   return (
@@ -54,7 +58,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
           <div>
             <h3 className="text-lg font-bold">{profile.name}</h3>
             {profile.org_type && (
-              <span className="text-muted-foreground text-xs">{profile.org_type}</span>
+              <span className="text-muted-foreground text-xs">{orgTypeLabel(t, profile.org_type_id, profile.org_type)}</span>
             )}
           </div>
         </div>
@@ -62,7 +66,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
 
       {/* Current Members */}
       {currentMembers.length > 0 && (
-        <CardSection title="当前成员" defaultLimit={10}>
+        <CardSection title={t("entity.org.currentMembers")} defaultLimit={10}>
           {currentMembers.map(([member, events]) => {
             const lastEvent = events[events.length - 1]
             return (
@@ -80,12 +84,12 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
       )}
 
       {/* Member History */}
-      <CardSection title="成员变动" defaultLimit={10}>
+      <CardSection title={t("entity.org.memberHistory")} defaultLimit={10}>
         {Array.from(memberMap.entries()).map(([member, events]) => (
           <div key={member} className="text-sm">
             <EntityLink name={member} type="person" onClick={onEntityClick} />
             <span className="text-muted-foreground ml-1 text-xs">
-              {events.map((e) => `${e.action}${e.role ? `(${e.role})` : ""}`).join(" → ")}
+              {events.map((e) => `${orgActionLabel(t, e.action_id, e.action)}${e.role ? `(${e.role})` : ""}`).join(" → ")}
             </span>
             <span className="ml-1">
               <ChapterTag chapter={events[events.length - 1].chapter} onClick={onChapterClick} />
@@ -95,7 +99,7 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
       </CardSection>
 
       {/* Org Relations */}
-      <CardSection title="组织关系" defaultLimit={10}>
+      <CardSection title={t("entity.org.relations")} defaultLimit={10}>
         {org_relations.map((rel, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={rel.chapter} onClick={onChapterClick} />
@@ -103,9 +107,9 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
               <EntityLink name={rel.other_org} type="org" onClick={onEntityClick} />
               <span className={cn(
                 "ml-1 text-[10px] px-1 py-0.5 rounded",
-                ORG_REL_COLORS[rel.relation_type] ?? "bg-muted text-muted-foreground",
+                ORG_REL_COLORS[rel.relation_type_id || rel.relation_type] ?? "bg-muted text-muted-foreground",
               )}>
-                {rel.relation_type}
+                {relationTypeLabel(t, rel.relation_type_id, rel.relation_type)}
               </span>
             </span>
           </div>
@@ -119,12 +123,12 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">
-            数据统计
+            {t("entity.dataStats")}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {Object.entries(stats).map(([k, v]) => (
               <div key={k} className="rounded-md bg-muted/50 px-2 py-1 text-sm">
-                <span className="text-muted-foreground text-xs">{formatStatLabel(k)}</span>
+                <span className="text-muted-foreground text-xs">{t(getOrgStatLabelKey(k))}</span>
                 <div className="font-medium">{v}</div>
               </div>
             ))}
@@ -135,11 +139,11 @@ export const OrgCard = memo(function OrgCard({ profile, onEntityClick, onChapter
   )
 })
 
-function formatStatLabel(key: string): string {
-  const labels: Record<string, string> = {
-    chapter_count: "相关章节",
-    first_chapter: "首次出现",
-    member_event_count: "成员变动数",
+function getOrgStatLabelKey(key: string): TranslationKey {
+  const labels: Record<string, TranslationKey> = {
+    chapter_count: "entity.stat.relatedChapters",
+    first_chapter: "entity.stat.firstAppearance",
+    member_event_count: "entity.stat.memberEventCount",
   }
-  return labels[key] ?? key
+  return labels[key] ?? "entity.stat.unknown"
 }

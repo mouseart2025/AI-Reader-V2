@@ -5,6 +5,7 @@
 import { useMemo, useRef, useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useDemoData } from "@/app/DemoContext"
+import { useI18n, type TranslationKey } from "@/i18n"
 
 interface TimelineEvent {
   id: string
@@ -32,11 +33,35 @@ const TONE_COLORS: Record<string, string> = {
 
 const ALL_TYPES = ["战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"]
 
+const EVENT_TYPE_LABEL_KEYS: Partial<Record<string, TranslationKey>> = {
+  "战斗": "timeline.eventType.battle",
+  "成长": "timeline.eventType.growth",
+  "社交": "timeline.eventType.social",
+  "旅行": "timeline.eventType.travel",
+  "关系变化": "timeline.eventType.relationChange",
+  "角色登场": "timeline.eventType.characterIntro",
+  "物品交接": "timeline.eventType.itemTransfer",
+  "组织变动": "timeline.eventType.orgChange",
+  "其他": "timeline.eventType.other",
+}
+
+const TONE_LABEL_KEYS: Partial<Record<string, TranslationKey>> = {
+  "紧张": "shared.scenePanel.tone.tense",
+  "悲伤": "shared.scenePanel.tone.sad",
+  "欢乐": "shared.scenePanel.tone.joyful",
+  "恐惧": "timeline.tone.fear",
+  "愤怒": "timeline.tone.angry",
+  "感动": "timeline.tone.warm",
+  "平静": "shared.scenePanel.tone.calm",
+  "神秘": "timeline.tone.mysterious",
+}
+
 type FlatItem =
   | { kind: "chapter"; chapter: number; eventCount: number }
   | { kind: "event"; event: TimelineEvent }
 
 export default function DemoTimelinePage() {
+  const { t } = useI18n()
   const { data } = useDemoData()
   const timelineData = data.timeline as {
     events: TimelineEvent[]
@@ -55,6 +80,16 @@ export default function DemoTimelinePage() {
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(defaultHidden)
   const [importanceFilter, setImportanceFilter] = useState<"all" | "medium" | "high">("all")
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const getEventTypeLabel = (type: string) => {
+    const key = EVENT_TYPE_LABEL_KEYS[type]
+    return key ? t(key) : type
+  }
+
+  const getToneLabel = (tone: string) => {
+    const key = TONE_LABEL_KEYS[tone]
+    return key ? t(key) : tone
+  }
 
   const toggleType = (type: string) => {
     setHiddenTypes((prev) => {
@@ -111,7 +146,7 @@ export default function DemoTimelinePage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
         <span className="text-xs text-slate-400">
-          {flatItems.filter((i) => i.kind === "event").length} 事件
+          {t("timeline.chapterEventCount", { count: flatItems.filter((i) => i.kind === "event").length })}
         </span>
         <div className="flex gap-1">
           {ALL_TYPES.map((type) => (
@@ -125,7 +160,7 @@ export default function DemoTimelinePage() {
                 border: `1px solid ${hiddenTypes.has(type) ? "#334155" : EVENT_TYPE_COLORS[type] + "30"}`,
               }}
             >
-              {type}
+              {getEventTypeLabel(type)}
             </button>
           ))}
         </div>
@@ -140,7 +175,7 @@ export default function DemoTimelinePage() {
                   : "text-slate-500 hover:text-slate-300"
               }`}
             >
-              {level === "all" ? "全部" : level === "medium" ? "中+" : "仅高"}
+              {level === "all" ? t("common.all") : level === "medium" ? t("timeline.importance.mediumPlus") : t("timeline.importance.highOnly")}
             </button>
           ))}
         </div>
@@ -171,10 +206,10 @@ export default function DemoTimelinePage() {
                 {item.kind === "chapter" ? (
                   <div className="flex items-center gap-2 py-1">
                     <span className="w-[52px] text-right text-xs font-semibold text-slate-300">
-                      第{item.chapter}回
+                      {t("demo.common.chapterHui", { chapter: item.chapter })}
                     </span>
                     <div className="h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-slate-900" />
-                    <span className="text-xs text-slate-500">{item.eventCount} 事件</span>
+                    <span className="text-xs text-slate-500">{t("timeline.chapterEventCount", { count: item.eventCount })}</span>
                   </div>
                 ) : (
                   <div className="ml-[72px] mr-2 rounded-lg border border-slate-700/50 bg-slate-900 p-2.5">
@@ -193,10 +228,10 @@ export default function DemoTimelinePage() {
                               color: EVENT_TYPE_COLORS[item.event.type] ?? "#6b7280",
                             }}
                           >
-                            {item.event.type}
+                            {getEventTypeLabel(item.event.type)}
                           </span>
                           {item.event.is_major && (
-                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">重要</span>
+                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">{t("timeline.importance.important")}</span>
                           )}
                           {item.event.emotional_tone && (
                             <span
@@ -206,7 +241,7 @@ export default function DemoTimelinePage() {
                                 color: TONE_COLORS[item.event.emotional_tone] ?? "#6b7280",
                               }}
                             >
-                              {item.event.emotional_tone}
+                              {getToneLabel(item.event.emotional_tone)}
                             </span>
                           )}
                           {item.event.location && <span>{item.event.location}</span>}

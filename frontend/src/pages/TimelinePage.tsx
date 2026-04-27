@@ -14,7 +14,17 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 import { recordTabVisit } from "@/lib/tabTracking"
+import { useI18n } from "@/i18n"
 import { lazy, Suspense } from "react"
+import {
+  TIMELINE_EVENT_TYPE_IDS,
+  sceneToneLabel,
+  sceneToneStyle,
+  timelineEventColor,
+  timelineEventTypeId,
+  timelineEventTypeLabel,
+} from "@/lib/domainLabels"
+import { timelineEventSummary } from "@/lib/timelineSummary"
 
 const StorylineView = lazy(() => import("./StorylineView"))
 
@@ -23,38 +33,15 @@ interface TimelineEvent {
   chapter: number
   summary: string
   type: string
+  type_id?: string
   importance: string
   participants: string[]
   location: string | null
   is_major?: boolean
   emotional_tone?: string | null
-}
-
-// Color by event type
-function eventColor(type: string): string {
-  switch (type) {
-    case "战斗": return "#ef4444"
-    case "成长": return "#3b82f6"
-    case "社交": return "#10b981"
-    case "旅行": return "#f97316"
-    case "角色登场": return "#8b5cf6"
-    case "物品交接": return "#eab308"
-    case "组织变动": return "#ec4899"
-    case "关系变化": return "#06b6d4"
-    default: return "#6b7280"
-  }
-}
-
-const TONE_COLORS: Record<string, string> = {
-  "紧张": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "悲伤": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  "欢乐": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "温馨": "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
-  "愤怒": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "平静": "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
-  "神秘": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  "恐惧": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  "搞笑": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  emotional_tone_id?: string | null
+  summary_template_id?: string | null
+  summary_args?: Record<string, unknown> | null
 }
 
 function importanceSize(importance: string, isMajor?: boolean): number {
@@ -68,9 +55,10 @@ function importanceSize(importance: string, isMajor?: boolean): number {
 }
 
 // FilterType imported from timelineStore (without "all" — "all" is UI-only toggle)
-const DEFAULT_HIDDEN: FilterType[] = ["角色登场", "物品交接"]
+const DEFAULT_HIDDEN: FilterType[] = ["character_appearance", "item_transfer"]
 
 export default function TimelinePage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
@@ -96,8 +84,8 @@ export default function TimelinePage() {
   const [selectedPersons, setSelectedPersons] = useState<string[]>([])
   const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
 
-  const ALL_CONTENT_TYPES: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
-  const SMART_DEFAULTS = new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
+  const ALL_CONTENT_TYPES: FilterType[] = [...TIMELINE_EVENT_TYPE_IDS]
+  const SMART_DEFAULTS = new Set<FilterType>(["battle", "growth", "social", "travel", "org_change", "relation_change", "other"])
 
   const toggleTypeFilter = useCallback((type: string) => {
     const prev = useTimelineStore.getState().filterTypes
@@ -161,7 +149,7 @@ export default function TimelinePage() {
   // Filtered events
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
-      if (!filterTypes.has(e.type as FilterType)) return false
+      if (!filterTypes.has(timelineEventTypeId(e.type_id, e.type) as FilterType)) return false
       if (filterImportance === "high" && e.importance !== "high") return false
       if (filterImportance === "medium" && e.importance === "low") return false
       if (selectedPersons.length > 0 && !e.participants.some((p) => selectedPersons.includes(p))) return false
@@ -271,7 +259,7 @@ export default function TimelinePage() {
     )
   }, [])
 
-  const EVENT_TYPES: string[] = ["all", "战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"]
+  const EVENT_TYPES: string[] = ["all", ...TIMELINE_EVENT_TYPE_IDS]
 
   const isAllSelected = useMemo(() => {
     return ALL_CONTENT_TYPES.every((t) => filterTypes.has(t))
@@ -293,7 +281,7 @@ export default function TimelinePage() {
               )}
               onClick={() => setViewMode("list")}
             >
-              ▤ 事件列表
+              ▤ {t("timeline.view.list")}
             </button>
             <button
               className={cn(
@@ -304,7 +292,7 @@ export default function TimelinePage() {
               )}
               onClick={() => setViewMode("storyline")}
             >
-              ═ 故事线
+              ═ {t("timeline.view.storyline")}
             </button>
           </div>
 
@@ -312,19 +300,19 @@ export default function TimelinePage() {
 
           {/* Type filter (multi-select) */}
           <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-xs text-muted-foreground mr-1">类型</span>
-            {EVENT_TYPES.map((t) => {
-              const isActive = t === "all" ? isAllSelected : filterTypes.has(t as FilterType)
-              const isHiddenDefault = DEFAULT_HIDDEN.includes(t as FilterType)
+            <span className="text-xs text-muted-foreground mr-1">{t("timeline.filter.type")}</span>
+            {EVENT_TYPES.map((type) => {
+              const isActive = type === "all" ? isAllSelected : filterTypes.has(type as FilterType)
+              const isHiddenDefault = DEFAULT_HIDDEN.includes(type as FilterType)
               return (
                 <Button
-                  key={t}
+                  key={type}
                   variant={isActive ? "default" : "outline"}
                   size="xs"
-                  onClick={() => toggleTypeFilter(t)}
+                  onClick={() => toggleTypeFilter(type)}
                   className={cn(!isActive && isHiddenDefault && "opacity-60")}
                 >
-                  {t === "all" ? "全部" : t}
+                  {type === "all" ? t("common.all") : timelineEventTypeLabel(t, type)}
                 </Button>
               )
             })}
@@ -334,7 +322,7 @@ export default function TimelinePage() {
 
           {/* Importance filter */}
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground mr-1">重要度</span>
+            <span className="text-xs text-muted-foreground mr-1">{t("timeline.filter.importance")}</span>
             {(["all", "medium", "high"] as const).map((level) => (
               <Button
                 key={level}
@@ -342,7 +330,11 @@ export default function TimelinePage() {
                 size="xs"
                 onClick={() => setFilterImportance(level)}
               >
-                {level === "all" ? "全部" : level === "medium" ? "中+" : "仅高"}
+                {level === "all"
+                  ? t("common.all")
+                  : level === "medium"
+                    ? t("timeline.importance.mediumPlus")
+                    : t("timeline.importance.highOnly")}
               </Button>
             ))}
           </div>
@@ -354,22 +346,22 @@ export default function TimelinePage() {
             variant={autoCollapseLow ? "default" : "outline"}
             size="xs"
             onClick={() => setAutoCollapseLow(!autoCollapseLow)}
-            title="自动折叠仅有低重要度事件的章节"
+            title={t("timeline.autoCollapseTitle")}
           >
-            自动折叠
+            {t("timeline.autoCollapse")}
           </Button>
 
           <div className="flex-1" />
 
           <span className="text-xs text-muted-foreground">
-            {filteredEvents.length} / {events.length} 事件
+            {t("timeline.eventCount", { shown: filteredEvents.length, total: events.length })}
           </span>
 
           <Button variant="outline" size="xs" onClick={collapseAll}>
-            折叠
+            {t("common.collapse")}
           </Button>
           <Button variant="outline" size="xs" onClick={expandAll}>
-            展开
+            {t("common.expand")}
           </Button>
 
           <Button
@@ -377,13 +369,13 @@ export default function TimelinePage() {
             size="xs"
             onClick={() => setShowSwimlanes(!showSwimlanes)}
           >
-            泳道
+            {t("timeline.swimlanes")}
           </Button>
         </div>
 
         {/* Storyline view */}
         {viewMode === "storyline" && (
-          <Suspense fallback={<div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">加载故事线视图...</div>}>
+          <Suspense fallback={<div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">{t("timeline.storylineLoading")}</div>}>
             <StorylineView
               events={filteredEvents}
               swimlanes={swimlanes}
@@ -400,13 +392,13 @@ export default function TimelinePage() {
           <div ref={timelineContainerRef} className="flex-1 overflow-auto">
             {loading && (
               <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">Loading timeline...</p>
+                <p className="text-muted-foreground">{t("timeline.loading")}</p>
               </div>
             )}
 
             {!loading && events.length === 0 && (
               <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">暂无事件数据</p>
+                <p className="text-muted-foreground">{t("timeline.empty")}</p>
               </div>
             )}
 
@@ -414,26 +406,16 @@ export default function TimelinePage() {
               <div className="p-4">
                 {/* Legend */}
                 <div className="flex items-center gap-3 mb-4 text-[10px] text-muted-foreground flex-wrap">
-                  {[
-                    { label: "战斗", color: "#ef4444" },
-                    { label: "成长", color: "#3b82f6" },
-                    { label: "社交", color: "#10b981" },
-                    { label: "旅行", color: "#f97316" },
-                    { label: "关系变化", color: "#06b6d4" },
-                    { label: "角色登场", color: "#8b5cf6" },
-                    { label: "物品交接", color: "#eab308" },
-                    { label: "组织变动", color: "#ec4899" },
-                    { label: "其他", color: "#6b7280" },
-                  ].map((item) => (
-                    <span key={item.label} className="flex items-center gap-1">
+                  {TIMELINE_EVENT_TYPE_IDS.map((type) => (
+                    <span key={type} className="flex items-center gap-1">
                       <span
                         className="inline-block size-2 rounded-full"
-                        style={{ backgroundColor: item.color }}
+                        style={{ backgroundColor: timelineEventColor(type) }}
                       />
-                      {item.label}
+                      {timelineEventTypeLabel(t, type)}
                     </span>
                   ))}
-                  <span className="ml-2">●大=关键 ●中=中 ·小=低</span>
+                  <span className="ml-2">{t("timeline.legend.sizeHint")}</span>
                 </div>
 
                 {/* Virtualized Timeline */}
@@ -461,19 +443,20 @@ export default function TimelinePage() {
                           onClick={() => toggleChapterCollapse(item.chapter)}
                         >
                           <span className="text-xs font-mono text-muted-foreground w-[52px] text-right">
-                            Ch.{item.chapter}
+                            {t("common.chapterShort", { chapter: item.chapter })}
                           </span>
                           <div className="size-2.5 rounded-full bg-border z-10" />
                           <span className="text-[10px] text-muted-foreground">
-                            {item.eventCount} 事件 {item.isCollapsed ? "▸" : "▾"}
+                            {t("timeline.chapterEventCount", { count: item.eventCount })} {item.isCollapsed ? "▸" : "▾"}
                             {item.isAutoCollapsed && (
-                              <span className="ml-1 text-yellow-600 dark:text-yellow-400">(低)</span>
+                              <span className="ml-1 text-yellow-600 dark:text-yellow-400">{t("timeline.lowShort")}</span>
                             )}
                           </span>
                         </div>
                       )
                     }
                     const evt = item.event
+                    const summary = timelineEventSummary(t, evt)
                     return (
                       <div
                         key={virtualRow.key}
@@ -504,37 +487,37 @@ export default function TimelinePage() {
                             style={{
                               width: importanceSize(evt.importance, evt.is_major) * 2,
                               height: importanceSize(evt.importance, evt.is_major) * 2,
-                              backgroundColor: eventColor(evt.type),
+                              backgroundColor: timelineEventColor(evt.type_id, evt.type),
                             }}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm leading-snug">{evt.summary}</p>
+                            <p className="text-sm leading-snug">{summary}</p>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <span
                                 className="text-[10px] px-1.5 py-0.5 rounded"
                                 style={{
-                                  backgroundColor: eventColor(evt.type) + "20",
-                                  color: eventColor(evt.type),
+                                  backgroundColor: timelineEventColor(evt.type_id, evt.type) + "20",
+                                  color: timelineEventColor(evt.type_id, evt.type),
                                 }}
                               >
-                                {evt.type}
+                                {timelineEventTypeLabel(t, evt.type_id, evt.type)}
                               </span>
                               {evt.is_major && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-950/30">
-                                  关键
+                                  {t("timeline.importance.key")}
                                 </span>
                               )}
                               {!evt.is_major && evt.importance === "high" && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30">
-                                  重要
+                                  {t("timeline.importance.important")}
                                 </span>
                               )}
                               {evt.emotional_tone && (
                                 <span className={cn(
                                   "text-[10px] px-1.5 py-0.5 rounded",
-                                  TONE_COLORS[evt.emotional_tone] ?? "bg-muted text-muted-foreground",
+                                  sceneToneStyle(evt.emotional_tone_id, evt.emotional_tone),
                                 )}>
-                                  {evt.emotional_tone}
+                                  {sceneToneLabel(t, evt.emotional_tone_id, evt.emotional_tone)}
                                 </span>
                               )}
                               {evt.location && (
@@ -552,7 +535,7 @@ export default function TimelinePage() {
                             </div>
                             {selectedEvent?.id === evt.id && evt.participants.length > 0 && (
                               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] text-muted-foreground">参与者:</span>
+                                <span className="text-[10px] text-muted-foreground">{t("timeline.participants")}</span>
                                 {evt.participants.map((p) => (
                                   <button
                                     key={p}
@@ -578,14 +561,14 @@ export default function TimelinePage() {
           {showSwimlanes && (
             <div className="w-64 flex-shrink-0 border-l overflow-auto">
               <div className="p-3">
-                <h3 className="text-sm font-medium mb-2">人物泳道</h3>
+                <h3 className="text-sm font-medium mb-2">{t("timeline.swimlanes.title")}</h3>
                 <p className="text-[10px] text-muted-foreground mb-2">
-                  选择人物筛选其相关事件
+                  {t("timeline.swimlanes.description")}
                 </p>
 
                 {/* Min event threshold */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[10px] text-muted-foreground">最少事件</span>
+                  <span className="text-[10px] text-muted-foreground">{t("timeline.swimlanes.minEvents")}</span>
                   <div className="flex items-center gap-1">
                     {[1, 3, 5, 10].map((n) => (
                       <Button
@@ -601,7 +584,7 @@ export default function TimelinePage() {
                 </div>
 
                 <p className="text-[10px] text-muted-foreground mb-2">
-                  {filteredPersons.length} / {totalPersons} 人物
+                  {t("timeline.swimlanes.personCount", { shown: filteredPersons.length, total: totalPersons })}
                 </p>
 
                 <div className="space-y-1">
@@ -629,7 +612,7 @@ export default function TimelinePage() {
                     className="mt-2 w-full"
                     onClick={() => setSelectedPersons([])}
                   >
-                    清除筛选
+                    {t("timeline.clearFilter")}
                   </Button>
                 )}
               </div>

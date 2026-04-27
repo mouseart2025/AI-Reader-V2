@@ -8,6 +8,7 @@ import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom"
 import { fetchNovels } from "@/api/client"
 import { ensureSidecar } from "@/api/sidecarBridge"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
+import { useI18n } from "@/i18n"
 import type { Novel } from "@/api/types"
 
 const FloatingChatPanel = lazy(() =>
@@ -30,22 +31,23 @@ import {
 } from "lucide-react"
 
 const TABS = [
-  { key: "reading", label: "阅读", Icon: BookOpen },
-  { key: "analysis", label: "分析", Icon: FlaskConical },
-  { key: "timeline", label: "时间线", Icon: Clock },
-  { key: "graph", label: "图谱", Icon: GitBranch },
-  { key: "map", label: "地图", Icon: Map },
-  { key: "encyclopedia", label: "百科", Icon: BookMarked },
-  { key: "factions", label: "势力", Icon: Users },
-  { key: "chat", label: "问答", Icon: MessageCircle },
-  { key: "conflicts", label: "冲突", Icon: AlertTriangle },
-  { key: "export", label: "导出", Icon: Download },
+  { key: "reading", labelKey: "nav.reading", Icon: BookOpen },
+  { key: "analysis", labelKey: "nav.analysis", Icon: FlaskConical },
+  { key: "timeline", labelKey: "nav.timeline", Icon: Clock },
+  { key: "graph", labelKey: "nav.graph", Icon: GitBranch },
+  { key: "map", labelKey: "nav.map", Icon: Map },
+  { key: "encyclopedia", labelKey: "nav.encyclopedia", Icon: BookMarked },
+  { key: "factions", labelKey: "nav.factions", Icon: Users },
+  { key: "chat", labelKey: "nav.chat", Icon: MessageCircle },
+  { key: "conflicts", labelKey: "nav.conflicts", Icon: AlertTriangle },
+  { key: "export", labelKey: "nav.export", Icon: Download },
 ] as const
 
 export default function DesktopLayout() {
   const { novelId = "" } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useI18n()
 
   const [sidecarReady, setSidecarReady] = useState(false)
   const [sidecarError, setSidecarError] = useState<string | null>(null)
@@ -73,7 +75,8 @@ export default function DesktopLayout() {
   // Dynamic document title
   const currentNovel = novels.find((n) => String(n.id) === novelId)
   const novelTitle = currentNovel?.title ?? novelId
-  const tabLabel = TABS.find((t) => t.key === activeTab)?.label ?? ""
+  const activeTabConfig = TABS.find((tab) => tab.key === activeTab)
+  const tabLabel = activeTabConfig ? t(activeTabConfig.labelKey) : ""
   useEffect(() => {
     if (novelTitle && tabLabel) {
       document.title = `${novelTitle} · ${tabLabel} — AI Reader`
@@ -86,19 +89,19 @@ export default function DesktopLayout() {
       <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground">
         {sidecarError ? (
           <div className="text-center">
-            <p className="text-lg font-semibold text-red-400">后端启动失败</p>
+            <p className="text-lg font-semibold text-red-400">{t("desktop.backendStartFailed")}</p>
             <p className="mt-2 text-sm text-muted-foreground">{sidecarError}</p>
             <button
               onClick={() => window.location.reload()}
               className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
             >
-              重试
+              {t("common.retry")}
             </button>
           </div>
         ) : (
           <div className="text-center">
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-            <p className="text-sm text-muted-foreground">正在启动分析引擎...</p>
+            <p className="text-sm text-muted-foreground">{t("desktop.startingAnalysisEngine")}</p>
           </div>
         )}
       </div>
@@ -115,7 +118,7 @@ export default function DesktopLayout() {
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
         >
           <ArrowLeft className="size-4" />
-          <span>书架</span>
+          <span>{t("nav.bookshelf")}</span>
         </button>
 
         {/* Novel Selector */}
@@ -150,7 +153,7 @@ export default function DesktopLayout() {
                 }`}
               >
                 <tab.Icon className="size-4" />
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             )
           })}
@@ -162,6 +165,8 @@ export default function DesktopLayout() {
         <button
           onClick={() => navigate("/settings")}
           className="text-muted-foreground hover:text-foreground transition"
+          aria-label={t("settings.open")}
+          title={t("settings.open")}
         >
           <Settings className="size-5" />
         </button>

@@ -23,27 +23,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useI18n, type TranslationKey, type TranslationParams } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 // ── Constants ──────────────────────────────
 
 const TIER_OPTIONS = [
-  { value: "continent", label: "大洲" },
-  { value: "region", label: "区域" },
-  { value: "province", label: "省/路" },
-  { value: "prefecture", label: "州/府" },
-  { value: "city", label: "城市" },
-  { value: "town", label: "城镇" },
-  { value: "village", label: "村庄" },
-  { value: "landmark", label: "地标" },
-  { value: "building", label: "建筑" },
-  { value: "room", label: "房间" },
-  { value: "invalid", label: "❌ 无效地点" },
-]
+  { value: "continent", labelKey: "visualization.worldStructure.tier.continent" },
+  { value: "region", labelKey: "visualization.worldStructure.tier.region" },
+  { value: "province", labelKey: "visualization.worldStructure.tier.province" },
+  { value: "prefecture", labelKey: "visualization.worldStructure.tier.prefecture" },
+  { value: "city", labelKey: "visualization.worldStructure.tier.city" },
+  { value: "town", labelKey: "visualization.worldStructure.tier.town" },
+  { value: "village", labelKey: "visualization.worldStructure.tier.village" },
+  { value: "landmark", labelKey: "visualization.worldStructure.tier.landmark" },
+  { value: "building", labelKey: "visualization.worldStructure.tier.building" },
+  { value: "room", labelKey: "visualization.worldStructure.tier.room" },
+  { value: "invalid", labelKey: "visualization.worldStructure.tier.invalid" },
+] as const satisfies readonly { value: string; labelKey: TranslationKey }[]
 
-const TIER_LABELS: Record<string, string> = Object.fromEntries(
-  TIER_OPTIONS.map((t) => [t.value, t.label]),
-)
+const TIER_LABEL_KEYS: Record<string, TranslationKey> = Object.fromEntries(
+  TIER_OPTIONS.map((tier) => [tier.value, tier.labelKey]),
+) as Record<string, TranslationKey>
+
+type TranslateFn = (key: TranslationKey, params?: TranslationParams) => string
+
+function tierLabel(tier: string, t: TranslateFn): string {
+  const key = TIER_LABEL_KEYS[tier]
+  return key ? t(key) : tier
+}
+
+const OVERRIDE_TYPE_LABEL_KEYS: Record<string, TranslationKey> = {
+  location_region: "visualization.worldStructure.overrideType.region",
+  location_layer: "visualization.worldStructure.overrideType.layer",
+  location_parent: "visualization.worldStructure.overrideType.parent",
+  location_tier: "visualization.worldStructure.overrideType.tier",
+  add_portal: "visualization.worldStructure.overrideType.addPortal",
+  delete_portal: "visualization.worldStructure.overrideType.deletePortal",
+}
+
+function overrideTypeLabelKey(type: string): TranslationKey {
+  return OVERRIDE_TYPE_LABEL_KEYS[type] ?? "visualization.worldStructure.overrideType.unknown"
+}
 
 type TabId = "tree" | "portals" | "overrides"
 
@@ -62,6 +83,7 @@ export function WorldStructureEditor({
   onClose,
   onStructureChanged,
 }: WorldStructureEditorProps) {
+  const { t } = useI18n()
   const [ws, setWs] = useState<WorldStructureData | null>(null)
   const [overrides, setOverrides] = useState<WorldStructureOverride[]>([])
   const [loading, setLoading] = useState(false)
@@ -146,13 +168,13 @@ export function WorldStructureEditor({
       const ovData = await fetchWorldStructureOverrides(novelId)
       setOverrides(ovData.overrides)
       onStructureChanged()
-      showToast("保存成功")
+      showToast(t("visualization.worldStructure.toast.saveSuccess"))
     } catch {
-      showToast("保存失败")
+      showToast(t("visualization.worldStructure.toast.saveFailed"))
     } finally {
       setSaving(false)
     }
-  }, [hasPendingChanges, pendingChanges, pendingPortalAdds, pendingPortalDeletes, novelId, onStructureChanged])
+  }, [hasPendingChanges, pendingChanges, pendingPortalAdds, pendingPortalDeletes, novelId, onStructureChanged, t])
 
   // Delete a specific override
   const handleDeleteOverride = useCallback(
@@ -162,12 +184,12 @@ export function WorldStructureEditor({
         setWs(updatedWs)
         setOverrides((prev) => prev.filter((o) => o.id !== overrideId))
         onStructureChanged()
-        showToast("已重置为 AI 生成")
+        showToast(t("visualization.worldStructure.toast.resetToAi"))
       } catch {
-        showToast("删除失败")
+        showToast(t("visualization.worldStructure.toast.deleteFailed"))
       }
     },
-    [novelId, onStructureChanged],
+    [novelId, onStructureChanged, t],
   )
 
   // Field change handler for detail panel
@@ -225,11 +247,15 @@ export function WorldStructureEditor({
       )}>
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">编辑世界结构</h2>
+          <h2 className="text-sm font-medium">{t("visualization.worldStructure.title")}</h2>
           <div className="flex items-center gap-2">
             {hasPendingChanges && (
               <Button variant="default" size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? "保存中..." : `保存 (${pendingChanges.size + pendingPortalAdds.length + pendingPortalDeletes.size})`}
+                {saving
+                  ? t("visualization.worldStructure.saving")
+                  : t("visualization.worldStructure.saveWithCount", {
+                    count: pendingChanges.size + pendingPortalAdds.length + pendingPortalDeletes.size,
+                  })}
               </Button>
             )}
             <Button variant="ghost" size="icon-xs" onClick={onClose}>
@@ -241,7 +267,7 @@ export function WorldStructureEditor({
         {/* Search */}
         <div className="px-4 py-2 border-b">
           <Input
-            placeholder="搜索地点..."
+            placeholder={t("visualization.worldStructure.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-7 text-xs"
@@ -251,9 +277,9 @@ export function WorldStructureEditor({
         {/* Tabs */}
         <div className="flex border-b">
           {([
-            ["tree", "地点层级"],
-            ["portals", `传送门 (${ws?.portals?.length ?? 0})`],
-            ["overrides", `覆盖记录 (${overrides.length})`],
+            ["tree", t("visualization.worldStructure.tab.locations")],
+            ["portals", t("visualization.worldStructure.tab.portals", { count: ws?.portals?.length ?? 0 })],
+            ["overrides", t("visualization.worldStructure.tab.overrides", { count: overrides.length })],
           ] as [TabId, string][]).map(([id, label]) => (
             <button
               key={id}
@@ -279,7 +305,7 @@ export function WorldStructureEditor({
           )}>
           {loading && (
             <div className="flex h-32 items-center justify-center">
-              <p className="text-muted-foreground text-sm">加载中...</p>
+              <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
             </div>
           )}
 
@@ -388,6 +414,7 @@ function LocationTreeTab({
   onDeleteOverride: (id: number) => void
   hideDetail?: boolean
 }) {
+  const { t } = useI18n()
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [initialized, setInitialized] = useState(false)
 
@@ -547,7 +574,9 @@ function LocationTreeTab({
       <div className="flex-1 overflow-y-auto">
         {treeNodes.length === 0 && (
           <p className="text-muted-foreground text-xs text-center py-8">
-            {search ? "无匹配结果" : "暂无地点数据"}
+            {search
+              ? t("visualization.worldStructure.empty.noMatches")
+              : t("visualization.worldStructure.empty.noLocations")}
           </p>
         )}
         {treeNodes.map((node) => (
@@ -582,7 +611,7 @@ function LocationTreeTab({
             )}
             {node.tier && (
               <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded flex-shrink-0">
-                {TIER_LABELS[node.tier] ?? node.tier}
+                {tierLabel(node.tier, t)}
               </span>
             )}
           </div>
@@ -628,6 +657,7 @@ function DetailPanel({
   expanded?: boolean
   novelId?: string
 }) {
+  const { t } = useI18n()
   const currentParent =
     (pendingChanges.get(`parent:${locationName}`)?.json?.parent as string) ??
     ws.location_parents?.[locationName] ?? ""
@@ -728,16 +758,20 @@ function DetailPanel({
               />
             </div>
           ) : (
-            <div className="text-xs text-muted-foreground py-4 text-center">加载地点信息...</div>
+            <div className="text-xs text-muted-foreground py-4 text-center">
+              {t("visualization.worldStructure.detail.loadingLocation")}
+            </div>
           )}
 
           <hr className="border-border" />
-          <span className="text-[11px] font-medium text-foreground">✏️ 编辑</span>
+          <span className="text-[11px] font-medium text-foreground">
+            {t("visualization.worldStructure.detail.edit")}
+          </span>
         </div>
       )}
 
       <SearchableField
-        label="父级"
+        label={t("visualization.worldStructure.field.parent")}
         value={currentParent}
         options={allLocationNames}
         onChange={(v) => onFieldChange(locationName, "parent", v)}
@@ -745,14 +779,16 @@ function DetailPanel({
         parentMap={ws.location_parents}
       />
       <SearchableField
-        label="区域"
+        label={t("visualization.worldStructure.field.region")}
         value={currentRegion}
         options={allRegionNames}
         onChange={(v) => onFieldChange(locationName, "region", v)}
       />
 
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground w-10 flex-shrink-0">层</span>
+        <span className="text-xs text-muted-foreground w-10 flex-shrink-0">
+          {t("visualization.worldStructure.field.layer")}
+        </span>
         <Select value={currentLayer} onValueChange={(v) => onFieldChange(locationName, "layer", v)}>
           <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
             <SelectValue />
@@ -766,14 +802,16 @@ function DetailPanel({
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground w-10 flex-shrink-0">类型</span>
+        <span className="text-xs text-muted-foreground w-10 flex-shrink-0">
+          {t("visualization.worldStructure.field.type")}
+        </span>
         <Select value={currentTier} onValueChange={(v) => onFieldChange(locationName, "tier", v)}>
           <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {TIER_OPTIONS.map((t) => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+            {TIER_OPTIONS.map((tier) => (
+              <SelectItem key={tier.value} value={tier.value}>{tierLabel(tier.value, t)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -790,19 +828,23 @@ function DetailPanel({
             onFieldChange(locationName, "parent", "")
           }}
         >
-          ❌ 标记为无效地点
+          {t("visualization.worldStructure.invalid.mark")}
         </Button>
       )}
       {currentTier === "invalid" && (
         <div className="flex items-center gap-2 rounded bg-red-500/10 px-2 py-1">
-          <span className="text-[10px] text-red-500">已标记为无效地点</span>
+          <span className="text-[10px] text-red-500">
+            {t("visualization.worldStructure.invalid.marked")}
+          </span>
         </div>
       )}
 
       {relevantOverrides.length > 0 && (
         <div className="flex items-center gap-2 pt-1">
           <span className="text-[10px] text-amber-600">
-            {relevantOverrides.length} 项已修改
+            {t("visualization.worldStructure.override.modifiedCount", {
+              count: relevantOverrides.length,
+            })}
           </span>
           {relevantOverrides.map((ov) => (
             <Button
@@ -812,7 +854,9 @@ function DetailPanel({
               className="text-[10px] h-5"
               onClick={() => onDeleteOverride(ov.id)}
             >
-              重置 {ov.override_type.replace("location_", "")}
+              {t("visualization.worldStructure.override.resetField", {
+                field: t(overrideTypeLabelKey(ov.override_type)),
+              })}
             </Button>
           ))}
         </div>
@@ -838,6 +882,7 @@ function SearchableField({
   tierMap?: Record<string, string>
   parentMap?: Record<string, string>
 }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
@@ -881,7 +926,7 @@ function SearchableField({
           className="flex h-7 w-full items-center justify-between rounded-md border bg-background px-2 text-xs hover:bg-muted/50"
           onClick={() => { setOpen(!open); setInputValue("") }}
         >
-          <span className="truncate">{value || "无"}</span>
+          <span className="truncate">{value || t("visualization.worldStructure.field.none")}</span>
           <span className="text-muted-foreground ml-1">▾</span>
         </button>
 
@@ -890,18 +935,20 @@ function SearchableField({
             <input
               autoFocus
               type="text"
-              placeholder="输入搜索..."
+              placeholder={t("visualization.worldStructure.searchInputPlaceholder")}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               className="w-full border-b px-2 py-1.5 text-xs bg-transparent outline-none"
             />
             <div className="max-h-40 overflow-y-auto">
               {filtered.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">无匹配</div>
+                <div className="px-2 py-2 text-xs text-muted-foreground">
+                  {t("visualization.worldStructure.empty.noMatchShort")}
+                </div>
               )}
               {filtered.map((opt) => {
                 const tier = tierMap?.[opt]
-                const tierLabel = tier ? (TIER_LABELS[tier] ?? tier) : ""
+                const tierDisplay = tier ? tierLabel(tier, t) : ""
                 // Build parent chain for this option
                 let chainStr = ""
                 if (parentMap) {
@@ -927,9 +974,9 @@ function SearchableField({
                   >
                     <div className="flex items-center gap-1.5">
                       <span className="truncate">{opt}</span>
-                      {tierLabel && (
+                      {tierDisplay && (
                         <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
-                          {tierLabel}
+                          {tierDisplay}
                         </span>
                       )}
                     </div>
@@ -979,12 +1026,17 @@ function PortalEditor({
   onDeletePortal: (name: string) => void
   onDeleteOverride: (id: number) => void
 }) {
+  const { t } = useI18n()
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <h4 className="text-xs font-medium mb-2">已有传送门</h4>
+      <h4 className="text-xs font-medium mb-2">
+        {t("visualization.worldStructure.portals.existing")}
+      </h4>
       <div className="space-y-1 mb-4">
         {portals.length === 0 && pendingAdds.length === 0 && (
-          <p className="text-muted-foreground text-xs text-center py-4">暂无传送门</p>
+          <p className="text-muted-foreground text-xs text-center py-4">
+            {t("visualization.worldStructure.portals.empty")}
+          </p>
         )}
         {portals.map((portal) => {
           const isDeleted = pendingDeletes.has(portal.name)
@@ -1006,7 +1058,9 @@ function PortalEditor({
             >
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-medium truncate">
-                  {portal.name} {portal.is_bidirectional ? "(双向)" : "(单向)"}
+                  {portal.name} {portal.is_bidirectional
+                    ? t("visualization.worldStructure.portals.direction.bidirectional")
+                    : t("visualization.worldStructure.portals.direction.unidirectional")}
                 </div>
                 <div className="text-[10px] text-muted-foreground truncate">
                   {srcLayer?.name ?? portal.source_layer}
@@ -1015,14 +1069,18 @@ function PortalEditor({
                   {portal.target_location ? `(${portal.target_location})` : ""}
                 </div>
               </div>
-              {isOverridden && <span className="text-[10px] text-amber-600 flex-shrink-0">已修改</span>}
+              {isOverridden && (
+                <span className="text-[10px] text-amber-600 flex-shrink-0">
+                  {t("visualization.worldStructure.status.modified")}
+                </span>
+              )}
               {isOverridden && overrideItem && (
-                <Button variant="ghost" size="icon-xs" title="重置" onClick={() => onDeleteOverride(overrideItem.id)}>
+                <Button variant="ghost" size="icon-xs" title={t("visualization.worldStructure.action.reset")} onClick={() => onDeleteOverride(overrideItem.id)}>
                   <ResetIcon className="size-3.5 text-muted-foreground" />
                 </Button>
               )}
               {!isDeleted && (
-                <Button variant="ghost" size="icon-xs" title="删除" onClick={() => onDeletePortal(portal.name)}>
+                <Button variant="ghost" size="icon-xs" title={t("common.delete")} onClick={() => onDeletePortal(portal.name)}>
                   <XIcon className="size-3.5 text-destructive" />
                 </Button>
               )}
@@ -1032,43 +1090,57 @@ function PortalEditor({
         {pendingAdds.map((portal) => (
           <div key={portal.name} className="flex items-center gap-2 rounded border border-blue-300 bg-blue-50 px-2 py-1.5 dark:bg-blue-950/20">
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium truncate">{portal.name} (新增)</div>
+              <div className="text-xs font-medium truncate">
+                {portal.name} {t("visualization.worldStructure.portals.newTag")}
+              </div>
               <div className="text-[10px] text-muted-foreground truncate">{portal.source_layer} → {portal.target_layer}</div>
             </div>
-            <span className="text-[10px] text-blue-600 flex-shrink-0">待保存</span>
+            <span className="text-[10px] text-blue-600 flex-shrink-0">
+              {t("visualization.worldStructure.status.pendingSave")}
+            </span>
           </div>
         ))}
       </div>
 
-      <h4 className="text-xs font-medium mb-2">添加传送门</h4>
+      <h4 className="text-xs font-medium mb-2">
+        {t("visualization.worldStructure.portals.addTitle")}
+      </h4>
       <div className="space-y-2 rounded border p-3">
-        <Input placeholder="传送门名称" value={newPortal.name}
+        <Input placeholder={t("visualization.worldStructure.portals.namePlaceholder")} value={newPortal.name}
           onChange={(e) => onNewPortalChange({ ...newPortal, name: e.target.value })} className="h-7 text-xs" />
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] text-muted-foreground">源层</label>
+            <label className="text-[10px] text-muted-foreground">
+              {t("visualization.worldStructure.portals.sourceLayer")}
+            </label>
             <Select value={newPortal.source_layer} onValueChange={(val) => onNewPortalChange({ ...newPortal, source_layer: val })}>
               <SelectTrigger size="sm" className="h-7 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>{layers.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}</SelectContent>
             </Select>
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">源地点</label>
-            <Input placeholder="可选" value={newPortal.source_location}
+            <label className="text-[10px] text-muted-foreground">
+              {t("visualization.worldStructure.portals.sourceLocation")}
+            </label>
+            <Input placeholder={t("visualization.worldStructure.portals.optionalPlaceholder")} value={newPortal.source_location}
               onChange={(e) => onNewPortalChange({ ...newPortal, source_location: e.target.value })} className="h-7 text-xs" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] text-muted-foreground">目标层</label>
+            <label className="text-[10px] text-muted-foreground">
+              {t("visualization.worldStructure.portals.targetLayer")}
+            </label>
             <Select value={newPortal.target_layer} onValueChange={(val) => onNewPortalChange({ ...newPortal, target_layer: val })}>
-              <SelectTrigger size="sm" className="h-7 text-xs"><SelectValue placeholder="选择..." /></SelectTrigger>
+              <SelectTrigger size="sm" className="h-7 text-xs"><SelectValue placeholder={t("visualization.worldStructure.portals.choosePlaceholder")} /></SelectTrigger>
               <SelectContent>{layers.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}</SelectContent>
             </Select>
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">目标地点</label>
-            <Input placeholder="可选" value={newPortal.target_location}
+            <label className="text-[10px] text-muted-foreground">
+              {t("visualization.worldStructure.portals.targetLocation")}
+            </label>
+            <Input placeholder={t("visualization.worldStructure.portals.optionalPlaceholder")} value={newPortal.target_location}
               onChange={(e) => onNewPortalChange({ ...newPortal, target_location: e.target.value })} className="h-7 text-xs" />
           </div>
         </div>
@@ -1076,10 +1148,10 @@ function PortalEditor({
           <label className="flex items-center gap-1.5 text-xs">
             <input type="checkbox" checked={newPortal.is_bidirectional}
               onChange={(e) => onNewPortalChange({ ...newPortal, is_bidirectional: e.target.checked })} className="rounded" />
-            双向传送
+            {t("visualization.worldStructure.portals.bidirectionalTeleport")}
           </label>
           <Button variant="outline" size="sm" onClick={onAddPortal}
-            disabled={!newPortal.name || !newPortal.target_layer}>添加</Button>
+            disabled={!newPortal.name || !newPortal.target_layer}>{t("visualization.worldStructure.portals.add")}</Button>
         </div>
       </div>
     </div>
@@ -1095,14 +1167,7 @@ function OverrideHistoryTab({
   overrides: WorldStructureOverride[]
   onDelete: (id: number) => void
 }) {
-  const TYPE_LABELS: Record<string, string> = {
-    location_region: "区域",
-    location_layer: "层",
-    location_parent: "父级",
-    location_tier: "类型",
-    add_portal: "添加传送门",
-    delete_portal: "删除传送门",
-  }
+  const { t } = useI18n()
 
   const sorted = useMemo(
     () => [...overrides].sort((a, b) => b.created_at.localeCompare(a.created_at)),
@@ -1112,7 +1177,9 @@ function OverrideHistoryTab({
   return (
     <div className="flex-1 overflow-y-auto p-4">
       {sorted.length === 0 && (
-        <p className="text-muted-foreground text-xs text-center py-8">暂无覆盖记录</p>
+        <p className="text-muted-foreground text-xs text-center py-8">
+          {t("visualization.worldStructure.overrides.empty")}
+        </p>
       )}
       <div className="space-y-1">
         {sorted.map((ov) => (
@@ -1120,14 +1187,19 @@ function OverrideHistoryTab({
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium truncate">{ov.override_key}</div>
               <div className="text-[10px] text-muted-foreground">
-                {TYPE_LABELS[ov.override_type] ?? ov.override_type} ·{" "}
+                {t(overrideTypeLabelKey(ov.override_type))} ·{" "}
                 {ov.override_json && Object.keys(ov.override_json).length > 0
                   ? Object.values(ov.override_json).join(", ")
                   : ""}{" "}
                 · {ov.created_at}
               </div>
             </div>
-            <Button variant="ghost" size="icon-xs" title="删除覆盖" onClick={() => onDelete(ov.id)}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              title={t("visualization.worldStructure.overrides.deleteTitle")}
+              onClick={() => onDelete(ov.id)}
+            >
               <ResetIcon className="size-3.5 text-muted-foreground" />
             </Button>
           </div>

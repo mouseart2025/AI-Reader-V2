@@ -5,6 +5,11 @@ from fastapi import APIRouter, HTTPException, Query
 from src.db import novel_store
 from src.services import entity_aggregator
 from src.services.alias_resolver import build_alias_map
+from src.services.entity_identity import (
+    entity_identity_key,
+    is_minor_non_cjk_truncation,
+    normalize_entity_name,
+)
 
 router = APIRouter(prefix="/api/novels/{novel_id}/entities", tags=["entities"])
 
@@ -47,16 +52,27 @@ async def get_entity(
 
     # Resolve alias to canonical name
     alias_map = await build_alias_map(novel_id)
-    resolved_name = alias_map.get(name, name)
+    normalized_name = normalize_entity_name(name)
+    resolved_name = normalize_entity_name(
+        alias_map.get(normalized_name, alias_map.get(name, normalized_name))
+    )
+    requested_key = entity_identity_key(resolved_name)
+
+    entities = await entity_aggregator.get_all_entities(novel_id)
+    matched_entity = next(
+        (entity for entity in entities if entity_identity_key(entity.name) == requested_key),
+        None,
+    )
+    if not matched_entity:
+        matched_entity = next(
+            (entity for entity in entities if is_minor_non_cjk_truncation(resolved_name, entity.name)),
+            None,
+        )
+    if matched_entity:
+        resolved_name = matched_entity.name
 
     # If type is provided, use it directly. Otherwise, detect from entity list.
-    entity_type = type
-    if not entity_type:
-        entities = await entity_aggregator.get_all_entities(novel_id)
-        for e in entities:
-            if e.name == resolved_name:
-                entity_type = e.type
-                break
+    entity_type = type or (matched_entity.type if matched_entity else None)
 
     if not entity_type:
         raise HTTPException(status_code=404, detail="实体不存在")

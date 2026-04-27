@@ -7,11 +7,13 @@ import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore, formatLlmLabel } from "@/stores/llmInfoStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 export default function ChatPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [input, setInput] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -96,7 +98,7 @@ export default function ChatPage() {
               className="w-full"
               onClick={() => novelId && newConversation(novelId)}
             >
-              + 新建对话
+              {t("chat.createConversation")}
             </Button>
           </div>
 
@@ -128,7 +130,7 @@ export default function ChatPage() {
 
             {conversations.length === 0 && (
               <p className="text-muted-foreground text-xs text-center py-4">
-                暂无对话
+                {t("chat.noConversations")}
               </p>
             )}
           </div>
@@ -145,7 +147,7 @@ export default function ChatPage() {
           >
             {sidebarOpen ? "◁" : "▷"}
           </button>
-          <span className="text-sm font-medium">智能问答</span>
+          <span className="text-sm font-medium">{t("chat.smartQa")}</span>
           {activeConversationId && (
             <span className="text-xs text-muted-foreground">
               {conversations.find((c) => c.id === activeConversationId)?.title}
@@ -159,11 +161,11 @@ export default function ChatPage() {
               className="text-muted-foreground text-[11px]"
               onClick={() => window.open(exportConversationUrl(activeConversationId), "_blank")}
             >
-              导出
+              {t("common.export")}
             </Button>
           )}
           <span className="text-[10px] text-muted-foreground">
-            Cmd/Ctrl+K 快速问答
+            {t("chat.quickShortcut")}
           </span>
         </div>
 
@@ -171,14 +173,14 @@ export default function ChatPage() {
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
           {messages.length === 0 && !streaming && (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-              <p className="text-lg">向小说提问</p>
-              <p className="text-sm">基于已分析的章节内容回答</p>
+              <p className="text-lg">{t("chat.askNovelTitle")}</p>
+              <p className="text-sm">{t("chat.askNovelDescription")}</p>
               <div className="mt-4 flex flex-wrap gap-2 max-w-md justify-center">
                 {[
-                  "主角是谁？有什么能力？",
-                  "主要角色之间的关系是什么？",
-                  "故事发生在什么地方？",
-                  "目前剧情发展到了什么阶段？",
+                  t("chat.suggestedQuestion.protagonist"),
+                  t("chat.suggestedQuestion.relationships"),
+                  t("chat.suggestedQuestion.setting"),
+                  t("chat.suggestedQuestion.plotStage"),
                 ].map((q) => (
                   <button
                     key={q}
@@ -220,14 +222,14 @@ export default function ChatPage() {
 
               {msg.role === "assistant" && msg.sources.length > 0 && (
                 <div className="mt-1 ml-9 flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-muted-foreground">来源:</span>
+                  <span className="text-[10px] text-muted-foreground">{t("chat.sources")}</span>
                   {msg.sources.map((ch) => (
                     <button
                       key={ch}
                       className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground"
                       onClick={() => navigate(novelPath(novelId!, "read", `chapter=${ch}`))}
                     >
-                      第{ch}章
+                      {t("chat.chapterRef", { chapter: ch })}
                     </button>
                   ))}
                 </div>
@@ -258,7 +260,7 @@ export default function ChatPage() {
                 </div>
                 <div className="rounded-lg px-4 py-2.5 bg-muted">
                   <span className="text-sm text-muted-foreground animate-pulse">
-                    {llmLabel ? `${llmLabel} 思考中...` : "正在思考..."}
+                    {llmLabel ? t("chat.thinkingWithModel", { model: llmLabel }) : t("chat.thinking")}
                   </span>
                 </div>
               </div>
@@ -274,7 +276,7 @@ export default function ChatPage() {
             <textarea
               className="flex-1 resize-none rounded-lg border bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               rows={2}
-              placeholder="输入问题... (Enter 发送, Shift+Enter 换行)"
+              placeholder={t("chat.fullPageInputPlaceholder")}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -286,7 +288,7 @@ export default function ChatPage() {
               onClick={handleSend}
               disabled={!input.trim() || streaming}
             >
-              发送
+              {t("chat.send")}
             </Button>
           </div>
         </div>

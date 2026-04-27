@@ -36,14 +36,15 @@ import { highlightText } from "@/lib/entityHighlight"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 import { recordTabVisit } from "@/lib/tabTracking"
 import { novelPath } from "@/lib/novelPaths"
+import { useI18n, type TranslationKey } from "@/i18n"
 
 // ── Entity type colors for filter chips ──────────
-const ENTITY_TYPE_LABELS: { type: string; label: string; color: string }[] = [
-  { type: "person", label: "人物", color: "bg-blue-500" },
-  { type: "location", label: "地点", color: "bg-green-500" },
-  { type: "item", label: "物品", color: "bg-orange-500" },
-  { type: "org", label: "组织", color: "bg-purple-500" },
-  { type: "concept", label: "概念", color: "bg-gray-500" },
+const ENTITY_TYPE_LABELS: { type: string; labelKey: TranslationKey; color: string }[] = [
+  { type: "person", labelKey: "analysis.entityType.person", color: "bg-blue-500" },
+  { type: "location", labelKey: "analysis.entityType.location", color: "bg-green-500" },
+  { type: "item", labelKey: "analysis.entityType.item", color: "bg-orange-500" },
+  { type: "org", labelKey: "analysis.entityType.org", color: "bg-purple-500" },
+  { type: "concept", labelKey: "analysis.entityType.concept", color: "bg-gray-500" },
 ]
 
 // ── Analysis status icon ─────────────────────────
@@ -102,6 +103,7 @@ function TocSidebar({
   onClose: () => void
   onBookmarkDelete: (id: number) => void
 }) {
+  const { t } = useI18n()
   const chapters = useReadingStore((s) => s.chapters)
   const search = useReadingStore((s) => s.tocSearch)
   const onSearchChange = useReadingStore((s) => s.setTocSearch)
@@ -157,12 +159,12 @@ function TocSidebar({
       {/* Header */}
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <Input
-          placeholder="搜索章节..."
+          placeholder={t("reading.toc.searchPlaceholder")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="h-8 text-sm"
         />
-        <Button variant="ghost" size="icon-xs" onClick={onClose} title="收起目录">
+        <Button variant="ghost" size="icon-xs" onClick={onClose} title={t("reading.toc.collapseTitle")}>
           <PanelLeftClose className="size-4" />
         </Button>
       </div>
@@ -170,7 +172,7 @@ function TocSidebar({
       {/* Search result count (1.6) */}
       {search.trim() && (
         <p className="px-3 py-1 text-xs text-muted-foreground">
-          {filtered.length}/{chapters.length} 章
+          {t("reading.toc.searchResultCount", { shown: filtered.length, total: chapters.length })}
         </p>
       )}
 
@@ -181,7 +183,7 @@ function TocSidebar({
           onClick={() => setShowBookmarks(!showBookmarks)}
         >
           <BookmarkIcon className="size-3" />
-          <span>{bookmarks.length} 个书签</span>
+          <span>{t("reading.toc.bookmarkCount", { count: bookmarks.length })}</span>
           <ChevronIcon expanded={showBookmarks} />
         </button>
       )}
@@ -195,7 +197,7 @@ function TocSidebar({
                 className="flex-1 truncate text-left text-primary hover:underline"
                 onClick={() => onSelect(bm.chapter_num)}
               >
-                第{bm.chapter_num}章 {bm.note && `- ${bm.note}`}
+                {t("reading.chapterFallback", { chapter: bm.chapter_num })}{bm.note && ` - ${bm.note}`}
               </button>
               <button
                 className="shrink-0 text-muted-foreground hover:text-destructive"
@@ -230,7 +232,7 @@ function TocSidebar({
                 >
                   <ChevronIcon expanded={isExpanded} />
                   <span className="flex-1 truncate">
-                    {group.volumeTitle || `第${group.volumeNum}卷`}
+                    {group.volumeTitle || t("reading.volumeFallback", { volume: group.volumeNum ?? "" })}
                   </span>
                   <span className="text-muted-foreground/60 text-[10px]">
                     {analyzedCount}/{group.chapters.length}
@@ -269,7 +271,7 @@ function TocSidebar({
       {/* Reading progress (2.5) */}
       <div className="border-t px-3 py-2">
         <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-          <span>已读 {readProgress}%</span>
+          <span>{t("reading.progress.readPercent", { percent: readProgress })}</span>
           <span>{currentChapterNum}/{chapters.length}</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -365,6 +367,7 @@ function ReadingTourBubble({ isSample, hasContent }: { isSample: boolean; hasCon
 // ── Main ReadingPage ─────────────────────────────
 
 export default function ReadingPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -836,7 +839,7 @@ export default function ReadingPage() {
   if (loading && !currentChapter) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">{t("common.loading")}</p>
       </div>
     )
   }
@@ -844,9 +847,9 @@ export default function ReadingPage() {
   if (!novel) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Novel not found</p>
+        <p className="text-muted-foreground">{t("reading.novelNotFound")}</p>
         <Button variant="outline" onClick={() => navigate("/")}>
-          Back to Bookshelf
+          {t("reading.backToBookshelf")}
         </Button>
       </div>
     )
@@ -876,7 +879,7 @@ export default function ReadingPage() {
               variant="ghost"
               size="icon-xs"
               onClick={toggleSidebar}
-              title="展开目录"
+              title={t("reading.toc.expandTitle")}
             >
               <PanelLeftOpen className="size-4" />
             </Button>
@@ -885,7 +888,7 @@ export default function ReadingPage() {
           <div className="flex-1" />
 
           <span className="text-muted-foreground text-xs">
-            第 {currentChapterNum}/{totalChapters} 回
+            {t("reading.chapterIndicator", { current: currentChapterNum, total: totalChapters })}
           </span>
 
           <div className="flex gap-1">
@@ -895,7 +898,7 @@ export default function ReadingPage() {
               disabled={!canPrev}
               onClick={() => goToChapter(currentChapterNum - 1)}
             >
-              上一章
+              {t("reading.prevChapter")}
             </Button>
             <Button
               variant="outline"
@@ -903,7 +906,7 @@ export default function ReadingPage() {
               disabled={!canNext}
               onClick={() => goToChapter(currentChapterNum + 1)}
             >
-              下一章
+              {t("reading.nextChapter")}
             </Button>
           </div>
 
@@ -912,7 +915,7 @@ export default function ReadingPage() {
             variant={highlightEnabled ? "default" : "ghost"}
             size="icon-xs"
             onClick={() => setHighlightEnabled(!highlightEnabled)}
-            title={highlightEnabled ? "关闭高亮 (H)" : "开启高亮 (H)"}
+            title={highlightEnabled ? t("reading.highlightOffTitle") : t("reading.highlightOnTitle")}
           >
             <HighlighterIcon className="size-4" />
           </Button>
@@ -922,7 +925,7 @@ export default function ReadingPage() {
             variant="ghost"
             size="icon-xs"
             onClick={handleAddBookmark}
-            title="添加书签"
+            title={t("reading.addBookmarkTitle")}
           >
             <BookmarkIcon className="size-4" />
           </Button>
@@ -931,10 +934,10 @@ export default function ReadingPage() {
             variant={scenePanelOpen ? "default" : "ghost"}
             size="xs"
             onClick={() => setScenePanelOpen(!scenePanelOpen)}
-            title={scenePanelOpen ? "收起剧本面板 (S)" : "展开剧本面板 (S)"}
+            title={scenePanelOpen ? t("reading.scenePanelCollapseTitle") : t("reading.scenePanelExpandTitle")}
           >
             <ClapperboardIcon className="mr-1 size-3.5" />
-            剧本
+            {t("reading.scenePanelButton")}
           </Button>
 
           <Button
@@ -947,7 +950,7 @@ export default function ReadingPage() {
                 setSearchResults([])
               }
             }}
-            title="全文搜索"
+            title={t("reading.search.title")}
           >
             <SearchIcon className="size-4" />
           </Button>
@@ -957,7 +960,7 @@ export default function ReadingPage() {
               variant="ghost"
               size="icon-xs"
               onClick={() => setShowSettings(!showSettings)}
-              title="阅读设置"
+              title={t("settings.readingPreferences")}
             >
               <SettingsIcon className="size-4" />
             </Button>
@@ -981,7 +984,7 @@ export default function ReadingPage() {
           <div className="border-b px-4 py-2">
             <div className="flex items-center gap-2">
               <Input
-                placeholder="搜索全书内容..."
+                placeholder={t("reading.search.placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -996,18 +999,18 @@ export default function ReadingPage() {
                 onClick={() => handleSearch(searchQuery)}
                 disabled={searching}
               >
-                {searching ? "搜索中..." : "搜索"}
+                {searching ? t("reading.search.searching") : t("reading.search.submit")}
               </Button>
             </div>
             {!searching && searchQuery.trim() && searchResults.length === 0 && (
               <div className="mt-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
-                未找到匹配内容
+                {t("reading.search.noResults")}
               </div>
             )}
             {searchResults.length > 0 && (
               <div className="mt-2 max-h-64 overflow-y-auto rounded-md border">
                 <div className="border-b px-3 py-1.5 text-xs text-muted-foreground">
-                  找到 {searchResults.length} 条结果
+                  {t("reading.search.resultCount", { count: searchResults.length })}
                 </div>
                 {searchResults.map((r, i) => (
                   <button
@@ -1064,14 +1067,14 @@ export default function ReadingPage() {
                 {/* Word count (1.3) */}
                 {currentChapter.word_count != null && (
                   <p className="mb-6 text-center text-sm text-muted-foreground">
-                    {currentChapter.word_count.toLocaleString()} 字
+                    {t("reading.wordCount", { count: currentChapter.word_count.toLocaleString() })}
                   </p>
                 )}
                 {scenePanelOpen && scenes.length > 0 ? (
                   /* Paragraph-level rendering with scene border markers */
                   <div className={cn(FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
                     {scenesLoading ? (
-                      <p className="text-sm text-muted-foreground">加载场景...</p>
+                      <p className="text-sm text-muted-foreground">{t("reading.loadingScenes")}</p>
                     ) : (
                       paragraphs.map((p, i) => {
                         const sceneIdx = paraSceneMap.get(i)
@@ -1112,14 +1115,14 @@ export default function ReadingPage() {
                   disabled={!canPrev}
                   onClick={() => goToChapter(currentChapterNum - 1)}
                 >
-                  &larr; 上一章
+                  {t("reading.prevChapterArrow")}
                 </Button>
                 <Button
                   variant="outline"
                   disabled={!canNext}
                   onClick={() => goToChapter(currentChapterNum + 1)}
                 >
-                  下一章 &rarr;
+                  {t("reading.nextChapterArrow")}
                 </Button>
               </div>
             )}
@@ -1167,26 +1170,27 @@ function ReadingSettingsPanel({
   onToggleEntityType: (type: string) => void
   onClose: () => void
 }) {
-  const fontSizes: { value: FontSize; label: string }[] = [
-    { value: "small", label: "小" },
-    { value: "medium", label: "中" },
-    { value: "large", label: "大" },
-    { value: "xlarge", label: "特大" },
+  const { t } = useI18n()
+  const fontSizes: { value: FontSize; labelKey: TranslationKey }[] = [
+    { value: "small", labelKey: "settings.reading.font.small" },
+    { value: "medium", labelKey: "settings.reading.font.medium" },
+    { value: "large", labelKey: "settings.reading.font.large" },
+    { value: "xlarge", labelKey: "settings.reading.font.xlarge" },
   ]
-  const lineHeights: { value: LineHeight; label: string }[] = [
-    { value: "compact", label: "紧凑" },
-    { value: "normal", label: "正常" },
-    { value: "loose", label: "宽松" },
+  const lineHeights: { value: LineHeight; labelKey: TranslationKey }[] = [
+    { value: "compact", labelKey: "settings.reading.lineHeight.compact" },
+    { value: "normal", labelKey: "settings.reading.lineHeight.normal" },
+    { value: "loose", labelKey: "settings.reading.lineHeight.loose" },
   ]
 
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div className="absolute top-full right-0 z-40 mt-1 w-64 rounded-lg border bg-background p-3 shadow-lg">
-        <h4 className="mb-2 text-sm font-medium">阅读设置</h4>
+        <h4 className="mb-2 text-sm font-medium">{t("settings.readingPreferences")}</h4>
 
         <div className="mb-3">
-          <span className="text-muted-foreground mb-1 block text-xs">字号</span>
+          <span className="text-muted-foreground mb-1 block text-xs">{t("settings.reading.fontSize")}</span>
           <div className="flex gap-1">
             {fontSizes.map((f) => (
               <button
@@ -1199,14 +1203,14 @@ function ReadingSettingsPanel({
                 )}
                 onClick={() => onFontSizeChange(f.value)}
               >
-                {f.label}
+                {t(f.labelKey)}
               </button>
             ))}
           </div>
         </div>
 
         <div className="mb-3">
-          <span className="text-muted-foreground mb-1 block text-xs">行距</span>
+          <span className="text-muted-foreground mb-1 block text-xs">{t("settings.reading.lineHeight")}</span>
           <div className="flex gap-1">
             {lineHeights.map((l) => (
               <button
@@ -1219,7 +1223,7 @@ function ReadingSettingsPanel({
                 )}
                 onClick={() => onLineHeightChange(l.value)}
               >
-                {l.label}
+                {t(l.labelKey)}
               </button>
             ))}
           </div>
@@ -1227,9 +1231,9 @@ function ReadingSettingsPanel({
 
         {/* Entity type filter (2.6) */}
         <div>
-          <span className="text-muted-foreground mb-1 block text-xs">实体高亮</span>
+          <span className="text-muted-foreground mb-1 block text-xs">{t("settings.reading.entityHighlight")}</span>
           <div className="flex flex-wrap gap-1">
-            {ENTITY_TYPE_LABELS.map(({ type, label, color }) => {
+            {ENTITY_TYPE_LABELS.map(({ type, labelKey, color }) => {
               const hidden = hiddenEntityTypes.includes(type)
               return (
                 <button
@@ -1243,7 +1247,7 @@ function ReadingSettingsPanel({
                   onClick={() => onToggleEntityType(type)}
                 >
                   <span className={cn("inline-block size-2 rounded-full", color)} />
-                  {label}
+                  {t(labelKey)}
                 </button>
               )
             })}

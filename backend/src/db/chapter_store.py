@@ -150,6 +150,34 @@ async def get_chapter_entities(novel_id: str, chapter_num: int) -> list[dict]:
                     })
         entities.extend(extra_base)
 
+        # Attach canonical names from merged entity summaries so chapter-local
+        # variants like lower/upper-case spellings resolve to the same card.
+        try:
+            from src.services import entity_aggregator
+            from src.services.entity_identity import entity_identity_key, is_minor_non_cjk_truncation
+
+            merged_entities = await entity_aggregator.get_all_entities(novel_id)
+            canonical_lookup = {
+                (entity_identity_key(entry.name), entry.type): entry.name
+                for entry in merged_entities
+            }
+            grouped_entities: dict[str, list[str]] = {}
+            for entry in merged_entities:
+                grouped_entities.setdefault(entry.type, []).append(entry.name)
+            for entity in entities:
+                canonical = canonical_lookup.get(
+                    (entity_identity_key(entity["name"]), entity["type"])
+                )
+                if not canonical:
+                    for candidate in grouped_entities.get(entity["type"], []):
+                        if is_minor_non_cjk_truncation(entity["name"], candidate):
+                            canonical = candidate
+                            break
+                if canonical and canonical != entity["name"]:
+                    entity["canonical"] = canonical
+        except Exception:
+            pass
+
         # Deduplicate by (name, type)
         seen: set[tuple[str, str]] = set()
         unique: list[dict] = []

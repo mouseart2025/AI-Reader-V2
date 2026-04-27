@@ -57,7 +57,7 @@ class KnowledgePrior(GeoSkill):
 
     @property
     def name(self) -> str:
-        return "知识先验"
+        return "Knowledge prior"
 
     @property
     def requires_llm(self) -> bool:

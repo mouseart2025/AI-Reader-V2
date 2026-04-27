@@ -17,6 +17,7 @@ from src.api.schemas.novels import (
 from src.db import novel_store
 from src.utils.chapter_classifier import classify_chapters
 from src.utils.chapter_splitter import AVAILABLE_MODES, ChapterInfo, SplitResult, split_chapters, split_chapters_ex, infer_pattern_from_points
+from src.utils.source_language import DEFAULT_SOURCE_LANGUAGE, SourceLanguage, normalize_source_language
 from src.utils.text_processor import decode_text
 
 # In-memory cache for upload previews (file_hash -> cached data)
@@ -29,6 +30,7 @@ class _CachedUpload:
     preview: UploadPreviewResponse
     chapters: list[ChapterInfo]
     raw_text: str
+    source_language: SourceLanguage
     created_at: float
 
 
@@ -68,7 +70,11 @@ def _title_from_filename(filename: str) -> str:
     return Path(filename).stem
 
 
-def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiagnosis:
+def _compute_diagnosis(
+    split_result: SplitResult,
+    total_words: int,
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
+) -> SplitDiagnosis:
     """Compute a structured diagnosis from the split result."""
     chapters = split_result.chapters
     chapter_count = len(chapters)
@@ -85,6 +91,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             user_message=f"此文本为{genre_label}，无需章节划分",
             technical_detail=f"detected_genre={genre}, matched_mode={split_result.matched_mode}",
             detected_genre=genre,
+            source_language=source_language,
         )
 
     # Fallback used (heuristic or fixed_size as auto-fallback)
@@ -97,6 +104,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
                 user_message="未能自动识别章节格式，请尝试选择切分模式或手动标记",
                 technical_detail=f"matched_mode=fixed_size (fallback), genre={genre}",
                 detected_genre=genre,
+                source_language=source_language,
             )
         if split_result.matched_mode == "heuristic_title":
             return SplitDiagnosis(
@@ -106,6 +114,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
                 user_message="已使用备选方式切分，建议确认章节划分是否正确",
                 technical_detail=f"matched_mode=heuristic_title (fallback), genre={genre}",
                 detected_genre=genre,
+                source_language=source_language,
             )
 
     # Single huge chapter
@@ -117,6 +126,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             user_message="整本书被识别为一个章节，可能需要选择其他切分方式",
             technical_detail=f"chapter_count=1, max_words={max_words}, mode={split_result.matched_mode}",
             detected_genre=genre,
+            source_language=source_language,
         )
 
     # Headings too sparse
@@ -128,6 +138,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             user_message="检测到的章节较少，可能遗漏了部分章节",
             technical_detail=f"chapter_count={chapter_count}, total_words={total_words}, mode={split_result.matched_mode}",
             detected_genre=genre,
+            source_language=source_language,
         )
 
     # Headings too dense
@@ -139,6 +150,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
             user_message="检测到的章节过多，可能有内容被误识别为标题",
             technical_detail=f"chapter_count={chapter_count}, avg_words={avg_words}, mode={split_result.matched_mode}",
             detected_genre=genre,
+            source_language=source_language,
         )
 
     return SplitDiagnosis(
@@ -146,6 +158,7 @@ def _compute_diagnosis(split_result: SplitResult, total_words: int) -> SplitDiag
         message="章节切分正常",
         user_message="章节切分正常",
         detected_genre=genre,
+        source_language=source_language,
     )
 
 
@@ -199,6 +212,7 @@ def _build_preview(
     duplicate_novel_id: str | None,
     extra_warnings: list[str] | None = None,
     raw_text: str = "",
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
 ) -> UploadPreviewResponse:
     """Build an UploadPreviewResponse from a split result."""
     chapters = split_result.chapters
@@ -237,7 +251,7 @@ def _build_preview(
         warnings.append(f"检测到 {suspect_count} 个疑似非正文章节（建议排除）")
 
     # Compute diagnosis
-    diagnosis = _compute_diagnosis(split_result, total_words)
+    diagnosis = _compute_diagnosis(split_result, total_words, source_language)
 
     return UploadPreviewResponse(
         title=title,
@@ -250,15 +264,21 @@ def _build_preview(
         duplicate_novel_id=duplicate_novel_id,
         diagnosis=diagnosis,
         matched_mode=split_result.matched_mode,
+        source_language=source_language,
     )
 
 
-async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
+async def parse_upload(
+    filename: str,
+    content: bytes,
+    source_language: str | None = None,
+) -> UploadPreviewResponse:
     """Parse an uploaded file and return a chapter-split preview.
 
     The full chapter data is cached server-side for later confirm_import.
     """
     _evict_expired()
+    normalized_source_language = normalize_source_language(source_language)
 
     extra_warnings: list[str] = []
 
@@ -280,7 +300,7 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
     author = _extract_author(text)
 
     # Split chapters (with extended info)
-    split_result = split_chapters_ex(text)
+    split_result = split_chapters_ex(text, source_language=normalized_source_language)
 
     # Detect text hygiene issues
     hygiene_report = None
@@ -319,6 +339,7 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
         duplicate_novel_id=duplicate_novel_id,
         extra_warnings=extra_warnings,
         raw_text=text,
+        source_language=normalized_source_language,
     )
     preview.hygiene_report = hygiene_report
 
@@ -327,6 +348,7 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
         preview=preview,
         chapters=split_result.chapters,
         raw_text=text,
+        source_language=normalized_source_language,
         created_at=time.time(),
     )
 
@@ -338,6 +360,7 @@ async def confirm_import(
     title: str,
     author: str | None,
     excluded_chapters: list[int] | None = None,
+    source_language: str | None = None,
 ) -> dict:
     """Confirm import of a previously uploaded file.
 
@@ -351,6 +374,7 @@ async def confirm_import(
     cached = _upload_cache.get(file_hash)
     if not cached:
         raise ValueError("上传数据已过期，请重新上传文件 (expired)")
+    normalized_source_language = normalize_source_language(source_language) if source_language else cached.source_language
 
     novel_id = str(uuid.uuid4())
 
@@ -371,6 +395,7 @@ async def confirm_import(
             file_hash=file_hash,
             total_chapters=total_chapters,
             total_words=total_words,
+            source_language=normalized_source_language,
             conn=conn,
         )
         await novel_store.insert_chapters(novel_id, chapters, excluded_nums=excluded_set, conn=conn)
@@ -419,6 +444,7 @@ async def re_split(
     mode: str | None = None,
     custom_regex: str | None = None,
     split_points: list[int] | None = None,
+    source_language: str | None = None,
 ) -> UploadPreviewResponse:
     """Re-split a previously uploaded file using a different mode.
 
@@ -432,9 +458,16 @@ async def re_split(
         raise ValueError("上传数据已过期，请重新上传文件 (expired)")
 
     text = cached.raw_text
+    normalized_source_language = normalize_source_language(source_language) if source_language else cached.source_language
 
     # Re-split with specified mode (extended)
-    split_result = split_chapters_ex(text, mode=mode, custom_regex=custom_regex, split_points=split_points)
+    split_result = split_chapters_ex(
+        text,
+        mode=mode,
+        custom_regex=custom_regex,
+        split_points=split_points,
+        source_language=normalized_source_language,
+    )
 
     # Build updated preview
     preview = _build_preview(
@@ -444,6 +477,7 @@ async def re_split(
         split_result=split_result,
         duplicate_novel_id=cached.preview.duplicate_novel_id,
         raw_text=text,
+        source_language=normalized_source_language,
     )
 
     # Carry over hygiene_report from previous preview if it exists
@@ -453,6 +487,7 @@ async def re_split(
     # Update cache
     cached.preview = preview
     cached.chapters = split_result.chapters
+    cached.source_language = normalized_source_language
 
     return preview
 
@@ -476,7 +511,11 @@ async def infer_and_resplit(
 
     if not inferred:
         # Inference failed — fall back to manual split points
-        split_result = split_chapters_ex(text, split_points=split_points)
+        split_result = split_chapters_ex(
+            text,
+            split_points=split_points,
+            source_language=cached.source_language,
+        )
         preview = _build_preview(
             title=cached.preview.title,
             author=cached.preview.author,
@@ -484,6 +523,7 @@ async def infer_and_resplit(
             split_result=split_result,
             duplicate_novel_id=cached.preview.duplicate_novel_id,
             raw_text=text,
+            source_language=cached.source_language,
         )
         if cached.preview.hygiene_report:
             preview.hygiene_report = cached.preview.hygiene_report
@@ -496,7 +536,7 @@ async def infer_and_resplit(
         }
 
     # Use inferred regex to re-split
-    split_result = split_chapters_ex(text, custom_regex=inferred)
+    split_result = split_chapters_ex(text, custom_regex=inferred, source_language=cached.source_language)
     preview = _build_preview(
         title=cached.preview.title,
         author=cached.preview.author,
@@ -504,6 +544,7 @@ async def infer_and_resplit(
         split_result=split_result,
         duplicate_novel_id=cached.preview.duplicate_novel_id,
         raw_text=text,
+        source_language=cached.source_language,
     )
     if cached.preview.hygiene_report:
         preview.hygiene_report = cached.preview.hygiene_report
@@ -545,7 +586,7 @@ async def clean_and_resplit(
     cleaned_text = clean_text(text, report, mode=clean_mode)
 
     # Re-split cleaned text
-    split_result = split_chapters_ex(cleaned_text)
+    split_result = split_chapters_ex(cleaned_text, source_language=cached.source_language)
 
     # Build preview with updated hygiene report
     from src.api.schemas.novels import HygieneReport, SuspectLine
@@ -571,6 +612,7 @@ async def clean_and_resplit(
         split_result=split_result,
         duplicate_novel_id=cached.preview.duplicate_novel_id,
         raw_text=cleaned_text,
+        source_language=cached.source_language,
     )
     preview.hygiene_report = hygiene_report
 

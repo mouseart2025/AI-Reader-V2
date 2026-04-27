@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { useI18n } from "@/i18n"
 import { hasVisitedTabs } from "@/lib/tabTracking"
 
 const DISMISSED_KEY = "ai-reader-guide-card-dismissed"
@@ -11,6 +12,7 @@ interface ContextualGuideCardProps {
 }
 
 export function ContextualGuideCard({ onUpload }: ContextualGuideCardProps) {
+  const { t } = useI18n()
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem(DISMISSED_KEY) === "1"
   )
@@ -28,21 +30,21 @@ export function ContextualGuideCard({ onUpload }: ContextualGuideCardProps) {
         <button
           onClick={handleDismiss}
           className="absolute top-2 right-2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
-          aria-label="关闭"
+          aria-label={t("common.close")}
         >
           <X className="h-3.5 w-3.5" />
         </button>
 
         <div className="flex-1">
-          <p className="text-sm font-medium">想分析自己的小说？</p>
+          <p className="text-sm font-medium">{t("shared.contextualGuide.title")}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            上传 TXT 文件，AI 将自动提取人物、关系、地点等信息，生成和这里一样的可视化分析
+            {t("shared.contextualGuide.description")}
           </p>
         </div>
 
         <Button size="sm" onClick={onUpload}>
           <Upload className="mr-1.5 h-3.5 w-3.5" />
-          上传小说
+          {t("shared.contextualGuide.uploadNovel")}
         </Button>
       </CardContent>
     </Card>

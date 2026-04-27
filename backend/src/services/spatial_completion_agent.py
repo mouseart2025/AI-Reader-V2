@@ -129,43 +129,46 @@ class SpatialCompletionAgent:
             if progress_callback:
                 await progress_callback(stage, message, **extra)
 
-        await _emit("init", "加载分析数据...")
+        await _emit("init", "Loading analysis data...")
 
         # Load all chapter facts
         facts = await self._load_all_facts()
         if not facts:
-            await _emit("done", "无章节数据，跳过空间补全")
+            await _emit("done", "No chapter data, skipping spatial completion")
             return {"status": "skipped", "reason": "no_facts"}
 
         # Load world structure
         ws = await world_structure_store.load(self.novel_id)
         if ws is None:
-            await _emit("done", "无世界结构数据，跳过空间补全")
+            await _emit("done", "No world structure data, skipping spatial completion")
             return {"status": "skipped", "reason": "no_world_structure"}
 
         # Build location context
         loc_context = self._build_location_context(facts, ws)
         existing_relations = self._collect_existing_relations(facts)
 
-        await _emit("gaps", f"检测空间关系缺口... ({len(loc_context['locations'])} 个地点)")
+        await _emit("gaps", f"Detecting spatial gaps... ({len(loc_context['locations'])} locations)")
 
         # Three-stage gap detection
         gaps = self._detect_gaps(facts, loc_context, existing_relations, ws)
         total_gaps = len(gaps)
-        await _emit("gaps", f"发现 {total_gaps} 个需要补全的地点对")
+        await _emit("gaps", f"Found {total_gaps} location pairs that need completion")
 
         if not gaps:
-            await _emit("done", "无需补全")
+            await _emit("done", "No completion needed")
             return {"status": "completed", "gaps_found": 0, "relations_added": 0}
 
         # LLM completion
-        await _emit("llm", f"LLM 空间关系补全 (最多 {min(MAX_LLM_BATCHES, (total_gaps + PAIRS_PER_BATCH - 1) // PAIRS_PER_BATCH)} 批)...")
+        await _emit(
+            "llm",
+            f"LLM spatial completion (up to {min(MAX_LLM_BATCHES, (total_gaps + PAIRS_PER_BATCH - 1) // PAIRS_PER_BATCH)} batches)...",
+        )
 
         new_relations = await self._llm_complete(
             gaps, loc_context, existing_relations, _emit,
         )
 
-        await _emit("filter", f"矛盾检测 + 置信度过滤... ({len(new_relations)} 条候选)")
+        await _emit("filter", f"Contradiction check + confidence filter... ({len(new_relations)} candidates)")
 
         # Filter: contradiction detection + confidence threshold
         filtered = self._filter_relations(new_relations, existing_relations)
@@ -181,7 +184,7 @@ class SpatialCompletionAgent:
         layer_changes = {}
         unassigned = self._find_unassigned_locations(ws, loc_context)
         if unassigned:
-            await _emit("layers", f"语义分层审校... ({len(unassigned)} 个待审地点)")
+            await _emit("layers", f"Semantic layer review... ({len(unassigned)} locations to review)")
             layer_changes = await self._review_layers(unassigned, loc_context, _emit)
 
         # Persist results
@@ -209,7 +212,7 @@ class SpatialCompletionAgent:
             "relations_added": len(filtered),
             "layer_changes": len(layer_changes),
         }
-        await _emit("done", f"空间补全完成: 新增 {len(filtered)} 条关系, {len(layer_changes)} 个层调整",
+        await _emit("done", f"Spatial completion finished: {len(filtered)} new relations, {len(layer_changes)} layer changes",
                      result=stats)
         return stats
 
@@ -424,7 +427,7 @@ class SpatialCompletionAgent:
         known_text = "\n".join(known_lines) if known_lines else "（无）"
 
         for batch_idx, batch in enumerate(batches):
-            await emit("llm", f"LLM 补全批次 {batch_idx + 1}/{len(batches)} ({len(batch)} 对)...")
+            await emit("llm", f"LLM batch {batch_idx + 1}/{len(batches)} ({len(batch)} pairs)...")
 
             # Build pairs text with evidence
             pairs_lines = []
@@ -488,7 +491,7 @@ class SpatialCompletionAgent:
                     batch_idx + 1, exc,
                     exc_info=True,
                 )
-                await emit("llm", f"批次 {batch_idx + 1} 失败: {type(exc).__name__}: {str(exc)[:80]}")
+                await emit("llm", f"Batch {batch_idx + 1} failed: {type(exc).__name__}: {str(exc)[:80]}")
 
         return all_results
 
@@ -643,5 +646,5 @@ class SpatialCompletionAgent:
             return changes
         except Exception:
             logger.warning("Layer review LLM failed, skipping", exc_info=True)
-            await emit("layers", "层审校 LLM 失败，跳过")
+            await emit("layers", "Layer review LLM failed, skipping")
             return {}

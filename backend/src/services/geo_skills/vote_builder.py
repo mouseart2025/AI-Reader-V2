@@ -29,7 +29,7 @@ class VoteBuilder(GeoSkill):
 
     @property
     def name(self) -> str:
-        return "投票构建"
+        return "Vote building"
 
     async def execute(self, snapshot: HierarchySnapshot) -> SkillResult:
         from src.db.sqlite_db import get_connection

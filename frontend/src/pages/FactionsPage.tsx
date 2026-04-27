@@ -10,11 +10,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 import { recordTabVisit } from "@/lib/tabTracking"
+import { useI18n } from "@/i18n"
+import { orgTypeColor, orgTypeId, orgTypeLabel, relationTypeLabel } from "@/lib/domainLabels"
 
 interface OrgNode {
   id: string
   name: string
   type: string
+  type_id?: string
   member_count: number
   x?: number
   y?: number
@@ -24,6 +27,7 @@ interface OrgRelation {
   source: string | OrgNode
   target: string | OrgNode
   type: string
+  type_id?: string
   chapter: number
 }
 
@@ -33,34 +37,25 @@ interface OrgMember {
   status: string
 }
 
-// Color by org type
-const ORG_TYPE_COLORS: Record<string, string> = {
-  "宗门": "#8b5cf6",
-  "国家": "#3b82f6",
-  "家族": "#f59e0b",
-  "帮派": "#ef4444",
-  "商会": "#10b981",
-  "军队": "#6366f1",
-}
+const ORG_TYPE_IDS = ["army", "court", "sect", "gang", "clan", "state", "organization"] as const
 
-function orgColor(type: string): string {
-  for (const [key, color] of Object.entries(ORG_TYPE_COLORS)) {
-    if (type.includes(key)) return color
-  }
-  return "#6b7280"
+function orgTypeOrder(type: string): number {
+  const index = (ORG_TYPE_IDS as readonly string[]).indexOf(type)
+  return index >= 0 ? index : ORG_TYPE_IDS.length
 }
 
 // Relation type to edge style
-function relationStyle(type: string): { color: string; dash: number[] } {
-  const t = type.toLowerCase()
-  if (t.includes("盟") || t.includes("友")) return { color: "#10b981", dash: [] }
-  if (t.includes("敌") || t.includes("对")) return { color: "#ef4444", dash: [] }
-  if (t.includes("从属") || t.includes("附")) return { color: "#3b82f6", dash: [5, 3] }
+function relationStyle(typeId: string | undefined, type: string): { color: string; dash: number[] } {
+  const t = `${typeId || ""} ${type}`.toLowerCase()
+  if (t.includes("ally") || t.includes("friend") || t.includes("盟") || t.includes("友")) return { color: "#10b981", dash: [] }
+  if (t.includes("enemy") || t.includes("hostile") || t.includes("敌") || t.includes("对")) return { color: "#ef4444", dash: [] }
+  if (t.includes("hierarchical") || t.includes("从属") || t.includes("附")) return { color: "#3b82f6", dash: [5, 3] }
   if (t.includes("竞争")) return { color: "#f59e0b", dash: [3, 3] }
   return { color: "#9ca3af", dash: [] }
 }
 
 export default function FactionsPage() {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
@@ -144,24 +139,16 @@ export default function FactionsPage() {
   const availableTypes = useMemo(() => {
     const types = new Set<string>()
     for (const org of orgs) {
-      for (const [key] of Object.entries(ORG_TYPE_COLORS)) {
-        if (org.type.includes(key)) {
-          types.add(key)
-          break
-        }
-      }
+      types.add(orgTypeId(org.type_id, org.type))
     }
-    return Array.from(types).sort()
+    return Array.from(types).sort((a, b) => orgTypeOrder(a) - orgTypeOrder(b))
   }, [orgs])
 
   // Filtered orgs
   const filteredOrgs = useMemo(() => {
     if (filterTypes.has("all")) return orgs
     return orgs.filter((o) => {
-      for (const t of filterTypes) {
-        if (o.type.includes(t)) return true
-      }
-      return false
+      return filterTypes.has(orgTypeId(o.type_id, o.type))
     })
   }, [orgs, filterTypes])
 
@@ -211,31 +198,31 @@ export default function FactionsPage() {
         {/* Toolbar */}
         {availableTypes.length > 0 && (
           <div className="flex items-center gap-2 border-b px-4 py-2 flex-shrink-0">
-            <span className="text-xs text-muted-foreground mr-1">类型筛选</span>
+            <span className="text-xs text-muted-foreground mr-1">{t("factions.filter.type")}</span>
             <Button
               variant={filterTypes.has("all") ? "default" : "outline"}
               size="xs"
               onClick={() => toggleTypeFilter("all")}
             >
-              全部
+              {t("common.all")}
             </Button>
-            {availableTypes.map((t) => (
+            {availableTypes.map((type) => (
               <Button
-                key={t}
-                variant={filterTypes.has(t) ? "default" : "outline"}
+                key={type}
+                variant={filterTypes.has(type) ? "default" : "outline"}
                 size="xs"
-                onClick={() => toggleTypeFilter(t)}
+                onClick={() => toggleTypeFilter(type)}
               >
                 <span
                   className="inline-block size-2 rounded-full mr-1"
-                  style={{ backgroundColor: ORG_TYPE_COLORS[t] || "#6b7280" }}
+                  style={{ backgroundColor: orgTypeColor(type) }}
                 />
-                {t}
+                {orgTypeLabel(t, type)}
               </Button>
             ))}
             <div className="flex-1" />
             <span className="text-xs text-muted-foreground">
-              {filteredOrgs.length} / {orgs.length} 组织
+              {t("factions.orgCount", { shown: filteredOrgs.length, total: orgs.length })}
             </span>
           </div>
         )}
@@ -245,35 +232,35 @@ export default function FactionsPage() {
         <div className="relative flex-1" ref={containerRef}>
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-              <p className="text-muted-foreground">Loading factions...</p>
+              <p className="text-muted-foreground">{t("factions.loading")}</p>
             </div>
           )}
 
           {/* Legend */}
           <div className="absolute top-3 left-3 z-10 rounded-lg border bg-background/90 p-2">
-            <p className="text-muted-foreground mb-1 text-[10px]">组织类型</p>
-            {Object.entries(ORG_TYPE_COLORS).map(([type, color]) => (
+            <p className="text-muted-foreground mb-1 text-[10px]">{t("factions.legend.orgTypes")}</p>
+            {ORG_TYPE_IDS.map((type) => (
               <div key={type} className="flex items-center gap-1.5 text-xs">
                 <span
                   className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: orgTypeColor(type) }}
                 />
-                {type}
+                {orgTypeLabel(t, type)}
               </div>
             ))}
             <div className="mt-2 border-t pt-1.5">
-              <p className="text-muted-foreground mb-1 text-[10px]">关系</p>
+              <p className="text-muted-foreground mb-1 text-[10px]">{t("factions.legend.relations")}</p>
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="inline-block w-4 h-0.5 bg-green-500" />盟友
+                <span className="inline-block w-4 h-0.5 bg-green-500" />{t("factions.relation.ally")}
               </div>
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="inline-block w-4 h-0.5 bg-red-500" />敌对
+                <span className="inline-block w-4 h-0.5 bg-red-500" />{t("factions.relation.hostile")}
               </div>
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="inline-block w-4 h-0.5 border-t border-dashed border-blue-500" />从属
+                <span className="inline-block w-4 h-0.5 border-t border-dashed border-blue-500" />{t("factions.relation.subordinate")}
               </div>
             </div>
-            <p className="text-muted-foreground mt-1.5 text-[10px]">单击选中·双击查看卡片</p>
+            <p className="text-muted-foreground mt-1.5 text-[10px]">{t("factions.legend.interactionHint")}</p>
           </div>
 
           <ForceGraph2D
@@ -282,7 +269,11 @@ export default function FactionsPage() {
             width={dimensions.width}
             height={dimensions.height}
             nodeLabel={(node: OrgNode) =>
-              `${node.name} (${node.type}, ${node.member_count}人)`
+              t("factions.nodeLabel", {
+                name: node.name,
+                type: orgTypeLabel(t, node.type_id, node.type),
+                count: node.member_count,
+              })
             }
             nodeVal={(node: OrgNode) => Math.max(3, Math.sqrt(node.member_count) * 3)}
             nodeCanvasObject={(node: OrgNode, ctx, globalScale) => {
@@ -290,7 +281,7 @@ export default function FactionsPage() {
               const color =
                 hoverNode && !connectedNodes.has(node.id)
                   ? "#d1d5db"
-                  : orgColor(node.type)
+                  : orgTypeColor(node.type_id, node.type)
 
               // Draw hexagon for org nodes
               ctx.beginPath()
@@ -327,7 +318,7 @@ export default function FactionsPage() {
               const tgt = typeof link.target === "string" ? null : link.target
               if (!src || !tgt) return
 
-              const style = relationStyle(link.type)
+              const style = relationStyle(link.type_id, link.type)
               ctx.beginPath()
               if (style.dash.length > 0) {
                 ctx.setLineDash(style.dash)
@@ -363,7 +354,7 @@ export default function FactionsPage() {
               ctx.textAlign = "center"
               ctx.textBaseline = "middle"
               ctx.fillStyle = style.color
-              ctx.fillText(link.type, mx, my - 5)
+              ctx.fillText(relationTypeLabel(t, link.type_id, link.type), mx, my - 5)
             }}
             linkWidth={0}
             onNodeClick={handleNodeClick}
@@ -377,9 +368,9 @@ export default function FactionsPage() {
         {/* Right: Members panel */}
         <div className="w-72 flex-shrink-0 border-l overflow-auto">
           <div className="p-3">
-            <h3 className="text-sm font-medium mb-2">组织成员</h3>
+            <h3 className="text-sm font-medium mb-2">{t("factions.members.title")}</h3>
             <p className="text-[10px] text-muted-foreground mb-3">
-              点击展开/折叠成员列表
+              {t("factions.members.expandHint")}
             </p>
 
             <div className="space-y-1">
@@ -403,11 +394,11 @@ export default function FactionsPage() {
                     >
                       <span
                         className="inline-block size-2.5 rounded flex-shrink-0"
-                        style={{ backgroundColor: orgColor(org.type) }}
+                        style={{ backgroundColor: orgTypeColor(org.type_id, org.type) }}
                       />
                       <span className="flex-1 text-left truncate">{org.name}</span>
                       <span className="text-muted-foreground flex-shrink-0">
-                        {orgMembers.length}人
+                        {t("factions.memberCount", { count: orgMembers.length })}
                       </span>
                       <span className="text-muted-foreground text-[10px]">
                         {isExpanded ? "▾" : "▸"}
@@ -442,7 +433,7 @@ export default function FactionsPage() {
                                   : "bg-green-50 text-green-600 dark:bg-green-950/30",
                               )}
                             >
-                              {m.status || "在籍"}
+                              {m.status || t("factions.memberStatus.active")}
                             </span>
                           </div>
                         ))}
@@ -450,7 +441,7 @@ export default function FactionsPage() {
                           className="text-[10px] text-muted-foreground hover:text-foreground px-2"
                           onClick={() => openEntityCard(org.name, "org")}
                         >
-                          查看组织详情
+                          {t("factions.viewOrgDetails")}
                         </button>
                       </div>
                     )}

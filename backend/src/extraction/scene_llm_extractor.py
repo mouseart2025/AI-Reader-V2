@@ -10,7 +10,10 @@ from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
+from src.extraction.source_language_adapter import get_source_language_adapter
 from src.models.chapter_fact import ChapterFact
+from src.services.domain_labels import normalize_scene_labels
+from src.utils.source_language import DEFAULT_SOURCE_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,34 @@ class SceneLLMExtractor:
     def _load_system_prompt() -> str:
         from src.extraction.prompt_registry import get_prompt
         return get_prompt("scene_system")
+
+    def _build_system_prompt(
+        self,
+        characters: list[str],
+        locations: list[str],
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
+    ) -> str:
+        """Build the scene extraction system prompt."""
+        adapter = get_source_language_adapter(source_language)
+        return self.system_template.replace(
+            "{characters}", "、".join(characters) if characters else "（无）"
+        ).replace(
+            "{locations}", "、".join(locations) if locations else "（无）"
+        ) + adapter.scene_fragment
+
+    @staticmethod
+    def _build_user_prompt(
+        chapter_num: int,
+        marked_text: str,
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
+    ) -> str:
+        """Build the scene extraction user prompt."""
+        adapter = get_source_language_adapter(source_language)
+        heading = adapter.chapter_heading(chapter_num)
+        return (
+            f"{heading}\n\n{marked_text}\n\n"
+            "请输出场景 JSON 数组。"
+        )
 
     @staticmethod
     def _add_paragraph_markers(text: str) -> tuple[str, int]:
@@ -57,6 +88,7 @@ class SceneLLMExtractor:
         chapter_text: str,
         chapter_num: int,
         fact: ChapterFact,
+        source_language: str | None = DEFAULT_SOURCE_LANGUAGE,
     ) -> list[dict]:
         """Extract scenes from chapter text using LLM.
 
@@ -76,17 +108,10 @@ class SceneLLMExtractor:
         locations = [loc.name for loc in fact.locations]
 
         # 3. Build system prompt with entity injection
-        system = self.system_template.replace(
-            "{characters}", "、".join(characters) if characters else "（无）"
-        ).replace(
-            "{locations}", "、".join(locations) if locations else "（无）"
-        )
+        system = self._build_system_prompt(characters, locations, source_language)
 
         # 4. Build user prompt
-        user_prompt = (
-            f"## 第 {chapter_num} 章\n\n{marked_text}\n\n"
-            "请输出场景 JSON 数组。"
-        )
+        user_prompt = self._build_user_prompt(chapter_num, marked_text, source_language)
 
         # 5. Call LLM
         from src.infra import config as _cfg  # dynamic read (avoids frozen module-level import)
@@ -146,7 +171,7 @@ class SceneLLMExtractor:
                 "description": str(s.get("summary", ""))[:100],
                 "dialogue_count": 0,
             }
-            scenes.append(scene)
+            scenes.append(normalize_scene_labels(scene))
 
         if not scenes:
             return []

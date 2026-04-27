@@ -117,10 +117,28 @@ Open http://localhost:5173. Upload a TXT novel → Analyze → View visualizatio
 | LLM | Ollama (local) or OpenAI-compatible API (cloud, 10 providers) |
 | Chinese NLP | jieba segmentation + entity pre-scanning |
 
+## Internationalization Roadmap
+
+AI Reader V2 keeps `zh-CN` as the default/source locale and now has a lightweight frontend i18n foundation for `zh-CN`, `en`, and `vi`. The Settings page includes a language selector with China, United States, and Vietnam flag assets, and the initial shell/bookshelf surfaces are being migrated from hardcoded UI strings to typed translation keys.
+
+The i18n boundary is intentional: changing the UI language does not translate uploaded novel text, extracted entity names, source quotes, or AI-generated analysis results. Backend user-facing API messages, WebSocket progress messages, export document labels, and local i18n tooling are still tracked as follow-up phases.
+
+See [Internationalization Integration Plan](./I18N_PLAN.md) for the phased FE/BE checklist and tooling plan.
+
+Frontend i18n maintenance commands:
+
+```bash
+cd frontend
+npm run i18n:extract   # list candidate hardcoded user-visible strings
+npm run i18n:check     # validate locale key coverage and interpolation variables
+npm run i18n:sync      # align target locale files with the zh-CN source keys
+```
+
 ## Documentation
 
 - 📋 [Contributing](./CONTRIBUTING.md) — Development setup, code conventions, PR process
 - 🏗️ [Architecture](./CLAUDE.md) — Full architecture design, code conventions, data models
+- 🌐 [Internationalization Plan](./I18N_PLAN.md) — Phased checklist for frontend and backend i18n integration
 - 💼 [Commercial License](./LICENSE-COMMERCIAL.md) — Commercial usage terms
 
 ## License

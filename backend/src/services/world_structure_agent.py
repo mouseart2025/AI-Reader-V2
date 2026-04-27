@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 
 from src.db import world_structure_override_store, world_structure_store
-from src.extraction.fact_validator import _is_generic_location
+from src.extraction.fact_validator import _is_cjk_dominant_name, _is_generic_location
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMClient, get_llm_client
 from src.models.chapter_fact import ChapterFact
@@ -431,6 +431,49 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("径", "site"),      # 羊肠小径 — path/trail
 ]
 
+_VI_LOCATION_TIER_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("kinh đô", LocationTier.city.value),
+    ("thành", LocationTier.city.value),
+    ("làng", LocationTier.site.value),
+    ("bến", LocationTier.site.value),
+    ("sông", LocationTier.region.value),
+    ("suối", LocationTier.site.value),
+    ("hồ", LocationTier.region.value),
+    ("núi", LocationTier.region.value),
+    ("chùa", LocationTier.site.value),
+    ("đền", LocationTier.site.value),
+    ("phủ", LocationTier.site.value),
+)
+
+_VI_LOCATION_ICON_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("kinh đô", LocationIcon.capital.value),
+    ("thành", LocationIcon.city.value),
+    ("làng", LocationIcon.village.value),
+    ("bến", LocationIcon.gate.value),
+    ("sông", LocationIcon.water.value),
+    ("suối", LocationIcon.water.value),
+    ("hồ", LocationIcon.water.value),
+    ("núi", LocationIcon.mountain.value),
+    ("chùa", LocationIcon.temple.value),
+    ("đền", LocationIcon.temple.value),
+    ("phủ", LocationIcon.palace.value),
+)
+
+
+def _non_cjk_location_key(name: str) -> str:
+    return " ".join(name.casefold().split())
+
+
+def _match_non_cjk_location_prefix(
+    name: str,
+    rules: tuple[tuple[str, str], ...],
+) -> str | None:
+    key = _non_cjk_location_key(name)
+    for prefix, value in rules:
+        if key == prefix or key.startswith(f"{prefix} "):
+            return value
+    return None
+
 
 def _find_continent(
     name: str,
@@ -459,6 +502,8 @@ def _get_suffix_rank(name: str) -> int | None:
     suffix is factual (from the name itself), not model-inferred.
     """
     if len(name) < 2:
+        return None
+    if not _is_cjk_dominant_name(name):
         return None
     for suffix, tier in _NAME_SUFFIX_TIER:
         if name.endswith(suffix):
@@ -1606,10 +1651,13 @@ class WorldStructureAgent:
 
         # ── Layer 1: name suffix matching (name is more reliable than LLM type) ──
         raw_tier: str | None = None
-        for suffix, tier in _NAME_SUFFIX_TIER:
-            if name.endswith(suffix):
-                raw_tier = tier
-                break
+        if _is_cjk_dominant_name(name):
+            for suffix, tier in _NAME_SUFFIX_TIER:
+                if name.endswith(suffix):
+                    raw_tier = tier
+                    break
+        else:
+            raw_tier = _match_non_cjk_location_prefix(name, _VI_LOCATION_TIER_PREFIXES)
 
         # ── Layer 2: explicit type keyword matching ──
         if raw_tier is None and effective_type:
@@ -1693,6 +1741,11 @@ class WorldStructureAgent:
         _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
         effective_type = "" if loc_type in _VAGUE_TYPES else loc_type
         combined = name + effective_type
+
+        if not _is_cjk_dominant_name(name):
+            icon = _match_non_cjk_location_prefix(name, _VI_LOCATION_ICON_PREFIXES)
+            if icon:
+                return icon
 
         # Name suffix hints (check first — name is reliable)
         if name.endswith(("省", "自治区")) or any(kw in effective_type for kw in ("省", "自治区", "直辖市")):

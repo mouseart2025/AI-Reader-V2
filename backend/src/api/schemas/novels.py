@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel
 
+from src.utils.source_language import DEFAULT_SOURCE_LANGUAGE, SourceLanguage
+
 
 class ChapterPreviewItem(BaseModel):
     chapter_num: int
@@ -24,6 +26,7 @@ class SplitDiagnosis(BaseModel):
     user_message: str = ""  # User-friendly description (preferred over message in frontend)
     technical_detail: str = ""  # Technical details (expandable in frontend)
     detected_genre: str = "unknown"  # Text genre: novel, essay, poetry, short_collection, unknown
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE
 
 
 class SuspectLine(BaseModel):
@@ -53,6 +56,7 @@ class UploadPreviewResponse(BaseModel):
     diagnosis: SplitDiagnosis | None = None
     hygiene_report: HygieneReport | None = None
     matched_mode: str | None = None
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE
 
 
 class ConfirmImportRequest(BaseModel):
@@ -60,6 +64,7 @@ class ConfirmImportRequest(BaseModel):
     title: str
     author: str | None = None
     excluded_chapters: list[int] = []
+    source_language: SourceLanguage | None = None
 
 
 class ReSplitRequest(BaseModel):
@@ -67,6 +72,7 @@ class ReSplitRequest(BaseModel):
     mode: str | None = None
     custom_regex: str | None = None
     split_points: list[int] | None = None
+    source_language: SourceLanguage | None = None
 
 
 class CleanAndReSplitRequest(BaseModel):
@@ -81,6 +87,7 @@ class NovelResponse(BaseModel):
     total_chapters: int
     total_words: int
     is_sample: bool = False
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE
     created_at: str
     updated_at: str
 
@@ -94,6 +101,7 @@ class NovelListItem(BaseModel):
     created_at: str
     updated_at: str
     is_sample: bool = False
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE
     analysis_progress: float = 0.0
     reading_progress: float = 0.0
     last_opened: str | None = None

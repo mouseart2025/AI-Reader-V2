@@ -1,5 +1,7 @@
 import { memo } from "react"
 import type { PersonProfile } from "@/api/types"
+import { useI18n, type TranslationKey } from "@/i18n"
+import { itemActionLabel, relationTypeLabel } from "@/lib/domainLabels"
 import { CardSection, ChapterTag, EntityLink } from "./CardSection"
 import { EntityScenes } from "./EntityScenes"
 
@@ -11,18 +13,31 @@ interface PersonCardProps {
 }
 
 // Category labels and ordering
-const CATEGORY_LABELS: Record<string, string> = {
-  family: "血亲关系",
-  intimate: "亲密关系",
-  hierarchical: "师承/主从",
-  social: "社交关系",
-  hostile: "敌对关系",
-  other: "其他关系",
+const CATEGORY_LABEL_KEYS: Record<string, TranslationKey> = {
+  family: "entity.person.category.family",
+  intimate: "entity.person.category.intimate",
+  hierarchical: "entity.person.category.hierarchical",
+  social: "entity.person.category.social",
+  hostile: "entity.person.category.hostile",
+  other: "entity.person.category.other",
 }
 const CATEGORY_ORDER = ["family", "intimate", "hierarchical", "social", "hostile", "other"]
 
 export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onChapterClick, novelId }: PersonCardProps) {
+  const { t } = useI18n()
   const { aliases, appearances, abilities, relations, items, experiences, stats } = profile
+  const formatChapterShort = (chapter: number) => t("common.chapterShort", { chapter })
+  const formatChapterRange = (start: number, end: number) => t("common.chapterRangeShort", { start, end })
+  const formatChapterTag = (chs: number[]) => {
+    if (chs.length === 0) return ""
+    if (chs.length === 1) return formatChapterShort(chs[0])
+    if (chs.length <= 3) return t("common.chapterListShort", { chapters: chs.join(",") })
+    return t("entity.person.chapterRangeOccurrences", {
+      start: chs[0],
+      end: chs[chs.length - 1],
+      count: chs.length,
+    })
+  }
 
   // Group abilities by dimension
   const abilityGroups = new Map<string, typeof abilities>()
@@ -52,10 +67,12 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                         className="text-muted-foreground/50 ml-0.5 cursor-pointer hover:underline"
                         onClick={() => onChapterClick(a.first_chapter)}
                       >
-                        (Ch.{a.first_chapter})
+                        {t("common.chapterShortParen", { chapter: a.first_chapter })}
                       </button>
                     ) : (
-                      <span className="text-muted-foreground/50 ml-0.5">(Ch.{a.first_chapter})</span>
+                      <span className="text-muted-foreground/50 ml-0.5">
+                        {t("common.chapterShortParen", { chapter: a.first_chapter })}
+                      </span>
                     )}
                   </span>
                 ))}
@@ -66,7 +83,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       </div>
 
       {/* B. Appearances — merged by description, latest first */}
-      <CardSection title="外貌特征" defaultLimit={3}>
+      <CardSection title={t("entity.person.appearances")} defaultLimit={3}>
         {[...appearances].reverse().map((a, i) => {
           // Support both old ({chapter}) and new ({chapters}) format
           const chs: number[] = a.chapters ?? ((a as any).chapter != null ? [(a as any).chapter] : [])
@@ -77,21 +94,11 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                   className="text-muted-foreground cursor-pointer text-xs hover:underline"
                   onClick={() => onChapterClick(chs[0])}
                 >
-                  {chs.length === 1
-                    ? `Ch.${chs[0]}`
-                    : chs.length <= 3
-                      ? `Ch.${chs.join(",")}`
-                      : `Ch.${chs[0]}–${chs[chs.length - 1]}(${chs.length}次)`
-                  }
+                  {formatChapterTag(chs)}
                 </button>
               ) : (
                 <span className="text-muted-foreground text-xs">
-                  {chs.length === 1
-                    ? `Ch.${chs[0]}`
-                    : chs.length <= 3
-                      ? `Ch.${chs.join(",")}`
-                      : `Ch.${chs[0]}–${chs[chs.length - 1]}(${chs.length}次)`
-                  }
+                  {formatChapterTag(chs)}
                 </span>
               )}
               <span className="ml-1.5">{a.description}</span>
@@ -101,12 +108,12 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       </CardSection>
 
       {/* C. Relations — grouped by category */}
-      <CardSection title="人物关系" defaultLimit={15}>
+      <CardSection title={t("entity.person.relations")} defaultLimit={15}>
         {CATEGORY_ORDER
           .filter(cat => relations.some(r => (r.category || "other") === cat))
           .flatMap(cat => [
             <div key={`cat-${cat}`} className="text-muted-foreground mt-2 text-xs font-medium first:mt-0">
-              {CATEGORY_LABELS[cat] ?? cat}
+              {t(CATEGORY_LABEL_KEYS[cat] ?? "entity.person.category.other")}
             </div>,
             ...relations
               .filter(r => (r.category || "other") === cat)
@@ -123,19 +130,20 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                       onClick={onEntityClick}
                     />
                     <span className="text-muted-foreground mx-1">—</span>
-                    <span>{latest?.relation_type ?? "未知"}</span>
+                    <span>{latest ? relationTypeLabel(t, latest.relation_type_id, latest.relation_type) : t("entity.stat.unknown")}</span>
                     {rel.stages.length > 1 && (
                       <span className="text-muted-foreground ml-1 text-xs">
                         ({rel.stages.map((s, si) => {
                           const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
-                          if (chs.length === 0) return <span key={si}>{s.relation_type}</span>
+                          const relationLabel = relationTypeLabel(t, s.relation_type_id, s.relation_type)
+                          if (chs.length === 0) return <span key={si}>{relationLabel}</span>
                           const tag = chs.length === 1
-                            ? `Ch.${chs[0]}`
-                            : `Ch.${chs[0]}–${chs[chs.length - 1]}`
+                            ? formatChapterShort(chs[0])
+                            : formatChapterRange(chs[0], chs[chs.length - 1])
                           return (
                             <span key={si}>
                               {si > 0 && " → "}
-                              {s.relation_type}(
+                              {relationLabel}(
                               {onChapterClick ? (
                                 <button
                                   className="cursor-pointer hover:underline"
@@ -153,7 +161,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                     {totalEvidences > 0 && (
                       <details className="mt-0.5">
                         <summary className="text-muted-foreground text-[10px] cursor-pointer">
-                          查看证据 ({totalEvidences})
+                          {t("entity.person.viewEvidence", { count: totalEvidences })}
                         </summary>
                         <div className="pl-2 mt-1 space-y-0.5">
                           {rel.stages.flatMap((s, si) =>
@@ -166,10 +174,10 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                                       className="ml-1 cursor-pointer opacity-60 hover:underline"
                                       onClick={() => onChapterClick(s.chapters[0])}
                                     >
-                                      Ch.{s.chapters[0]}
+                                      {formatChapterShort(s.chapters[0])}
                                     </button>
                                   ) : (
-                                    <span className="ml-1 opacity-60">Ch.{s.chapters[0]}</span>
+                                    <span className="ml-1 opacity-60">{formatChapterShort(s.chapters[0])}</span>
                                   )}
                                 </div>
                               ))
@@ -184,7 +192,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       </CardSection>
 
       {/* D. Abilities */}
-      <CardSection title="能力" defaultLimit={8}>
+      <CardSection title={t("entity.person.abilities")} defaultLimit={8}>
         {Array.from(abilityGroups.entries()).flatMap(([dim, abs]) => [
           <div key={`dim-${dim}`} className="text-muted-foreground mt-1 text-xs font-medium first:mt-0">
             {dim}
@@ -202,11 +210,11 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       </CardSection>
 
       {/* E. Items */}
-      <CardSection title="物品关系" defaultLimit={5}>
+      <CardSection title={t("entity.person.items")} defaultLimit={5}>
         {items.map((it, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={it.chapter} onClick={onChapterClick} />
-            <span className="ml-1.5">{it.action}</span>
+            <span className="ml-1.5">{itemActionLabel(t, it.action_id, it.action)}</span>
             <EntityLink
               name={it.item_name}
               type="item"
@@ -231,7 +239,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
         }
         if (footprintMap.size === 0) return null
         return (
-          <CardSection title="足迹" defaultLimit={8}>
+          <CardSection title={t("entity.person.footprint")} defaultLimit={8}>
             {Array.from(footprintMap.entries()).map(([loc, ch]) => (
               <div key={loc} className="text-sm flex items-center gap-1.5">
                 <ChapterTag chapter={ch} onClick={onChapterClick} />
@@ -243,7 +251,7 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       })()}
 
       {/* G. Experiences */}
-      <CardSection title="经历" defaultLimit={5}>
+      <CardSection title={t("entity.person.experiences")} defaultLimit={5}>
         {[...experiences].reverse().map((exp, i) => (
           <div key={i} className="text-sm">
             <ChapterTag chapter={exp.chapter} onClick={onChapterClick} />
@@ -268,12 +276,12 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       <div className="py-3">
         <details>
           <summary className="text-muted-foreground cursor-pointer text-xs font-medium uppercase tracking-wide">
-            数据统计
+            {t("entity.dataStats")}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {Object.entries(stats).map(([k, v]) => (
               <div key={k} className="rounded-md bg-muted/50 px-2 py-1 text-sm">
-                <span className="text-muted-foreground text-xs">{formatStatLabel(k)}</span>
+                <span className="text-muted-foreground text-xs">{t(getPersonStatLabelKey(k))}</span>
                 <div className="font-medium">{v}</div>
               </div>
             ))}
@@ -284,12 +292,12 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
   )
 })
 
-function formatStatLabel(key: string): string {
-  const labels: Record<string, string> = {
-    chapter_count: "出场章节",
-    first_chapter: "首次出场",
-    last_chapter: "最后出场",
-    relation_count: "关系数",
+function getPersonStatLabelKey(key: string): TranslationKey {
+  const labels: Record<string, TranslationKey> = {
+    chapter_count: "entity.stat.appearanceChapters",
+    first_chapter: "entity.stat.firstAppearance",
+    last_chapter: "entity.stat.lastAppearance",
+    relation_count: "entity.stat.relationCount",
   }
-  return labels[key] ?? key
+  return labels[key] ?? "entity.stat.unknown"
 }

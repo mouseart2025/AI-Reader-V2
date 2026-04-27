@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"
 import { fetchNovel } from "@/api/client"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { RangeSlider } from "@/components/ui/range-slider"
+import { useI18n } from "@/i18n"
 
 interface VisualizationLayoutProps {
   children: React.ReactNode
@@ -13,6 +14,7 @@ interface VisualizationLayoutProps {
  * Provides the chapter range slider. Top navigation is handled by NovelLayout.
  */
 export function VisualizationLayout({ children }: VisualizationLayoutProps) {
+  const { t } = useI18n()
   const { novelId } = useParams<{ novelId: string }>()
 
   const {
@@ -48,7 +50,7 @@ export function VisualizationLayout({ children }: VisualizationLayoutProps) {
     <div className="flex h-full flex-col">
       {/* Chapter range slider */}
       <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-1.5">
-        <span className="text-muted-foreground text-xs whitespace-nowrap">章节范围</span>
+        <span className="text-muted-foreground text-xs whitespace-nowrap">{t("export.chapterRange")}</span>
 
         <span className="text-xs font-mono w-10 text-right tabular-nums">{chapterStart}</span>
         <RangeSlider
@@ -63,7 +65,11 @@ export function VisualizationLayout({ children }: VisualizationLayoutProps) {
 
         {analyzedFirst > 0 && totalChapters > 0 && analyzedLast < totalChapters && (
           <span className="text-muted-foreground text-xs whitespace-nowrap">
-            已分析 {analyzedFirst}-{analyzedLast} / {totalChapters} 章
+            {t("visualization.layout.analyzedRange", {
+              start: analyzedFirst,
+              end: analyzedLast,
+              total: totalChapters,
+            })}
           </span>
         )}
       </div>

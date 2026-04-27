@@ -2,6 +2,7 @@
 
 from src.db.sqlite_db import get_connection
 from src.utils.chapter_splitter import ChapterInfo
+from src.utils.source_language import DEFAULT_SOURCE_LANGUAGE, SourceLanguage
 
 
 async def insert_novel(
@@ -11,6 +12,7 @@ async def insert_novel(
     file_hash: str,
     total_chapters: int,
     total_words: int,
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
     conn=None,
 ) -> None:
     own_conn = conn is None
@@ -19,10 +21,10 @@ async def insert_novel(
     try:
         await conn.execute(
             """
-            INSERT INTO novels (id, title, author, file_hash, total_chapters, total_words)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO novels (id, title, author, file_hash, total_chapters, total_words, source_language)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (novel_id, title, author, file_hash, total_chapters, total_words),
+            (novel_id, title, author, file_hash, total_chapters, total_words, source_language),
         )
         if own_conn:
             await conn.commit()
@@ -75,6 +77,7 @@ async def list_novels() -> list[dict]:
             SELECT
                 n.id, n.title, n.author, n.total_chapters, n.total_words,
                 n.created_at, n.updated_at, n.is_sample,
+                COALESCE(n.source_language, 'zh-CN') AS source_language,
                 COALESCE(
                     CAST(SUM(CASE WHEN c.analysis_status = 'completed' THEN 1 ELSE 0 END) AS REAL)
                     / NULLIF(SUM(CASE WHEN c.is_excluded = 0 THEN 1 ELSE 0 END), 0),
@@ -103,7 +106,7 @@ async def get_novel(novel_id: str) -> dict | None:
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT id, title, author, file_hash, total_chapters, total_words, is_sample, synopsis, created_at, updated_at FROM novels WHERE id = ?",
+            "SELECT id, title, author, file_hash, total_chapters, total_words, is_sample, COALESCE(source_language, 'zh-CN') AS source_language, synopsis, created_at, updated_at FROM novels WHERE id = ?",
             (novel_id,),
         )
         row = await cursor.fetchone()
@@ -127,7 +130,7 @@ async def find_by_hash(file_hash: str) -> dict | None:
     conn = await get_connection()
     try:
         cursor = await conn.execute(
-            "SELECT id, title, author, total_chapters, total_words, created_at, updated_at FROM novels WHERE file_hash = ?",
+            "SELECT id, title, author, total_chapters, total_words, COALESCE(source_language, 'zh-CN') AS source_language, created_at, updated_at FROM novels WHERE file_hash = ?",
             (file_hash,),
         )
         row = await cursor.fetchone()

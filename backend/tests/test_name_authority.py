@@ -32,6 +32,10 @@ class TestAliasSafetyLevel:
         for term in ["妖精", "老和尚", "师父", "泼猴", "呆子", "菩萨"]:
             assert alias_safety_level(term) == 0, f"{term} should be level 0"
 
+    def test_level0_non_cjk_generic_person(self):
+        for term in ["ông", "vị tướng", "nhà vua", "người lính", "soldier", "king"]:
+            assert alias_safety_level(term) == 0, f"{term} should be level 0"
+
     def test_level0_title_prefix(self):
         for term in ["长老", "掌门", "帮主", "教主", "太尉", "知府"]:
             assert alias_safety_level(term) == 0, f"{term} should be level 0"
@@ -60,6 +64,12 @@ class TestAliasSafetyLevel:
         """Specific royal names should pass (not blocked by generic royal terms)."""
         for name in ["铁扇公主", "乌鸡国国王", "哪吒太子"]:
             assert alias_safety_level(name) >= 1, f"{name} should be safe"
+
+    def test_level2_vietnamese_multi_word_names(self):
+        """Vietnamese names and aliases are not subject to Chinese length heuristics."""
+        for name in ["Trần Quốc Tuấn", "Hưng Đạo Vương", "Nguyễn Trãi", "Ức Trai", "Bình Định Vương"]:
+            assert alias_safety_level(name) == 2, f"{name} should be level 2"
+            assert not is_unsafe_alias(name), f"{name} should be safe"
 
 
 # ── is_blocked_name ───────────────────────────────────────────
@@ -110,6 +120,10 @@ class TestIsNicknameOrTitle:
 
     def test_real_names_pass(self):
         for name in ["孙悟空", "宋江", "贾宝玉", "林黛玉", "唐僧"]:
+            assert not is_nickname_or_title(name), f"{name} should NOT be nickname"
+
+    def test_vietnamese_title_like_names_pass(self):
+        for name in ["Hưng Đạo Vương", "Bình Định Vương", "Ức Trai"]:
             assert not is_nickname_or_title(name), f"{name} should NOT be nickname"
 
 

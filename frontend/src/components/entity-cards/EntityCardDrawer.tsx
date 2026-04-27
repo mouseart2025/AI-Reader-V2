@@ -6,6 +6,7 @@ import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useReadingStore } from "@/stores/readingStore"
 import { novelPath } from "@/lib/novelPaths"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 import { PersonCard } from "./PersonCard"
 import { LocationCard } from "./LocationCard"
 import { ItemCard } from "./ItemCard"
@@ -16,6 +17,7 @@ interface EntityCardDrawerProps {
 }
 
 export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
+  const { t } = useI18n()
   const {
     open,
     loading,
@@ -64,7 +66,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
           setCachedProfile(currentCrumb.type, resolvedName, p)
         }
       } catch {
-        if (!cancelled) setError("加载失败，请重试")
+        if (!cancelled) setError(t("entity.loadFailedRetry"))
       }
     }
 
@@ -72,7 +74,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => {
       cancelled = true
     }
-  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
+  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, setProfile, setLoading, setError, getCachedProfile, setCachedProfile, t])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
@@ -145,7 +147,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
         <div className="flex-1 overflow-y-auto px-4">
           {loading && (
             <div className="flex h-32 items-center justify-center">
-              <p className="text-muted-foreground text-sm">Loading...</p>
+              <p className="text-muted-foreground text-sm">{t("common.loading")}</p>
             </div>
           )}
 
@@ -160,7 +162,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
                   setLoading(true)
                 }}
               >
-                重试
+                {t("common.retry")}
               </Button>
             </div>
           )}
@@ -185,39 +187,39 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
                 {profile.type === "location" && (
                   <>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "map")) }}>
-                      地图
+                      {t("nav.map")}
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
-                      百科
+                      {t("nav.encyclopedia")}
                     </Button>
                   </>
                 )}
                 {profile.type === "person" && (
                   <>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "timeline")) }}>
-                      时间线
+                      {t("nav.timeline")}
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "graph")) }}>
-                      关系图
+                      {t("nav.relationGraph")}
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
-                      百科
+                      {t("nav.encyclopedia")}
                     </Button>
                   </>
                 )}
                 {profile.type === "org" && (
                   <>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "factions")) }}>
-                      组织
+                      {t("nav.factions")}
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
-                      百科
+                      {t("nav.encyclopedia")}
                     </Button>
                   </>
                 )}
                 {profile.type === "item" && (
                   <Button variant="outline" size="xs" onClick={() => { close(); navigate(novelPath(novelId, "encyclopedia")) }}>
-                    百科
+                    {t("nav.encyclopedia")}
                   </Button>
                 )}
               </div>
@@ -244,6 +246,8 @@ function ConceptPopup({
   data: { name: string; definition: string; category: string; related: string[] }
   onClose: () => void
 }) {
+  const { t } = useI18n()
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose}>
       <div
@@ -259,7 +263,7 @@ function ConceptPopup({
         <p className="mb-3 text-sm">{data.definition}</p>
         {data.related.length > 0 && (
           <div className="text-muted-foreground text-xs">
-            <span>相关：</span>
+            <span>{t("entity.related")}</span>
             {data.related.join("、")}
           </div>
         )}

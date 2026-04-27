@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 
 interface GuidedTourBubbleProps {
   step: number
@@ -18,6 +19,7 @@ export function GuidedTourBubble({
   onDismiss,
   position = "bottom",
 }: GuidedTourBubbleProps) {
+  const { t } = useI18n()
   const isLast = step + 1 === totalSteps
 
   return (
@@ -49,7 +51,7 @@ export function GuidedTourBubble({
           className="text-xs text-white/50 hover:text-white/80"
           onClick={onDismiss}
         >
-          不再提示
+          {t("shared.guidedTour.dismiss")}
         </button>
         <Button
           size="sm"
@@ -57,7 +59,7 @@ export function GuidedTourBubble({
           className="h-7 px-3 text-xs"
           onClick={onNext}
         >
-          {isLast ? "完成" : "知道了"}
+          {isLast ? t("shared.guidedTour.finish") : t("shared.guidedTour.next")}
         </Button>
       </div>
     </div>

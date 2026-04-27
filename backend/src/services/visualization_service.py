@@ -44,10 +44,37 @@ from src.services.conflict_detector import (
     _detect_distance_conflicts,
 )
 from src.services.relation_utils import normalize_relation_type
+from src.services.domain_labels import (
+    event_type_id,
+    item_action_id,
+    location_type_id,
+    normalize_location_type,
+    normalize_org_type,
+    normalize_scene_tone,
+    org_action_id,
+    org_type_id,
+    scene_tone_id,
+)
+from src.services.relation_utils import relation_type_id
 from src.services.world_structure_agent import WorldStructureAgent
 from src.models.world_structure import LayerType
 
 logger = logging.getLogger(__name__)
+
+
+def _is_cjk_dominant_name(name: str) -> bool:
+    """Return True when a person/location name is primarily CJK text.
+
+    Some historical filters below are Chinese-specific, such as blocking very
+    long names or surname+氏 patterns. Vietnamese and other Latin-script names
+    must bypass those guards.
+    """
+
+    chars = [ch for ch in name if not ch.isspace()]
+    if not chars:
+        return False
+    cjk_count = sum(1 for ch in chars if "\u4e00" <= ch <= "\u9fff")
+    return cjk_count / len(chars) >= 0.6
 
 
 async def _load_facts_in_range(
@@ -146,6 +173,8 @@ async def get_graph_data(
         """
         if name in alias_map or name in known_canonicals:
             return False  # known entity — trust alias_map
+        if not _is_cjk_dominant_name(name):
+            return False
         # Explicit blocklist (太太/老太太/奶奶/那呆子/取经人/老孙 ...)
         if name in CANONICAL_BLOCKLIST:
             return True
@@ -268,7 +297,9 @@ async def get_graph_data(
             "source": e["source"],
             "target": e["target"],
             "relation_type": primary_type,
+            "relation_type_id": relation_type_id(primary_type),
             "all_types": [t for t, _ in e["type_counts"].most_common()],
+            "all_type_ids": [relation_type_id(t) for t, _ in e["type_counts"].most_common()],
             "weight": len(e["chapters"]),
             "chapters": sorted(e["chapters"]),
             "category": category,
@@ -796,11 +827,13 @@ async def get_map_data(
         ch = fact.chapter_id
 
         for loc in fact.locations:
+            loc_type = normalize_location_type(loc.type)
             loc_chapters[loc.name].add(ch)
             if loc.name not in loc_info:
                 loc_info[loc.name] = {
                     "name": loc.name,
-                    "type": loc.type,
+                    "type": loc_type,
+                    "type_id": location_type_id(loc_type),
                     "parent": loc.parent,
                 }
             elif loc.parent and not loc_info[loc.name]["parent"]:
@@ -860,6 +893,7 @@ async def get_map_data(
             "id": name,
             "name": name,
             "type": info["type"],
+            "type_id": info.get("type_id") or location_type_id(info["type"]),
             "parent": info["parent"],
             "level": get_level(name),
             "mention_count": len(loc_chapters.get(name, set())),
@@ -1864,6 +1898,7 @@ async def get_timeline_data(
             "chapter": ch,
             "summary": summary,
             "type": etype,
+            "type_id": event_type_id(etype),
             "importance": importance,
             "participants": participants,
             "location": location,
@@ -1896,7 +1931,7 @@ async def get_timeline_data(
                 continue
             scene_tone_map.setdefault(ch_id, []).append({
                 "characters": set(scene.get("characters", [])),
-                "tone": scene.get("emotional_tone", ""),
+                "tone": normalize_scene_tone(scene.get("emotional_tone", "")),
                 "location": scene.get("location", ""),
             })
     except Exception:
@@ -1925,7 +1960,7 @@ async def get_timeline_data(
             tone = _match_scene_tone(ch, ev.participants)
             _add(ev.summary, ev.type, ev.importance,
                  ev.participants, ev.location, ch,
-                 {"emotional_tone": tone} if tone else None)
+                 {"emotional_tone": tone, "emotional_tone_id": scene_tone_id(tone)} if tone else None)
 
         # ── Derived: 角色登场 (character first appearance) ──
         # Only emit for characters appearing in ≥ N chapters (filters one-timers)
@@ -1935,7 +1970,12 @@ async def get_timeline_data(
                 if len(char_chapters.get(char.name, set())) >= _MIN_APPEARANCE_CHAPTERS:
                     loc = char.locations_in_chapter[0] if char.locations_in_chapter else None
                     _add(f"{char.name} 首次登场", "角色登场", "medium",
-                         [char.name], loc, ch)
+                         [char.name], loc, ch, {
+                             "summary_template_id": "character_appearance",
+                             "summary_args": {
+                                 "person": char.name,
+                             },
+                         })
 
         # ── Derived: 物品交接 (item events) ──
         # Filter noise actions (出现/存在/提及)
@@ -1948,7 +1988,16 @@ async def get_timeline_data(
             summary = f"{ie.actor} {ie.action} {ie.item_name}"
             if ie.recipient:
                 summary += f" → {ie.recipient}"
-            _add(summary, "物品交接", "medium", participants, None, ch)
+            _add(summary, "物品交接", "medium", participants, None, ch, {
+                "summary_template_id": "item_transfer_to" if ie.recipient else "item_transfer",
+                "summary_args": {
+                    "actor": ie.actor,
+                    "action": ie.action,
+                    "action_id": item_action_id(ie.action),
+                    "item": ie.item_name,
+                    "recipient": ie.recipient,
+                },
+            })
 
         # ── Derived: 组织变动 (org events) ──
         for oe in fact.org_events:
@@ -1958,7 +2007,16 @@ async def get_timeline_data(
             summary = f"{oe.member or '?'} {oe.action} {oe.org_name}"
             if oe.role:
                 summary += f" ({oe.role})"
-            _add(summary, "组织变动", "medium", participants, None, ch)
+            _add(summary, "组织变动", "medium", participants, None, ch, {
+                "summary_template_id": "org_change_with_role" if oe.role else "org_change",
+                "summary_args": {
+                    "member": oe.member or "?",
+                    "action": oe.action,
+                    "action_id": org_action_id(oe.action),
+                    "org": oe.org_name,
+                    "role": oe.role,
+                },
+            })
 
         # ── Derived: 关系变化 (relationship changes) ──
         for rel in fact.relationships:
@@ -1971,11 +2029,30 @@ async def get_timeline_data(
                 if rel.evidence:
                     summary += f"（{rel.evidence[:30]}）"
                 _add(summary, "关系变化", "medium",
-                     [rel.person_a, rel.person_b], None, ch)
+                     [rel.person_a, rel.person_b], None, ch, {
+                         "summary_template_id": "relation_new_with_evidence" if rel.evidence else "relation_new",
+                         "summary_args": {
+                             "person_a": rel.person_a,
+                             "person_b": rel.person_b,
+                             "relation_type": rel.relation_type,
+                             "relation_type_id": relation_type_id(rel.relation_type),
+                             "evidence_excerpt": (rel.evidence or "")[:30],
+                         },
+                     })
             elif rel.previous_type and rel.previous_type != rel.relation_type:
                 summary = f"{rel.person_a} 与 {rel.person_b} 关系变化：{rel.previous_type}→{rel.relation_type}"
                 _add(summary, "关系变化", "high",
-                     [rel.person_a, rel.person_b], None, ch)
+                     [rel.person_a, rel.person_b], None, ch, {
+                         "summary_template_id": "relation_changed",
+                         "summary_args": {
+                             "person_a": rel.person_a,
+                             "person_b": rel.person_b,
+                             "previous_type": rel.previous_type,
+                             "previous_type_id": relation_type_id(rel.previous_type),
+                             "relation_type": rel.relation_type,
+                             "relation_type_id": relation_type_id(rel.relation_type),
+                         },
+                     })
 
     # ── Compute suggested defaults ──
     total = len(events)
@@ -2000,7 +2077,8 @@ _ORG_TYPE_KEYWORDS = ("门", "派", "宗", "帮", "教", "盟", "会", "阁", "�
 
 def _is_org_type(loc_type: str) -> bool:
     """Check whether a location type represents an organization."""
-    return any(kw in loc_type for kw in _ORG_TYPE_KEYWORDS)
+    normalized = normalize_org_type(loc_type) or normalize_location_type(loc_type)
+    return any(kw in normalized for kw in _ORG_TYPE_KEYWORDS)
 
 
 async def get_factions_data(
@@ -2021,8 +2099,9 @@ async def get_factions_data(
 
         for oe in fact.org_events:
             org_name = alias_map.get(oe.org_name, oe.org_name)
+            normalized_org_type = normalize_org_type(oe.org_type)
             if org_name not in org_info:
-                org_info[org_name] = {"name": org_name, "type": oe.org_type}
+                org_info[org_name] = {"name": org_name, "type": normalized_org_type}
 
             if oe.member:
                 member = alias_map.get(oe.member, oe.member)
@@ -2041,6 +2120,7 @@ async def get_factions_data(
                     "source": org_name,
                     "target": other,
                     "type": oe.org_relation.type,
+                    "type_id": relation_type_id(oe.org_relation.type),
                     "chapter": ch,
                 })
                 # Ensure the related org is also tracked
@@ -2057,9 +2137,10 @@ async def get_factions_data(
     for fact in facts:
         for loc in fact.locations:
             loc_canonical = alias_map.get(loc.name, loc.name)
-            if _is_org_type(loc.type) and loc_canonical not in org_info:
-                org_info[loc_canonical] = {"name": loc_canonical, "type": loc.type}
-            if _is_org_type(loc.type):
+            loc_type = normalize_location_type(loc.type)
+            if _is_org_type(loc_type) and loc_canonical not in org_info:
+                org_info[loc_canonical] = {"name": loc_canonical, "type": loc_type}
+            if _is_org_type(loc_type):
                 org_locations.add(loc_canonical)
 
     # ── Source 3: characters at org-locations ──
@@ -2081,7 +2162,7 @@ async def get_factions_data(
         for concept in fact.new_concepts:
             cat = concept.category
             if _is_org_type(cat) and concept.name not in org_info:
-                org_info[concept.name] = {"name": concept.name, "type": cat}
+                org_info[concept.name] = {"name": concept.name, "type": normalize_org_type(cat) or cat}
 
     # Build output
     orgs = [
@@ -2089,6 +2170,7 @@ async def get_factions_data(
             "id": name,
             "name": name,
             "type": info["type"],
+            "type_id": org_type_id(info["type"]),
             "member_count": len(org_members.get(name, {})),
         }
         for name, info in org_info.items()

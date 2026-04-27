@@ -6,6 +6,7 @@
 
 import type { NovelListItem } from "@/providers/types"
 import { Trash2 } from "lucide-react"
+import { useI18n } from "@/i18n"
 
 interface BookshelfCardProps {
   novel: NovelListItem & { source?: "preinstalled" | "imported" }
@@ -14,6 +15,7 @@ interface BookshelfCardProps {
 }
 
 export function BookshelfCard({ novel, onClick, onDelete }: BookshelfCardProps) {
+  const { t } = useI18n()
   const stats = novel.stats
   const isImported = novel.source === "imported"
 
@@ -30,16 +32,20 @@ export function BookshelfCard({ novel, onClick, onDelete }: BookshelfCardProps) 
 
         {stats && (
           <p className="mb-3 text-xs text-slate-400">
-            {stats.characters}人物 · {stats.locations}地点 · {novel.totalChapters}章
+            {t("desktop.cardStats", {
+              characters: stats.characters,
+              locations: stats.locations,
+              chapters: novel.totalChapters,
+            })}
           </p>
         )}
         {!stats && (
-          <p className="mb-3 text-xs text-slate-400">{novel.totalChapters}章</p>
+          <p className="mb-3 text-xs text-slate-400">{t("common.chapterCount", { count: novel.totalChapters })}</p>
         )}
 
         <div className="border-t border-slate-700/50 pt-2">
           <span className="text-xs text-slate-500">
-            {isImported ? "导入数据" : "预装数据"}
+            {isImported ? t("desktop.importedData") : t("desktop.preinstalledData")}
           </span>
         </div>
       </button>
@@ -52,7 +58,7 @@ export function BookshelfCard({ novel, onClick, onDelete }: BookshelfCardProps) 
             onDelete(novel.slug, novel.title)
           }}
           className="absolute right-2 top-2 rounded-md p-1.5 text-slate-500 opacity-0 transition hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100"
-          title="删除"
+          title={t("common.delete")}
         >
           <Trash2 className="size-4" />
         </button>

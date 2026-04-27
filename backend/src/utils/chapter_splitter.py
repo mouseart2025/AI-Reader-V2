@@ -4,6 +4,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 
+from src.utils.source_language import DEFAULT_SOURCE_LANGUAGE, SourceLanguage, normalize_source_language
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,6 +94,22 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
             re.MULTILINE,
         ),
     ),
+    # Mode 4b: Vietnamese chapter headers (Chương 1 / Hồi I / Phần 1 / Mở đầu)
+    (
+        "chapter_vi",
+        re.compile(
+            r"^\s*(?:"
+            r"(?:chương|chuong|hồi|hoi|phần|phan|quyển|quyen|tập|tap)"
+            r"\s+(?:\d{1,4}|[ivxlcdm]+)(?=$|[\s：:.\-–—])"
+            r"|mở đầu|mo dau|lời mở đầu|loi mo dau|lời tựa|loi tua|dẫn nhập|dan nhap"
+            r"|ngoại truyện|ngoai truyen|hậu ký|hau ky"
+            r"|kết thúc|ket thuc|kết truyện|ket truyen"
+            r"|(?:hết|het)(?=\s*(?:$|[：:.\-–—]+\s*$))"
+            r"|(?:kết|ket)(?=\s*(?:$|[：:.\-–—]+\s*$))"
+            r")[\s：:.\-–—]*(.*)$",
+            re.MULTILINE | re.IGNORECASE,
+        ),
+    ),
     # Mode 5: Markdown headers
     (
         "markdown",
@@ -123,6 +141,32 @@ _VOLUME_PATTERN = re.compile(
 
 # Expose available mode names for the API
 AVAILABLE_MODES = [name for name, _ in _PATTERNS] + ["heuristic_title", "fixed_size"]
+
+_SOURCE_LANGUAGE_MODE_ORDER: dict[SourceLanguage, tuple[str, ...]] = {
+    "zh-CN": (
+        "chapter_zh",
+        "section_zh",
+        "cn_numbered",
+        "numbered",
+        "chapter_en",
+        "markdown",
+        "separator",
+    ),
+    "vi": (
+        "chapter_vi",
+        "chapter_en",
+        "numbered",
+        "markdown",
+        "separator",
+    ),
+    "en": (
+        "chapter_en",
+        "numbered",
+        "markdown",
+        "separator",
+    ),
+    "auto": tuple(name for name, _ in _PATTERNS),
+}
 
 
 _BLANK_LINE_RE = re.compile(r"\n{4,}")  # 3+ consecutive empty lines
@@ -173,6 +217,44 @@ def _restore_paragraphs(content: str) -> str:
         return content
     restored = _PARA_BREAK_RE.sub(r"\1\n", content)
     return restored
+
+
+def _patterns_for_source_language(source_language: SourceLanguage) -> list[tuple[str, re.Pattern]]:
+    mode_order = _SOURCE_LANGUAGE_MODE_ORDER.get(source_language, _SOURCE_LANGUAGE_MODE_ORDER["auto"])
+    pattern_map = dict(_PATTERNS)
+    return [(mode, pattern_map[mode]) for mode in mode_order if mode in pattern_map]
+
+
+def _label_full_text(source_language: SourceLanguage) -> str:
+    if source_language == "vi":
+        return "Toàn văn"
+    if source_language == "en":
+        return "Full text"
+    return "全文"
+
+
+def _label_prologue(source_language: SourceLanguage) -> str:
+    if source_language == "vi":
+        return "Mở đầu"
+    if source_language == "en":
+        return "Prologue"
+    return "序章"
+
+
+def _label_segment(source_language: SourceLanguage, chapter_num: int) -> str:
+    if source_language == "vi":
+        return f"Đoạn {chapter_num}"
+    if source_language == "en":
+        return f"Section {chapter_num}"
+    return f"第 {chapter_num} 段"
+
+
+def _label_section(source_language: SourceLanguage, chapter_num: int) -> str:
+    if source_language == "vi":
+        return f"Chương {chapter_num}"
+    if source_language == "en":
+        return f"Chapter {chapter_num}"
+    return f"第 {chapter_num} 节"
 
 
 def _augment_with_volume_markers(text: str, matches: list[re.Match]) -> list[re.Match]:
@@ -511,12 +593,19 @@ def split_chapters(
     mode: str | None = None,
     custom_regex: str | None = None,
     split_points: list[int] | None = None,
+    source_language: str | None = None,
 ) -> list[ChapterInfo]:
     """Split text into chapters.
 
     Backward-compatible wrapper that returns just the chapter list.
     """
-    result = split_chapters_ex(text, mode=mode, custom_regex=custom_regex, split_points=split_points)
+    result = split_chapters_ex(
+        text,
+        mode=mode,
+        custom_regex=custom_regex,
+        split_points=split_points,
+        source_language=source_language,
+    )
     return result.chapters
 
 
@@ -525,6 +614,7 @@ def split_chapters_ex(
     mode: str | None = None,
     custom_regex: str | None = None,
     split_points: list[int] | None = None,
+    source_language: str | None = None,
 ) -> SplitResult:
     """Split text into chapters with metadata about the split.
 
@@ -534,6 +624,8 @@ def split_chapters_ex(
     Otherwise tries all patterns, picks the one with the most matches (>= 2).
     Falls back to heuristic_title, then fixed_size if nothing works.
     """
+    normalized_source_language = normalize_source_language(source_language)
+
     # Normalize line endings: \r\n → \n, standalone \r → \n
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
@@ -548,7 +640,7 @@ def split_chapters_ex(
         if genre in ("essay", "poetry") and confidence >= 0.7:
             return SplitResult(
                 chapters=[ChapterInfo(
-                    chapter_num=1, title="全文",
+                    chapter_num=1, title=_label_full_text(normalized_source_language),
                     content=text.strip(), word_count=len(text.strip()),
                 )],
                 matched_mode=f"genre_{genre}",
@@ -558,7 +650,7 @@ def split_chapters_ex(
 
     # Manual split points mode (from user-marked boundaries)
     if split_points:
-        return _split_by_points(text, sorted(set(split_points)))
+        return _split_by_points(text, sorted(set(split_points)), normalized_source_language)
 
     # Custom regex mode
     if custom_regex:
@@ -567,7 +659,7 @@ def split_chapters_ex(
         except re.error:
             return SplitResult(
                 chapters=[ChapterInfo(
-                    chapter_num=1, title="全文",
+                    chapter_num=1, title=_label_full_text(normalized_source_language),
                     content=text.strip(), word_count=len(text.strip()),
                 )],
                 matched_mode="custom",
@@ -575,15 +667,15 @@ def split_chapters_ex(
             )
         matches = list(pattern.finditer(text))
         if len(matches) >= 2:
-            chapters = _split_by_matches(text, "custom", matches)
+            chapters = _split_by_matches(text, "custom", matches, normalized_source_language)
             _assign_volumes(text, chapters)
             chapters = _dedup_adjacent_chapters(chapters)
             _detect_volume_resets(chapters)
-            chapters = _subsplit_oversized(chapters)
+            chapters = _subsplit_oversized(chapters, source_language=normalized_source_language)
             return SplitResult(chapters=chapters, matched_mode="custom")
         return SplitResult(
             chapters=[ChapterInfo(
-                chapter_num=1, title="全文",
+                chapter_num=1, title=_label_full_text(normalized_source_language),
                 content=text.strip(), word_count=len(text.strip()),
             )],
             matched_mode="custom",
@@ -592,21 +684,21 @@ def split_chapters_ex(
     # Specific mode
     if mode:
         if mode == "heuristic_title":
-            chapters = _heuristic_title_split(text)
+            chapters = _heuristic_title_split(text, normalized_source_language)
             if chapters:
                 _assign_volumes(text, chapters)
                 chapters = _dedup_adjacent_chapters(chapters)
                 _detect_volume_resets(chapters)
-                chapters = _subsplit_oversized(chapters)
+                chapters = _subsplit_oversized(chapters, source_language=normalized_source_language)
                 return SplitResult(chapters=chapters, matched_mode="heuristic_title")
             return SplitResult(
-                chapters=_fixed_size_split(text),
+                chapters=_fixed_size_split(text, source_language=normalized_source_language),
                 matched_mode="fixed_size",
                 is_fallback=True,
             )
         if mode == "fixed_size":
             return SplitResult(
-                chapters=_fixed_size_split(text),
+                chapters=_fixed_size_split(text, source_language=normalized_source_language),
                 matched_mode="fixed_size",
             )
         for mode_name, pattern in _PATTERNS:
@@ -615,14 +707,14 @@ def split_chapters_ex(
                 if len(matches) >= 2:
                     if mode_name == "section_zh":
                         matches = _augment_with_volume_markers(text, matches)
-                    chapters = _split_by_matches(text, mode_name, matches)
+                    chapters = _split_by_matches(text, mode_name, matches, normalized_source_language)
                     _assign_volumes(text, chapters)
                     chapters = _dedup_adjacent_chapters(chapters)
                     _detect_volume_resets(chapters)
-                    chapters = _subsplit_oversized(chapters)
+                    chapters = _subsplit_oversized(chapters, source_language=normalized_source_language)
                     return SplitResult(chapters=chapters, matched_mode=mode_name)
                 return SplitResult(
-                    chapters=_fixed_size_split(text),
+                    chapters=_fixed_size_split(text, source_language=normalized_source_language),
                     matched_mode="fixed_size",
                     is_fallback=True,
                 )
@@ -632,7 +724,7 @@ def split_chapters_ex(
     best_matches: list[re.Match] = []
     best_score = 0
 
-    for mode_name, pattern in _PATTERNS:
+    for mode_name, pattern in _patterns_for_source_language(normalized_source_language):
         matches = list(pattern.finditer(text))
         if len(matches) < 2:
             continue
@@ -648,23 +740,23 @@ def split_chapters_ex(
         if pagination:
             pag_matches = list(pagination.finditer(text))
             if len(pag_matches) >= 5:  # Need at least 5 to be meaningful
-                chapters = _split_by_matches(text, "pagination", pag_matches)
-                chapters = _subsplit_oversized(chapters)
+                chapters = _split_by_matches(text, "pagination", pag_matches, normalized_source_language)
+                chapters = _subsplit_oversized(chapters, source_language=normalized_source_language)
                 return SplitResult(chapters=chapters, matched_mode="pagination",
                                    is_fallback=True, detected_genre=genre)
 
         # No regex pattern matched >= 2 times — try heuristic title detection
-        chapters = _heuristic_title_split(text)
+        chapters = _heuristic_title_split(text, normalized_source_language)
         if chapters:
             _assign_volumes(text, chapters)
             chapters = _dedup_adjacent_chapters(chapters)
             _detect_volume_resets(chapters)
-            chapters = _subsplit_oversized(chapters)
+            chapters = _subsplit_oversized(chapters, source_language=normalized_source_language)
             return SplitResult(chapters=chapters, matched_mode="heuristic_title", is_fallback=True,
                                detected_genre=genre)
         # Last resort: fixed-size split at paragraph boundaries
         return SplitResult(
-            chapters=_fixed_size_split(text),
+            chapters=_fixed_size_split(text, source_language=normalized_source_language),
             matched_mode="fixed_size",
             is_fallback=True,
             detected_genre=genre,
@@ -680,11 +772,11 @@ def split_chapters_ex(
     if best_mode == "numbered":
         best_matches = _filter_numbered_resets(best_matches)
 
-    chapters = _split_by_matches(text, best_mode, best_matches)
+    chapters = _split_by_matches(text, best_mode, best_matches, normalized_source_language)
 
     # If result is a single huge chapter, try fixed_size as secondary fallback
     if len(chapters) == 1 and chapters[0].word_count > 30_000:
-        fallback = _fixed_size_split(text)
+        fallback = _fixed_size_split(text, source_language=normalized_source_language)
         if len(fallback) > 1:
             return SplitResult(chapters=fallback, matched_mode="fixed_size", is_fallback=True,
                                detected_genre=genre)
@@ -697,13 +789,17 @@ def split_chapters_ex(
     chapters = _subsplit_by_digit_sections(chapters)
 
     # Sub-split any oversized chapters (>50k chars) to keep all chunks manageable
-    chapters = _subsplit_oversized(chapters)
+    chapters = _subsplit_oversized(chapters, source_language=normalized_source_language)
 
     return SplitResult(chapters=chapters, matched_mode=best_mode or "none",
                        detected_genre=genre)
 
 
-def _split_by_points(text: str, points: list[int]) -> SplitResult:
+def _split_by_points(
+    text: str,
+    points: list[int],
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
+) -> SplitResult:
     """Split text at explicit character offsets (manual boundary marking)."""
     # Filter points to valid range and add boundaries
     total = len(text)
@@ -728,7 +824,7 @@ def _split_by_points(text: str, points: list[int]) -> SplitResult:
         elif first_line:
             title = first_line[:38] + "…"
         else:
-            title = f"第 {chapter_num} 段"
+            title = _label_segment(source_language, chapter_num)
         chapters.append(ChapterInfo(
             chapter_num=chapter_num,
             title=title,
@@ -738,7 +834,7 @@ def _split_by_points(text: str, points: list[int]) -> SplitResult:
 
     if not chapters:
         chapters = [ChapterInfo(
-            chapter_num=1, title="全文",
+            chapter_num=1, title=_label_full_text(source_language),
             content=text.strip(), word_count=len(text.strip()),
         )]
 
@@ -746,7 +842,10 @@ def _split_by_points(text: str, points: list[int]) -> SplitResult:
 
 
 def _split_by_matches(
-    text: str, mode: str, matches: list[re.Match]
+    text: str,
+    mode: str,
+    matches: list[re.Match],
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
 ) -> list[ChapterInfo]:
     """Split text at match positions and build ChapterInfo list."""
     chapters: list[ChapterInfo] = []
@@ -759,7 +858,7 @@ def _split_by_matches(
         chapters.append(
             ChapterInfo(
                 chapter_num=chapter_num,
-                title="序章",
+                title=_label_prologue(source_language),
                 content=prologue_text,
                 word_count=len(prologue_text),
                 _text_pos=0,
@@ -783,14 +882,14 @@ def _split_by_matches(
 
         # Separator mode: derive title from content's first sentence
         if mode == "separator":
-            title = _derive_separator_title(chapter_num, content)
+            title = _derive_separator_title(chapter_num, content, source_language)
 
         # v0.71.2: title sanity check — if extracted title is actually a body
-        # paragraph (long + contains sentence punctuation), replace with generic
-        # "第N节" name. Catches cases like 鼠疫 where 5-part structure has no
-        # section titles and the splitter accidentally captured paragraph text.
-        if title and (len(title) > 40 or any(ch in title for ch in "。！？")):
-            title = f"第 {chapter_num} 节"
+        # paragraph (long + contains sentence-ending punctuation), replace with
+        # a generic section label. Keep long-but-valid chapter titles such as
+        # translated Vietnamese headings with parenthetical subtitles.
+        if title and len(title) > 40 and any(ch in title for ch in "。！？.!?…"):
+            title = _label_section(source_language, chapter_num)
 
         chapters.append(
             ChapterInfo(
@@ -809,7 +908,11 @@ def _split_by_matches(
 _SENT_END_RE = re.compile(r'[。！？…」』）\n]')
 
 
-def _derive_separator_title(chapter_num: int, content: str) -> str:
+def _derive_separator_title(
+    chapter_num: int,
+    content: str,
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
+) -> str:
     """Derive a chapter title from the first sentence of separator-split content.
 
     For novels that use --- separators without explicit chapter headings,
@@ -823,7 +926,7 @@ def _derive_separator_title(chapter_num: int, content: str) -> str:
             first_line = s
             break
     if not first_line:
-        return f"第 {chapter_num} 章"
+        return _label_section(source_language, chapter_num)
 
     # Truncate at first sentence-ending punctuation, max 40 chars
     m = _SENT_END_RE.search(first_line)
@@ -1004,7 +1107,10 @@ def _detect_volume_resets(chapters: list[ChapterInfo]) -> None:
             ch.volume_num = None
 
 
-def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
+def _heuristic_title_split(
+    text: str,
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
+) -> list[ChapterInfo] | None:
     """Detect chapter boundaries from short title-like lines.
 
     A line is a title candidate if ALL conditions are met:
@@ -1081,7 +1187,7 @@ def _heuristic_title_split(text: str) -> list[ChapterInfo] | None:
         chapters.append(
             ChapterInfo(
                 chapter_num=chapter_num,
-                title="序章",
+                title=_label_prologue(source_language),
                 content=prologue_text,
                 word_count=len(prologue_text),
             )
@@ -1226,6 +1332,7 @@ def _subsplit_oversized(
     chapters: list[ChapterInfo],
     threshold: int = _OVERSIZED_THRESHOLD,
     target_size: int = _DEFAULT_FIXED_SIZE,
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
 ) -> list[ChapterInfo]:
     """Sub-split chapters exceeding *threshold* chars using fixed-size splitting.
 
@@ -1245,7 +1352,7 @@ def _subsplit_oversized(
             result.append(ch)
             continue
         # Sub-split this chapter's content
-        sub_chapters = _fixed_size_split(ch.content, target_size=target_size)
+        sub_chapters = _fixed_size_split(ch.content, target_size=target_size, source_language=source_language)
         if len(sub_chapters) <= 1:
             result.append(ch)
             continue
@@ -1263,7 +1370,11 @@ def _subsplit_oversized(
     return result
 
 
-def _fixed_size_split(text: str, target_size: int = _DEFAULT_FIXED_SIZE) -> list[ChapterInfo]:
+def _fixed_size_split(
+    text: str,
+    target_size: int = _DEFAULT_FIXED_SIZE,
+    source_language: SourceLanguage = DEFAULT_SOURCE_LANGUAGE,
+) -> list[ChapterInfo]:
     """Split text into roughly equal-sized chunks at paragraph boundaries.
 
     Finds the nearest blank line to each target_size boundary.
@@ -1271,12 +1382,12 @@ def _fixed_size_split(text: str, target_size: int = _DEFAULT_FIXED_SIZE) -> list
     """
     text = text.strip()
     if not text:
-        return [ChapterInfo(chapter_num=1, title="全文", content="", word_count=0)]
+        return [ChapterInfo(chapter_num=1, title=_label_full_text(source_language), content="", word_count=0)]
 
     total = len(text)
     if total <= target_size * 1.5:
         # Too short to split meaningfully
-        return [ChapterInfo(chapter_num=1, title="第 1 段", content=text, word_count=total)]
+        return [ChapterInfo(chapter_num=1, title=_label_segment(source_language, 1), content=text, word_count=total)]
 
     # Find all line break positions.  We use single \n rather than \n\n (paragraph
     # breaks) because many Chinese novels use only single newlines between paragraphs.
@@ -1310,7 +1421,7 @@ def _fixed_size_split(text: str, target_size: int = _DEFAULT_FIXED_SIZE) -> list
                 chapters.append(
                     ChapterInfo(
                         chapter_num=chapter_num,
-                        title=f"第 {chapter_num} 段",
+                        title=_label_segment(source_language, chapter_num),
                         content=chunk_text,
                         word_count=len(chunk_text),
                     )
@@ -1338,7 +1449,7 @@ def _fixed_size_split(text: str, target_size: int = _DEFAULT_FIXED_SIZE) -> list
                 chapters.append(
                     ChapterInfo(
                         chapter_num=chapter_num,
-                        title=f"第 {chapter_num} 段",
+                        title=_label_segment(source_language, chapter_num),
                         content=chunk_text,
                         word_count=len(chunk_text),
                     )
@@ -1350,14 +1461,14 @@ def _fixed_size_split(text: str, target_size: int = _DEFAULT_FIXED_SIZE) -> list
             chapter_num += 1
             chapters.append(
                 ChapterInfo(
-                    chapter_num=chapter_num,
-                    title=f"第 {chapter_num} 段",
-                    content=chunk_text,
+                        chapter_num=chapter_num,
+                        title=_label_segment(source_language, chapter_num),
+                        content=chunk_text,
                     word_count=len(chunk_text),
                 )
             )
         chunk_start = best_break + 1  # Skip past the \n
 
     return chapters if chapters else [
-        ChapterInfo(chapter_num=1, title="第 1 段", content=text.strip(), word_count=len(text.strip()))
+        ChapterInfo(chapter_num=1, title=_label_segment(source_language, 1), content=text.strip(), word_count=len(text.strip()))
     ]

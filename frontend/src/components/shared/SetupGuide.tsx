@@ -10,6 +10,7 @@ import {
 import { checkEnvironment } from "@/api/client"
 import type { EnvironmentCheck } from "@/api/types"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 import {
   Card,
   CardContent,
@@ -26,6 +27,7 @@ function StepIcon({ status }: { status: "done" | "error" | "pending" }) {
 }
 
 export function SetupGuide({ onReady }: { onReady: () => void }) {
+  const { t } = useI18n()
   const [checking, setChecking] = useState(true)
   const [env, setEnv] = useState<EnvironmentCheck | null>(null)
 
@@ -60,16 +62,16 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
     <div className="flex min-h-screen items-center justify-center p-6">
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">环境配置</CardTitle>
+          <CardTitle className="text-2xl">{t("shared.setupGuide.title")}</CardTitle>
           <CardDescription>
-            AI Reader 需要本地运行 Ollama 来提供 AI 分析能力
+            {t("shared.setupGuide.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {checking ? (
             <div className="flex flex-col items-center py-8">
               <Loader2 className="text-primary mb-3 h-8 w-8 animate-spin" />
-              <p className="text-muted-foreground text-sm">正在检测环境...</p>
+              <p className="text-muted-foreground text-sm">{t("shared.setupGuide.checkingEnvironment")}</p>
             </div>
           ) : (
             <>
@@ -77,18 +79,18 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
               <div className="flex items-start gap-3">
                 <StepIcon status={ollamaOk ? "done" : "error"} />
                 <div className="flex-1">
-                  <p className="font-medium">安装并启动 Ollama</p>
+                  <p className="font-medium">{t("shared.setupGuide.installAndStartOllama")}</p>
                   {ollamaOk ? (
                     <p className="text-muted-foreground text-sm">
-                      Ollama 服务已运行 ({env?.ollama_url})
+                      {t("shared.setupGuide.ollamaRunningAt", { url: env?.ollama_url ?? "" })}
                     </p>
                   ) : (
                     <div className="mt-1 space-y-2">
                       <p className="text-sm text-red-600 dark:text-red-400">
-                        未检测到 Ollama 服务
+                        {t("shared.setupGuide.ollamaNotDetected")}
                       </p>
                       <p className="text-muted-foreground text-sm">
-                        1. 访问{" "}
+                        {t("shared.setupGuide.step1Visit")}{" "}
                         <a
                           href="https://ollama.com"
                           target="_blank"
@@ -98,10 +100,10 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
                           ollama.com
                           <ExternalLink className="h-3 w-3" />
                         </a>{" "}
-                        下载安装
+                        {t("shared.llmSetup.installDownload")}
                       </p>
                       <p className="text-muted-foreground text-sm">
-                        2. 安装后启动 Ollama 应用
+                        {t("shared.setupGuide.step2StartOllama")}
                       </p>
                     </div>
                   )}
@@ -117,19 +119,21 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
                 />
                 <div className="flex-1">
                   <p className="font-medium">
-                    下载模型 ({env?.recommended_model ?? env?.required_model ?? "qwen3:8b"})
+                    {t("shared.setupGuide.downloadModel", {
+                      model: env?.recommended_model ?? env?.required_model ?? "qwen3:8b",
+                    })}
                   </p>
                   {modelOk ? (
                     <p className="text-muted-foreground text-sm">
-                      模型已就绪
+                      {t("shared.setupGuide.modelReady")}
                     </p>
                   ) : ollamaOk ? (
                     <div className="mt-1 space-y-2">
                       <p className="text-sm text-red-600 dark:text-red-400">
-                        所需模型未下载
+                        {t("shared.setupGuide.requiredModelMissing")}
                       </p>
                       <p className="text-muted-foreground text-sm">
-                        在终端运行：
+                        {t("shared.setupGuide.runInTerminal")}
                       </p>
                       <code className="bg-muted block rounded px-3 py-2 text-sm">
                         ollama pull {env?.recommended_model ?? env?.required_model ?? "qwen3:8b"}
@@ -137,7 +141,7 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm">
-                      请先完成上一步
+                      {t("shared.setupGuide.completePreviousStep")}
                     </p>
                   )}
                 </div>
@@ -147,14 +151,14 @@ export function SetupGuide({ onReady }: { onReady: () => void }) {
               <div className="flex items-center justify-between pt-2">
                 <Button variant="outline" onClick={runCheck}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  重新检测
+                  {t("shared.llmSetup.redetect")}
                 </Button>
                 <Button
                   variant="ghost"
                   className="text-muted-foreground"
                   onClick={onReady}
                 >
-                  跳过，稍后配置
+                  {t("shared.setupGuide.skipForNow")}
                 </Button>
               </div>
             </>
