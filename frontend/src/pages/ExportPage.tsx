@@ -45,6 +45,7 @@ export default function ExportPage() {
   const [entities, setEntities] = useState<EntitySummary[]>([])
   const [relationCount, setRelationCount] = useState(0)
   const [airExporting, setAirExporting] = useState(false)
+  const [airError, setAirError] = useState<string | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [novelTitle, setNovelTitle] = useState("")
 
@@ -135,6 +136,7 @@ export default function ExportPage() {
   const handleAirExport = useCallback(async () => {
     if (!novelId) return
     setAirExporting(true)
+    setAirError(null)
     try {
       // Fetch title fresh if not yet loaded
       let title = novelTitle
@@ -145,7 +147,7 @@ export default function ExportPage() {
         } catch { /* ignore */ }
       }
       const resp = await fetch(exportNovelAirUrl(novelId))
-      if (!resp.ok) throw new Error(`Export failed: ${resp.status}`)
+      if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -157,7 +159,7 @@ export default function ExportPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (e) {
-      console.error("AIR export failed:", e)
+      setAirError(e instanceof Error ? e.message : "导出失败")
     } finally {
       setAirExporting(false)
     }
@@ -411,6 +413,10 @@ export default function ExportPage() {
               >
                 {airExporting ? "正在导出..." : "导出 .air 文件"}
               </Button>
+
+              {airError && (
+                <p className="text-xs text-red-500">{airError}</p>
+              )}
 
               {analyzedChapters === 0 && !statsLoading && (
                 <p className="text-xs text-amber-500">

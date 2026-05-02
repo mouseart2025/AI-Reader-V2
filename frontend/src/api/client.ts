@@ -884,7 +884,9 @@ export async function exportSeriesBible(
   a.download = decodeURIComponent(
     res.headers.get("Content-Disposition")?.match(/filename\*=UTF-8''(.+)/)?.[1] ?? defaultName,
   )
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
 
