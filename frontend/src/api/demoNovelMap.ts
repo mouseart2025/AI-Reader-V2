@@ -8,11 +8,12 @@ export interface DemoNovelInfo {
   stats: { characters: number; relations: number; locations: number; events: number }
 }
 
-// Only novels analyzed with v0.71.1+ pipeline are exposed to the public demo —
-// older analyses (v0.59~v0.69 era) contain canonical bugs / location issues
-// that have since been fixed. Re-analyze before re-adding.
+// Public demo only exposes 红楼梦 + 西游记 (per-chapter files complete under
+// chapters/ch-NNN.json.gz). 水浒/三国/封神 lack per-chapter files in
+// landing/demo/demo-data/, so opening any chapter would 404 → SPA fallback
+// returns index.html → JSON parse error in the reader. Re-add only after
+// per-chapter files are generated.
 const DEMO_NOVELS: DemoNovelInfo[] = [
-  // ── 五大经典(v0.71.1+ 重分析) ──
   {
     slug: "honglou",
     title: "红楼梦",
@@ -26,27 +27,6 @@ const DEMO_NOVELS: DemoNovelInfo[] = [
     dataPath: "/demo-data/xiyouji",
     totalChapters: 100,
     stats: { characters: 812, relations: 809, locations: 693, events: 2632 },
-  },
-  {
-    slug: "shuihu",
-    title: "水浒传",
-    dataPath: "/demo-data/shuihu",
-    totalChapters: 121,
-    stats: { characters: 1040, relations: 1745, locations: 1276, events: 4667 },
-  },
-  {
-    slug: "sanguo",
-    title: "三国演义",
-    dataPath: "/demo-data/sanguo",
-    totalChapters: 120,
-    stats: { characters: 1198, relations: 1857, locations: 980, events: 4542 },
-  },
-  {
-    slug: "fengshen",
-    title: "封神演义",
-    dataPath: "/demo-data/fengshen",
-    totalChapters: 90,
-    stats: { characters: 735, relations: 1148, locations: 469, events: 3148 },
   },
 ]
 
