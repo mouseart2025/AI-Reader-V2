@@ -7,9 +7,11 @@
  * editor, override saving) are omitted in demo mode.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useParams } from "react-router-dom"
 import { useDemoData } from "@/app/DemoContext"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
+import { loadDemoLayerMap } from "@/api/demoDataAdapter"
 import type { MapData, MapLayerInfo } from "@/api/types"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
 import { GeoMap } from "@/components/visualization/GeoMap"
@@ -46,8 +48,13 @@ const ICON_LEGEND: { icon: string; label: string }[] = [
 const COLLAPSED_TIERS = new Set(["site", "building"])
 
 export default function DemoMapPage() {
+  const { novelSlug } = useParams<{ novelSlug: string }>()
   const { data } = useDemoData()
-  const mapData = data.map as unknown as MapData
+  const baseMapData = data.map as unknown as MapData
+  // Layer-scoped map data swap-in. overworld uses the preloaded base; other
+  // layers are lazy-fetched from /demo-data/<slug>/map-<layer>.json.gz.
+  const [layerMapData, setLayerMapData] = useState<MapData | null>(null)
+  const [layerLoading, setLayerLoading] = useState(false)
 
   const openCard = useEntityCardStore((s) => s.openCard)
   const storeFocusLoc = useVisualizationFocusStore((s) => s.focusLocation)
@@ -81,6 +88,34 @@ export default function DemoMapPage() {
   const [exportProgress, setExportProgress] = useState("")
 
   const mapHandle = useRef<NovelMapHandle>(null)
+
+  // Active dataset = layer-specific (if loaded) or base (overworld).
+  const mapData = layerMapData ?? baseMapData
+
+  // Lazy-load per-layer map data when user switches tabs. Falls back to the
+  // base/overworld dataset if the layer file is missing (older exports).
+  useEffect(() => {
+    if (!novelSlug) return
+    if (activeLayerId === "overworld") {
+      setLayerMapData(null)
+      return
+    }
+    let cancelled = false
+    setLayerLoading(true)
+    loadDemoLayerMap<MapData>(novelSlug, activeLayerId)
+      .then((d) => {
+        if (cancelled) return
+        setLayerMapData(d)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLayerMapData(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLayerLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [novelSlug, activeLayerId])
 
   // Apply backend-suggested mention filter on first load + on novel switch
   useEffect(() => {
@@ -461,6 +496,16 @@ export default function DemoMapPage() {
       <div className="flex flex-1 min-h-0">
         {/* Main map area */}
         <div className="relative flex-1">
+          {/* Layer-data loading overlay */}
+          {layerLoading && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+              <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-xs shadow">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                加载图层数据...
+              </div>
+            </div>
+          )}
+
           {/* Hierarchy mode hint */}
           {layoutMode === "hierarchy" && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700 shadow">

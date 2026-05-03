@@ -179,6 +179,41 @@ export async function loadDemoChapterContent(
 }
 
 /**
+ * Load a layer-scoped map dataset (天界 / 海底 / 冥界 / 副本秘境 / 太阳系).
+ * Returns null if the layer file isn't present (caller falls back to overworld).
+ */
+export async function loadDemoLayerMap<T>(
+  slug: string,
+  layerId: string,
+): Promise<T | null> {
+  const cacheKey = `${slug}/map-layer/${layerId}`
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey) as T
+  }
+
+  const novel = getDemoNovel(slug)
+  if (!novel) {
+    throw new Error(`Unknown demo novel: ${slug}`)
+  }
+
+  const basePath = import.meta.env.BASE_URL ?? "/"
+  const url = `${basePath}${novel.dataPath.replace(/^\//, "")}/map-${layerId}.json.gz`
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    return null
+  }
+
+  try {
+    const data = await decompressGzipResponse<T>(response)
+    cache.set(cacheKey, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
  * Load a single entity's full aggregated profile.
  * Files are stored as entities/<type>/<urlencoded-name>.json.gz.
  * Returns null if the file isn't present (caller falls back to a simplified
