@@ -37,6 +37,8 @@ interface StorylineViewProps {
   novelId: string
   filterTypes: Set<FilterType>
   onToggleType: (type: FilterType) => void
+  /** Override path resolution (demo uses /demo/{slug}/{tab}). Defaults to novelPath(novelId, ...). */
+  getNavPath?: (tab: string, query?: string) => string
 }
 
 // ── Constants ──────────────────────────────────────────────
@@ -85,10 +87,16 @@ export default function StorylineView({
   swimlanes,
   novelId,
   filterTypes,
+  getNavPath,
 }: StorylineViewProps) {
   const navigate = useNavigate()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
   const setFocusLocation = useVisualizationFocusStore((s) => s.setFocusLocation)
+  const resolvePath = useCallback(
+    (tab: string, query?: string) =>
+      getNavPath ? getNavPath(tab, query) : novelPath(novelId, tab, query),
+    [getNavPath, novelId],
+  )
 
   // State
   const [selectedChars, setSelectedChars] = useState<string[]>([])
@@ -703,14 +711,14 @@ export default function StorylineView({
                         className="text-xs text-green-600 dark:text-green-400 hover:underline ml-2"
                         onClick={() => {
                           setFocusLocation(selectedEvent.location!, "timeline")
-                          navigate(novelPath(novelId, "map"))
+                          navigate(resolvePath("map"))
                         }}
                       >
                         📍 {selectedEvent.location} →
                       </button>
                     )}
                   </div>
-                  <button className="text-xs text-primary hover:underline flex-shrink-0" onClick={() => navigate(novelPath(novelId, "read", `chapter=${selectedEvent.chapter}`))}>
+                  <button className="text-xs text-primary hover:underline flex-shrink-0" onClick={() => navigate(resolvePath("read", `chapter=${selectedEvent.chapter}`))}>
                     前往阅读 →
                   </button>
                 </div>

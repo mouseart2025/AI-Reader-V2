@@ -1,10 +1,20 @@
 /**
- * DemoTimelinePage — interactive timeline with type filtering and virtual scrolling.
- * Uses static demo data for events and swimlanes.
+ * DemoTimelinePage — interactive timeline mirroring the desktop TimelinePage.
+ * List view + Storyline view, swimlane sidebar, auto-collapse, importance/type
+ * filters, click-through to entity card / map / reading. Data sourced from
+ * static demo bundle instead of REST.
  */
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react"
+import { useNavigate, useParams } from "react-router-dom"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useDemoData } from "@/app/DemoContext"
+import { useTimelineStore, type FilterType } from "@/stores/timelineStore"
+import { useEntityCardStore } from "@/stores/entityCardStore"
+import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+const StorylineView = lazy(() => import("@/pages/StorylineView"))
 
 interface TimelineEvent {
   id: string
@@ -18,211 +28,572 @@ interface TimelineEvent {
   emotional_tone?: string | null
 }
 
-const EVENT_TYPE_COLORS: Record<string, string> = {
-  "战斗": "#ef4444", "成长": "#3b82f6", "社交": "#10b981", "旅行": "#f97316",
-  "关系变化": "#06b6d4", "角色登场": "#8b5cf6", "物品交接": "#eab308",
-  "组织变动": "#ec4899", "其他": "#6b7280",
+function eventColor(type: string): string {
+  switch (type) {
+    case "战斗": return "#ef4444"
+    case "成长": return "#3b82f6"
+    case "社交": return "#10b981"
+    case "旅行": return "#f97316"
+    case "角色登场": return "#8b5cf6"
+    case "物品交接": return "#eab308"
+    case "组织变动": return "#ec4899"
+    case "关系变化": return "#06b6d4"
+    default: return "#6b7280"
+  }
 }
 
 const TONE_COLORS: Record<string, string> = {
-  "紧张": "#ef4444", "悲伤": "#3b82f6", "欢乐": "#f59e0b",
-  "恐惧": "#7c3aed", "愤怒": "#dc2626", "感动": "#ec4899",
-  "平静": "#6b7280", "神秘": "#8b5cf6",
+  "紧张": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  "悲伤": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  "欢乐": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+  "温馨": "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
+  "愤怒": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  "平静": "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
+  "神秘": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  "恐惧": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  "搞笑": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
 }
 
-const ALL_TYPES = ["战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"]
+function importanceSize(importance: string, isMajor?: boolean): number {
+  if (isMajor) return 10
+  switch (importance) {
+    case "high": return 8
+    case "medium": return 5
+    case "low": return 3
+    default: return 4
+  }
+}
 
-type FlatItem =
-  | { kind: "chapter"; chapter: number; eventCount: number }
-  | { kind: "event"; event: TimelineEvent }
+const ALL_CONTENT_TYPES: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
+const SMART_DEFAULTS: FilterType[] = ["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"]
+const DEFAULT_HIDDEN: FilterType[] = ["角色登场", "物品交接"]
+const EVENT_TYPES: string[] = ["all", ...ALL_CONTENT_TYPES]
 
 export default function DemoTimelinePage() {
+  const { novelSlug } = useParams<{ novelSlug: string }>()
+  const navigate = useNavigate()
   const { data } = useDemoData()
+  const openEntityCard = useEntityCardStore((s) => s.openCard)
+  const setFocusLocation = useVisualizationFocusStore((s) => s.setFocusLocation)
+
   const timelineData = data.timeline as {
     events: TimelineEvent[]
     swimlanes?: Record<string, string[]>
-    suggested_hidden_types?: string[]
+    suggested_min_swimlane?: number
   }
-
   const events = timelineData.events ?? []
+  const swimlanes = timelineData.swimlanes ?? {}
 
-  // Default hidden types from backend suggestion
-  const defaultHidden = useMemo(
-    () => new Set(timelineData.suggested_hidden_types ?? ["角色登场", "物品交接"]),
-    [timelineData],
+  const {
+    filterTypes, setFilterTypes,
+    filterImportance, setFilterImportance,
+    viewMode, setViewMode,
+    autoCollapseLow, setAutoCollapseLow,
+    minSwimlaneEvents, setMinSwimlaneEvents,
+    scrollTop: savedScrollTop, setScrollTop,
+  } = useTimelineStore()
+
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
+  const [showSwimlanes, setShowSwimlanes] = useState(false)
+  const [selectedPersons, setSelectedPersons] = useState<string[]>([])
+  const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
+
+  // Seed swimlane min from backend suggestion on first mount
+  useEffect(() => {
+    const suggested = timelineData.suggested_min_swimlane
+    if (typeof suggested === "number" && suggested > 0) {
+      setMinSwimlaneEvents(suggested)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novelSlug])
+
+  const getNavPath = useCallback(
+    (tab: string, query?: string) => {
+      const t = tab === "read" ? "reading" : tab
+      const base = `/demo/${novelSlug ?? ""}/${t}`
+      return query ? `${base}?${query}` : base
+    },
+    [novelSlug],
   )
 
-  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(defaultHidden)
-  const [importanceFilter, setImportanceFilter] = useState<"all" | "medium" | "high">("all")
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const toggleType = (type: string) => {
-    setHiddenTypes((prev) => {
+  const toggleTypeFilter = useCallback(
+    (type: string) => {
+      const prev = useTimelineStore.getState().filterTypes
+      if (type === "all") {
+        const isAll = ALL_CONTENT_TYPES.every((t) => prev.has(t))
+        setFilterTypes(isAll ? new Set(SMART_DEFAULTS) : new Set<FilterType>(ALL_CONTENT_TYPES))
+        return
+      }
       const next = new Set(prev)
-      if (next.has(type)) next.delete(type)
-      else next.add(type)
+      if (next.has(type as FilterType)) {
+        next.delete(type as FilterType)
+        setFilterTypes(next.size === 0 ? new Set(SMART_DEFAULTS) : next)
+      } else {
+        next.add(type as FilterType)
+        setFilterTypes(next)
+      }
+    },
+    [setFilterTypes],
+  )
+
+  const toggleChapterCollapse = useCallback((chapter: number) => {
+    setCollapsedChapters((prev) => {
+      const next = new Set(prev)
+      if (next.has(chapter)) next.delete(chapter)
+      else next.add(chapter)
       return next
     })
-  }
+  }, [])
 
-  // Filter and group events
-  const flatItems = useMemo(() => {
-    const filtered = events.filter((e) => {
-      if (hiddenTypes.has(e.type)) return false
-      if (importanceFilter === "high" && e.importance !== "high") return false
-      if (importanceFilter === "medium" && e.importance === "low") return false
+  const expandAll = useCallback(() => setCollapsedChapters(new Set()), [])
+
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (!filterTypes.has(e.type as FilterType)) return false
+      if (filterImportance === "high" && e.importance !== "high") return false
+      if (filterImportance === "medium" && e.importance === "low") return false
+      if (selectedPersons.length > 0 && !e.participants.some((p) => selectedPersons.includes(p))) return false
       return true
     })
+  }, [events, filterTypes, filterImportance, selectedPersons])
 
-    // Group by chapter
-    const byChapter = new Map<number, TimelineEvent[]>()
-    for (const e of filtered) {
-      const list = byChapter.get(e.chapter) ?? []
-      list.push(e)
-      byChapter.set(e.chapter, list)
+  const chapterGroups = useMemo(() => {
+    const groups = new Map<number, TimelineEvent[]>()
+    for (const evt of filteredEvents) {
+      if (!groups.has(evt.chapter)) groups.set(evt.chapter, [])
+      groups.get(evt.chapter)!.push(evt)
     }
+    return Array.from(groups.entries()).sort((a, b) => a[0] - b[0])
+  }, [filteredEvents])
 
+  const autoCollapsedChapters = useMemo(() => {
+    if (!autoCollapseLow) return new Set<number>()
+    const auto = new Set<number>()
+    for (const [ch, evts] of chapterGroups) {
+      if (evts.every((e) => e.importance === "low" && !e.is_major)) auto.add(ch)
+    }
+    return auto
+  }, [chapterGroups, autoCollapseLow])
+
+  const effectiveCollapsed = useMemo(() => {
+    const merged = new Set(collapsedChapters)
+    for (const ch of autoCollapsedChapters) merged.add(ch)
+    return merged
+  }, [collapsedChapters, autoCollapsedChapters])
+
+  const collapseAll = useCallback(
+    () => setCollapsedChapters(new Set(chapterGroups.map(([ch]) => ch))),
+    [chapterGroups],
+  )
+
+  type FlatItem =
+    | { kind: "chapter"; chapter: number; eventCount: number; isCollapsed: boolean; isAutoCollapsed: boolean }
+    | { kind: "event"; event: TimelineEvent }
+
+  const flatItems = useMemo((): FlatItem[] => {
     const items: FlatItem[] = []
-    const chapters = [...byChapter.keys()].sort((a, b) => a - b)
-    for (const ch of chapters) {
-      const chEvents = byChapter.get(ch)!
-      items.push({ kind: "chapter", chapter: ch, eventCount: chEvents.length })
-      // Sort: high importance first
-      const sorted = chEvents.sort((a, b) => {
-        const order: Record<string, number> = { high: 0, medium: 1, low: 2 }
-        return (order[a.importance] ?? 2) - (order[b.importance] ?? 2)
-      })
-      for (const e of sorted) {
-        items.push({ kind: "event", event: e })
+    for (const [chapter, evts] of chapterGroups) {
+      const isCollapsed = effectiveCollapsed.has(chapter)
+      const isAutoCollapsed = autoCollapsedChapters.has(chapter) && !collapsedChapters.has(chapter)
+      items.push({ kind: "chapter", chapter, eventCount: evts.length, isCollapsed, isAutoCollapsed })
+      if (!isCollapsed) {
+        const sorted = [...evts].sort((a, b) => {
+          const imp = { high: 3, medium: 2, low: 1 }
+          return (imp[b.importance as keyof typeof imp] ?? 0) - (imp[a.importance as keyof typeof imp] ?? 0)
+        })
+        for (const evt of sorted) items.push({ kind: "event", event: evt })
       }
     }
     return items
-  }, [events, hiddenTypes, importanceFilter])
+  }, [chapterGroups, effectiveCollapsed, autoCollapsedChapters, collapsedChapters])
 
+  const containerRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: flatItems.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: (i) => (flatItems[i].kind === "chapter" ? 36 : 80),
-    overscan: 20,
+    estimateSize: (index) => (flatItems[index].kind === "chapter" ? 32 : 72),
+    overscan: 15,
   })
 
+  // Restore scroll on mount, save on unmount
+  useEffect(() => {
+    if (savedScrollTop > 0 && containerRef.current) {
+      requestAnimationFrame(() => {
+        if (containerRef.current) containerRef.current.scrollTop = savedScrollTop
+      })
+    }
+    return () => {
+      if (containerRef.current) setScrollTop(containerRef.current.scrollTop)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const filteredPersons = useMemo(
+    () =>
+      Object.keys(swimlanes)
+        .filter((p) => (swimlanes[p]?.length ?? 0) >= minSwimlaneEvents)
+        .sort((a, b) => (swimlanes[b]?.length ?? 0) - (swimlanes[a]?.length ?? 0)),
+    [swimlanes, minSwimlaneEvents],
+  )
+
+  const totalPersons = useMemo(() => Object.keys(swimlanes).length, [swimlanes])
+
+  const handlePersonClick = useCallback(
+    (name: string) => openEntityCard(name, "person"),
+    [openEntityCard],
+  )
+
+  const togglePerson = useCallback((person: string) => {
+    setSelectedPersons((prev) =>
+      prev.includes(person) ? prev.filter((p) => p !== person) : [...prev, person],
+    )
+  }, [])
+
+  const isAllSelected = useMemo(
+    () => ALL_CONTENT_TYPES.every((t) => filterTypes.has(t)),
+    [filterTypes],
+  )
+
   return (
-    <div className="flex h-full flex-col bg-slate-950">
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-900/80 px-4 py-2">
-        <span className="text-xs text-slate-400">
-          {flatItems.filter((i) => i.kind === "event").length} 事件
-        </span>
-        <div className="flex gap-1">
-          {ALL_TYPES.map((type) => (
-            <button
-              key={type}
-              onClick={() => toggleType(type)}
-              className="rounded px-2 py-0.5 text-xs font-medium transition"
-              style={{
-                backgroundColor: hiddenTypes.has(type) ? "#1e293b" : EVENT_TYPE_COLORS[type] + "15",
-                color: hiddenTypes.has(type) ? "#64748b" : EVENT_TYPE_COLORS[type],
-                border: `1px solid ${hiddenTypes.has(type) ? "#334155" : EVENT_TYPE_COLORS[type] + "30"}`,
-              }}
-            >
-              {type}
-            </button>
-          ))}
+    <div className="flex h-full flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 border-b px-4 py-2 flex-shrink-0 flex-wrap">
+        {/* View mode */}
+        <div className="flex items-center gap-1 mr-2">
+          <button
+            className={cn(
+              "px-2.5 py-1 rounded text-xs font-medium transition",
+              viewMode === "list"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => setViewMode("list")}
+          >
+            ▤ 事件列表
+          </button>
+          <button
+            className={cn(
+              "px-2.5 py-1 rounded text-xs font-medium transition",
+              viewMode === "storyline"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => setViewMode("storyline")}
+          >
+            ═ 故事线
+          </button>
         </div>
-        <div className="flex gap-1 border-l border-slate-700 pl-2">
-          {(["all", "medium", "high"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => setImportanceFilter(level)}
-              className={`rounded px-2 py-0.5 text-xs transition ${
-                importanceFilter === level
-                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {level === "all" ? "全部" : level === "medium" ? "中+" : "仅高"}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Virtual timeline */}
-      <div ref={containerRef} className="flex-1 overflow-auto">
-        <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-          className="mx-auto max-w-3xl px-4"
-        >
-          {/* Vertical line */}
-          <div className="absolute left-[60px] top-0 bottom-0 w-px bg-slate-800" />
+        <div className="w-px h-5 bg-border" />
 
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const item = flatItems[virtualItem.index]
+        {/* Type filter */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-xs text-muted-foreground mr-1">类型</span>
+          {EVENT_TYPES.map((t) => {
+            const isActive = t === "all" ? isAllSelected : filterTypes.has(t as FilterType)
+            const isHiddenDefault = DEFAULT_HIDDEN.includes(t as FilterType)
             return (
-              <div
-                key={virtualItem.key}
-                style={{
-                  position: "absolute",
-                  top: virtualItem.start,
-                  height: virtualItem.size,
-                  left: 0,
-                  right: 0,
-                }}
+              <Button
+                key={t}
+                variant={isActive ? "default" : "outline"}
+                size="xs"
+                onClick={() => toggleTypeFilter(t)}
+                className={cn(!isActive && isHiddenDefault && "opacity-60")}
               >
-                {item.kind === "chapter" ? (
-                  <div className="flex items-center gap-2 py-1">
-                    <span className="w-[52px] text-right text-xs font-semibold text-slate-300">
-                      第{item.chapter}回
-                    </span>
-                    <div className="h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-slate-900" />
-                    <span className="text-xs text-slate-500">{item.eventCount} 事件</span>
-                  </div>
-                ) : (
-                  <div className="ml-[72px] mr-2 rounded-lg border border-slate-700/50 bg-slate-900 p-2.5">
-                    <div className="flex items-start gap-2">
-                      <span
-                        className="mt-0.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                        style={{ backgroundColor: EVENT_TYPE_COLORS[item.event.type] ?? "#6b7280" }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm leading-snug text-slate-200">{item.event.summary}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <span
-                            className="rounded px-1.5 py-0.5"
-                            style={{
-                              backgroundColor: (EVENT_TYPE_COLORS[item.event.type] ?? "#6b7280") + "15",
-                              color: EVENT_TYPE_COLORS[item.event.type] ?? "#6b7280",
-                            }}
-                          >
-                            {item.event.type}
-                          </span>
-                          {item.event.is_major && (
-                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">重要</span>
-                          )}
-                          {item.event.emotional_tone && (
-                            <span
-                              className="rounded px-1.5 py-0.5"
-                              style={{
-                                backgroundColor: (TONE_COLORS[item.event.emotional_tone] ?? "#6b7280") + "15",
-                                color: TONE_COLORS[item.event.emotional_tone] ?? "#6b7280",
-                              }}
-                            >
-                              {item.event.emotional_tone}
-                            </span>
-                          )}
-                          {item.event.location && <span>{item.event.location}</span>}
-                          {item.event.participants.length > 0 && (
-                            <span className="truncate">{item.event.participants.slice(0, 3).join("、")}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                {t === "all" ? "全部" : t}
+              </Button>
             )
           })}
         </div>
+
+        <div className="w-px h-5 bg-border" />
+
+        {/* Importance filter */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-1">重要度</span>
+          {(["all", "medium", "high"] as const).map((level) => (
+            <Button
+              key={level}
+              variant={filterImportance === level ? "default" : "outline"}
+              size="xs"
+              onClick={() => setFilterImportance(level)}
+            >
+              {level === "all" ? "全部" : level === "medium" ? "中+" : "仅高"}
+            </Button>
+          ))}
+        </div>
+
+        <div className="w-px h-5 bg-border" />
+
+        <Button
+          variant={autoCollapseLow ? "default" : "outline"}
+          size="xs"
+          onClick={() => setAutoCollapseLow(!autoCollapseLow)}
+          title="自动折叠仅有低重要度事件的章节"
+        >
+          自动折叠
+        </Button>
+
+        <div className="flex-1" />
+
+        <span className="text-xs text-muted-foreground">
+          {filteredEvents.length} / {events.length} 事件
+        </span>
+
+        <Button variant="outline" size="xs" onClick={collapseAll}>折叠</Button>
+        <Button variant="outline" size="xs" onClick={expandAll}>展开</Button>
+
+        <Button
+          variant={showSwimlanes ? "default" : "outline"}
+          size="xs"
+          onClick={() => setShowSwimlanes(!showSwimlanes)}
+        >
+          泳道
+        </Button>
       </div>
+
+      {/* Storyline view */}
+      {viewMode === "storyline" && (
+        <Suspense fallback={<div className="flex items-center justify-center flex-1 text-muted-foreground text-sm">加载故事线视图...</div>}>
+          <StorylineView
+            events={filteredEvents}
+            swimlanes={swimlanes}
+            novelId={novelSlug ?? ""}
+            filterTypes={filterTypes}
+            onToggleType={toggleTypeFilter}
+            getNavPath={getNavPath}
+          />
+        </Suspense>
+      )}
+
+      {/* List view */}
+      {viewMode === "list" && (
+        <div className="flex flex-1 overflow-hidden">
+          <div ref={containerRef} className="flex-1 overflow-auto">
+            {events.length === 0 && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">暂无事件数据</p>
+              </div>
+            )}
+
+            {flatItems.length > 0 && (
+              <div className="p-4">
+                {/* Legend */}
+                <div className="flex items-center gap-3 mb-4 text-[10px] text-muted-foreground flex-wrap">
+                  {[
+                    { label: "战斗", color: "#ef4444" },
+                    { label: "成长", color: "#3b82f6" },
+                    { label: "社交", color: "#10b981" },
+                    { label: "旅行", color: "#f97316" },
+                    { label: "关系变化", color: "#06b6d4" },
+                    { label: "角色登场", color: "#8b5cf6" },
+                    { label: "物品交接", color: "#eab308" },
+                    { label: "组织变动", color: "#ec4899" },
+                    { label: "其他", color: "#6b7280" },
+                  ].map((item) => (
+                    <span key={item.label} className="flex items-center gap-1">
+                      <span className="inline-block size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      {item.label}
+                    </span>
+                  ))}
+                  <span className="ml-2">●大=关键 ●中=中 ·小=低</span>
+                </div>
+
+                {/* Virtualized list */}
+                <div className="relative" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+                  <div className="absolute left-[60px] top-0 bottom-0 w-px bg-border" />
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const item = flatItems[virtualRow.index]
+                    if (item.kind === "chapter") {
+                      return (
+                        <div
+                          key={virtualRow.key}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                          className="flex items-center gap-3 py-1 cursor-pointer select-none"
+                          onClick={() => toggleChapterCollapse(item.chapter)}
+                        >
+                          <span className="text-xs font-mono text-muted-foreground w-[52px] text-right">
+                            Ch.{item.chapter}
+                          </span>
+                          <div className="size-2.5 rounded-full bg-border z-10" />
+                          <span className="text-[10px] text-muted-foreground">
+                            {item.eventCount} 事件 {item.isCollapsed ? "▸" : "▾"}
+                            {item.isAutoCollapsed && (
+                              <span className="ml-1 text-yellow-600 dark:text-yellow-400">(低)</span>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    }
+                    const evt = item.event
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualRow.start}px)`,
+                          paddingLeft: "72px",
+                        }}
+                        className="pr-4 pb-1.5"
+                      >
+                        <div
+                          className={cn(
+                            "flex items-start gap-2 p-2 rounded-md border cursor-pointer transition-colors",
+                            selectedEvent?.id === evt.id
+                              ? "bg-muted border-primary/50"
+                              : "hover:bg-muted/50",
+                          )}
+                          onClick={() => setSelectedEvent(selectedEvent?.id === evt.id ? null : evt)}
+                        >
+                          <span
+                            className={cn(
+                              "rounded-full flex-shrink-0 mt-1",
+                              evt.is_major && "ring-2 ring-offset-1 ring-primary/40",
+                            )}
+                            style={{
+                              width: importanceSize(evt.importance, evt.is_major) * 2,
+                              height: importanceSize(evt.importance, evt.is_major) * 2,
+                              backgroundColor: eventColor(evt.type),
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm leading-snug">{evt.summary}</p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span
+                                className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{
+                                  backgroundColor: eventColor(evt.type) + "20",
+                                  color: eventColor(evt.type),
+                                }}
+                              >
+                                {evt.type}
+                              </span>
+                              {evt.is_major && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-950/30">
+                                  关键
+                                </span>
+                              )}
+                              {!evt.is_major && evt.importance === "high" && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30">
+                                  重要
+                                </span>
+                              )}
+                              {evt.emotional_tone && (
+                                <span className={cn(
+                                  "text-[10px] px-1.5 py-0.5 rounded",
+                                  TONE_COLORS[evt.emotional_tone] ?? "bg-muted text-muted-foreground",
+                                )}>
+                                  {evt.emotional_tone}
+                                </span>
+                              )}
+                              {evt.location && (
+                                <button
+                                  className="text-[10px] text-green-600 dark:text-green-400 hover:underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setFocusLocation(evt.location!, "timeline")
+                                    if (novelSlug) navigate(getNavPath("map"))
+                                  }}
+                                >
+                                  📍 {evt.location}
+                                </button>
+                              )}
+                            </div>
+                            {selectedEvent?.id === evt.id && evt.participants.length > 0 && (
+                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-muted-foreground">参与者:</span>
+                                {evt.participants.map((p) => (
+                                  <button
+                                    key={p}
+                                    className="text-[10px] text-blue-600 hover:underline"
+                                    onClick={(e) => { e.stopPropagation(); handlePersonClick(p) }}
+                                  >
+                                    {p}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Swimlane sidebar */}
+          {showSwimlanes && (
+            <div className="w-64 flex-shrink-0 border-l overflow-auto">
+              <div className="p-3">
+                <h3 className="text-sm font-medium mb-2">人物泳道</h3>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  选择人物筛选其相关事件
+                </p>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] text-muted-foreground">最少事件</span>
+                  <div className="flex items-center gap-1">
+                    {[1, 3, 5, 10].map((n) => (
+                      <Button
+                        key={n}
+                        variant={minSwimlaneEvents === n ? "default" : "outline"}
+                        size="xs"
+                        onClick={() => setMinSwimlaneEvents(n)}
+                      >
+                        {n}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  {filteredPersons.length} / {totalPersons} 人物
+                </p>
+
+                <div className="space-y-1">
+                  {filteredPersons.map((person) => (
+                    <button
+                      key={person}
+                      className={cn(
+                        "w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between",
+                        selectedPersons.includes(person) && "bg-primary/10 text-primary font-medium",
+                      )}
+                      onClick={() => togglePerson(person)}
+                    >
+                      <span>{person}</span>
+                      <span className="text-muted-foreground">
+                        {swimlanes[person]?.length ?? 0}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedPersons.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="mt-2 w-full"
+                    onClick={() => setSelectedPersons([])}
+                  >
+                    清除筛选
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
