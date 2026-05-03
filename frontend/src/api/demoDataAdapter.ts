@@ -178,6 +178,45 @@ export async function loadDemoChapterContent(
   return data
 }
 
+/**
+ * Load a single entity's full aggregated profile.
+ * Files are stored as entities/<type>/<urlencoded-name>.json.gz.
+ * Returns null if the file isn't present (caller falls back to a simplified
+ * profile built from graph + encyclopedia).
+ */
+export async function loadDemoEntityProfile<T>(
+  slug: string,
+  name: string,
+  type: "person" | "location" | "item" | "org",
+): Promise<T | null> {
+  const cacheKey = `${slug}/entity/${type}/${name}`
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey) as T
+  }
+
+  const novel = getDemoNovel(slug)
+  if (!novel) {
+    throw new Error(`Unknown demo novel: ${slug}`)
+  }
+
+  const encoded = encodeURIComponent(name)
+  const basePath = import.meta.env.BASE_URL ?? "/"
+  const url = `${basePath}${novel.dataPath.replace(/^\//, "")}/entities/${type}/${encoded}.json.gz`
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    return null
+  }
+
+  try {
+    const data = await decompressGzipResponse<T>(response)
+    cache.set(cacheKey, data)
+    return data
+  } catch {
+    return null
+  }
+}
+
 /** Clear cached data (useful when switching novels) */
 export function clearDemoCache(): void {
   cache.clear()
