@@ -393,6 +393,35 @@ def export_demo(
                     "locations": _count_items(data, "locations"),
                     "trajectories": len(data.get("trajectories", {})),
                 }
+                # Export per-layer map data so demo layer-tab switches have
+                # something to render. Without this, switching to "天界" / "副本/秘境"
+                # etc. shows an empty map (the default response is overworld-only).
+                ws = data.get("world_structure") or {}
+                layers = ws.get("layers") or []
+                extra_layers = [
+                    layer for layer in layers
+                    if layer.get("layer_id")
+                    and layer.get("layer_id") != "overworld"
+                    and (layer.get("location_count") or 0) > 0
+                ]
+                stats["map"]["layers"] = len(extra_layers)
+                for layer in extra_layers:
+                    layer_id = layer["layer_id"]
+                    print(f"  Fetching map layer={layer_id}...")
+                    layer_data = api_get(
+                        base_url,
+                        f"/api/novels/{novel_id}/map?layer_id={layer_id}",
+                    )
+                    if layer_data is None:
+                        print(f"  ⚠️ Skipped map-{layer_id} (no data)")
+                        continue
+                    strip_redundant_fields(layer_data, STRIP_FIELDS)
+                    layer_size = save_json(
+                        layer_data,
+                        output_dir / f"map-{layer_id}.json",
+                        compress=compress,
+                    )
+                    total_size += layer_size
             elif name == "timeline" and isinstance(data, dict):
                 stats["timeline"] = {
                     "events": _count_items(data, "events"),
