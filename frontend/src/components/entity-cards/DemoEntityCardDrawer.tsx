@@ -13,6 +13,7 @@ import type {
   ItemProfile,
   OrgProfile,
 } from "@/api/types"
+import { loadDemoEntityProfile } from "@/api/demoDataAdapter"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useDemoData } from "@/app/DemoContext"
 import { PersonCard } from "./PersonCard"
@@ -163,7 +164,7 @@ export function DemoEntityCardDrawer() {
   const {
     open, loading, profile, error: cardError,
     breadcrumbs, conceptPopup,
-    setProfile, setError,
+    setProfile, setError, setLoading,
     navigateTo, goBack, close,
     closeConceptPopup,
   } = useEntityCardStore()
@@ -177,24 +178,60 @@ export function DemoEntityCardDrawer() {
     return enc?.entries ?? []
   }, [data.encyclopedia])
 
-  // Build profile from demo data instead of API fetch
+  // Load full per-entity profile from /entities/<type>/<name>.json.gz; fall
+  // back to a simplified profile built from graph+encyclopedia when the file
+  // is missing (older demo exports without the entity-profile step).
   useEffect(() => {
-    if (!open || !currentCrumb) return
+    if (!open || !currentCrumb || !novelSlug) return
+    let cancelled = false
 
-    const built = buildDemoProfile(
-      currentCrumb.name,
-      currentCrumb.type,
-      graphData.nodes ?? [],
-      graphData.edges ?? [],
-      encEntries,
-    )
-
-    if (built) {
-      setProfile(built)
-    } else {
-      setError("未找到该实体的 Demo 数据")
+    const fallback = () => {
+      const built = buildDemoProfile(
+        currentCrumb.name,
+        currentCrumb.type,
+        graphData.nodes ?? [],
+        graphData.edges ?? [],
+        encEntries,
+      )
+      if (cancelled) return
+      if (built) {
+        setProfile(built)
+      } else {
+        setError("未找到该实体的 Demo 数据")
+      }
     }
-  }, [open, currentCrumb?.name, currentCrumb?.type, graphData, encEntries, setProfile, setError])
+
+    if (currentCrumb.type === "concept") {
+      fallback()
+      return
+    }
+
+    setLoading(true)
+    loadDemoEntityProfile<EntityProfile>(
+      novelSlug,
+      currentCrumb.name,
+      currentCrumb.type as "person" | "location" | "item" | "org",
+    )
+      .then((full) => {
+        if (cancelled) return
+        if (full) {
+          setProfile(full)
+        } else {
+          fallback()
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        fallback()
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, currentCrumb?.name, currentCrumb?.type, novelSlug, graphData, encEntries, setProfile, setError, setLoading])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {

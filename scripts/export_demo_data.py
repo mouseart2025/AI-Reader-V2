@@ -32,8 +32,10 @@ import gzip
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
@@ -226,6 +228,108 @@ def export_chapter_texts(
     return total_size, exported
 
 
+def _fetch_entity_profile(
+    base_url: str, novel_id: str, name: str, entity_type: str,
+) -> dict | None:
+    """Fetch a single entity's full aggregated profile."""
+    encoded = quote(name, safe="")
+    return api_get(
+        base_url,
+        f"/api/novels/{novel_id}/entities/{encoded}?type={entity_type}",
+    )
+
+
+_FS_UNSAFE = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+
+
+def _entity_filename_stem(name: str) -> str:
+    """Filesystem-safe + HTTP-safe stem for an entity filename.
+
+    Stored as the raw Chinese name so Cloudflare's URL decoder finds the file
+    when the browser sends ``%E8%B4%BE%E9%9B%A8%E6%9D%91``. We only sanitize
+    characters that break filesystems (slashes, control chars, etc.).
+    """
+    return _FS_UNSAFE.sub("_", name).strip() or "_"
+
+
+def export_entity_profiles(
+    base_url: str, novel_id: str, output_dir: Path, compress: bool,
+    max_workers: int = 8,
+) -> tuple[int, int]:
+    """Export per-entity full aggregated profiles to entities/<type>/<name>.json[.gz].
+
+    Filenames keep the raw Chinese name (filesystem-unsafe chars sanitized) so
+    that browser-issued ``encodeURIComponent`` requests round-trip correctly
+    through Cloudflare Pages. Concepts are skipped — backend has no concept
+    profile aggregation.
+    """
+    print("  🃏 Fetching entity list...")
+    entities_data = api_get(base_url, f"/api/novels/{novel_id}/entities")
+    if not entities_data or not isinstance(entities_data, dict):
+        print("  ⚠️ Skipped entity profiles (no data)")
+        return 0, 0
+
+    entities = entities_data.get("entities", [])
+    profile_types = {"person", "location", "item", "org"}
+    targets = [e for e in entities if isinstance(e, dict) and e.get("type") in profile_types]
+    if not targets:
+        print("  ⚠️ Skipped entity profiles (no person/location/item/org)")
+        return 0, 0
+
+    entities_dir = output_dir / "entities"
+    entities_dir.mkdir(exist_ok=True)
+    for t in profile_types:
+        (entities_dir / t).mkdir(exist_ok=True)
+
+    total = len(targets)
+    print(f"  🃏 Exporting {total} entity profiles ({max_workers} workers)...")
+
+    total_size = 0
+    success = 0
+    fails = 0
+
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        future_to_entity = {
+            ex.submit(
+                _fetch_entity_profile, base_url, novel_id, e["name"], e["type"]
+            ): e
+            for e in targets
+        }
+        for fut in as_completed(future_to_entity):
+            e = future_to_entity[fut]
+            name = e.get("name", "?")
+            etype = e.get("type", "?")
+            try:
+                profile = fut.result()
+            except Exception as exc:  # noqa: BLE001
+                print(f"  ⚠️ {etype}/{name}: {exc}")
+                fails += 1
+                continue
+            if not profile:
+                fails += 1
+                continue
+            strip_redundant_fields(profile, STRIP_FIELDS)
+            safe_name = _entity_filename_stem(name)
+            target_path = entities_dir / etype / f"{safe_name}.json"
+            # Inline save (avoid noisy per-file print from save_json)
+            json_str = json.dumps(profile, ensure_ascii=False, separators=(",", ":"))
+            if compress:
+                gz_path = target_path.with_suffix(target_path.suffix + ".gz")
+                with gzip.open(gz_path, "wt", encoding="utf-8") as f:
+                    f.write(json_str)
+                total_size += gz_path.stat().st_size
+            else:
+                target_path.write_text(json_str, encoding="utf-8")
+                total_size += target_path.stat().st_size
+            success += 1
+            if success % 100 == 0 or success == total:
+                print(f"  🃏 entity profiles: {success}/{total}")
+
+    if fails:
+        print(f"  ⚠️ {fails} entity profile(s) failed/empty")
+    return total_size, success
+
+
 def export_demo(
     base_url: str, novel_id: str, output_dir: Path, compress: bool,
     include_text: bool = True, text_only: bool = False,
@@ -354,6 +458,18 @@ def export_demo(
         total_size += text_size
         stats["chapter_texts"] = {"count": text_count, "size_kb": text_size / 1024}
 
+    # Export per-entity full aggregated profiles (drives the rich
+    # encyclopedia card UI in the demo, replacing the simplified
+    # graph+encyclopedia-derived placeholder profiles).
+    profile_size, profile_count = export_entity_profiles(
+        base_url, novel_id, output_dir, compress
+    )
+    total_size += profile_size
+    stats["entity_profiles"] = {
+        "count": profile_count,
+        "size_kb": profile_size / 1024,
+    }
+
     # === Statistics Report ===
     print(f"\n{'=' * 50}")
     print(f"📊 导出统计 — {title}")
@@ -379,6 +495,9 @@ def export_demo(
     if stats.get("chapter_texts"):
         ct = stats["chapter_texts"]
         print(f"  原  文: {ct['count']} 章 ({ct['size_kb']:.0f} KB)")
+    if stats.get("entity_profiles"):
+        ep = stats["entity_profiles"]
+        print(f"  实体卡: {ep['count']} 份 ({ep['size_kb']:.0f} KB)")
 
     total_mb = total_size / (1024 * 1024)
     print(f"\n  📦 总数据量: {total_mb:.2f} MB")
