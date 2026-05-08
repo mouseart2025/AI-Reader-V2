@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.71.5-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.71.6-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.71.5_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.5/AI.Reader_0.71.5_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.71.5_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.5/AI.Reader_0.71.5_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.71.6_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.6/AI.Reader_0.71.6_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.71.6_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.6/AI.Reader_0.71.6_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -127,6 +127,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.71.6 | 2026-05-08 | 本地 OpenAI 兼容服务支持 hotfix(issue #22) — `/cloud/validate` 容错(503 视为可达带 warning + probe 用真实模型名替代写死 `__probe__` + timeout 10s→30s + 本地服务允许空 API Key) + `OpenAICompatibleClient` localhost 检测(generate / generate_stream timeout 至少 600s,本地慢硬件 + 7B 模型推理几千字不再超时) + `CLOUD_PROVIDERS` 显式加 LM Studio / vLLM / Ollama-openai 三个本地预设(UI 引导用户走云端模式,不再误以为只能走 Ollama) + `ValidateCloudRequest` 加 model 字段 + 前端 `cloudValidResult` amber warning 区别 green success + 498 tests + 9 vitest passed |
 | v0.71.5 | 2026-05-02 | 导出功能 hotfix(issue #19) — 设定集导出点击无反应修复(`exportSeriesBible` 创建 `<a>` 后未 `appendChild` 就 `.click()`,Tauri WebView 静默失败,改为 `appendChild → click → removeChild` 对照 `.air` 导出已修工作模式) + `.air` 导出失败 UI 错误提示(之前 catch 只 console.error 零提示,改为 `setAirError` 红字显示) + vitest 9/9 + build 通过 |
 | v0.71.4 | 2026-04-23 | 数据质量审计后续 — 沙/八戒别名错合并 hotfix(西游关系图沙僧独立呈现,entity_dictionary 复合实体"八戒沙僧"触发 Union-Find 桥接的签名驱动后处理修复) + 师兄弟/同门关系色回归 social 蓝(横向同辈语义修正) + 地图单根保证(西游泾河/封神属天界/朝歌或商朝 原为游离根,_inject_layer_roots Phase 0 orphan-close 补齐) + 同门 extraction prompt 收紧(加 5 条 negative rule 制止 LLM 把山寨结义/同朝权臣/一僧一道误抽为同门,v0.72.0 重分析生效) + DB 去重(重复上传副本清理,用户手工 map_user_overrides 迁移保留) + 498 tests |
 | v0.71.3 | 2026-04-18 | 修复 Ollama 模型限制(issue #9) — REQUIRED_MODEL 默认值 qwen2.5:7b → qwen3:8b + _check_ollama 改为"任意已装模型即可用" + InlineLlmSetup 三态 UI(已装推荐/已装其他/未装) + "开始使用"按钮自动选用第一个已装模型 |
