@@ -159,6 +159,31 @@ CLOUD_PROVIDERS = [
         "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
         "api_format": "openai",
     },
+    # 本地 OpenAI 兼容服务（无需 API Key，需先在对应应用里加载模型）
+    {
+        "id": "lmstudio",
+        "name": "LM Studio（本地）",
+        "base_url": "http://localhost:1234/v1",
+        "default_model": "",
+        "models": [],
+        "api_format": "openai",
+    },
+    {
+        "id": "vllm",
+        "name": "vLLM（本地）",
+        "base_url": "http://localhost:8000/v1",
+        "default_model": "",
+        "models": [],
+        "api_format": "openai",
+    },
+    {
+        "id": "ollama_openai",
+        "name": "Ollama OpenAI 端点（本地）",
+        "base_url": "http://localhost:11434/v1",
+        "default_model": "",
+        "models": [],
+        "api_format": "openai",
+    },
     # 自定义
     {
         "id": "custom",
@@ -190,6 +215,7 @@ class ValidateCloudRequest(BaseModel):
     base_url: str
     api_key: str
     provider: str = ""  # provider id，用于识别 Anthropic 等特殊格式
+    model: str = ""  # 探测时使用的模型名；本地 OpenAI 兼容服务（LM Studio/vLLM）需要真实模型名
 
 
 class SwitchModeRequest(BaseModel):
@@ -519,37 +545,55 @@ async def save_cloud_config(req: CloudConfigRequest):
     return {"success": True, "storage": storage}
 
 
+def _is_local_base_url(url: str) -> bool:
+    """检测是否为本地 OpenAI 兼容服务（LM Studio / vLLM / Ollama-openai 等）。"""
+    return any(host in url for host in ("localhost", "127.0.0.1", "0.0.0.0"))
+
+
 @router.post("/cloud/validate")
 async def validate_cloud_api(req: ValidateCloudRequest):
-    """Test cloud LLM API connectivity with provided credentials."""
-    if not req.api_key or not req.base_url:
-        return {"valid": False, "error": "API Key 和 Base URL 不能为空"}
+    """Test cloud LLM API connectivity with provided credentials.
 
-    # 判断是否为 Anthropic 协议
+    本地 OpenAI 兼容服务（LM Studio/vLLM）特殊处理：
+    - API Key 可空（本地通常不校验）
+    - 503 视为"服务可达，模型未加载"，仍返回 valid=True 带 warning
+    - Probe 优先使用用户填的真实模型名，避免 LM Studio 严格校验拒绝
+    - 超时延长到 30s，应对本地大模型冷启动
+    """
+    is_local = _is_local_base_url(req.base_url)
+
+    if not req.base_url:
+        return {"valid": False, "error": "Base URL 不能为空"}
+    if not req.api_key and not is_local:
+        return {"valid": False, "error": "API Key 不能为空"}
+
     is_anthropic = req.provider == "anthropic" or "anthropic.com" in req.base_url
+    timeout_s = 30.0 if is_local else 10.0
+    api_key = req.api_key or "local-no-auth"  # 本地服务允许空 key
 
     try:
         base = req.base_url.rstrip("/")
         # trust_env=True so HTTPS_PROXY is honored (geo-restricted regions)
-        async with httpx.AsyncClient(timeout=10.0, trust_env=True) as client:
+        async with httpx.AsyncClient(timeout=timeout_s, trust_env=True) as client:
             if is_anthropic:
                 headers = {
-                    "x-api-key": req.api_key,
+                    "x-api-key": api_key,
                     "anthropic-version": "2023-06-01",
                 }
                 resp = await client.get(f"{base}/v1/models", headers=headers)
             else:
-                headers = {"Authorization": f"Bearer {req.api_key}"}
+                headers = {"Authorization": f"Bearer {api_key}"}
                 # 先尝试 GET /models；部分供应商（MiniMax 等）不实现该端点
                 resp = await client.get(f"{base}/models", headers=headers)
                 if resp.status_code == 404:
                     # Fallback：用最小化 completions 请求探测鉴权是否有效
-                    # 1 token 请求几乎无费用；401 = key 无效，其他状态 = 连接正常
+                    # 优先用用户填的模型名（LM Studio 等本地服务严格校验模型存在性）
+                    probe_model = req.model or "__probe__"
                     probe = await client.post(
                         f"{base}/chat/completions",
                         headers={**headers, "Content-Type": "application/json"},
                         json={
-                            "model": "__probe__",
+                            "model": probe_model,
                             "messages": [{"role": "user", "content": "hi"}],
                             "max_tokens": 1,
                         },
@@ -563,12 +607,18 @@ async def validate_cloud_api(req: ValidateCloudRequest):
                 return {"valid": True}
             elif resp.status_code == 401:
                 return {"valid": False, "error": "API Key 无效（401 Unauthorized）"}
+            elif resp.status_code == 503 and is_local:
+                # 本地服务模型未加载时常返回 503，但接口本身是可达的
+                return {
+                    "valid": True,
+                    "warning": "服务可达，但模型可能未加载。请在 LM Studio/vLLM 中确认模型已加载。",
+                }
             else:
                 return {"valid": False, "error": f"服务器返回 {resp.status_code}"}
     except httpx.ConnectError:
         return {"valid": False, "error": f"无法连接到 {req.base_url}"}
     except httpx.TimeoutException:
-        return {"valid": False, "error": "连接超时（10秒）"}
+        return {"valid": False, "error": f"连接超时（{int(timeout_s)}秒）"}
     except Exception as e:
         return {"valid": False, "error": str(e)[:200]}
 

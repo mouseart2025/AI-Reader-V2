@@ -199,6 +199,9 @@ class OpenAICompatibleClient:
         """
         return httpx.AsyncClient(trust_env=True, timeout=timeout)
 
+    def _is_local_server(self) -> bool:
+        return any(host in self.base_url for host in ("localhost", "127.0.0.1", "0.0.0.0"))
+
     async def generate(
         self,
         system: str,
@@ -213,6 +216,9 @@ class OpenAICompatibleClient:
 
         Returns (content, usage) tuple. Content is dict when format is given, str otherwise.
         """
+        # 本地 OpenAI 兼容服务（LM Studio/vLLM/Ollama-openai）推理慢，至少给 600s
+        if self._is_local_server():
+            timeout = max(timeout, 600)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
@@ -308,6 +314,8 @@ class OpenAICompatibleClient:
         Uses SSE format: `data: {...}` lines, terminated by `data: [DONE]`.
         Does NOT acquire the semaphore (same rationale as OllamaClient).
         """
+        if self._is_local_server():
+            timeout = max(timeout, 600)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},

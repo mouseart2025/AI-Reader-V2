@@ -116,7 +116,7 @@ export default function SettingsPage() {
   const [cloudApiKey, setCloudApiKey] = useState("")
   const [cloudSaving, setCloudSaving] = useState(false)
   const [cloudValidating, setCloudValidating] = useState(false)
-  const [cloudValidResult, setCloudValidResult] = useState<{ valid: boolean; error?: string } | null>(null)
+  const [cloudValidResult, setCloudValidResult] = useState<{ valid: boolean; error?: string; warning?: string } | null>(null)
   const [cloudSaveMsg, setCloudSaveMsg] = useState<string | null>(null)
 
   // Mode tab & advanced settings
@@ -239,14 +239,14 @@ export default function SettingsPage() {
     setCloudValidating(true)
     setCloudValidResult(null)
     try {
-      const res = await validateCloudApi(cloudBaseUrl, cloudApiKey, cloudProvider)
+      const res = await validateCloudApi(cloudBaseUrl, cloudApiKey, cloudProvider, cloudModel)
       setCloudValidResult(res)
     } catch {
       setCloudValidResult({ valid: false, error: "验证请求失败" })
     } finally {
       setCloudValidating(false)
     }
-  }, [cloudBaseUrl, cloudApiKey])
+  }, [cloudBaseUrl, cloudApiKey, cloudProvider, cloudModel])
 
   const handleSaveCloud = useCallback(async () => {
     setCloudSaving(true)
@@ -1014,10 +1014,14 @@ export default function SettingsPage() {
                         <p
                           className={cn(
                             "text-xs mt-1",
-                            cloudValidResult.valid ? "text-green-600" : "text-red-500",
+                            cloudValidResult.valid
+                              ? cloudValidResult.warning ? "text-amber-600" : "text-green-600"
+                              : "text-red-500",
                           )}
                         >
-                          {cloudValidResult.valid ? "验证成功" : cloudValidResult.error}
+                          {cloudValidResult.valid
+                            ? (cloudValidResult.warning ?? "验证成功")
+                            : cloudValidResult.error}
                         </p>
                       )}
                     </div>

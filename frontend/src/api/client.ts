@@ -212,10 +212,11 @@ export function validateCloudApi(
   base_url: string,
   api_key: string,
   provider: string = "",
-): Promise<{ valid: boolean; error?: string }> {
+  model: string = "",
+): Promise<{ valid: boolean; error?: string; warning?: string }> {
   return apiFetch("/settings/cloud/validate", {
     method: "POST",
-    body: JSON.stringify({ base_url, api_key, provider }),
+    body: JSON.stringify({ base_url, api_key, provider, model }),
   })
 }
 
