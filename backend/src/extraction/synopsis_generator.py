@@ -68,6 +68,7 @@ class SynopsisGenerator:
                 prompt=user_prompt,
                 temperature=0.7,
                 max_tokens=1024,
+                timeout=300,
             )
             text = content.strip() if isinstance(content, str) else str(content).strip()
             # Strip <think>...</think> blocks (qwen3 thinking mode)

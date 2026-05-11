@@ -664,6 +664,7 @@ class EntityPreScanner:
             format={"type": "object"},
             temperature=0.1,
             max_tokens=8192,
+            timeout=600,
         )
 
         if isinstance(result, str):

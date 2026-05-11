@@ -350,7 +350,7 @@ async def get_model_recommendations():
     # Determine which models are already installed
     installed_names: set[str] = set()
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
             if resp.status_code == 200:
                 for m in resp.json().get("models", []):
@@ -979,7 +979,9 @@ async def run_model_benchmark():
     )
 
     max_out = _cfg.LLM_MAX_TOKENS if is_cloud else 8192
-    timeout = 120 if is_cloud else 300
+    # v0.71.7: bump Ollama timeout 300→600 给冷启动大模型(Gemma 4B/7B)留够时间
+    # cloud path 120 仍受 OpenAICompatibleClient localhost 检测自动拔到 600
+    timeout = 120 if is_cloud else 600
 
     start = time.time()
     try:
@@ -1119,7 +1121,8 @@ async def _check_ollama() -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
+        # v0.71.7: 2s → 5s,Ollama 忙时 /api/tags 也可能慢响应(模型加载/并发推理)
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
             if resp.status_code == 200:
                 result["ollama_running"] = True
