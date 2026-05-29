@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.71.7-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.71.8-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.71.7_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.7/AI.Reader_0.71.7_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.71.7_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.7/AI.Reader_0.71.7_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.71.8_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.8/AI.Reader_0.71.8_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.71.8_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.8/AI.Reader_0.71.8_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -127,6 +127,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.71.8 | 2026-05-29 | 空间关系 null 值致整章解析失败 hotfix(知乎用户 元图AI研究 反馈) — 弱模型/本地小模型在抽取 `contains`/`adjacent` 类空间关系时常对 `value` 输出 `null`,但 `SpatialRelationship.value` 是必填 `str`,Pydantic 整章原子校验,一个 `value: null` 就让整章作废(人物/地点/关系/事件全丢),表现为"分析几十章全部报错 9 validation errors"。修:`chapter_fact.py` 给 `SpatialRelationship` 加 `field_validator` 把 source/target/relation_type/value/confidence/narrative_evidence 的 `None` 统一转 ""(value 默认 ""),保住 contains 等有效层级信号;下游 vote_builder / visualization / world_structure 已容忍空串。+5 回归测试,503 tests passed |
 | v0.71.7 | 2026-05-12 | 补 `.generate()` 漏传 timeout hotfix(issue #25, ymilv) — `entity_pre_scanner.py:661` 实体扫描 + `synopsis_generator.py:66` 简介生成两处调 `.generate()` 没传 timeout 参数,吃 LLM 客户端 120s 默认值,精确匹配用户"扫描实体 1-2 分钟终止"症状。补传 timeout=600 / 300 + model_benchmark Ollama 路径 300s→600s(冷启 Gemma 4B 留够) + `_check_ollama` / recommendations `/api/tags` 2s→5s 防御性(Ollama 忙时模型列表也可能慢) + 498 tests passed |
 | v0.71.6 | 2026-05-08 | 本地 OpenAI 兼容服务支持 hotfix(issue #22) — `/cloud/validate` 容错(503 视为可达带 warning + probe 用真实模型名替代写死 `__probe__` + timeout 10s→30s + 本地服务允许空 API Key) + `OpenAICompatibleClient` localhost 检测(generate / generate_stream timeout 至少 600s,本地慢硬件 + 7B 模型推理几千字不再超时) + `CLOUD_PROVIDERS` 显式加 LM Studio / vLLM / Ollama-openai 三个本地预设(UI 引导用户走云端模式,不再误以为只能走 Ollama) + `ValidateCloudRequest` 加 model 字段 + 前端 `cloudValidResult` amber warning 区别 green success + 498 tests + 9 vitest passed |
 | v0.71.5 | 2026-05-02 | 导出功能 hotfix(issue #19) — 设定集导出点击无反应修复(`exportSeriesBible` 创建 `<a>` 后未 `appendChild` 就 `.click()`,Tauri WebView 静默失败,改为 `appendChild → click → removeChild` 对照 `.air` 导出已修工作模式) + `.air` 导出失败 UI 错误提示(之前 catch 只 console.error 零提示,改为 `setAirError` 红字显示) + vitest 9/9 + build 通过 |
