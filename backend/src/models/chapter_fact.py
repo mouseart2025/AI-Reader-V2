@@ -95,12 +95,24 @@ class SpatialRelationship(BaseModel):
     source: str
     target: str
     relation_type: str  # direction/distance/contains/adjacent/separated_by/terrain/in_between/travel_path/relative_scale/cluster
-    value: str  # e.g. "north_of", "三天路程（步行）", "河流", "on_coast"
+    value: str = ""  # e.g. "north_of", "三天路程（步行）", "河流", "on_coast"; empty for contains/adjacent
     confidence: str = "medium"  # high/medium/low
     narrative_evidence: str = ""
     distance_class: str | None = None  # "near"/"medium"/"far"/"very_far"
     confidence_score: float | None = None  # 0.0-1.0, numeric confidence for solver
     waypoints: list[str] | None = None  # travel_path only: intermediate locations
+
+    @field_validator(
+        "source", "target", "relation_type", "value", "confidence",
+        "narrative_evidence", mode="before",
+    )
+    @classmethod
+    def _coerce_none_to_empty(cls, v: object) -> object:
+        """Weak/local LLMs emit null for these string fields (esp. `value` on
+        contains/adjacent relations). Coerce None -> "" so one null field does
+        not fail validation of the entire chapter. Downstream consumers already
+        skip entries with empty source/target/value."""
+        return "" if v is None else v
 
 
 class WorldDeclaration(BaseModel):
