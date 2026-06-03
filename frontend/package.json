@@ -44,7 +44,7 @@
     "react-force-graph-2d": "^1.29.1",
     "react-leaflet": "^5.0.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.13.0",
+    "react-router-dom": "^7.16.0",
     "roughjs": "^4.6.6",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.11"
