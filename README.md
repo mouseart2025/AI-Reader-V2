@@ -91,6 +91,15 @@
 >
 > 更多版本请查看 [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) 页面。
 
+### 🧪 体验版（抢先尝鲜）
+
+除正式版外，还提供**体验版**通道，包含尚在打磨的新功能（如**实体别名手动合并/拆分**等节点级编辑）。体验版以 **Pre-release** 形式发布，版本号带 `-beta` 后缀，应用内顶栏会显示「体验版」标识。
+
+- 想尝鲜：到 [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) 页面下载标记为 **Pre-release** 的版本
+- 求稳定：用上方表格的正式版即可
+
+> 体验版功能可能存在未完善之处，欢迎反馈；正式版（论文与稳定使用基准）不受体验版改动影响。
+
 ## 快速开始
 
 **环境要求：** Python 3.9+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/)（或云端 API）

@@ -7,6 +7,7 @@ import { novelPath } from "@/lib/novelPaths"
 import type { HierarchyRebuildResult } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
+import { MyEditsPanel } from "@/components/shared/MyEditsPanel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -282,6 +283,8 @@ export default function EncyclopediaPage() {
     }
     // World view special entry
     items.push({ key: "__worldview__", label: "世界观", count: 0, indent: 0 })
+    // User edits (manual alias merges/splits)
+    items.push({ key: "__myedits__", label: "我的修正", count: 0, indent: 0 })
     return items
   }, [stats])
 
@@ -335,7 +338,7 @@ export default function EncyclopediaPage() {
         {/* Middle: Entry list */}
         <div ref={listContainerRef} className="flex-1 overflow-auto">
           {/* Sort controls */}
-          <div className={cn("flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10", activeCategory === "__worldview__" && "hidden")}>
+          <div className={cn("flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10", (activeCategory === "__worldview__" || activeCategory === "__myedits__") && "hidden")}>
             <span className="text-xs text-muted-foreground">排序</span>
             <Button
               variant={sortBy === "name" ? "default" : "outline"}
@@ -411,7 +414,9 @@ export default function EncyclopediaPage() {
             </span>
           </div>
 
-          {activeCategory === "__worldview__" ? (
+          {activeCategory === "__myedits__" ? (
+            <MyEditsPanel novelId={novelId!} onOpenEntity={(name) => openEntityCard(name, "person")} />
+          ) : activeCategory === "__worldview__" ? (
             <div className="p-4 space-y-4">
               {!worldStructure ? (
                 <p className="text-muted-foreground text-sm">加载中...</p>

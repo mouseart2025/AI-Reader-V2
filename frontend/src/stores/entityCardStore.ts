@@ -14,6 +14,7 @@ interface EntityCardState {
   breadcrumbs: BreadcrumbEntry[]
   conceptPopup: { name: string; definition: string; category: string; related: string[] } | null
   profileCache: Map<string, EntityProfile>
+  reloadNonce: number
 
   openCard: (name: string, type: EntityType) => void
   setProfile: (profile: EntityProfile) => void
@@ -21,6 +22,10 @@ interface EntityCardState {
   setError: (error: string | null) => void
   navigateTo: (name: string, type: EntityType) => void
   goBack: (index: number) => void
+  /** Clear cache and reload the current entity (after split/undo). */
+  refresh: () => void
+  /** Replace the current breadcrumb with another entity (after a merge). */
+  replaceCurrent: (name: string, type: EntityType) => void
   close: () => void
   openConceptPopup: (data: { name: string; definition: string; category: string; related: string[] }) => void
   closeConceptPopup: () => void
@@ -39,6 +44,7 @@ export const useEntityCardStore = create<EntityCardState>((set, get) => ({
   breadcrumbs: [],
   conceptPopup: null,
   profileCache: new Map(),
+  reloadNonce: 0,
 
   openCard: (name, type) =>
     set({
@@ -68,6 +74,26 @@ export const useEntityCardStore = create<EntityCardState>((set, get) => ({
       profile: null,
       error: null,
     })),
+
+  refresh: () =>
+    set((s) => {
+      s.profileCache.clear()
+      return { loading: true, profile: null, error: null, reloadNonce: s.reloadNonce + 1 }
+    }),
+
+  replaceCurrent: (name, type) =>
+    set((s) => {
+      s.profileCache.clear()
+      const crumbs = s.breadcrumbs.slice(0, -1)
+      crumbs.push({ name, type })
+      return {
+        breadcrumbs: crumbs,
+        loading: true,
+        profile: null,
+        error: null,
+        reloadNonce: s.reloadNonce + 1,
+      }
+    }),
 
   close: () =>
     set({ open: false, profile: null, breadcrumbs: [], loading: false, error: null }),

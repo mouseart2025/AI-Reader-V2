@@ -11,6 +11,7 @@ import type {
   Conversation,
   EntityDictionaryResponse,
   EntitySummary,
+  EntityOverride,
   EnvironmentCheck,
   HierarchyRebuildResult,
   ImportPreview,
@@ -442,6 +443,63 @@ export function fetchEntityProfile(
 ): Promise<Record<string, unknown>> {
   const params = type ? `?type=${type}` : ""
   return apiFetch(`/novels/${novelId}/entities/${encodeURIComponent(name)}${params}`)
+}
+
+// ── Entity alias overrides (manual merge/split) ──────
+
+/** POST/DELETE that surfaces the backend's Chinese `detail` message on failure. */
+async function overrideRequest<T>(path: string, init: RequestInit): Promise<T> {
+  const res = await fetch(`${getBase()}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  })
+  if (!res.ok) {
+    let detail = `${res.status}`
+    try {
+      const body = await res.json()
+      if (body?.detail) detail = body.detail
+    } catch {
+      /* keep status code */
+    }
+    throw new Error(detail)
+  }
+  return res.json() as Promise<T>
+}
+
+export function listEntityOverrides(novelId: string): Promise<{ overrides: EntityOverride[] }> {
+  return apiFetch(`/novels/${novelId}/entity-overrides`)
+}
+
+export function mergeAliases(
+  novelId: string,
+  members: string[],
+  canonical: string,
+): Promise<{ status: string; override_id: number }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/merge`, {
+    method: "POST",
+    body: JSON.stringify({ members, canonical }),
+  })
+}
+
+export function splitAliases(
+  novelId: string,
+  source: string,
+  aliases: string[],
+  to: string | null,
+): Promise<{ status: string; override_id: number }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/split`, {
+    method: "POST",
+    body: JSON.stringify({ source, aliases, to }),
+  })
+}
+
+export function deleteEntityOverride(
+  novelId: string,
+  overrideId: number,
+): Promise<{ status: string }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/${overrideId}`, {
+    method: "DELETE",
+  })
 }
 
 // ── Visualization ────────────────────────────────

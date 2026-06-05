@@ -19,6 +19,7 @@ interface GraphNode {
   chapter_count: number
   org: string
   aliases?: string[]
+  edit_status?: string
   x?: number
   y?: number
 }
@@ -698,6 +699,17 @@ export default function GraphPage() {
               ctx.strokeStyle = "#d97706"
               ctx.lineWidth = 1.5
               ctx.stroke()
+            }
+
+            // User-edited node ring (manual alias merge/split) — violet, dashed
+            if (node.edit_status === "edited") {
+              ctx.beginPath()
+              ctx.arc(node.x!, node.y!, size + 3.5, 0, 2 * Math.PI)
+              ctx.strokeStyle = "#7c3aed"
+              ctx.lineWidth = 1.2
+              ctx.setLineDash([3, 2])
+              ctx.stroke()
+              ctx.setLineDash([])
             }
 
             // ── Label rendering (improved readability) ──

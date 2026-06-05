@@ -128,6 +128,18 @@ CREATE TABLE IF NOT EXISTS world_structure_overrides (
 
 CREATE INDEX IF NOT EXISTS idx_ws_overrides_novel ON world_structure_overrides(novel_id);
 
+CREATE TABLE IF NOT EXISTS entity_overrides (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    novel_id      TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    override_type TEXT NOT NULL,
+    override_key  TEXT NOT NULL,
+    override_json TEXT NOT NULL,
+    created_at    TEXT DEFAULT (datetime('now')),
+    UNIQUE(novel_id, override_type, override_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_overrides_novel ON entity_overrides(novel_id);
+
 CREATE TABLE IF NOT EXISTS entity_dictionary (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,

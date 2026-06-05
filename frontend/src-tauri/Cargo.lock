@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "ai-reader"
-version = "0.71.8"
+version = "0.72.0-beta.1"
 dependencies = [
  "flate2",
  "log",

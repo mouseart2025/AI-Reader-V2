@@ -71,6 +71,33 @@ def invalidate_cache(novel_id: str) -> None:
     invalidate_alias_cache(novel_id)
 
 
+async def _apply_edit_markers(profile: Any, novel_id: str) -> Any:
+    """Stamp edit_status/conflict (and per-alias `edited`) from user overrides.
+
+    A profile is "edited" when a user override attributed any alias to this
+    entity's canonical name; it is in "conflict" when the automatic resolution
+    of one of those aliases (or the entity itself) has since drifted (FR6/FR7).
+    No-op when the entity has no overrides → unedited profiles are unchanged.
+    """
+    from src.services.alias_resolver import get_alias_conflicts, get_override_targets
+
+    targets = await get_override_targets(novel_id)
+    edited_aliases = targets.get(profile.name, set())
+    if not edited_aliases:
+        return profile
+
+    profile.edit_status = "edited"
+    aliases = getattr(profile, "aliases", None)
+    if aliases:
+        for ae in aliases:
+            if ae.name in edited_aliases:
+                ae.edited = True
+    conflicts = get_alias_conflicts(novel_id)
+    if conflicts & (edited_aliases | {profile.name}):
+        profile.conflict = True
+    return profile
+
+
 # ── Load ChapterFacts ─────────────────────────────
 
 
@@ -111,6 +138,26 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
 
     facts = await _load_chapter_facts(novel_id)
     alias_map = await build_alias_map(novel_id)
+    from src.services.alias_resolver import get_detached_aliases
+    from src.services.name_authority import CANONICAL_BLOCKLIST
+    detached = get_detached_aliases(novel_id).get(person_name, set())
+    # Names that are themselves a canonical entity — must not be folded in as
+    # another entity's alias (e.g. 沙僧 mis-extracted as a 八戒 new_alias).
+    other_canonicals = set(alias_map.values())
+
+    # An alias may not be listed under this person if alias resolution (or a
+    # user override) assigns it to a different canonical, the user split it away
+    # from this entity, it is itself another entity's canonical, or it is a
+    # generic pronoun/title. Nicknames absent from alias_map are still allowed.
+    def _belongs(alias: str) -> bool:
+        if alias in CANONICAL_BLOCKLIST:
+            return False
+        resolved = alias_map.get(alias)
+        if resolved is not None and resolved != person_name:
+            return False
+        if alias != person_name and alias in other_canonicals:
+            return False
+        return alias not in detached
 
     # Build the set of all names that resolve to this person
     name_set = {person_name}
@@ -154,9 +201,19 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
                         ae.first_chapter = ch
 
             for alias in char.new_aliases:
-                if alias not in seen_aliases and alias != person_name:
+                if alias == person_name or not _belongs(alias):
+                    continue
+                if alias not in seen_aliases:
                     seen_aliases.add(alias)
                     aliases.append(AliasEntry(name=alias, first_chapter=ch))
+                else:
+                    # Backfill first_chapter for aliases pre-seeded from the
+                    # alias map (they start at 0). Facts iterate in chapter
+                    # order, so the first hit is the earliest appearance.
+                    for ae in aliases:
+                        if ae.name == alias and ae.first_chapter == 0:
+                            ae.first_chapter = ch
+                            break
 
             if char.appearance:
                 _raw_appearances.append((ch, char.appearance))
@@ -348,6 +405,7 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
             ", ".join(f.finding_type for f in quality_findings),
         )
 
+    await _apply_edit_markers(profile, novel_id)
     _cache_set(cache_key, profile)
     return profile
 
@@ -471,6 +529,7 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
         },
     )
 
+    await _apply_edit_markers(profile, novel_id)
     _cache_set(cache_key, profile)
     return profile
 
@@ -537,6 +596,7 @@ async def aggregate_item(novel_id: str, item_name: str) -> ItemProfile:
         },
     )
 
+    await _apply_edit_markers(profile, novel_id)
     _cache_set(cache_key, profile)
     return profile
 
@@ -604,6 +664,7 @@ async def aggregate_org(novel_id: str, org_name: str) -> OrgProfile:
         },
     )
 
+    await _apply_edit_markers(profile, novel_id)
     _cache_set(cache_key, profile)
     return profile
 
@@ -668,11 +729,19 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
     person_names = {name for (name, etype) in entity_map if etype == "person"}
     multi_char_persons = {name for name in person_names if len(name) >= 2}
 
+    # Re-apply the generic-person authority at read time so collective/generic
+    # references (群妖, 众小妖, 百十群妖, …) that predate the current rules — or
+    # slipped past extraction — don't surface as entities. Single source of
+    # truth: fact_validator._is_generic_person.
+    from src.extraction.fact_validator import _is_generic_person
+
     entities = []
     for (name, etype), chapters in entity_map.items():
         # Skip losing types in cross-type conflicts
         if name in _name_winning_type and etype != _name_winning_type[name]:
             continue
+        if etype == "person" and _is_generic_person(name):
+            continue  # collective/generic reference, not a real character
         if len(name) < 2:
             if etype != "person":
                 continue  # drop single-char non-person

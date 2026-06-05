@@ -24,11 +24,49 @@ logger = logging.getLogger(__name__)
 # ── Module-level cache ────────────────────────────
 
 _alias_cache: dict[str, dict[str, str]] = {}  # novel_id -> alias_map
+# novel_id -> set of aliases whose user override conflicts with the current
+# automatic resolution (FR7: new chapters changed what the auto map would do).
+_alias_conflicts: dict[str, set[str]] = {}
+# novel_id -> {canonical: {aliases attributed to it by a user override}} — used
+# to mark profiles/graph nodes as "edited" (FR6).
+_alias_override_targets: dict[str, dict[str, set[str]]] = {}
+# novel_id -> {source: {aliases the user split AWAY from it}} — so aggregation
+# stops listing them under the source even when they detached to a new entity
+# (alias_map alone can't express "removed from X" for to=None splits).
+_alias_detached: dict[str, dict[str, set[str]]] = {}
 
 
 def invalidate_alias_cache(novel_id: str) -> None:
     """Clear cached alias map for a novel (call after prescan or analysis completes)."""
     _alias_cache.pop(novel_id, None)
+    _alias_conflicts.pop(novel_id, None)
+    _alias_override_targets.pop(novel_id, None)
+    _alias_detached.pop(novel_id, None)
+
+
+def get_detached_aliases(novel_id: str) -> dict[str, set[str]]:
+    """{source: aliases the user split away from it}. Reflects current overrides
+    once build_alias_map has run for the novel."""
+    return _alias_detached.get(novel_id, {})
+
+
+def get_alias_conflicts(novel_id: str) -> set[str]:
+    """Aliases whose user override conflicts with the current auto resolution.
+
+    Populated as a side effect of build_alias_map → _apply_user_overrides.
+    Returns an empty set if the map has not been built or there are no conflicts.
+    """
+    return _alias_conflicts.get(novel_id, set())
+
+
+async def get_override_targets(novel_id: str) -> dict[str, set[str]]:
+    """{canonical: {aliases attributed to it by a user override}} for a novel.
+
+    Ensures the alias map (and thus override application) has been built first,
+    so callers can rely on the result reflecting current overrides.
+    """
+    await build_alias_map(novel_id)
+    return _alias_override_targets.get(novel_id, {})
 
 
 # ── Union-Find ────────────────────────────────────
@@ -271,10 +309,93 @@ async def build_alias_map(novel_id: str) -> dict[str, str]:
 
     alias_map = await _build_merged(novel_id)
     alias_map = _apply_known_hotfix_patches(alias_map)
+    alias_map = await _apply_user_overrides(novel_id, alias_map)
 
     _alias_cache[novel_id] = alias_map
     if alias_map:
         logger.info("Built alias map for novel %s: %d aliases", novel_id, len(alias_map))
+    return alias_map
+
+
+# ── User override layer (manual merge/split) ──────────
+#
+# Applied AFTER automatic resolution + hotfix patches, so user edits are the
+# last writer (D3) and survive rebuilds — every build_alias_map re-applies them
+# on top of a freshly computed auto map (FR4/SC2). With no overrides stored this
+# is a no-op and the output is byte-identical to the pure-automatic result, so
+# the gold-standard baseline is unaffected.
+
+
+async def _apply_user_overrides(novel_id: str, alias_map: dict[str, str]) -> dict[str, str]:
+    """Overlay user alias merge/split overrides onto the automatic alias_map.
+
+    Also records, into ``_alias_conflicts[novel_id]``, any alias whose automatic
+    resolution now differs from the snapshot captured when the override was
+    created — surfaced to the UI as a non-destructive "conflict" marker (FR7).
+    The override still wins regardless; the marker is advisory only.
+    """
+    from src.db import entity_override_store
+
+    overrides = await entity_override_store.load_overrides(novel_id)
+    conflicts: set[str] = set()
+    targets: dict[str, set[str]] = {}
+    detached: dict[str, set[str]] = {}
+
+    for ov in overrides:
+        j = ov.get("override_json") or {}
+        snapshot = j.get("auto_snapshot") or {}
+
+        if ov["override_type"] == "alias_merge":
+            canon = j.get("canonical")
+            if not canon:
+                continue
+            for member in j.get("members", []):
+                # Detect drift vs. the auto result at override-creation time.
+                cur_auto = alias_map.get(member, member)
+                snap = snapshot.get(member)
+                if snap is not None and cur_auto != snap:
+                    conflicts.add(member)
+                # Force the member onto the user-chosen canonical (D1 lock).
+                if member == canon:
+                    alias_map.pop(member, None)  # canonical must not map to itself
+                else:
+                    alias_map[member] = canon
+                    targets.setdefault(canon, set()).add(member)
+
+        elif ov["override_type"] == "alias_split":
+            to = j.get("to")  # None => detach into a new independent entity
+            source = j.get("source")
+            split_aliases = j.get("aliases", [])
+            for alias in split_aliases:
+                cur_auto = alias_map.get(alias, alias)
+                snap = snapshot.get(alias)
+                if snap is not None and cur_auto != snap:
+                    conflicts.add(alias)
+                if to and to != alias:
+                    alias_map[alias] = to
+                    targets.setdefault(to, set()).add(alias)
+                else:
+                    # to is None, or equals the alias itself ("this name is its
+                    # own entity") — detach without a self-map (invariant: a
+                    # canonical never maps to itself).
+                    alias_map.pop(alias, None)
+                    targets.setdefault(alias, set()).add(alias)
+            # The source entity was also edited (aliases removed) — mark it so
+            # its card shows "已修正" and offers undo (FR6), and record the
+            # detachment so aggregation drops these aliases from the source.
+            if source and split_aliases:
+                targets.setdefault(source, set()).update(split_aliases)
+                detached.setdefault(source, set()).update(split_aliases)
+
+    _alias_conflicts[novel_id] = conflicts
+    _alias_override_targets[novel_id] = targets
+    _alias_detached[novel_id] = detached
+    if conflicts:
+        logger.info(
+            "Alias overrides for novel %s: %d conflict(s) with auto resolution",
+            novel_id,
+            len(conflicts),
+        )
     return alias_map
 
 
