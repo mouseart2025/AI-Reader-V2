@@ -4,6 +4,7 @@ import json
 from collections import Counter
 
 from src.db import chapter_fact_store
+from src.extraction.fact_validator import _is_generic_person
 
 
 async def get_category_stats(novel_id: str) -> dict:
@@ -63,6 +64,10 @@ async def get_encyclopedia_entries(
 ) -> list[dict]:
     """Get entity/concept entries for encyclopedia listing."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    # Resolve raw fact names to canonical so aliases (incl. user merges/splits)
+    # collapse into one entry, consistent with cards/graph (FR8 / Epic 5).
+    from src.services.alias_resolver import build_alias_map
+    alias_map = await build_alias_map(novel_id)
 
     # Collect entries with first chapter and definition
     entries: dict[str, dict] = {}
@@ -78,6 +83,9 @@ async def get_encyclopedia_entries(
                 name = ch.get("name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
+                if _is_generic_person(name) is not None:
+                    continue  # collective/generic reference, not a character
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -102,6 +110,7 @@ async def get_encyclopedia_entries(
                 name = loc.get("name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -118,6 +127,7 @@ async def get_encyclopedia_entries(
                 name = ie.get("item_name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -133,6 +143,7 @@ async def get_encyclopedia_entries(
                 name = oe.get("org_name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {

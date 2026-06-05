@@ -144,6 +144,13 @@ async def get_graph_data(
         primaries like 王夫人/薛姨妈 (which end with "夫人/姨妈" and hit the
         structural spouse-pattern rule but are real characters).
         """
+        # Collective/generic references are never real entities — checked
+        # BEFORE the canonical trust guard, since such a name can wrongly become
+        # a canonical with aliases merged in (e.g. 群妖). _is_generic_person
+        # ignores structural level-0, so override-rescued primaries (王夫人/
+        # 薛姨妈) are unaffected.
+        if _is_generic_person(name) is not None:
+            return True
         if name in alias_map or name in known_canonicals:
             return False  # known entity — trust alias_map
         # Explicit blocklist (太太/老太太/奶奶/那呆子/取经人/老孙 ...)
@@ -161,12 +168,6 @@ async def get_graph_data(
             return True
         # 长描述性名称 (飞东洋游普世感恩行孝黄毛红嘴白鹦哥)
         if len(name) >= 10:
-            return True
-        # v0.71.1: delegate to FactValidator 的集合名/群X/众X/_GENERIC_PERSON_WORDS 检测.
-        # 这条检查 name_authority 的 CANONICAL_BLOCKLIST 覆盖不到的旧数据
-        # (群猴/五百阿罗/土地神祗 等)。_is_generic_person 不检测结构 level-0
-        # 所以不会误伤被 override 救活的 王夫人/薛姨妈.
-        if _is_generic_person(name) is not None:
             return True
         return False
 
@@ -245,6 +246,9 @@ async def get_graph_data(
             if org_counts[best_org] >= 2:  # require ≥ 2 visits
                 person_org[person] = best_org
 
+    from src.services.alias_resolver import get_override_targets
+
+    override_targets = await get_override_targets(novel_id)
     nodes = [
         {
             "id": name,
@@ -253,6 +257,7 @@ async def get_graph_data(
             "chapter_count": len(chs),
             "org": person_org.get(name, ""),
             "aliases": sorted(person_aliases.get(name, set())),
+            "edit_status": "edited" if name in override_targets else "",
         }
         for name, chs in person_chapters.items()
     ]
