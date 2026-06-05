@@ -91,6 +91,17 @@
 >
 > 更多版本请查看 [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) 页面。
 
+### 🧪 体验版（抢先尝鲜）
+
+除上方正式版外，还提供**体验版**通道，包含尚在打磨的新功能（如**实体别名手动合并/拆分**等节点级编辑）。以 **Pre-release** 形式发布，应用内顶栏会显示「体验版」标识。
+
+| 平台 | 体验版下载 |
+|------|------|
+| macOS | [AI Reader_0.72.0-beta.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.72.0-beta.1/AI.Reader_0.72.0-beta.1_aarch64.dmg) |
+| Windows | [AI Reader_0.72.0-beta.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.72.0-beta.1/AI.Reader_0.72.0-beta.1_x64-setup.exe) |
+
+> 求稳定用上方正式版；想尝鲜用体验版。体验版功能可能未完善，欢迎反馈；正式版不受体验版改动影响。
+
 ## 快速开始
 
 **环境要求：** Python 3.9+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/)（或云端 API）
@@ -127,6 +138,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.72.0-beta.1 🧪体验版 | 2026-06-05 | **实体别名手动合并/拆分**(节点级编辑第一刀,GitHub issue #26 / 知乎需求)— 百科卡 / 关系图 / 阅读页点实体右上「⋯」即可合并散落别名、拆出误归别名(沙僧别名误入八戒一键纠正),修正以 override 层叠加在自动归并之后,**持久、可撤销(「我的修正」集中列表)、不污染原文数据**。后端单点注入 `alias_resolver._apply_user_overrides`,一处生效于百科/图/阅读/检索全部消费端;新增 `entity_overrides` 表 + `/entity-overrides` API。顺带实体卫生:过滤群妖/众小妖类集体泛称、清理别名 Ch.0、剔除跨实体误归与代词。**仅人物视图,地点层级零影响**。以**体验版(Pre-release)**发布,正式版 v0.71.8 不受影响。backend 523 tests + frontend build/vitest 通过 |
 | v0.71.8 | 2026-05-29 | 空间关系 null 值致整章解析失败 hotfix(知乎用户 元图AI研究 反馈) — 弱模型/本地小模型在抽取 `contains`/`adjacent` 类空间关系时常对 `value` 输出 `null`,但 `SpatialRelationship.value` 是必填 `str`,Pydantic 整章原子校验,一个 `value: null` 就让整章作废(人物/地点/关系/事件全丢),表现为"分析几十章全部报错 9 validation errors"。修:`chapter_fact.py` 给 `SpatialRelationship` 加 `field_validator` 把 source/target/relation_type/value/confidence/narrative_evidence 的 `None` 统一转 ""(value 默认 ""),保住 contains 等有效层级信号;下游 vote_builder / visualization / world_structure 已容忍空串。+5 回归测试,503 tests passed |
 | v0.71.7 | 2026-05-12 | 补 `.generate()` 漏传 timeout hotfix(issue #25, ymilv) — `entity_pre_scanner.py:661` 实体扫描 + `synopsis_generator.py:66` 简介生成两处调 `.generate()` 没传 timeout 参数,吃 LLM 客户端 120s 默认值,精确匹配用户"扫描实体 1-2 分钟终止"症状。补传 timeout=600 / 300 + model_benchmark Ollama 路径 300s→600s(冷启 Gemma 4B 留够) + `_check_ollama` / recommendations `/api/tags` 2s→5s 防御性(Ollama 忙时模型列表也可能慢) + 498 tests passed |
 | v0.71.6 | 2026-05-08 | 本地 OpenAI 兼容服务支持 hotfix(issue #22) — `/cloud/validate` 容错(503 视为可达带 warning + probe 用真实模型名替代写死 `__probe__` + timeout 10s→30s + 本地服务允许空 API Key) + `OpenAICompatibleClient` localhost 检测(generate / generate_stream timeout 至少 600s,本地慢硬件 + 7B 模型推理几千字不再超时) + `CLOUD_PROVIDERS` 显式加 LM Studio / vLLM / Ollama-openai 三个本地预设(UI 引导用户走云端模式,不再误以为只能走 Ollama) + `ValidateCloudRequest` 加 model 字段 + 前端 `cloudValidResult` amber warning 区别 green success + 498 tests + 9 vitest passed |
