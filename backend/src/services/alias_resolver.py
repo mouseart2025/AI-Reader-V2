@@ -387,6 +387,25 @@ async def _apply_user_overrides(novel_id: str, alias_map: dict[str, str]) -> dic
                 targets.setdefault(source, set()).update(split_aliases)
                 detached.setdefault(source, set()).update(split_aliases)
 
+        elif ov["override_type"] == "entity_rename":
+            # Relabel an entity's canonical/display name to a user-typed name.
+            # Everything currently resolving to `old` (and old itself) moves to
+            # `new`. If `new` already exists as an entity this becomes a merge.
+            old = ov["override_key"]
+            new = j.get("to")
+            if not new or new == old:
+                continue
+            cur_auto = alias_map.get(old, old)
+            snap = snapshot.get(old)
+            if snap is not None and cur_auto != snap:
+                conflicts.add(old)
+            for alias, canon in list(alias_map.items()):
+                if canon == old:
+                    alias_map[alias] = new
+            alias_map[old] = new          # old name becomes an alias of new
+            alias_map.pop(new, None)      # new is canonical, must not map to itself
+            targets.setdefault(new, set()).add(old)
+
     _alias_conflicts[novel_id] = conflicts
     _alias_override_targets[novel_id] = targets
     _alias_detached[novel_id] = detached

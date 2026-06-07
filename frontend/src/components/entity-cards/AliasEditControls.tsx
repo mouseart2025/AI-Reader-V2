@@ -6,6 +6,7 @@ import {
   fetchEntityProfile,
   mergeAliases,
   splitAliases,
+  renameEntity,
   listEntityOverrides,
   deleteEntityOverride,
 } from "@/api/client"
@@ -43,6 +44,8 @@ export function AliasEditControls({ novelId, profile }: Props) {
 
   const [mergeOpen, setMergeOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [newName, setNewName] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,7 +69,24 @@ export function AliasEditControls({ novelId, profile }: Props) {
     setCanonical(profile.name)
     setChecked(new Set())
     setSplitDest("")
+    setNewName("")
   }, [profile.name])
+
+  async function doRename() {
+    const to = newName.trim()
+    if (!to || to === profile.name) return
+    setBusy(true)
+    setError(null)
+    try {
+      await renameEntity(novelId, profile.name, to)
+      setRenameOpen(false)
+      reset()
+      replaceCurrent(to, profile.type as EntityType)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "改名失败")
+      setBusy(false)
+    }
+  }
 
   // Load same-type entities when a dialog needing a picker opens.
   useEffect(() => {
@@ -179,6 +199,9 @@ export function AliasEditControls({ novelId, profile }: Props) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => { reset(); setNewName(profile.name); setRenameOpen(true) }}>
+            改名…
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => { reset(); setMergeOpen(true) }}>
             合并到另一个实体…
           </DropdownMenuItem>
@@ -267,6 +290,37 @@ export function AliasEditControls({ novelId, profile }: Props) {
             )}
             <Button size="sm" onClick={doMerge} disabled={!target || busy}>
               {busy ? "合并中…" : "确认合并"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Rename dialog ── */}
+      <Dialog open={renameOpen} onOpenChange={(o) => { setRenameOpen(o); if (!o) reset() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>给「{profile.name}」改名</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground text-xs">
+              改成正确的名字(如 少年 → 杨过)。原名会作为别名保留;此操作可撤销,不改原文数据。
+            </p>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="新名称"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") doRename() }}
+            />
+          </div>
+          {error && <p className="text-destructive text-sm">{error}</p>}
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={doRename}
+              disabled={busy || !newName.trim() || newName.trim() === profile.name}
+            >
+              {busy ? "改名中…" : "确认改名"}
             </Button>
           </DialogFooter>
         </DialogContent>

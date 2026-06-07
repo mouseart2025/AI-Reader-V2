@@ -52,14 +52,22 @@ export function MyEditsPanel({ novelId, onOpenEntity }: Props) {
       <p className="text-muted-foreground text-xs">共 {overrides.length} 条修正，均可撤销，不影响原文数据。</p>
       {overrides.map((o) => {
         const j = o.override_json
-        const isMerge = o.override_type === "alias_merge"
-        const target = isMerge ? j.canonical : j.to
+        const kind = o.override_type
+        const label = kind === "alias_merge" ? "合并" : kind === "entity_rename" ? "改名" : "拆分"
+        const badgeVariant = kind === "alias_merge" ? "secondary" : kind === "entity_rename" ? "default" : "outline"
+        const target = kind === "alias_merge" ? j.canonical : j.to ?? o.override_key
+        const detail =
+          kind === "alias_merge"
+            ? (j.members ?? []).join(" · ")
+            : kind === "entity_rename"
+              ? `${o.override_key} → ${j.to ?? ""}`
+              : `${j.source ?? ""} ✂ ${(j.aliases ?? []).join(" · ")}`
         return (
           <div key={o.id} className="flex items-start justify-between gap-2 rounded border p-2 text-sm">
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-1.5">
-                <Badge variant={isMerge ? "secondary" : "outline"} className="text-[10px]">
-                  {isMerge ? "合并" : "拆分"}
+                <Badge variant={badgeVariant} className="text-[10px]">
+                  {label}
                 </Badge>
                 <button
                   className="truncate font-medium hover:underline"
@@ -69,11 +77,7 @@ export function MyEditsPanel({ novelId, onOpenEntity }: Props) {
                   {target ?? "（独立实体）"}
                 </button>
               </div>
-              <p className="text-muted-foreground truncate text-xs">
-                {isMerge
-                  ? (j.members ?? []).join(" · ")
-                  : `${j.source ?? ""} ✂ ${(j.aliases ?? []).join(" · ")}`}
-              </p>
+              <p className="text-muted-foreground truncate text-xs">{detail}</p>
             </div>
             <Button
               variant="ghost"

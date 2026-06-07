@@ -223,6 +223,34 @@ async def test_split_to_same_name_does_not_self_map():
 
 
 @pytest.mark.asyncio
+async def test_rename_relabels_entity_and_its_group():
+    """entity_rename moves the whole group (canonical + aliases) to a new name."""
+    invalidate_alias_cache(NOVEL)
+    amap = {"少侠": "少年", "少年郎": "少年"}  # 少年 is canonical of a group
+    ov = [{
+        "override_type": "entity_rename",
+        "override_key": "少年",
+        "override_json": {"to": "杨过"},
+    }]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, amap)
+    assert out["少年"] == "杨过"       # old canonical now an alias of new
+    assert out["少侠"] == "杨过"       # group members follow
+    assert out["少年郎"] == "杨过"
+    assert "杨过" not in out          # new canonical not self-mapped
+    assert "少年" in alias_resolver._alias_override_targets[NOVEL].get("杨过", set())
+
+
+@pytest.mark.asyncio
+async def test_rename_noop_when_same_name():
+    invalidate_alias_cache(NOVEL)
+    ov = [{"override_type": "entity_rename", "override_key": "杨过", "override_json": {"to": "杨过"}}]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, {"过儿": "杨过"})
+    assert out == {"过儿": "杨过"}     # unchanged
+
+
+@pytest.mark.asyncio
 async def test_apply_is_idempotent():
     """NFR4: applying the same overrides twice yields the same map."""
     invalidate_alias_cache(NOVEL)
@@ -413,6 +441,38 @@ async def test_route_split_rejects_to_equals_source():
     try:
         with pytest.raises(HTTPException) as exc:
             await split_aliases(NOVEL, SplitRequest(source="八戒", aliases=["沙悟净"], to="八戒"))
+        assert exc.value.status_code == 400
+    finally:
+        for p in patches:
+            p.stop()
+
+
+@pytest.mark.asyncio
+async def test_route_rename_happy_path():
+    from src.api.routes.entity_overrides import RenameRequest, rename_entity
+
+    patches = _patch_route(saved_id=11)
+    for p in patches:
+        p.start()
+    try:
+        res = await rename_entity(NOVEL, RenameRequest(source="少年", to="杨过"))
+    finally:
+        for p in patches:
+            p.stop()
+    assert res == {"status": "ok", "override_id": 11}
+
+
+@pytest.mark.asyncio
+async def test_route_rename_rejects_same_name():
+    from fastapi import HTTPException
+    from src.api.routes.entity_overrides import RenameRequest, rename_entity
+
+    patches = _patch_route()
+    for p in patches:
+        p.start()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            await rename_entity(NOVEL, RenameRequest(source="杨过", to="杨过"))
         assert exc.value.status_code == 400
     finally:
         for p in patches:

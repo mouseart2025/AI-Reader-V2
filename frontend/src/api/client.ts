@@ -493,6 +493,17 @@ export function splitAliases(
   })
 }
 
+export function renameEntity(
+  novelId: string,
+  source: string,
+  to: string,
+): Promise<{ status: string; override_id: number }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/rename`, {
+    method: "POST",
+    body: JSON.stringify({ source, to }),
+  })
+}
+
 export function deleteEntityOverride(
   novelId: string,
   overrideId: number,
