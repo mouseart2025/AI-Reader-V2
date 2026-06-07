@@ -959,6 +959,10 @@ export function exportNovelAirUrl(novelId: string): string {
   return `${getBase()}/novels/${novelId}/export?format=air`
 }
 
+export function exportNovelMarkdownUrl(novelId: string): string {
+  return `${getBase()}/novels/${novelId}/export?format=markdown`
+}
+
 export function exportAllConversationsUrl(novelId: string): string {
   return `${getBase()}/novels/${novelId}/conversations/export`
 }

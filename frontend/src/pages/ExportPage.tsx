@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams } from "react-router-dom"
 import {
   exportNovelAirUrl,
+  exportNovelMarkdownUrl,
   exportSeriesBible,
   fetchChapters,
   fetchEntities,
@@ -46,6 +47,8 @@ export default function ExportPage() {
   const [relationCount, setRelationCount] = useState(0)
   const [airExporting, setAirExporting] = useState(false)
   const [airError, setAirError] = useState<string | null>(null)
+  const [mdExporting, setMdExporting] = useState(false)
+  const [mdError, setMdError] = useState<string | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [novelTitle, setNovelTitle] = useState("")
 
@@ -162,6 +165,36 @@ export default function ExportPage() {
       setAirError(e instanceof Error ? e.message : "导出失败")
     } finally {
       setAirExporting(false)
+    }
+  }, [novelId, novelTitle])
+
+  const handleMarkdownExport = useCallback(async () => {
+    if (!novelId) return
+    setMdExporting(true)
+    setMdError(null)
+    try {
+      let title = novelTitle
+      if (!title) {
+        try {
+          const n = await fetchNovel(novelId)
+          title = n.title || ""
+        } catch { /* ignore */ }
+      }
+      const resp = await fetch(exportNovelMarkdownUrl(novelId))
+      if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = title ? `${title}_分析报告.md` : `分析报告.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setMdError(e instanceof Error ? e.message : "导出失败")
+    } finally {
+      setMdExporting(false)
     }
   }, [novelId, novelTitle])
 
@@ -417,6 +450,21 @@ export default function ExportPage() {
               {airError && (
                 <p className="text-xs text-red-500">{airError}</p>
               )}
+
+              <div className="border-t pt-3 mt-1 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  或导出<span className="font-medium text-foreground">可读分析报告</span>（Markdown）：按章节排版的人物 / 关系 / 地点 / 事件等，方便直接阅读，不再是裸 JSON。
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleMarkdownExport}
+                  disabled={mdExporting || analyzedChapters === 0}
+                  className="w-full"
+                >
+                  {mdExporting ? "正在导出..." : "导出可读分析（.md）"}
+                </Button>
+                {mdError && <p className="text-xs text-red-500">{mdError}</p>}
+              </div>
 
               {analyzedChapters === 0 && !statsLoading && (
                 <p className="text-xs text-amber-500">
