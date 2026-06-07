@@ -30,6 +30,11 @@ class SplitRequest(BaseModel):
     to: str | None = None    # destination canonical; None => new independent entity
 
 
+class RenameRequest(BaseModel):
+    source: str              # current canonical/display name
+    to: str                  # new display name (user-typed; may be brand new)
+
+
 async def _require_novel(novel_id: str) -> None:
     if not await novel_store.get_novel(novel_id):
         raise HTTPException(status_code=404, detail="小说不存在")
@@ -94,6 +99,27 @@ async def split_aliases(novel_id: str, body: SplitRequest):
         override_key,
         {"source": source, "aliases": aliases, "to": to,
          "auto_snapshot": _snapshot(alias_map, aliases)},
+    )
+    entity_aggregator.invalidate_cache(novel_id)
+    return {"status": "ok", "override_id": oid}
+
+
+@router.post("/rename")
+async def rename_entity(novel_id: str, body: RenameRequest):
+    await _require_novel(novel_id)
+    source = body.source.strip()
+    to = body.to.strip()
+    if not source or not to:
+        raise HTTPException(status_code=400, detail="名称不能为空")
+    if to == source:
+        raise HTTPException(status_code=400, detail="新名称与当前名称相同")
+
+    alias_map = await build_alias_map(novel_id)
+    oid = await entity_override_store.save_override(
+        novel_id,
+        "entity_rename",
+        source,
+        {"to": to, "auto_snapshot": _snapshot(alias_map, [source])},
     )
     entity_aggregator.invalidate_cache(novel_id)
     return {"status": "ok", "override_id": oid}
