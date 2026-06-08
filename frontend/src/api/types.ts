@@ -457,7 +457,13 @@ export type EntityProfile = PersonProfile | LocationProfile | ItemProfile | OrgP
 /** A user alias override record (manual merge/split) — backs the "我的修正" list. */
 export interface EntityOverride {
   id: number
-  override_type: "alias_merge" | "alias_split" | "entity_rename"
+  override_type:
+    | "alias_merge"
+    | "alias_split"
+    | "entity_rename"
+    | "concept_rename"
+    | "concept_recategory"
+    | "concept_delete"
   override_key: string
   override_json: {
     members?: string[]

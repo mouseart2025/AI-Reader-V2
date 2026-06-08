@@ -53,15 +53,26 @@ export function MyEditsPanel({ novelId, onOpenEntity }: Props) {
       {overrides.map((o) => {
         const j = o.override_json
         const kind = o.override_type
-        const label = kind === "alias_merge" ? "合并" : kind === "entity_rename" ? "改名" : "拆分"
-        const badgeVariant = kind === "alias_merge" ? "secondary" : kind === "entity_rename" ? "default" : "outline"
-        const target = kind === "alias_merge" ? j.canonical : j.to ?? o.override_key
+        const LABELS: Record<string, string> = {
+          alias_merge: "合并", alias_split: "拆分", entity_rename: "改名",
+          concept_rename: "概念改名", concept_recategory: "概念改类", concept_delete: "概念删除",
+        }
+        const label = LABELS[kind] ?? kind
+        const badgeVariant =
+          kind === "alias_merge" ? "secondary"
+            : kind === "concept_delete" ? "destructive"
+              : kind === "alias_split" ? "outline" : "default"
+        const target =
+          kind === "alias_merge" ? j.canonical
+            : kind === "entity_rename" ? j.to ?? o.override_key
+              : o.override_key
         const detail =
-          kind === "alias_merge"
-            ? (j.members ?? []).join(" · ")
-            : kind === "entity_rename"
-              ? `${o.override_key} → ${j.to ?? ""}`
-              : `${j.source ?? ""} ✂ ${(j.aliases ?? []).join(" · ")}`
+          kind === "alias_merge" ? (j.members ?? []).join(" · ")
+            : kind === "entity_rename" ? `${o.override_key} → ${j.to ?? ""}`
+              : kind === "concept_rename" ? `${o.override_key} → ${j.to ?? ""}`
+                : kind === "concept_recategory" ? `${o.override_key} · 分类 → ${j.to ?? ""}`
+                  : kind === "concept_delete" ? `已删除：${o.override_key}`
+                    : `${j.source ?? ""} ✂ ${(j.aliases ?? []).join(" · ")}`
         return (
           <div key={o.id} className="flex items-start justify-between gap-2 rounded border p-2 text-sm">
             <div className="min-w-0 flex-1">

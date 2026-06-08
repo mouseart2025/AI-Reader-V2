@@ -504,6 +504,27 @@ export function renameEntity(
   })
 }
 
+export function conceptRename(novelId: string, name: string, to: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/concept-rename`,
+    { method: "POST", body: JSON.stringify({ name, to }) },
+  )
+}
+
+export function conceptRecategory(novelId: string, name: string, to: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/concept-recategory`,
+    { method: "POST", body: JSON.stringify({ name, to }) },
+  )
+}
+
+export function conceptDelete(novelId: string, name: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/concept-delete`,
+    { method: "POST", body: JSON.stringify({ name }) },
+  )
+}
+
 export function deleteEntityOverride(
   novelId: string,
   overrideId: number,
