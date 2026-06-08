@@ -35,6 +35,11 @@ class RenameRequest(BaseModel):
     to: str                  # new display name (user-typed; may be brand new)
 
 
+class ConceptEditRequest(BaseModel):
+    name: str                # concept's current (display) name
+    to: str | None = None    # new name (rename) or new category (recategory)
+
+
 async def _require_novel(novel_id: str) -> None:
     if not await novel_store.get_novel(novel_id):
         raise HTTPException(status_code=404, detail="小说不存在")
@@ -120,6 +125,49 @@ async def rename_entity(novel_id: str, body: RenameRequest):
         "entity_rename",
         source,
         {"to": to, "auto_snapshot": _snapshot(alias_map, [source])},
+    )
+    entity_aggregator.invalidate_cache(novel_id)
+    return {"status": "ok", "override_id": oid}
+
+
+@router.post("/concept-rename")
+async def concept_rename(novel_id: str, body: ConceptEditRequest):
+    await _require_novel(novel_id)
+    name = body.name.strip()
+    to = (body.to or "").strip()
+    if not name or not to:
+        raise HTTPException(status_code=400, detail="名称不能为空")
+    if to == name:
+        raise HTTPException(status_code=400, detail="新名称与当前名称相同")
+    oid = await entity_override_store.save_override(
+        novel_id, "concept_rename", name, {"to": to},
+    )
+    entity_aggregator.invalidate_cache(novel_id)
+    return {"status": "ok", "override_id": oid}
+
+
+@router.post("/concept-recategory")
+async def concept_recategory(novel_id: str, body: ConceptEditRequest):
+    await _require_novel(novel_id)
+    name = body.name.strip()
+    to = (body.to or "").strip()
+    if not name or not to:
+        raise HTTPException(status_code=400, detail="名称/分类不能为空")
+    oid = await entity_override_store.save_override(
+        novel_id, "concept_recategory", name, {"to": to},
+    )
+    entity_aggregator.invalidate_cache(novel_id)
+    return {"status": "ok", "override_id": oid}
+
+
+@router.post("/concept-delete")
+async def concept_delete(novel_id: str, body: ConceptEditRequest):
+    await _require_novel(novel_id)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="名称不能为空")
+    oid = await entity_override_store.save_override(
+        novel_id, "concept_delete", name, {},
     )
     entity_aggregator.invalidate_cache(novel_id)
     return {"status": "ok", "override_id": oid}

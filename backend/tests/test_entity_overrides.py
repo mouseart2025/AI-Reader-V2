@@ -448,6 +448,63 @@ async def test_route_split_rejects_to_equals_source():
 
 
 @pytest.mark.asyncio
+async def test_load_concept_overrides_parses_types():
+    from src.services.encyclopedia_service import _load_concept_overrides
+
+    ov = [
+        {"override_type": "concept_rename", "override_key": "灵根", "override_json": {"to": "仙根"}},
+        {"override_type": "concept_recategory", "override_key": "筋斗云", "override_json": {"to": "功法"}},
+        {"override_type": "concept_delete", "override_key": "废话概念", "override_json": {}},
+    ]
+    async def _load(_n):
+        return ov
+    with patch("src.db.entity_override_store.load_overrides", _load):
+        renames, recat, deleted = await _load_concept_overrides(NOVEL)
+    assert renames == {"灵根": "仙根"}
+    assert recat == {"筋斗云": "功法"}
+    assert deleted == {"废话概念"}
+
+
+@pytest.mark.asyncio
+async def test_route_concept_rename_and_delete():
+    from src.api.routes.entity_overrides import ConceptEditRequest, concept_rename, concept_delete
+
+    async def _get_novel(_n):
+        return {"id": _n}
+
+    async def _save(*_a, **_k):
+        return 5
+
+    patches = [
+        patch("src.db.novel_store.get_novel", _get_novel),
+        patch("src.api.routes.entity_overrides.entity_override_store.save_override", _save),
+        patch("src.api.routes.entity_overrides.entity_aggregator.invalidate_cache", lambda _n: None),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        r1 = await concept_rename(NOVEL, ConceptEditRequest(name="灵根", to="仙根"))
+        r2 = await concept_delete(NOVEL, ConceptEditRequest(name="废话概念"))
+    finally:
+        for p in patches:
+            p.stop()
+    assert r1["status"] == "ok" and r2["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_route_concept_rename_rejects_same_name():
+    from fastapi import HTTPException
+    from src.api.routes.entity_overrides import ConceptEditRequest, concept_rename
+
+    async def _get_novel(_n):
+        return {"id": _n}
+    with patch("src.db.novel_store.get_novel", _get_novel):
+        with pytest.raises(HTTPException) as exc:
+            await concept_rename(NOVEL, ConceptEditRequest(name="灵根", to="灵根"))
+        assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_route_rename_happy_path():
     from src.api.routes.entity_overrides import RenameRequest, rename_entity
 
