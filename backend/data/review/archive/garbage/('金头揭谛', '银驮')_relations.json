@@ -1,5 +1,5 @@
 {
-  "_instructions": "correct_type + correct_category",
+  "_instructions": "correct_type填关系类型. correct_category填family/intimate/hierarchical/social/hostile/other",
   "_novel": "西游记",
   "_total": 80,
   "relations": [
@@ -9,9 +9,9 @@
       "system_type": "师徒",
       "mention_count": 101,
       "first_seen": "ch15",
-      "correct_type": "师徒",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猪刚鬣",
@@ -19,9 +19,9 @@
       "system_type": "师兄弟",
       "mention_count": 87,
       "first_seen": "ch18",
-      "correct_type": "师兄弟",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猪刚鬣",
@@ -29,9 +29,9 @@
       "system_type": "师徒",
       "mention_count": 75,
       "first_seen": "ch19",
-      "correct_type": "师徒",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙和尚",
@@ -39,9 +39,9 @@
       "system_type": "师徒",
       "mention_count": 68,
       "first_seen": "ch23",
-      "correct_type": "师徒",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙和尚",
@@ -49,9 +49,9 @@
       "system_type": "师兄弟",
       "mention_count": 65,
       "first_seen": "ch23",
-      "correct_type": "师兄弟",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙和尚",
@@ -59,9 +59,9 @@
       "system_type": "师兄弟",
       "mention_count": 40,
       "first_seen": "ch23",
-      "correct_type": "师兄弟",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -69,9 +69,9 @@
       "system_type": "敌对",
       "mention_count": 10,
       "first_seen": "ch34",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -79,9 +79,9 @@
       "system_type": "敬拜",
       "mention_count": 9,
       "first_seen": "ch15",
-      "correct_type": "敬拜",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙悟净",
@@ -89,9 +89,9 @@
       "system_type": "师兄弟",
       "mention_count": 8,
       "first_seen": "ch22",
-      "correct_type": "师兄弟",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "惠岸行者",
@@ -99,9 +99,9 @@
       "system_type": "听令",
       "mention_count": 7,
       "first_seen": "ch8",
-      "correct_type": "听令",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙悟净",
@@ -109,9 +109,9 @@
       "system_type": "师兄弟",
       "mention_count": 7,
       "first_seen": "ch22",
-      "correct_type": "师兄弟",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "哪吒三太子",
@@ -119,9 +119,9 @@
       "system_type": "父子",
       "mention_count": 6,
       "first_seen": "ch4",
-      "correct_type": "父子",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -129,9 +129,9 @@
       "system_type": "君臣",
       "mention_count": 6,
       "first_seen": "ch5",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "太上老君",
@@ -139,9 +139,9 @@
       "system_type": "上下级",
       "mention_count": 6,
       "first_seen": "ch5",
-      "correct_type": "上下级",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "如来佛祖",
@@ -149,9 +149,9 @@
       "system_type": "封赏",
       "mention_count": 6,
       "first_seen": "ch7",
-      "correct_type": "封赏",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙悟净",
@@ -159,9 +159,9 @@
       "system_type": "师徒",
       "mention_count": 6,
       "first_seen": "ch22",
-      "correct_type": "师徒",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "牛魔王",
@@ -169,9 +169,9 @@
       "system_type": "敌对",
       "mention_count": 5,
       "first_seen": "ch3",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "哪吒三太子",
@@ -179,9 +179,9 @@
       "system_type": "敌对",
       "mention_count": 5,
       "first_seen": "ch5",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "如来佛祖",
@@ -189,9 +189,9 @@
       "system_type": "上下级",
       "mention_count": 5,
       "first_seen": "ch7",
-      "correct_type": "上下级",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "国王",
@@ -199,9 +199,9 @@
       "system_type": "君臣",
       "mention_count": 5,
       "first_seen": "ch11",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "二魔",
@@ -209,9 +209,9 @@
       "system_type": "结拜兄弟",
       "mention_count": 5,
       "first_seen": "ch33",
-      "correct_type": "结拜兄弟",
-      "correct_category": "intimate",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "大鹏雕",
@@ -219,9 +219,9 @@
       "system_type": "敌对",
       "mention_count": 5,
       "first_seen": "ch75",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "托塔李天王",
@@ -229,9 +229,9 @@
       "system_type": "君臣",
       "mention_count": 4,
       "first_seen": "ch4",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "唐三藏",
@@ -239,9 +239,9 @@
       "system_type": "师徒",
       "mention_count": 4,
       "first_seen": "ch14",
-      "correct_type": "师徒",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "土地神祗",
@@ -249,9 +249,9 @@
       "system_type": "听令",
       "mention_count": 4,
       "first_seen": "ch27",
-      "correct_type": "听令",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "沙和尚",
@@ -259,9 +259,9 @@
       "system_type": "敌对",
       "mention_count": 4,
       "first_seen": "ch28",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "二魔",
@@ -269,9 +269,9 @@
       "system_type": "敌对",
       "mention_count": 4,
       "first_seen": "ch33",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -279,9 +279,9 @@
       "system_type": "敌对",
       "mention_count": 4,
       "first_seen": "ch44",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "敖顺",
@@ -289,9 +289,9 @@
       "system_type": "友军",
       "mention_count": 4,
       "first_seen": "ch45",
-      "correct_type": "友军",
-      "correct_category": "social",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "托塔李天王",
@@ -299,9 +299,9 @@
       "system_type": "君臣",
       "mention_count": 4,
       "first_seen": "ch51",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "那女子",
@@ -309,9 +309,9 @@
       "system_type": "逼婚",
       "mention_count": 4,
       "first_seen": "ch54",
-      "correct_type": "逼婚",
-      "correct_category": "other",
-      "_note": "兜底分类: 逼婚→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "大鹏雕",
@@ -319,9 +319,9 @@
       "system_type": "结拜兄弟",
       "mention_count": 4,
       "first_seen": "ch75",
-      "correct_type": "结拜兄弟",
-      "correct_category": "intimate",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "碗子山妖魔",
@@ -329,9 +329,9 @@
       "system_type": "敌对",
       "mention_count": 4,
       "first_seen": "ch75",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "太白金星",
@@ -339,9 +339,9 @@
       "system_type": "听令",
       "mention_count": 3,
       "first_seen": "ch3",
-      "correct_type": "听令",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "哪吒三太子",
@@ -349,9 +349,9 @@
       "system_type": "君臣",
       "mention_count": 3,
       "first_seen": "ch4",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "哪吒三太子",
@@ -359,9 +359,9 @@
       "system_type": "父子",
       "mention_count": 3,
       "first_seen": "ch5",
-      "correct_type": "父子",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "如来佛祖",
@@ -369,9 +369,9 @@
       "system_type": "听令",
       "mention_count": 3,
       "first_seen": "ch7",
-      "correct_type": "听令",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "国王",
@@ -379,9 +379,9 @@
       "system_type": "君臣",
       "mention_count": 3,
       "first_seen": "ch10",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "国王",
@@ -389,9 +389,9 @@
       "system_type": "君臣",
       "mention_count": 3,
       "first_seen": "ch11",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "广目天王",
@@ -399,9 +399,9 @@
       "system_type": "上下级",
       "mention_count": 3,
       "first_seen": "ch16",
-      "correct_type": "上下级",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "李长庚",
@@ -409,9 +409,9 @@
       "system_type": "上下级",
       "mention_count": 3,
       "first_seen": "ch21",
-      "correct_type": "上下级",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "清风",
@@ -419,9 +419,9 @@
       "system_type": "主仆",
       "mention_count": 3,
       "first_seen": "ch24",
-      "correct_type": "主仆",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "明月",
@@ -429,9 +429,9 @@
       "system_type": "主仆",
       "mention_count": 3,
       "first_seen": "ch24",
-      "correct_type": "主仆",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "镇元子",
@@ -439,9 +439,9 @@
       "system_type": "被捉",
       "mention_count": 3,
       "first_seen": "ch24",
-      "correct_type": "被捉",
-      "correct_category": "other",
-      "_note": "兜底分类: 被捉→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "增长天王",
@@ -449,9 +449,9 @@
       "system_type": "上下级",
       "mention_count": 3,
       "first_seen": "ch25",
-      "correct_type": "上下级",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "陈玄奘",
@@ -459,9 +459,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch28",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猪刚鬣",
@@ -469,9 +469,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch28",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猪刚鬣",
@@ -479,9 +479,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch30",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "乌鸡国王",
@@ -489,9 +489,9 @@
       "system_type": "听令",
       "mention_count": 3,
       "first_seen": "ch37",
-      "correct_type": "听令",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "牛魔王",
@@ -499,9 +499,9 @@
       "system_type": "父子",
       "mention_count": 3,
       "first_seen": "ch40",
-      "correct_type": "父子",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "孙悟空",
@@ -509,9 +509,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch40",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "红孩儿",
@@ -519,9 +519,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch41",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "虎力大仙",
@@ -529,9 +529,9 @@
       "system_type": "同门",
       "mention_count": 3,
       "first_seen": "ch44",
-      "correct_type": "同门",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "羊力大仙",
@@ -539,9 +539,9 @@
       "system_type": "同门",
       "mention_count": 3,
       "first_seen": "ch44",
-      "correct_type": "同门",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "羊力大仙",
@@ -549,9 +549,9 @@
       "system_type": "同门",
       "mention_count": 3,
       "first_seen": "ch44",
-      "correct_type": "同门",
-      "correct_category": "social",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -559,9 +559,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch44",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -569,9 +569,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch44",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "洪江龙王",
@@ -579,9 +579,9 @@
       "system_type": "命令",
       "mention_count": 3,
       "first_seen": "ch45",
-      "correct_type": "命令",
-      "correct_category": "other",
-      "_note": "兜底分类: 命令→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "陈清",
@@ -589,9 +589,9 @@
       "system_type": "兄弟",
       "mention_count": 3,
       "first_seen": "ch47",
-      "correct_type": "兄弟",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "善财童子",
@@ -599,9 +599,9 @@
       "system_type": "君臣",
       "mention_count": 3,
       "first_seen": "ch49",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "老鼋",
@@ -609,9 +609,9 @@
       "system_type": "渡河",
       "mention_count": 3,
       "first_seen": "ch49",
-      "correct_type": "渡河",
-      "correct_category": "other",
-      "_note": "兜底分类: 渡河→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "火德星君",
@@ -619,9 +619,9 @@
       "system_type": "友军",
       "mention_count": 3,
       "first_seen": "ch51",
-      "correct_type": "友军",
-      "correct_category": "social",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -629,9 +629,9 @@
       "system_type": "敌对",
       "mention_count": 3,
       "first_seen": "ch59",
-      "correct_type": "敌对",
-      "correct_category": "hostile",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "朱紫国国王",
@@ -639,9 +639,9 @@
       "system_type": "恩义",
       "mention_count": 3,
       "first_seen": "ch68",
-      "correct_type": "恩义",
-      "correct_category": "other",
-      "_note": "兜底分类: 恩义→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "碗子山妖魔",
@@ -649,9 +649,9 @@
       "system_type": "结拜兄弟",
       "mention_count": 3,
       "first_seen": "ch76",
-      "correct_type": "结拜兄弟",
-      "correct_category": "intimate",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "大鹏雕",
@@ -659,9 +659,9 @@
       "system_type": "结拜兄弟",
       "mention_count": 3,
       "first_seen": "ch76",
-      "correct_type": "结拜兄弟",
-      "correct_category": "intimate",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "比丘国国王",
@@ -669,9 +669,9 @@
       "system_type": "君臣",
       "mention_count": 3,
       "first_seen": "ch78",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "如来佛祖",
@@ -679,9 +679,9 @@
       "system_type": "封赏",
       "mention_count": 3,
       "first_seen": "ch81",
-      "correct_type": "封赏",
-      "correct_category": "hierarchical",
-      "_note": "扩展自动分类"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -689,9 +689,9 @@
       "system_type": "威胁",
       "mention_count": 3,
       "first_seen": "ch92",
-      "correct_type": "威胁",
-      "correct_category": "other",
-      "_note": "兜底分类: 威胁→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "寇洪",
@@ -699,9 +699,9 @@
       "system_type": "救命",
       "mention_count": 3,
       "first_seen": "ch96",
-      "correct_type": "救命",
-      "correct_category": "other",
-      "_note": "兜底分类: 救命→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "千里眼",
@@ -709,9 +709,9 @@
       "system_type": "君臣",
       "mention_count": 2,
       "first_seen": "ch1",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "玉皇大帝",
@@ -719,9 +719,9 @@
       "system_type": "君臣",
       "mention_count": 2,
       "first_seen": "ch1",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "猴王",
@@ -729,9 +729,9 @@
       "system_type": "命令",
       "mention_count": 2,
       "first_seen": "ch2",
-      "correct_type": "命令",
-      "correct_category": "other",
-      "_note": "兜底分类: 命令→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "敖广",
@@ -739,9 +739,9 @@
       "system_type": "兄弟",
       "mention_count": 2,
       "first_seen": "ch3",
-      "correct_type": "兄弟",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "敖广",
@@ -749,9 +749,9 @@
       "system_type": "兄弟",
       "mention_count": 2,
       "first_seen": "ch3",
-      "correct_type": "兄弟",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "敖广",
@@ -759,9 +759,9 @@
       "system_type": "兄弟",
       "mention_count": 2,
       "first_seen": "ch3",
-      "correct_type": "兄弟",
-      "correct_category": "family",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "地藏王菩萨",
@@ -769,9 +769,9 @@
       "system_type": "请求",
       "mention_count": 2,
       "first_seen": "ch3",
-      "correct_type": "请求",
-      "correct_category": "other",
-      "_note": "兜底分类: 请求→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "太白金星",
@@ -779,9 +779,9 @@
       "system_type": "再次招安",
       "mention_count": 2,
       "first_seen": "ch4",
-      "correct_type": "再次招安",
-      "correct_category": "other",
-      "_note": "兜底分类: 再次招安→other"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "孙悟空",
@@ -789,9 +789,9 @@
       "system_type": "结拜兄弟",
       "mention_count": 2,
       "first_seen": "ch4",
-      "correct_type": "结拜兄弟",
-      "correct_category": "intimate",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     },
     {
       "person_a": "玉皇大帝",
@@ -799,9 +799,9 @@
       "system_type": "君臣",
       "mention_count": 2,
       "first_seen": "ch5",
-      "correct_type": "君臣",
-      "correct_category": "hierarchical",
-      "_note": "自动"
+      "correct_type": null,
+      "correct_category": null,
+      "_note": ""
     }
   ]
 }

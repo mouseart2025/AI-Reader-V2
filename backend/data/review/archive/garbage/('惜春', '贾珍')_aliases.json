@@ -1,0 +1,720 @@
+{
+  "_instructions": "is_correct_grouping=true/false. wrong_aliases/missing_aliases填数组",
+  "_novel": "红楼梦",
+  "_total": 40,
+  "alias_groups": [
+    {
+      "canonical_name": "王夫人",
+      "system_aliases": [
+        "二太太",
+        "太太",
+        "王夫人等"
+      ],
+      "mention_count": 101,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "凤姐",
+      "system_aliases": [
+        "二奶奶",
+        "二姑奶奶",
+        "二嫂子",
+        "亲二奶奶",
+        "凤丫头",
+        "凤哥儿",
+        "凤姐儿",
+        "凤姐姐",
+        "凤姐笑道",
+        "凤姑娘",
+        "凤辣子",
+        "夜叉婆",
+        "大妹妹",
+        "奶奶",
+        "好琏二奶奶",
+        "姑奶奶",
+        "婶子",
+        "王熙凤",
+        "琏二奶奶",
+        "琏二嫂",
+        "琏嫂子",
+        "醋缸醋瓮",
+        "醋罐子"
+      ],
+      "mention_count": 97,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "史老太君",
+      "system_aliases": [
+        "史氏太君",
+        "太婆婆",
+        "老太太",
+        "老太太那里",
+        "老寿星",
+        "老祖宗",
+        "贾代善",
+        "贾母",
+        "贾母也",
+        "贾母便说",
+        "贾母听说",
+        "贾母因",
+        "贾母笑道",
+        "贾母道"
+      ],
+      "mention_count": 92,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "袭人",
+      "system_aliases": [
+        "二奶奶",
+        "好姐姐",
+        "珍珠",
+        "花大姐姐",
+        "花姑娘",
+        "花袭人",
+        "袭人姐姐",
+        "袭人等",
+        "袭姑娘"
+      ],
+      "mention_count": 92,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "黛玉",
+      "system_aliases": [
+        "多病西施",
+        "好妹妹",
+        "姑娘",
+        "林丫头",
+        "林妹妹",
+        "林姐儿",
+        "林姐姐",
+        "林姑娘",
+        "林黛玉",
+        "潇湘妃子",
+        "潇湘子",
+        "颦儿"
+      ],
+      "mention_count": 84,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "宝玉",
+      "system_aliases": [
+        "二叔",
+        "二哥哥",
+        "哥儿",
+        "宝二爷",
+        "宝兄弟",
+        "宝叔",
+        "宝叔叔",
+        "宝哥儿",
+        "宝哥哥",
+        "宝玉因",
+        "宝玉忙",
+        "宝玉笑",
+        "神瑛侍者",
+        "贾宝玉",
+        "那哥儿",
+        "那宝玉",
+        "颦儿"
+      ],
+      "mention_count": 78,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "宝钗",
+      "system_aliases": [
+        "二奶奶",
+        "二妹妹",
+        "大妹妹",
+        "大姑娘",
+        "奶奶",
+        "姑娘",
+        "宝丫头",
+        "宝二奶奶",
+        "宝妹妹",
+        "宝姐姐",
+        "宝姑娘",
+        "宝钗姊妹",
+        "薛大姑娘",
+        "薛姑娘",
+        "薛宝钗",
+        "蘅芜",
+        "雪堆出来的"
+      ],
+      "mention_count": 71,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "平儿",
+      "system_aliases": [
+        "姑娘",
+        "平丫头",
+        "平姐姐",
+        "平姑娘"
+      ],
+      "mention_count": 70,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾琏",
+      "system_aliases": [
+        "二叔",
+        "爷",
+        "琏二叔",
+        "琏二哥",
+        "琏二哥哥",
+        "琏二爷",
+        "琏儿",
+        "琏爷"
+      ],
+      "mention_count": 68,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾政",
+      "system_aliases": [
+        "二老爷",
+        "政老",
+        "政老爷",
+        "政老爹",
+        "老伯大人",
+        "贾大人",
+        "贾存周",
+        "贾政又道",
+        "贾政听说",
+        "贾政因",
+        "贾政道"
+      ],
+      "mention_count": 65,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "李纨",
+      "system_aliases": [
+        "大奶奶",
+        "大嫂子",
+        "奶奶",
+        "宫裁",
+        "寡妇",
+        "李宫裁",
+        "李氏",
+        "珠大嫂子",
+        "稻香老农",
+        "纨"
+      ],
+      "mention_count": 63,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "薛姨妈",
+      "system_aliases": [
+        "你姨妈",
+        "妈",
+        "妈妈",
+        "姑妈",
+        "姨太太",
+        "姨妈",
+        "姨娘",
+        "姨母",
+        "我们奶奶",
+        "老人家",
+        "老太太"
+      ],
+      "mention_count": 59,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾珍",
+      "system_aliases": [
+        "东府大爷",
+        "侄儿",
+        "大哥哥",
+        "珍儿",
+        "珍哥",
+        "珍哥儿",
+        "珍大哥",
+        "珍大哥哥",
+        "珍大奶奶",
+        "珍大嫂子",
+        "珍大爷",
+        "珍爷",
+        "珍老大",
+        "贾珍因",
+        "贾珍夫妻",
+        "贾珍忙",
+        "贾珍有了"
+      ],
+      "mention_count": 58,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "探春",
+      "system_aliases": [
+        "三丫头",
+        "三妹妹",
+        "三姐姐",
+        "三姑奶奶",
+        "三姑娘",
+        "三小姐",
+        "探丫头",
+        "探春姑娘",
+        "玫瑰花"
+      ],
+      "mention_count": 53,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "邢夫人",
+      "system_aliases": [
+        "令伯母",
+        "大太太",
+        "太太",
+        "夫人",
+        "邢舅太爷那边"
+      ],
+      "mention_count": 53,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "鸳鸯",
+      "system_aliases": [
+        "姑娘",
+        "真珠",
+        "鸳鸯姐姐"
+      ],
+      "mention_count": 46,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "紫鹃",
+      "system_aliases": [
+        "紫鹃雪雁"
+      ],
+      "mention_count": 45,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "惜春",
+      "system_aliases": [
+        "四丫头",
+        "四妹妹",
+        "四姑娘",
+        "四小姐",
+        "姑娘",
+        "藕丫头"
+      ],
+      "mention_count": 44,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾赦",
+      "system_aliases": [
+        "大老爷",
+        "赦老"
+      ],
+      "mention_count": 43,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "史湘云",
+      "system_aliases": [
+        "云丫头",
+        "云儿",
+        "云妹妹",
+        "云姑娘",
+        "史大妹妹",
+        "史大姑娘",
+        "史妹妹",
+        "史姑娘",
+        "大姑娘",
+        "姑娘",
+        "枕霞旧友",
+        "湘云"
+      ],
+      "mention_count": 40,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾宝玉",
+      "system_aliases": [
+        "二叔叔",
+        "二哥哥",
+        "哥儿",
+        "宝二爷",
+        "宝兄弟",
+        "宝叔",
+        "宝叔叔",
+        "宝哥哥",
+        "宝玉",
+        "宝玉笑道",
+        "富贵闲人",
+        "怡红公子",
+        "无事忙",
+        "爷",
+        "绛洞花主",
+        "菩萨哥儿"
+      ],
+      "mention_count": 38,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "晴雯",
+      "system_aliases": [
+        "晴雯之神",
+        "晴雯姐姐"
+      ],
+      "mention_count": 38,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "薛蟠",
+      "system_aliases": [
+        "呆大爷",
+        "呆霸王",
+        "大哥哥",
+        "姑爷",
+        "文起",
+        "舍表妹",
+        "薛二爷",
+        "薛呆子",
+        "薛大傻子",
+        "薛大哥哥",
+        "薛大爷",
+        "蟠儿"
+      ],
+      "mention_count": 37,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾蓉",
+      "system_aliases": [
+        "哥儿",
+        "姨娘",
+        "小大爷",
+        "小蓉大爷",
+        "蓉儿",
+        "蓉哥",
+        "蓉哥儿",
+        "蓉大爷"
+      ],
+      "mention_count": 37,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "迎春",
+      "system_aliases": [
+        "三姑娘",
+        "二姐姐",
+        "二姑娘",
+        "二小姐",
+        "二木头",
+        "姑娘"
+      ],
+      "mention_count": 35,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾环",
+      "system_aliases": [
+        "三爷",
+        "环儿",
+        "环儿小子",
+        "环兄弟",
+        "环哥儿",
+        "环爷",
+        "环老三",
+        "糊涂东西"
+      ],
+      "mention_count": 35,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "香菱",
+      "system_aliases": [
+        "大奶奶",
+        "秋菱",
+        "英莲",
+        "菱姐姐",
+        "菱姑娘"
+      ],
+      "mention_count": 30,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾兰",
+      "system_aliases": [
+        "世叔",
+        "兰侄儿",
+        "兰儿",
+        "兰哥",
+        "兰哥儿",
+        "兰小子",
+        "哥儿"
+      ],
+      "mention_count": 30,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "薛宝钗",
+      "system_aliases": [
+        "姑娘",
+        "宝丫头",
+        "宝姐姐",
+        "宝姑娘",
+        "宝钗",
+        "蘅芜君"
+      ],
+      "mention_count": 27,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "赵姨娘",
+      "system_aliases": [
+        "姨娘",
+        "赵",
+        "赵奶奶",
+        "赵姨奶奶"
+      ],
+      "mention_count": 27,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "莺儿",
+      "system_aliases": [
+        "金莺"
+      ],
+      "mention_count": 26,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "尤氏",
+      "system_aliases": [
+        "东府奶奶",
+        "大奶奶",
+        "大菩萨",
+        "奶奶",
+        "尤氏在外面",
+        "尤氏悄悄",
+        "尤氏笑道",
+        "尤氏问道",
+        "珍儿媳妇",
+        "珍大奶奶",
+        "珍大嫂子"
+      ],
+      "mention_count": 22,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "薛宝琴",
+      "system_aliases": [
+        "宝琴",
+        "琴儿",
+        "琴妹妹",
+        "琴姑娘"
+      ],
+      "mention_count": 22,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾雨村",
+      "system_aliases": [
+        "大老爷",
+        "学生",
+        "学生贾雨村",
+        "尊官",
+        "时飞",
+        "老先生",
+        "贵官",
+        "贾先生",
+        "贾化",
+        "雨村",
+        "风村"
+      ],
+      "mention_count": 18,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "赖大",
+      "system_aliases": [
+        "大管家",
+        "赖大爷",
+        "赖爷爷"
+      ],
+      "mention_count": 18,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "焙茗",
+      "system_aliases": [
+        "反叛"
+      ],
+      "mention_count": 17,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾芸",
+      "system_aliases": [
+        "小芸二爷",
+        "芸二爷",
+        "芸儿",
+        "芸哥儿",
+        "贾二爷"
+      ],
+      "mention_count": 16,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "贾珍之妻",
+      "system_aliases": [
+        "奶奶",
+        "尤氏",
+        "珍哥媳妇",
+        "珍大奶奶"
+      ],
+      "mention_count": 16,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "薛蝌",
+      "system_aliases": [
+        "蝌儿"
+      ],
+      "mention_count": 16,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    },
+    {
+      "canonical_name": "邢岫烟",
+      "system_aliases": [
+        "侄女儿",
+        "岫烟",
+        "邢女儿",
+        "邢姑娘"
+      ],
+      "mention_count": 15,
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
+      "missing_aliases": [],
+      "_note": ""
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "_instructions": "is_correct_grouping=true/false",
+  "_instructions": "is_correct_grouping=true/false. wrong_aliases/missing_aliases填数组",
   "_novel": "西游记",
   "_total": 40,
   "alias_groups": [
@@ -73,12 +73,10 @@
         "齐天大圣"
       ],
       "mention_count": 89,
-      "is_correct_grouping": false,
-      "wrong_aliases": [
-        "泼孽障"
-      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后1个问题: ['泼孽障']"
+      "_note": ""
     },
     {
       "canonical_name": "陈玄奘",
@@ -123,13 +121,10 @@
         "长老"
       ],
       "mention_count": 84,
-      "is_correct_grouping": false,
-      "wrong_aliases": [
-        "师父",
-        "长老"
-      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后2个问题: ['师父', '长老']"
+      "_note": ""
     },
     {
       "canonical_name": "猪刚鬣",
@@ -174,12 +169,10 @@
         "黑胖汉"
       ],
       "mention_count": 81,
-      "is_correct_grouping": false,
-      "wrong_aliases": [
-        "夯货"
-      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后1个问题: ['夯货']"
+      "_note": ""
     },
     {
       "canonical_name": "沙和尚",
@@ -206,10 +199,10 @@
         "金身罗汉"
       ],
       "mention_count": 69,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后全部正确"
+      "_note": ""
     },
     {
       "canonical_name": "玉皇大帝",
@@ -226,10 +219,10 @@
         "玉皇天尊"
       ],
       "mention_count": 18,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "观音菩萨",
@@ -250,12 +243,10 @@
         "鱼篮观音"
       ],
       "mention_count": 17,
-      "is_correct_grouping": false,
-      "wrong_aliases": [
-        "菩萨"
-      ],
+      "is_correct_grouping": null,
+      "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后1个问题: ['菩萨']"
+      "_note": ""
     },
     {
       "canonical_name": "银驮",
@@ -271,10 +262,10 @@
         "龙马"
       ],
       "mention_count": 17,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "哪吒三太子",
@@ -289,10 +280,10 @@
         "我儿"
       ],
       "mention_count": 13,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "惠岸行者",
@@ -308,10 +299,10 @@
         "行者"
       ],
       "mention_count": 11,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "如来佛祖",
@@ -329,10 +320,10 @@
         "释迦牟尼文佛"
       ],
       "mention_count": 10,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后全部正确"
+      "_note": ""
     },
     {
       "canonical_name": "牛魔王",
@@ -349,10 +340,10 @@
         "老牛的娘子"
       ],
       "mention_count": 8,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后全部正确"
+      "_note": ""
     },
     {
       "canonical_name": "太上老君",
@@ -368,10 +359,10 @@
         "道祖"
       ],
       "mention_count": 8,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "沙悟净",
@@ -384,10 +375,10 @@
         "沙弟"
       ],
       "mention_count": 8,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "国王",
@@ -405,10 +396,10 @@
         "皇帝"
       ],
       "mention_count": 8,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "金头揭谛",
@@ -416,10 +407,10 @@
         "揭谛"
       ],
       "mention_count": 8,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "托塔李天王",
@@ -430,10 +421,10 @@
         "父王"
       ],
       "mention_count": 7,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "广目天王",
@@ -442,10 +433,10 @@
         "天王"
       ],
       "mention_count": 7,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "增长天王",
@@ -454,10 +445,10 @@
         "天王"
       ],
       "mention_count": 7,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "敖顺",
@@ -470,10 +461,10 @@
         "龙王"
       ],
       "mention_count": 6,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "泾河龙王",
@@ -485,10 +476,10 @@
         "那龙王"
       ],
       "mention_count": 6,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "捧珠龙女",
@@ -496,10 +487,10 @@
         "龙女"
       ],
       "mention_count": 6,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "碗子山妖魔",
@@ -520,10 +511,10 @@
         "黄牙老象"
       ],
       "mention_count": 6,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "敖闰",
@@ -533,10 +524,10 @@
         "西海龙王"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "太白金星",
@@ -547,10 +538,10 @@
         "金星"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "观世音菩萨",
@@ -559,10 +550,10 @@
         "观音菩萨"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "洪江龙王",
@@ -575,10 +566,10 @@
         "龙王"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "魏征",
@@ -589,10 +580,10 @@
         "魏丞相"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "唐三藏",
@@ -604,10 +595,10 @@
         "陈玄奘"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "黄袍怪",
@@ -628,10 +619,10 @@
         "黄袍郎"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "平顶山·樵夫",
@@ -641,10 +632,10 @@
         "樵子"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "善财童子",
@@ -656,10 +647,10 @@
         "红孩儿"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "阿傩",
@@ -669,10 +660,10 @@
         "阿傩尊者"
       ],
       "mention_count": 5,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后全部正确"
+      "_note": ""
     },
     {
       "canonical_name": "孙悟空",
@@ -690,10 +681,10 @@
         "齐天大圣"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后全部正确"
+      "_note": ""
     },
     {
       "canonical_name": "李长庚",
@@ -706,10 +697,10 @@
         "长庚老"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "镇元子",
@@ -725,10 +716,10 @@
         "镇元大仙"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "土地神祗",
@@ -737,10 +728,10 @@
         "当坊土地"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "陈清",
@@ -749,10 +740,10 @@
         "陈老"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "修正后全部正确"
+      "_note": ""
     },
     {
       "canonical_name": "斑衣鳜婆",
@@ -763,10 +754,10 @@
         "鳜婆"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "多闻天王",
@@ -775,10 +766,10 @@
         "天王"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     },
     {
       "canonical_name": "罗刹女",
@@ -792,10 +783,10 @@
         "铁扇公主"
       ],
       "mention_count": 4,
-      "is_correct_grouping": true,
+      "is_correct_grouping": null,
       "wrong_aliases": [],
       "missing_aliases": [],
-      "_note": "OK"
+      "_note": ""
     }
   ]
 }

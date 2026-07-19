@@ -79,8 +79,8 @@
         "五斗星君送猴王到齐天大圣府赴任，猴王安心快乐"
       ],
       "relationships_count": 25,
-      "extraction_quality": "good",
-      "_note": "人物24/27在原文, 17事件"
+      "extraction_quality": null,
+      "_note": ""
     },
     {
       "chapter": 15,
@@ -124,8 +124,8 @@
         "落伽山山神土地显灵送鞍辔后离去"
       ],
       "relationships_count": 8,
-      "extraction_quality": "acceptable",
-      "_note": "人物6/12在原文, 11事件"
+      "extraction_quality": null,
+      "_note": ""
     },
     {
       "chapter": 36,
@@ -180,8 +180,8 @@
         "唐僧独自点灯铺开经本默默看念"
       ],
       "relationships_count": 7,
-      "extraction_quality": "acceptable",
-      "_note": "人物4/12在原文, 12事件"
+      "extraction_quality": null,
+      "_note": ""
     },
     {
       "chapter": 82,
@@ -237,8 +237,8 @@
         "猪八戒沙悟净接应，救出唐僧，妖精逃散"
       ],
       "relationships_count": 15,
-      "extraction_quality": "acceptable",
-      "_note": "人物3/6在原文, 16事件"
+      "extraction_quality": null,
+      "_note": ""
     },
     {
       "chapter": 95,
@@ -293,8 +293,8 @@
         "国王赠金银宝贝给唐僧四众，行者吹暗风送别"
       ],
       "relationships_count": 14,
-      "extraction_quality": "acceptable",
-      "_note": "人物5/14在原文, 12事件"
+      "extraction_quality": null,
+      "_note": ""
     }
   ]
 }

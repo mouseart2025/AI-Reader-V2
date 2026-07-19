@@ -1,5 +1,5 @@
 {
-  "_instructions": "is_direction_correct=true/false",
+  "_instructions": "is_direction_correct=true/false (source应包含target)",
   "_novel": "西游记",
   "_total": 605,
   "contains_relations": [
@@ -9,7 +9,7 @@
       "target": "傲来国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -18,7 +18,7 @@
       "target": "花果山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -27,7 +27,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -36,7 +36,7 @@
       "target": "灵台方寸山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -45,7 +45,7 @@
       "target": "斜月三星洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -54,7 +54,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -63,7 +63,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -72,7 +72,7 @@
       "target": "斜月三星洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -81,7 +81,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -90,7 +90,7 @@
       "target": "水脏洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -99,7 +99,7 @@
       "target": "坎源山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -108,7 +108,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -117,7 +117,7 @@
       "target": "武库",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -126,7 +126,7 @@
       "target": "水晶宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -135,7 +135,7 @@
       "target": "森罗殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -144,7 +144,7 @@
       "target": "翠云宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -153,7 +153,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -162,7 +162,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -171,7 +171,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -180,7 +180,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -189,7 +189,7 @@
       "target": "御马监",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -198,7 +198,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -207,7 +207,7 @@
       "target": "蟠桃园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -216,7 +216,7 @@
       "target": "安静司",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -225,7 +225,7 @@
       "target": "宁神司",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -234,7 +234,7 @@
       "target": "花果山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -243,7 +243,7 @@
       "target": "齐天大圣府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -252,7 +252,7 @@
       "target": "齐天府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -261,7 +261,7 @@
       "target": "蟠桃园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -270,7 +270,7 @@
       "target": "宝阁",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -279,7 +279,7 @@
       "target": "长廊",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -288,7 +288,7 @@
       "target": "兜率天宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -297,7 +297,7 @@
       "target": "丹房",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -306,7 +306,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -315,7 +315,7 @@
       "target": "铁板桥",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -324,7 +324,7 @@
       "target": "通明殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -333,7 +333,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -343,7 +343,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 6,
@@ -351,7 +351,7 @@
       "target": "灌洲灌江口",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -360,7 +360,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -369,7 +369,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -378,7 +378,7 @@
       "target": "斩妖台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -387,7 +387,7 @@
       "target": "斩妖台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -396,7 +396,7 @@
       "target": "兜率天宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -405,7 +405,7 @@
       "target": "八卦炉",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -414,7 +414,7 @@
       "target": "灵霄殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -423,7 +423,7 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -432,7 +432,7 @@
       "target": "雷音宝刹",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -442,7 +442,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 7,
@@ -450,7 +450,7 @@
       "target": "五行山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -459,7 +459,7 @@
       "target": "雷音宝刹",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -468,7 +468,7 @@
       "target": "流沙河",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -477,7 +477,7 @@
       "target": "玉真观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -486,7 +486,7 @@
       "target": "乌斯藏国",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -495,7 +495,7 @@
       "target": "南海普陀落伽山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -504,7 +504,7 @@
       "target": "云栈洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -513,7 +513,7 @@
       "target": "五行山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -523,7 +523,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier修正后需重新评估 (南天门:None, 天庭:region)"
+      "_note": ""
     },
     {
       "chapter": 8,
@@ -531,7 +531,7 @@
       "target": "长安城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -540,7 +540,7 @@
       "target": "洪江渡口",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -549,7 +549,7 @@
       "target": "洪江口",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -558,8 +558,8 @@
       "target": "弘农县",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 海州(city)>弘农县(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 8,
@@ -567,7 +567,7 @@
       "target": "万花店",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -576,7 +576,7 @@
       "target": "殷丞相府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -586,7 +586,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 9,
@@ -594,7 +594,7 @@
       "target": "泾河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -603,7 +603,7 @@
       "target": "西门街",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -612,7 +612,7 @@
       "target": "幽冥地府鬼门关",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -621,7 +621,7 @@
       "target": "森罗殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -630,7 +630,7 @@
       "target": "长安城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -639,7 +639,7 @@
       "target": "大唐国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -648,7 +648,7 @@
       "target": "大唐国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -657,7 +657,7 @@
       "target": "均州城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -666,7 +666,7 @@
       "target": "大唐国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -675,7 +675,7 @@
       "target": "金銮宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -684,7 +684,7 @@
       "target": "森罗殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -693,7 +693,7 @@
       "target": "白虎殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -702,7 +702,7 @@
       "target": "化生寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -711,8 +711,8 @@
       "target": "大唐国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 渭水河边(site)>大唐国(kingdom)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 12,
@@ -720,7 +720,7 @@
       "target": "长安城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -729,7 +729,7 @@
       "target": "金銮宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -738,7 +738,7 @@
       "target": "东华门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -748,7 +748,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 12,
@@ -756,7 +756,7 @@
       "target": "南海普陀山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -766,7 +766,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 12,
@@ -774,7 +774,7 @@
       "target": "多宝台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -783,7 +783,7 @@
       "target": "化生寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -792,7 +792,7 @@
       "target": "洪福寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -802,7 +802,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 13,
@@ -810,7 +810,7 @@
       "target": "两界山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -819,8 +819,8 @@
       "target": "五行山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 石匣(site)>五行山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 14,
@@ -828,7 +828,7 @@
       "target": "五行山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -837,7 +837,7 @@
       "target": "水晶宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -846,7 +846,7 @@
       "target": "西天",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -855,8 +855,8 @@
       "target": "蛇盘山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 鹰愁涧(site)>蛇盘山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 15,
@@ -864,7 +864,7 @@
       "target": "南海",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -873,7 +873,7 @@
       "target": "落伽山紫竹林",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -882,8 +882,8 @@
       "target": "里社祠",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 西番哈咇国界(building)>里社祠(site)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -892,7 +892,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -901,7 +901,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -910,7 +910,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -919,7 +919,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -928,7 +928,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -937,7 +937,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 16,
@@ -945,7 +945,7 @@
       "target": "方丈房",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -954,7 +954,7 @@
       "target": "黑风洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -963,7 +963,7 @@
       "target": "黑风洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -972,8 +972,8 @@
       "target": "后方丈",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 观音院(building)>后方丈(site)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 17,
@@ -981,7 +981,7 @@
       "target": "三层门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -990,7 +990,7 @@
       "target": "天井",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -999,7 +999,7 @@
       "target": "芳草坡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1008,7 +1008,7 @@
       "target": "南海落伽山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1017,7 +1017,7 @@
       "target": "紫竹林",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1026,7 +1026,7 @@
       "target": "潮音洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1035,7 +1035,7 @@
       "target": "乌斯藏国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1044,7 +1044,7 @@
       "target": "高老庄",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1053,7 +1053,7 @@
       "target": "福陵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1062,7 +1062,7 @@
       "target": "云栈洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1071,7 +1071,7 @@
       "target": "高太公后宅",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1080,7 +1080,7 @@
       "target": "乌斯藏国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1089,7 +1089,7 @@
       "target": "云栈洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1098,7 +1098,7 @@
       "target": "高老庄",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1107,7 +1107,7 @@
       "target": "浮屠山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1116,8 +1116,8 @@
       "target": "浮屠山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 乌巢(site)>浮屠山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 20,
@@ -1125,7 +1125,7 @@
       "target": "黄风洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1134,8 +1134,8 @@
       "target": "八百里黄风岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 藏风山凹(site)>八百里黄风岭(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 20,
@@ -1143,8 +1143,8 @@
       "target": "八百里黄风岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 卧虎石(site)>八百里黄风岭(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 20,
@@ -1152,7 +1152,7 @@
       "target": "黄风洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1161,7 +1161,7 @@
       "target": "黄风洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1170,8 +1170,8 @@
       "target": "小须弥山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 灵吉菩萨道场(site)>小须弥山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 22,
@@ -1179,7 +1179,7 @@
       "target": "南海",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1188,7 +1188,7 @@
       "target": "流沙河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1197,7 +1197,7 @@
       "target": "普陀山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1206,7 +1206,7 @@
       "target": "莫贾氏家",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1215,7 +1215,7 @@
       "target": "五庄观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1225,7 +1225,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 24,
@@ -1234,7 +1234,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 24,
@@ -1243,7 +1243,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 24,
@@ -1251,7 +1251,7 @@
       "target": "人参园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1260,7 +1260,7 @@
       "target": "人参园",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1269,7 +1269,7 @@
       "target": "五庄观·花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1278,7 +1278,7 @@
       "target": "菜园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1287,7 +1287,7 @@
       "target": "上清天",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1296,7 +1296,7 @@
       "target": "五庄观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1305,7 +1305,7 @@
       "target": "人参园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1314,7 +1314,7 @@
       "target": "万寿山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1323,7 +1323,7 @@
       "target": "前山门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1332,7 +1332,7 @@
       "target": "东天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1341,7 +1341,7 @@
       "target": "五庄观·正殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1350,7 +1350,7 @@
       "target": "五庄观·油锅",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1359,7 +1359,7 @@
       "target": "五庄观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1368,7 +1368,7 @@
       "target": "人参园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1377,7 +1377,7 @@
       "target": "蓬莱仙境",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1386,7 +1386,7 @@
       "target": "方丈仙山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1395,7 +1395,7 @@
       "target": "瀛洲海岛",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1404,7 +1404,7 @@
       "target": "紫竹林",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1413,7 +1413,7 @@
       "target": "普陀岩",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1422,7 +1422,7 @@
       "target": "白虎岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1431,7 +1431,7 @@
       "target": "白虎岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1440,7 +1440,7 @@
       "target": "花果山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1449,7 +1449,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1458,7 +1458,7 @@
       "target": "五庄观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1467,7 +1467,7 @@
       "target": "万寿山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1476,7 +1476,7 @@
       "target": "碗子山波月洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1486,7 +1486,7 @@
       "relation": "contains",
       "confidence": "medium",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 30,
@@ -1494,7 +1494,7 @@
       "target": "碗子山波月洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1503,7 +1503,7 @@
       "target": "花果山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1512,7 +1512,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1521,7 +1521,7 @@
       "target": "波月洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1530,7 +1530,7 @@
       "target": "金塔",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1539,7 +1539,7 @@
       "target": "碗子山波月洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1548,7 +1548,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1557,7 +1557,7 @@
       "target": "通明殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1566,7 +1566,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1575,7 +1575,7 @@
       "target": "兜率天宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1584,7 +1584,7 @@
       "target": "宝象国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1593,7 +1593,7 @@
       "target": "银安殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1602,7 +1602,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1611,7 +1611,7 @@
       "target": "莲花洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1620,7 +1620,7 @@
       "target": "绿莎坡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1630,7 +1630,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 32,
@@ -1638,7 +1638,7 @@
       "target": "平顶山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1647,7 +1647,7 @@
       "target": "红草坡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1656,7 +1656,7 @@
       "target": "净水池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1665,7 +1665,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1674,7 +1674,7 @@
       "target": "北天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1683,7 +1683,7 @@
       "target": "灵霄殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1692,7 +1692,7 @@
       "target": "莲花洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1701,7 +1701,7 @@
       "target": "莲花洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1710,7 +1710,7 @@
       "target": "压龙洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1719,7 +1719,7 @@
       "target": "乌林子",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1729,7 +1729,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 35,
@@ -1737,7 +1737,7 @@
       "target": "莲花洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1746,7 +1746,7 @@
       "target": "平顶山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1755,7 +1755,7 @@
       "target": "压龙山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1764,7 +1764,7 @@
       "target": "兜率天宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1773,7 +1773,7 @@
       "target": "二层门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1782,7 +1782,7 @@
       "target": "大雄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1791,7 +1791,7 @@
       "target": "敕建宝林寺·后门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1800,7 +1800,7 @@
       "target": "方丈",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1810,7 +1810,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 36,
@@ -1818,7 +1818,7 @@
       "target": "天井",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1828,7 +1828,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 37,
@@ -1836,7 +1836,7 @@
       "target": "御花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1845,7 +1845,7 @@
       "target": "宝林寺正殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1854,7 +1854,7 @@
       "target": "宝林寺山门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1863,7 +1863,7 @@
       "target": "乌鸡国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1872,8 +1872,8 @@
       "target": "乌鸡国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 东郊(site)>乌鸡国城池(city)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 37,
@@ -1881,7 +1881,7 @@
       "target": "八角琉璃井",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1890,7 +1890,7 @@
       "target": "后宰门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1899,7 +1899,7 @@
       "target": "乌鸡国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1908,7 +1908,7 @@
       "target": "乌鸡国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1917,7 +1917,7 @@
       "target": "锦香亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1926,7 +1926,7 @@
       "target": "后宰门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1935,7 +1935,7 @@
       "target": "御花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1944,7 +1944,7 @@
       "target": "琉璃井",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1953,8 +1953,8 @@
       "target": "水晶宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 琉璃井(building)>水晶宫(site)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 38,
@@ -1962,7 +1962,7 @@
       "target": "宝林寺禅堂",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1971,7 +1971,7 @@
       "target": "宝林寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1980,7 +1980,7 @@
       "target": "宝林寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1989,7 +1989,7 @@
       "target": "八角琉璃井",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -1998,7 +1998,7 @@
       "target": "御花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2007,7 +2007,7 @@
       "target": "乌鸡国皇宫",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2016,7 +2016,7 @@
       "target": "乌鸡国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2025,7 +2025,7 @@
       "target": "金銮宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2034,7 +2034,7 @@
       "target": "白玉阶",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2044,7 +2044,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 39,
@@ -2052,7 +2052,7 @@
       "target": "南赡部洲",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2061,7 +2061,7 @@
       "target": "西牛贺洲",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2071,7 +2071,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 40,
@@ -2080,7 +2080,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 40,
@@ -2089,7 +2089,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 40,
@@ -2098,7 +2098,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 40,
@@ -2107,7 +2107,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 40,
@@ -2116,7 +2116,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 40,
@@ -2124,7 +2124,7 @@
       "target": "火焰山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2133,7 +2133,7 @@
       "target": "枯松涧",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2142,7 +2142,7 @@
       "target": "火云洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2151,7 +2151,7 @@
       "target": "水晶宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2161,7 +2161,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 42,
@@ -2169,7 +2169,7 @@
       "target": "落伽山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2178,7 +2178,7 @@
       "target": "潮音洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2188,7 +2188,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 42,
@@ -2196,7 +2196,7 @@
       "target": "枯松涧",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2206,7 +2206,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 42,
@@ -2214,8 +2214,8 @@
       "target": "号山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 山凹(site)>号山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 42,
@@ -2224,7 +2224,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 42,
@@ -2232,7 +2232,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2242,7 +2242,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 42,
@@ -2251,7 +2251,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 43,
@@ -2259,7 +2259,7 @@
       "target": "水晶宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2268,7 +2268,7 @@
       "target": "黑水河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2277,7 +2277,7 @@
       "target": "乌斯藏国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2286,7 +2286,7 @@
       "target": "车迟国·宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2295,7 +2295,7 @@
       "target": "车迟国城门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2304,7 +2304,7 @@
       "target": "三清殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2313,7 +2313,7 @@
       "target": "方丈",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2322,7 +2322,7 @@
       "target": "东厕",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2331,7 +2331,7 @@
       "target": "三清观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2340,7 +2340,7 @@
       "target": "智渊寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2349,7 +2349,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2358,7 +2358,7 @@
       "target": "三清殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2368,7 +2368,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 45,
@@ -2376,7 +2376,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2385,7 +2385,7 @@
       "target": "西边台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2394,7 +2394,7 @@
       "target": "东边台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2403,7 +2403,7 @@
       "target": "御花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2412,7 +2412,7 @@
       "target": "仙桃树",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2421,7 +2421,7 @@
       "target": "车迟国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2430,8 +2430,8 @@
       "target": "车迟国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 杀场(site)>车迟国(kingdom)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 46,
@@ -2440,7 +2440,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 46,
@@ -2448,8 +2448,8 @@
       "target": "车迟国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 御水河边(site)>车迟国(kingdom)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 46,
@@ -2457,7 +2457,7 @@
       "target": "车迟国宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2467,7 +2467,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 47,
@@ -2475,7 +2475,7 @@
       "target": "智渊寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2484,7 +2484,7 @@
       "target": "四五百家住处·厅房",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2493,7 +2493,7 @@
       "target": "陈家庄",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2502,7 +2502,7 @@
       "target": "车迟国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2511,7 +2511,7 @@
       "target": "陈家庄",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2520,7 +2520,7 @@
       "target": "通天河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2529,7 +2529,7 @@
       "target": "灵感庙",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2538,8 +2538,8 @@
       "target": "通天河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 通天河河水府(site)>通天河(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 48,
@@ -2547,7 +2547,7 @@
       "target": "陈家",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2556,7 +2556,7 @@
       "target": "水鼋之第",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2565,7 +2565,7 @@
       "target": "通天河石匣",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2574,7 +2574,7 @@
       "target": "通天河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2583,7 +2583,7 @@
       "target": "紫竹林",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2592,7 +2592,7 @@
       "target": "普陀崖",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2601,8 +2601,8 @@
       "target": "通天河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 东岸(site)>通天河(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 50,
@@ -2610,7 +2610,7 @@
       "target": "金皘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2619,7 +2619,7 @@
       "target": "楼台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2628,7 +2628,7 @@
       "target": "楼台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2637,7 +2637,7 @@
       "target": "金皘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2646,7 +2646,7 @@
       "target": "金皘山南坡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2656,7 +2656,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier修正后需重新评估 (南天门外:None, 天庭:region)"
+      "_note": ""
     },
     {
       "chapter": 51,
@@ -2665,7 +2665,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier修正后需重新评估 (北天门外:None, 天庭:region)"
+      "_note": ""
     },
     {
       "chapter": 52,
@@ -2673,7 +2673,7 @@
       "target": "金皘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2682,7 +2682,7 @@
       "target": "金皘山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2692,7 +2692,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 52,
@@ -2700,7 +2700,7 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2709,7 +2709,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2718,7 +2718,7 @@
       "target": "离恨天",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2727,7 +2727,7 @@
       "target": "兜率宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2736,7 +2736,7 @@
       "target": "牛栏",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2745,7 +2745,7 @@
       "target": "乌斯藏国",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2754,7 +2754,7 @@
       "target": "破儿洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2763,7 +2763,7 @@
       "target": "聚仙庵",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2772,7 +2772,7 @@
       "target": "聚仙庵",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2781,7 +2781,7 @@
       "target": "火云洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2790,8 +2790,8 @@
       "target": "号山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 枯松涧(site)>号山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 54,
@@ -2799,7 +2799,7 @@
       "target": "西梁女国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2808,7 +2808,7 @@
       "target": "西梁女国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2817,7 +2817,7 @@
       "target": "迎阳驿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2826,7 +2826,7 @@
       "target": "东阁",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2835,7 +2835,7 @@
       "target": "金銮宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2844,7 +2844,7 @@
       "target": "西关",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2853,7 +2853,7 @@
       "target": "五凤楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2862,7 +2862,7 @@
       "target": "东关厢",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2871,7 +2871,7 @@
       "target": "琵琶洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2880,7 +2880,7 @@
       "target": "石屏",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2889,7 +2889,7 @@
       "target": "花亭子",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2898,7 +2898,7 @@
       "target": "香房",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2907,8 +2907,8 @@
       "target": "毒敌山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 西梁国(site)>毒敌山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 55,
@@ -2916,7 +2916,7 @@
       "target": "西梁国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2925,7 +2925,7 @@
       "target": "东天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2935,7 +2935,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier修正后需重新评估 (东天门:None, 天庭:region)"
+      "_note": ""
     },
     {
       "chapter": 55,
@@ -2943,7 +2943,7 @@
       "target": "雷音寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2952,7 +2952,7 @@
       "target": "琵琶洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2961,7 +2961,7 @@
       "target": "山路",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2971,7 +2971,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 56,
@@ -2979,7 +2979,7 @@
       "target": "西坡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -2989,7 +2989,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 56,
@@ -2998,7 +2998,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 56,
@@ -3007,7 +3007,7 @@
       "relation": "contains",
       "confidence": "medium",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 56,
@@ -3015,7 +3015,7 @@
       "target": "野冢",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3024,7 +3024,7 @@
       "target": "草堂",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3033,7 +3033,7 @@
       "target": "庄院",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3042,7 +3042,7 @@
       "target": "草团瓢",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3051,7 +3051,7 @@
       "target": "南海紫竹林",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3060,7 +3060,7 @@
       "target": "潮音洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3069,7 +3069,7 @@
       "target": "花果山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3078,7 +3078,7 @@
       "target": "花果山水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3087,7 +3087,7 @@
       "target": "水帘洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3096,7 +3096,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3105,7 +3105,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3114,7 +3114,7 @@
       "target": "森罗殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3123,7 +3123,7 @@
       "target": "雷音宝刹",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3132,7 +3132,7 @@
       "target": "中途草舍",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3141,7 +3141,7 @@
       "target": "芭蕉洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3150,7 +3150,7 @@
       "target": "摩云洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3159,7 +3159,7 @@
       "target": "芭蕉洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3168,7 +3168,7 @@
       "target": "碧波潭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3177,7 +3177,7 @@
       "target": "积雷山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3186,7 +3186,7 @@
       "target": "摩云洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3195,7 +3195,7 @@
       "target": "火焰山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3204,7 +3204,7 @@
       "target": "翠云山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3213,7 +3213,7 @@
       "target": "芭蕉洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3222,7 +3222,7 @@
       "target": "乱石山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3231,7 +3231,7 @@
       "target": "碧波潭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3240,7 +3240,7 @@
       "target": "翠云山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3249,7 +3249,7 @@
       "target": "火焰山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3258,7 +3258,7 @@
       "target": "碧波潭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3267,7 +3267,7 @@
       "target": "金光寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3276,7 +3276,7 @@
       "target": "金光寺宝塔",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3285,7 +3285,7 @@
       "target": "乱石山碧波潭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3294,7 +3294,7 @@
       "target": "乱石山碧波潭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3303,7 +3303,7 @@
       "target": "金光寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3312,7 +3312,7 @@
       "target": "牌楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3321,7 +3321,7 @@
       "target": "祭赛国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3330,7 +3330,7 @@
       "target": "祭赛国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3339,7 +3339,7 @@
       "target": "古庙",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3348,7 +3348,7 @@
       "target": "石屋",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3357,7 +3357,7 @@
       "target": "木仙庵",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3366,7 +3366,7 @@
       "target": "荆棘岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3375,7 +3375,7 @@
       "target": "小西天",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3384,7 +3384,7 @@
       "target": "小雷音寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3393,7 +3393,7 @@
       "target": "东山顶",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3402,7 +3402,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3411,7 +3411,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3420,7 +3420,7 @@
       "target": "武当山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3429,7 +3429,7 @@
       "target": "地窖子",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3438,7 +3438,7 @@
       "target": "第三重楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3447,7 +3447,7 @@
       "target": "武当山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3456,7 +3456,7 @@
       "target": "太和宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3465,7 +3465,7 @@
       "target": "小雷音寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3474,7 +3474,7 @@
       "target": "盱眙山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3483,7 +3483,7 @@
       "target": "蠙城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3492,7 +3492,7 @@
       "target": "草庵",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3501,7 +3501,7 @@
       "target": "瓜田",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3510,7 +3510,7 @@
       "target": "地窖",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3519,7 +3519,7 @@
       "target": "珍楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3528,7 +3528,7 @@
       "target": "李老者家",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3537,7 +3537,7 @@
       "target": "李老者家",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3546,7 +3546,7 @@
       "target": "朱紫国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3555,7 +3555,7 @@
       "target": "会同馆",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3564,7 +3564,7 @@
       "target": "五凤楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3573,7 +3573,7 @@
       "target": "金殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3582,8 +3582,8 @@
       "target": "朱紫国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 大街市(site)>朱紫国(kingdom)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 68,
@@ -3591,7 +3591,7 @@
       "target": "鼓楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3601,7 +3601,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 68,
@@ -3609,7 +3609,7 @@
       "target": "会同馆",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3618,7 +3618,7 @@
       "target": "御花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3627,7 +3627,7 @@
       "target": "海榴亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3636,7 +3636,7 @@
       "target": "避妖楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3645,7 +3645,7 @@
       "target": "朱紫国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3654,7 +3654,7 @@
       "target": "文华殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3663,7 +3663,7 @@
       "target": "东阁",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3672,7 +3672,7 @@
       "target": "麒麟山獬豸洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3681,7 +3681,7 @@
       "target": "避妖楼地穴",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3690,7 +3690,7 @@
       "target": "高峰",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3699,7 +3699,7 @@
       "target": "剥皮亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3708,7 +3708,7 @@
       "target": "金圣娘娘住处",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3717,7 +3717,7 @@
       "target": "妆台",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3726,7 +3726,7 @@
       "target": "麒麟山獬豸洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3735,7 +3735,7 @@
       "target": "剥皮亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3744,7 +3744,7 @@
       "target": "麒麟山獬豸洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3753,7 +3753,7 @@
       "target": "御案",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3762,7 +3762,7 @@
       "target": "麒麟山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3771,7 +3771,7 @@
       "target": "朱紫国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3780,7 +3780,7 @@
       "target": "朱紫国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3789,7 +3789,7 @@
       "target": "盘丝洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3798,7 +3798,7 @@
       "target": "木香亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3807,7 +3807,7 @@
       "target": "茅屋",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3816,7 +3816,7 @@
       "target": "土地庙",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3826,7 +3826,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 72,
@@ -3834,7 +3834,7 @@
       "target": "浴池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3843,7 +3843,7 @@
       "target": "后园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3852,7 +3852,7 @@
       "target": "黄花观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3861,7 +3861,7 @@
       "target": "千花洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3871,7 +3871,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 73,
@@ -3879,7 +3879,7 @@
       "target": "紫云山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3888,7 +3888,7 @@
       "target": "狮驼洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3897,7 +3897,7 @@
       "target": "狮驼洞二层门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3906,7 +3906,7 @@
       "target": "狮驼洞三层门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3915,7 +3915,7 @@
       "target": "狮驼洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3924,7 +3924,7 @@
       "target": "高山洞口",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3934,7 +3934,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 76,
@@ -3943,7 +3943,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 76,
@@ -3951,7 +3951,7 @@
       "target": "乌斯藏国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3960,7 +3960,7 @@
       "target": "狮驼岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3969,7 +3969,7 @@
       "target": "狮驼洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3978,7 +3978,7 @@
       "target": "妖魔城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3987,7 +3987,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -3996,8 +3996,8 @@
       "target": "狮驼岭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 大路旁(site)>狮驼岭(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 76,
@@ -4006,7 +4006,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 76,
@@ -4014,7 +4014,7 @@
       "target": "高山",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4023,7 +4023,7 @@
       "target": "城东半山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4032,7 +4032,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4042,7 +4042,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 77,
@@ -4050,7 +4050,7 @@
       "target": "狮驼城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4059,7 +4059,7 @@
       "target": "狮驼洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4068,7 +4068,7 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4077,7 +4077,7 @@
       "target": "雷音宝刹",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4086,7 +4086,7 @@
       "target": "鹫峰",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4095,7 +4095,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4104,7 +4104,7 @@
       "target": "锦香亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4113,8 +4113,8 @@
       "target": "铁柜",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 锦香亭(building)>铁柜(site)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 77,
@@ -4122,8 +4122,8 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 天竺(site)>灵山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 78,
@@ -4131,7 +4131,7 @@
       "target": "比丘国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4140,7 +4140,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4149,8 +4149,8 @@
       "target": "比丘国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 金亭馆驿(site)>比丘国(kingdom)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 78,
@@ -4159,7 +4159,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 78,
@@ -4168,7 +4168,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 79,
@@ -4176,7 +4176,7 @@
       "target": "柳林坡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4185,7 +4185,7 @@
       "target": "清华洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4194,7 +4194,7 @@
       "target": "比丘国宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4203,8 +4203,8 @@
       "target": "比丘国城池",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": false,
-      "_note": "反转: 金亭馆驿(site)>比丘国城池(city)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 79,
@@ -4212,7 +4212,7 @@
       "target": "东阁",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4221,7 +4221,7 @@
       "target": "比丘国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4231,7 +4231,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 80,
@@ -4239,7 +4239,7 @@
       "target": "镇海禅林寺·三层门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4248,7 +4248,7 @@
       "target": "镇海禅林寺·方丈",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4257,7 +4257,7 @@
       "target": "镇海禅林寺",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4266,7 +4266,7 @@
       "target": "陷空山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4275,7 +4275,7 @@
       "target": "无底洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4284,7 +4284,7 @@
       "target": "佛殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4293,7 +4293,7 @@
       "target": "镇海禅林寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4302,7 +4302,7 @@
       "target": "镇海禅林寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4311,7 +4311,7 @@
       "target": "陷空山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4320,7 +4320,7 @@
       "target": "牌楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4329,7 +4329,7 @@
       "target": "山凹",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4338,7 +4338,7 @@
       "target": "草亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4347,7 +4347,7 @@
       "target": "东廊",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4356,7 +4356,7 @@
       "target": "井边",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4366,7 +4366,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 82,
@@ -4374,7 +4374,7 @@
       "target": "东廊",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4383,7 +4383,7 @@
       "target": "妖精洞·花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4392,7 +4392,7 @@
       "target": "妖精洞·花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4401,7 +4401,7 @@
       "target": "凝香阁",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4410,7 +4410,7 @@
       "target": "浴鹤池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4419,7 +4419,7 @@
       "target": "妖精洞洞口",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4428,7 +4428,7 @@
       "target": "陷空山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4437,7 +4437,7 @@
       "target": "无底洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4446,7 +4446,7 @@
       "target": "妖精洞·花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4455,7 +4455,7 @@
       "target": "南天门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4464,7 +4464,7 @@
       "target": "灵霄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4473,7 +4473,7 @@
       "target": "云楼宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4482,7 +4482,7 @@
       "target": "东南黑角落",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4491,7 +4491,7 @@
       "target": "灭法国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4500,7 +4500,7 @@
       "target": "灭法国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4509,7 +4509,7 @@
       "target": "王小二店",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4518,7 +4518,7 @@
       "target": "赵寡妇店",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4527,7 +4527,7 @@
       "target": "赵寡妇店",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4536,7 +4536,7 @@
       "target": "皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4545,7 +4545,7 @@
       "target": "南海",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4554,7 +4554,7 @@
       "target": "灭法国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4563,7 +4563,7 @@
       "target": "五凤楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4572,7 +4572,7 @@
       "target": "金銮宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4581,7 +4581,7 @@
       "target": "高山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4590,8 +4590,8 @@
       "target": "高山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 悬岩(site)>高山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 85,
@@ -4599,8 +4599,8 @@
       "target": "高山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 山凹(site)>高山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 85,
@@ -4609,7 +4609,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 85,
@@ -4617,7 +4617,7 @@
       "target": "妖精洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4626,7 +4626,7 @@
       "target": "妖精洞后园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4636,7 +4636,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 86,
@@ -4644,7 +4644,7 @@
       "target": "折岳连环洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4654,7 +4654,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 86,
@@ -4662,7 +4662,7 @@
       "target": "剥皮亭",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4672,7 +4672,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 86,
@@ -4680,7 +4680,7 @@
       "target": "豹子精洞府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4690,7 +4690,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 86,
@@ -4698,8 +4698,8 @@
       "target": "园子",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 豹子精洞府(building)>园子(site)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 87,
@@ -4707,7 +4707,7 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4716,7 +4716,7 @@
       "target": "凤仙郡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4725,7 +4725,7 @@
       "target": "西天门外",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4734,7 +4734,7 @@
       "target": "通明殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4743,7 +4743,7 @@
       "target": "披香殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4752,7 +4752,7 @@
       "target": "天竺国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4761,7 +4761,7 @@
       "target": "玉华县",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4770,7 +4770,7 @@
       "target": "玉华王府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4779,7 +4779,7 @@
       "target": "虎口洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4788,7 +4788,7 @@
       "target": "暴纱亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4797,7 +4797,7 @@
       "target": "待客馆",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4806,7 +4806,7 @@
       "target": "虎口洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4815,7 +4815,7 @@
       "target": "九曲盘桓洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4824,7 +4824,7 @@
       "target": "玉华县",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4833,7 +4833,7 @@
       "target": "玉华州城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4843,7 +4843,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 90,
@@ -4851,7 +4851,7 @@
       "target": "玉华王府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4860,7 +4860,7 @@
       "target": "九曲盘桓洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4869,7 +4869,7 @@
       "target": "东天门外",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4878,7 +4878,7 @@
       "target": "妙岩宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4887,7 +4887,7 @@
       "target": "大千甘露殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4896,7 +4896,7 @@
       "target": "金平府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4905,7 +4905,7 @@
       "target": "慈云寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4914,7 +4914,7 @@
       "target": "青龙山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4923,7 +4923,7 @@
       "target": "玄英洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4932,7 +4932,7 @@
       "target": "金灯桥",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4941,7 +4941,7 @@
       "target": "旻天县",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4950,7 +4950,7 @@
       "target": "大雷音寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4959,7 +4959,7 @@
       "target": "金平府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4968,7 +4968,7 @@
       "target": "青龙山玄英洞",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4977,7 +4977,7 @@
       "target": "慈云寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4986,7 +4986,7 @@
       "target": "水晶宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -4995,7 +4995,7 @@
       "target": "天竺国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5004,7 +5004,7 @@
       "target": "布金禅寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5013,7 +5013,7 @@
       "target": "天竺国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5022,7 +5022,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5031,8 +5031,8 @@
       "target": "天竺国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 十字街头(site)>天竺国城池(city)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 93,
@@ -5040,8 +5040,8 @@
       "target": "天竺国城池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 会同馆驿(site)>天竺国城池(city)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 93,
@@ -5049,7 +5049,7 @@
       "target": "百脚山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5058,7 +5058,7 @@
       "target": "布金禅寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5067,7 +5067,7 @@
       "target": "比丘国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5076,7 +5076,7 @@
       "target": "御花园",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5085,7 +5085,7 @@
       "target": "华夷阁",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5094,7 +5094,7 @@
       "target": "留春亭",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5103,7 +5103,7 @@
       "target": "昭阳宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5112,7 +5112,7 @@
       "target": "鳷鹊宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5121,7 +5121,7 @@
       "target": "天竺国",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5130,7 +5130,7 @@
       "target": "天竺国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5139,8 +5139,8 @@
       "target": "天竺国皇宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 御花园(building)>天竺国皇宫(site)"
+      "is_direction_correct": null,
+      "_note": ""
     },
     {
       "chapter": 95,
@@ -5148,7 +5148,7 @@
       "target": "留春亭",
       "relation": "contains",
       "confidence": "medium",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5157,7 +5157,7 @@
       "target": "布金寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5167,7 +5167,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier修正后需重新评估 (西天门:None, 天庭:region)"
+      "_note": ""
     },
     {
       "chapter": 95,
@@ -5176,7 +5176,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 95,
@@ -5184,7 +5184,7 @@
       "target": "百脚山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5193,7 +5193,7 @@
       "target": "铜台府",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5202,7 +5202,7 @@
       "target": "地灵县",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5211,7 +5211,7 @@
       "target": "寇员外家",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5221,7 +5221,7 @@
       "relation": "contains",
       "confidence": "high",
       "is_direction_correct": null,
-      "_note": "tier未知"
+      "_note": ""
     },
     {
       "chapter": 96,
@@ -5229,7 +5229,7 @@
       "target": "寇员外家·斋堂",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5238,7 +5238,7 @@
       "target": "大厂厅",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5247,7 +5247,7 @@
       "target": "地灵县",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5256,7 +5256,7 @@
       "target": "寇员外家",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5265,7 +5265,7 @@
       "target": "黄堂",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5274,7 +5274,7 @@
       "target": "监门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5283,7 +5283,7 @@
       "target": "西门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5292,7 +5292,7 @@
       "target": "森罗殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5301,7 +5301,7 @@
       "target": "翠云宫",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5310,7 +5310,7 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5319,7 +5319,7 @@
       "target": "玉真观",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5328,7 +5328,7 @@
       "target": "雷音寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5337,7 +5337,7 @@
       "target": "凌云渡",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5346,7 +5346,7 @@
       "target": "大雄宝殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5355,7 +5355,7 @@
       "target": "珍楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5364,7 +5364,7 @@
       "target": "宝阁",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5373,7 +5373,7 @@
       "target": "雷音寺山门",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5382,7 +5382,7 @@
       "target": "通天河",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5391,7 +5391,7 @@
       "target": "救生寺",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5400,7 +5400,7 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5409,7 +5409,7 @@
       "target": "长安城",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5418,7 +5418,7 @@
       "target": "望经楼",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5427,7 +5427,7 @@
       "target": "金銮殿",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5436,7 +5436,7 @@
       "target": "化龙池",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": true,
+      "is_direction_correct": null,
       "_note": ""
     },
     {
@@ -5445,8 +5445,8 @@
       "target": "灵山",
       "relation": "contains",
       "confidence": "high",
-      "is_direction_correct": false,
-      "_note": "反转: 雷音宝刹(site)>灵山(region)"
+      "is_direction_correct": null,
+      "_note": ""
     }
   ]
 }
