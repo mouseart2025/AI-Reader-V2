@@ -1,0 +1,37 @@
+{
+  "novel_id": "530de1f0-b160-423f-a082-b3fe86d14166",
+  "extractor": "deepseek-chat (DeepSeek V3)",
+  "chapters": 100,
+  "voting": {
+    "avg_depth": 3.26,
+    "max_depth": 7,
+    "root_count": 5,
+    "max_children": 56,
+    "max_children_node": "天下",
+    "total_locations": 537,
+    "total_parents": 558,
+    "cycles": 0
+  },
+  "full": {
+    "avg_depth": 2.95,
+    "max_depth": 6,
+    "root_count": 1,
+    "max_children": 46,
+    "max_children_node": "西牛贺洲",
+    "total_locations": 537,
+    "total_parents": 562,
+    "cycles": 0
+  },
+  "claude_reference": {
+    "voting": {
+      "max_children": 279,
+      "root_count": 25,
+      "cycles": 2
+    },
+    "full": {
+      "max_children": 63,
+      "root_count": 1,
+      "cycles": 0
+    }
+  }
+}
