@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from collections import Counter
 
@@ -662,7 +663,8 @@ class EntityPreScanner:
             system=system_prompt,
             prompt=user_prompt,
             format={"type": "object"},
-            temperature=0.1,
+            # env override for multi-seed / temperature-sensitivity experiments
+            temperature=float(os.environ.get("LLM_EXTRACTION_TEMPERATURE", "0.1")),
             max_tokens=8192,
             timeout=600,
         )
