@@ -684,7 +684,9 @@ class AnalysisService:
             logger.info("Auto-retrying %d failed chapters", len(_failed_in_run))
             await self._broadcast_stage(novel_id, chapter_end, f"重试 {len(_failed_in_run)} 个失败章节")
             for retry_ch in _failed_in_run:
-                retry_num = retry_ch["chapter_number"]
+                # chapter dict comes from get_chapter_content (column: chapter_num);
+                # accept both key spellings to avoid KeyError crashing the run loop
+                retry_num = retry_ch.get("chapter_number") or retry_ch["chapter_num"]
                 # N28.3: content_policy chapters will always be rejected — skip retry
                 if retry_ch.get("error_type") == "content_policy":
                     logger.info("Skipping retry for chapter %d: content_policy (will always be rejected)", retry_num)
