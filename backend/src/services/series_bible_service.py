@@ -65,6 +65,7 @@ async def collect_data(
     modules: list[str] | None = None,
     chapter_start: int | None = None,
     chapter_end: int | None = None,
+    export_all: bool = False,
 ) -> SeriesBibleData:
     """Collect all requested module data for Series Bible export.
 
@@ -73,6 +74,8 @@ async def collect_data(
         modules: List of module names to include. None = all modules.
         chapter_start: Start chapter (None = from first analyzed).
         chapter_end: End chapter (None = to last analyzed).
+        export_all: True = export every entity (slow on large novels);
+            False = keep top-N caps (50 chars / 50 locs / 30 items / 20 orgs).
     """
     from src.db import novel_store
 
@@ -105,8 +108,10 @@ async def collect_data(
     # ── Characters ──────────────────────────────
     if "characters" in selected_modules:
         persons = [e for e in all_entities if e.type == "person"]
-        # Limit to top 50 by chapter_count for performance
-        persons = sorted(persons, key=lambda e: e.chapter_count, reverse=True)[:50]
+        # Limit to top 50 by chapter_count for performance (unless export_all)
+        persons = sorted(persons, key=lambda e: e.chapter_count, reverse=True)
+        if not export_all:
+            persons = persons[:50]
         for entity in persons:
             try:
                 profile = await aggregate_person(novel_id, entity.name)
@@ -125,7 +130,9 @@ async def collect_data(
     # ── Locations ───────────────────────────────
     if "locations" in selected_modules:
         locs = [e for e in all_entities if e.type == "location"]
-        locs = sorted(locs, key=lambda e: e.chapter_count, reverse=True)[:50]
+        locs = sorted(locs, key=lambda e: e.chapter_count, reverse=True)
+        if not export_all:
+            locs = locs[:50]
         for entity in locs:
             try:
                 profile = await aggregate_location(novel_id, entity.name)
@@ -137,7 +144,9 @@ async def collect_data(
     if "items" in selected_modules:
         items = [e for e in all_entities if e.type == "item"]
         items = sorted(items, key=lambda e: e.chapter_count, reverse=True)
-        items = [e for e in items if e.name not in _ITEM_NOISE_NAMES and len(e.name) >= 2][:30]
+        items = [e for e in items if e.name not in _ITEM_NOISE_NAMES and len(e.name) >= 2]
+        if not export_all:
+            items = items[:30]
         for entity in items:
             try:
                 profile = await aggregate_item(novel_id, entity.name)
@@ -148,7 +157,9 @@ async def collect_data(
     # ── Orgs ────────────────────────────────────
     if "orgs" in selected_modules:
         orgs = [e for e in all_entities if e.type == "org"]
-        orgs = sorted(orgs, key=lambda e: e.chapter_count, reverse=True)[:20]
+        orgs = sorted(orgs, key=lambda e: e.chapter_count, reverse=True)
+        if not export_all:
+            orgs = orgs[:20]
         for entity in orgs:
             try:
                 profile = await aggregate_org(novel_id, entity.name)

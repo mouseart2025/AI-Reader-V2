@@ -38,6 +38,7 @@ export default function ExportPage() {
   const [totalChapters, setTotalChapters] = useState(0)
   const [chapterStart, setChapterStart] = useState<number | null>(null)
   const [chapterEnd, setChapterEnd] = useState<number | null>(null)
+  const [exportAll, setExportAll] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
 
   // ── Analysis Data state ──
@@ -124,6 +125,7 @@ export default function ExportPage() {
         format: format === "word" ? "docx" : format === "excel" ? "xlsx" : format === "pdf" ? "pdf" : undefined,
         chapter_start: chapterStart || undefined,
         chapter_end: chapterEnd || undefined,
+        export_all: exportAll,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : "导出失败")
@@ -131,7 +133,7 @@ export default function ExportPage() {
       setExporting(false)
       setProgress(null)
     }
-  }, [novelId, format, template, selectedModules, chapterStart, chapterEnd])
+  }, [novelId, format, template, selectedModules, chapterStart, chapterEnd, exportAll])
 
   const handleAirExport = useCallback(async () => {
     if (!novelId) return
@@ -283,6 +285,18 @@ export default function ExportPage() {
                     </label>
                   ))}
                 </div>
+                <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    checked={exportAll}
+                    onChange={(e) => setExportAll(e.target.checked)}
+                  />
+                  <span className="text-sm">导出全部实体与关系</span>
+                  <span className="text-xs text-muted-foreground">
+                    （默认仅核心 Top-50；长篇全量导出较慢）
+                  </span>
+                </label>
               </section>
             )}
 

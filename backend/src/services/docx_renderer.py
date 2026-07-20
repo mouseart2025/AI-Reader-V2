@@ -16,7 +16,7 @@ from docx.oxml.ns import qn
 from src.services.series_bible_service import SeriesBibleData
 
 
-def render_docx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
+def render_docx(data: SeriesBibleData, template: str = "complete", export_all: bool = False) -> io.BytesIO:
     """Render SeriesBibleData as a Word document. Returns BytesIO buffer."""
     doc = Document()
 
@@ -88,7 +88,7 @@ def render_docx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO
     # ── Relations ─────────────────────────────────
     if "relations" in modules and data.relations:
         doc.add_heading("关系网络", level=1)
-        _render_relations(doc, data.relations)
+        _render_relations(doc, data.relations, export_all=export_all)
 
     # ── Locations ─────────────────────────────────
     if "locations" in modules and data.locations:
@@ -211,14 +211,14 @@ def _render_characters(doc: Document, characters: list[dict]) -> None:
             run.italic = True
 
 
-def _render_relations(doc: Document, relations: dict) -> None:
+def _render_relations(doc: Document, relations: dict, export_all: bool = False) -> None:
     edges = relations.get("edges", [])
     if not edges:
         doc.add_paragraph("暂无关系数据")
         return
 
     sorted_edges = sorted(edges, key=lambda e: e.get("weight", 0), reverse=True)
-    display = sorted_edges[:30]
+    display = sorted_edges if export_all else sorted_edges[:30]
 
     table = doc.add_table(rows=1, cols=4, style="Table Grid")
     hdr = table.rows[0].cells
