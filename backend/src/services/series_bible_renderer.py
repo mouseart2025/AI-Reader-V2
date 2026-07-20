@@ -35,7 +35,7 @@ def get_template_info() -> list[dict]:
     ]
 
 
-def render_markdown(data: SeriesBibleData, template: str = "complete") -> str:
+def render_markdown(data: SeriesBibleData, template: str = "complete", export_all: bool = False) -> str:
     """Render SeriesBibleData as a Markdown document using specified template."""
     tpl = TEMPLATES.get(template, TEMPLATES[DEFAULT_TEMPLATE])
 
@@ -81,7 +81,7 @@ def render_markdown(data: SeriesBibleData, template: str = "complete") -> str:
     if "relations" in active_modules and data.relations:
         lines.append("---\n")
         lines.append("## 关系网络\n")
-        _render_relations(lines, data.relations)
+        _render_relations(lines, data.relations, export_all=export_all)
 
     # ── Locations ───────────────────────────────
     if "locations" in active_modules and data.locations:
@@ -264,14 +264,14 @@ def _render_characters_full(lines: list[str], characters: list[dict]) -> None:
             )
 
 
-def _render_relations(lines: list[str], relations: dict) -> None:
+def _render_relations(lines: list[str], relations: dict, export_all: bool = False) -> None:
     """Render relationship network as table."""
     edges = relations.get("edges", [])
     if edges:
         lines.append("| 人物A | 人物B | 关系 | 章节数 |")
         lines.append("|-------|-------|------|--------|")
         sorted_edges = sorted(edges, key=lambda e: e.get("weight", 0), reverse=True)
-        for edge in sorted_edges[:30]:
+        for edge in (sorted_edges if export_all else sorted_edges[:30]):
             src = _escape_pipe(edge.get("source", ""))
             tgt = _escape_pipe(edge.get("target", ""))
             rel = _escape_pipe(edge.get("relation_type", ""))
