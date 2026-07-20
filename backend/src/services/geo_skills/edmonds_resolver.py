@@ -213,32 +213,14 @@ class EdmondsResolver(GeoSkill):
                 orphans_filled += 1
 
         # ── Phase 3: Structural repair ──
-        # Fix cycles (break weakest edge)
-        cycles_broken = 0
-        for start in list(parents):
-            visited: set[str] = set()
-            node = start
-            while node in parents and node not in visited:
-                visited.add(node)
-                node = parents[node]
-            if node in visited:
-                # Found cycle — find weakest edge and break
-                cycle_edges: list[tuple[str, str, float]] = []
-                cur = node
-                while True:
-                    p = parents[cur]
-                    w = votes.get(cur, Counter()).get(p, 0)
-                    cycle_edges.append((cur, p, w))
-                    cur = p
-                    if cur == node:
-                        break
-                weakest = min(cycle_edges, key=lambda e: e[2])
-                # Replace with Edmonds' choice for this node
-                if weakest[0] in edmonds_parents:
-                    parents[weakest[0]] = edmonds_parents[weakest[0]]
-                else:
-                    del parents[weakest[0]]
-                cycles_broken += 1
+        # Fix cycles to a fixpoint. A single pass is not enough: replacing the
+        # weakest edge with Edmonds' choice can be a no-op when Edmonds picked
+        # the other edge of the same cycle (e.g. a name-containment edge with
+        # no vote weight), leaving the cycle intact (found via cross-LLM
+        # replication: 黑水河 ↔ 黑水河水府 on DeepSeek extraction).
+        parents, cycles_broken = self._break_cycles_fixpoint(
+            parents, votes, edmonds_parents, uber_root
+        )
 
         # Ensure single root
         roots = [loc for loc in all_locs if loc not in parents and loc != uber_root]
@@ -269,6 +251,14 @@ class EdmondsResolver(GeoSkill):
         _MAX_CHILDREN = 30
         parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN)
 
+        # ── Final structural pass ──
+        # Phases 4-5 reassign parents and can reintroduce cycles; guarantee
+        # the output is acyclic before returning.
+        parents, final_cycles_broken = self._break_cycles_fixpoint(
+            parents, votes, edmonds_parents, uber_root
+        )
+        cycles_broken += final_cycles_broken
+
         result = SkillResult(
             skill_name=self.name,
             parent_overrides=parents,
@@ -283,6 +273,82 @@ class EdmondsResolver(GeoSkill):
             len(parents), max_ch, top[0][0] if top else "?",
         )
         return result
+
+    @staticmethod
+    def _break_cycles_fixpoint(
+        parents: dict[str, str],
+        votes: dict[str, Counter],
+        edmonds_parents: dict[str, str],
+        uber_root: str,
+    ) -> tuple[dict[str, str], int]:
+        """Break parent-pointer cycles until none remain.
+
+        Each round finds one cycle and rewires its weakest edge (by vote
+        weight). Redirect candidates in preference order:
+          1. Edmonds' choice for that child — only if it is outside the
+             cycle and its ancestor chain does not pass through the child
+             (otherwise the redirect would be a no-op or create a new cycle);
+          2. uber_root — under the same ancestor safety check;
+          3. delete the edge (child becomes a root, re-attached later by the
+             single-root step if this runs before it).
+
+        Every round provably breaks one cycle and creates none (only the
+        chosen child's outgoing edge changes, and the ancestor check rules
+        out a new cycle through it), so the loop terminates.
+        """
+        parents = dict(parents)
+        cycles_broken = 0
+
+        def _reaches(candidate: str, target: str) -> bool:
+            """Does following parent pointers from candidate hit target?"""
+            node = candidate
+            seen: set[str] = set()
+            while node in parents and node not in seen:
+                if node == target:
+                    return True
+                seen.add(node)
+                node = parents[node]
+            return node == target
+
+        for _ in range(len(parents) + 1):
+            # Find one cycle (as a set of member nodes)
+            cycle_nodes: set[str] | None = None
+            for start in parents:
+                visited: dict[str, int] = {}
+                path: list[str] = []
+                node = start
+                while node in parents and node not in visited:
+                    visited[node] = len(path)
+                    path.append(node)
+                    node = parents[node]
+                if node in visited:
+                    cycle_nodes = set(path[visited[node]:])
+                    break
+            if cycle_nodes is None:
+                return parents, cycles_broken
+
+            # Weakest edge in the cycle by vote weight
+            weakest_child = min(
+                cycle_nodes,
+                key=lambda c: votes.get(c, Counter()).get(parents[c], 0),
+            )
+            candidate = edmonds_parents.get(weakest_child)
+            if (
+                candidate
+                and candidate not in cycle_nodes
+                and candidate != weakest_child
+                and not _reaches(candidate, weakest_child)
+            ):
+                parents[weakest_child] = candidate
+            elif uber_root not in cycle_nodes and not _reaches(
+                uber_root, weakest_child
+            ):
+                parents[weakest_child] = uber_root
+            else:
+                del parents[weakest_child]
+            cycles_broken += 1
+
+        return parents, cycles_broken
 
     @staticmethod
     def _lift_phantom_parent_children(
