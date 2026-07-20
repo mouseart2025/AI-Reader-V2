@@ -22,7 +22,7 @@ _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True
 _CELL_ALIGN = Alignment(vertical="top", wrap_text=True)
 
 
-def render_xlsx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
+def render_xlsx(data: SeriesBibleData, template: str = "complete", export_all: bool = False) -> io.BytesIO:
     """Render SeriesBibleData as an Excel workbook. Returns BytesIO buffer."""
     wb = Workbook()
     # Remove default sheet
@@ -36,7 +36,7 @@ def render_xlsx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO
         _render_characters(wb, data.characters)
 
     if "relations" in modules and data.relations:
-        _render_relations(wb, data.relations)
+        _render_relations(wb, data.relations, export_all=export_all)
 
     if "locations" in modules and data.locations:
         _render_locations(wb, data.locations)
@@ -48,7 +48,7 @@ def render_xlsx(data: SeriesBibleData, template: str = "complete") -> io.BytesIO
         _render_orgs(wb, data.orgs)
 
     if "timeline" in modules and data.timeline:
-        _render_timeline(wb, data.timeline)
+        _render_timeline(wb, data.timeline, export_all=export_all)
 
     # Ensure at least one sheet exists
     if len(wb.sheetnames) == 0:
@@ -103,7 +103,7 @@ def _render_characters(wb: Workbook, characters: list[dict]) -> None:
     _auto_width(ws, headers)
 
 
-def _render_relations(wb: Workbook, relations: dict) -> None:
+def _render_relations(wb: Workbook, relations: dict, export_all: bool = False) -> None:
     ws = wb.create_sheet("关系表")
     headers = ["人物A", "人物B", "关系类型", "共现章数"]
     _write_header(ws, headers)
@@ -111,7 +111,7 @@ def _render_relations(wb: Workbook, relations: dict) -> None:
     edges = relations.get("edges", [])
     sorted_edges = sorted(edges, key=lambda e: e.get("weight", 0), reverse=True)
 
-    for edge in sorted_edges[:50]:
+    for edge in (sorted_edges if export_all else sorted_edges[:50]):
         ws.append([
             edge.get("source", ""),
             edge.get("target", ""),
@@ -195,12 +195,12 @@ def _render_orgs(wb: Workbook, orgs: list[dict]) -> None:
     _auto_width(ws, headers)
 
 
-def _render_timeline(wb: Workbook, events: list[dict]) -> None:
+def _render_timeline(wb: Workbook, events: list[dict], export_all: bool = False) -> None:
     ws = wb.create_sheet("时间线")
     headers = ["章节", "事件摘要", "类型", "重要度", "参与者", "地点"]
     _write_header(ws, headers)
 
-    for ev in events[:1000]:
+    for ev in (events if export_all else events[:1000]):
         participants = ev.get("participants", [])
         ws.append([
             ev.get("chapter", 0),

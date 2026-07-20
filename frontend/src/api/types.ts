@@ -805,6 +805,7 @@ export interface SeriesBibleRequest {
   format?: string
   chapter_start?: number
   chapter_end?: number
+  export_all?: boolean
 }
 
 export interface SeriesBibleTemplate {
