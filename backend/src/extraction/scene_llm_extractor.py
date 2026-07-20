@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from src.infra.anthropic_client import AnthropicClient
@@ -94,7 +95,8 @@ class SceneLLMExtractor:
         result, usage = await self.llm.generate(
             system=system,
             prompt=user_prompt,
-            temperature=0.1,
+            # env override for multi-seed / temperature-sensitivity experiments
+            temperature=float(os.environ.get("LLM_EXTRACTION_TEMPERATURE", "0.1")),
             max_tokens=max_out,
             timeout=300,
             num_ctx=budget.extraction_num_ctx,
