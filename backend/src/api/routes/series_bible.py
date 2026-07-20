@@ -15,6 +15,7 @@ class SeriesBibleRequest(BaseModel):
     format: str = "markdown"  # "markdown" | "docx" | "xlsx" | "pdf"
     chapter_start: int | None = None
     chapter_end: int | None = None
+    export_all: bool = False  # True = all entities/relations/events (slow on large novels)
 
 
 @router.post("/{novel_id}/series-bible/export")
@@ -32,6 +33,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
             modules=body.modules,
             chapter_start=body.chapter_start,
             chapter_end=body.chapter_end,
+            export_all=body.export_all,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -48,7 +50,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
     if body.format == "docx":
         from src.services.docx_renderer import render_docx
 
-        buf = render_docx(data, template=template)
+        buf = render_docx(data, template=template, export_all=body.export_all)
         filename = f"{data.novel_title}_{tpl_name}{range_suffix}.docx"
         return Response(
             content=buf.read(),
@@ -61,7 +63,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
     if body.format == "xlsx":
         from src.services.xlsx_renderer import render_xlsx
 
-        buf = render_xlsx(data, template=template)
+        buf = render_xlsx(data, template=template, export_all=body.export_all)
         filename = f"{data.novel_title}_{tpl_name}{range_suffix}.xlsx"
         return Response(
             content=buf.read(),
@@ -74,7 +76,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
     if body.format == "pdf":
         from src.services.pdf_renderer import render_pdf
 
-        buf = render_pdf(data, template=template)
+        buf = render_pdf(data, template=template, export_all=body.export_all)
         filename = f"{data.novel_title}_{tpl_name}{range_suffix}.pdf"
         return Response(
             content=buf.read(),
@@ -84,7 +86,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
             },
         )
 
-    md_content = render_markdown(data, template=template)
+    md_content = render_markdown(data, template=template, export_all=body.export_all)
     filename = f"{data.novel_title}_{tpl_name}{range_suffix}.md"
 
     return Response(

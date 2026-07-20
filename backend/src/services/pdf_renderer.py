@@ -172,7 +172,7 @@ def _build_styles() -> dict[str, ParagraphStyle]:
 # ── Main render function ──────────────────────────
 
 
-def render_pdf(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
+def render_pdf(data: SeriesBibleData, template: str = "complete", export_all: bool = False) -> io.BytesIO:
     """Render SeriesBibleData as a PDF document. Returns BytesIO buffer."""
     buf = io.BytesIO()
     styles = _build_styles()
@@ -215,7 +215,7 @@ def render_pdf(data: SeriesBibleData, template: str = "complete") -> io.BytesIO:
     # ── Relations ─────────────────────────────────
     if "relations" in modules and data.relations:
         story.append(Paragraph("关系网络", styles["h1"]))
-        _render_relations(story, styles, data.relations)
+        _render_relations(story, styles, data.relations, export_all=export_all)
 
     # ── Locations ─────────────────────────────────
     if "locations" in modules and data.locations:
@@ -333,14 +333,14 @@ def _render_characters(story: list, styles: dict, characters: list[dict]) -> Non
         story.append(Spacer(1, 6))
 
 
-def _render_relations(story: list, styles: dict, relations: dict) -> None:
+def _render_relations(story: list, styles: dict, relations: dict, export_all: bool = False) -> None:
     edges = relations.get("edges", [])
     if not edges:
         story.append(Paragraph("暂无关系数据", styles["body"]))
         return
 
     sorted_edges = sorted(edges, key=lambda e: e.get("weight", 0), reverse=True)
-    display = sorted_edges[:30]
+    display = sorted_edges if export_all else sorted_edges[:30]
 
     font = _ensure_cjk_font()
     header_style = ParagraphStyle("TH", fontName=font, fontSize=9, alignment=TA_CENTER)
