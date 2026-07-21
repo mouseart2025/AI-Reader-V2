@@ -105,3 +105,4 @@ session-*.zip
 
 # IAA 导出脚本含标注员真实姓名,移至内部仓 paper/scripts/
 backend/scripts/iaa_export.py
+backend/scripts/multi_seed_results/
