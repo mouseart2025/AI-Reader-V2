@@ -1,0 +1,45 @@
+{
+  "reps": 10000,
+  "total_nodes": 4941,
+  "point_overall": 0.9285569722728193,
+  "bootstrap_mean": 0.9285434325035418,
+  "bootstrap_std": 0.0035789339777837006,
+  "ci95": [
+    0.92127099777373,
+    0.935438170410848
+  ],
+  "per_novel": {
+    "xiyouji": {
+      "nodes": 1205,
+      "errors": 23,
+      "overall": 0.9809128630705394,
+      "frozen_overall": 0.9809128630705394
+    },
+    "honglou": {
+      "nodes": 1000,
+      "errors": 28,
+      "overall": 0.972,
+      "frozen_overall": 0.972
+    },
+    "shuihu": {
+      "nodes": 1383,
+      "errors": 152,
+      "overall": 0.8900939985538684,
+      "frozen_overall": 0.8900939985538684
+    },
+    "sanguo": {
+      "nodes": 1120,
+      "errors": 138,
+      "overall": 0.8767857142857143,
+      "frozen_overall": 0.8767857142857143
+    },
+    "fengshen": {
+      "nodes": 233,
+      "errors": 12,
+      "overall": 0.9484978540772532,
+      "frozen_overall": 0.9484978540772532
+    }
+  },
+  "data_source": "current local DB full-pipeline snapshots + frozen v071 gold",
+  "date": "2026-07-21"
+}
