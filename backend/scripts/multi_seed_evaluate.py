@@ -56,12 +56,14 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "multi_seed_r
 
 def run_benchmark(novel_key: str, novel_id: str) -> dict:
     out_path = os.path.join(OUT_DIR, f"benchmark_{novel_key}_{novel_id[:8]}.json")
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     subprocess.run(
         [
-            "uv", "run", "python", "-m", "backend.scripts.benchmark_hierarchy",
+            "uv", "run", "--project", "backend",
+            "python", "-m", "backend.scripts.benchmark_hierarchy",
             "--novel-id", novel_id, "--novel", novel_key, "--out", out_path,
         ],
-        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        cwd=repo_root,
         check=True,
         capture_output=True,
         text=True,

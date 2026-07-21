@@ -99,3 +99,10 @@ interaction-design/
 PRD.md
 PRD-v1.0.md
 *研究报告.md
+
+# Kimi CLI session backups
+session-*.zip
+
+# IAA 导出脚本含标注员真实姓名,移至内部仓 paper/scripts/
+backend/scripts/iaa_export.py
+backend/scripts/multi_seed_results/
