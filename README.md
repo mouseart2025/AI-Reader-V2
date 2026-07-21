@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.71.8-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.72.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.71.8_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.8/AI.Reader_0.71.8_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.71.8_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.8/AI.Reader_0.71.8_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.72.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.72.0/AI.Reader_0.72.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.72.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.72.0/AI.Reader_0.72.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -136,6 +136,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| **v0.72.0** | 2026-07-21 | **实体修正工具链转正 + 幻觉兜底 + 导出修复** — ①实体别名手动合并/拆分（百科卡/关系图/阅读页「⋯」操作，可撤销、不污染原文，修正节点显紫色虚线环）；②实体改名（少年→杨过类错误命名一键改对，原名保留为别名）；③概念编辑（改名/改分类/删除）；④导出可读分析报告（按章排版的人物/关系/地点/物品/组织/事件/概念 Markdown，名称已套用别名与手动修正）；⑤**幻觉孤岛过滤**（issue #30：本名与别名均未见于原文的人物节点自动剔除，防本地小模型预训练知识泄漏，60+ 本小说回归零误伤）；⑥设定集导出修复（issue #39：导出全部实体/关系/事件，不再截断）；⑦自动重试失败章节 KeyError 崩溃修复；⑧地图地点层级修环改不动点迭代（跨 LLM 复现实验发现）。550 backend tests + frontend build 通过 |
 | v0.72.0-beta.2 🧪体验版 | 2026-06-07 | **导出可读分析报告 + 实体改名**(issue #26 magik163 实测反馈)— ①导出页新增"导出可读分析(.md)":按章排版的人物/关系/地点/物品/组织/事件/概念,名称已套用别名与手动修正,替代难读的裸 JSON;②实体改名:百科卡 ⋯ →「改名…」把错误命名改对(少年→杨过、道姑→李莫愁、轮国师→金轮国师),原名保留为别名、可撤销、不污染原文。529 backend tests + frontend build 通过。仍为体验版(Pre-release),正式版 v0.71.8 不受影响 |
 | v0.72.0-beta.1 🧪体验版 | 2026-06-05 | **实体别名手动合并/拆分**(节点级编辑第一刀,GitHub issue #26 / 知乎需求)— 百科卡 / 关系图 / 阅读页点实体右上「⋯」即可合并散落别名、拆出误归别名(沙僧别名误入八戒一键纠正),修正以 override 层叠加在自动归并之后,**持久、可撤销(「我的修正」集中列表)、不污染原文数据**,关系图已修正节点显紫色虚线环。后端单点注入 `alias_resolver._apply_user_overrides`,一处生效于百科/图/阅读/检索全部消费端;新增 `entity_overrides` 表 + `/entity-overrides` API。顺带实体卫生:过滤 群妖/众小妖类集体泛称、清理别名 Ch.0 章节、剔除跨实体误归(沙僧)与代词(我)。**仅人物视图,地点层级零影响**。以 **体验版(Pre-release)** 发布,正式版 v0.71.8 不受影响。backend 523 tests + frontend build/vitest 通过 |
 | v0.71.8 | 2026-05-29 | 空间关系 null 值致整章解析失败 hotfix(知乎用户 元图AI研究 反馈) — 弱模型/本地小模型在抽取 `contains`/`adjacent` 类空间关系时常对 `value` 输出 `null`,但 `SpatialRelationship.value` 是必填 `str`,Pydantic 整章原子校验,一个 `value: null` 就让整章作废(人物/地点/关系/事件全丢),表现为"分析几十章全部报错 9 validation errors"。修:`chapter_fact.py` 给 `SpatialRelationship` 加 `field_validator` 把 source/target/relation_type/value/confidence/narrative_evidence 的 `None` 统一转 ""(value 默认 ""),保住 contains 等有效层级信号;下游 vote_builder / visualization / world_structure 已容忍空串。+5 回归测试,503 tests passed |
