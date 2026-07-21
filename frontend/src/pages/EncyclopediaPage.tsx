@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, fetchLocationConflicts, fetchWorldStructure, rebuildHierarchy, applyHierarchyChanges } from "@/api/client"
+import { fetchEncyclopediaStats, fetchEncyclopediaEntries, fetchConceptDetail, fetchLocationConflicts, fetchWorldStructure, rebuildHierarchy, applyHierarchyChanges, conceptRename, conceptRecategory, conceptDelete } from "@/api/client"
 import type { WorldStructureData } from "@/api/types"
 import { novelPath } from "@/lib/novelPaths"
 import type { HierarchyRebuildResult } from "@/api/types"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
+import { MyEditsPanel } from "@/components/shared/MyEditsPanel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -102,6 +103,10 @@ export default function EncyclopediaPage() {
   const [sortBy, setSortBy] = useState<"name" | "chapter" | "hierarchy" | "mentions">("name")
   const [search, setSearch] = useState("")
   const [conceptDetail, setConceptDetail] = useState<ConceptDetail | null>(null)
+  const [conceptEditMode, setConceptEditMode] = useState<null | "rename" | "recategory">(null)
+  const [conceptEditValue, setConceptEditValue] = useState("")
+  const [conceptEditBusy, setConceptEditBusy] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [rebuilding, setRebuilding] = useState(false)
   const [rebuildProgress, setRebuildProgress] = useState("")
@@ -124,7 +129,7 @@ export default function EncyclopediaPage() {
   useEffect(() => {
     if (!novelId) return
     fetchEncyclopediaStats(novelId).then((data) => setStats(data as unknown as CategoryStats))
-  }, [novelId])
+  }, [novelId, refreshKey])
 
   // Load location conflicts when hierarchy view is active
   useEffect(() => {
@@ -141,7 +146,7 @@ export default function EncyclopediaPage() {
     fetchEncyclopediaEntries(novelId, activeCategory ?? undefined, sortBy)
       .then((data) => setEntries(data.entries))
       .finally(() => setLoading(false))
-  }, [novelId, activeCategory, sortBy])
+  }, [novelId, activeCategory, sortBy, refreshKey])
 
   // Filtered entries by search
   const filteredEntries = useMemo(() => {
@@ -266,6 +271,38 @@ export default function EncyclopediaPage() {
     [novelId, openEntityCard],
   )
 
+  const submitConceptEdit = useCallback(async () => {
+    if (!novelId || !conceptDetail || !conceptEditMode) return
+    const v = conceptEditValue.trim()
+    if (!v || v === (conceptEditMode === "rename" ? conceptDetail.name : conceptDetail.category)) {
+      setConceptEditMode(null)
+      return
+    }
+    setConceptEditBusy(true)
+    try {
+      if (conceptEditMode === "rename") {
+        await conceptRename(novelId, conceptDetail.name, v)
+      } else {
+        await conceptRecategory(novelId, conceptDetail.name, v)
+      }
+      setConceptEditMode(null)
+      setConceptDetail(null)
+      setRefreshKey((k) => k + 1)
+    } catch { /* keep panel open on error */ }
+    finally { setConceptEditBusy(false) }
+  }, [novelId, conceptDetail, conceptEditMode, conceptEditValue])
+
+  const handleConceptDelete = useCallback(async () => {
+    if (!novelId || !conceptDetail) return
+    setConceptEditBusy(true)
+    try {
+      await conceptDelete(novelId, conceptDetail.name)
+      setConceptDetail(null)
+      setRefreshKey((k) => k + 1)
+    } catch { /* ignore */ }
+    finally { setConceptEditBusy(false) }
+  }, [novelId, conceptDetail])
+
   const categoryItems = useMemo(() => {
     if (!stats) return []
     const items: { key: string | null; label: string; count: number; indent: number }[] = [
@@ -282,6 +319,8 @@ export default function EncyclopediaPage() {
     }
     // World view special entry
     items.push({ key: "__worldview__", label: "世界观", count: 0, indent: 0 })
+    // User edits (manual alias merges/splits)
+    items.push({ key: "__myedits__", label: "我的修正", count: 0, indent: 0 })
     return items
   }, [stats])
 
@@ -335,7 +374,7 @@ export default function EncyclopediaPage() {
         {/* Middle: Entry list */}
         <div ref={listContainerRef} className="flex-1 overflow-auto">
           {/* Sort controls */}
-          <div className={cn("flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10", activeCategory === "__worldview__" && "hidden")}>
+          <div className={cn("flex items-center gap-2 border-b px-4 py-2 sticky top-0 bg-background z-10", (activeCategory === "__worldview__" || activeCategory === "__myedits__") && "hidden")}>
             <span className="text-xs text-muted-foreground">排序</span>
             <Button
               variant={sortBy === "name" ? "default" : "outline"}
@@ -411,7 +450,9 @@ export default function EncyclopediaPage() {
             </span>
           </div>
 
-          {activeCategory === "__worldview__" ? (
+          {activeCategory === "__myedits__" ? (
+            <MyEditsPanel novelId={novelId!} onOpenEntity={(name) => openEntityCard(name, "person")} />
+          ) : activeCategory === "__worldview__" ? (
             <div className="p-4 space-y-4">
               {!worldStructure ? (
                 <p className="text-muted-foreground text-sm">加载中...</p>
@@ -619,15 +660,41 @@ export default function EncyclopediaPage() {
         {conceptDetail && (
           <div className="w-80 flex-shrink-0 border-l overflow-auto">
             <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium">{conceptDetail.name}</h3>
                 <button
                   className="text-muted-foreground text-xs hover:text-foreground"
-                  onClick={() => setConceptDetail(null)}
+                  onClick={() => { setConceptDetail(null); setConceptEditMode(null) }}
                 >
                   ✕
                 </button>
               </div>
+
+              {/* Edit actions (concept editing — issue #26 #1) */}
+              {conceptEditMode ? (
+                <div className="mb-3 flex items-center gap-1.5">
+                  <Input
+                    className="h-7 text-xs"
+                    value={conceptEditValue}
+                    onChange={(e) => setConceptEditValue(e.target.value)}
+                    placeholder={conceptEditMode === "rename" ? "新名称" : "新分类"}
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") submitConceptEdit() }}
+                  />
+                  <Button size="xs" onClick={submitConceptEdit} disabled={conceptEditBusy}>确认</Button>
+                  <Button size="xs" variant="ghost" onClick={() => setConceptEditMode(null)} disabled={conceptEditBusy}>取消</Button>
+                </div>
+              ) : (
+                <div className="mb-3 flex items-center gap-2 text-xs">
+                  <button className="text-muted-foreground hover:text-primary hover:underline"
+                    onClick={() => { setConceptEditMode("rename"); setConceptEditValue(conceptDetail.name) }}>改名</button>
+                  <button className="text-muted-foreground hover:text-primary hover:underline"
+                    onClick={() => { setConceptEditMode("recategory"); setConceptEditValue(conceptDetail.category) }}>改分类</button>
+                  <button className="text-muted-foreground hover:text-destructive hover:underline"
+                    onClick={handleConceptDelete} disabled={conceptEditBusy}
+                    title="删除该概念(可在「我的修正」撤销)">删除</button>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {/* Category */}

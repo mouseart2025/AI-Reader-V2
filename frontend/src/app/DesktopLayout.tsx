@@ -8,6 +8,7 @@ import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom"
 import { fetchNovels } from "@/api/client"
 import { ensureSidecar } from "@/api/sidecarBridge"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
+import { BetaBadge } from "@/components/shared/BetaBadge"
 import type { Novel } from "@/api/types"
 
 const FloatingChatPanel = lazy(() =>
@@ -157,6 +158,8 @@ export default function DesktopLayout() {
         </nav>
 
         <div className="flex-1" />
+
+        <BetaBadge className="mr-1" />
 
         {/* Settings */}
         <button

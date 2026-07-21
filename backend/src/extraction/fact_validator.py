@@ -1070,9 +1070,17 @@ def _is_generic_person(name: str, genre: str | None = None) -> str | None:
 
     # ── Pattern-based rules (cover open-ended variations) ──
 
-    # P1: "众X" prefix — group references (众灵官, 众菩萨, 众门人, etc.)
-    if name.startswith("众") and len(name) >= 2:
-        return f"group reference (众+)"
+    # P1: "众X" / "群X" prefix — group references (众灵官, 群妖, 群魔, 群怪, etc.)
+    if name.startswith(("众", "群")) and len(name) >= 2:
+        return "group reference (众/群+)"
+
+    # P1b: vague large-quantity collective prefix — "百十群妖", "数十小妖",
+    # "无数妖兵", "一群小妖", "成群结队的..." (no measure word, just a crowd)
+    if name.startswith((
+        "百十", "数十", "数百", "数千", "无数", "许多", "成群",
+        "一群", "一伙", "一干", "一众", "几十", "几百", "众多",
+    )) and len(name) >= 3:
+        return "vague collective reference"
 
     # P2: Numeric quantifier + group — "三十六员雷将", "十万天兵", "五百灵官"
     import re as _re

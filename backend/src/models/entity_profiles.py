@@ -11,6 +11,7 @@ from pydantic import BaseModel, computed_field
 class AliasEntry(BaseModel):
     name: str
     first_chapter: int
+    edited: bool = False  # this alias was attached/moved by a user override
 
 
 class AppearanceEntry(BaseModel):
@@ -68,6 +69,8 @@ class PersonProfile(BaseModel):
     items: list[ItemAssociation] = []
     experiences: list[PersonExperience] = []
     stats: dict = {}
+    edit_status: str = ""  # "" | "edited" — has a user alias override applied
+    conflict: bool = False  # FR7: auto resolution drifted from the override
 
 
 # ── Location ──────────────────────────────────────
@@ -101,6 +104,8 @@ class LocationProfile(BaseModel):
     visitors: list[LocationVisitor] = []
     events: list[LocationEvent] = []
     stats: dict = {}
+    edit_status: str = ""  # "" | "edited" — has a user alias override applied
+    conflict: bool = False  # FR7: auto resolution drifted from the override
 
 
 # ── Item ──────────────────────────────────────────
@@ -121,6 +126,8 @@ class ItemProfile(BaseModel):
     flow: list[ItemFlowEntry] = []
     related_items: list[str] = []
     stats: dict = {}
+    edit_status: str = ""  # "" | "edited" — has a user alias override applied
+    conflict: bool = False  # FR7: auto resolution drifted from the override
 
 
 # ── Organization ──────────────────────────────────
@@ -147,6 +154,8 @@ class OrgProfile(BaseModel):
     member_events: list[OrgMemberEvent] = []
     org_relations: list[OrgRelationEntry] = []
     stats: dict = {}
+    edit_status: str = ""  # "" | "edited" — has a user alias override applied
+    conflict: bool = False  # FR7: auto resolution drifted from the override
 
 
 # ── Entity summary (for listing) ─────────────────

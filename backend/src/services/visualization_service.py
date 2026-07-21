@@ -144,6 +144,13 @@ async def get_graph_data(
         primaries like 王夫人/薛姨妈 (which end with "夫人/姨妈" and hit the
         structural spouse-pattern rule but are real characters).
         """
+        # Collective/generic references are never real entities — checked
+        # BEFORE the canonical trust guard, since such a name can wrongly become
+        # a canonical with aliases merged in (e.g. 群妖). _is_generic_person
+        # ignores structural level-0, so override-rescued primaries (王夫人/
+        # 薛姨妈) are unaffected.
+        if _is_generic_person(name) is not None:
+            return True
         if name in alias_map or name in known_canonicals:
             return False  # known entity — trust alias_map
         # Explicit blocklist (太太/老太太/奶奶/那呆子/取经人/老孙 ...)
@@ -161,12 +168,6 @@ async def get_graph_data(
             return True
         # 长描述性名称 (飞东洋游普世感恩行孝黄毛红嘴白鹦哥)
         if len(name) >= 10:
-            return True
-        # v0.71.1: delegate to FactValidator 的集合名/群X/众X/_GENERIC_PERSON_WORDS 检测.
-        # 这条检查 name_authority 的 CANONICAL_BLOCKLIST 覆盖不到的旧数据
-        # (群猴/五百阿罗/土地神祗 等)。_is_generic_person 不检测结构 level-0
-        # 所以不会误伤被 override 救活的 王夫人/薛姨妈.
-        if _is_generic_person(name) is not None:
             return True
         return False
 
@@ -245,6 +246,27 @@ async def get_graph_data(
             if org_counts[best_org] >= 2:  # require ≥ 2 visits
                 person_org[person] = best_org
 
+    from src.services.alias_resolver import get_override_targets
+    from src.services.hallucination_filter import get_ungrounded_persons
+
+    # v0.72: filter hallucination islands (issue #30) — person nodes whose
+    # canonical name and aliases never literally appear in the source text
+    # (e.g. characters leaked from the LLM's pretrained knowledge of other
+    # novels). Checked against the full book text, so real characters are
+    # never filtered just because they appear outside the selected range.
+    ungrounded = await get_ungrounded_persons(novel_id, person_chapters.keys(), alias_map)
+    if ungrounded:
+        for name in ungrounded:
+            person_chapters.pop(name, None)
+            person_org.pop(name, None)
+            person_aliases.pop(name, None)
+        edge_map = {
+            k: v
+            for k, v in edge_map.items()
+            if k[0] not in ungrounded and k[1] not in ungrounded
+        }
+
+    override_targets = await get_override_targets(novel_id)
     nodes = [
         {
             "id": name,
@@ -253,6 +275,7 @@ async def get_graph_data(
             "chapter_count": len(chs),
             "org": person_org.get(name, ""),
             "aliases": sorted(person_aliases.get(name, set())),
+            "edit_status": "edited" if name in override_targets else "",
         }
         for name, chs in person_chapters.items()
     ]
@@ -294,6 +317,7 @@ async def get_graph_data(
         "suggested_min_edge_weight": suggested_min_edge,
         "category_counts": dict(category_counts),
         "type_counts": dict(type_counts.most_common(20)),
+        "filtered_ungrounded_persons": sorted(ungrounded),
     }
 
 

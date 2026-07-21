@@ -10,6 +10,7 @@ import { PersonCard } from "./PersonCard"
 import { LocationCard } from "./LocationCard"
 import { ItemCard } from "./ItemCard"
 import { OrgCard } from "./OrgCard"
+import { AliasEditControls } from "./AliasEditControls"
 
 interface EntityCardDrawerProps {
   novelId: string
@@ -32,6 +33,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     closeConceptPopup,
     getCachedProfile,
     setCachedProfile,
+    reloadNonce,
   } = useEntityCardStore()
 
   const navigate = useNavigate()
@@ -72,7 +74,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => {
       cancelled = true
     }
-  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
+  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, reloadNonce, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
@@ -136,6 +138,9 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
               ))}
             </div>
           </div>
+          {!loading && !cardError && profile && (
+            <AliasEditControls novelId={novelId} profile={profile} />
+          )}
           <Button variant="ghost" size="icon-xs" onClick={close}>
             <XIcon className="size-4" />
           </Button>

@@ -1,0 +1,6703 @@
+{
+  "_instructions": "is_direction_correct=true/false",
+  "_novel": "红楼梦",
+  "_total": 744,
+  "contains_relations": [
+    {
+      "chapter": 1,
+      "source": "大荒山",
+      "target": "无稽崖",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "无稽崖",
+      "target": "青埂峰",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "灵河岸",
+      "target": "三生石畔",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "太虚幻境",
+      "target": "警幻仙子宫",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "姑苏城",
+      "target": "阊门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "阊门外",
+      "target": "十里街",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "十里街",
+      "target": "仁清巷",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "仁清巷",
+      "target": "葫芦庙",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 1,
+      "source": "东南一隅",
+      "target": "姑苏",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 1,
+      "source": "书房",
+      "target": "甄家",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 1,
+      "source": "火焰山街",
+      "target": "甄家",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 2,
+      "source": "石头城",
+      "target": "金陵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 2,
+      "source": "街东",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 2,
+      "source": "街西",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (街西:None, 荣国府:site)"
+    },
+    {
+      "chapter": 2,
+      "source": "维扬",
+      "target": "林家",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 2,
+      "source": "智通寺",
+      "target": "郭外",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "林家",
+      "target": "维扬",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 林家(building)>维扬(site)"
+    },
+    {
+      "chapter": 3,
+      "source": "神京",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "神京",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (神京:None, 荣国府:site)"
+    },
+    {
+      "chapter": 3,
+      "source": "荣国府",
+      "target": "荣国府·垂花门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "荣国府",
+      "target": "荣国府·穿堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "荣国府",
+      "target": "荣禧堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "宁国府",
+      "target": "仪门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "贾母后院",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "南北宽夹道",
+      "target": "抱厦厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "贾母后院",
+      "target": "套间暖阁儿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 3,
+      "source": "套间暖阁儿",
+      "target": "碧纱橱",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 4,
+      "source": "梨香院·夹道",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 4,
+      "source": "应天府",
+      "target": "密室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 4,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 5,
+      "source": "宁国府",
+      "target": "会芳园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 5,
+      "source": "会芳园",
+      "target": "秦可卿房中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 5,
+      "source": "离恨天",
+      "target": "太虚幻境",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 离恨天(site)>太虚幻境(region)"
+    },
+    {
+      "chapter": 5,
+      "source": "离恨天",
+      "target": "灌愁海",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 离恨天(site)>灌愁海(region)"
+    },
+    {
+      "chapter": 5,
+      "source": "太虚幻境",
+      "target": "薄命司",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 5,
+      "source": "太虚幻境",
+      "target": "痴情司",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 5,
+      "source": "太虚幻境",
+      "target": "离恨天",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 5,
+      "source": "太虚幻境",
+      "target": "香闺绣阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 5,
+      "source": "太虚幻境",
+      "target": "迷津",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 6,
+      "source": "荣国府",
+      "target": "荣国府大门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 6,
+      "source": "荣国府",
+      "target": "荣国府角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 6,
+      "source": "周瑞家",
+      "target": "后门上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 6,
+      "source": "周瑞家",
+      "target": "倒厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 6,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 6,
+      "source": "凤姐屋",
+      "target": "堂屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 6,
+      "source": "凤姐屋",
+      "target": "东边这间屋内",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 6,
+      "source": "倒厅",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 6,
+      "source": "周瑞家的屋里",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 6,
+      "source": "东边房里",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 7,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 7,
+      "source": "王夫人正房",
+      "target": "王夫人正房·抱厦",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 王夫人正房(building)>王夫人正房·抱厦(site)"
+    },
+    {
+      "chapter": 7,
+      "source": "碧纱橱",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 碧纱橱(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 7,
+      "source": "凤姐屋",
+      "target": "凤姐院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 7,
+      "source": "荣国府·夹道",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (荣国府·夹道:None, 荣国府:site)"
+    },
+    {
+      "chapter": 7,
+      "source": "宁国府",
+      "target": "宁国府·上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 7,
+      "source": "宁国府·上房",
+      "target": "里间小炕",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 宁国府·上房(building)>里间小炕(site)"
+    },
+    {
+      "chapter": 7,
+      "source": "宁国府",
+      "target": "大厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 7,
+      "source": "宁国府",
+      "target": "马圈",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 7,
+      "source": "石头城",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 7,
+      "source": "石头城",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 荣国府:site)"
+    },
+    {
+      "chapter": 8,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 8,
+      "source": "荣国府",
+      "target": "梦坡斋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 8,
+      "source": "荣国府",
+      "target": "绛云轩",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 8,
+      "source": "石头城",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 8,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 8,
+      "source": "梨香院·里间",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 8,
+      "source": "门斗",
+      "target": "绛云轩",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 9,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 9,
+      "source": "贾家义学",
+      "target": "学中后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 10,
+      "source": "宁国府",
+      "target": "贾蓉居室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 10,
+      "source": "宁国府",
+      "target": "大厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 10,
+      "source": "宁国府",
+      "target": "东边小角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 11,
+      "source": "宁国府",
+      "target": "会芳园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 11,
+      "source": "宁国府",
+      "target": "天香楼",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 11,
+      "source": "宁国府",
+      "target": "凝曦轩",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 11,
+      "source": "宁国府",
+      "target": "秦氏房间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 12,
+      "source": "荣国府",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 12,
+      "source": "荣国府",
+      "target": "荣国府·穿堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 12,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 12,
+      "source": "贾母后院",
+      "target": "贾母正面榻",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 12,
+      "source": "贾母后院",
+      "target": "套间暖阁儿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 12,
+      "source": "夹道中屋子里",
+      "target": "大台矶底下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 13,
+      "source": "会芳园",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 会芳园(building)>宁国府(site)"
+    },
+    {
+      "chapter": 13,
+      "source": "会芳园",
+      "target": "登仙阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 13,
+      "source": "宁国府",
+      "target": "抱厦厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 13,
+      "source": "宁国府",
+      "target": "逗蜂轩",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 13,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 14,
+      "source": "宁国府",
+      "target": "抱厦厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 14,
+      "source": "宁国府",
+      "target": "会芳园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 14,
+      "source": "会芳园",
+      "target": "登仙阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 15,
+      "source": "石头城",
+      "target": "城门前",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 15,
+      "source": "馒头庵",
+      "target": "净室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 16,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 16,
+      "source": "宁国府",
+      "target": "会芳园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 16,
+      "source": "宁国府",
+      "target": "省亲别院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 16,
+      "source": "荣国府",
+      "target": "荣府东大院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 16,
+      "source": "荣国府",
+      "target": "贾府旧园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "大观园",
+      "target": "大观园·正门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "翠嶂",
+      "target": "石洞",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 17,
+      "source": "石洞",
+      "target": "亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 17,
+      "source": "亭",
+      "target": "粉垣",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 17,
+      "source": "粉垣",
+      "target": "后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 17,
+      "source": "杏花村",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 杏花村(building)>稻香村(site)"
+    },
+    {
+      "chapter": 17,
+      "source": "大观园",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "大观园",
+      "target": "正殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 17,
+      "source": "沁芳泉",
+      "target": "沁芳闸",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "青溪",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (青溪:None, 大观园:site)"
+    },
+    {
+      "chapter": 17,
+      "source": "蘅芷清芬",
+      "target": "卷棚",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "蘅芜院",
+      "target": "月洞门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "蘅芜院",
+      "target": "蘅芜院·抱厦",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 17,
+      "source": "大观园",
+      "target": "大观园后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 18,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 18,
+      "source": "大观园",
+      "target": "正殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 18,
+      "source": "荣国府",
+      "target": "贾母正室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 18,
+      "source": "都中",
+      "target": "牟尼院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 18,
+      "source": "贾母正室",
+      "target": "贾母正面榻",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 18,
+      "source": "都中",
+      "target": "宝灵宫",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 19,
+      "source": "宁国府",
+      "target": "小书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 19,
+      "source": "宁国府",
+      "target": "宁府街",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 19,
+      "source": "荣国府",
+      "target": "王夫人正房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 19,
+      "source": "荣国府",
+      "target": "黛玉房中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 19,
+      "source": "黛山",
+      "target": "林子洞",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 19,
+      "source": "扬州",
+      "target": "黛山",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": false,
+      "_note": "反转: 扬州(city)>黛山(region)"
+    },
+    {
+      "chapter": 20,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 20,
+      "source": "贾母后院",
+      "target": "林黛玉房中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 20,
+      "source": "贾母后院",
+      "target": "袭人房中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 20,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 20,
+      "source": "梨香院",
+      "target": "薛姨妈那边",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 21,
+      "source": "袭人屋",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 袭人屋(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 21,
+      "source": "袭人外间",
+      "target": "袭人屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 21,
+      "source": "黛玉房中",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 21,
+      "source": "荣国府",
+      "target": "外书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "贾母内院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "贾母上房",
+      "target": "贾母里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "碧纱橱",
+      "target": "碧纱橱外大床上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "碧纱橱",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 碧纱橱(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 22,
+      "source": "荣国府",
+      "target": "绛云轩",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "贾母上房",
+      "target": "贾母上房·里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "贾母后院",
+      "target": "袭人屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "贾母后院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 22,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 23,
+      "source": "大观园",
+      "target": "玉皇庙",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 23,
+      "source": "大观园",
+      "target": "达摩庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 23,
+      "source": "沁芳闸桥",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (沁芳闸桥:None, 大观园:site)"
+    },
+    {
+      "chapter": 23,
+      "source": "梨香院墙角",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 23,
+      "source": "花冢",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (花冢:None, 大观园:site)"
+    },
+    {
+      "chapter": 24,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 24,
+      "source": "贾母后院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 24,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 25,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 25,
+      "source": "荣国府",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 25,
+      "source": "王夫人正房",
+      "target": "王夫人正房·里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 25,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 25,
+      "source": "怡红院·回廊",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 25,
+      "source": "王夫人上房",
+      "target": "卧室上槛",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 25,
+      "source": "王夫人房内",
+      "target": "王夫人上房",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 25,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 26,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 26,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 26,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 26,
+      "source": "大观园",
+      "target": "蜂腰桥",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 26,
+      "source": "怡红院",
+      "target": "怡红院·回廊",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (怡红院:building, 怡红院·回廊:None)"
+    },
+    {
+      "chapter": 26,
+      "source": "大观园",
+      "target": "沁芳溪",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 26,
+      "source": "荣国府",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 26,
+      "source": "绛云轩",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 绛云轩(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 27,
+      "source": "滴翠亭",
+      "target": "池中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 滴翠亭(building)>池中(site)"
+    },
+    {
+      "chapter": 27,
+      "source": "池中滴翠亭",
+      "target": "池",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 27,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 27,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 27,
+      "source": "石榴树下",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石榴树下:None, 大观园:site)"
+    },
+    {
+      "chapter": 27,
+      "source": "花冢",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (花冢:None, 大观园:site)"
+    },
+    {
+      "chapter": 27,
+      "source": "山坡上",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 27,
+      "source": "李氏房中",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 27,
+      "source": "池边",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (池边:None, 大观园:site)"
+    },
+    {
+      "chapter": 27,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 28,
+      "source": "山坡",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 28,
+      "source": "贾母里间",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 28,
+      "source": "碧纱橱",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 碧纱橱(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 28,
+      "source": "荣国府",
+      "target": "书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 28,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 28,
+      "source": "花冢",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (花冢:None, 大观园:site)"
+    },
+    {
+      "chapter": 28,
+      "source": "荣国府",
+      "target": "王夫人正房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 28,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 28,
+      "source": "园中",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (园中:None, 荣国府:site)"
+    },
+    {
+      "chapter": 28,
+      "source": "袭人屋",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 袭人屋(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 28,
+      "source": "冯紫英家·回廊",
+      "target": "冯紫英家",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 29,
+      "source": "清虚观",
+      "target": "山门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 29,
+      "source": "清虚观",
+      "target": "二层山门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 29,
+      "source": "清虚观",
+      "target": "大殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 29,
+      "source": "清虚观",
+      "target": "钟楼",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 29,
+      "source": "石头城",
+      "target": "街上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 30,
+      "source": "贾母后院",
+      "target": "碧纱橱",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 30,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 30,
+      "source": "大观园",
+      "target": "蔷薇花架",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 30,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 30,
+      "source": "大观园",
+      "target": "沁芳桥",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 31,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 31,
+      "source": "宝玉屋",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 宝玉屋(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 31,
+      "source": "荣国府",
+      "target": "王夫人正房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 31,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 31,
+      "source": "蔷薇架",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 31,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 31,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 32,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 32,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 32,
+      "source": "荣国府",
+      "target": "王夫人上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 32,
+      "source": "碧纱橱",
+      "target": "碧纱橱外大床上",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 33,
+      "source": "厅上",
+      "target": "贾政书房",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 34,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 34,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 34,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 34,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 35,
+      "source": "怡红院·抱厦",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 35,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 35,
+      "source": "薛家",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 35,
+      "source": "山石边",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 35,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 35,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 36,
+      "source": "荣国府",
+      "target": "王夫人正房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 36,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 36,
+      "source": "怡红院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 36,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 36,
+      "source": "大观园",
+      "target": "藕香榭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "秋爽斋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "紫菱洲",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "藕香榭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "荣国府",
+      "target": "洒泪亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "袭人屋",
+      "target": "袭人下房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 37,
+      "source": "贾母上房",
+      "target": "贾母王夫人处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 37,
+      "source": "贾母上房",
+      "target": "贾母处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母处(site)"
+    },
+    {
+      "chapter": 37,
+      "source": "大观园",
+      "target": "园里",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 38,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 38,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 39,
+      "source": "藕香榭",
+      "target": "池",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 39,
+      "source": "藕香榭",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (藕香榭:None, 大观园:site)"
+    },
+    {
+      "chapter": 39,
+      "source": "垂柳阴",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (垂柳阴:None, 大观园:site)"
+    },
+    {
+      "chapter": 39,
+      "source": "花阴",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (花阴:None, 大观园:site)"
+    },
+    {
+      "chapter": 39,
+      "source": "山坡桂树底下",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (山坡桂树底下:None, 大观园:site)"
+    },
+    {
+      "chapter": 40,
+      "source": "贾母房中",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母房中(site)>贾母后院(region)"
+    },
+    {
+      "chapter": 40,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 40,
+      "source": "贾母榻前",
+      "target": "贾母房中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 40,
+      "source": "二门口",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (二门口:None, 荣国府:site)"
+    },
+    {
+      "chapter": 40,
+      "source": "南院马棚",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 南院马棚(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "缀锦阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "秋爽斋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "秋爽斋",
+      "target": "晓翠堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "探春卧室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "藕香榭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "荇叶渚",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "花溆的萝港",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 41,
+      "source": "蘅芜苑",
+      "target": "蘅芜苑屋内",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 蘅芜苑(building)>蘅芜苑屋内(site)"
+    },
+    {
+      "chapter": 41,
+      "source": "大观园",
+      "target": "河",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 42,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 42,
+      "source": "大观园",
+      "target": "藕香榭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 42,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 42,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 42,
+      "source": "大观园",
+      "target": "省亲别墅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 42,
+      "source": "省亲别墅",
+      "target": "玉皇宝殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 42,
+      "source": "怡红院",
+      "target": "板壁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (怡红院:building, 板壁:None)"
+    },
+    {
+      "chapter": 42,
+      "source": "花障子",
+      "target": "月洞门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 43,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 43,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 43,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 43,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 43,
+      "source": "蘅芜苑",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (蘅芜苑:None, 大观园:site)"
+    },
+    {
+      "chapter": 43,
+      "source": "稻香村",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (稻香村:None, 大观园:site)"
+    },
+    {
+      "chapter": 43,
+      "source": "大观园",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 43,
+      "source": "贾母处",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (贾母处:None, 荣国府:site)"
+    },
+    {
+      "chapter": 44,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 44,
+      "source": "荣国府",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 44,
+      "source": "石头城",
+      "target": "北门外",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 44,
+      "source": "水仙庵",
+      "target": "禅堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 44,
+      "source": "水仙庵",
+      "target": "水仙庵·井台",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 44,
+      "source": "大观园",
+      "target": "园后门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 45,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 45,
+      "source": "贾母上房",
+      "target": "贾母上房·里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 45,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 45,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 46,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 46,
+      "source": "大观园",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 46,
+      "source": "大观园",
+      "target": "惜春院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 46,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 46,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 47,
+      "source": "鸳鸯卧房",
+      "target": "贾母处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 鸳鸯卧房(building)>贾母处(site)"
+    },
+    {
+      "chapter": 47,
+      "source": "大观园",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 47,
+      "source": "贾母处",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母处(site)>贾母后院(region)"
+    },
+    {
+      "chapter": 47,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 47,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 47,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 48,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 48,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 48,
+      "source": "赖大花园",
+      "target": "厅上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 48,
+      "source": "赖家",
+      "target": "赖家·厅侧小书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 48,
+      "source": "北门外",
+      "target": "北门外桥上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "大观园",
+      "target": "藕香榭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "大观园",
+      "target": "暖香坞",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "石头城",
+      "target": "石呆子家",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 49,
+      "source": "石头城",
+      "target": "衙门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "迎春住处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "薛蟠书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "贾母后院",
+      "target": "贾母处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "芦雪庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 50,
+      "source": "大观园",
+      "target": "秋爽斋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 51,
+      "source": "栊翠庵",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (栊翠庵:None, 大观园:site)"
+    },
+    {
+      "chapter": 51,
+      "source": "大观园·夹道",
+      "target": "暖香坞",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 51,
+      "source": "大观园·夹道",
+      "target": "穿云",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 51,
+      "source": "大观园·夹道",
+      "target": "度月",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 51,
+      "source": "暖香坞",
+      "target": "惜春卧房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 52,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 52,
+      "source": "怡红院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 52,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 52,
+      "source": "袭人屋",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 袭人屋(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 52,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 52,
+      "source": "怡红院·里间",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 52,
+      "source": "怡红院·书架后",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 52,
+      "source": "大观园",
+      "target": "守园门小厮班房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 52,
+      "source": "怡红院",
+      "target": "怡红院·后门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 53,
+      "source": "贾母后院",
+      "target": "贾母后院·暖阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 53,
+      "source": "贾母后院",
+      "target": "晴雯外边",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 53,
+      "source": "晴雯外边",
+      "target": "熏笼",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 晴雯外边(building)>熏笼(site)"
+    },
+    {
+      "chapter": 53,
+      "source": "贾母房中",
+      "target": "贾母身后",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 53,
+      "source": "荣国府",
+      "target": "厅上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 53,
+      "source": "荣国府",
+      "target": "荣国府·角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "石头城",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "石头城",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 荣国府:site)"
+    },
+    {
+      "chapter": 54,
+      "source": "宁国府",
+      "target": "宗祠",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "宁国府",
+      "target": "宁国府·上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "光禄寺",
+      "target": "光禄寺库上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "宁国府",
+      "target": "贾氏宗祠",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "贾氏宗祠",
+      "target": "抱厦前",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "贾氏宗祠",
+      "target": "五间正殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "贾氏宗祠",
+      "target": "正堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "荣国府",
+      "target": "大花厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "荣国府",
+      "target": "贾母正室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "宁国府",
+      "target": "正堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 54,
+      "source": "荣国府",
+      "target": "宁国府·暖阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 55,
+      "source": "石头城",
+      "target": "大花厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 55,
+      "source": "大花厅",
+      "target": "大花厅·暖阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 55,
+      "source": "大花厅",
+      "target": "花厅后廊上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 大花厅(building)>花厅后廊上(site)"
+    },
+    {
+      "chapter": 55,
+      "source": "大观园",
+      "target": "茶房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 55,
+      "source": "大观园",
+      "target": "园门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 55,
+      "source": "大花厅",
+      "target": "戏台",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 55,
+      "source": "贾母后院",
+      "target": "袭人屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 56,
+      "source": "大观园",
+      "target": "小花厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 56,
+      "source": "荣国府",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 56,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 56,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 56,
+      "source": "厅上",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 56,
+      "source": "城南",
+      "target": "石头城",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 城南(site)>石头城(city)"
+    },
+    {
+      "chapter": 56,
+      "source": "荣国府",
+      "target": "王夫人上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 57,
+      "source": "大观园",
+      "target": "聚锦门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 57,
+      "source": "梦中花园",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (梦中花园:None, 大观园:site)"
+    },
+    {
+      "chapter": 57,
+      "source": "江南",
+      "target": "甄府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 57,
+      "source": "梦中院落",
+      "target": "梦中花园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "沁芳亭",
+      "target": "桃花树下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 沁芳亭(building)>桃花树下(site)"
+    },
+    {
+      "chapter": 58,
+      "source": "潇湘馆",
+      "target": "潇湘馆·回廊",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "恒舒典",
+      "target": "鼓楼西大街",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 58,
+      "source": "石头城",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 荣国府:site)"
+    },
+    {
+      "chapter": 59,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 59,
+      "source": "沁芳桥",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (沁芳桥:None, 大观园:site)"
+    },
+    {
+      "chapter": 59,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 59,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 59,
+      "source": "大官的家庙",
+      "target": "东院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 59,
+      "source": "大官的家庙",
+      "target": "西院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 59,
+      "source": "园中山石处",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (园中山石处:None, 大观园:site)"
+    },
+    {
+      "chapter": 59,
+      "source": "大观园",
+      "target": "袭人屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 59,
+      "source": "袭人屋",
+      "target": "袭人外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 60,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 60,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 60,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 60,
+      "source": "大观园",
+      "target": "柳叶渚",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 60,
+      "source": "潇湘馆",
+      "target": "紫鹃房中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 60,
+      "source": "怡红院",
+      "target": "海棠下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (怡红院:building, 海棠下:None)"
+    },
+    {
+      "chapter": 60,
+      "source": "柳叶渚",
+      "target": "柳堤",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 柳叶渚(building)>柳堤(site)"
+    },
+    {
+      "chapter": 61,
+      "source": "蘅芜苑",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (蘅芜苑:None, 大观园:site)"
+    },
+    {
+      "chapter": 61,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 61,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 61,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 61,
+      "source": "大观园",
+      "target": "厨房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 61,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 61,
+      "source": "探春处",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 62,
+      "source": "厨房",
+      "target": "园子里",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 62,
+      "source": "怡红院",
+      "target": "园子里",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 62,
+      "source": "迎春房",
+      "target": "园子里",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 62,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 63,
+      "source": "山子后头",
+      "target": "石凳子",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 63,
+      "source": "绛云轩",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "大观园",
+      "target": "榆荫堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "大观园",
+      "target": "议事厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "石头城",
+      "target": "铁槛寺",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 64,
+      "source": "都中",
+      "target": "光禄寺",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 65,
+      "source": "宁国府",
+      "target": "正堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 65,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 65,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 65,
+      "source": "大观园",
+      "target": "沁芳桥",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 65,
+      "source": "宁国府",
+      "target": "宁国府正室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 66,
+      "source": "下房",
+      "target": "尤二姐新房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 66,
+      "source": "马棚",
+      "target": "尤二姐新房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 66,
+      "source": "石头城",
+      "target": "尤二姐新房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 66,
+      "source": "石头城",
+      "target": "铁槛寺",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 68,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 68,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 68,
+      "source": "蘅芜苑",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (蘅芜苑:None, 大观园:site)"
+    },
+    {
+      "chapter": 68,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 68,
+      "source": "大观园",
+      "target": "沁芳桥",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 68,
+      "source": "大观园",
+      "target": "葡萄架",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 68,
+      "source": "凤姐屋",
+      "target": "外间门口",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 69,
+      "source": "荣国府",
+      "target": "东厢房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 69,
+      "source": "大观园",
+      "target": "大观园后门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 69,
+      "source": "大观园",
+      "target": "李纨处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 69,
+      "source": "都中",
+      "target": "察院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 69,
+      "source": "平安州",
+      "target": "下处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 69,
+      "source": "石头城",
+      "target": "宁国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 69,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 70,
+      "source": "贾母房中",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母房中(site)>贾母后院(region)"
+    },
+    {
+      "chapter": 70,
+      "source": "荣国府",
+      "target": "厢房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 70,
+      "source": "园中",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (园中:None, 大观园:site)"
+    },
+    {
+      "chapter": 70,
+      "source": "大观园",
+      "target": "北界墙根下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 71,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 71,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 71,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 71,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 71,
+      "source": "稻香村",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (稻香村:None, 大观园:site)"
+    },
+    {
+      "chapter": 71,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "大观园",
+      "target": "嘉荫堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "大观园",
+      "target": "缀锦阁",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "怡红院",
+      "target": "园中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (怡红院:building, 园中:None)"
+    },
+    {
+      "chapter": 72,
+      "source": "稻香村",
+      "target": "园中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "鹿顶",
+      "target": "二门外",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 72,
+      "source": "荣国府",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "大观园",
+      "target": "晓翠堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 72,
+      "source": "园子",
+      "target": "园子·角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 73,
+      "source": "凤姐院",
+      "target": "东边房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 73,
+      "source": "贾母后院",
+      "target": "贾母那边",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 73,
+      "source": "大观园",
+      "target": "大观园·角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 73,
+      "source": "内套间",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 73,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 73,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 74,
+      "source": "荣国府",
+      "target": "赵姨娘房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 74,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 74,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 74,
+      "source": "园内厨房",
+      "target": "园内",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 园内厨房(building)>园内(site)"
+    },
+    {
+      "chapter": 74,
+      "source": "园内",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (园内:None, 大观园:site)"
+    },
+    {
+      "chapter": 74,
+      "source": "园内",
+      "target": "迎春室中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 74,
+      "source": "迎春室中",
+      "target": "迎春卧房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 74,
+      "source": "园内",
+      "target": "山石背后",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "凤姐房中",
+      "target": "凤姐房中·里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "大观园",
+      "target": "园门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 75,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "大观园",
+      "target": "探春院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "大观园",
+      "target": "暖香坞",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "紫菱洲",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "大观园",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "暖香坞",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 75,
+      "source": "紫菱洲",
+      "target": "迎春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "天香楼下",
+      "target": "天香楼",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "宁国府",
+      "target": "天香楼下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "天香楼下",
+      "target": "天香楼下·外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "天香楼下",
+      "target": "天香楼下·里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "宁国府",
+      "target": "会芳园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "会芳园",
+      "target": "丛绿堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "会芳园",
+      "target": "祠堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 76,
+      "source": "凸碧山",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "凸碧山",
+      "target": "凸碧山庄",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "凸碧山庄",
+      "target": "平台",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 76,
+      "source": "凸碧山庄",
+      "target": "围屏后",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 77,
+      "source": "石头城",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 荣国府:site)"
+    },
+    {
+      "chapter": 77,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 77,
+      "source": "凸碧山庄",
+      "target": "凹晶溪馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 77,
+      "source": "凸碧山庄",
+      "target": "凹晶馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 77,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 77,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 77,
+      "source": "大观园",
+      "target": "藕香榭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 78,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 78,
+      "source": "大观园",
+      "target": "迎春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 78,
+      "source": "贾母房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 78,
+      "source": "大观园",
+      "target": "往后角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 78,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 78,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 78,
+      "source": "晴雯家",
+      "target": "晴雯家·外间房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 78,
+      "source": "晴雯家",
+      "target": "芦席土炕",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 晴雯家(building)>芦席土炕(site)"
+    },
+    {
+      "chapter": 78,
+      "source": "怡红院",
+      "target": "后角门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 79,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 79,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 79,
+      "source": "蘅芜苑",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (蘅芜苑:None, 大观园:site)"
+    },
+    {
+      "chapter": 79,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 79,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 79,
+      "source": "山子石后",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (山子石后:None, 大观园:site)"
+    },
+    {
+      "chapter": 79,
+      "source": "袭人屋",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 袭人屋(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 79,
+      "source": "园中",
+      "target": "芙蓉前",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 79,
+      "source": "园中",
+      "target": "池上",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 79,
+      "source": "山石之后",
+      "target": "园中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 山石之后(building)>园中(site)"
+    },
+    {
+      "chapter": 80,
+      "source": "大观园",
+      "target": "花影中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 80,
+      "source": "紫菱洲",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 80,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 80,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "石头城",
+      "target": "金陵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "金陵",
+      "target": "江南",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "天齐庙",
+      "target": "都中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "天齐庙",
+      "target": "天齐庙·静室",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "天齐庙",
+      "target": "天齐庙·道院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "紫菱洲",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "荣国府",
+      "target": "王夫人房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 81,
+      "source": "石头城",
+      "target": "薛家",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 82,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 82,
+      "source": "大观园",
+      "target": "蓼溆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 82,
+      "source": "大观园",
+      "target": "沁芳亭",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 82,
+      "source": "大观园",
+      "target": "蘅芜院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 82,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 83,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 83,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 83,
+      "source": "石头城",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 大观园:site)"
+    },
+    {
+      "chapter": 83,
+      "source": "荣国府",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 83,
+      "source": "学里",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (学里:None, 荣国府:site)"
+    },
+    {
+      "chapter": 83,
+      "source": "潇湘馆",
+      "target": "潇湘馆·套间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 84,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 84,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 84,
+      "source": "荣国府",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 84,
+      "source": "神京",
+      "target": "外宫门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 84,
+      "source": "神京",
+      "target": "元妃寝宫",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 85,
+      "source": "贾母房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 85,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 85,
+      "source": "荣国府",
+      "target": "内书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 85,
+      "source": "凤姐院",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 凤姐院(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 85,
+      "source": "荣国府",
+      "target": "外书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 85,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 86,
+      "source": "北府",
+      "target": "北府内宫门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "北府",
+      "target": "北府前殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "北府",
+      "target": "北府精致小院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "贾母后院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "贾母正厅",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 86,
+      "source": "贾母正厅",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母正厅(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 86,
+      "source": "薛家",
+      "target": "薛家厅房后面",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 薛家(building)>薛家厅房后面(site)"
+    },
+    {
+      "chapter": 86,
+      "source": "贾母正厅",
+      "target": "琉璃戏屏",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 87,
+      "source": "贾母房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 87,
+      "source": "贾母套间屋里",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 87,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 87,
+      "source": "监禁处",
+      "target": "县衙",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 88,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 88,
+      "source": "大观园",
+      "target": "蓼风轩",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 88,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 88,
+      "source": "栊翠庵",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (栊翠庵:None, 大观园:site)"
+    },
+    {
+      "chapter": 88,
+      "source": "黛玉房",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 89,
+      "source": "贾母后院",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 89,
+      "source": "大观园",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 89,
+      "source": "荣国府",
+      "target": "凤姐院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 91,
+      "source": "紫菱洲",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 91,
+      "source": "薛家",
+      "target": "薛蝌房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 92,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 92,
+      "source": "贾母后院",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 92,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 93,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 93,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 93,
+      "source": "荣国府",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 95,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 95,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 95,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 95,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 95,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "江南",
+      "target": "金陵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "石头城",
+      "target": "金陵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "石头城",
+      "target": "宫中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "宫中",
+      "target": "朝门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 96,
+      "source": "石头城",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 石头城(city)>贾母后院(region)"
+    },
+    {
+      "chapter": 96,
+      "source": "贾母后院",
+      "target": "外书房",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "石头城",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "潇湘馆",
+      "target": "黛玉房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "石头城",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 96,
+      "source": "都中",
+      "target": "京城",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 都中(site)>京城(city)"
+    },
+    {
+      "chapter": 97,
+      "source": "大观园",
+      "target": "沁芳桥",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 97,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 97,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 97,
+      "source": "贾母后院",
+      "target": "袭人外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "潇湘馆",
+      "target": "潇湘馆里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "薛家",
+      "target": "宝钗房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "王夫人屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (王夫人屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 98,
+      "source": "潇湘馆·里间",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "新房子",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 98,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 98,
+      "source": "荣国府",
+      "target": "荣国府·二门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 99,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 99,
+      "source": "大观园",
+      "target": "稻香村",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 100,
+      "source": "金陵",
+      "target": "江南",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 100,
+      "source": "本省",
+      "target": "太平县",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 100,
+      "source": "太平县",
+      "target": "李家店",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 100,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 100,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 100,
+      "source": "书房",
+      "target": "公馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 100,
+      "source": "官厅",
+      "target": "公馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 100,
+      "source": "京里",
+      "target": "都中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 101,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 101,
+      "source": "大观园",
+      "target": "秋爽斋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 101,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 101,
+      "source": "大观园",
+      "target": "蘅芜苑",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 101,
+      "source": "荣国府",
+      "target": "梨香院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 101,
+      "source": "本省",
+      "target": "太平县",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 102,
+      "source": "秋爽斋",
+      "target": "园子",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 秋爽斋(building)>园子(site)"
+    },
+    {
+      "chapter": 102,
+      "source": "园子",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (园子:None, 荣国府:site)"
+    },
+    {
+      "chapter": 102,
+      "source": "园门前",
+      "target": "园子",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 102,
+      "source": "贾母后院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 102,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 102,
+      "source": "散花寺",
+      "target": "大殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 102,
+      "source": "荣国府",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 102,
+      "source": "荣国府",
+      "target": "王夫人房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 103,
+      "source": "大观园",
+      "target": "省亲正殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 103,
+      "source": "宁国府",
+      "target": "书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 103,
+      "source": "园门口",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 103,
+      "source": "宁国府",
+      "target": "旧宅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 104,
+      "source": "小庙",
+      "target": "急流津",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 104,
+      "source": "茅庐",
+      "target": "小庙",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 104,
+      "source": "小庙",
+      "target": "后殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 104,
+      "source": "急流津",
+      "target": "知机县",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 急流津(site)>知机县(region)"
+    },
+    {
+      "chapter": 105,
+      "source": "都中",
+      "target": "天下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 都中(site)>天下(world)"
+    },
+    {
+      "chapter": 105,
+      "source": "都城街道",
+      "target": "都中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 105,
+      "source": "内阁",
+      "target": "都中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 内阁(building)>都中(site)"
+    },
+    {
+      "chapter": 105,
+      "source": "宗祠",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (宗祠:None, 荣国府:site)"
+    },
+    {
+      "chapter": 105,
+      "source": "荣国府",
+      "target": "荣禧堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 105,
+      "source": "荣国府",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 105,
+      "source": "贾政书房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": false,
+      "_note": "反转: 贾政书房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 105,
+      "source": "宝玉外间",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 宝玉外间(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 105,
+      "source": "荣国府",
+      "target": "贾芸家",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 106,
+      "source": "荣国府",
+      "target": "荣禧堂",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 106,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 106,
+      "source": "贾母后院",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 106,
+      "source": "荣国府",
+      "target": "凤姐院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 107,
+      "source": "凤姐屋",
+      "target": "秋桐耳房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 107,
+      "source": "佛堂",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 佛堂(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 107,
+      "source": "贾政书房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾政书房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 107,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 108,
+      "source": "贾母房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 108,
+      "source": "凤姐屋",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (凤姐屋:None, 荣国府:site)"
+    },
+    {
+      "chapter": 108,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 108,
+      "source": "城外",
+      "target": "石头城",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 108,
+      "source": "枢密院",
+      "target": "都中",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 枢密院(building)>都中(site)"
+    },
+    {
+      "chapter": 109,
+      "source": "贾母后院",
+      "target": "贾母房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 109,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 109,
+      "source": "石头城",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 荣国府:site)"
+    },
+    {
+      "chapter": 109,
+      "source": "大观园",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 109,
+      "source": "大观园",
+      "target": "怡红院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 109,
+      "source": "大观园",
+      "target": "园子里",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "贾母后院",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "贾母后院",
+      "target": "袭人外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "大观园",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "贾母后院",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "宝玉屋",
+      "target": "宝玉屋·里间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "宝玉屋",
+      "target": "宝玉屋·外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "荣国府",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "大观园",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 110,
+      "source": "大观园",
+      "target": "园内腰门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 111,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 111,
+      "source": "贾母后院",
+      "target": "鸳鸯屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 111,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 111,
+      "source": "荣国府",
+      "target": "王夫人房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 112,
+      "source": "贾母上房",
+      "target": "贾母套间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 112,
+      "source": "贾母上房",
+      "target": "贾母外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 112,
+      "source": "园",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 112,
+      "source": "园",
+      "target": "腰门",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 112,
+      "source": "惜春房",
+      "target": "惜春院内",
+      "relation": "contains",
+      "confidence": "medium",
+      "is_direction_correct": false,
+      "_note": "反转: 惜春房(building)>惜春院内(site)"
+    },
+    {
+      "chapter": 112,
+      "source": "荣国府",
+      "target": "尤氏那边",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 113,
+      "source": "贾母上房",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾母上房(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 113,
+      "source": "贾母上房",
+      "target": "后夹道子",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 113,
+      "source": "荣国府",
+      "target": "西边院子",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 113,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 113,
+      "source": "贾政外厢房",
+      "target": "寺内",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 贾政外厢房(building)>寺内(site)"
+    },
+    {
+      "chapter": 113,
+      "source": "贾母上房",
+      "target": "贾母上屋内",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 113,
+      "source": "大观园",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 113,
+      "source": "铁槛寺",
+      "target": "贾母灵前",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 113,
+      "source": "荣国府",
+      "target": "贾政书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 113,
+      "source": "园后墙",
+      "target": "大观园",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (园后墙:None, 大观园:site)"
+    },
+    {
+      "chapter": 114,
+      "source": "袭人外间",
+      "target": "袭人下房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 114,
+      "source": "巧姐儿那边",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 115,
+      "source": "荣国府",
+      "target": "凤姐屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 115,
+      "source": "荣国府",
+      "target": "外书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 115,
+      "source": "江南",
+      "target": "金陵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 116,
+      "source": "荣国府",
+      "target": "贾政书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 116,
+      "source": "荣国府",
+      "target": "外书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 116,
+      "source": "大观园",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 116,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 116,
+      "source": "铁槛寺",
+      "target": "地藏庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "离恨天",
+      "target": "太虚幻境",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 离恨天(site)>太虚幻境(region)"
+    },
+    {
+      "chapter": 117,
+      "source": "太虚幻境",
+      "target": "真如福地",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "太虚幻境",
+      "target": "引觉情痴",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "太虚幻境",
+      "target": "潇湘馆",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "贾母上房",
+      "target": "贾母正面榻",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "真如福地",
+      "target": "太虚幻境·配殿",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "贾母后院",
+      "target": "贾母上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 117,
+      "source": "太虚幻境",
+      "target": "灵河岸",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "荣国府",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "荣国府",
+      "target": "王夫人上房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "荣国府",
+      "target": "三门口",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "大观园",
+      "target": "栊翠庵",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "荣国府",
+      "target": "外书房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "荣国府",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 118,
+      "source": "大观园",
+      "target": "惜春房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 119,
+      "source": "荣国府",
+      "target": "王夫人房",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 119,
+      "source": "静室",
+      "target": "宝玉屋",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 119,
+      "source": "宝玉屋",
+      "target": "贾母后院",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 宝玉屋(building)>贾母后院(region)"
+    },
+    {
+      "chapter": 121,
+      "source": "荣国府·后门",
+      "target": "巧姐处",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 121,
+      "source": "庄上",
+      "target": "刘姥姥家",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 121,
+      "source": "石头城",
+      "target": "宁荣街",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 121,
+      "source": "荣国府",
+      "target": "前厅",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier未知"
+    },
+    {
+      "chapter": 122,
+      "source": "金陵",
+      "target": "江南",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 122,
+      "source": "石头城",
+      "target": "荣国府",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": null,
+      "_note": "tier修正后需重新评估 (石头城:None, 荣国府:site)"
+    },
+    {
+      "chapter": 122,
+      "source": "陵驿",
+      "target": "天下",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 陵驿(site)>天下(world)"
+    },
+    {
+      "chapter": 122,
+      "source": "贾母后院",
+      "target": "袭人外间",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 122,
+      "source": "都中",
+      "target": "朝内",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 122,
+      "source": "知机县",
+      "target": "急流津觉迷渡口",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 122,
+      "source": "青埂峰",
+      "target": "大荒山无稽崖",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 122,
+      "source": "茅庵",
+      "target": "急流津觉迷渡口",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    },
+    {
+      "chapter": 122,
+      "source": "离恨天",
+      "target": "太虚幻境",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": false,
+      "_note": "反转: 离恨天(site)>太虚幻境(region)"
+    },
+    {
+      "chapter": 122,
+      "source": "石头城",
+      "target": "城南",
+      "relation": "contains",
+      "confidence": "high",
+      "is_direction_correct": true,
+      "_note": ""
+    }
+  ]
+}

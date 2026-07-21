@@ -1,0 +1,72 @@
+{
+  "novel": "xiyouji",
+  "timestamp": "2026-04-10T23:26:00.102061",
+  "gold_based": {
+    "novel": "xiyouji",
+    "total_nodes": 1205,
+    "correct_count": 505,
+    "suspect_count": 88,
+    "error_count": 24,
+    "entity_precision": 0.9983402489626556,
+    "name_accuracy": 0.9983402489626556,
+    "tier_accuracy": 0.9867219917012449,
+    "parent_precision": 0.9975103734439834,
+    "structural_health": 0.9950207468879668,
+    "overall": 0.9800829875518672,
+    "category_errors": {
+      "A": 2,
+      "B": 2,
+      "C": 16,
+      "D": 3,
+      "E": 6
+    },
+    "error_type_counts": {
+      "C-tier错误": 8,
+      "B-字形错误": 1,
+      "C-tier倒置": 7,
+      "E-投票高冲突": 1,
+      "E-疑似重复": 4,
+      "C-tier可疑": 1,
+      "D-parent错误": 3,
+      "B-未合并别名": 1,
+      "E-消歧重复": 2,
+      "A-方位泛称": 1,
+      "A-非地名": 1
+    }
+  },
+  "rule_based": {
+    "novel": "xiyouji",
+    "total_nodes": 921,
+    "correct_count": 642,
+    "suspect_count": 0,
+    "error_count": 279,
+    "entity_precision": 0.991313789359392,
+    "name_accuracy": 1.0,
+    "tier_accuracy": 0.9511400651465798,
+    "parent_precision": 0.9695982627578719,
+    "structural_health": 0.760043431053203,
+    "overall": 0.6970684039087948,
+    "category_errors": {
+      "A": 8,
+      "B": 0,
+      "C": 45,
+      "D": 28,
+      "E": 221
+    },
+    "error_type_counts": {
+      "C-tier错误": 31,
+      "C-tier倒置": 17,
+      "E-mc零但原文存在": 183,
+      "A-单字通名": 2,
+      "E-零证据有子": 26,
+      "E-原文无此名": 34,
+      "D-孤立顶层": 28,
+      "A-方位泛称": 1,
+      "E-消歧重复": 5,
+      "A-非地名": 1,
+      "E-幻觉父节点": 3,
+      "A-描述性短语": 2,
+      "A-概念非地名": 2
+    }
+  }
+}

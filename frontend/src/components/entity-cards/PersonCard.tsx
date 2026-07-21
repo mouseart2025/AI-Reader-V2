@@ -47,15 +47,17 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                 {aliases.map((a) => (
                   <span key={a.name} className="mr-2">
                     {a.name}
-                    {onChapterClick ? (
-                      <button
-                        className="text-muted-foreground/50 ml-0.5 cursor-pointer hover:underline"
-                        onClick={() => onChapterClick(a.first_chapter)}
-                      >
-                        (Ch.{a.first_chapter})
-                      </button>
-                    ) : (
-                      <span className="text-muted-foreground/50 ml-0.5">(Ch.{a.first_chapter})</span>
+                    {a.first_chapter > 0 && (
+                      onChapterClick ? (
+                        <button
+                          className="text-muted-foreground/50 ml-0.5 cursor-pointer hover:underline"
+                          onClick={() => onChapterClick(a.first_chapter)}
+                        >
+                          (Ch.{a.first_chapter})
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground/50 ml-0.5">(Ch.{a.first_chapter})</span>
+                      )
                     )}
                   </span>
                 ))}

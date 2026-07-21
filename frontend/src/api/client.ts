@@ -11,6 +11,7 @@ import type {
   Conversation,
   EntityDictionaryResponse,
   EntitySummary,
+  EntityOverride,
   EnvironmentCheck,
   HierarchyRebuildResult,
   ImportPreview,
@@ -442,6 +443,95 @@ export function fetchEntityProfile(
 ): Promise<Record<string, unknown>> {
   const params = type ? `?type=${type}` : ""
   return apiFetch(`/novels/${novelId}/entities/${encodeURIComponent(name)}${params}`)
+}
+
+// ── Entity alias overrides (manual merge/split) ──────
+
+/** POST/DELETE that surfaces the backend's Chinese `detail` message on failure. */
+async function overrideRequest<T>(path: string, init: RequestInit): Promise<T> {
+  const res = await fetch(`${getBase()}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  })
+  if (!res.ok) {
+    let detail = `${res.status}`
+    try {
+      const body = await res.json()
+      if (body?.detail) detail = body.detail
+    } catch {
+      /* keep status code */
+    }
+    throw new Error(detail)
+  }
+  return res.json() as Promise<T>
+}
+
+export function listEntityOverrides(novelId: string): Promise<{ overrides: EntityOverride[] }> {
+  return apiFetch(`/novels/${novelId}/entity-overrides`)
+}
+
+export function mergeAliases(
+  novelId: string,
+  members: string[],
+  canonical: string,
+): Promise<{ status: string; override_id: number }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/merge`, {
+    method: "POST",
+    body: JSON.stringify({ members, canonical }),
+  })
+}
+
+export function splitAliases(
+  novelId: string,
+  source: string,
+  aliases: string[],
+  to: string | null,
+): Promise<{ status: string; override_id: number }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/split`, {
+    method: "POST",
+    body: JSON.stringify({ source, aliases, to }),
+  })
+}
+
+export function renameEntity(
+  novelId: string,
+  source: string,
+  to: string,
+): Promise<{ status: string; override_id: number }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/rename`, {
+    method: "POST",
+    body: JSON.stringify({ source, to }),
+  })
+}
+
+export function conceptRename(novelId: string, name: string, to: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/concept-rename`,
+    { method: "POST", body: JSON.stringify({ name, to }) },
+  )
+}
+
+export function conceptRecategory(novelId: string, name: string, to: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/concept-recategory`,
+    { method: "POST", body: JSON.stringify({ name, to }) },
+  )
+}
+
+export function conceptDelete(novelId: string, name: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/concept-delete`,
+    { method: "POST", body: JSON.stringify({ name }) },
+  )
+}
+
+export function deleteEntityOverride(
+  novelId: string,
+  overrideId: number,
+): Promise<{ status: string }> {
+  return overrideRequest(`/novels/${novelId}/entity-overrides/${overrideId}`, {
+    method: "DELETE",
+  })
 }
 
 // ── Visualization ────────────────────────────────
@@ -899,6 +989,10 @@ export function exportNovelUrl(novelId: string): string {
 
 export function exportNovelAirUrl(novelId: string): string {
   return `${getBase()}/novels/${novelId}/export?format=air`
+}
+
+export function exportNovelMarkdownUrl(novelId: string): string {
+  return `${getBase()}/novels/${novelId}/export?format=markdown`
 }
 
 export function exportAllConversationsUrl(novelId: string): string {

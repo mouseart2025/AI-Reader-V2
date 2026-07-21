@@ -1,0 +1,727 @@
+{
+  "_instructions": "is_valid_character=true/false. correct_name填正确canonical名",
+  "_novel": "红楼梦",
+  "_total": 80,
+  "characters": [
+    {
+      "name": "王夫人",
+      "mention_count": 101,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "凤姐",
+      "mention_count": 97,
+      "first_chapter": 6,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "史老太君",
+      "mention_count": 92,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "袭人",
+      "mention_count": 92,
+      "first_chapter": 3,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "黛玉",
+      "mention_count": 84,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "宝玉",
+      "mention_count": 78,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "宝钗",
+      "mention_count": 71,
+      "first_chapter": 4,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "平儿",
+      "mention_count": 70,
+      "first_chapter": 6,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾琏",
+      "mention_count": 68,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾政",
+      "mention_count": 65,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "李纨",
+      "mention_count": 63,
+      "first_chapter": 3,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "薛姨妈",
+      "mention_count": 59,
+      "first_chapter": 4,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾珍",
+      "mention_count": 58,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "探春",
+      "mention_count": 53,
+      "first_chapter": 2,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "邢夫人",
+      "mention_count": 53,
+      "first_chapter": 3,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "鸳鸯",
+      "mention_count": 46,
+      "first_chapter": 20,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "麝月",
+      "mention_count": 45,
+      "first_chapter": 5,
+      "last_chapter": 119,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "紫鹃",
+      "mention_count": 45,
+      "first_chapter": 8,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "惜春",
+      "mention_count": 44,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾赦",
+      "mention_count": 43,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "史湘云",
+      "mention_count": 40,
+      "first_chapter": 20,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾宝玉",
+      "mention_count": 38,
+      "first_chapter": 3,
+      "last_chapter": 42,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "晴雯",
+      "mention_count": 38,
+      "first_chapter": 5,
+      "last_chapter": 117,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾蓉",
+      "mention_count": 37,
+      "first_chapter": 2,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "薛蟠",
+      "mention_count": 37,
+      "first_chapter": 3,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "迎春",
+      "mention_count": 35,
+      "first_chapter": 2,
+      "last_chapter": 110,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾环",
+      "mention_count": 35,
+      "first_chapter": 20,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "秋纹",
+      "mention_count": 31,
+      "first_chapter": 19,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾兰",
+      "mention_count": 30,
+      "first_chapter": 4,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "香菱",
+      "mention_count": 30,
+      "first_chapter": 5,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "薛宝钗",
+      "mention_count": 27,
+      "first_chapter": 5,
+      "last_chapter": 42,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "赵姨娘",
+      "mention_count": 27,
+      "first_chapter": 20,
+      "last_chapter": 119,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "莺儿",
+      "mention_count": 26,
+      "first_chapter": 7,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "琥珀",
+      "mention_count": 23,
+      "first_chapter": 20,
+      "last_chapter": 113,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "尤氏",
+      "mention_count": 22,
+      "first_chapter": 5,
+      "last_chapter": 77,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "薛宝琴",
+      "mention_count": 22,
+      "first_chapter": 50,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "彩云",
+      "mention_count": 21,
+      "first_chapter": 23,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "雪雁",
+      "mention_count": 20,
+      "first_chapter": 3,
+      "last_chapter": 101,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "丰儿",
+      "mention_count": 20,
+      "first_chapter": 7,
+      "last_chapter": 118,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾雨村",
+      "mention_count": 18,
+      "first_chapter": 1,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "赖大",
+      "mention_count": 18,
+      "first_chapter": 16,
+      "last_chapter": 120,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "焙茗",
+      "mention_count": 17,
+      "first_chapter": 24,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾芸",
+      "mention_count": 16,
+      "first_chapter": 13,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "薛蝌",
+      "mention_count": 16,
+      "first_chapter": 50,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾珍之妻",
+      "mention_count": 16,
+      "first_chapter": 85,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "邢岫烟",
+      "mention_count": 15,
+      "first_chapter": 50,
+      "last_chapter": 110,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾蓉之妻",
+      "mention_count": 14,
+      "first_chapter": 5,
+      "last_chapter": 117,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "司棋",
+      "mention_count": 14,
+      "first_chapter": 7,
+      "last_chapter": 120,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "林之孝",
+      "mention_count": 14,
+      "first_chapter": 16,
+      "last_chapter": 120,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "小红",
+      "mention_count": 14,
+      "first_chapter": 24,
+      "last_chapter": 118,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "茗烟",
+      "mention_count": 13,
+      "first_chapter": 9,
+      "last_chapter": 103,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "妙玉",
+      "mention_count": 13,
+      "first_chapter": 18,
+      "last_chapter": 118,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "元春",
+      "mention_count": 12,
+      "first_chapter": 2,
+      "last_chapter": 96,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "李贵",
+      "mention_count": 12,
+      "first_chapter": 9,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾蔷",
+      "mention_count": 12,
+      "first_chapter": 9,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "巧姐",
+      "mention_count": 12,
+      "first_chapter": 27,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "尤二姐",
+      "mention_count": 12,
+      "first_chapter": 64,
+      "last_chapter": 114,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "王子腾",
+      "mention_count": 11,
+      "first_chapter": 3,
+      "last_chapter": 120,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "刘姥姥",
+      "mention_count": 10,
+      "first_chapter": 6,
+      "last_chapter": 122,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "待书",
+      "mention_count": 10,
+      "first_chapter": 7,
+      "last_chapter": 76,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "王仁",
+      "mention_count": 10,
+      "first_chapter": 14,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "玉钏儿",
+      "mention_count": 10,
+      "first_chapter": 25,
+      "last_chapter": 118,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾惜春",
+      "mention_count": 10,
+      "first_chapter": 25,
+      "last_chapter": 41,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾探春",
+      "mention_count": 10,
+      "first_chapter": 27,
+      "last_chapter": 41,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "素云",
+      "mention_count": 10,
+      "first_chapter": 29,
+      "last_chapter": 121,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "芳官",
+      "mention_count": 10,
+      "first_chapter": 59,
+      "last_chapter": 94,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "五儿",
+      "mention_count": 10,
+      "first_chapter": 61,
+      "last_chapter": 119,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "夏金桂",
+      "mention_count": 10,
+      "first_chapter": 80,
+      "last_chapter": 120,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "秦钟",
+      "mention_count": 9,
+      "first_chapter": 7,
+      "last_chapter": 17,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "金钏",
+      "mention_count": 9,
+      "first_chapter": 29,
+      "last_chapter": 47,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "尤三姐",
+      "mention_count": 9,
+      "first_chapter": 64,
+      "last_chapter": 117,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "周瑞",
+      "mention_count": 8,
+      "first_chapter": 6,
+      "last_chapter": 113,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "珍大嫂子",
+      "mention_count": 8,
+      "first_chapter": 8,
+      "last_chapter": 19,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "旺儿",
+      "mention_count": 8,
+      "first_chapter": 15,
+      "last_chapter": 107,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "碧痕",
+      "mention_count": 8,
+      "first_chapter": 20,
+      "last_chapter": 65,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "翠缕",
+      "mention_count": 8,
+      "first_chapter": 21,
+      "last_chapter": 84,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "老嬷嬷",
+      "mention_count": 8,
+      "first_chapter": 24,
+      "last_chapter": 80,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "贾迎春",
+      "mention_count": 8,
+      "first_chapter": 27,
+      "last_chapter": 41,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "鲍二",
+      "mention_count": 8,
+      "first_chapter": 45,
+      "last_chapter": 113,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    },
+    {
+      "name": "李绮",
+      "mention_count": 8,
+      "first_chapter": 50,
+      "last_chapter": 119,
+      "is_valid_character": null,
+      "correct_name": null,
+      "_note": ""
+    }
+  ]
+}
