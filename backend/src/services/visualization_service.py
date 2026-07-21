@@ -247,6 +247,24 @@ async def get_graph_data(
                 person_org[person] = best_org
 
     from src.services.alias_resolver import get_override_targets
+    from src.services.hallucination_filter import get_ungrounded_persons
+
+    # v0.72: filter hallucination islands (issue #30) — person nodes whose
+    # canonical name and aliases never literally appear in the source text
+    # (e.g. characters leaked from the LLM's pretrained knowledge of other
+    # novels). Checked against the full book text, so real characters are
+    # never filtered just because they appear outside the selected range.
+    ungrounded = await get_ungrounded_persons(novel_id, person_chapters.keys(), alias_map)
+    if ungrounded:
+        for name in ungrounded:
+            person_chapters.pop(name, None)
+            person_org.pop(name, None)
+            person_aliases.pop(name, None)
+        edge_map = {
+            k: v
+            for k, v in edge_map.items()
+            if k[0] not in ungrounded and k[1] not in ungrounded
+        }
 
     override_targets = await get_override_targets(novel_id)
     nodes = [
@@ -299,6 +317,7 @@ async def get_graph_data(
         "suggested_min_edge_weight": suggested_min_edge,
         "category_counts": dict(category_counts),
         "type_counts": dict(type_counts.most_common(20)),
+        "filtered_ungrounded_persons": sorted(ungrounded),
     }
 
 

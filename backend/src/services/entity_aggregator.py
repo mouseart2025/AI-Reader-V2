@@ -63,12 +63,14 @@ def _cache_set(key: tuple[str, str, str], value: Any) -> None:
 def invalidate_cache(novel_id: str) -> None:
     """Invalidate all cached profiles and alias map for a novel."""
     from src.services.alias_resolver import invalidate_alias_cache
+    from src.services.hallucination_filter import invalidate_cache as invalidate_hallucination_cache
 
     keys_to_remove = [k for k in _cache if k[0] == novel_id]
     for k in keys_to_remove:
         _cache.pop(k, None)
     _cache_order[:] = [k for k in _cache_order if k[0] != novel_id]
     invalidate_alias_cache(novel_id)
+    invalidate_hallucination_cache(novel_id)
 
 
 async def _apply_edit_markers(profile: Any, novel_id: str) -> Any:
