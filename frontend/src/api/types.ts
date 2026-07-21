@@ -395,7 +395,9 @@ export type EntityType = "person" | "location" | "item" | "org" | "concept"
 export interface PersonProfile {
   name: string
   type: "person"
-  aliases: { name: string; first_chapter: number }[]
+  aliases: { name: string; first_chapter: number; edited?: boolean }[]
+  edit_status?: string
+  conflict?: boolean
   appearances: { chapters: number[]; description: string }[]
   abilities: { chapter: number; dimension: string; name: string; description: string }[]
   relations: {
@@ -424,6 +426,8 @@ export interface LocationProfile {
   visitors: { name: string; chapters: number[]; is_resident: boolean }[]
   events: { chapter: number; summary: string; type: string }[]
   stats: Record<string, number>
+  edit_status?: string
+  conflict?: boolean
 }
 
 export interface ItemProfile {
@@ -433,6 +437,8 @@ export interface ItemProfile {
   flow: { chapter: number; action: string; actor: string; recipient: string | null; description: string }[]
   related_items: string[]
   stats: Record<string, number>
+  edit_status?: string
+  conflict?: boolean
 }
 
 export interface OrgProfile {
@@ -442,9 +448,32 @@ export interface OrgProfile {
   member_events: { chapter: number; member: string; role: string | null; action: string; description: string }[]
   org_relations: { chapter: number; other_org: string; relation_type: string }[]
   stats: Record<string, number>
+  edit_status?: string
+  conflict?: boolean
 }
 
 export type EntityProfile = PersonProfile | LocationProfile | ItemProfile | OrgProfile
+
+/** A user alias override record (manual merge/split) — backs the "我的修正" list. */
+export interface EntityOverride {
+  id: number
+  override_type:
+    | "alias_merge"
+    | "alias_split"
+    | "entity_rename"
+    | "concept_rename"
+    | "concept_recategory"
+    | "concept_delete"
+  override_key: string
+  override_json: {
+    members?: string[]
+    canonical?: string
+    source?: string
+    aliases?: string[]
+    to?: string | null
+  }
+  created_at: string
+}
 
 // ── Map ──────────────────────────────────────
 

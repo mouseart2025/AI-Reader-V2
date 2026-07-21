@@ -10,6 +10,7 @@ from src.api.routes import (
     novels,
     chapters,
     entities,
+    entity_overrides,
     graph,
     map,
     timeline,
@@ -110,6 +111,7 @@ app.include_router(novels.router)
 app.include_router(chapters.router)
 app.include_router(chapters.bookmark_router)
 app.include_router(entities.router)
+app.include_router(entity_overrides.router)
 app.include_router(graph.router)
 app.include_router(map.router)
 app.include_router(timeline.router)

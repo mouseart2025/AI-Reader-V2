@@ -33,11 +33,25 @@ async def export_novel(novel_id: str, format: str = Query("json")):
 
     format=json (default): plain JSON response
     format=air: gzip-compressed JSON with .air extension
+    format=markdown: human-readable per-chapter analysis report (.md)
     """
     novel = await novel_store.get_novel(novel_id)
     if not novel:
         raise HTTPException(404, "Novel not found")
     try:
+        if format == "markdown":
+            from src.services.chapter_facts_markdown_renderer import render_novel_markdown
+
+            md, filename = await render_novel_markdown(novel_id)
+            encoded = quote(filename)
+            return Response(
+                content=md,
+                media_type="text/markdown; charset=utf-8",
+                headers={
+                    "Content-Disposition": f"attachment; filename=\"analysis.md\"; filename*=UTF-8''{encoded}",
+                },
+            )
+
         data = await export_service.export_novel(novel_id)
 
         if format == "air":

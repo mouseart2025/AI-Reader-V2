@@ -4,11 +4,41 @@ import json
 from collections import Counter
 
 from src.db import chapter_fact_store
+from src.extraction.fact_validator import _is_generic_person
+
+
+async def _load_concept_overrides(
+    novel_id: str,
+) -> tuple[dict[str, str], dict[str, str], set[str]]:
+    """User concept edits, all keyed by the ORIGINAL extracted concept name.
+
+    Returns (renames {old: new}, recategory {name: new_cat}, deleted {names}).
+    Concepts bypass alias_map, so these overrides are applied directly at the
+    encyclopedia read sites.
+    """
+    from src.db import entity_override_store
+
+    overrides = await entity_override_store.load_overrides(novel_id)
+    renames: dict[str, str] = {}
+    recategory: dict[str, str] = {}
+    deleted: set[str] = set()
+    for ov in overrides:
+        t = ov["override_type"]
+        key = ov["override_key"]
+        j = ov.get("override_json") or {}
+        if t == "concept_rename" and j.get("to"):
+            renames[key] = j["to"]
+        elif t == "concept_recategory" and j.get("to"):
+            recategory[key] = j["to"]
+        elif t == "concept_delete":
+            deleted.add(key)
+    return renames, recategory, deleted
 
 
 async def get_category_stats(novel_id: str) -> dict:
     """Get entity/concept counts by category."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    c_renames, c_recat, c_deleted = await _load_concept_overrides(novel_id)
 
     persons: set[str] = set()
     locations: set[str] = set()
@@ -38,7 +68,9 @@ async def get_category_stats(novel_id: str) -> dict:
         for nc in fact.get("new_concepts", []):
             name = nc.get("name", "")
             cat = nc.get("category", "其他")
-            if name:
+            if name and name not in c_deleted:
+                cat = c_recat.get(name, cat)
+                name = c_renames.get(name, name)
                 if cat not in concepts:
                     concepts[cat] = set()
                 concepts[cat].add(name)
@@ -63,6 +95,11 @@ async def get_encyclopedia_entries(
 ) -> list[dict]:
     """Get entity/concept entries for encyclopedia listing."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    # Resolve raw fact names to canonical so aliases (incl. user merges/splits)
+    # collapse into one entry, consistent with cards/graph (FR8 / Epic 5).
+    from src.services.alias_resolver import build_alias_map
+    alias_map = await build_alias_map(novel_id)
+    c_renames, c_recat, c_deleted = await _load_concept_overrides(novel_id)
 
     # Collect entries with first chapter and definition
     entries: dict[str, dict] = {}
@@ -78,6 +115,9 @@ async def get_encyclopedia_entries(
                 name = ch.get("name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
+                if _is_generic_person(name) is not None:
+                    continue  # collective/generic reference, not a character
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -102,6 +142,7 @@ async def get_encyclopedia_entries(
                 name = loc.get("name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -118,6 +159,7 @@ async def get_encyclopedia_entries(
                 name = ie.get("item_name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -133,6 +175,7 @@ async def get_encyclopedia_entries(
                 name = oe.get("org_name", "")
                 if not name:
                     continue
+                name = alias_map.get(name, name)
                 entry_chapters.setdefault(name, set()).add(chapter_id)
                 if name not in entries:
                     entries[name] = {
@@ -147,10 +190,14 @@ async def get_encyclopedia_entries(
             category and category not in ("person", "location", "item", "org")
         ):
             for nc in fact.get("new_concepts", []):
-                name = nc.get("name", "")
+                orig = nc.get("name", "")
                 cat = nc.get("category", "其他")
-                if not name:
+                if not orig or orig in c_deleted:
                     continue
+                # Apply user concept overrides (keyed by original name).
+                edited = orig in c_renames or orig in c_recat
+                cat = c_recat.get(orig, cat)
+                name = c_renames.get(orig, orig)
                 # If filtering by specific concept sub-category
                 if category and category not in ("concept", "person", "location", "item", "org"):
                     if cat != category:
@@ -163,6 +210,7 @@ async def get_encyclopedia_entries(
                         "category": cat,
                         "definition": (nc.get("definition") or "")[:100],
                         "first_chapter": chapter_id,
+                        "edited": edited,
                     }
 
     # Inject chapter_count and variant hints into every entry
@@ -279,8 +327,16 @@ def _sort_by_hierarchy(entries: list[dict]) -> list[dict]:
 
 
 async def get_concept_detail(novel_id: str, name: str) -> dict | None:
-    """Get full detail for a concept entry."""
+    """Get full detail for a concept entry. `name` may be a user-renamed name."""
     facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    c_renames, c_recat, c_deleted = await _load_concept_overrides(novel_id)
+    # `name` is the display name; resolve back to the original extracted name to
+    # match against the facts (which store the original).
+    reverse = {new: old for old, new in c_renames.items()}
+    orig = reverse.get(name, name)
+    if orig in c_deleted:
+        return None
+    display_name = c_renames.get(orig, orig)
 
     concept_info: dict | None = None
     excerpts: list[dict] = []
@@ -291,17 +347,18 @@ async def get_concept_detail(novel_id: str, name: str) -> dict | None:
         chapter_id = fact.get("chapter_id", 0)
 
         for nc in fact.get("new_concepts", []):
-            if nc.get("name") == name:
+            if nc.get("name") == orig:
                 if concept_info is None:
                     concept_info = {
-                        "name": name,
-                        "category": nc.get("category", "其他"),
+                        "name": display_name,
+                        "category": c_recat.get(orig, nc.get("category", "其他")),
                         "definition": nc.get("definition", ""),
                         "first_chapter": chapter_id,
+                        "edited": orig in c_renames or orig in c_recat,
                     }
                 # Collect related concepts
                 for rel in nc.get("related", []):
-                    if rel and rel != name:
+                    if rel and rel != orig:
                         related_concepts.add(rel)
                 # Each chapter mention is an excerpt
                 if nc.get("definition"):
@@ -323,7 +380,7 @@ async def get_concept_detail(novel_id: str, name: str) -> dict | None:
         chapter_id = fact.get("chapter_id", 0)
         for evt in fact.get("events", []):
             summary = evt.get("summary", "")
-            if name in summary:
+            if orig in summary:
                 for p in evt.get("participants", []):
                     related_entities.append({"name": p, "type": "person", "chapter": chapter_id})
 

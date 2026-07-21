@@ -1,0 +1,807 @@
+{
+  "_instructions": "correct_type + correct_category",
+  "_novel": "红楼梦",
+  "_total": 80,
+  "relations": [
+    {
+      "person_a": "凤姐",
+      "person_b": "平儿",
+      "system_type": "主仆",
+      "mention_count": 54,
+      "first_seen": "ch6",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "袭人",
+      "system_type": "主仆",
+      "mention_count": 43,
+      "first_seen": "ch3",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾宝玉",
+      "person_b": "黛玉",
+      "system_type": "恋人",
+      "mention_count": 32,
+      "first_seen": "ch5",
+      "correct_type": "恋人",
+      "correct_category": "intimate",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "贾琏",
+      "system_type": "夫妻",
+      "mention_count": 31,
+      "first_seen": "ch13",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "史老太君",
+      "system_type": "祖孙",
+      "mention_count": 30,
+      "first_seen": "ch8",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "宝玉",
+      "system_type": "祖孙",
+      "mention_count": 29,
+      "first_seen": "ch2",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "黛玉",
+      "system_type": "恋人",
+      "mention_count": 28,
+      "first_seen": "ch3",
+      "correct_type": "恋人",
+      "correct_category": "intimate",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "宝钗",
+      "system_type": "夫妻",
+      "mention_count": 28,
+      "first_seen": "ch55",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "王夫人",
+      "system_type": "社交",
+      "mention_count": 27,
+      "first_seen": "ch6",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "紫鹃",
+      "person_b": "黛玉",
+      "system_type": "主仆",
+      "mention_count": 27,
+      "first_seen": "ch8",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "袭人",
+      "person_b": "贾宝玉",
+      "system_type": "主仆",
+      "mention_count": 26,
+      "first_seen": "ch5",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝钗",
+      "person_b": "薛姨妈",
+      "system_type": "母女",
+      "mention_count": 23,
+      "first_seen": "ch46",
+      "correct_type": "母女",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾政",
+      "person_b": "贾赦",
+      "system_type": "兄弟",
+      "mention_count": 22,
+      "first_seen": "ch2",
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾政",
+      "person_b": "贾琏",
+      "system_type": "上下级",
+      "mention_count": 22,
+      "first_seen": "ch2",
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "贾政",
+      "system_type": "母子",
+      "mention_count": 22,
+      "first_seen": "ch3",
+      "correct_type": "母子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "贾政",
+      "system_type": "父子",
+      "mention_count": 21,
+      "first_seen": "ch2",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "薛宝钗",
+      "person_b": "黛玉",
+      "system_type": "姐妹",
+      "mention_count": 20,
+      "first_seen": "ch5",
+      "correct_type": "姐妹",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾珍",
+      "person_b": "贾蓉",
+      "system_type": "父子",
+      "mention_count": 19,
+      "first_seen": "ch2",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "黛玉",
+      "system_type": "祖孙",
+      "mention_count": 19,
+      "first_seen": "ch3",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝钗",
+      "person_b": "黛玉",
+      "system_type": "社交",
+      "mention_count": 18,
+      "first_seen": "ch4",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "王夫人",
+      "system_type": "母子",
+      "mention_count": 18,
+      "first_seen": "ch47",
+      "correct_type": "母子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "王夫人",
+      "system_type": "婆媳",
+      "mention_count": 17,
+      "first_seen": "ch3",
+      "correct_type": "婆媳",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "薛宝钗",
+      "person_b": "贾宝玉",
+      "system_type": "恋人",
+      "mention_count": 17,
+      "first_seen": "ch5",
+      "correct_type": "恋人",
+      "correct_category": "intimate",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "史湘云",
+      "person_b": "黛玉",
+      "system_type": "朋友",
+      "mention_count": 17,
+      "first_seen": "ch20",
+      "correct_type": "朋友",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "王夫人",
+      "person_b": "贾政",
+      "system_type": "夫妻",
+      "mention_count": 16,
+      "first_seen": "ch2",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "薛姨妈",
+      "person_b": "薛蟠",
+      "system_type": "母子",
+      "mention_count": 16,
+      "first_seen": "ch4",
+      "correct_type": "母子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "鸳鸯",
+      "system_type": "主仆",
+      "mention_count": 16,
+      "first_seen": "ch47",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "晴雯",
+      "system_type": "上下级",
+      "mention_count": 16,
+      "first_seen": "ch52",
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "雪雁",
+      "person_b": "黛玉",
+      "system_type": "主仆",
+      "mention_count": 15,
+      "first_seen": "ch3",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "惜春",
+      "person_b": "探春",
+      "system_type": "姐妹",
+      "mention_count": 13,
+      "first_seen": "ch2",
+      "correct_type": "姐妹",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾政",
+      "person_b": "贾珍",
+      "system_type": "兄弟",
+      "mention_count": 13,
+      "first_seen": "ch13",
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "晴雯",
+      "person_b": "袭人",
+      "system_type": "主仆",
+      "mention_count": 13,
+      "first_seen": "ch30",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "探春",
+      "person_b": "李纨",
+      "system_type": "社交",
+      "mention_count": 13,
+      "first_seen": "ch46",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "李纨",
+      "person_b": "贾兰",
+      "system_type": "母子",
+      "mention_count": 12,
+      "first_seen": "ch4",
+      "correct_type": "母子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "平儿",
+      "person_b": "贾琏",
+      "system_type": "妾",
+      "mention_count": 12,
+      "first_seen": "ch7",
+      "correct_type": "妾",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "贾环",
+      "person_b": "赵姨娘",
+      "system_type": "母子",
+      "mention_count": 12,
+      "first_seen": "ch20",
+      "correct_type": "母子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "袭人",
+      "person_b": "麝月",
+      "system_type": "主仆",
+      "mention_count": 12,
+      "first_seen": "ch21",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史湘云",
+      "person_b": "史老太君",
+      "system_type": "社交",
+      "mention_count": 12,
+      "first_seen": "ch22",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "王夫人",
+      "person_b": "袭人",
+      "system_type": "主仆",
+      "mention_count": 12,
+      "first_seen": "ch23",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝钗",
+      "person_b": "王夫人",
+      "system_type": "婆媳",
+      "mention_count": 12,
+      "first_seen": "ch47",
+      "correct_type": "婆媳",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "贾宝玉",
+      "system_type": "主仆",
+      "mention_count": 11,
+      "first_seen": "ch7",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "薛蟠",
+      "person_b": "香菱",
+      "system_type": "夫妻",
+      "mention_count": 11,
+      "first_seen": "ch16",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾兰",
+      "person_b": "贾政",
+      "system_type": "祖孙",
+      "mention_count": 11,
+      "first_seen": "ch22",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "秋纹",
+      "person_b": "袭人",
+      "system_type": "同事",
+      "mention_count": 11,
+      "first_seen": "ch31",
+      "correct_type": "同事",
+      "correct_category": "social",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "麝月",
+      "system_type": "主仆",
+      "mention_count": 11,
+      "first_seen": "ch52",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "尤氏",
+      "person_b": "贾珍",
+      "system_type": "夫妻",
+      "mention_count": 11,
+      "first_seen": "ch54",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "丰儿",
+      "person_b": "凤姐",
+      "system_type": "主仆",
+      "mention_count": 10,
+      "first_seen": "ch7",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "贾宝玉",
+      "system_type": "祖孙",
+      "mention_count": 10,
+      "first_seen": "ch11",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾珍",
+      "person_b": "贾琏",
+      "system_type": "叔侄",
+      "mention_count": 10,
+      "first_seen": "ch11",
+      "correct_type": "叔侄",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "贾政",
+      "person_b": "贾环",
+      "system_type": "父子",
+      "mention_count": 10,
+      "first_seen": "ch22",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史湘云",
+      "person_b": "宝玉",
+      "system_type": "社交",
+      "mention_count": 10,
+      "first_seen": "ch51",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾赦",
+      "person_b": "邢夫人",
+      "system_type": "夫妻",
+      "mention_count": 9,
+      "first_seen": "ch3",
+      "correct_type": "夫妻",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "贾赦",
+      "system_type": "母子",
+      "mention_count": 9,
+      "first_seen": "ch3",
+      "correct_type": "母子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "探春",
+      "system_type": "兄妹",
+      "mention_count": 9,
+      "first_seen": "ch3",
+      "correct_type": "兄妹",
+      "correct_category": "other",
+      "_note": "兜底分类: 兄妹→other"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "尤氏",
+      "system_type": "婆媳",
+      "mention_count": 9,
+      "first_seen": "ch5",
+      "correct_type": "婆媳",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "贾蓉",
+      "system_type": "上下级",
+      "mention_count": 9,
+      "first_seen": "ch6",
+      "correct_type": "上下级",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "李纨",
+      "system_type": "社交",
+      "mention_count": 9,
+      "first_seen": "ch7",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "尤氏",
+      "system_type": "妯娌",
+      "mention_count": 9,
+      "first_seen": "ch7",
+      "correct_type": "妯娌",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "史湘云",
+      "person_b": "贾宝玉",
+      "system_type": "兄妹",
+      "mention_count": 9,
+      "first_seen": "ch20",
+      "correct_type": "兄妹",
+      "correct_category": "other",
+      "_note": "兜底分类: 兄妹→other"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "薛姨妈",
+      "system_type": "亲家",
+      "mention_count": 9,
+      "first_seen": "ch29",
+      "correct_type": "亲家",
+      "correct_category": "other",
+      "_note": "兜底分类: 亲家→other"
+    },
+    {
+      "person_a": "薛蝌",
+      "person_b": "薛蟠",
+      "system_type": "兄弟",
+      "mention_count": 9,
+      "first_seen": "ch50",
+      "correct_type": "兄弟",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "探春",
+      "person_b": "迎春",
+      "system_type": "姐妹",
+      "mention_count": 8,
+      "first_seen": "ch2",
+      "correct_type": "姐妹",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "贾琏",
+      "person_b": "贾赦",
+      "system_type": "父子",
+      "mention_count": 8,
+      "first_seen": "ch2",
+      "correct_type": "父子",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "探春",
+      "system_type": "祖孙",
+      "mention_count": 8,
+      "first_seen": "ch2",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "袭人",
+      "system_type": "主仆",
+      "mention_count": 8,
+      "first_seen": "ch3",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝钗",
+      "person_b": "薛蟠",
+      "system_type": "兄妹",
+      "mention_count": 8,
+      "first_seen": "ch4",
+      "correct_type": "兄妹",
+      "correct_category": "other",
+      "_note": "兜底分类: 兄妹→other"
+    },
+    {
+      "person_a": "王夫人",
+      "person_b": "薛姨妈",
+      "system_type": "社交",
+      "mention_count": 8,
+      "first_seen": "ch4",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "袭人",
+      "person_b": "黛玉",
+      "system_type": "主仆",
+      "mention_count": 8,
+      "first_seen": "ch22",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "鸳鸯",
+      "system_type": "委托",
+      "mention_count": 8,
+      "first_seen": "ch39",
+      "correct_type": "委托",
+      "correct_category": "other",
+      "_note": "兜底分类: 委托→other"
+    },
+    {
+      "person_a": "平儿",
+      "person_b": "袭人",
+      "system_type": "社交",
+      "mention_count": 8,
+      "first_seen": "ch40",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "探春",
+      "person_b": "黛玉",
+      "system_type": "姐妹",
+      "mention_count": 8,
+      "first_seen": "ch43",
+      "correct_type": "姐妹",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "凤姐",
+      "person_b": "宝玉",
+      "system_type": "社交",
+      "mention_count": 8,
+      "first_seen": "ch46",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝玉",
+      "person_b": "芳官",
+      "system_type": "主仆",
+      "mention_count": 8,
+      "first_seen": "ch59",
+      "correct_type": "主仆",
+      "correct_category": "hierarchical",
+      "_note": "自动"
+    },
+    {
+      "person_a": "宝钗",
+      "person_b": "袭人",
+      "system_type": "社交",
+      "mention_count": 8,
+      "first_seen": "ch63",
+      "correct_type": "社交",
+      "correct_category": "social",
+      "_note": "自动"
+    },
+    {
+      "person_a": "尤二姐",
+      "person_b": "尤氏",
+      "system_type": "姊妹",
+      "mention_count": 8,
+      "first_seen": "ch64",
+      "correct_type": "姊妹",
+      "correct_category": "other",
+      "_note": "兜底分类: 姊妹→other"
+    },
+    {
+      "person_a": "王夫人",
+      "person_b": "贾琏",
+      "system_type": "叔侄",
+      "mention_count": 8,
+      "first_seen": "ch75",
+      "correct_type": "叔侄",
+      "correct_category": "family",
+      "_note": "扩展自动分类"
+    },
+    {
+      "person_a": "探春",
+      "person_b": "贾政",
+      "system_type": "父女",
+      "mention_count": 7,
+      "first_seen": "ch2",
+      "correct_type": "父女",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "元春",
+      "person_b": "史老太君",
+      "system_type": "祖孙",
+      "mention_count": 7,
+      "first_seen": "ch2",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "史老太君",
+      "person_b": "迎春",
+      "system_type": "祖孙",
+      "mention_count": 7,
+      "first_seen": "ch2",
+      "correct_type": "祖孙",
+      "correct_category": "family",
+      "_note": "自动"
+    },
+    {
+      "person_a": "薛姨妈",
+      "person_b": "薛宝钗",
+      "system_type": "母女",
+      "mention_count": 7,
+      "first_seen": "ch7",
+      "correct_type": "母女",
+      "correct_category": "family",
+      "_note": "自动"
+    }
+  ]
+}
