@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.71.8-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.71.9-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.71.8_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.8/AI.Reader_0.71.8_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.71.8_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.8/AI.Reader_0.71.8_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.71.9_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.9/AI.Reader_0.71.9_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.71.9_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.71.9/AI.Reader_0.71.9_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -138,6 +138,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| v0.71.9 | 2026-07-21 | 导出设定集数据不全修复(issue #39) + 两个深层稳定性修复 — ①设定集导出此前实体/关系/事件不全,现后端全链路导出 + 前端开关,+6 测试;②地点层级修环失效:极端数据下 2-环可存活到最终输出(跨 LLM 复现实验实测发现,黑水河↔黑水河水府),修环改不动点迭代 + 全流程终检,+5 回归测试;③分析任务自动重试失败章节时 KeyError('chapter_number') 崩溃,任务僵尸化为永久 running(任何章节失败即触发),已修。另:抽取温度支持 `LLM_EXTRACTION_TEMPERATURE` 环境变量覆盖(默认 0.1 不变)。509 backend tests + frontend tsc 通过 |
 | v0.72.0-beta.2 🧪体验版 | 2026-06-07 | **导出可读分析报告 + 实体改名**(issue #26 magik163 实测反馈)— ①导出页新增"导出可读分析(.md)":按章排版的人物/关系/地点/物品/组织/事件/概念,名称已套用别名与手动修正,替代难读的裸 JSON;②实体改名:百科卡 ⋯ →「改名…」把错误命名改对(少年→杨过、道姑→李莫愁、轮国师→金轮国师),原名保留为别名、可撤销、不污染原文。529 backend tests 通过。体验版(Pre-release),正式版 v0.71.8 不受影响 |
 | v0.72.0-beta.1 🧪体验版 | 2026-06-05 | **实体别名手动合并/拆分**(节点级编辑第一刀,GitHub issue #26 / 知乎需求)— 百科卡 / 关系图 / 阅读页点实体右上「⋯」即可合并散落别名、拆出误归别名(沙僧别名误入八戒一键纠正),修正以 override 层叠加在自动归并之后,**持久、可撤销(「我的修正」集中列表)、不污染原文数据**。后端单点注入 `alias_resolver._apply_user_overrides`,一处生效于百科/图/阅读/检索全部消费端;新增 `entity_overrides` 表 + `/entity-overrides` API。顺带实体卫生:过滤群妖/众小妖类集体泛称、清理别名 Ch.0、剔除跨实体误归与代词。**仅人物视图,地点层级零影响**。以**体验版(Pre-release)**发布,正式版 v0.71.8 不受影响。backend 523 tests + frontend build/vitest 通过 |
 | v0.71.8 | 2026-05-29 | 空间关系 null 值致整章解析失败 hotfix(知乎用户 元图AI研究 反馈) — 弱模型/本地小模型在抽取 `contains`/`adjacent` 类空间关系时常对 `value` 输出 `null`,但 `SpatialRelationship.value` 是必填 `str`,Pydantic 整章原子校验,一个 `value: null` 就让整章作废(人物/地点/关系/事件全丢),表现为"分析几十章全部报错 9 validation errors"。修:`chapter_fact.py` 给 `SpatialRelationship` 加 `field_validator` 把 source/target/relation_type/value/confidence/narrative_evidence 的 `None` 统一转 ""(value 默认 ""),保住 contains 等有效层级信号;下游 vote_builder / visualization / world_structure 已容忍空串。+5 回归测试,503 tests passed |
