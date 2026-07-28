@@ -14,6 +14,7 @@ import {
   fetchBookmarks,
   addBookmark,
   deleteBookmark,
+  fetchConceptDetail,
 } from "@/api/client"
 import type { Bookmark, Chapter, ChapterEntity, EntityType, Novel, Scene } from "@/api/types"
 import { useReadingStore } from "@/stores/readingStore"
@@ -24,6 +25,7 @@ import {
   LINE_HEIGHT_MAP,
   type FontSize,
   type LineHeight,
+  type ParagraphIndent,
 } from "@/stores/readingSettingsStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
 import { ScenePanel, SCENE_BORDER_COLORS } from "@/components/shared/ScenePanel"
@@ -389,8 +391,10 @@ export default function ReadingPage() {
   const reset = useReadingStore((s) => s.reset)
 
   const openEntityCard = useEntityCardStore((s) => s.openCard)
+  const openConceptPopup = useEntityCardStore((s) => s.openConceptPopup)
   const {
-    fontSize, lineHeight, setFontSize, setLineHeight,
+    fontSize, lineHeight, paragraphIndent,
+    setFontSize, setLineHeight, setParagraphIndent,
     highlightEnabled, setHighlightEnabled,
     hiddenEntityTypes, toggleEntityType,
   } = useReadingSettingsStore()
@@ -448,11 +452,30 @@ export default function ReadingPage() {
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
-      if (type === "concept") return // concepts have no profile card
       const canonical = aliasMap[name] ?? name
+      if (type === "concept") {
+        if (!novelId) return
+        fetchConceptDetail(novelId, canonical)
+          .then((data) => {
+            const detail = data as {
+              name?: string
+              definition?: string
+              category?: string
+              related_concepts?: string[]
+            }
+            openConceptPopup({
+              name: detail.name ?? canonical,
+              definition: detail.definition ?? "",
+              category: detail.category ?? "概念",
+              related: detail.related_concepts ?? [],
+            })
+          })
+          .catch(() => {})
+        return
+      }
       openEntityCard(canonical, type as EntityType)
     },
-    [openEntityCard, aliasMap],
+    [aliasMap, novelId, openConceptPopup, openEntityCard],
   )
 
   // Filtered entities for highlight (2.6)
@@ -966,9 +989,11 @@ export default function ReadingPage() {
               <ReadingSettingsPanel
                 fontSize={fontSize}
                 lineHeight={lineHeight}
+                paragraphIndent={paragraphIndent}
                 hiddenEntityTypes={hiddenEntityTypes}
                 onFontSizeChange={setFontSize}
                 onLineHeightChange={setLineHeight}
+                onParagraphIndentChange={setParagraphIndent}
                 onToggleEntityType={toggleEntityType}
                 onClose={() => setShowSettings(false)}
               />
@@ -1083,8 +1108,9 @@ export default function ReadingPage() {
                           <p
                             key={i}
                             data-para={i}
+                            style={{ textIndent: paragraphIndent === "two" ? "2em" : undefined }}
                             className={cn(
-                              "mb-2 transition-colors",
+                              "mb-2 whitespace-pre-wrap transition-colors",
                               sceneIdx != null && `border-l-3 pl-3 ${borderColor}`,
                               isActive && "bg-accent/30 rounded-r",
                             )}
@@ -1096,9 +1122,17 @@ export default function ReadingPage() {
                     )}
                   </div>
                 ) : (
-                  /* Normal whole-block rendering */
-                  <div className={cn("whitespace-pre-wrap", FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
-                    {renderText(currentChapter.content)}
+                  /* Paragraph-level rendering so indentation applies to every paragraph */
+                  <div className={cn(FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
+                    {paragraphs.map((p, i) => (
+                      <p
+                        key={i}
+                        className="mb-2 whitespace-pre-wrap"
+                        style={{ textIndent: paragraphIndent === "two" ? "2em" : undefined }}
+                      >
+                        {renderText(p)}
+                      </p>
+                    ))}
                   </div>
                 )}
               </>
@@ -1153,17 +1187,21 @@ export default function ReadingPage() {
 function ReadingSettingsPanel({
   fontSize,
   lineHeight,
+  paragraphIndent,
   hiddenEntityTypes,
   onFontSizeChange,
   onLineHeightChange,
+  onParagraphIndentChange,
   onToggleEntityType,
   onClose,
 }: {
   fontSize: FontSize
   lineHeight: LineHeight
+  paragraphIndent: ParagraphIndent
   hiddenEntityTypes: string[]
   onFontSizeChange: (s: FontSize) => void
   onLineHeightChange: (h: LineHeight) => void
+  onParagraphIndentChange: (indent: ParagraphIndent) => void
   onToggleEntityType: (type: string) => void
   onClose: () => void
 }) {
@@ -1220,6 +1258,29 @@ function ReadingSettingsPanel({
                 onClick={() => onLineHeightChange(l.value)}
               >
                 {l.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <span className="text-muted-foreground mb-1 block text-xs">首行缩进</span>
+          <div className="flex gap-1">
+            {([
+              { value: "none", label: "无" },
+              { value: "two", label: "两个字" },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                className={cn(
+                  "flex-1 rounded px-2 py-1 text-xs transition-colors",
+                  paragraphIndent === option.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-accent",
+                )}
+                onClick={() => onParagraphIndentChange(option.value)}
+              >
+                {option.label}
               </button>
             ))}
           </div>

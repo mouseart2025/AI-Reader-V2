@@ -3,14 +3,17 @@ import { persist } from "zustand/middleware"
 
 export type FontSize = "small" | "medium" | "large" | "xlarge"
 export type LineHeight = "compact" | "normal" | "loose"
+export type ParagraphIndent = "none" | "two"
 
 interface ReadingSettingsState {
   fontSize: FontSize
   lineHeight: LineHeight
+  paragraphIndent: ParagraphIndent
   highlightEnabled: boolean
   hiddenEntityTypes: string[]
   setFontSize: (size: FontSize) => void
   setLineHeight: (height: LineHeight) => void
+  setParagraphIndent: (indent: ParagraphIndent) => void
   setHighlightEnabled: (enabled: boolean) => void
   toggleEntityType: (type: string) => void
 }
@@ -33,10 +36,12 @@ export const useReadingSettingsStore = create<ReadingSettingsState>()(
     (set) => ({
       fontSize: "medium",
       lineHeight: "normal",
+      paragraphIndent: "two",
       highlightEnabled: true,
       hiddenEntityTypes: [],
       setFontSize: (fontSize) => set({ fontSize }),
       setLineHeight: (lineHeight) => set({ lineHeight }),
+      setParagraphIndent: (paragraphIndent) => set({ paragraphIndent }),
       setHighlightEnabled: (highlightEnabled) => set({ highlightEnabled }),
       toggleEntityType: (type) =>
         set((s) => ({

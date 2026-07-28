@@ -105,18 +105,20 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => window.removeEventListener("keydown", onKey)
   }, [open, close])
 
-  if (!open) return null
+  if (!open && !conceptPopup) return null
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/20"
-        onClick={close}
-      />
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            onClick={close}
+          />
 
-      {/* Drawer */}
-      <div className="fixed top-0 right-0 z-50 flex h-screen w-full flex-col border-l bg-background shadow-lg sm:w-[420px]">
+          {/* Drawer */}
+          <div className="fixed top-0 right-0 z-50 flex h-screen w-full flex-col border-l bg-background shadow-lg sm:w-[420px]">
         {/* Header with breadcrumbs */}
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <div className="flex-1 overflow-hidden">
@@ -229,7 +231,9 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
             </>
           )}
         </div>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Concept Popup */}
       {conceptPopup && (
@@ -250,13 +254,19 @@ function ConceptPopup({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="concept-popup-title"
+      onClick={onClose}
+    >
       <div
         className="w-80 rounded-lg border bg-background p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-center justify-between">
-          <h4 className="font-bold">{data.name}</h4>
+          <h4 id="concept-popup-title" className="font-bold">{data.name}</h4>
           <span className="text-muted-foreground rounded bg-muted px-1.5 py-0.5 text-[10px]">
             {data.category}
           </span>

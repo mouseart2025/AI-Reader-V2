@@ -42,7 +42,14 @@ export default function SettingsPage() {
   const [envLoading, setEnvLoading] = useState(true)
   const [novels, setNovels] = useState<Novel[]>([])
 
-  const { fontSize, lineHeight, setFontSize, setLineHeight } = useReadingSettingsStore()
+  const {
+    fontSize,
+    lineHeight,
+    paragraphIndent,
+    setFontSize,
+    setLineHeight,
+    setParagraphIndent,
+  } = useReadingSettingsStore()
   const { theme, setTheme } = useThemeStore()
 
   // Import state
@@ -1431,6 +1438,26 @@ export default function SettingsPage() {
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
                   当前: {{ compact: "1.6x", normal: "2.0x", loose: "2.6x" }[lineHeight]}
+                </p>
+              </div>
+
+              {/* First-line indent */}
+              <div>
+                <span className="text-sm block mb-2">首行缩进</span>
+                <div className="flex gap-2">
+                  {([["none", "无"], ["two", "两个字"]] as const).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      variant={paragraphIndent === value ? "default" : "outline"}
+                      size="xs"
+                      onClick={() => setParagraphIndent(value)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  默认使用两个汉字宽度
                 </p>
               </div>
 
