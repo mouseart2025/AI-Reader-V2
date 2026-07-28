@@ -568,19 +568,20 @@ class AnalysisService:
 
                 # Scene extraction via LLM (non-fatal)
                 # Must run AFTER insert_chapter_fact so the row exists for UPDATE
-                await self._broadcast_stage(novel_id, chapter_num, "场景分析")
-                try:
-                    scenes = await self.scene_extractor.extract(
-                        chapter["content"], chapter_num, fact,
-                    )
-                    if scenes:
-                        await chapter_fact_store.update_scenes(
-                            novel_id, chapter_pk, scenes,
+                if _cfg.SCENE_LLM_ENABLED:
+                    await self._broadcast_stage(novel_id, chapter_num, "场景分析")
+                    try:
+                        scenes = await self.scene_extractor.extract(
+                            chapter["content"], chapter_num, fact,
                         )
-                except Exception as e:
-                    logger.warning(
-                        "场景提取失败 (chapter %d): %s", chapter_num, e,
-                    )
+                        if scenes:
+                            await chapter_fact_store.update_scenes(
+                                novel_id, chapter_pk, scenes,
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            "场景提取失败 (chapter %d): %s", chapter_num, e,
+                        )
 
                 # Index embeddings in ChromaDB
                 try:
@@ -775,7 +776,7 @@ class AnalysisService:
 
                 # Part B: LLM hierarchy review (only when orphan roots >= 3)
                 orphan_count = _count_orphan_roots(world_agent.structure)
-                if orphan_count >= 3:
+                if orphan_count >= 3 and _cfg.AUXILIARY_LLM_ENABLED:
                     from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
                     reviewer = LocationHierarchyReviewer()
                     try:
@@ -816,7 +817,11 @@ class AnalysisService:
         try:
             await self._broadcast_stage(novel_id, chapter_end, "生成小说概要")
             novel_row = await novel_store.get_novel(novel_id)
-            if novel_row and not novel_row.get("synopsis"):
+            if (
+                _cfg.AUXILIARY_LLM_ENABLED
+                and novel_row
+                and not novel_row.get("synopsis")
+            ):
                 from src.extraction.synopsis_generator import SynopsisGenerator
 
                 conn_syn = await get_connection()
@@ -891,10 +896,11 @@ class AnalysisService:
                 name=f"auto-rebuild-{novel_id}",
             )
             # 2. Spatial completion (LLM, ~60-300s)
-            asyncio.create_task(
-                self._auto_spatial_completion(novel_id),
-                name=f"spatial-completion-{novel_id}",
-            )
+            if _cfg.AUXILIARY_LLM_ENABLED:
+                asyncio.create_task(
+                    self._auto_spatial_completion(novel_id),
+                    name=f"spatial-completion-{novel_id}",
+                )
 
     async def _auto_rebuild_hierarchy(self, novel_id: str) -> None:
         """Background task: rebuild hierarchy via Edmonds pipeline after analysis.

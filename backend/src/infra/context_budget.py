@@ -144,9 +144,10 @@ async def detect_and_update_context_window() -> int:
     """Detect context window and update config.CONTEXT_WINDOW_SIZE.
 
     Detection order:
-    1. Cloud mode -> 131072 (128K default)
-    2. Ollama -> POST /api/show, capped at _OLLAMA_CTX_CAP
-    3. Failure -> 8192 (conservative fallback)
+    1. Codex CLI -> configured context window (128K default)
+    2. Cloud mode -> 131072 (128K default)
+    3. Ollama -> POST /api/show, capped at _OLLAMA_CTX_CAP
+    4. Failure -> 8192 (conservative fallback)
 
     Ollama models (e.g. qwen3:4b) may report very large theoretical context
     windows (262K) that are impractical for local inference.  Allocating a
@@ -158,7 +159,13 @@ async def detect_and_update_context_window() -> int:
 
     ctx: int | None = None
 
-    if config.LLM_PROVIDER == "openai" and config.LLM_PROVIDER_FORMAT == "anthropic":
+    if config.LLM_PROVIDER == "codex":
+        ctx = config.CODEX_CONTEXT_WINDOW
+        logger.info(
+            "Context window: %d (Codex CLI, model=%s)",
+            ctx, config.get_model_name(),
+        )
+    elif config.LLM_PROVIDER == "openai" and config.LLM_PROVIDER_FORMAT == "anthropic":
         ctx = 200000
         logger.info(
             "Context window: %d (Anthropic/Claude, model=%s)",

@@ -208,6 +208,13 @@ def _load_examples() -> list[dict]:
     return get_prompt_json("extraction_examples")
 
 
+def _serialize_prompt_json(value: object, *, compact: bool) -> str:
+    """Serialize prompt JSON compactly without changing its semantics."""
+    if compact:
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return json.dumps(value, ensure_ascii=False, indent=2)
+
+
 def _build_extraction_schema() -> dict:
     """Build a customized JSON schema with stricter constraints for better LLM output."""
     schema = ChapterFact.model_json_schema()
@@ -257,9 +264,17 @@ class ChapterFactExtractor:
             return ""
         budget = get_budget()
         examples_to_show = [self.examples[0]]
-        if len(self.examples) >= 4 and budget.context_window > 16384:
+        from src.infra import config as _cfg
+        if _cfg.LLM_PROVIDER == "codex":
+            examples_to_show = self.examples[:_cfg.CODEX_EXAMPLE_COUNT]
+        elif len(self.examples) >= 4 and budget.context_window > 16384:
             examples_to_show.append(self.examples[3])
-        examples_json = json.dumps(examples_to_show, ensure_ascii=False, indent=2)
+        if not examples_to_show:
+            return ""
+        examples_json = _serialize_prompt_json(
+            examples_to_show,
+            compact=_cfg.LLM_PROVIDER == "codex",
+        )
         return f"## 参考示例\n```json\n{examples_json}\n```\n\n"
 
     def _build_user_prompt(
@@ -488,9 +503,14 @@ class ChapterFactExtractor:
         Transient errors (429/500/network) get exponential backoff retries.
         Only permanent errors (parse/validation) count as real failures.
         """
+        from src.infra import config as _cfg
+
         effective_system = system
         if self._is_cloud:
-            schema_text = json.dumps(self._schema, ensure_ascii=False, indent=2)
+            schema_text = _serialize_prompt_json(
+                self._schema,
+                compact=_cfg.LLM_PROVIDER == "codex",
+            )
             effective_system += (
                 f"\n\n## 输出 JSON Schema\n"
                 f"你必须严格按照以下 JSON Schema 输出，不要输出多余字段或文本：\n"
@@ -498,7 +518,6 @@ class ChapterFactExtractor:
             )
 
         budget = get_budget()
-        from src.infra import config as _cfg
         max_out = _cfg.LLM_MAX_TOKENS if self._is_cloud else 8192
 
         # Exponential backoff for transient errors (429/500/network)

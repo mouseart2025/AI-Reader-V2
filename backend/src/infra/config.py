@@ -14,8 +14,30 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-base-zh-v1.5")
 
-# LLM Provider: "ollama" (default, local) or "openai" (cloud, OpenAI-compatible)
+# LLM Provider: "ollama" (default), "openai" (OpenAI-compatible), or "codex"
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
+
+# Codex CLI settings. ``LLM_PROVIDER=codex`` reuses the CLI's saved
+# authentication. An empty model keeps Codex's current default instead of
+# pinning a model that may not be available to every account.
+CODEX_BIN = os.environ.get("CODEX_BIN", "codex")
+CODEX_MODEL = os.environ.get("CODEX_MODEL", "")
+CODEX_REASONING_EFFORT = os.environ.get("CODEX_REASONING_EFFORT", "low")
+CODEX_MIN_TIMEOUT_SECONDS = int(os.environ.get("CODEX_MIN_TIMEOUT_SECONDS", "600"))
+CODEX_CONTEXT_WINDOW = int(os.environ.get("CODEX_CONTEXT_WINDOW", "131072"))
+CODEX_EXAMPLE_COUNT = max(0, int(os.environ.get("CODEX_EXAMPLE_COUNT", "1")))
+CODEX_MAX_BATCH_CHAPTERS = max(
+    0, int(os.environ.get("CODEX_MAX_BATCH_CHAPTERS", "10"))
+)
+
+# Optional LLM passes can be disabled for quota-sensitive bulk extraction.
+# Core per-chapter fact extraction remains enabled.
+SCENE_LLM_ENABLED = os.environ.get("SCENE_LLM_ENABLED", "true").lower() in {
+    "1", "true", "yes", "on",
+}
+AUXILIARY_LLM_ENABLED = os.environ.get("AUXILIARY_LLM_ENABLED", "true").lower() in {
+    "1", "true", "yes", "on",
+}
 
 # Cloud LLM settings (used when LLM_PROVIDER="openai")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
@@ -36,7 +58,9 @@ _ENV_LLM_MODEL = LLM_MODEL
 # VoT (Visualization-of-Thought) spatial reasoning guide injection.
 # When True, a spatial reasoning guide is injected into the extraction prompt
 # to improve spatial relationship extraction quality.
-VOT_SPATIAL_ENABLED: bool = True
+VOT_SPATIAL_ENABLED: bool = os.environ.get(
+    "VOT_SPATIAL_ENABLED", "true"
+).lower() in {"1", "true", "yes", "on"}
 
 # LLM quality review for aggregated entity profiles (Phase 2).
 # When True, a single LLM call reviews top entities after aggregation.
@@ -54,6 +78,8 @@ def update_context_window(size: int) -> None:
 
 def get_model_name() -> str:
     """Return the active model name based on current provider."""
+    if LLM_PROVIDER == "codex":
+        return CODEX_MODEL or "codex-default"
     if LLM_PROVIDER == "openai":
         return LLM_MODEL or "unknown"
     return OLLAMA_MODEL

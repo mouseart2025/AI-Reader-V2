@@ -30,6 +30,27 @@ class PatchTaskRequest(BaseModel):
     status: str  # "paused" | "running" | "cancelled"
 
 
+def _enforce_codex_batch_limit(chapter_start: int, chapter_end: int) -> None:
+    """Reject accidental oversized Codex submissions from any client."""
+    from src.infra import config
+
+    limit = config.CODEX_MAX_BATCH_CHAPTERS
+    requested = chapter_end - chapter_start + 1
+    if (
+        config.LLM_PROVIDER == "codex"
+        and limit > 0
+        and requested > limit
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Codex 单批最多允许 {limit} 章，当前请求 {requested} 章。"
+                "请缩小范围，或在明确接受额度消耗后调整 "
+                "CODEX_MAX_BATCH_CHAPTERS。"
+            ),
+        )
+
+
 @router.get("/analysis/active")
 async def get_active_analyses():
     """Return novel IDs with their active analysis status (running/paused/retrying)."""
@@ -146,6 +167,8 @@ async def start_analysis(novel_id: str, req: AnalyzeRequest | None = None):
 
     if chapter_start < 1 or chapter_end > novel["total_chapters"] or chapter_start > chapter_end:
         raise HTTPException(status_code=400, detail="无效的章节范围")
+
+    _enforce_codex_batch_limit(chapter_start, chapter_end)
 
     force = req.force if req else False
 

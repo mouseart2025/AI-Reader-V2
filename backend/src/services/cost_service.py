@@ -96,9 +96,19 @@ def estimate_analysis_cost(
         model: Model name override (default: current config).
     """
     effective_provider = provider or _config.LLM_PROVIDER
-    effective_model = model or _config.LLM_MODEL
+    if model:
+        effective_model = model
+    elif effective_provider == "codex":
+        effective_model = _config.CODEX_MODEL or "codex-default"
+    else:
+        effective_model = _config.LLM_MODEL
 
-    input_price, output_price = get_pricing(effective_model)
+    if effective_provider == "codex":
+        # ChatGPT-managed Codex access has subscription usage limits rather
+        # than an AI Reader-computable per-token Platform API charge.
+        input_price, output_price = 0.0, 0.0
+    else:
+        input_price, output_price = get_pricing(effective_model)
 
     # Average chars per chapter
     avg_chars_per_chapter = total_words / max(chapter_count, 1)

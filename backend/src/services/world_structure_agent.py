@@ -782,6 +782,11 @@ class WorldStructureAgent:
         fact: ChapterFact,
     ) -> bool:
         """Determine whether to call LLM for world-structure update."""
+        from src.infra import config as _cfg
+
+        if not _cfg.AUXILIARY_LLM_ENABLED:
+            return False
+
         # Condition 1: first 5 chapters — always trigger
         if chapter_num <= 5:
             return True

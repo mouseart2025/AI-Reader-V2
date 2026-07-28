@@ -16,6 +16,7 @@ from src.infra.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER,
 
 if TYPE_CHECKING:
     from src.infra.anthropic_client import AnthropicClient
+    from src.infra.codex_exec_client import CodexExecClient
     from src.infra.openai_client import OpenAICompatibleClient
 
 logger = logging.getLogger(__name__)
@@ -285,10 +286,10 @@ class LLMClient:
 
 
 # Module-level singleton
-_client: LLMClient | OpenAICompatibleClient | AnthropicClient | None = None
+_client: LLMClient | OpenAICompatibleClient | AnthropicClient | CodexExecClient | None = None
 
 
-def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient:
+def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient | CodexExecClient:
     """Return module-level singleton LLM client based on LLM_PROVIDER config.
 
     Always reads config.* dynamically — never uses module-level imports of
@@ -298,7 +299,15 @@ def get_llm_client() -> LLMClient | OpenAICompatibleClient | AnthropicClient:
     global _client
     if _client is None:
         from src.infra import config as _cfg  # dynamic read every time
-        if _cfg.LLM_PROVIDER == "openai":
+        if _cfg.LLM_PROVIDER == "codex":
+            from src.infra.codex_exec_client import CodexExecClient
+            _client = CodexExecClient(
+                codex_bin=_cfg.CODEX_BIN,
+                model=_cfg.CODEX_MODEL,
+                reasoning_effort=_cfg.CODEX_REASONING_EFFORT,
+                min_timeout_seconds=_cfg.CODEX_MIN_TIMEOUT_SECONDS,
+            )
+        elif _cfg.LLM_PROVIDER == "openai":
             if not _cfg.LLM_API_KEY:
                 raise ValueError("LLM_API_KEY is required when LLM_PROVIDER=openai")
             if not _cfg.LLM_BASE_URL:

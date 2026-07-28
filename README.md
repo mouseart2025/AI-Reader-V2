@@ -60,7 +60,7 @@
 - ⚔️ **势力图** — 组织架构与势力关系网络
 - 💬 **RAG 智能问答** — 基于原文的检索增强问答，流式对话，答案来源溯源
 - 📤 **设定集导出** — Markdown / Word / Excel / PDF 四种格式，可选模板
-- 🤖 **多 LLM 支持** — 本地 Ollama（qwen3:8b 等）+ 10 大云端供应商（DeepSeek、MiniMax、Claude、OpenAI、Gemini 等）
+- 🤖 **多 LLM 支持** — 本地 Ollama（qwen3:8b 等）+ 10 大云端供应商（DeepSeek、MiniMax、Claude、OpenAI、Gemini 等）+ Codex CLI 登录态
 - 📊 **全链路分析管线** — 实体预扫描 → 逐章提取 → 聚合 → 可视化，异步执行、暂停恢复、失败重试、Token 预算自动缩放
 
 ## 适用场景
@@ -119,6 +119,41 @@ cd frontend && npm install && npm run dev
 
 > 不想本地部署？试试 [在线 Demo](https://ai-reader.cc/demo/honglou/graph?v=3)，含红楼梦和西游记完整分析数据。
 
+### 使用 Codex CLI 登录态（本地开发）
+
+后端可以通过稳定的非交互式 `codex exec` 接口复用 Codex CLI 已保存的认证，
+无需向 AI Reader 配置或复制 OpenAI Platform API Key。
+
+1. 按 [Codex CLI 官方文档](https://developers.openai.com/codex/cli/)
+   安装最新 CLI，并运行 `codex login` 完成登录。
+2. 使用以下环境变量启动后端：
+
+```bash
+LLM_PROVIDER=codex \
+CODEX_REASONING_EFFORT=low \
+CODEX_MAX_BATCH_CHAPTERS=10 \
+SCENE_LLM_ENABLED=false \
+AUXILIARY_LLM_ENABLED=false \
+VOT_SPATIAL_ENABLED=false \
+uv run uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
+
+默认不固定模型，沿用当前 Codex CLI 可用的默认模型。如需明确覆盖，可设置
+`CODEX_MODEL`；如果桌面环境找不到 CLI，可将 `CODEX_BIN` 设置为可执行文件的
+绝对路径。
+
+Codex 调用使用临时会话、只读沙箱和单并发。默认每次网页/API 提交最多十章，
+避免误点整书分析；`CODEX_MAX_BATCH_CHAPTERS=0` 可关闭这一保护。关闭场景和
+辅助 LLM 步骤后，每章只保留核心事实抽取，但相应的场景、自动简介和 LLM
+空间补全也会停用。
+
+与其他云端 Provider 一样，待分析的章节内容会作为提示发送给模型服务；
+“本地存储”不表示模型推理完全离线。需要正文不离开设备时应继续使用 Ollama。
+
+该模式消耗 Codex/ChatGPT 订阅额度，并不等于免费 API。AI Reader 会保存 CLI
+返回的 token 使用量，但不会把订阅额度换算为美元费用。建议先分析少量章节，
+检查质量和额度后再分批继续。
+
 ## 技术栈
 
 | 层 | 技术 |
@@ -129,7 +164,7 @@ cd frontend && npm install && npm run dev
 | 状态管理 | Zustand 5 |
 | 后端 | Python + FastAPI（async）+ aiosqlite |
 | 数据库 | SQLite（结构化数据）+ ChromaDB（向量检索） |
-| LLM | Ollama（本地）或 OpenAI 兼容 API（云端，支持 DeepSeek/MiniMax/Claude/OpenAI/Gemini 等 10 大供应商） |
+| LLM | Ollama（本地）、Codex CLI 登录态，或 OpenAI 兼容 API（云端，支持 DeepSeek/MiniMax/Claude/OpenAI/Gemini 等 10 大供应商） |
 | 中文 NLP | jieba 分词 + 实体预扫描 |
 
 ## 版本记录

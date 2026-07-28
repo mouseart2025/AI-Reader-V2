@@ -70,3 +70,19 @@ def test_estimate_single_chapter():
     assert est.estimated_cost_usd > 0
     assert est.input_price_per_1m == 0.15
     assert est.output_price_per_1m == 0.60
+
+
+def test_codex_estimate_reports_tokens_without_platform_api_cost():
+    est = estimate_analysis_cost(
+        chapter_count=10,
+        total_words=30000,
+        include_prescan=False,
+        provider="codex",
+    )
+
+    assert est.model == "codex-default"
+    assert est.estimated_total_tokens > 0
+    assert est.estimated_cost_usd == 0
+    assert est.estimated_cost_cny == 0
+    assert est.input_price_per_1m == 0
+    assert est.output_price_per_1m == 0
