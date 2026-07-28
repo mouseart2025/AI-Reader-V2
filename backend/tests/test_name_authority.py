@@ -29,7 +29,11 @@ class TestAliasSafetyLevel:
             assert alias_safety_level(term) == 0, f"{term} should be level 0"
 
     def test_level0_generic_person(self):
-        for term in ["妖精", "老和尚", "师父", "泼猴", "呆子", "菩萨"]:
+        for term in [
+            "妖精", "老和尚", "师父", "泼猴", "呆子", "菩萨",
+            "大师", "神僧", "小和尚", "杂役僧", "武僧",
+            "方丈", "方丈大师", "堡主",
+        ]:
             assert alias_safety_level(term) == 0, f"{term} should be level 0"
 
     def test_level0_title_prefix(self):
@@ -70,7 +74,9 @@ class TestIsBlockedName:
 
     def test_blocks_generics(self):
         for name in ["哥哥", "师父", "徒弟", "大王", "妖精", "菩萨",
-                      "老和尚", "那长老", "泼猴", "呆子"]:
+                      "老和尚", "那长老", "泼猴", "呆子", "大师",
+                      "神僧", "小和尚", "杂役僧", "武僧", "方丈",
+                      "方丈大师", "堡主"]:
             assert is_blocked_name(name), f"{name} should be blocked"
 
     def test_allows_real_names(self):

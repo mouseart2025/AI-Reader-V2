@@ -17,6 +17,7 @@ from src.extraction.fact_validator import FactValidator
 from src.extraction.name_resolver import NameResolver
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
 from src.infra.llm_client import LLMError, LLMParseError, LLMTimeoutError, LlmUsage, get_llm_client
+from src.models.chapter_fact import ChapterFact
 from src.models.world_structure import WorldStructure
 from src.services.cost_service import add_monthly_usage, get_monthly_budget, get_monthly_usage, get_pricing
 from src.services import embedding_service
@@ -371,6 +372,21 @@ class AnalysisService:
             name_resolver.load_from_entity_dictionary(_dict_entries_for_resolver)
         except Exception as e:
             logger.warning("Failed to load NameResolver from entity_dictionary: %s", e)
+        # Resume safety: aliases learned from previous analyzed chapters live
+        # in ChapterFact.new_aliases and may not be in the pre-scan dictionary.
+        try:
+            existing_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+            for existing in sorted(
+                existing_facts,
+                key=lambda item: int(item.get("chapter_id", 0)),
+            ):
+                fact_data = existing.get("fact")
+                if isinstance(fact_data, dict):
+                    name_resolver.accumulate_from_chapter(
+                        ChapterFact.model_validate(fact_data)
+                    )
+        except Exception as e:
+            logger.warning("Failed to rebuild NameResolver from chapter facts: %s", e)
 
         for chapter_num in range(chapter_start, chapter_end + 1):
             # Check for pause/cancel signal

@@ -128,7 +128,37 @@ class NameResolver:
                 char.name = canonical
                 resolved_count += 1
 
-        # 2. Resolve relationship person_a / person_b
+        # Alias resolution can collapse two pre-validated rows onto the same
+        # canonical name. Merge them before downstream indexing.
+        merged_characters = {}
+        for char in fact.characters:
+            existing = merged_characters.get(char.name)
+            if existing is None:
+                merged_characters[char.name] = char
+                continue
+            existing.new_aliases = list(dict.fromkeys(
+                [*(existing.new_aliases or []), *(char.new_aliases or [])]
+            ))
+            existing.abilities_gained = list({
+                (ability.dimension, ability.name, ability.description): ability
+                for ability in [
+                    *(existing.abilities_gained or []),
+                    *(char.abilities_gained or []),
+                ]
+            }.values())
+            existing.locations_in_chapter = list(dict.fromkeys(
+                [
+                    *(existing.locations_in_chapter or []),
+                    *(char.locations_in_chapter or []),
+                ]
+            ))
+            appearances = [
+                value for value in (existing.appearance, char.appearance) if value
+            ]
+            existing.appearance = max(appearances, key=len) if appearances else None
+        fact.characters = list(merged_characters.values())
+
+        # 2. Resolve and deduplicate relationship person_a / person_b
         for rel in fact.relationships:
             ca = mapped.get(rel.person_a)
             if ca:
@@ -138,22 +168,33 @@ class NameResolver:
             if cb:
                 rel.person_b = cb
                 resolved_count += 1
+        merged_relationships = {}
+        for rel in fact.relationships:
+            key = (rel.person_a, rel.person_b, rel.relation_type)
+            existing = merged_relationships.get(key)
+            if existing is None:
+                merged_relationships[key] = rel
+            elif rel.evidence and rel.evidence not in existing.evidence:
+                existing.evidence = "；".join(
+                    value for value in (existing.evidence, rel.evidence) if value
+                )
+        fact.relationships = list(merged_relationships.values())
 
         # 3. Resolve event participants
         for evt in fact.events:
-            evt.participants = [mapped.get(p, p) for p in evt.participants]
+            evt.participants = list(dict.fromkeys(
+                mapped.get(person, person) for person in evt.participants
+            ))
 
         # 4. Resolve item_events / org_events character references
         for ie in fact.item_events:
-            if hasattr(ie, 'character') and ie.character:
-                c = mapped.get(ie.character)
-                if c:
-                    ie.character = c
+            if ie.actor:
+                ie.actor = mapped.get(ie.actor, ie.actor)
+            if ie.recipient:
+                ie.recipient = mapped.get(ie.recipient, ie.recipient)
         for oe in fact.org_events:
-            if hasattr(oe, 'character') and oe.character:
-                c = mapped.get(oe.character)
-                if c:
-                    oe.character = c
+            if oe.member:
+                oe.member = mapped.get(oe.member, oe.member)
 
         # 5. Clean new_aliases: remove blocked names
         for char in fact.characters:

@@ -713,9 +713,15 @@ class ContextSummaryBuilder:
         # introductions like "叫作二愣子") from frequency-sorted entries.
         # Put naming entries FIRST so they're not buried at the bottom
         # of a long list where small local models might ignore them.
-        naming_entries = [e for e in dictionary if e.source == "naming"]
-        top = dictionary[:100]
-        included = {e.name for e in top} | {e.name for e in naming_entries}
+        naming_entries = [
+            e for e in dictionary
+            if e.source == "naming" and e.entity_type != "unknown"
+        ]
+        # Unknown Phase-1 candidates are not established entities. Injecting
+        # them into every prompt wastes context and turns ordinary phrases into
+        # misleading prior knowledge.
+        typed_entries = [e for e in dictionary if e.entity_type != "unknown"]
+        top = typed_entries[:100]
         # Fill remaining slots from top-100 (skip those already in naming)
         freq_entries = [e for e in top if e.name not in {n.name for n in naming_entries}]
 

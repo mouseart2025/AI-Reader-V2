@@ -12,6 +12,7 @@ import logging
 import os
 import re
 from collections import Counter
+from functools import lru_cache
 
 from src.db import entity_dictionary_store
 from src.db.sqlite_db import get_connection
@@ -456,6 +457,17 @@ class EntityPreScanner:
                     break
         return result
 
+    @staticmethod
+    @lru_cache(maxsize=4096)
+    def _looks_like_person_name(name: str) -> bool:
+        """Return whether local POS tagging recognizes a personal name."""
+        import jieba.posseg as pseg
+
+        return any(
+            token.flag.startswith(("nr", "nrt"))
+            for token in pseg.cut(name)
+        )
+
     def _merge_candidates(
         self,
         word_freq: Counter,
@@ -572,8 +584,12 @@ class EntityPreScanner:
 
             # Entity type from suffix or default
             entity_type = suffix_types.get(name, "unknown")
-            # Dialogue and naming-pattern names are persons
-            if (name in dialogue_names or name in naming_names) and entity_type == "unknown":
+            # Dialogue/naming matches can also be actions or organizations.
+            if (
+                (name in dialogue_names or name in naming_names)
+                and entity_type == "unknown"
+                and self._looks_like_person_name(name)
+            ):
                 entity_type = "person"
 
             # Extract sample context
@@ -713,4 +729,3 @@ class EntityPreScanner:
         result = [c for c in candidates if c.name not in rejected]
 
         return result
-

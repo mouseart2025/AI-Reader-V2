@@ -11,6 +11,7 @@ from src.extraction.name_resolver import NameResolver
 from src.services.name_authority import is_blocked_name
 from src.models.chapter_fact import (
     ChapterFact, CharacterFact, RelationshipFact, EventFact,
+    ItemEventFact, OrgEventFact,
 )
 
 
@@ -160,6 +161,75 @@ class TestNameResolverResolve:
         )
         resolved = nr.resolve(fact)
         assert resolved.events[0].participants == ["猪八戒", "沙僧"]
+
+    def test_resolution_merges_duplicate_canonical_characters_and_references(self):
+        nr = NameResolver()
+        nr._canonical_map = {"真定": "孟奇"}
+        fact = ChapterFact(
+            chapter_id=1,
+            novel_id="test",
+            characters=[
+                CharacterFact(
+                    name="孟奇",
+                    new_aliases=["小孟"],
+                    locations_in_chapter=["少林寺"],
+                ),
+                CharacterFact(
+                    name="真定",
+                    new_aliases=["莽金刚"],
+                    locations_in_chapter=["杂役院"],
+                ),
+            ],
+            relationships=[
+                RelationshipFact(
+                    person_a="孟奇",
+                    person_b="玄苦",
+                    relation_type="师徒",
+                    evidence="证据一",
+                ),
+                RelationshipFact(
+                    person_a="真定",
+                    person_b="玄苦",
+                    relation_type="师徒",
+                    evidence="证据二",
+                ),
+            ],
+            events=[
+                EventFact(
+                    summary="测试",
+                    type="社交",
+                    participants=["孟奇", "真定"],
+                ),
+            ],
+            item_events=[
+                ItemEventFact(
+                    item_name="戒刀",
+                    item_type="兵器",
+                    action="获得",
+                    actor="真定",
+                    recipient="孟奇",
+                ),
+            ],
+            org_events=[
+                OrgEventFact(
+                    org_name="少林寺",
+                    member="真定",
+                    action="加入",
+                ),
+            ],
+        )
+
+        resolved = nr.resolve(fact)
+
+        assert [character.name for character in resolved.characters] == ["孟奇"]
+        assert resolved.characters[0].new_aliases == ["小孟", "莽金刚"]
+        assert resolved.characters[0].locations_in_chapter == ["少林寺", "杂役院"]
+        assert len(resolved.relationships) == 1
+        assert resolved.relationships[0].evidence == "证据一；证据二"
+        assert resolved.events[0].participants == ["孟奇"]
+        assert resolved.item_events[0].actor == "孟奇"
+        assert resolved.item_events[0].recipient == "孟奇"
+        assert resolved.org_events[0].member == "孟奇"
 
     def test_no_mapping_no_change(self):
         nr = NameResolver()

@@ -117,6 +117,16 @@ def index_entities_from_fact(novel_id: str, chapter_num: int, fact_data: dict) -
     ids: list[str] = []
     docs: list[str] = []
     metas: list[dict] = []
+    seen_ids: set[str] = set()
+
+    def append_unique(entity_id: str, document: str, metadata: dict) -> None:
+        """Chroma rejects duplicate IDs within one upsert batch."""
+        if entity_id in seen_ids:
+            return
+        seen_ids.add(entity_id)
+        ids.append(entity_id)
+        docs.append(document)
+        metas.append(metadata)
 
     # Characters
     for ch in fact_data.get("characters", []):
@@ -132,9 +142,11 @@ def index_entities_from_fact(novel_id: str, chapter_num: int, fact_data: dict) -
         if ch.get("locations_in_chapter"):
             parts.append(f"出现地点: {', '.join(ch['locations_in_chapter'])}")
         doc = " | ".join(parts)
-        ids.append(f"person_{name}")
-        docs.append(doc)
-        metas.append({"name": name, "type": "person", "first_chapter": chapter_num})
+        append_unique(
+            f"person_{name}",
+            doc,
+            {"name": name, "type": "person", "first_chapter": chapter_num},
+        )
 
     # Locations
     for loc in fact_data.get("locations", []):
@@ -147,9 +159,11 @@ def index_entities_from_fact(novel_id: str, chapter_num: int, fact_data: dict) -
         if loc.get("description"):
             parts.append(loc["description"])
         doc = " | ".join(parts)
-        ids.append(f"location_{name}")
-        docs.append(doc)
-        metas.append({"name": name, "type": "location", "first_chapter": chapter_num})
+        append_unique(
+            f"location_{name}",
+            doc,
+            {"name": name, "type": "location", "first_chapter": chapter_num},
+        )
 
     # Concepts
     for nc in fact_data.get("new_concepts", []):
@@ -157,9 +171,11 @@ def index_entities_from_fact(novel_id: str, chapter_num: int, fact_data: dict) -
         if not name:
             continue
         doc = f"概念: {name} - {nc.get('category', '')} - {nc.get('definition', '')}"
-        ids.append(f"concept_{name}")
-        docs.append(doc)
-        metas.append({"name": name, "type": "concept", "first_chapter": chapter_num})
+        append_unique(
+            f"concept_{name}",
+            doc,
+            {"name": name, "type": "concept", "first_chapter": chapter_num},
+        )
 
     # Organizations
     for oe in fact_data.get("org_events", []):
@@ -170,11 +186,11 @@ def index_entities_from_fact(novel_id: str, chapter_num: int, fact_data: dict) -
         if oe.get("description"):
             parts.append(oe["description"])
         doc = " | ".join(parts)
-        eid = f"org_{org_name}"
-        if eid not in ids:
-            ids.append(eid)
-            docs.append(doc)
-            metas.append({"name": org_name, "type": "org", "first_chapter": chapter_num})
+        append_unique(
+            f"org_{org_name}",
+            doc,
+            {"name": org_name, "type": "org", "first_chapter": chapter_num},
+        )
 
     if ids:
         col.upsert(ids=ids, documents=docs, metadatas=metas)
