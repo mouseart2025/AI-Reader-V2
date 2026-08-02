@@ -21,6 +21,7 @@ export default function ChatPage() {
     messages,
     streaming,
     streamingContent,
+    streamingConversationId,
     loadConversations,
     newConversation,
     selectConversation,
@@ -29,6 +30,9 @@ export default function ChatPage() {
     disconnectWs,
     sendQuestion,
   } = useChatStore()
+
+  // Only show the in-flight stream on the conversation it belongs to (#55)
+  const streamHere = streaming && streamingConversationId === activeConversationId
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -169,7 +173,7 @@ export default function ChatPage() {
 
         {/* Messages */}
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
-          {messages.length === 0 && !streaming && (
+          {messages.length === 0 && !streamHere && (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
               <p className="text-lg">向小说提问</p>
               <p className="text-sm">基于已分析的章节内容回答</p>
@@ -236,7 +240,7 @@ export default function ChatPage() {
           ))}
 
           {/* Streaming */}
-          {streaming && streamingContent && (
+          {streamHere && streamingContent && (
             <div className="max-w-[75%] mr-auto">
               <div className="flex items-start gap-2">
                 <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -250,7 +254,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          {streaming && !streamingContent && (
+          {streamHere && !streamingContent && (
             <div className="max-w-[75%] mr-auto">
               <div className="flex items-start gap-2">
                 <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
