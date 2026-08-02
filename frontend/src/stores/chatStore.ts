@@ -23,6 +23,9 @@ interface ChatState {
   streaming: boolean
   streamingContent: string
   streamingSources: number[]
+  // Conversation the in-flight stream belongs to (issue #55: stream state
+  // must not leak into other conversations when the user switches mid-stream)
+  streamingConversationId: string | null
 
   // WebSocket
   ws: WebSocket | null
@@ -76,6 +79,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: false,
   streamingContent: "",
   streamingSources: [],
+  streamingConversationId: null,
   ws: null,
   wsConnected: false,
 
@@ -99,7 +103,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => ({ messages: [...s.messages, msg] }))
   },
 
-  clearMessages: () => set({ messages: [], activeConversationId: null, streaming: false, streamingContent: "" }),
+  clearMessages: () => set({ messages: [], activeConversationId: null, streaming: false, streamingContent: "", streamingConversationId: null }),
 
   loadConversations: async (novelId) => {
     try {
@@ -203,35 +207,43 @@ export const useChatStore = create<ChatState>((set, get) => ({
             break
           case "done": {
             const state = get()
-            const assistantMsg: ChatMessage = {
-              id: nextMsgId(),
-              conversation_id: state.activeConversationId ?? "",
-              role: "assistant",
-              content: state.streamingContent,
-              sources: state.streamingSources,
-              created_at: new Date().toISOString(),
-            }
+            const streamConvId = state.streamingConversationId
             state._finishStream(state.streamingSources)
-            state._addMessage(assistantMsg)
+            // Only append to the visible list if the user is still on the
+            // conversation this stream belongs to; otherwise the message is
+            // already persisted by the backend and will load on re-select.
+            if (streamConvId && streamConvId === state.activeConversationId) {
+              const assistantMsg: ChatMessage = {
+                id: nextMsgId(),
+                conversation_id: streamConvId,
+                role: "assistant",
+                content: state.streamingContent,
+                sources: state.streamingSources,
+                created_at: new Date().toISOString(),
+              }
+              state._addMessage(assistantMsg)
+            }
+            set({ streamingConversationId: null })
             break
           }
           case "error": {
             const errContent = msg.message || "请求出错，请稍后重试"
             const state = get()
-            // Show error as an assistant message so user sees feedback
-            const errMsg: ChatMessage = {
-              id: nextMsgId(),
-              conversation_id: state.activeConversationId ?? "",
-              role: "assistant",
-              content: `[错误] ${errContent}`,
-              sources: [],
-              created_at: new Date().toISOString(),
+            const streamConvId = state.streamingConversationId
+            // Show error as an assistant message so user sees feedback —
+            // but only on the conversation the failed stream belongs to.
+            if (!streamConvId || streamConvId === state.activeConversationId) {
+              const errMsg: ChatMessage = {
+                id: nextMsgId(),
+                conversation_id: streamConvId ?? state.activeConversationId ?? "",
+                role: "assistant",
+                content: `[错误] ${errContent}`,
+                sources: [],
+                created_at: new Date().toISOString(),
+              }
+              set((s) => ({ messages: [...s.messages, errMsg] }))
             }
-            set((s) => ({
-              streaming: false,
-              streamingContent: "",
-              messages: [...s.messages, errMsg],
-            }))
+            set({ streaming: false, streamingContent: "", streamingConversationId: null })
             break
           }
         }
@@ -285,6 +297,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         streaming: true,
         streamingContent: "",
         streamingSources: [],
+        streamingConversationId: activeConversationId,
       }))
       // Force reconnect
       _reconnectAttempt = 0
@@ -297,6 +310,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streaming: true,
       streamingContent: "",
       streamingSources: [],
+      streamingConversationId: activeConversationId,
     }))
 
     ws.send(payload)
