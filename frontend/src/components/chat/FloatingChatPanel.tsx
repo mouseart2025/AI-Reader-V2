@@ -26,6 +26,7 @@ export function FloatingChatPanel() {
     messages,
     streaming,
     streamingContent,
+    streamingConversationId,
     loadConversations,
     newConversation,
     selectConversation,
@@ -287,7 +288,7 @@ export function FloatingChatPanel() {
 
       {/* Messages */}
       <div className="flex-1 overflow-auto px-4 py-3 space-y-3">
-        {messages.length === 0 && !streaming && (
+        {messages.length === 0 && !(streaming && streamingConversationId === activeConversationId) && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             {novelId ? "输入问题开始对话" : "输入问题，我来帮你解答"}
           </div>
@@ -330,8 +331,8 @@ export function FloatingChatPanel() {
           </div>
         ))}
 
-        {/* Streaming message */}
-        {streaming && streamingContent && (
+        {/* Streaming message — only on the conversation it belongs to (#55) */}
+        {streaming && streamingConversationId === activeConversationId && streamingContent && (
           <div className="max-w-[80%] mr-auto">
             <div className="rounded-lg px-3 py-2 bg-muted">
               <div className="prose prose-sm dark:prose-invert max-w-none break-words"><Markdown>{streamingContent}</Markdown></div>
