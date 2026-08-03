@@ -29,6 +29,20 @@ _QA_SYSTEM_PROMPT = """你是一个专业的小说分析助手。你的任务是
 
 请严格基于以上知识库信息回答用户的问题。不要添加知识库中未提及的内容。"""
 
+# Greeting / small-talk patterns — short-circuited before retrieval so that
+# casual messages never trigger context injection (issue #56 symptom 3:
+# "你好" LIKE-matched raw text from unanalyzed chapters).
+_GREETING_RE = re.compile(
+    r"^(你好|您好|hi|hello|嗨|喂|在吗|在么|早|早上好|上午好|下午好|晚上好|"
+    r"谢谢|谢了|感谢|多谢|辛苦了|好的| ok |okay)[!！~～。.\s]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_greeting(question: str) -> bool:
+    q = question.strip()
+    return len(q) <= 12 and bool(_GREETING_RE.match(q))
+
 
 def _resolve_question_entities(
     question: str,
@@ -388,6 +402,22 @@ async def query_stream(
         yield {"type": "done"}
         return
 
+    analyzed_count = len(all_facts)
+
+    # Small talk: reply with a fixed guide, never touch retrieval/LLM
+    if _is_greeting(question):
+        yield {
+            "type": "token",
+            "content": (
+                f"你好！我是这本小说的知识库助手，当前已分析 {analyzed_count} 章。"
+                "你可以问我已分析内容里的人物、地点、事件等问题，"
+                "比如「孙悟空和唐僧是什么关系」「第 5 章发生了什么」。"
+            ),
+        }
+        yield {"type": "sources", "chapters": []}
+        yield {"type": "done"}
+        return
+
     # 2. Extract entities from question (with alias resolution)
     all_entity_names = _collect_all_entity_names(all_facts)
     try:
@@ -448,7 +478,9 @@ async def query_stream(
             if sem_chunks:
                 context_parts.append("### 语义相关段落\n" + "\n".join(sem_chunks))
     except Exception as e:
-        logger.debug("Semantic search unavailable: %s", e)
+        # Must stay visible: a silent embedding failure degrades QA to
+        # "暂无相关知识库信息" with no trace (issue #56 symptom 1)
+        logger.warning("Semantic search unavailable: %s", e)
 
     # Full-text search in chapter content
     text_ctx, text_chs = await _build_text_context(novel_id, keywords)
@@ -456,7 +488,22 @@ async def query_stream(
         context_parts.append("### 原文片段\n" + text_ctx)
         all_source_chapters.update(text_chs)
 
-    context = "\n\n".join(context_parts) if context_parts else "（暂无相关知识库信息）"
+    # Retrieval found nothing: reply with a fixed message instead of calling
+    # the LLM on an empty context (empty context invites hallucination,
+    # issue #56 symptom 1/3)
+    if not context_parts:
+        yield {
+            "type": "token",
+            "content": (
+                f"当前已分析 {analyzed_count} 章，但未从已分析内容中检索到与你问题相关的信息。"
+                "相关内容可能在尚未分析的章节，也可以换种问法（提及具体人物/地点名）再试。"
+            ),
+        }
+        yield {"type": "sources", "chapters": []}
+        yield {"type": "done"}
+        return
+
+    context = "\n\n".join(context_parts)
 
     # 4. Build conversation history
     history_text = "（无历史对话）"
@@ -470,7 +517,6 @@ async def query_stream(
         history=history_text,
     )
 
-    analyzed_count = len(all_facts)
     user_prompt = f"{question}\n\n（注：当前已分析 {analyzed_count} 章内容）"
 
     # 6. Stream LLM response
