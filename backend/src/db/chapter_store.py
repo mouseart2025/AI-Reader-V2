@@ -195,6 +195,7 @@ async def search_chapters(
             SELECT chapter_num, title, content
             FROM chapters
             WHERE novel_id = ? AND content LIKE ?
+              AND analysis_status = 'completed' AND is_excluded = 0
             ORDER BY chapter_num
             LIMIT ?
             """,
