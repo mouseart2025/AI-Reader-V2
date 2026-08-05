@@ -226,3 +226,121 @@ class TestConsistency:
         for term in GENERIC_PERSON_ALIASES:
             assert alias_safety_level(term) == 0, \
                 f"generic person alias {term} is not level 0"
+
+
+# ── is_generic_person ───────────────────────────────────────────
+
+
+class TestIsGenericPerson:
+    """Test the unified generic-person filter (Story 1.1).
+
+    Merges the former fact_validator._is_generic_person logic with the
+    authoritative sets (KINSHIP_TERMS / GENERIC_PERSON_ALIASES /
+    CANONICAL_BLOCKLIST). Returns a reason string or None.
+    """
+
+    def test_generic_references(self):
+        from src.services.name_authority import is_generic_person
+        for name in ["众人", "樵夫", "巡山小妖", "黄门官", "四大天师"]:
+            assert is_generic_person(name) is not None, f"{name} should be filtered"
+
+    def test_kinship_terms(self):
+        from src.services.name_authority import is_generic_person
+        for name in ["哥哥", "妹妹", "外公", "嫂子"]:
+            assert is_generic_person(name) is not None, f"{name} should be filtered"
+        # Terms only in KINSHIP_TERMS (not in earlier-checked lists) get this reason
+        assert is_generic_person("他哥") == "kinship term"
+
+    def test_generic_person_aliases(self):
+        from src.services.name_authority import is_generic_person
+        for name in ["妖精", "老和尚", "贫僧", "客官"]:
+            assert is_generic_person(name) is not None, f"{name} should be filtered"
+
+    def test_canonical_blocklist_entries(self):
+        from src.services.name_authority import is_generic_person
+        for name in ["师父", "那呆子", "取经人", "老孙"]:
+            assert is_generic_person(name) is not None, f"{name} should be filtered"
+
+    def test_pure_titles(self):
+        from src.services.name_authority import is_generic_person
+        assert is_generic_person("长老") == "pure title without surname"
+        assert is_generic_person("掌门") == "pure title without surname"
+
+    def test_pattern_rules(self):
+        from src.services.name_authority import is_generic_person
+        assert is_generic_person("众灵官") is not None  # 众/群+ prefix
+        assert is_generic_person("村长的妻子") is not None  # descriptive suffix
+        assert is_generic_person("张") is not None  # bare surname
+        assert is_generic_person("李氏") is not None  # surname+氏
+
+    def test_valid_names_pass(self):
+        from src.services.name_authority import is_generic_person
+        for name in ["孙悟空", "猪八戒", "唐僧", "牛魔王", "玉皇大帝",
+                      "太白金星", "托塔李天王", "观音菩萨",
+                      "贾宝玉", "林黛玉", "王夫人", "薛姨妈"]:
+            assert is_generic_person(name) is None, \
+                f"{name} should pass but was filtered: {is_generic_person(name)}"
+
+    def test_genre_aware(self):
+        from src.services.name_authority import is_generic_person
+        # Fantasy whitelist: 仙童 is a valid character type in xianxia
+        assert is_generic_person("仙童", "fantasy") is None
+        assert is_generic_person("仙童") is not None
+        # Realistic: bare titles filtered
+        assert is_generic_person("队长", "realistic") is not None
+
+    def test_all_former_generic_block_entries_filtered(self):
+        """Story 1.4: every old NameResolver._GENERIC_BLOCK term must be caught."""
+        from src.services.name_authority import is_generic_person
+        _OLD_GENERIC_BLOCK = {
+            "哥哥", "弟弟", "姐姐", "妹妹", "外公", "师父", "师傅", "徒弟",
+            "师兄", "师弟", "师姐", "师妹", "大哥", "大王", "大爷", "二爷",
+            "老爷", "贤弟", "兄弟", "长老", "贫僧", "法师", "和尚", "陛下",
+            "万岁", "圣上", "菩萨", "老师", "那厮", "泼猴", "呆子", "那长老",
+            "老和尚", "小妖", "妖精", "妖怪", "那怪", "客官", "官人",
+            "前辈", "晚辈", "道友", "仙子", "主人", "夫君",
+        }
+        for name in _OLD_GENERIC_BLOCK:
+            assert is_generic_person(name) is not None, \
+                f"{name} was in _GENERIC_BLOCK but is_generic_person returns None"
+
+    def test_fact_validator_delegates(self):
+        """fact_validator._is_generic_person must be a thin wrapper."""
+        from src.extraction.fact_validator import _is_generic_person
+        from src.services.name_authority import is_generic_person
+        for name in ["孙悟空", "众人", "哥哥", "仙童", "长老", "李氏"]:
+            for genre in (None, "fantasy", "realistic"):
+                assert _is_generic_person(name, genre) == is_generic_person(name, genre)
+
+
+# ── CANONICAL_BLOCKLIST coverage (Story 1.3/1.4) ────────────────
+
+
+class TestCanonicalBlocklistCoverage:
+    """The canonical blocklist must cover every list-based generic term."""
+
+    def test_covers_generic_person_aliases(self):
+        from src.services.name_authority import CANONICAL_BLOCKLIST, GENERIC_PERSON_ALIASES
+        missing = GENERIC_PERSON_ALIASES - CANONICAL_BLOCKLIST
+        assert not missing, f"GENERIC_PERSON_ALIASES not in CANONICAL_BLOCKLIST: {missing}"
+
+    def test_covers_kinship_terms(self):
+        from src.services.name_authority import CANONICAL_BLOCKLIST, KINSHIP_TERMS
+        missing = KINSHIP_TERMS - CANONICAL_BLOCKLIST
+        assert not missing, f"KINSHIP_TERMS not in CANONICAL_BLOCKLIST: {missing}"
+
+    def test_covers_person_words_and_pure_titles(self):
+        from src.services.name_authority import (
+            CANONICAL_BLOCKLIST, GENERIC_PERSON_WORDS, PURE_TITLE_WORDS,
+        )
+        missing = (GENERIC_PERSON_WORDS | PURE_TITLE_WORDS) - CANONICAL_BLOCKLIST
+        assert not missing, f"person words/titles not in CANONICAL_BLOCKLIST: {missing}"
+
+    def test_generic_terms_never_win_canonical(self):
+        """A generic term must lose to a real name even at higher frequency."""
+        from src.services.name_authority import pick_canonical
+        result = pick_canonical(
+            ["樵夫", "孙悟空"],
+            {"樵夫": 999, "孙悟空": 100},
+        )
+        assert result == "孙悟空"

@@ -123,9 +123,9 @@ async def get_graph_data(
     from src.services.name_authority import (
         CANONICAL_BLOCKLIST,
         GENERIC_PERSON_ALIASES,
+        is_generic_person as _is_generic_person,
         is_surname_plus_shi,
     )
-    from src.extraction.fact_validator import _is_generic_person
 
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
     alias_map = await build_alias_map(novel_id)
