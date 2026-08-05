@@ -267,3 +267,44 @@ class TestTierOverrides:
             children_count={},
         )
         assert updates.get("齐天大圣府") == "site"
+
+
+class TestCrossComponentConsistency:
+    """Story 1.2: NameResolver and AliasResolver pick the SAME canonical
+    for the same input — both go through name_authority.pick_canonical()."""
+
+    def test_same_canonical_for_chen_xuanzang(self):
+        """The v0.70 regression pair: 陈玄奘 vs 唐僧."""
+        from src.models.entity_dict import EntityDictEntry
+        from src.services import name_authority
+        from src.services.alias_resolver import _pick_canonical
+
+        members = ["陈玄奘", "唐僧"]
+        freq = {"陈玄奘": 14, "唐僧": 829}
+
+        # AliasResolver path (via its thin wrapper)
+        ar_canonical = _pick_canonical(members, freq, set(members))
+        # NameResolver path (via load_from_entity_dictionary)
+        nr = NameResolver()
+        nr.load_from_entity_dictionary([
+            EntityDictEntry(name="陈玄奘", entity_type="person", frequency=14,
+                            aliases=["唐僧"], source="llm"),
+            EntityDictEntry(name="唐僧", entity_type="person", frequency=829,
+                            aliases=[], source="freq"),
+        ])
+        nr_canonical = nr._canonical_map.get("陈玄奘")
+
+        assert ar_canonical == nr_canonical == "唐僧"
+        # And both equal the shared entry point
+        assert name_authority.pick_canonical(members, freq, set(members)) == "唐僧"
+
+    def test_shared_entry_point(self):
+        """Both components call name_authority.pick_canonical — no independent logic."""
+        import inspect
+        from src.extraction import name_resolver
+        from src.services import alias_resolver
+
+        nr_src = inspect.getsource(name_resolver.NameResolver.load_from_entity_dictionary)
+        assert "pick_canonical" in nr_src
+        ar_src = inspect.getsource(alias_resolver._pick_canonical)
+        assert "name_authority.pick_canonical" in ar_src

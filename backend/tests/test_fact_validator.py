@@ -470,3 +470,44 @@ class TestSuffixRank:
             assert ranks[i] < ranks[i + 1], (
                 f"{chain[i]}({ranks[i]}) should be < {chain[i+1]}({ranks[i+1]})"
             )
+
+
+class TestVehicleWordsCleanup:
+    """Story 1.4: _VEHICLE_WORDS holds only vehicles; non-vehicle entries were
+    moved to their correct lists WITHOUT changing filtering decisions."""
+
+    def test_vehicle_words_only_vehicles(self):
+        from src.extraction.fact_validator import _VEHICLE_WORDS
+        non_vehicles = {"东边", "南边", "西边", "北边", "九霄", "地狱", "恶鬼",
+                        "畜生", "阿修罗", "天", "人", "区域", "青石", "半空",
+                        "夕阳", "抛物面天线", "青石棋局", "青石岩",
+                        "无数仙域", "坎宫之地", "孙玉厚家"}
+        assert not (non_vehicles & _VEHICLE_WORDS), \
+            f"non-vehicle entries still in _VEHICLE_WORDS: {non_vehicles & _VEHICLE_WORDS}"
+
+    def test_moved_entries_still_filtered(self):
+        """Filtering decisions must be identical to before the move."""
+        from src.extraction.fact_validator import (
+            _is_generic_location, _BUDDHIST_CONCEPTS, _DIRECTIONAL_RELATIVE_PHRASES,
+            _GENERIC_NON_LOCATION_TERMS,
+        )
+        # Directions — duplicates of _DIRECTIONAL_RELATIVE_PHRASES
+        for name in ["东边", "南边", "西边", "北边", "九霄"]:
+            assert name in _DIRECTIONAL_RELATIVE_PHRASES
+            assert _is_generic_location(name) is not None
+        # Six-realm concepts — moved to _BUDDHIST_CONCEPTS
+        for name in ["地狱", "恶鬼", "畜生", "阿修罗"]:
+            assert name in _BUDDHIST_CONCEPTS
+            assert _is_generic_location(name) is not None
+        # Abstract/equipment terms — moved to _GENERIC_NON_LOCATION_TERMS
+        for name in ["天", "人", "区域", "青石", "半空", "夕阳",
+                      "抛物面天线", "青石棋局", "青石岩",
+                      "无数仙域", "坎宫之地", "孙玉厚家"]:
+            assert name in _GENERIC_NON_LOCATION_TERMS
+            assert _is_generic_location(name) is not None
+
+    def test_real_vehicles_kept(self):
+        from src.extraction.fact_validator import _VEHICLE_WORDS, _is_generic_location
+        for name in ["马车", "轿子", "出租车", "飞船", "翠幄青紬车"]:
+            assert name in _VEHICLE_WORDS
+            assert _is_generic_location(name) == "vehicle/object"
