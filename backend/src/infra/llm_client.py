@@ -30,6 +30,14 @@ class LlmUsage:
     total_tokens: int = 0
 
 
+@dataclass
+class ToolCall:
+    """A single tool invocation requested by the model."""
+
+    name: str
+    arguments: dict = field(default_factory=dict)
+
+
 # Global semaphore to serialize Ollama calls (single GPU processes one request at a time).
 # Without this, concurrent novel analyses cause timeout cascades.
 _llm_semaphore: asyncio.Semaphore | None = None
@@ -282,6 +290,16 @@ class LLMClient:
                         yield token
                     if chunk.get("done"):
                         break
+
+    async def generate_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+    ) -> tuple[str | None, list[ToolCall]]:
+        """Ollama does not support agent tool calling here — weak local models
+        produce unreliable tool calls, so agent QA falls back to the RAG
+        pipeline (agent_qa_service catches NotImplementedError)."""
+        raise NotImplementedError("Ollama provider does not support tool calling")
 
 
 # Module-level singleton

@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from src.infra.llm_client import LLMError, LLMTimeoutError, LlmUsage, _extract_json
+from src.infra.llm_client import LLMError, LLMTimeoutError, LlmUsage, ToolCall, _extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -302,6 +302,82 @@ class OpenAICompatibleClient:
                 return _extract_json(content), usage
 
         return content, usage
+
+    async def generate_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        timeout: int = 120,
+    ) -> tuple[str | None, list[ToolCall]]:
+        """Non-streaming tool-use call for the agent QA loop.
+
+        `tools` is a list of {"name", "description", "parameters"} dicts
+        (provider-neutral); they are wrapped into OpenAI function format here.
+        Returns (assistant text or None, list of ToolCall).
+        """
+        if self._is_local_server():
+            timeout = max(timeout, 600)
+        payload: dict = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t.get("description", ""),
+                        "parameters": t.get("parameters", {"type": "object", "properties": {}}),
+                    },
+                }
+                for t in tools
+            ],
+        }
+
+        sem = _get_cloud_semaphore()
+        async with sem:
+            try:
+                async with self._make_client(
+                    httpx.Timeout(timeout, connect=10.0)
+                ) as client:
+                    resp = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        json=payload,
+                        headers=self._headers(),
+                    )
+                    resp.raise_for_status()
+            except httpx.TimeoutException as exc:
+                raise LLMTimeoutError(
+                    f"Cloud API request timed out after {timeout}s"
+                ) from exc
+            except httpx.HTTPStatusError as exc:
+                raise LLMError(
+                    f"Cloud API HTTP error {exc.response.status_code}: "
+                    f"{exc.response.text[:300]}"
+                ) from exc
+
+        data = resp.json()
+        choices = data.get("choices", [])
+        if not choices:
+            raise LLMError("Empty choices in cloud API response")
+
+        message = choices[0].get("message", {})
+        content: str | None = message.get("content") or None
+
+        tool_calls: list[ToolCall] = []
+        for tc in message.get("tool_calls") or []:
+            fn = tc.get("function", {})
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+                if not isinstance(args, dict):
+                    args = {}
+            except json.JSONDecodeError:
+                args = {}
+            name = fn.get("name", "")
+            if name:
+                tool_calls.append(ToolCall(name=name, arguments=args))
+
+        return content, tool_calls
 
     async def generate_stream(
         self,

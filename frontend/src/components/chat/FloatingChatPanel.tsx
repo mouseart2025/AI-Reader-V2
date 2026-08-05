@@ -26,6 +26,7 @@ export function FloatingChatPanel() {
     messages,
     streaming,
     streamingContent,
+    streamingStatus,
     streamingConversationId,
     loadConversations,
     newConversation,
@@ -337,6 +338,19 @@ export function FloatingChatPanel() {
             <div className="rounded-lg px-3 py-2 bg-muted">
               <div className="prose prose-sm dark:prose-invert max-w-none break-words"><Markdown>{streamingContent}</Markdown></div>
               <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
+            </div>
+          </div>
+        )}
+
+        {/* Thinking bubble — before the first token arrives; shows the latest
+            agent forensic step when available (issue #26 status frames) */}
+        {streaming && streamingConversationId === activeConversationId && !streamingContent && (
+          <div className="max-w-[80%] mr-auto">
+            <div className="rounded-lg px-3 py-2 bg-muted">
+              <span className="text-sm text-muted-foreground animate-pulse">正在思考...</span>
+              {streamingStatus && (
+                <div className="mt-1 text-xs text-muted-foreground/70">{streamingStatus}</div>
+              )}
             </div>
           </div>
         )}

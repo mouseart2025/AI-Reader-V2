@@ -27,6 +27,10 @@ LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "16384"))
 # Separate from LLM_PROVIDER so users can use Anthropic-compatible proxies
 LLM_PROVIDER_FORMAT: str = "openai"
 
+# QA mode: "rag" (default, fixed retrieval pipeline) | "agent" (tool-use loop,
+# requires a cloud provider with tool calling; Ollama always falls back to rag)
+QA_MODE: str = os.environ.get("QA_MODE", "rag")
+
 # Preserve .env initial values as fallback for mode switching
 _ENV_LLM_API_KEY = LLM_API_KEY
 _ENV_LLM_BASE_URL = LLM_BASE_URL
