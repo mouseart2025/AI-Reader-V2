@@ -9,6 +9,7 @@ from src.services.sample_data_service import auto_import_samples
 from src.api.routes import (
     novels,
     chapters,
+    annotations,
     entities,
     entity_overrides,
     graph,
@@ -110,6 +111,8 @@ app.add_middleware(
 app.include_router(novels.router)
 app.include_router(chapters.router)
 app.include_router(chapters.bookmark_router)
+app.include_router(annotations.router)
+app.include_router(annotations.annotation_router)
 app.include_router(entities.router)
 app.include_router(entity_overrides.router)
 app.include_router(graph.router)

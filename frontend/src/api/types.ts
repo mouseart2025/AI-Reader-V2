@@ -53,6 +53,20 @@ export interface Bookmark {
   created_at: string
 }
 
+export type AnnotationColor = "yellow" | "green" | "blue" | "pink"
+
+export interface Annotation {
+  id: number
+  novel_id: string
+  chapter_num: number
+  start_offset: number // 相对章节正文的字符偏移（码点）
+  end_offset: number
+  anchor_text: string // 选中原文快照
+  color: AnnotationColor
+  note: string
+  created_at: string
+}
+
 export interface EntitySummary {
   name: string
   type: string
@@ -721,6 +735,7 @@ export interface ChatWsOutgoing {
 
 export type ChatWsIncoming =
   | { type: "token"; content: string }
+  | { type: "status"; content: string }
   | { type: "sources"; chapters: number[] }
   | { type: "done" }
   | { type: "error"; message: string }
