@@ -14,8 +14,12 @@ import {
   fetchBookmarks,
   addBookmark,
   deleteBookmark,
+  fetchAnnotations,
+  createAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
 } from "@/api/client"
-import type { Bookmark, Chapter, ChapterEntity, EntityType, Novel, Scene } from "@/api/types"
+import type { Annotation, Bookmark, Chapter, ChapterEntity, EntityType, Novel, Scene } from "@/api/types"
 import { useReadingStore } from "@/stores/readingStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import {
@@ -32,7 +36,13 @@ import { NovelOverviewCard } from "@/components/shared/NovelOverviewCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { highlightText } from "@/lib/entityHighlight"
+import {
+  ANNOTATION_COLORS,
+  ANNOTATION_COLOR_KEYS,
+  cpLen,
+  getSelectionOffsets,
+  renderWithAnnotations,
+} from "@/lib/annotations"
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 import { recordTabVisit } from "@/lib/tabTracking"
 import { novelPath } from "@/lib/novelPaths"
@@ -92,15 +102,21 @@ function groupByVolume(chapters: Chapter[]): VolumeGroup[] {
 function TocSidebar({
   currentChapterNum,
   bookmarks,
+  annotations,
   onSelect,
   onClose,
   onBookmarkDelete,
+  onAnnotationSelect,
+  onAnnotationDelete,
 }: {
   currentChapterNum: number
   bookmarks: Bookmark[]
+  annotations: Annotation[]
   onSelect: (num: number) => void
   onClose: () => void
   onBookmarkDelete: (id: number) => void
+  onAnnotationSelect: (ann: Annotation) => void
+  onAnnotationDelete: (id: number) => void
 }) {
   const chapters = useReadingStore((s) => s.chapters)
   const search = useReadingStore((s) => s.tocSearch)
@@ -124,6 +140,7 @@ function TocSidebar({
     new Set(),
   )
   const [showBookmarks, setShowBookmarks] = useState(false)
+  const [showAnnotations, setShowAnnotations] = useState(false)
 
   // Auto-expand volume of current chapter
   useEffect(() => {
@@ -200,6 +217,47 @@ function TocSidebar({
               <button
                 className="shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() => onBookmarkDelete(bm.id)}
+              >
+                <XSmallIcon className="size-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Annotations toggle */}
+      {annotations.length > 0 && (
+        <button
+          className="flex items-center gap-1.5 border-b px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+          onClick={() => setShowAnnotations(!showAnnotations)}
+        >
+          <PenLineIcon className="size-3" />
+          <span>{annotations.length} 条批注</span>
+          <ChevronIcon expanded={showAnnotations} />
+        </button>
+      )}
+
+      {/* Annotation list */}
+      {showAnnotations && (
+        <div className="max-h-40 overflow-y-auto border-b">
+          {annotations.map((ann) => (
+            <div key={ann.id} className="flex items-center gap-1 px-3 py-1 text-xs hover:bg-accent">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: ANNOTATION_COLORS[ann.color] ?? ANNOTATION_COLORS.yellow }}
+              />
+              <button
+                className="flex-1 truncate text-left text-primary hover:underline"
+                onClick={() => onAnnotationSelect(ann)}
+                title={ann.anchor_text}
+              >
+                第{ann.chapter_num}章 {ann.anchor_text.slice(0, 12)}
+                {ann.anchor_text.length > 12 && "…"}
+                {ann.note && ` - ${ann.note}`}
+              </button>
+              <button
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => onAnnotationDelete(ann.id)}
               >
                 <XSmallIcon className="size-3" />
               </button>
@@ -422,6 +480,22 @@ export default function ReadingPage() {
   // Bookmarks (3.1)
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
 
+  // Annotations (划线 + 批注)
+  const [annotations, setAnnotations] = useState<Annotation[]>([])
+  // 新建批注浮层：选区位置 + 偏移 + 原文
+  const [selPopover, setSelPopover] = useState<{
+    x: number
+    y: number
+    start: number
+    end: number
+    text: string
+  } | null>(null)
+  // 编辑批注浮层
+  const [editAnn, setEditAnn] = useState<Annotation | null>(null)
+  const [editPos, setEditPos] = useState<{ x: number; y: number } | null>(null)
+  const [annColor, setAnnColor] = useState("yellow")
+  const [annNote, setAnnNote] = useState("")
+
   // Current chapter's analysis status
   const currentAnalysisStatus = useMemo(() => {
     const ch = chapters.find((c) => c.chapter_num === currentChapterNum)
@@ -533,6 +607,11 @@ export default function ReadingPage() {
         fetchBookmarks(novelId!).then((bms) => {
           if (!cancelled) setBookmarks(bms)
         }).catch(() => {})
+
+        // Load annotations (划线 + 批注)
+        fetchAnnotations(novelId!).then((anns) => {
+          if (!cancelled) setAnnotations(anns)
+        }).catch(() => {})
       } catch (err) {
         if (!cancelled) setError(String(err))
       } finally {
@@ -600,10 +679,19 @@ export default function ReadingPage() {
     return map
   }, [scenes])
 
-  // Split content into paragraphs (for scene-marked rendering)
+  // Split content into paragraphs (for scene-marked rendering).
+  // 每段记录其在章节正文中的码点起始偏移，供批注锚定/选区定位使用；
+  // 空行不渲染但偏移照常累加，保证与后端存储的正文偏移一致。
   const paragraphs = useMemo(() => {
     if (!currentChapter?.content) return []
-    return currentChapter.content.split("\n").filter((p) => p.trim())
+    const lines = currentChapter.content.split("\n")
+    const result: { text: string; offset: number }[] = []
+    let off = 0
+    for (const line of lines) {
+      if (line.trim()) result.push({ text: line, offset: off })
+      off += cpLen(line) + 1 // +1 for the consumed "\n"
+    }
+    return result
   }, [currentChapter])
 
   // Scroll to scene paragraph
@@ -632,6 +720,30 @@ export default function ReadingPage() {
       savePosition()
     }
   }, [savePosition])
+
+  // Scroll to the first text node containing the needle and flash it
+  const scrollToText = useCallback((needle: string) => {
+    requestAnimationFrame(() => {
+      if (!contentRef.current) return
+      // Find the text node containing the needle
+      const walker = document.createTreeWalker(
+        contentRef.current, NodeFilter.SHOW_TEXT, null,
+      )
+      let node: Node | null
+      while ((node = walker.nextNode())) {
+        const idx = (node.textContent || "").indexOf(needle.slice(0, 20))
+        if (idx >= 0 && node.parentElement) {
+          node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" })
+          // Brief highlight effect
+          const el = node.parentElement
+          el.style.transition = "background-color 0.3s"
+          el.style.backgroundColor = "rgba(234, 179, 8, 0.3)"
+          setTimeout(() => { el.style.backgroundColor = "" }, 3000)
+          break
+        }
+      }
+    })
+  }, [])
 
   // Navigate to a chapter
   const goToChapter = useCallback(
@@ -677,26 +789,7 @@ export default function ReadingPage() {
         if (pendingHighlightRef.current) {
           const needle = pendingHighlightRef.current
           pendingHighlightRef.current = null
-          requestAnimationFrame(() => {
-            if (!contentRef.current) return
-            // Find the text node containing the needle
-            const walker = document.createTreeWalker(
-              contentRef.current, NodeFilter.SHOW_TEXT, null,
-            )
-            let node: Node | null
-            while ((node = walker.nextNode())) {
-              const idx = (node.textContent || "").indexOf(needle.slice(0, 20))
-              if (idx >= 0 && node.parentElement) {
-                node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                // Brief highlight effect
-                const el = node.parentElement
-                el.style.transition = "background-color 0.3s"
-                el.style.backgroundColor = "rgba(234, 179, 8, 0.3)"
-                setTimeout(() => { el.style.backgroundColor = "" }, 3000)
-                break
-              }
-            }
-          })
+          scrollToText(needle)
         }
 
         saveUserState(novelId, {
@@ -721,7 +814,7 @@ export default function ReadingPage() {
         setLoading(false)
       }
     },
-    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, chapters.length],
+    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, chapters.length, scrollToText],
   )
 
   // Handle ?chapter=N&highlight=text query parameters
@@ -770,6 +863,9 @@ export default function ReadingPage() {
     const { scrollTop, scrollHeight, clientHeight } = contentRef.current
     const max = scrollHeight - clientHeight
     setScrollProgress(max > 0 ? scrollTop / max : 0)
+    // 滚动时关掉批注浮层（fixed 定位不随内容滚动）
+    setSelPopover(null)
+    setEditAnn(null)
   }, [])
 
   // Keyboard shortcuts (2.4)
@@ -784,7 +880,9 @@ export default function ReadingPage() {
         e.preventDefault()
         goToChapter(currentChapterNum + 1)
       } else if (e.key === "Escape") {
-        if (scenePanelOpen) setScenePanelOpen(false)
+        if (selPopover) setSelPopover(null)
+        else if (editAnn) setEditAnn(null)
+        else if (scenePanelOpen) setScenePanelOpen(false)
         else if (showSettings) setShowSettings(false)
         else if (showSearch) {
           setShowSearch(false)
@@ -801,7 +899,7 @@ export default function ReadingPage() {
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [canPrev, canNext, currentChapterNum, goToChapter, scenePanelOpen, showSettings, showSearch, highlightEnabled, setHighlightEnabled])
+  }, [canPrev, canNext, currentChapterNum, goToChapter, scenePanelOpen, showSettings, showSearch, highlightEnabled, setHighlightEnabled, selPopover, editAnn])
 
   // Bookmark handlers (3.1)
   const handleAddBookmark = useCallback(async () => {
@@ -822,15 +920,110 @@ export default function ReadingPage() {
     } catch { /* ignore */ }
   }, [])
 
-  // Helper to render text with optional highlighting
-  const renderText = useCallback(
-    (text: string) => {
-      if (highlightEnabled) {
-        return highlightText(text, filteredEntities, handleEntityClick)
+  // Annotation handlers (划线 + 批注)
+  // 选区捕获：mouseup 时若选区在正文内，计算码点偏移并弹出新建浮层
+  const handleContentMouseUp = useCallback(() => {
+    if (!contentRef.current) return
+    const sel = getSelectionOffsets(contentRef.current)
+    if (!sel) return
+    const range = window.getSelection()?.getRangeAt(0)
+    if (!range) return
+    const rect = range.getBoundingClientRect()
+    setEditAnn(null)
+    setSelPopover({
+      x: rect.left + rect.width / 2,
+      y: rect.bottom + 8,
+      start: sel.start,
+      end: sel.end,
+      text: sel.text,
+    })
+    setAnnColor("yellow")
+    setAnnNote("")
+  }, [])
+
+  const handleSaveAnnotation = useCallback(async () => {
+    if (!novelId || !selPopover) return
+    try {
+      const ann = await createAnnotation(novelId, {
+        chapter_num: currentChapterNum,
+        start_offset: selPopover.start,
+        end_offset: selPopover.end,
+        anchor_text: selPopover.text,
+        color: annColor,
+        note: annNote.trim(),
+      })
+      setAnnotations((prev) => [...prev, ann])
+    } catch { /* 锚定失败等错误：放弃本次保存 */ }
+    setSelPopover(null)
+    window.getSelection()?.removeAllRanges()
+  }, [novelId, selPopover, currentChapterNum, annColor, annNote])
+
+  const handleUpdateAnnotation = useCallback(async () => {
+    if (!editAnn) return
+    try {
+      const updated = await updateAnnotation(editAnn.id, {
+        color: annColor,
+        note: annNote.trim(),
+      })
+      setAnnotations((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+    } catch { /* ignore */ }
+    setEditAnn(null)
+  }, [editAnn, annColor, annNote])
+
+  const handleDeleteAnnotation = useCallback(async (id: number) => {
+    try {
+      await deleteAnnotation(id)
+      setAnnotations((prev) => prev.filter((a) => a.id !== id))
+    } catch { /* ignore */ }
+    setEditAnn(null)
+  }, [])
+
+  // 侧栏批注列表跳转：复用 ?highlight= 的滚动定位机制
+  const handleAnnotationSelect = useCallback(
+    (ann: Annotation) => {
+      pendingHighlightRef.current = ann.anchor_text
+      if (ann.chapter_num === currentChapterNum) {
+        // 同章直接滚动（goToChapter 才会消费 pendingHighlightRef）
+        pendingHighlightRef.current = null
+        scrollToText(ann.anchor_text)
+      } else {
+        goToChapter(ann.chapter_num)
       }
-      return text
     },
-    [highlightEnabled, filteredEntities, handleEntityClick],
+    [currentChapterNum, goToChapter, scrollToText],
+  )
+
+  // Current chapter's annotations for rendering
+  const chapterAnnotations = useMemo(
+    () => annotations.filter((a) => a.chapter_num === currentChapterNum),
+    [annotations, currentChapterNum],
+  )
+
+  // Click on an annotation mark → open edit popover
+  const handleAnnotationClick = useCallback((ann: Annotation, el: HTMLElement) => {
+    const rect = el.getBoundingClientRect()
+    setEditAnn(ann)
+    setEditPos({ x: rect.left + rect.width / 2, y: rect.bottom + 8 })
+    setAnnColor(ann.color)
+    setAnnNote(ann.note)
+  }, [])
+
+  // Helper to render text with annotations + optional entity highlighting.
+  // 批注层在下（<mark> 下划线 + 淡底色），实体高亮层在分段内部叠加，
+  // 两套视觉通道（下划线 vs 背景色）互不遮盖。
+  const renderText = useCallback(
+    (text: string, baseOffset = 0) => {
+      return renderWithAnnotations({
+        text,
+        baseOffset,
+        annotations: chapterAnnotations,
+        highlightEnabled,
+        entities: filteredEntities,
+        onEntityClick: handleEntityClick,
+        onAnnotationClick: handleAnnotationClick,
+      })
+    },
+    [chapterAnnotations, highlightEnabled, filteredEntities, handleEntityClick, handleAnnotationClick],
   )
 
   if (loading && !currentChapter) {
@@ -860,9 +1053,12 @@ export default function ReadingPage() {
           <TocSidebar
             currentChapterNum={currentChapterNum}
             bookmarks={bookmarks}
+            annotations={annotations}
             onSelect={goToChapter}
             onClose={() => setSidebarOpen(false)}
             onBookmarkDelete={handleDeleteBookmark}
+            onAnnotationSelect={handleAnnotationSelect}
+            onAnnotationDelete={handleDeleteAnnotation}
           />
         </div>
       )}
@@ -1048,7 +1244,12 @@ export default function ReadingPage() {
         </div>
 
         {/* Chapter content */}
-        <div ref={contentRef} className="flex-1 overflow-y-auto" onScroll={handleContentScroll}>
+        <div
+          ref={contentRef}
+          className="flex-1 overflow-y-auto"
+          onScroll={handleContentScroll}
+          onMouseUp={handleContentMouseUp}
+        >
           <article className="mx-auto max-w-3xl px-8 py-8">
             {/* Guided tour bubble — Step 1: entity highlight */}
             <ReadingTourBubble isSample={!!novel?.is_sample} hasContent={!!currentChapter} />
@@ -1089,7 +1290,7 @@ export default function ReadingPage() {
                               isActive && "bg-accent/30 rounded-r",
                             )}
                           >
-                            {renderText(p)}
+                            {renderText(p.text, p.offset)}
                           </p>
                         )
                       })
@@ -1098,7 +1299,7 @@ export default function ReadingPage() {
                 ) : (
                   /* Normal whole-block rendering */
                   <div className={cn("whitespace-pre-wrap", FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
-                    {renderText(currentChapter.content)}
+                    {renderText(currentChapter.content, 0)}
                   </div>
                 )}
               </>
@@ -1144,6 +1345,116 @@ export default function ReadingPage() {
 
       {/* Entity Card Drawer */}
       {novelId && <EntityCardDrawer novelId={novelId} />}
+
+      {/* 新建批注浮层（选区后弹出） */}
+      {selPopover && (
+        <AnnotationPopover
+          x={selPopover.x}
+          y={selPopover.y}
+          color={annColor}
+          note={annNote}
+          isEdit={false}
+          onColorChange={setAnnColor}
+          onNoteChange={setAnnNote}
+          onSave={handleSaveAnnotation}
+          onCancel={() => {
+            setSelPopover(null)
+            window.getSelection()?.removeAllRanges()
+          }}
+        />
+      )}
+
+      {/* 编辑批注浮层（点击划线弹出） */}
+      {editAnn && editPos && (
+        <AnnotationPopover
+          x={editPos.x}
+          y={editPos.y}
+          color={annColor}
+          note={annNote}
+          isEdit
+          onColorChange={setAnnColor}
+          onNoteChange={setAnnNote}
+          onSave={handleUpdateAnnotation}
+          onDelete={() => handleDeleteAnnotation(editAnn.id)}
+          onCancel={() => setEditAnn(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Annotation Popover ─────────────────────────
+
+function AnnotationPopover({
+  x,
+  y,
+  color,
+  note,
+  isEdit,
+  onColorChange,
+  onNoteChange,
+  onSave,
+  onDelete,
+  onCancel,
+}: {
+  x: number
+  y: number
+  color: string
+  note: string
+  isEdit: boolean
+  onColorChange: (color: string) => void
+  onNoteChange: (note: string) => void
+  onSave: () => void
+  onDelete?: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed z-50 w-64 -translate-x-1/2 rounded-lg border bg-background p-3 shadow-lg"
+      style={{ left: x, top: y }}
+      onMouseUp={(e) => e.stopPropagation() /* 避免触发正文选区捕获 */}
+    >
+      <div className="mb-2 flex gap-2">
+        {ANNOTATION_COLOR_KEYS.map((c) => (
+          <button
+            key={c}
+            className={cn(
+              "size-5 rounded-full border-2 transition-transform hover:scale-110",
+              color === c ? "border-foreground" : "border-transparent",
+            )}
+            style={{ backgroundColor: ANNOTATION_COLORS[c] }}
+            title={c}
+            onClick={() => onColorChange(c)}
+          />
+        ))}
+      </div>
+      <Input
+        placeholder="批注（可空）"
+        value={note}
+        onChange={(e) => onNoteChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSave()
+        }}
+        className="mb-2 h-8 text-sm"
+        autoFocus={isEdit}
+      />
+      <div className="flex items-center justify-between">
+        {isEdit && onDelete ? (
+          <Button variant="ghost" size="xs" className="text-destructive" onClick={onDelete}>
+            删除
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-1">
+          <Button variant="ghost" size="xs" onClick={onCancel}>
+            取消
+          </Button>
+          <Button size="xs" onClick={onSave}>
+            保存
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1341,6 +1652,24 @@ function BookmarkIcon({ className }: { className?: string }) {
       className={className}
     >
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  )
+}
+
+function PenLineIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   )
 }
