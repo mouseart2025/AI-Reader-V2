@@ -23,6 +23,9 @@ interface ChatState {
   streaming: boolean
   streamingContent: string
   streamingSources: number[]
+  // Latest agent forensic step (issue #26 agent QA status frames); cleared
+  // on first token / done / error
+  streamingStatus: string
   // Conversation the in-flight stream belongs to (issue #55: stream state
   // must not leak into other conversations when the user switches mid-stream)
   streamingConversationId: string | null
@@ -79,6 +82,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: false,
   streamingContent: "",
   streamingSources: [],
+  streamingStatus: "",
   streamingConversationId: null,
   ws: null,
   wsConnected: false,
@@ -103,7 +107,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => ({ messages: [...s.messages, msg] }))
   },
 
-  clearMessages: () => set({ messages: [], activeConversationId: null, streaming: false, streamingContent: "", streamingConversationId: null }),
+  clearMessages: () => set({ messages: [], activeConversationId: null, streaming: false, streamingContent: "", streamingStatus: "", streamingConversationId: null }),
 
   loadConversations: async (novelId) => {
     try {
@@ -171,7 +175,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const payload = _pendingPayload
         _pendingPayload = null
         ws.send(payload)
-        set({ streaming: true, streamingContent: "", streamingSources: [] })
+        set({ streaming: true, streamingContent: "", streamingSources: [], streamingStatus: "" })
       }
     }
 
@@ -201,6 +205,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           case "token":
             get()._appendStreamToken(msg.content)
             break
+          case "status":
+            // Agent forensic step (issue #26) — shown in the thinking bubble
+            set({ streamingStatus: msg.content })
+            break
           case "sources":
             // Sources received before "done"
             set({ streamingSources: msg.chapters })
@@ -223,7 +231,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }
               state._addMessage(assistantMsg)
             }
-            set({ streamingConversationId: null })
+            set({ streamingConversationId: null, streamingStatus: "" })
             break
           }
           case "error": {
@@ -243,7 +251,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }
               set((s) => ({ messages: [...s.messages, errMsg] }))
             }
-            set({ streaming: false, streamingContent: "", streamingConversationId: null })
+            set({ streaming: false, streamingContent: "", streamingConversationId: null, streamingStatus: "" })
             break
           }
         }
@@ -297,6 +305,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         streaming: true,
         streamingContent: "",
         streamingSources: [],
+        streamingStatus: "",
         streamingConversationId: activeConversationId,
       }))
       // Force reconnect
@@ -310,6 +319,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streaming: true,
       streamingContent: "",
       streamingSources: [],
+      streamingStatus: "",
       streamingConversationId: activeConversationId,
     }))
 
@@ -317,7 +327,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   _appendStreamToken: (token) =>
-    set((s) => ({ streamingContent: s.streamingContent + token })),
+    set((s) => ({ streamingContent: s.streamingContent + token, streamingStatus: "" })),
 
   _finishStream: (_sources) =>
     set({ streaming: false }),
