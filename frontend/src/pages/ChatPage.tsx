@@ -21,6 +21,7 @@ export default function ChatPage() {
     messages,
     streaming,
     streamingContent,
+    streamingStatus,
     streamingConversationId,
     loadConversations,
     newConversation,
@@ -304,6 +305,9 @@ export default function ChatPage() {
                   <span className="text-sm text-muted-foreground animate-pulse">
                     {llmLabel ? `${llmLabel} 思考中...` : "正在思考..."}
                   </span>
+                  {streamingStatus && (
+                    <div className="mt-1 text-xs text-muted-foreground/70">{streamingStatus}</div>
+                  )}
                 </div>
               </div>
             </div>
