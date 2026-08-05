@@ -247,6 +247,16 @@ def search_entities(
     return matches
 
 
+def delete_chapter_embeddings(novel_id: str, chapter_nums: list[int]) -> None:
+    """Delete chapter embeddings for the given chapter numbers.
+
+    Doc ids follow the `ch_{n}` format used by index_chapter().
+    Deleting non-existent ids is a no-op in ChromaDB.
+    """
+    col = _chapters_collection(novel_id)
+    col.delete(ids=[f"ch_{n}" for n in chapter_nums])
+
+
 def delete_novel_collections(novel_id: str) -> None:
     """Delete all ChromaDB collections for a novel."""
     client = _get_client()

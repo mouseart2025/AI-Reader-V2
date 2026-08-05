@@ -20,6 +20,7 @@ _QA_SYSTEM_PROMPT = """你是一个专业的小说分析助手。你的任务是
 4. 回答要简洁明了，重点突出
 5. 在回答中提到人物、地点、物品等实体时，用其原名
 6. 优先使用「人物档案」中的聚合关系数据，它比逐章碎片更准确完整
+7. 如果「知识库信息」与问题无关或不足以回答，只允许说明暂未找到相关信息，禁止输出任何具体人物、情节或章节内容
 
 ## 知识库信息
 {context}
@@ -44,6 +45,20 @@ def _is_greeting(question: str) -> bool:
     return len(q) <= 12 and bool(_GREETING_RE.match(q))
 
 
+# 通用称谓/代词停用词表。这些词在问题中多为泛指（如"西游记的主人公是谁"），
+# 若作为别名参与子串匹配会误命中无关实体（"主人公"误中别名"公主"）。
+# 取舍：命中停用词表的一律跳过，宁可漏匹配也不错匹配——即使"陛下""菩萨"
+# 等偶尔是真实角色名，该角色通常还有更长的本名可被匹配。
+_ENTITY_STOPWORDS: frozenset[str] = frozenset({
+    "公主", "先生", "老婆", "师父", "主人公", "主角", "老公", "老婆婆",
+    "大王", "将军", "夫人", "小姐", "公子", "老爷", "太太", "姑娘",
+    "和尚", "道人", "师傅", "徒弟", "女儿", "儿子", "父亲", "母亲",
+    "哥哥", "姐姐", "弟弟", "妹妹", "孩子", "老人", "女人", "男人",
+    "少年", "少女", "奴婢", "丫鬟", "奴才", "陛下", "皇上", "圣人",
+    "真人", "菩萨",
+})
+
+
 def _resolve_question_entities(
     question: str,
     all_entities: set[str],
@@ -54,6 +69,9 @@ def _resolve_question_entities(
     seen_canonical: set[str] = set()
     # Check longest names first to avoid partial matches
     for name in sorted(all_entities, key=len, reverse=True):
+        # 停用词不参与匹配：泛指称谓子串误命中的代价远大于漏匹配
+        if name in _ENTITY_STOPWORDS:
+            continue
         if name in question:
             canonical = alias_map.get(name, name)
             if canonical not in seen_canonical:
