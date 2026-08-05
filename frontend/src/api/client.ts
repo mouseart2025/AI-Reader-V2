@@ -396,6 +396,44 @@ export function deleteBookmark(bookmarkId: number): Promise<{ ok: boolean }> {
   return apiFetch(`/bookmarks/${bookmarkId}`, { method: "DELETE" })
 }
 
+// ── Annotations ───────────────────────────────
+
+export function fetchAnnotations(novelId: string): Promise<import("./types").Annotation[]> {
+  return apiFetch<{ annotations: import("./types").Annotation[] }>(`/novels/${novelId}/annotations`)
+    .then((r) => r.annotations)
+}
+
+export function createAnnotation(
+  novelId: string,
+  data: {
+    chapter_num: number
+    start_offset: number
+    end_offset: number
+    anchor_text: string
+    color: string
+    note: string
+  },
+): Promise<import("./types").Annotation> {
+  return apiFetch(`/novels/${novelId}/annotations`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateAnnotation(
+  annotationId: number,
+  data: { color?: string; note?: string },
+): Promise<import("./types").Annotation> {
+  return apiFetch(`/annotations/${annotationId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteAnnotation(annotationId: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/annotations/${annotationId}`, { method: "DELETE" })
+}
+
 // ── Novel Stats ─────────────────────────────────
 
 export interface NovelStats {
