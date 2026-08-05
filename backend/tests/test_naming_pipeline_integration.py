@@ -7,14 +7,22 @@ v0.70 introduced NameResolver and caused canonical name regression.
 No DB, no LLM — pure data flow tests using constructed fixtures.
 """
 
-import pytest
+import json
 from collections import Counter
+from unittest.mock import patch
 
+import pytest
+import pytest_asyncio
+
+import src.db.entity_override_store as entity_override_store_mod
+import src.services.alias_resolver as alias_resolver_mod
+import src.services.visualization_service as visualization_mod
 from src.extraction.name_resolver import NameResolver
 from src.models.chapter_fact import (
     ChapterFact, CharacterFact, RelationshipFact, EventFact,
 )
 from src.models.entity_dict import EntityDictEntry
+from src.services.alias_resolver import build_alias_map
 from src.services.name_authority import pick_canonical
 
 
@@ -252,3 +260,263 @@ class TestCanonicalRegressionGuards:
         # All canonicals must be unique
         assert len(set(canonicals)) == len(canonicals), \
             f"Duplicate canonicals detected: {canonicals}"
+
+
+# ── Story 2.1 (cont.): AliasResolver.build_alias_map + graph output ──────
+#
+# The tests above cover NameResolver in isolation. The tests below run the
+# REAL AliasResolver and visualization_service code paths against an
+# in-memory SQLite DB, closing the loop: EntityDict → alias_map → graph
+# node names. No LLM involved.
+
+
+class _NonClosingConnection:
+    """Proxy that prevents the service under test from closing the shared DB."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    async def close(self):
+        pass  # no-op — the memory_db fixture manages the lifecycle
+
+
+def _make_conn_factory(memory_db):
+    async def _factory():
+        return _NonClosingConnection(memory_db)
+    return _factory
+
+
+async def _seed_naming_db(db, novel_id, dict_entries, facts,
+                          title="命名管线测试小说"):
+    """Insert novel + entity_dictionary + chapters + chapter_facts rows.
+
+    The neutral title keeps person_knowledge_prior out of the picture so the
+    tests exercise the pure Union-Find + pick_canonical pipeline.
+    """
+    await db.execute(
+        "INSERT INTO novels (id, title) VALUES (?, ?)", (novel_id, title))
+    for entry in dict_entries:
+        await db.execute(
+            "INSERT INTO entity_dictionary "
+            "(novel_id, name, entity_type, frequency, aliases, source) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (novel_id, entry.name, entry.entity_type, entry.frequency,
+             json.dumps(entry.aliases, ensure_ascii=False), entry.source),
+        )
+    for fact in facts:
+        cur = await db.execute(
+            "INSERT INTO chapters (novel_id, chapter_num, title, content) "
+            "VALUES (?, ?, ?, ?)",
+            (novel_id, fact.chapter_id, f"第{fact.chapter_id}回", "正文……"),
+        )
+        await db.execute(
+            "INSERT INTO chapter_facts (novel_id, chapter_id, fact_json) "
+            "VALUES (?, ?, ?)",
+            (novel_id, cur.lastrowid,
+             json.dumps(fact.model_dump(), ensure_ascii=False)),
+        )
+    await db.commit()
+
+
+@pytest_asyncio.fixture
+async def alias_db(memory_db):
+    """In-memory DB wired into alias_resolver + entity_override_store."""
+    factory = _make_conn_factory(memory_db)
+    alias_resolver_mod._alias_cache.clear()
+    with patch("src.services.alias_resolver.get_connection", factory), \
+         patch("src.db.entity_override_store.get_connection", factory):
+        yield memory_db
+    alias_resolver_mod._alias_cache.clear()
+
+
+class TestBuildAliasMapIntegration:
+    """build_alias_map() output canonicals must match expectations (Story 2.1).
+
+    Runs the real Union-Find + name_authority.pick_canonical pipeline over a
+    simulated 西游记 entity dictionary + 3 chapters of facts.
+    """
+
+    NOVEL = "test-alias-map"
+
+    @pytest.mark.asyncio
+    async def test_alias_map_canonical_names(self, alias_db):
+        await _seed_naming_db(alias_db, self.NOVEL,
+                              _xiyouji_entity_dict(), _xiyouji_chapter_facts())
+        alias_map = await build_alias_map(self.NOVEL)
+
+        expectations = {
+            # 高频常用名 vs 低频正式名
+            "陈玄奘": "唐僧",
+            "唐三藏": "唐僧",
+            # 同一人物的别名正确合并 (孙悟空 = 行者 = 大圣)
+            "猴王": "孙悟空",
+            "行者": "孙悟空",
+            "大圣": "孙悟空",
+            "齐天大圣": "孙悟空",
+            "美猴王": "孙悟空",
+            # 其余主角
+            "猪刚鬣": "猪八戒",
+            # 注: "天蓬元帅" 是元帅头衔, alias_safety_level=0 被安全层有意拦截
+            "沙和尚": "沙僧",
+            "沙悟净": "沙僧",
+            "罗刹女": "铁扇公主",
+        }
+        failures = [
+            f"  - alias '{a}': expected canonical '{e}', "
+            f"got '{alias_map.get(a)}' (source: simulated 西游记 fixture)"
+            for a, e in expectations.items()
+            if alias_map.get(a) != e
+        ]
+        assert not failures, (
+            f"{len(failures)} alias→canonical mismatches:\n" + "\n".join(failures)
+        )
+
+    @pytest.mark.asyncio
+    async def test_canonical_names_not_self_mapped(self, alias_db):
+        """alias_map contract: canonical names must not map to themselves."""
+        await _seed_naming_db(alias_db, self.NOVEL,
+                              _xiyouji_entity_dict(), _xiyouji_chapter_facts())
+        alias_map = await build_alias_map(self.NOVEL)
+
+        for canonical in ["孙悟空", "唐僧", "猪八戒", "沙僧", "牛魔王", "铁扇公主"]:
+            assert canonical not in alias_map, \
+                f"Canonical '{canonical}' maps to itself/other: " \
+                f"{canonical} → {alias_map.get(canonical)}"
+
+    @pytest.mark.asyncio
+    async def test_generic_terms_never_in_alias_map(self, alias_db):
+        """泛称 (师父/长老/呆子) must be blocked before entering alias_map."""
+        await _seed_naming_db(alias_db, self.NOVEL,
+                              _xiyouji_entity_dict(), _xiyouji_chapter_facts())
+        alias_map = await build_alias_map(self.NOVEL)
+
+        generic_terms = {"师父", "长老", "呆子", "菩萨", "大王", "妖精"}
+        leaked_keys = generic_terms & set(alias_map.keys())
+        leaked_vals = generic_terms & set(alias_map.values())
+        assert not leaked_keys, f"Generic terms as alias_map keys: {leaked_keys}"
+        assert not leaked_vals, \
+            f"Generic terms as canonical targets: {leaked_vals}"
+
+    @pytest.mark.asyncio
+    async def test_similar_names_never_merged(self, alias_db):
+        """阮小二 ≠ 阮小五 ≠ 阮小七 — structurally similar names must stay
+        separate even when a (buggy) prescan LLM declares them aliases.
+
+        This exercises the _similar_name_conflict guard (merge blocker) via
+        the real build_alias_map code path, at BOTH the dict stage and the
+        chapter-fact stage.
+        """
+        dict_entries = [
+            # Simulates a prescan LLM error: 阮小二 declared with 阮小五 as alias
+            EntityDictEntry(name="阮小二", entity_type="person", frequency=50,
+                            aliases=["阮小五"], source="freq"),
+            EntityDictEntry(name="阮小五", entity_type="person", frequency=40,
+                            aliases=["阮小七"], source="freq"),
+            EntityDictEntry(name="阮小七", entity_type="person", frequency=30,
+                            aliases=[], source="freq"),
+        ]
+        facts = [
+            ChapterFact(chapter_id=1, novel_id=self.NOVEL, characters=[
+                # LLM per-chapter error: claims 阮小七 is an alias of 阮小二
+                CharacterFact(name="阮小二", new_aliases=["阮小七"]),
+                CharacterFact(name="阮小五"),
+            ], relationships=[
+                RelationshipFact(person_a="阮小二", person_b="阮小五",
+                                 relation_type="兄弟"),
+            ]),
+        ]
+        await _seed_naming_db(alias_db, self.NOVEL, dict_entries, facts)
+        alias_map = await build_alias_map(self.NOVEL)
+
+        brothers = {"阮小二", "阮小五", "阮小七"}
+        merged = {
+            a: c for a, c in alias_map.items()
+            if a in brothers or c in brothers
+        }
+        assert not merged, (
+            "Similar-named distinct characters were merged "
+            "(阮氏兄弟 regression):\n"
+            + "\n".join(f"  - {a} → {c}" for a, c in merged.items())
+        )
+
+
+class TestGraphOutputNames:
+    """visualization_service.get_graph_data() must emit canonical node names
+    after applying alias_map (Story 2.1, link 3 of the chain)."""
+
+    NOVEL = "test-graph-names"
+
+    @pytest_asyncio.fixture
+    async def graph_db(self, memory_db):
+        factory = _make_conn_factory(memory_db)
+        alias_resolver_mod._alias_cache.clear()
+
+        async def _no_ungrounded(novel_id, names, alias_map):
+            return set()
+
+        async def _no_override_targets(novel_id):
+            return {}
+
+        with patch("src.services.visualization_service.get_connection", factory), \
+             patch("src.services.alias_resolver.get_connection", factory), \
+             patch("src.db.entity_override_store.get_connection", factory), \
+             patch("src.services.hallucination_filter.get_ungrounded_persons",
+                   _no_ungrounded), \
+             patch("src.services.alias_resolver.get_override_targets",
+                   _no_override_targets):
+            yield memory_db
+        alias_resolver_mod._alias_cache.clear()
+
+    @pytest.mark.asyncio
+    async def test_graph_nodes_use_canonical_names(self, graph_db):
+        await _seed_naming_db(graph_db, self.NOVEL,
+                              _xiyouji_entity_dict(), _xiyouji_chapter_facts())
+
+        graph = await visualization_mod.get_graph_data(self.NOVEL, 1, 100)
+        node_names = {n["name"] for n in graph["nodes"]}
+
+        # Canonical names present
+        for expected in ["孙悟空", "唐僧", "猪八戒", "牛魔王", "铁扇公主",
+                         "菩提祖师"]:
+            assert expected in node_names, \
+                f"Expected canonical node '{expected}' missing from graph; " \
+                f"nodes: {sorted(node_names)}"
+
+        # Fragment/alias names must NOT appear as nodes
+        fragments = {"猴王", "行者", "大圣", "三藏", "八戒", "陈玄奘",
+                     "猪刚鬣", "沙和尚", "罗刹女"}
+        leaked = fragments & node_names
+        assert not leaked, \
+            f"Fragment names appeared as graph nodes: {sorted(leaked)}"
+
+    @pytest.mark.asyncio
+    async def test_graph_node_aliases_tracked(self, graph_db):
+        """Resolved-away names are recorded on the canonical node's aliases."""
+        await _seed_naming_db(graph_db, self.NOVEL,
+                              _xiyouji_entity_dict(), _xiyouji_chapter_facts())
+
+        graph = await visualization_mod.get_graph_data(self.NOVEL, 1, 100)
+        wukong = next(n for n in graph["nodes"] if n["name"] == "孙悟空")
+        assert {"猴王", "行者", "大圣"} <= set(wukong["aliases"]), \
+            f"孙悟空 node aliases incomplete: {wukong['aliases']}"
+
+    @pytest.mark.asyncio
+    async def test_graph_edges_use_canonical_names(self, graph_db):
+        await _seed_naming_db(graph_db, self.NOVEL,
+                              _xiyouji_entity_dict(), _xiyouji_chapter_facts())
+
+        graph = await visualization_mod.get_graph_data(self.NOVEL, 1, 100)
+        edges = {(e["source"], e["target"]) for e in graph["edges"]}
+
+        # 三藏↔行者 师徒 must become 唐僧↔孙悟空 (edge endpoints are sorted)
+        assert ("唐僧", "孙悟空") in edges, \
+            f"Expected edge 唐僧—孙悟空 missing; edges: {sorted(edges)}"
+        # 大圣↔牛魔王 结拜 must become 孙悟空↔牛魔王
+        assert ("孙悟空", "牛魔王") in edges, \
+            f"Expected edge 孙悟空—牛魔王 missing; edges: {sorted(edges)}"
+        # No self-edges caused by alias resolution
+        assert all(s != t for s, t in edges), \
+            f"Self-edge after alias resolution: {sorted(edges)}"

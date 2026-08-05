@@ -122,12 +122,40 @@ class TestXiyoujiGoldenCharacters:
         self.invalid = _collect_invalid_characters(data)
         self.valid = _collect_valid_characters(data)
 
+    # Regression floor (Phase 2 audit, 2026-08-05): these invalid characters
+    # ARE catchable by pattern rules today — the filters must never get worse.
+    # The rest (银驮/碗子山妖魔/洪江龙王/平顶山·樵夫) are LLM-layer
+    # hallucinations that name-pattern filters cannot catch by design.
+    MIN_CAUGHT = {"太监", "持国天王"}
+
+    def test_invalid_characters_caught_regression_floor(self):
+        """Hard gate: pattern-catchable invalid characters must stay caught.
+
+        Failure message names each regressed entry, the filter verdicts, and
+        the data source so a CI red is actionable.
+        """
+        missed_floor = []
+        for name in sorted(self.MIN_CAUGHT):
+            generic = _is_generic_person(name)
+            blocked = is_blocked_name(name)
+            if generic is None and not blocked:
+                missed_floor.append(
+                    f"  - '{name}' (generic={generic}, blocked={blocked}) "
+                    f"— source: data/review/xiyouji_characters.json, "
+                    f"is_valid_character=false"
+                )
+        assert not missed_floor, (
+            f"{len(missed_floor)} previously-caught invalid characters now "
+            f"pass the filters (regression):\n" + "\n".join(missed_floor)
+        )
+
     def test_invalid_characters_info(self):
         """Report which invalid characters our filters catch vs miss.
 
         Note: many invalid characters are LLM hallucinations (银驮, 洪江龙王)
         that cannot be caught by pattern rules — they require LLM-layer fixes.
-        This test is informational, not a hard gate.
+        This test is informational; the hard gate is
+        test_invalid_characters_caught_regression_floor.
         """
         caught = []
         missed = []
@@ -225,8 +253,37 @@ class TestHonglouGoldenCharacters:
         self.invalid = _collect_invalid_characters(data)
         self.valid = _collect_valid_characters(data)
 
+    # Regression floor (Phase 2 audit, 2026-08-05): 红楼梦 review marks only
+    # 贾探春 as invalid, and it is NOT catchable by pattern rules (it's a
+    # real-person name — the invalid flag reflects an extraction-layer issue,
+    # not a generic term). The floor is therefore empty today; add entries
+    # here if future filters learn to catch review-flagged names, so the
+    # guard never regresses below the recorded baseline.
+    MIN_CAUGHT: set[str] = set()
+
+    def test_invalid_characters_caught_regression_floor(self):
+        """Hard gate: pattern-catchable invalid characters must stay caught."""
+        missed_floor = []
+        for name in sorted(self.MIN_CAUGHT):
+            generic = _is_generic_person(name)
+            blocked = is_blocked_name(name)
+            if generic is None and not blocked:
+                missed_floor.append(
+                    f"  - '{name}' (generic={generic}, blocked={blocked}) "
+                    f"— source: data/review/honglou_characters.json, "
+                    f"is_valid_character=false"
+                )
+        assert not missed_floor, (
+            f"{len(missed_floor)} previously-caught invalid characters now "
+            f"pass the filters (regression):\n" + "\n".join(missed_floor)
+        )
+
     def test_invalid_characters_info(self):
-        """Report which invalid characters our filters catch vs miss."""
+        """Report which invalid characters our filters catch vs miss.
+
+        Informational only; the hard gate is
+        test_invalid_characters_caught_regression_floor.
+        """
         caught = []
         missed = []
         for name in self.invalid:
