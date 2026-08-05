@@ -175,14 +175,19 @@ _VEHICLE_WORDS = frozenset({
 
     # auto-improve 2026-03-28 — vehicles
     "翠幄青紬车", "黄吉普车",
+})
+
+# v0.72 Phase 1 (Story 1.4): non-vehicle entries formerly lumped into
+# _VEHICLE_WORDS, moved to correctly-named lists. Filtering decisions are
+# unchanged — _is_generic_location() checks all of these lists.
+# Note: 东边/南边/西边/北边/九霄 were dropped here as duplicates of
+# _DIRECTIONAL_RELATIVE_PHRASES; 地狱/恶鬼/畜生/阿修罗 moved to _BUDDHIST_CONCEPTS.
+_GENERIC_NON_LOCATION_TERMS = frozenset({
     # auto-improve 2026-03-28 — equipment/objects (not locations)
-    "抛物面天线", "青石", "青石棋局",
+    "抛物面天线", "青石", "青石棋局", "青石岩",
     # auto-improve 2026-03-28 — generic non-locations
-    "九霄", "半空", "夕阳", "天", "人", "区域",
-    "无数仙域", "坎宫之地",
-    "东边", "北边", "南边", "西边",
-    "地狱", "恶鬼", "畜生", "阿修罗",
-    "青石岩", "孙玉厚家",
+    "半空", "夕阳", "天", "人", "区域",
+    "无数仙域", "坎宫之地", "孙玉厚家",
 })
 
 # Furniture / object names — these are never locations
@@ -346,6 +351,8 @@ _BUDDHIST_CONCEPTS = frozenset({
     "人道", "仙道", "贵道", "神道", "鬼道", "畜生道",
     "饿鬼道", "地狱道", "天道", "修罗道",
     "六道", "三界",
+    # v0.72 Phase 1 (Story 1.4) — moved from _VEHICLE_WORDS (六道轮回概念)
+    "地狱", "恶鬼", "畜生", "阿修罗",
     "五仙", "五虫",
 })
 
@@ -400,321 +407,8 @@ _FALLBACK_GEO_BLOCKLIST = frozenset({
 })
 
 # ── Person generic references ─────────────────────────────────────────
-
-# Generic person references that should never be extracted as character names
-_GENERIC_PERSON_WORDS = frozenset({
-    "众人", "其他人", "旁人", "来人", "对方", "大家", "所有人",
-    "那人", "此人", "其人", "何人", "某人", "外人", "路人",
-    "他们", "她们", "我们", "诸位", "各位", "在场众人",
-    # Classical Chinese generics — refer to different people per chapter
-    "妇人", "女子", "汉子", "大汉", "壮汉", "好汉",
-    "老儿", "老者", "老翁", "少女", "丫头",
-    "军士", "军汉", "兵丁", "喽啰", "小喽啰",
-    "差人", "差役", "官差", "公差", "衙役",
-    "和尚", "僧人", "道士", "先生", "秀才",
-    "店家", "店主", "小二", "店小二", "酒保",
-    "庄客", "农夫", "猎户", "渔夫", "樵夫",
-    "使者", "信使", "探子", "细作",
-    "客人", "客官", "过客", "行人",
-    # Mythological/xianxia generic creatures — different individuals per chapter
-    "小妖", "小鬼", "众妖", "老妖", "妖精", "妖怪",
-    "妖兵", "山贼", "小卒", "士兵",
-    "巡山小妖", "把门小妖", "巡山的小妖", "把门的小妖",
-    "众猴", "众仙", "众神", "众鬼",
-    "众僧", "老僧", "小僧", "众道", "众将", "众官",
-    # Age-based generics
-    "后生", "後生", "后生小辈", "小辈", "晚辈",
-    # Mythological generic roles — celestial/court titles
-    "玉女", "天将", "仙卿", "天妃", "仙童", "仙女",
-    "天兵", "天卒", "天丁", "神将", "神兵",
-
-    # auto-improve 2026-03-28
-    "义兄弟",
-    "二将",
-    "五百灵官",
-    "八菩萨",
-    "力士",
-    "十万天兵",
-    "四天王",
-    "四金刚",
-    "大众",
-    "架火",
-    "校尉",
-    "洪福寺僧人",
-    "美女",
-    "美姬",
-    "针工",
-    "铁匠人等",
-
-    # auto-improve 2026-03-28
-    "三藏旧徒",
-    "二十八宿",
-    "五方揭谛",
-    "五龙",
-    "六丁六甲",
-    "四将",
-    "寿星",
-    "屠子",
-    "广晋龙王之子",
-    "护教伽蓝",
-    "蛇将",
-    "龟将",
-
-    # auto-improve 2026-03-28
-    "两大元婴长老",
-    "千寰山使者",
-    "华天宗使者",
-    "卫云城使者",
-    "垢土化身",
-    "年轻人",
-    "蒙面修士",
-    "金色小人",
-    "陇家新任大长老",
-    "青年",
-    "黑凤族合体长老",
-
-    # auto-improve 2026-03-28
-    "丑陋大汉",
-    "二爷",
-
-    # auto-improve 2026-03-28
-    "中年男子",
-    "艳女",
-
-    # auto-improve 2026-03-28
-    "仙姬",
-
-    # auto-improve 2026-03-28
-    "三小姐",
-    "二小姐",
-    "同昌公主",
-    "唐伯虎",
-    "四小姐",
-    "大小姐",
-    "女婿",
-    "女学生",
-    "奶娘",
-    "孩子们",
-    "安禄山",
-    "寿昌公主",
-    "小丫头",
-    "小丫鬟",
-    "政老爹",
-    "杨太真",
-    "歌姬",
-    "武则天",
-    "珍爷",
-    "琏爷",
-    "秦太虚",
-    "穆莳",
-    "红娘",
-    "老年人",
-    "舞女",
-    "西施",
-    "赦老爹",
-    "赵飞燕",
-    "龙钟老僧",
-
-    # auto-improve 2026-03-28
-    "婆子",
-
-    # auto-improve 2026-03-28
-    "小乡绅之子",
-
-    # auto-improve 2026-03-28
-    "三体战士",
-    "主任",
-    "值班技术员",
-    "医生",
-    "取信人",
-    "司机",
-    "年轻工程师",
-    "护士",
-    "纳米研究中心主任",
-    "美军空军上校",
-    "美国中央情报局官员",
-    "英军上校",
-    "那位警官",
-    "那名工程师",
-    "那名战士",
-    "那名男警察",
-
-    # auto-improve 2026-03-28
-    "哨兵",
-    "少校军官",
-    "年轻警官",
-    "爆炸物专家",
-    "英国陆军上校",
-    "警卫排排长",
-    "镇中学老师",
-    "齐家屯老两口",
-
-    # auto-improve 2026-03-28
-    "七八人",
-    "丐帮帮众",
-    "丐帮群豪",
-    "两个采燕客",
-    "两名大汉",
-    "两名家将",
-    "两名岛主",
-    "中原群豪",
-    "中年僧人",
-    "中年汉子",
-    "前辈",
-    "大师",
-    "大理国臣民",
-    "契丹武士",
-    "她老人家",
-    "姥姥",
-    "小和尚",
-    "小师父",
-    "少林寺僧人",
-    "少林群僧",
-    "执法僧",
-    "无名老僧",
-    "星宿派门人",
-    "梁上少女",
-    "梅兰竹菊",
-    "梅兰竹菊四剑",
-    "梦郎",
-    "灵鹫宫部属",
-    "玄天部群女",
-    "玄字班僧侣",
-    "神僧",
-    "神农帮帮众",
-    "童姥",
-    "老婆子",
-    "虚字辈僧侣",
-    "褚姓少年",
-    "辽兵",
-    "辽军",
-    "那大汉",
-
-    # auto-improve 2026-03-28
-    "乔氏夫妇",
-    "好妹子",
-    "妹子",
-    "姑娘",
-    "恶和尚",
-    "钟灵之母",
-    "钟灵之父",
-    "高老者",
-
-    # auto-improve 2026-03-28
-    "中年妇人",
-    "京官",
-    "京官小姐",
-    "她师妹",
-    "师姊",
-    "老汉",
-    "蒙面大汉",
-    "贱人",
-    "这贱人",
-    "那妇人",
-    "那少女",
-    "那少年",
-    "那年轻女子",
-    "那年轻男子",
-    "那贱人",
-
-    # auto-improve 2026-03-28
-    "二流子",
-    "公社负责人",
-    "县社干部",
-    "双水村村民",
-    "司机朋友们",
-    "女售货员",
-    "妹妹",
-    "姐夫",
-    "姐姐",
-    "孙玉厚家",
-    "少安他奶",
-    "新娘",
-    "村民",
-    "润生妈",
-    "父亲",
-    "班主任",
-    "秀莲她爸",
-    "老人家",
-    "老祖母",
-    "跛女子",
-
-    # auto-improve 2026-03-28
-    "售票员",
-
-    # auto-improve 2026-03-28
-    "死女子",
-    "老将",
-
-    # v0.70 review 2026-04-08 — 西游记人工审核发现
-    "黄门官", "当驾官", "光禄寺官", "阁门大使",
-    "文武多官", "四值功曹", "八大金刚", "四大天师",
-    "龙子龙孙", "山神土地", "诸天", "多官", "四健将",
-    "巡海夜叉", "比丘僧", "雷公",
-    "金甲诸天", "七十二洞妖王", "庞刘苟毕四大元帅",
-    "嫔妃", "后妃", "东宫", "西宫",
-    "两个女怪", "公主娘娘", "护国天王",
-
-    # v0.71.1 cross-novel audit 2026-04-11
-    # — 红楼梦称谓(场景性,多人共用)
-    "太太", "大太太", "二太太", "三太太", "老太太",
-    "奶奶", "大奶奶", "二奶奶", "三奶奶", "四奶奶",
-    "夫人", "大夫人", "二夫人", "三夫人",
-    "姑娘", "大姑娘", "二姑娘", "三姑娘", "四姑娘", "五姑娘",
-    "嬷嬷", "老嬷嬷", "奶妈", "老奶妈",
-    "太爷", "老太爷", "大太爷", "二太爷",
-    "老祖宗", "老寿星",  # 指代贾母的泛称
-    # — 西游记戏称/代称(那X 结构 + 取经路人称号)
-    "那呆子", "那猴子", "那怪物", "那泼猴", "那老儿",
-    "这呆子", "这猴子", "这泼猴",
-    "取经人", "取经僧",
-    "毛脸雷公嘴", "雷公爷爷", "孙外公",
-    # — 集合名/泛称(xiyouji audit)
-    "群猴", "五百阿罗", "土地神祗", "夜叉", "太监", "樵子",
-})
-
-# Pure title words — when used alone (no surname prefix), not a valid character name
-_PURE_TITLE_WORDS = frozenset({
-    "堂主", "长老", "弟子", "护法", "掌门", "帮主", "教主",
-    "师父", "师兄", "师弟", "师姐", "师妹", "师傅",
-    "大哥", "二哥", "三哥", "大姐", "二姐",
-    "侍卫", "仆人", "丫鬟", "小厮",
-    # Official ranks used as address
-    "太尉", "知府", "知县", "提辖", "都监", "教头", "都头",
-    "将军", "元帅", "丞相", "太师",
-    "头领", "寨主", "大王", "员外",
-    "恩相", "大人", "老爷", "相公",
-
-    # auto-improve 2026-03-28
-    "长史",
-
-    # auto-improve 2026-03-28
-    "师伯",
-    "师叔",
-
-    # auto-improve 2026-03-28
-    "贾化",
-
-    # auto-improve 2026-03-28
-    "紫薇舍人",
-
-    # auto-improve 2026-03-28
-    "国师",
-    "御营都指挥使",
-    "管带",
-
-    # auto-improve 2026-03-28
-    "张将军",
-
-    # auto-improve 2026-03-28
-    "三把手",
-    "副总指挥",
-
-    # auto-improve 2026-03-28
-    "书记",
-    "二队长",
-    "副书记",
-})
+# v0.72 Phase 1: person generic lists moved to name_authority.py (single
+# source of truth). _is_generic_person() below delegates there.
 
 
 # Fantasy/xianxia: these conceptual terms are valid world-layer locations
@@ -764,6 +458,10 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     # Rule 3: Vehicle/object words
     if name in _VEHICLE_WORDS:
         return "vehicle/object"
+
+    # Rule 3b: Generic non-location terms (equipment/abstract; Story 1.4)
+    if name in _GENERIC_NON_LOCATION_TERMS:
+        return "generic non-location term"
 
     # Rule 17: Furniture / object names — never locations
     if name in _FURNITURE_OBJECT_NAMES:
@@ -1026,123 +724,17 @@ _GENERIC_PERSON_CANDIDATES = frozenset({
 
 # ── Genre-aware person filtering ──────────────────────────────────────
 
-# Fantasy/xianxia: these are valid character names (具体角色, not 泛称)
-_FANTASY_PERSON_WHITELIST = frozenset({
-    "仙人", "仙子", "仙翁", "道人", "散修", "真人",
-    "魔尊", "魔君", "魔头", "妖王", "妖帝",
-    "灵兽", "仙童", "精怪", "妖仙",
-})
 
-# Realistic/urban: these are almost always titles, not names (无姓氏时过滤)
-_REALISTIC_TITLE_ADDITIONS = frozenset({
-    "队长", "书记", "主任", "科长", "处长", "局长", "厂长",
-    "村长", "社长", "组长", "班长",
-})
 
 
 def _is_generic_person(name: str, genre: str | None = None) -> str | None:
     """Check if a person name is generic/invalid.
 
-    Genre-aware: fantasy allows 仙人/妖兽 etc.; realistic adds title filtering.
-    Returns a reason string if filtered, or None if kept.
+    Delegates to name_authority.is_generic_person() — single source of truth.
+    This thin wrapper is kept for backward compatibility (callers & tests).
     """
-    # Fantasy whitelist: skip generic check for xianxia character types
-    if genre in ("fantasy", "wuxia") and name in _FANTASY_PERSON_WHITELIST:
-        return None
-
-    if name in _GENERIC_PERSON_WORDS:
-        return "generic person reference"
-
-    # Pure title without surname: "堂主", "长老" alone (not "岳堂主", "张长老")
-    if name in _PURE_TITLE_WORDS:
-        return "pure title without surname"
-
-    # Realistic/urban: additional title filtering (无姓氏时)
-    if genre in ("realistic", "urban") and name in _REALISTIC_TITLE_ADDITIONS:
-        return "realistic title without surname"
-
-    # Descriptive person references: "墨大夫女儿", "韩家二弟", "村长的妻子"
-    # These describe a relationship to another character, not a standalone name.
-    _DESCRIPTIVE_SUFFIXES = ("女儿", "儿子", "妻子", "丈夫", "夫人",
-                             "老婆", "媳妇", "母亲", "父亲", "弟子")
-    if len(name) >= 4 and any(name.endswith(s) for s in _DESCRIPTIVE_SUFFIXES):
-        return f"descriptive person reference (ends with {name[-2:]})"
-
-    # ── Pattern-based rules (cover open-ended variations) ──
-
-    # P1: "众X" / "群X" prefix — group references (众灵官, 群妖, 群魔, 群怪, etc.)
-    if name.startswith(("众", "群")) and len(name) >= 2:
-        return "group reference (众/群+)"
-
-    # P1b: vague large-quantity collective prefix — "百十群妖", "数十小妖",
-    # "无数妖兵", "一群小妖", "成群结队的..." (no measure word, just a crowd)
-    if name.startswith((
-        "百十", "数十", "数百", "数千", "无数", "许多", "成群",
-        "一群", "一伙", "一干", "一众", "几十", "几百", "众多",
-    )) and len(name) >= 3:
-        return "vague collective reference"
-
-    # P2: Numeric quantifier + group — "三十六员雷将", "十万天兵", "五百灵官"
-    import re as _re
-    if _re.match(r"^[一二三四五六七八九十百千万几数]+.{0,3}[员个名位只匹头条]", name):
-        return f"quantified group reference"
-    # Also: pure numeric prefix + group suffix
-    _GROUP_SUFFIXES = ("天兵", "灵官", "雷将", "雷神", "金刚", "菩萨",
-                       "天王", "天将", "小妖", "妖精", "鬼卒", "阴兵")
-    if any(name.endswith(s) for s in _GROUP_SUFFIXES) and len(name) > len(name.rstrip("天灵雷金菩王将小妖精鬼卒阴兵")):
-        pass  # Already handled by exact match or prefix rule above
-
-    # P3: "X部众神" / "X部众X" — department/division group
-    if "部众" in name:
-        return "department group reference"
-
-    # P4: Single Chinese surname alone — "张", "刘", "庞" (1 char, common surname)
-    _COMMON_SURNAMES = frozenset(
-        "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜"
-        "戚谢邹喻柏水窦章云苏潘葛奚范彭郎鲁韦昌马苗凤花方俞任袁柳酆鲍史唐"
-        "费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元卜顾孟平黄"
-        "和穆萧尹姚邵湛汪祁毛禹狄米贝明臧计伏成戴谈宋茅庞熊纪舒屈项祝董梁"
-        "杜阮蓝闵席季麻强贾路娄危江童颜郭梅盛林刁钟徐邱骆高夏蔡田樊胡凌霍"
-        "虞万支柯昝管卢莫经房裘缪干解应宗丁宣贲邓郁单杭洪包诸左石崔吉钮龚"
-    )
-    if len(name) == 1 and name in _COMMON_SURNAMES:
-        return "bare surname (not a character name)"
-
-    # P5: "X的Y" pattern — descriptive, not a proper name
-    if "的" in name and len(name) >= 4:
-        return "descriptive reference (contains 的)"
-
-    # P6: Pure official title ending in 官/使/监/尉 without personal name prefix
-    # Catches: 黄门官, 当驾官, 阁门大使, 监丞, 监副, 典簿
-    _OFFICIAL_SUFFIXES = ("官", "使", "监", "尉", "丞", "副", "簿")
-    if len(name) >= 2 and name[-1] in _OFFICIAL_SUFFIXES:
-        # Allow if has a known surname prefix (e.g., 魏征, 张天师)
-        if not (name[0] in _COMMON_SURNAMES and len(name) <= 4):
-            # Check if it's a pure title (no personal identifier)
-            if all(c not in name for c in _COMMON_SURNAMES) or len(name) >= 4:
-                pass  # Don't over-filter — many are valid (太白金星, etc.)
-
-    # P7: Group number pattern — "四大X", "五X", "八X", "十X" where X is role
-    _GROUP_ROLES = ("天王", "金刚", "天师", "菩萨", "元帅", "功曹",
-                    "揭谛", "健将", "天丁", "星君", "罗汉")
-    import re as _re2
-    if _re2.match(r"^[二三四五六七八九十]+[大]?", name):
-        for role in _GROUP_ROLES:
-            if name.endswith(role):
-                return f"numbered group reference ({role})"
-
-    # P8 (v0.71.1): 姓+氏 pattern — 红楼梦多人共用的称谓 (李氏/王氏/甄氏)
-    # Delegates to name_authority single source of truth.
-    from src.services.name_authority import is_surname_plus_shi
-    if is_surname_plus_shi(name):
-        return "surname+氏 (generic title for married women)"
-
-    # P9 (v0.71.1): Descriptive long names (n >= 10) — 通常是 LLM 把描述当角色名
-    # 例:"飞东洋游普世感恩行孝黄毛红嘴白鹦哥" (15字)
-    if len(name) >= 10:
-        return f"descriptive long name ({len(name)} chars)"
-
-    return None
+    from src.services.name_authority import is_generic_person
+    return is_generic_person(name, genre)
 
 
 # CJK character variant normalization — map uncommon/archaic forms to standard forms.

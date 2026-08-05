@@ -4,7 +4,7 @@ import json
 from collections import Counter
 
 from src.db import chapter_fact_store
-from src.extraction.fact_validator import _is_generic_person
+from src.services.name_authority import is_generic_person as _is_generic_person
 
 
 async def _load_concept_overrides(
