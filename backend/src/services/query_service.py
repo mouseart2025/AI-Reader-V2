@@ -397,6 +397,75 @@ def _extract_source_chapters(answer: str) -> list[int]:
     return sorted(set(int(m) for m in matches))
 
 
+async def _stream_final_answer(
+    novel_id: str,
+    question: str,
+    conversation_id: str | None,
+    context: str,
+    all_source_chapters: set[int],
+    analyzed_count: int,
+) -> AsyncIterator[dict]:
+    """Final answer generation shared by the RAG pipeline and agent QA.
+
+    Streams tokens via _QA_SYSTEM_PROMPT, extracts source chapters from the
+    answer, and persists the exchange to the conversation store.
+    """
+    llm = get_llm_client()
+
+    # Build conversation history
+    history_text = "（无历史对话）"
+    if conversation_id:
+        recent = await conversation_store.get_recent_messages(conversation_id, limit=6)
+        history_text = _build_history_text(recent)
+
+    # Build final prompt
+    system_prompt = _QA_SYSTEM_PROMPT.format(
+        context=context,
+        history=history_text,
+    )
+
+    user_prompt = f"{question}\n\n（注：当前已分析 {analyzed_count} 章内容）"
+
+    # Stream LLM response
+    full_answer = ""
+    try:
+        async for token in llm.generate_stream(
+            system=system_prompt,
+            prompt=user_prompt,
+            timeout=180,
+        ):
+            full_answer += token
+            yield {"type": "token", "content": token}
+    except Exception as e:
+        logger.error(f"LLM streaming error: {e}")
+        error_msg = "抱歉，生成回答时出现错误，请稍后重试。"
+        yield {"type": "token", "content": error_msg}
+        full_answer = error_msg
+
+    # Extract source chapters from answer
+    answer_sources = _extract_source_chapters(full_answer)
+    # Merge with retrieval sources
+    final_sources = sorted(set(answer_sources) | all_source_chapters)
+
+    yield {"type": "sources", "chapters": final_sources}
+    yield {"type": "done"}
+
+    # Save messages to DB if conversation exists
+    if conversation_id:
+        try:
+            await conversation_store.add_message(
+                conversation_id, "user", question
+            )
+            await conversation_store.add_message(
+                conversation_id,
+                "assistant",
+                full_answer,
+                sources_json=json.dumps(final_sources),
+            )
+        except Exception as e:
+            logger.error(f"Failed to save messages: {e}")
+
+
 async def query_stream(
     novel_id: str,
     question: str,
@@ -406,11 +475,28 @@ async def query_stream(
     Stream QA response.
 
     Yields dicts:
+      {"type": "status", "content": str}    — agent forensic step (agent mode only)
       {"type": "token", "content": str}     — streamed answer tokens
       {"type": "sources", "chapters": [...]} — source chapters when done
       {"type": "done"}                       — signal completion
     """
-    llm = get_llm_client()
+    # Agentic mode: tool-use forensics loop. Falls back to the RAG pipeline
+    # below on any failure (unsupported provider, tool-calling error, etc.).
+    from src.infra import config as _cfg  # dynamic read (runtime mode switches)
+
+    if _cfg.QA_MODE == "agent" and _cfg.LLM_PROVIDER != "ollama":
+        from src.services import agent_qa_service
+
+        try:
+            async for chunk in agent_qa_service.agent_query_stream(
+                novel_id=novel_id,
+                question=question,
+                conversation_id=conversation_id,
+            ):
+                yield chunk
+            return
+        except Exception as e:
+            logger.warning("Agent QA failed, falling back to RAG pipeline: %s", e)
 
     # 1. Load all chapter facts for the novel
     all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
@@ -523,55 +609,13 @@ async def query_stream(
 
     context = "\n\n".join(context_parts)
 
-    # 4. Build conversation history
-    history_text = "（无历史对话）"
-    if conversation_id:
-        recent = await conversation_store.get_recent_messages(conversation_id, limit=6)
-        history_text = _build_history_text(recent)
-
-    # 5. Build final prompt
-    system_prompt = _QA_SYSTEM_PROMPT.format(
+    # 4. Final generation (shared with agent QA mode)
+    async for chunk in _stream_final_answer(
+        novel_id=novel_id,
+        question=question,
+        conversation_id=conversation_id,
         context=context,
-        history=history_text,
-    )
-
-    user_prompt = f"{question}\n\n（注：当前已分析 {analyzed_count} 章内容）"
-
-    # 6. Stream LLM response
-    full_answer = ""
-    try:
-        async for token in llm.generate_stream(
-            system=system_prompt,
-            prompt=user_prompt,
-            timeout=180,
-        ):
-            full_answer += token
-            yield {"type": "token", "content": token}
-    except Exception as e:
-        logger.error(f"LLM streaming error: {e}")
-        error_msg = "抱歉，生成回答时出现错误，请稍后重试。"
-        yield {"type": "token", "content": error_msg}
-        full_answer = error_msg
-
-    # 7. Extract source chapters from answer
-    answer_sources = _extract_source_chapters(full_answer)
-    # Merge with retrieval sources
-    final_sources = sorted(set(answer_sources) | all_source_chapters)
-
-    yield {"type": "sources", "chapters": final_sources}
-    yield {"type": "done"}
-
-    # 8. Save messages to DB if conversation exists
-    if conversation_id:
-        try:
-            await conversation_store.add_message(
-                conversation_id, "user", question
-            )
-            await conversation_store.add_message(
-                conversation_id,
-                "assistant",
-                full_answer,
-                sources_json=json.dumps(final_sources),
-            )
-        except Exception as e:
-            logger.error(f"Failed to save messages: {e}")
+        all_source_chapters=all_source_chapters,
+        analyzed_count=analyzed_count,
+    ):
+        yield chunk
