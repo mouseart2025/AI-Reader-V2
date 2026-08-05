@@ -734,8 +734,8 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
     # Re-apply the generic-person authority at read time so collective/generic
     # references (群妖, 众小妖, 百十群妖, …) that predate the current rules — or
     # slipped past extraction — don't surface as entities. Single source of
-    # truth: fact_validator._is_generic_person.
-    from src.extraction.fact_validator import _is_generic_person
+    # truth: name_authority.is_generic_person.
+    from src.services.name_authority import is_generic_person as _is_generic_person
 
     entities = []
     for (name, etype), chapters in entity_map.items():
