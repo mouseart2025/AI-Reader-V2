@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.72.2-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.73.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.72.2_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.72.2/AI.Reader_0.72.2_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.72.2_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.72.2/AI.Reader_0.72.2_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.73.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.73.0/AI.Reader_0.73.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.73.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.73.0/AI.Reader_0.73.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -139,6 +139,7 @@ cd frontend && npm install && npm run dev
 | **v0.72.0** | 2026-07-21 | **实体修正工具链转正 + 幻觉兜底 + 导出修复** — ①实体别名手动合并/拆分（百科卡/关系图/阅读页「⋯」操作，可撤销、不污染原文，修正节点显紫色虚线环）；②实体改名（少年→杨过类错误命名一键改对，原名保留为别名）；③概念编辑（改名/改分类/删除）；④导出可读分析报告（按章排版的人物/关系/地点/物品/组织/事件/概念 Markdown，名称已套用别名与手动修正）；⑤**幻觉孤岛过滤**（issue #30：本名与别名均未见于原文的人物节点自动剔除，防本地小模型预训练知识泄漏，60+ 本小说回归零误伤）；⑥设定集导出修复（issue #39：导出全部实体/关系/事件，不再截断）；⑦自动重试失败章节 KeyError 崩溃修复；⑧地图地点层级修环改不动点迭代（跨 LLM 复现实验发现）。550 backend tests + frontend build 通过 |
 | **v0.72.1** | 2026-08-05 | **问答模块修复（issue #55 / #56）** — ①流式回复跨对话泄漏修复（issue #55：发送时记录流所属对话，流式气泡渲染与完成写回仅在所属对话进行，切换对话不再残留"思考中"与他话输出，切回即见完整回复）；②问答防幻觉三修复（issue #56）：寒暄类消息前置识别直接回固定引导语（不进检索、不调 LLM，堵住"你好"触发任意章节原文注入的入口）、检索全空不再调用 LLM（直接回"已分析 N 章，未检索到相关内容"，省 token 且杜绝空上下文幻觉）、原文全文检索按分析进度过滤（堵住未分析章节原文泄漏的"未来章节幽灵信息"）；③embedding 语义检索异常日志升级为 warning（桌面端静默失败可定位）。550 backend tests + frontend build + Playwright 端到端复现验证 5/5 通过 |
 | **v0.72.2** | 2026-08-05 | **命名质量守护体系 + 问答加固第二刀（issue #56 后续）** — ①命名决策单一事实来源（`name_authority.py`：canonical 选择/泛称判断各只此一个入口，删除 9 处重复列表，泛称不再凭高频率赢得 canonical，如"爷爷(1872次)"不再压过"刘(1811次)"）；②黄金标准回归守卫（西游/红楼审阅数据转 CI 断言：陈玄奘必须归唐僧、猴王/行者必须归孙悟空、阮小二/阮小五/阮小七相似名绝不合并——今后"孙悟空变猴王"类回归 CI 直接红灯）；③chroma 向量索引生命周期对齐（清除分析/排除章节时同步删向量，堵住重分析后旧章节幽灵检索）；④实体停用词表（"主人公"不再误中别名"公主"注入无关人物档案）；⑤问答系统提示词加硬约束（知识库无关/不足时禁答具体内容）；⑥问答页显示"已分析 N/M 章"进度徽标（分析中途可见，管理预期）。586 backend tests + frontend build 通过 |
+| **v0.73.0** | 2026-08-05 | **阅读划线批注 + agentic 问答（issue #43 / #26）** — ①阅读页划线批注（issue #43：选中正文即出浮层，4 色划线 + 批注，锚定章节位置可跳转，批注列表与书签并列，下划线图层与实体高亮正交共存互不遮盖，数据本地持久化可编辑/删除）；②**agentic 问答模式**（issue #26：设置 `QA_MODE=agent` 后，AI 回答前主动"取证"——调实体档案/全文搜索/章节摘录三类工具查证（界面实时显示"正在查证第57章…"），再基于证据生成带章节引用的回答，替代一次性 RAG 直答；默认仍为 rag 模式，Ollama/弱模型自动降级，云端 DeepSeek/Anthropic 可用）。597 backend tests + frontend build + Playwright 端到端验证 5/5 通过 |
 | v0.71.9 | 2026-07-21 | 导出设定集数据不全修复(issue #39) + 两个深层稳定性修复 — ①设定集导出此前实体/关系/事件不全,现后端全链路导出 + 前端开关,+6 测试;②地点层级修环失效:极端数据下 2-环可存活到最终输出(跨 LLM 复现实验实测发现,黑水河↔黑水河水府),修环改不动点迭代 + 全流程终检,+5 回归测试;③分析任务自动重试失败章节时 KeyError('chapter_number') 崩溃,任务僵尸化为永久 running(任何章节失败即触发),已修。另:抽取温度支持 `LLM_EXTRACTION_TEMPERATURE` 环境变量覆盖(默认 0.1 不变)。509 backend tests + frontend tsc 通过 |
 | v0.72.0-beta.2 🧪体验版 | 2026-06-07 | **导出可读分析报告 + 实体改名**(issue #26 magik163 实测反馈)— ①导出页新增"导出可读分析(.md)":按章排版的人物/关系/地点/物品/组织/事件/概念,名称已套用别名与手动修正,替代难读的裸 JSON;②实体改名:百科卡 ⋯ →「改名…」把错误命名改对(少年→杨过、道姑→李莫愁、轮国师→金轮国师),原名保留为别名、可撤销、不污染原文。529 backend tests + frontend build 通过。仍为体验版(Pre-release),正式版 v0.71.8 不受影响 |
 | v0.72.0-beta.1 🧪体验版 | 2026-06-05 | **实体别名手动合并/拆分**(节点级编辑第一刀,GitHub issue #26 / 知乎需求)— 百科卡 / 关系图 / 阅读页点实体右上「⋯」即可合并散落别名、拆出误归别名(沙僧别名误入八戒一键纠正),修正以 override 层叠加在自动归并之后,**持久、可撤销(「我的修正」集中列表)、不污染原文数据**,关系图已修正节点显紫色虚线环。后端单点注入 `alias_resolver._apply_user_overrides`,一处生效于百科/图/阅读/检索全部消费端;新增 `entity_overrides` 表 + `/entity-overrides` API。顺带实体卫生:过滤 群妖/众小妖类集体泛称、清理别名 Ch.0 章节、剔除跨实体误归(沙僧)与代词(我)。**仅人物视图,地点层级零影响**。以 **体验版(Pre-release)** 发布,正式版 v0.71.8 不受影响。backend 523 tests + frontend build/vitest 通过 |
