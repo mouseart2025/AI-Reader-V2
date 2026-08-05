@@ -2,6 +2,7 @@
 
 import csv
 import io
+import logging
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -15,7 +16,10 @@ from src.db import (
     world_structure_store,
 )
 from src.db.sqlite_db import get_connection
+from src.services import embedding_service
 from src.services.analysis_service import get_analysis_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -301,6 +305,13 @@ async def clear_analysis_data(novel_id: str):
         await conn.commit()
     finally:
         await conn.close()
+
+    # 同步删除 chroma 向量索引。best-effort：chroma 未初始化/不可用时
+    # 不能让清除路由 500，重新分析时会重建索引
+    try:
+        embedding_service.delete_novel_collections(novel_id)
+    except Exception as e:
+        logger.warning("Failed to delete chroma collections for %s: %s", novel_id, e)
 
     return {"ok": True, "message": "分析数据已清除"}
 

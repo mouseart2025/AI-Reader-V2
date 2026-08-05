@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from src.db import chapter_store, novel_store
+from src.services import embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,14 @@ async def exclude_chapters(novel_id: str, req: ChapterExcludeRequest):
             "Excluded chapters %s for novel %s, deleted %d facts",
             req.chapter_nums, novel_id, deleted,
         )
+        # 同步删除 chroma 中被排除章节的向量（id 为 ch_{n}）。best-effort：
+        # chroma 不可用时跳过；恢复章节后重分析会重新索引，无需在此处理
+        try:
+            embedding_service.delete_chapter_embeddings(novel_id, req.chapter_nums)
+        except Exception as e:
+            logger.warning(
+                "Failed to delete chapter embeddings for novel %s: %s", novel_id, e
+            )
 
     chapters = await chapter_store.list_chapters(novel_id)
     return {"chapters": chapters}
