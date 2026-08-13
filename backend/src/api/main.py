@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from urllib.parse import parse_qs
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.db.sqlite_db import init_db
 from src.db.analysis_task_store import recover_stale_tasks
@@ -98,6 +100,55 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Reader V2", version="0.1.0", lifespan=lifespan)
+
+
+class SidecarAuthMiddleware:
+    """V-01 修复：配置了 sidecar 令牌时，/api/* 与 /ws/* 一律要求鉴权。
+
+    背景：桌面端 sidecar 监听 loopback 随机端口，但 loopback 绑定与 CORS 都不是
+    认证手段——同机任意进程都能直接请求。Tauri 宿主每次启动生成随机令牌并经
+    环境变量传入（src.infra.config.SIDECAR_TOKEN）；未配置（web 直跑/开发）全放行。
+
+    - HTTP：要求 ``Authorization: Bearer <token>``
+    - WebSocket（浏览器/WebView 无法自定义头）：要求 ``?token=<token>``
+    - 豁免：``/api/health``（宿主健康检查，无敏感信息）与 OPTIONS（CORS 预检）
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            return await self.app(scope, receive, send)
+        from src.infra import config  # 运行时读取，便于测试注入
+        token = config.SIDECAR_TOKEN
+        path = scope.get("path", "")
+        if (
+            not token
+            or path == "/api/health"
+            or not (path.startswith("/api/") or path.startswith("/ws/"))
+            or (scope["type"] == "http" and scope.get("method") == "OPTIONS")
+        ):
+            return await self.app(scope, receive, send)
+
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers") or [])
+            if headers.get(b"authorization", b"").decode() == f"Bearer {token}":
+                return await self.app(scope, receive, send)
+            resp = JSONResponse(
+                {"detail": "未授权：缺少或无效的 sidecar 令牌"}, status_code=401
+            )
+            return await resp(scope, receive, send)
+
+        # websocket
+        query = parse_qs(scope.get("query_string", b"").decode())
+        if query.get("token", [""])[0] == token:
+            return await self.app(scope, receive, send)
+        from starlette.websockets import WebSocket
+        await WebSocket(scope, receive, send).close(code=4401)
+
+
+app.add_middleware(SidecarAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
