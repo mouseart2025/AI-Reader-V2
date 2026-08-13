@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Q0 质量数据核对</title>
+  <link rel="stylesheet" href="style.css?v=20260808-pv2" />
+</head>
+<body>
+
+  <!-- 顶部全局进度条 -->
+  <div id="global-progress" title="总进度"></div>
+
+  <div id="app">
+    <!-- ① 顶栏 -->
+    <header id="topbar">
+      <div class="brand">Q0 数据核对</div>
+      <nav id="novel-tabs"></nav>
+      <div class="topbar-right">
+        <span id="progress-num">0/0</span>
+        <button id="btn-prefill" class="btn ghost" title="调 DeepSeek+Qwen 双模型生成 AI 预填（M2 带原文证据，不覆盖已人工判定）">AI 预填</button>
+        <button id="btn-batch-dual" class="btn ghost" disabled title="将双模型一致判假（双否）且未人工判定的 M2 项批量确认为「非地点」">批量确认双否</button>
+        <button id="btn-export" class="btn" disabled>导出</button>
+        <button id="btn-refresh" class="btn ghost" title="重新载入">⟳</button>
+      </div>
+    </header>
+
+    <!-- 主区 -->
+    <div id="main">
+      <!-- ② 左侧参考面板 -->
+      <aside id="ref-panel">
+        <div class="ref-head" id="ref-toggle">判定标准 <span class="caret">◀</span></div>
+        <div class="ref-body">
+          <div class="ref-group">
+            <div class="ref-title">M2 地点真伪</div>
+            <ul>
+              <li><span class="dot ok"></span><b>true</b>：专有地名，任意粒度</li>
+              <li><span class="dot bad"></span><b>false</b>：泛称 / 人名 / 幻觉</li>
+            </ul>
+          </div>
+          <div class="ref-group">
+            <div class="ref-title">M3 父子方向</div>
+            <ul>
+              <li><span class="dot ok"></span><b>correct</b>：「父 ≥ 子」方向对</li>
+              <li><span class="dot bad"></span><b>wrong</b>：方向错</li>
+              <li><span class="dot unk"></span><b>uncertain</b>：判断不了</li>
+            </ul>
+          </div>
+          <div class="ref-group">
+            <div class="ref-title">快捷键</div>
+            <div class="keys">
+              <kbd>1</kbd> 正确
+              <kbd>2</kbd> 错误
+              <kbd>3</kbd> 不确定(M3)
+              <kbd>←</kbd> 撤销
+              <kbd>J/K</kbd> 浏览
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ③ 主工作区 -->
+      <section id="workzone">
+        <!-- 过滤条 -->
+        <div id="filterbar">
+          <div class="filters">
+            <label class="chk"><input type="checkbox" id="f-m2" checked /> M2地点</label>
+            <label class="chk"><input type="checkbox" id="f-m3" checked /> M3方向</label>
+          </div>
+          <select id="f-status">
+            <option value="all">全部</option>
+            <option value="unlabeled" selected>只看未标</option>
+            <option value="review">需复核(AI不确定/低置信)</option>
+            <option value="composite">复合全称</option>
+            <option value="entity">泛称/非实体</option>
+            <option value="alias">异名/拼写变体</option>
+            <option value="generic">通名/待挂父级</option>
+            <option value="labeled">已标</option>
+          </select>
+          <select id="f-prefill">
+            <option value="all">全部置信</option>
+            <option value="high">仅高置信</option>
+            <option value="low">仅低/中置信</option>
+          </select>
+          <div id="mode-toggle" class="seg">
+            <button class="seg-btn active" data-mode="single">逐卡</button>
+            <button class="seg-btn" data-mode="batch">批量×5</button>
+            <button class="seg-btn" data-mode="prefill">预填浏览</button>
+          </div>
+        </div>
+
+        <!-- 逐卡模式 -->
+        <div id="single-view">
+          <div id="judge-bar">
+            <button class="judge-btn ok" data-k="1">1 · 正确</button>
+            <button class="judge-btn bad" data-k="2">2 · 错误</button>
+            <button class="judge-btn unk" data-k="3">3 · 不确定/跳过</button>
+          </div>
+          <div id="card"></div>
+        </div>
+
+        <!-- 批量模式：一屏 5 张 -->
+        <div id="batch-view" class="hidden">
+          <div id="batch-grid"></div>
+          <div id="batch-foot">
+            <span id="batch-info"></span>
+            <button id="btn-batch-next" class="btn">下一批 →</button>
+          </div>
+        </div>
+
+        <!-- 预填浏览模式 -->
+        <div id="prefill-view" class="hidden">
+          <div id="prefill-toolbar">
+            <select id="pf-status">
+              <option value="all">全部有预填</option>
+              <option value="high">仅高置信</option>
+              <option value="low">仅低/中置信</option>
+              <option value="match">仅与人工一致</option>
+              <option value="diff">仅与人工不一致</option>
+              <option value="both-false">仅双否</option>
+              <option value="disagree">仅分歧</option>
+            </select>
+            <span id="pf-summary"></span>
+            <span class="pf-legend" style="margin-left:auto;font-size:11px;color:var(--muted)">
+              标记：通=通名/待挂父级 · 缺=复合全称 · 泛=泛称/非实体 · 异=异名（来自规则预筛，非 AI 判定）
+            </span>
+          </div>
+          <div id="prefill-list"></div>
+        </div>
+
+        <!-- 最近已判：快速返回修订 -->
+        <div id="history-bar">
+          <span class="history-label">已判</span>
+          <div id="history-log"></div>
+          <button id="btn-history-clear" class="btn ghost tiny" title="清空最近已判列表">清空</button>
+        </div>
+
+        <!-- 底部状态 -->
+        <div id="statsbar">
+          <span id="stat-current"></span>
+          <span class="stats">
+            <span class="s-ok">正确 <b id="st-ok">0</b></span>
+            <span class="s-bad">错误 <b id="st-bad">0</b></span>
+            <span class="s-unk">不确定 <b id="st-unk">0</b></span>
+            <span class="s-comp">复合全称 <b id="st-comp">0</b></span>
+            <span class="s-ent">泛称/非实体 <b id="st-ent">0</b></span>
+            <span class="s-alias">异名/拼写变体 <b id="st-alias">0</b></span>
+            <span class="s-generic">通名/待挂父级 <b id="st-generic">0</b></span>
+            <span class="s-rem">剩余 <b id="st-rem">0</b></span>
+          </span>
+          <button id="btn-undo" class="btn ghost">← 撤销</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 完成浮层 -->
+  <div id="done-overlay" class="hidden">
+    <div class="done-box">
+      <h2>全部标记完成 🎉</h2>
+      <div id="done-stats"></div>
+      <button id="btn-done-close" class="btn">继续检查</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260812-evidence"></script>
+</body>
+</html>
