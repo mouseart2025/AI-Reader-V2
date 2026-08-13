@@ -6,7 +6,7 @@ import {
   fetchConversations,
   fetchMessages,
 } from "@/api/client"
-import { isTauri, getSidecarWsUrl } from "@/api/sidecarBridge"
+import { isTauri, getSidecarWsUrl, sidecarWsQuery } from "@/api/sidecarBridge"
 
 interface ChatState {
   // Panel state
@@ -164,7 +164,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const wsBase = isTauri
       ? getSidecarWsUrl()
       : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
-    const ws = new WebSocket(`${wsBase}/ws/chat/${sessionId}`)
+    const ws = new WebSocket(`${wsBase}/ws/chat/${sessionId}${sidecarWsQuery()}`)
 
     ws.onopen = () => {
       set({ wsConnected: true })

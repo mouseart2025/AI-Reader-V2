@@ -31,6 +31,10 @@ LLM_PROVIDER_FORMAT: str = "openai"
 # requires a cloud provider with tool calling; Ollama always falls back to rag)
 QA_MODE: str = os.environ.get("QA_MODE", "rag")
 
+# Sidecar API 访问令牌（V-01 修复）：Tauri 宿主每次启动 sidecar 时随机生成，
+# 经 AI_READER_SIDECAR_TOKEN 环境变量传入。为空 = 不启用鉴权（web 直跑/开发模式）。
+SIDECAR_TOKEN: str = os.environ.get("AI_READER_SIDECAR_TOKEN", "")
+
 # Preserve .env initial values as fallback for mode switching
 _ENV_LLM_API_KEY = LLM_API_KEY
 _ENV_LLM_BASE_URL = LLM_BASE_URL

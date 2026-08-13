@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { getLatestAnalysisTask } from "@/api/client"
-import { isTauri, getSidecarWsUrl } from "@/api/sidecarBridge"
+import { isTauri, getSidecarWsUrl, sidecarWsQuery } from "@/api/sidecarBridge"
 import type {
   AnalysisCostStats,
   AnalysisQualitySummary,
@@ -116,7 +116,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const wsBase = isTauri
       ? getSidecarWsUrl()
       : `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`
-    const wsUrl = `${wsBase}/ws/analysis/${novelId}`
+    const wsUrl = `${wsBase}/ws/analysis/${novelId}${sidecarWsQuery()}`
     const ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {

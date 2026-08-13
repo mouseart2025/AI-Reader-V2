@@ -14,20 +14,35 @@ use tauri_plugin_shell::ShellExt;
 
 struct SidecarState {
   port: Option<u16>,
+  token: Option<String>,
   child: Option<tauri_plugin_shell::process::CommandChild>,
   starting: bool,
+}
+
+/// 返回给前端的 sidecar 连接信息（端口 + 每次启动随机令牌）。
+#[derive(Serialize, Clone)]
+struct SidecarInfo {
+  port: u16,
+  token: String,
+}
+
+/// 生成高熵随机令牌（32 字节 → 64 hex），每次 sidecar 启动更换。
+/// 用于给 loopback sidecar 的 API 加认证——loopback 绑定与 CORS 都不是认证手段。
+fn generate_sidecar_token() -> String {
+  let bytes: [u8; 32] = rand::thread_rng().gen();
+  bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 #[tauri::command]
 async fn sidecar_start(
   state: State<'_, Mutex<SidecarState>>,
   app: tauri::AppHandle,
-) -> Result<u16, String> {
+) -> Result<SidecarInfo, String> {
   // Check if already running or starting
   {
     let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
-    if let Some(port) = s.port {
-      return Ok(port);
+    if let (Some(port), Some(token)) = (s.port, s.token.clone()) {
+      return Ok(SidecarInfo { port, token });
     }
     if s.starting {
       return Err("Sidecar is already starting".to_string());
@@ -37,8 +52,9 @@ async fn sidecar_start(
 
   // Pick a random port in ephemeral range
   let port: u16 = rand::thread_rng().gen_range(49152..=65535);
+  let token = generate_sidecar_token();
 
-  // Spawn the sidecar binary
+  // Spawn the sidecar binary — 令牌经环境变量传递（不出现在进程参数列表中）
   let (mut rx, child) = app
     .shell()
     .sidecar("ai-reader-sidecar")
@@ -47,6 +63,7 @@ async fn sidecar_start(
       "--port",
       &port.to_string(),
     ])
+    .env("AI_READER_SIDECAR_TOKEN", &token)
     .spawn()
     .map_err(|e| format!("Failed to spawn sidecar: {e}"))?;
 
@@ -158,12 +175,13 @@ async fn sidecar_start(
   {
     let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
     s.port = Some(reported_port);
+    s.token = Some(token.clone());
     s.child = Some(child);
     s.starting = false;
   }
 
   log::info!("Sidecar started on port {}", reported_port);
-  Ok(reported_port)
+  Ok(SidecarInfo { port: reported_port, token })
 }
 
 #[tauri::command]
@@ -174,13 +192,17 @@ fn sidecar_stop(state: State<'_, Mutex<SidecarState>>) -> Result<(), String> {
     log::info!("Sidecar stopped");
   }
   s.port = None;
+  s.token = None;
   Ok(())
 }
 
 #[tauri::command]
-fn sidecar_status(state: State<'_, Mutex<SidecarState>>) -> Result<Option<u16>, String> {
+fn sidecar_status(state: State<'_, Mutex<SidecarState>>) -> Result<Option<SidecarInfo>, String> {
   let s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
-  Ok(s.port)
+  Ok(match (s.port, s.token.clone()) {
+    (Some(port), Some(token)) => Some(SidecarInfo { port, token }),
+    _ => None,
+  })
 }
 
 /// Read a bundled resource file (supports both .json and .json.gz)
@@ -909,7 +931,7 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_notification::init())
     .plugin(tauri_plugin_shell::init())
-    .manage(Mutex::new(SidecarState { port: None, child: None, starting: false }))
+    .manage(Mutex::new(SidecarState { port: None, token: None, child: None, starting: false }))
     .invoke_handler(tauri::generate_handler![
       load_resource,
       load_file_absolute,
