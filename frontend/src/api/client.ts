@@ -27,7 +27,7 @@ import type {
   WorldStructureData,
   WorldStructureOverride,
 } from "./types"
-import { isTauri, getSidecarBaseUrl } from "./sidecarBridge"
+import { isTauri, getSidecarBaseUrl, sidecarAuthHeaders } from "./sidecarBridge"
 
 function getBase(): string {
   if (isTauri) return `${getSidecarBaseUrl()}/api`
@@ -36,8 +36,12 @@ function getBase(): string {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...sidecarAuthHeaders(),
+      ...(init?.headers as Record<string, string> | undefined),
+    },
   })
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`)
@@ -62,6 +66,7 @@ export async function uploadNovel(file: File): Promise<UploadPreviewResponse> {
   form.append("file", file)
   const res = await fetch(`${getBase()}/novels/upload`, {
     method: "POST",
+    headers: { ...sidecarAuthHeaders() },
     body: form,
   })
   if (!res.ok) {
@@ -141,7 +146,7 @@ export function pullOllamaModel(
   const controller = new AbortController()
   fetch(`${getBase()}/settings/ollama/pull`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     body: JSON.stringify({ model }),
     signal: controller.signal,
   })
@@ -488,8 +493,12 @@ export function fetchEntityProfile(
 /** POST/DELETE that surfaces the backend's Chinese `detail` message on failure. */
 async function overrideRequest<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...sidecarAuthHeaders(),
+      ...(init.headers as Record<string, string> | undefined),
+    },
   })
   if (!res.ok) {
     let detail = `${res.status}`
@@ -640,7 +649,7 @@ export function rebuildHierarchy(
   return new Promise((resolve, reject) => {
     fetch(`${getBase()}/novels/${novelId}/world-structure/rebuild-hierarchy-v2`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     })
       .then(async (res) => {
         if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
@@ -706,7 +715,7 @@ export function spatialCompletion(
   return new Promise((resolve, reject) => {
     fetch(`${getBase()}/novels/${novelId}/world-structure/spatial-completion`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     })
       .then(async (res) => {
         if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
@@ -992,7 +1001,7 @@ export async function exportSeriesBible(
 ): Promise<void> {
   const res = await fetch(`${getBase()}/novels/${novelId}/series-bible/export`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     body: JSON.stringify(req ?? {}),
   })
   if (!res.ok) {
@@ -1042,6 +1051,7 @@ export async function previewImport(file: File): Promise<ImportPreview> {
   form.append("file", file)
   const res = await fetch(`${getBase()}/novels/import/preview`, {
     method: "POST",
+    headers: { ...sidecarAuthHeaders() },
     body: form,
   })
   if (!res.ok) {
@@ -1059,7 +1069,7 @@ export async function confirmDataImport(
   form.append("file", file)
   const res = await fetch(
     `${getBase()}/novels/import/confirm?overwrite=${overwrite}`,
-    { method: "POST", body: form },
+    { method: "POST", headers: { ...sidecarAuthHeaders() }, body: form },
   )
   if (!res.ok) {
     const body = await res.json().catch(() => null)
@@ -1075,7 +1085,7 @@ export function backupExportUrl(): string {
 }
 
 export async function downloadBackupExport(): Promise<void> {
-  const res = await fetch(backupExportUrl())
+  const res = await fetch(backupExportUrl(), { headers: { ...sidecarAuthHeaders() } })
   if (!res.ok) throw new Error(`备份导出失败: ${res.status}`)
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
@@ -1097,6 +1107,7 @@ export async function previewBackupImport(
   form.append("file", file)
   const res = await fetch(`${getBase()}/backup/import/preview`, {
     method: "POST",
+    headers: { ...sidecarAuthHeaders() },
     body: form,
   })
   if (!res.ok) {
@@ -1114,7 +1125,7 @@ export async function confirmBackupImport(
   form.append("file", file)
   const res = await fetch(
     `${getBase()}/backup/import/confirm?conflict_mode=${conflictMode}`,
-    { method: "POST", body: form },
+    { method: "POST", headers: { ...sidecarAuthHeaders() }, body: form },
   )
   if (!res.ok) {
     const body = await res.json().catch(() => null)
