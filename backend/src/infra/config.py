@@ -63,10 +63,32 @@ RELATION_DIMENSIONS_ENABLED: bool = os.environ.get(
 # lightweight dimension-only calls per chapter. 1 disables voting.
 RELATION_SUBTYPE_VOTE_SAMPLES: int = int(os.environ.get("RELATION_SUBTYPE_VOTE_SAMPLES", "3"))
 
+# Citation-grounded 抽取 (Epic 3, FR-3.1)。默认开;关闭后抽取 prompt 不注入
+# 证据锚定指引、few-shot 示例不带事件 evidence、解析后不做证据清洗,
+# 行为与 v0.73 完全一致 (NFR-3)。
+EVIDENCE_GROUNDING_ENABLED: bool = os.environ.get(
+    "EVIDENCE_GROUNDING_ENABLED", "true"
+).strip().lower() not in ("0", "false", "no", "off")
+
 # LLM 增量实体消解 (Epic 2, FR-2.1–2.4)。默认开;关闭后聚合期不做
 # embedding blocking + LLM 聚类判定,行为与 v0.73 完全一致 (NFR-3)。
 ENTITY_RESOLUTION_ENABLED: bool = os.environ.get(
     "ENTITY_RESOLUTION_ENABLED", "true"
+).strip().lower() not in ("0", "false", "no", "off")
+
+# 两遍制 recall pass (Epic 4, FR-4.1)。默认开;首遍抽取后对每章再跑一次
+# "查漏"调用(只补漏),补漏记录标记 source="recall_pass"。关闭后单遍行为
+# 与 v0.73 完全一致 (NFR-3);单章 LLM 调用 ≤2 倍 (NFR-2)。
+RECALL_PASS_ENABLED: bool = os.environ.get(
+    "RECALL_PASS_ENABLED", "true"
+).strip().lower() not in ("0", "false", "no", "off")
+
+# 幻觉人物 LLM 判定层 (Epic 4, FR-4.2)。默认开;在 FactValidator 规则层之后、
+# 落库之前,对规则层抓不住的疑似幻觉人物(原文中找不到的名字)做 LLM 判定,
+# 高置信幻觉剔除、低置信降级为存疑,决策落 JSONL 审计日志 (NFR-5)。
+# 关闭后不做判定,行为与 v0.73 完全一致 (NFR-3)。
+HALLUCINATION_REVIEW_ENABLED: bool = os.environ.get(
+    "HALLUCINATION_REVIEW_ENABLED", "true"
 ).strip().lower() not in ("0", "false", "no", "off")
 
 # Candidate blocking: 余弦相似度阈值 + top-k 近邻成簇,簇外不做 LLM 判定 (FR-2.1)。

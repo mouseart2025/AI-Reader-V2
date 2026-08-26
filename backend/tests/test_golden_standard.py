@@ -189,6 +189,122 @@ class TestXiyoujiGoldenCharacters:
             + "\n".join(f"  - {fp}" for fp in false_positives)
 
 
+class _MockVerdictLLM:
+    """Mock LLM:按给定 (name, is_real, confidence) 列表返回幻觉判定裁决。"""
+
+    def __init__(self, verdicts: list[tuple[str, bool, str]]):
+        self._verdicts = verdicts
+        self.calls = 0
+        self.prompts: list[str] = []
+
+    async def generate(self, system, prompt, format=None, **kw):
+        self.calls += 1
+        self.prompts.append(prompt)
+        usage = SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2)
+        return {"verdicts": [
+            {"name": n, "is_real": r, "confidence": c, "reason": "mock 判定"}
+            for n, r, c in self._verdicts
+        ]}, usage
+
+
+class TestXiyoujiGoldenCharactersLLMLayer:
+    """FR-4.2 幻觉人物 LLM 判定层:规则层抓不住的幻觉人物由 LLM 层处置。
+
+    数据源同 TestXiyoujiGoldenCharacters(xiyouji_characters.json);
+    LLM 判定全部 mock — 证明机制正确:银驮/碗子山妖魔/洪江龙王/平顶山·樵夫
+    这类 name-pattern 抓不住的疑似幻觉人物会被 LLM 层正确处置,真实人物不误杀。
+    """
+
+    # 不含任何疑似名(含 "·" 基本名)的章节原文
+    CHAPTER_TEXT = "话说师徒四人西行,忽见一座高山挡路,为首一人前去探路。"
+
+    @pytest.fixture(autouse=True)
+    def load_data(self, monkeypatch, tmp_path):
+        from src.infra import config
+        monkeypatch.setattr(config, "HALLUCINATION_REVIEW_ENABLED", True)
+        data = _load_review_json("xiyouji_characters.json")
+        if data is None:
+            pytest.skip("xiyouji_characters.json not found")
+        self.invalid = _collect_invalid_characters(data)
+        self.valid = _collect_valid_characters(data)
+        self.log_path = tmp_path / "hr_log.jsonl"
+
+    def _llm_layer_hallucinations(self) -> list[str]:
+        """规则层(name-pattern)抓不住的疑似幻觉人物 — 即 LLM 层的处置对象。"""
+        return [
+            n for n in self.invalid
+            if _is_generic_person(n) is None and not is_blocked_name(n)
+        ]
+
+    @pytest.mark.asyncio
+    async def test_llm_layer_hallucinations_removed(self):
+        """银驮/碗子山妖魔/洪江龙王/平顶山·樵夫类:LLM 判幻觉(高置信)→ 剔除。"""
+        from src.extraction.hallucination_reviewer import review_chapter_characters
+        from src.models.chapter_fact import ChapterFact, CharacterFact
+
+        suspects = self._llm_layer_hallucinations()
+        assert suspects, "review 数据中应有规则层抓不住的幻觉人物"
+        fact = ChapterFact(
+            chapter_id=1, novel_id="xiyouji",
+            characters=[CharacterFact(name=n) for n in suspects],
+        )
+        llm = _MockVerdictLLM([(n, False, "high") for n in suspects])
+        new_fact = await review_chapter_characters(
+            fact, chapter_text=self.CHAPTER_TEXT, llm=llm,
+            novel_id="xiyouji", chapter_id=1,
+            log_path=self.log_path, record_cost=False,
+        )
+        remaining = {ch.name for ch in new_fact.characters}
+        assert not remaining, f"幻觉人物应全部被 LLM 层剔除,残留: {remaining}"
+        assert llm.calls == 1
+        # 决策落审计日志 (NFR-5)
+        record = json.loads(self.log_path.read_text(encoding="utf-8").strip())
+        assert record["prompt_version"]
+        assert all(a["action"] == "removed" for a in record["actions"])
+        assert {a["name"] for a in record["actions"]} == set(suspects)
+
+    @pytest.mark.asyncio
+    async def test_valid_characters_survive_llm_layer(self):
+        """真实人物不误杀:LLM 判真实 → 全部保留,无一剔除。"""
+        from src.extraction.hallucination_reviewer import review_chapter_characters
+        from src.models.chapter_fact import ChapterFact, CharacterFact
+
+        valid = [n for n in self.valid if _is_generic_person(n) is None]
+        assert valid, "review 数据中应有真实人物"
+        fact = ChapterFact(
+            chapter_id=1, novel_id="xiyouji",
+            characters=[CharacterFact(name=n) for n in valid],
+        )
+        llm = _MockVerdictLLM([(n, True, "high") for n in valid])
+        new_fact = await review_chapter_characters(
+            fact, chapter_text=self.CHAPTER_TEXT, llm=llm,
+            novel_id="xiyouji", chapter_id=1,
+            log_path=self.log_path, record_cost=False,
+        )
+        assert {ch.name for ch in new_fact.characters} == set(valid)
+
+    @pytest.mark.asyncio
+    async def test_whitelist_protects_from_llm_judgment(self):
+        """白名单保护:protected_names 中的名字不发起 LLM 判定,直接保留。"""
+        from src.extraction.hallucination_reviewer import review_chapter_characters
+        from src.models.chapter_fact import ChapterFact, CharacterFact
+
+        suspects = self._llm_layer_hallucinations()
+        fact = ChapterFact(
+            chapter_id=1, novel_id="xiyouji",
+            characters=[CharacterFact(name=n) for n in suspects],
+        )
+        llm = _MockVerdictLLM([])  # 不应被调用
+        new_fact = await review_chapter_characters(
+            fact, chapter_text=self.CHAPTER_TEXT, llm=llm,
+            novel_id="xiyouji", chapter_id=1,
+            protected_names=set(suspects),
+            log_path=self.log_path, record_cost=False,
+        )
+        assert llm.calls == 0
+        assert {ch.name for ch in new_fact.characters} == set(suspects)
+
+
 # ── 红楼梦 golden standard ────────────────────────────────────
 
 
