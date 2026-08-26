@@ -324,15 +324,27 @@ def _merge_recall_additions(
 # ── Citation-grounded 证据锚定 (FR-3.1) ──
 
 def span_located(span: str, chapter_text: str) -> bool:
-    """证据 span 是否能在原章节文本中定位(子串匹配,归一化空白)。
+    """证据 span 是否能在原章节文本中定位(子串匹配,归一化空白与引号)。
 
-    归一化方式:去除所有空白字符后做子串匹配,容忍 LLM 引用时的换行/空格差异。
+    归一化方式:去除所有空白字符与引号字符后做子串匹配,容忍 LLM 引用时
+    的换行/空格差异与引号样式改写(“” ↔ '' 等,真实冒烟实测高发)。
     judge 脚本(FR-3.2)复用同一实现,保证口径唯一。
     """
-    norm_span = "".join(span.split())
+    norm_span = _normalize_span_text(span)
     if not norm_span:
         return False
-    return norm_span in "".join(chapter_text.split())
+    return norm_span in _normalize_span_text(chapter_text)
+
+
+# LLM 逐字引用时经常改写引号样式(“” ↔ '' ↔ ""),定位时与空白一样归一化掉。
+_SPAN_QUOTE_CHARS = "“”‘’\"'「」『』"
+
+
+def _normalize_span_text(s: str) -> str:
+    """span 定位归一化:去空白 + 去引号(span_located 唯一口径)。"""
+    return "".join(
+        ch for ch in s if not ch.isspace() and ch not in _SPAN_QUOTE_CHARS
+    )
 
 
 # 事件置信度(importance)降级次序:无证据的事件降一级,low 不再降
