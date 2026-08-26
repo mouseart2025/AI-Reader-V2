@@ -76,12 +76,16 @@ def _votes(*subtypes: str) -> dict:
 @pytest.fixture
 def dims_off(monkeypatch):
     monkeypatch.setattr(config, "RELATION_DIMENSIONS_ENABLED", False)
+    # 隔离被测行为:关闭 recall pass (FR-4.1),单章只发首遍调用
+    monkeypatch.setattr(config, "RECALL_PASS_ENABLED", False)
 
 
 @pytest.fixture
 def no_vote(monkeypatch):
     monkeypatch.setattr(config, "RELATION_DIMENSIONS_ENABLED", True)
     monkeypatch.setattr(config, "RELATION_SUBTYPE_VOTE_SAMPLES", 1)
+    # 隔离被测行为:关闭 recall pass (FR-4.1)
+    monkeypatch.setattr(config, "RECALL_PASS_ENABLED", False)
 
 
 # ── FR-1.2 维度解析 ──
@@ -166,6 +170,8 @@ async def test_switch_on_injects_dimension_guide(no_vote):
 async def test_vote_majority_wins(monkeypatch):
     monkeypatch.setattr(config, "RELATION_DIMENSIONS_ENABLED", True)
     monkeypatch.setattr(config, "RELATION_SUBTYPE_VOTE_SAMPLES", 3)
+    # 隔离被测行为:关闭 recall pass (FR-4.1),只计主抽取 + 投票调用
+    monkeypatch.setattr(config, "RECALL_PASS_ENABLED", False)
     llm = MockLLM(
         _fact_response([_rel(subtype="结拜")]),
         vote_responses=[_votes("朋友-社交"), _votes("朋友-社交")],

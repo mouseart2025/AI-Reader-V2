@@ -9,6 +9,9 @@
   M2 召回代理   compute_m2  — LLM 扫描(seed=42 抽 10 章) + build_alias_map 归并
   M3 方向错误率 screen_direction_candidates + compute_m3 — 初筛 + LLM 仲裁
   M4 泛称残留   compute_m4  — fact_validator._is_generic_location 匹配层级节点
+  M5 忠实度     compute_m5  — judge 三维度综合(Epic 3,FR-3.2/3.3;相对指标,
+                              校准缺失或 kappa 低于阈值时标记“未校准”)
+  M6 关系维度   compute_m6  — 消费 FR-1.5 回测 JSON(Epic 3,FR-3.4;mock 口径)
 
 口径说明（与 tech-spec 的两处具体化，均在此冻结记录）：
   * uber-root：parent 链的终端根（出现在 parent 值中但从不作为 child 的节点，
@@ -324,6 +327,104 @@ def compute_m4(node_names, is_generic_fn) -> dict:
     }
 
 
+# ── M5/M6（Epic 3，FR-3.2–FR-3.4）──────────────────────────────────
+# M5 faithfulness：消费 judge_extraction_faithfulness.py 的评分报告 + 校准报告；
+# 校准缺失或 kappa 低于阈值时标记“未校准”（FR-3.3）。
+# M6 关系维度准确率：消费 eval_relation_dimensions.py 的 JSON 副产物（FR-1.5 回测）。
+AUDIT_REPORTS_DIR = _BACKEND_DIR / "audit_reports"
+M5_KAPPA_THRESHOLD = 0.40  # 与 judge_extraction_faithfulness.KAPPA_THRESHOLD 一致
+
+
+def compute_m5(judge_report: dict | None, calibration: dict | None) -> dict:
+    """M5 faithfulness（judge 三维度综合）。judge 分数只作相对指标，不进论文数字。"""
+    if not judge_report or not judge_report.get("aggregate"):
+        return {"status": "missing", "calibration_label": "未校准"}
+    agg = judge_report["aggregate"]
+    kappa = (calibration or {}).get("kappa")
+    calibrated = bool((calibration or {}).get("calibrated"))
+    return {
+        "status": "ok",
+        "precision": agg.get("precision"),
+        "faithfulness": agg.get("faithfulness"),
+        "comprehensiveness": agg.get("comprehensiveness"),
+        "m5": agg.get("m5"),
+        "evidence_coverage": agg.get("evidence_coverage"),
+        "span_located_rate": agg.get("span_located_rate"),
+        "chapters_judged": agg.get("chapters_judged"),
+        "kappa": kappa,
+        "calibrated": calibrated,
+        "calibration_label": "已校准" if calibrated else "未校准",
+    }
+
+
+def compute_m6(rel_eval: dict | None) -> dict:
+    """M6 关系维度准确率（FR-1.5 回测产物，mock 口径，见该报告口径声明）。"""
+    if not rel_eval:
+        return {"status": "missing"}
+    sh, xy = rel_eval["shuihu"], rel_eval["xiyouji"]
+    target = rel_eval.get("shuihu_subtype_target", 0.55)
+    sh_acc = sh["subtype"]["accuracy"]
+    xy_mock = xy["mock_category"]["accuracy"]
+    xy_base = xy["legacy_category_baseline"]["accuracy"]
+    return {
+        "status": "ok",
+        "shuihu_subtype_accuracy": sh_acc,
+        "shuihu_subtype_target": target,
+        "shuihu_target_met": sh_acc is not None and sh_acc >= target,
+        "xiyouji_mock_category": xy_mock,
+        "xiyouji_legacy_baseline": xy_base,
+        "xiyouji_not_below_baseline": (
+            xy_mock is not None and xy_base is not None and xy_mock >= xy_base
+        ),
+    }
+
+
+def load_latest_judge_report(slug: str) -> dict | None:
+    """加载 audit_reports 中最新的 judge 评分报告；无则 None（不影响 M1–M4）。"""
+    candidates = sorted(AUDIT_REPORTS_DIR.glob(f"judge_faithfulness_{slug}_*.json"))
+    if not candidates:
+        return None
+    try:
+        return json.loads(candidates[-1].read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def load_judge_calibration() -> dict | None:
+    """加载 judge 校准报告（FR-3.3）；无则 None。"""
+    path = AUDIT_REPORTS_DIR / "judge_calibration.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def load_m6_eval() -> dict | None:
+    """加载 FR-1.5 回测 JSON；缺失时离线重算（纯规则，不调 LLM）。"""
+    path = AUDIT_REPORTS_DIR / "relation_dimensions_eval.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    try:
+        scripts_dir = str(_BACKEND_DIR / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import eval_relation_dimensions as ev
+
+        return {
+            "schema": ev.SCHEMA_VERSION,
+            "shuihu_subtype_target": ev.SHUIHU_SUBTYPE_TARGET,
+            "shuihu": ev.evaluate_shuihu(ev.load_shuihu_silver()),
+            "xiyouji": ev.evaluate_xiyouji(ev.load_xiyouji_gold()),
+        }
+    except Exception:
+        return None
+
+
 def parse_llm_json(text: str):
     """解析 LLM 输出：容忍 markdown 代码块包裹，截取最外层 JSON 对象。"""
     t = text.strip()
@@ -425,6 +526,29 @@ def render_novel_md(report: dict) -> str:
             + ("…" if len(m4["hit_details"]) > 20 else ""))
     lines.append("")
 
+    m5 = r.get("m5")
+    if m5 and m5.get("status") == "ok":
+        lines += ["## M5 抽取忠实度（judge 三维度）", ""]
+        if m5.get("precision") is not None:
+            lines.append(
+                f"- precision={m5['precision']:.1%} · faithfulness={m5['faithfulness']:.1%} "
+                f"· comprehensiveness={m5['comprehensiveness']:.1%}"
+            )
+        if m5.get("m5") is not None:
+            kappa_note = f", κ={m5['kappa']:.3f}" if m5.get("kappa") is not None else ""
+            lines.append(
+                f"- **M5 综合: {m5['m5']:.1%}**（{m5['calibration_label']}{kappa_note}）"
+            )
+        if m5.get("evidence_coverage") is not None:
+            lines.append(
+                f"- evidence 覆盖率: {m5['evidence_coverage']:.1%} · span 可定位率: "
+                f"{m5['span_located_rate']:.1%}"
+            )
+        lines.append("")
+    elif m5:
+        lines += ["## M5 抽取忠实度（judge 三维度）", "",
+                  "> ⚠️ 未运行 judge（FR-3.2），M5 缺失", ""]
+
     qa = r.get("qa_samples", {})
     lines += [
         "## QA 抽检（待人工核对）",
@@ -436,8 +560,12 @@ def render_novel_md(report: dict) -> str:
     return "\n".join(lines)
 
 
-def render_summary_md(reports: list[dict], freeze: dict, llm_cost: dict) -> str:
-    """summary.md：五本汇总 + RQ1/RQ2 + Phase 1 方向建议（PRD §4 决策规则）。"""
+def render_summary_md(reports: list[dict], freeze: dict, llm_cost: dict,
+                      m6: dict | None = None) -> str:
+    """summary.md：五本汇总 + RQ1/RQ2 + Phase 1 方向建议（PRD §4 决策规则）。
+
+    m6：FR-1.5 关系维度回测结果（compute_m6 输出），为 None 时 M6 列记 N/A。
+    """
     lines = [
         "# Phase 0 质量仪表盘：五本小说基线汇总",
         "",
@@ -450,25 +578,45 @@ def render_summary_md(reports: list[dict], freeze: dict, llm_cost: dict) -> str:
         "> ⚠️ M2 recall_proxy 为 **raw 值**；人工校准样本已产出"
         "（每本一个 〈slug〉.calibration-sample.json），**待人工校准**后给出修正召回。",
         "> QA 抽检（每本 M3 候选 + M2 T\\E 各 10 条）已生成，**待人工核对**。",
+        "> M5 为 judge 相对指标（不进论文冻结数字）；M6 为 FR-1.5 回测 mock 口径。",
         "",
         "## 指标总表",
         "",
-        "| 小说 | roots | orphans(率) | max_children | depth≥3 | recall_proxy(raw) | 方向候选占比 | direction_error_rate | generic_residue |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| 小说 | roots | orphans(率) | max_children | depth≥3 | recall_proxy(raw) | 方向候选占比 | direction_error_rate | generic_residue | M5 faithfulness | M6 关系维度 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in reports:
         if r.get("error"):
-            lines.append(f"| {r['title']} | 失败: {r['error']} | — | — | — | — | — | — | — |")
+            lines.append(f"| {r['title']} | 失败: {r['error']} | — | — | — | — | — | — | — | — | — |")
             continue
         m1, m2, m3, m4 = r["m1"], r["m2"], r["m3"], r["m4"]
         recall = f"{m2['recall_proxy']:.1%}" if m2.get("recall_proxy") is not None else "N/A"
         der = f"{m3['direction_error_rate']:.1%}" if m3.get("direction_error_rate") is not None else "N/A"
         cand = f"{m3['candidate_ratio']:.1%}" if m3.get("candidate_ratio") is not None else "N/A"
+        m5 = r.get("m5") or {}
+        if m5.get("status") == "ok" and m5.get("m5") is not None:
+            m5_cell = f"{m5['m5']:.1%}({m5['calibration_label']})"
+        else:
+            m5_cell = "N/A"
+        m6_cell = "—"
+        if m6 and m6.get("status") == "ok":
+            if r["slug"] == "shuihu":
+                acc = m6["shuihu_subtype_accuracy"]
+                m6_cell = (
+                    f"类型级 {acc:.1%}({'达标' if m6['shuihu_target_met'] else '未达标'})"
+                    if acc is not None else "N/A"
+                )
+            elif r["slug"] == "xiyouji":
+                mock = m6["xiyouji_mock_category"]
+                m6_cell = (
+                    f"category {mock:.1%}({'不低于旧基线' if m6['xiyouji_not_below_baseline'] else '低于旧基线'})"
+                    if mock is not None else "N/A"
+                )
         lines.append(
             f"| {r['title']} | {m1['roots']} | {m1['orphans']}({m1['orphan_rate']:.1%}) "
             f"| {m1['max_children']}({m1['max_children_node']}) "
             f"| {m1['depth_ge3_ratio']:.1%} | {recall} | {cand} | {der} "
-            f"| {m4['generic_residue']:.1%} |"
+            f"| {m4['generic_residue']:.1%} | {m5_cell} | {m6_cell} |"
         )
     lines.append("")
 
@@ -866,6 +1014,12 @@ async def run_novel(
             for n in pick_sample(m2["T_minus_E"], QA_SAMPLE)
         ]
 
+    # M5（FR-3.2/3.3）：消费 judge 评分报告 + 校准报告；未运行 judge 时记 missing，
+    # 不影响 M1–M4
+    m5 = compute_m5(load_latest_judge_report(slug), load_judge_calibration())
+    print(f"[q0][m5] {m5.get('calibration_label', '未校准')} "
+          f"m5={m5['m5']:.1%}" if m5.get("m5") is not None else "[q0][m5] 缺失")
+
     return {
         "slug": slug,
         "title": title,
@@ -878,6 +1032,7 @@ async def run_novel(
         "m2": m2,
         "m3": m3,
         "m4": m4,
+        "m5": m5,
         "qa_samples": qa,
     }
 
@@ -939,8 +1094,16 @@ async def main() -> None:
 
     conn.close()
 
+    # M6（FR-3.4）：FR-1.5 回测 JSON（缺失时离线重算，纯规则不调 LLM）
+    m6 = compute_m6(load_m6_eval())
+    if m6.get("status") == "ok":
+        print(f"[q0][m6] 水浒类型级={m6['shuihu_subtype_accuracy']:.1%} "
+              f"西游 mock category={m6['xiyouji_mock_category']:.1%}")
+    else:
+        print("[q0][m6] 缺失")
+
     (out_dir / "summary.md").write_text(
-        render_summary_md(reports, freeze, cost_acc), encoding="utf-8"
+        render_summary_md(reports, freeze, cost_acc, m6), encoding="utf-8"
     )
     print(f"\n[q0] done. 总成本 ≈ ${cost_acc['cost_usd']:.4f} → {out_dir}")
 

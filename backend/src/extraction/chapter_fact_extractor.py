@@ -66,6 +66,10 @@ class ExtractionMeta:
     original_len: int = 0
     truncated_len: int = 0
     segment_count: int = 1
+    # FR-3.1 证据锚定统计(副产物标记,仅 EVIDENCE_GROUNDING_ENABLED 时填充)
+    evidence_missing_relations: int = 0
+    evidence_missing_events: int = 0
+    evidence_unlocated_spans: int = 0
 
 
 class ExtractionError(Exception):
@@ -214,6 +218,177 @@ def _merge_chapter_facts(
     )
 
 
+# ── 两遍制 recall pass (FR-4.1) ──
+# 首遍抽取后对每章再跑一次"查漏"调用:输入首遍结果清单 + 原文,只补漏。
+# 补漏记录标记 source="recall_pass",经与首遍相同的 sanitize 后并入。
+
+_RECALL_SYSTEM_PROMPT = (
+    "你是小说章节信息抽取的查漏专家。给你首遍抽取的结果清单与章节原文,"
+    "你的任务是【只补漏】:找出首遍遗漏的人物、人物关系、事件。\n"
+    "规则:\n"
+    "1. 只输出首遍清单中没有的新记录,禁止重复已有内容,禁止修改或删除已有结论。\n"
+    "2. 每条新记录必须有原文依据;没有遗漏就输出空列表。\n"
+    "3. relationships 与 events 每条都必须附 evidence 字段,逐字引用原文片段(不得改写)。\n"
+    "4. 只输出 JSON,不要输出多余文本。"
+)
+
+
+def _build_recall_schema() -> dict:
+    """查漏调用的输出 schema:ChapterFact 全形,但允许空列表(无遗漏是常态),
+    并隐藏内部字段(subtype_vote/source),LLM 只产出人物/关系/事件内容。"""
+    schema = ChapterFact.model_json_schema()
+    defs = schema.get("$defs", {})
+    if "RelationshipFact" in defs:
+        defs["RelationshipFact"].get("properties", {}).pop("subtype_vote", None)
+    for model in ("CharacterFact", "RelationshipFact", "EventFact"):
+        if model in defs:
+            defs[model].get("properties", {}).pop("source", None)
+    # 与首遍 schema 口径一致 (FR-3.1):证据锚定开启时去掉 evidence 默认值,
+    # 让 LLM 把 evidence 当作必产字段。
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    if EVIDENCE_GROUNDING_ENABLED:
+        for model in ("RelationshipFact", "EventFact"):
+            if model in defs:
+                props = defs[model].get("properties", {})
+                if "evidence" in props:
+                    props["evidence"].pop("default", None)
+    return schema
+
+
+def _build_recall_user_prompt(
+    chapter_id: int, chapter_text: str, fact: ChapterFact,
+) -> str:
+    """构造查漏 user prompt:首遍结果清单(紧凑) + 原文。"""
+    char_names = "、".join(ch.name for ch in fact.characters) or "(无)"
+    rel_lines = "\n".join(
+        f"  - {rel.person_a} —{rel.relation_type}→ {rel.person_b}"
+        for rel in fact.relationships
+    ) or "  (无)"
+    event_lines = "\n".join(
+        f"  - {ev.summary}" for ev in fact.events
+    ) or "  (无)"
+    return (
+        "## 首遍抽取结果清单\n"
+        f"人物: {char_names}\n"
+        f"关系:\n{rel_lines}\n"
+        f"事件:\n{event_lines}\n\n"
+        f"## 第 {chapter_id} 章原文\n\n{chapter_text}\n\n"
+        "【任务】对照原文检查上述清单,只输出遗漏的 characters / relationships / events;"
+        "已在清单中的内容不要重复输出;没有遗漏的类别输出空列表。"
+    )
+
+
+def _merge_recall_additions(
+    fact: ChapterFact, recall_fact: ChapterFact, chapter_id: int,
+) -> dict[str, int]:
+    """把查漏结果并入首遍结果 (FR-4.1):只增不改。
+
+    - 首遍已有记录一律不动(首遍结果不被改写);
+    - 新增记录打上 source="recall_pass" 标记,可追溯来源;
+    - 去重口径与 _merge_chapter_facts 一致(人物按名、关系按三元组、事件按 summary)。
+    """
+    counts = {"characters": 0, "relationships": 0, "events": 0}
+
+    existing_names = {ch.name for ch in fact.characters}
+    for ch in recall_fact.characters:
+        if ch.name and ch.name not in existing_names:
+            fact.characters.append(ch.model_copy(update={"source": "recall_pass"}))
+            existing_names.add(ch.name)
+            counts["characters"] += 1
+
+    seen_rels = {
+        (rel.person_a, rel.person_b, rel.relation_type) for rel in fact.relationships
+    }
+    for rel in recall_fact.relationships:
+        key = (rel.person_a, rel.person_b, rel.relation_type)
+        if key not in seen_rels:
+            fact.relationships.append(rel.model_copy(update={"source": "recall_pass"}))
+            seen_rels.add(key)
+            counts["relationships"] += 1
+
+    seen_events = {ev.summary for ev in fact.events}
+    for ev in recall_fact.events:
+        if ev.summary and ev.summary not in seen_events:
+            fact.events.append(ev.model_copy(update={"source": "recall_pass"}))
+            seen_events.add(ev.summary)
+            counts["events"] += 1
+
+    if any(counts.values()):
+        logger.info(
+            "Chapter %d: recall pass 补漏 %d 人物 / %d 关系 / %d 事件",
+            chapter_id, counts["characters"], counts["relationships"], counts["events"],
+        )
+    return counts
+
+
+# ── Citation-grounded 证据锚定 (FR-3.1) ──
+
+def span_located(span: str, chapter_text: str) -> bool:
+    """证据 span 是否能在原章节文本中定位(子串匹配,归一化空白)。
+
+    归一化方式:去除所有空白字符后做子串匹配,容忍 LLM 引用时的换行/空格差异。
+    judge 脚本(FR-3.2)复用同一实现,保证口径唯一。
+    """
+    norm_span = "".join(span.split())
+    if not norm_span:
+        return False
+    return norm_span in "".join(chapter_text.split())
+
+
+# 事件置信度(importance)降级次序:无证据的事件降一级,low 不再降
+_IMPORTANCE_DOWNGRADE = {"high": "medium", "medium": "low", "low": "low"}
+
+
+def _sanitize_evidence_grounding(
+    fact: ChapterFact,
+    chapter_id: int,
+    chapter_text: str,
+    meta: ExtractionMeta | None = None,
+) -> None:
+    """证据锚定清洗 (FR-3.1):无 evidence 的记录降置信度并标记。
+
+    - 空 evidence:打 warning 日志并计入 meta 统计;事件额外将 importance
+      降一级(high→medium→low)作为降置信度。关系无置信度字段,标记走
+      日志 + ExtractionMeta 计数(副产物)。
+    - 非空但无法在原文定位的 span:打 warning 日志并计数(不删改记录,
+      留待 judge/人工复核)。
+    """
+    for rel in fact.relationships:
+        rel.evidence = rel.evidence.strip()
+        if not rel.evidence:
+            if meta is not None:
+                meta.evidence_missing_relations += 1
+            logger.warning(
+                "Chapter %d: relationship %s-%s(%s) 缺少 evidence,已标记",
+                chapter_id, rel.person_a, rel.person_b, rel.relation_type,
+            )
+        elif not span_located(rel.evidence, chapter_text):
+            if meta is not None:
+                meta.evidence_unlocated_spans += 1
+            logger.warning(
+                "Chapter %d: relationship %s-%s evidence 无法在原文定位: %r",
+                chapter_id, rel.person_a, rel.person_b, rel.evidence[:50],
+            )
+    for ev in fact.events:
+        ev.evidence = ev.evidence.strip()
+        if not ev.evidence:
+            if meta is not None:
+                meta.evidence_missing_events += 1
+            downgraded = _IMPORTANCE_DOWNGRADE.get(ev.importance, "low")
+            logger.warning(
+                "Chapter %d: event %r 缺少 evidence,importance %s→%s 并标记",
+                chapter_id, ev.summary[:30], ev.importance, downgraded,
+            )
+            ev.importance = downgraded
+        elif not span_located(ev.evidence, chapter_text):
+            if meta is not None:
+                meta.evidence_unlocated_spans += 1
+            logger.warning(
+                "Chapter %d: event %r evidence 无法在原文定位: %r",
+                chapter_id, ev.summary[:30], ev.evidence[:50],
+            )
+
+
 def _sanitize_relation_dimensions(fact: ChapterFact, chapter_id: int) -> None:
     """Reject out-of-vocabulary dimension values on relationships (FR-1.2).
 
@@ -340,6 +515,15 @@ def _load_dimension_guide() -> str:
         return ""
 
 
+def _load_evidence_guide() -> str:
+    """Load evidence grounding guide (FR-3.1). Returns empty string if file missing."""
+    from src.extraction.prompt_registry import get_prompt
+    try:
+        return get_prompt("evidence_grounding_guide")
+    except FileNotFoundError:
+        return ""
+
+
 def _load_examples() -> list[dict]:
     from src.extraction.prompt_registry import get_prompt_json
     return get_prompt_json("extraction_examples")
@@ -368,6 +552,23 @@ def _build_extraction_schema() -> dict:
     if "RelationshipFact" in defs:
         defs["RelationshipFact"].get("properties", {}).pop("subtype_vote", None)
 
+    # Patch source fields (FR-4.1): source 是管线内部溯源标记(main/recall_pass),
+    # 由合并逻辑打点,LLM 不应输出 — 对所有模型隐藏,schema 与 v0.73 口径一致。
+    for model in ("CharacterFact", "RelationshipFact", "EventFact"):
+        if model in defs:
+            defs[model].get("properties", {}).pop("source", None)
+
+    # Patch evidence fields (FR-3.1): remove the "" default so the LLM treats
+    # evidence as expected output rather than optional-with-default. Only when
+    # the grounding switch is on — off keeps the v0.73 schema byte-identical.
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    if EVIDENCE_GROUNDING_ENABLED:
+        for model in ("RelationshipFact", "EventFact"):
+            if model in defs:
+                props = defs[model].get("properties", {})
+                if "evidence" in props:
+                    props["evidence"].pop("default", None)
+
     # Patch ChapterFact: require non-empty characters, relationships, locations, events
     root_props = schema.get("properties", {})
     for field in ("characters", "relationships", "locations", "events"):
@@ -386,6 +587,7 @@ class ChapterFactExtractor:
         self.system_template = _load_system_prompt()
         self._vot_guide = _load_vot_guide()
         self._dimension_guide = _load_dimension_guide()
+        self._evidence_guide = _load_evidence_guide()
         self.examples = _load_examples()
         self._schema = _build_extraction_schema()
         self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
@@ -396,18 +598,25 @@ class ChapterFactExtractor:
         For small context windows (≤16K), only 1 example is sent to save ~1.2K
         tokens of input budget. When RELATION_DIMENSIONS_ENABLED is off, the
         dimension fields are stripped from the examples so the prompt stays
-        identical to the pre-dimension version (NFR-3).
+        identical to the pre-dimension version (NFR-3). Likewise, when
+        EVIDENCE_GROUNDING_ENABLED is off, the event evidence fields (FR-3.1)
+        are stripped — v0.73 examples had no event evidence.
         """
         if not self.examples:
             return ""
-        from src.infra.config import RELATION_DIMENSIONS_ENABLED
+        from src.infra import config as _cfg
         examples = self.examples
-        if not RELATION_DIMENSIONS_ENABLED:
+        if not _cfg.RELATION_DIMENSIONS_ENABLED or not _cfg.EVIDENCE_GROUNDING_ENABLED:
             examples = json.loads(json.dumps(self.examples))  # deep copy
-            for ex in examples:
-                for rel in ex.get("relationships", []):
-                    for key in ("polarity", "rel_subtype", "closeness"):
-                        rel.pop(key, None)
+            if not _cfg.RELATION_DIMENSIONS_ENABLED:
+                for ex in examples:
+                    for rel in ex.get("relationships", []):
+                        for key in ("polarity", "rel_subtype", "closeness"):
+                            rel.pop(key, None)
+            if not _cfg.EVIDENCE_GROUNDING_ENABLED:
+                for ex in examples:
+                    for ev in ex.get("events", []):
+                        ev.pop("evidence", None)
         budget = get_budget()
         examples_to_show = [examples[0]]
         if len(examples) >= 4 and budget.context_window > 16384:
@@ -420,6 +629,12 @@ class ChapterFactExtractor:
         segment_hint: str = "",
     ) -> str:
         """Build the user prompt for a chapter or chapter segment."""
+        from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+        evidence_req = (
+            "9. evidence：relationships 和 events 每条都必须附 evidence 字段，"
+            "逐字引用原文片段（不得改写），无原文依据的条目不得输出\n"
+            if EVIDENCE_GROUNDING_ENABLED else ""
+        )
         return (
             f"{example_text}"
             f"## 第 {chapter_id} 章{segment_hint}\n\n{chapter_text}\n\n"
@@ -432,6 +647,7 @@ class ChapterFactExtractor:
             "6. world_declarations：当文中有世界宏观结构描述时必须提取（区域划分region_division、区域方位region_position、空间层layer_exists如天界/地府/海底、传送通道portal），没有则输出空列表\n"
             "7. new_concepts：功法、丹药、修炼体系、世界观规则等首次出现或有详细介绍的概念，definition 必须详细（2-5句话）\n"
             "8. 只提取原文明确出现的内容，禁止编造\n"
+            f"{evidence_req}"
         )
 
     async def extract(
@@ -481,6 +697,17 @@ class ChapterFactExtractor:
                 system = system.replace(marker, self._dimension_guide + "\n\n" + marker, 1)
             else:
                 logger.warning("Dimension guide injection skipped: marker %r not found in system prompt", marker)
+
+        # Inject evidence grounding guide (FR-3.1) — gated by config switch (NFR-3).
+        # When EVIDENCE_GROUNDING_ENABLED is False the prompt stays byte-identical
+        # to the v0.73 version.
+        from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+        if EVIDENCE_GROUNDING_ENABLED and self._evidence_guide:
+            marker = "## 地点提取规则"
+            if marker in system:
+                system = system.replace(marker, self._evidence_guide + "\n\n" + marker, 1)
+            else:
+                logger.warning("Evidence guide injection skipped: marker %r not found in system prompt", marker)
 
         original_len = len(chapter_text)
         meta = ExtractionMeta(original_len=original_len)
@@ -532,7 +759,92 @@ class ChapterFactExtractor:
                 usage.completion_tokens += vote_usage.completion_tokens
                 usage.total_tokens += vote_usage.total_tokens
 
+        # Evidence grounding post-processing (FR-3.1): 无证据记录降置信度并标记
+        if EVIDENCE_GROUNDING_ENABLED:
+            _sanitize_evidence_grounding(fact, chapter_id, chapter_text, meta)
+
+        # Recall pass (FR-4.1): 第二遍"查漏"调用,只补漏;补漏记录经同样的
+        # sanitize 后标记 source="recall_pass" 并入。失败不影响首遍结果。
+        from src.infra.config import RECALL_PASS_ENABLED
+        if RECALL_PASS_ENABLED:
+            recall_usage = await self._recall_pass(
+                novel_id, chapter_id, chapter_text, fact,
+            )
+            usage.prompt_tokens += recall_usage.prompt_tokens
+            usage.completion_tokens += recall_usage.completion_tokens
+            usage.total_tokens += recall_usage.total_tokens
+
         return fact, usage, meta
+
+    async def _recall_pass(
+        self,
+        novel_id: str,
+        chapter_id: int,
+        chapter_text: str,
+        fact: ChapterFact,
+    ) -> LlmUsage:
+        """第二遍"查漏"调用 (FR-4.1)。
+
+        输入首遍结果清单 + 原文,要求只补漏;补漏记录先经与首遍相同的
+        sanitize(维度值校验 / 证据锚定),再由 _merge_recall_additions
+        只增不改地并入首遍结果。单章恰好 1 次额外调用 (NFR-2 ≤2 倍);
+        任何失败都只记日志,首遍结果原样返回。
+        """
+        total_usage = LlmUsage()
+        try:
+            budget = get_budget()
+            from src.infra import config as _cfg
+            system = _RECALL_SYSTEM_PROMPT
+            recall_schema = _build_recall_schema()
+            if self._is_cloud:
+                schema_text = json.dumps(recall_schema, ensure_ascii=False, indent=2)
+                system += (
+                    f"\n\n## 输出 JSON Schema\n"
+                    f"你必须严格按照以下 JSON Schema 输出,不要输出多余字段或文本:\n"
+                    f"```json\n{schema_text}\n```"
+                )
+            user_prompt = _build_recall_user_prompt(chapter_id, chapter_text, fact)
+            max_out = _cfg.LLM_MAX_TOKENS if self._is_cloud else 8192
+            result, call_usage = await self.llm.generate(
+                system=system,
+                prompt=user_prompt,
+                format=recall_schema,
+                temperature=0.1,
+                max_tokens=max_out,
+                timeout=600,
+                num_ctx=budget.extraction_num_ctx,
+            )
+            total_usage.prompt_tokens += call_usage.prompt_tokens
+            total_usage.completion_tokens += call_usage.completion_tokens
+            total_usage.total_tokens += call_usage.total_tokens
+
+            if not isinstance(result, dict):
+                logger.warning(
+                    "Chapter %d: recall pass 返回非 dict,本次补漏丢弃", chapter_id,
+                )
+                return total_usage
+            _normalize_field_names(result)
+            result["novel_id"] = novel_id
+            result["chapter_id"] = chapter_id
+            recall_fact = ChapterFact.model_validate(result)
+
+            # 与首遍相同的 sanitize(开关口径一致,NFR-3)
+            from src.infra.config import (
+                EVIDENCE_GROUNDING_ENABLED,
+                RELATION_DIMENSIONS_ENABLED,
+            )
+            if RELATION_DIMENSIONS_ENABLED and recall_fact.relationships:
+                _sanitize_relation_dimensions(recall_fact, chapter_id)
+            if EVIDENCE_GROUNDING_ENABLED:
+                _sanitize_evidence_grounding(recall_fact, chapter_id, chapter_text)
+
+            _merge_recall_additions(fact, recall_fact, chapter_id)
+        except Exception as err:
+            logger.warning(
+                "Chapter %d: recall pass 失败(不影响首遍结果): %s",
+                chapter_id, err,
+            )
+        return total_usage
 
     async def _extract_single(
         self,

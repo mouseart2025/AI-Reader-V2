@@ -124,6 +124,35 @@ class AnalysisService:
             "llm_provider": LLM_PROVIDER,
         })
 
+    async def _review_hallucinations(
+        self,
+        novel_id: str,
+        chapter_num: int,
+        fact,
+        chapter_text: str,
+        protected_names: set[str] | None,
+    ):
+        """幻觉人物 LLM 判定层包装 (FR-4.2)。
+
+        规则层(validator.validate)之后、落库之前调用;开关关闭或判定失败时
+        原样返回 fact(不阻塞管线)。
+        """
+        from src.extraction.hallucination_reviewer import review_chapter_characters
+        try:
+            return await review_chapter_characters(
+                fact,
+                chapter_text=chapter_text,
+                llm=self.extractor.llm,
+                novel_id=novel_id,
+                chapter_id=chapter_num,
+                protected_names=protected_names,
+            )
+        except Exception as e:
+            logger.warning(
+                "Hallucination review failed for chapter %d: %s", chapter_num, e,
+            )
+            return fact
+
     async def start(
         self,
         novel_id: str,
@@ -337,11 +366,15 @@ class AnalysisService:
 
         # Build name corrections from entity dictionary (numeric-prefix fix).
         # E.g., if dictionary has "二愣子" and LLM extracts "愣子", correct it.
+        # _protected_names (FR-4.2 白名单): entity_dictionary 实体名 + 本次运行
+        # 已确立的人物名,幻觉人物 LLM 判定层对它们永不判定(真实人物不误杀)。
+        _protected_names: set[str] = set()
         _NUM_PREFIXES = frozenset("一二三四五六七八九十")
         try:
             _dict_entries = await entity_dictionary_store.get_all(novel_id)
             _corrections: dict[str, str] = {}
             _dict_names = {e.name for e in _dict_entries}
+            _protected_names.update(_dict_names)
             for entry in _dict_entries:
                 name = entry.name
                 if (
@@ -516,6 +549,13 @@ class AnalysisService:
                 # Validate
                 await self._broadcast_stage(novel_id, chapter_num, "验证数据")
                 fact = validator.validate(fact)
+
+                # 幻觉人物 LLM 判定层 (FR-4.2): 规则层之后、落库之前;
+                # 已确立人物纳入白名单,后续章节不再判定(真实人物不误杀)
+                fact = await self._review_hallucinations(
+                    novel_id, chapter_num, fact, chapter["content"], _protected_names,
+                )
+                _protected_names.update(ch.name for ch in fact.characters)
 
                 # Resolve name variants → canonical (upstream alias unification)
                 fact = name_resolver.resolve(fact)
@@ -714,6 +754,11 @@ class AnalysisService:
                         context_summary=ctx,
                     )
                     fact = validator.validate(fact)
+                    # 幻觉人物 LLM 判定层 (FR-4.2),与主循环同口径
+                    fact = await self._review_hallucinations(
+                        novel_id, retry_num, fact, retry_ch["content"], _protected_names,
+                    )
+                    _protected_names.update(ch.name for ch in fact.characters)
                     retry_elapsed = int(time.time() * 1000) - retry_start
                     await chapter_fact_store.insert_chapter_fact(
                         novel_id=novel_id,
@@ -1068,6 +1113,10 @@ class AnalysisService:
                     context_summary=ctx,
                 )
                 fact = _retry_validator.validate(fact)
+                # 幻觉人物 LLM 判定层 (FR-4.2),与主分析循环同口径
+                fact = await self._review_hallucinations(
+                    novel_id, ch_num, fact, ch_content, None,
+                )
 
                 await chapter_fact_store.insert_chapter_fact(
                     novel_id=novel_id,

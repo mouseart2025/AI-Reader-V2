@@ -329,6 +329,10 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_REPORT_PATH)
     parser.add_argument("--shuihu", type=Path, default=SHUIHU_SILVER_PATH)
     parser.add_argument("--xiyouji", type=Path, default=XIYOUJI_GOLD_PATH)
+    parser.add_argument(
+        "--json-out", type=Path, default=None,
+        help="机器可读 JSON 输出路径(默认与 --out 同路径、后缀 .json),供 Q0 M6 消费",
+    )
     args = parser.parse_args()
 
     shuihu_result = evaluate_shuihu(load_shuihu_silver(args.shuihu))
@@ -336,7 +340,18 @@ def main() -> int:
     report = render_report(shuihu_result, xiyouji_result)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report, encoding="utf-8")
-    print(f"报告已写入 {args.out}")
+
+    # FR-3.4:机器可读副产物,Q0 仪表盘 M6 的数据来源
+    json_out = args.json_out or args.out.with_suffix(".json")
+    json_out.write_text(json.dumps({
+        "schema": SCHEMA_VERSION,
+        "generated_at": date.today().isoformat(),
+        "shuihu_subtype_target": SHUIHU_SUBTYPE_TARGET,
+        "shuihu": shuihu_result,
+        "xiyouji": xiyouji_result,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"报告已写入 {args.out}(JSON: {json_out})")
     print(f"水浒类型级(mock 口径):{_pct(shuihu_result['subtype']['accuracy'])}"
           f"  西游 mock category:{_pct(xiyouji_result['mock_category']['accuracy'])}"
           f" vs 旧基线 {_pct(xiyouji_result['legacy_category_baseline']['accuracy'])}")

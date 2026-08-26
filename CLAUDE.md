@@ -87,7 +87,11 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 
 ### Analysis Pipeline
 
-`AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU).
+`AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → `hallucination_reviewer` (LLM layer, FR-4.2) → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU).
+
+**Two-pass recall (FR-4.1)**: after the first extraction pass, `ChapterFactExtractor` runs a second "查漏" call per chapter (first-pass result list + chapter text, additions only). Recalled characters/relationships/events are tagged `source="recall_pass"`, sanitized with the same rules as the first pass, and merged additively (first-pass records are never rewritten). Switch: `RECALL_PASS_ENABLED` (default on; off = v0.73 single-pass behavior, NFR-3). Per-chapter LLM calls stay ≤2× (NFR-2).
+
+**Hallucinated-character LLM layer (FR-4.2)**: `hallucination_reviewer.review_chapter_characters()` runs after `FactValidator`'s rule layer and before DB write. Candidates are extracted characters whose name (or `·`-disambiguated base) cannot be located in the chapter text — the cases name-pattern rules cannot catch (银驮类). A single lightweight LLM call judges each candidate against the chapter context: high-confidence hallucinations are removed (with cascade cleanup of relationships/event participants), low-confidence ones are kept but marked "suspect" in the audit log, and every decision lands in `audit_reports/hallucination_review_log.jsonl` (NFR-5). Whitelist protection: entity-dictionary names plus characters established in earlier chapters (`protected_names`) are never judged. Switch: `HALLUCINATION_REVIEW_ENABLED` (default on; off = v0.73 behavior).
 
 ### Token Budget Auto-Scaling
 
@@ -283,6 +287,13 @@ AI_READER_DATA_DIR    # Default: ~/.ai-reader-v2/
 OLLAMA_BASE_URL       # Default: http://localhost:11434
 OLLAMA_MODEL          # Default: qwen3:8b
 EMBEDDING_MODEL       # Default: BAAI/bge-base-zh-v1.5
+
+# Epic 1-4 quality switches (all default on; off = v0.73 behavior, NFR-3)
+RELATION_DIMENSIONS_ENABLED    # FR-1.2/1.3 relation dimension schema + subtype voting
+EVIDENCE_GROUNDING_ENABLED     # FR-3.1 citation-grounded extraction
+ENTITY_RESOLUTION_ENABLED      # FR-2.x LLM incremental entity resolution
+RECALL_PASS_ENABLED            # FR-4.1 two-pass recall (查漏) extraction
+HALLUCINATION_REVIEW_ENABLED   # FR-4.2 hallucinated-character LLM review layer
 
 # Cloud LLM mode (set LLM_PROVIDER=openai to use)
 LLM_PROVIDER          # "ollama" (default) or "openai"
