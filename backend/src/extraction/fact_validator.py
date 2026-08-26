@@ -964,6 +964,7 @@ class FactValidator:
                     appearance=existing.appearance or ch.appearance,
                     abilities_gained=merged_abilities,
                     locations_in_chapter=merged_locations,
+                    source=existing.source,  # FR-4.1: 保留来源标记(recall_pass 可追溯)
                 )
             else:
                 seen[name] = ch.model_copy(update={"name": name})
@@ -999,6 +1000,7 @@ class FactValidator:
                 appearance=keeper_ch.appearance or target_ch.appearance,
                 abilities_gained=merged_abilities,
                 locations_in_chapter=merged_locations,
+                source=keeper_ch.source,  # FR-4.1: 保留来源标记
             )
             logger.debug(
                 "Merged character '%s' into '%s' via explicit alias link",

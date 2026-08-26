@@ -177,6 +177,23 @@ def test_main_end_to_end_real_inputs(tmp_path, monkeypatch):
     assert "西游类型级不低于旧单标签口径基线" in report
 
 
+def test_main_writes_json_sidecar(tmp_path, monkeypatch):
+    """FR-3.4:与 .md 同路径产出机器可读 JSON,供 Q0 M6 消费。"""
+    import json
+
+    out = tmp_path / "report.md"
+    monkeypatch.setattr(sys, "argv", ["eval_relation_dimensions.py", "--out", str(out)])
+    assert ev.main() == 0
+    sidecar = tmp_path / "report.json"
+    assert sidecar.exists()
+    data = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert data["shuihu_subtype_target"] == ev.SHUIHU_SUBTYPE_TARGET
+    assert data["shuihu"]["subtype"]["accuracy"] is not None
+    assert data["xiyouji"]["mock_category"]["accuracy"] is not None
+    # Q0 compute_m6 可直接消费该结构
+    assert "legacy_category_baseline" in data["xiyouji"]
+
+
 def test_real_silver_file_shape():
     """silver 小样结构契约:条数在 80–120,rel_subtype 必填且取值合法。"""
     records = ev.load_shuihu_silver()

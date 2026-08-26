@@ -221,6 +221,67 @@ class TestM4:
         assert m["generic_residue"] == 0.0
 
 
+# ── M5/M6(Epic 3,FR-3.2–FR-3.4)──────────────────────────────────
+
+def _fake_judge_report() -> dict:
+    return {
+        "aggregate": {
+            "precision": 0.9, "faithfulness": 0.8, "comprehensiveness": 0.7,
+            "m5": 0.8, "total_items": 20, "evidence_coverage": 0.95,
+            "span_located_rate": 0.9, "chapters_judged": 5,
+        },
+    }
+
+
+def _fake_rel_eval() -> dict:
+    return {
+        "shuihu_subtype_target": 0.55,
+        "shuihu": {"subtype": {"accuracy": 0.62}},
+        "xiyouji": {"mock_category": {"accuracy": 0.88},
+                    "legacy_category_baseline": {"accuracy": 0.85}},
+    }
+
+
+class TestM5:
+    def test_calibrated(self):
+        m = qd.compute_m5(_fake_judge_report(), {"kappa": 0.61, "calibrated": True})
+        assert m["status"] == "ok"
+        assert m["m5"] == pytest.approx(0.8)
+        assert m["calibrated"] is True and m["calibration_label"] == "已校准"
+        assert m["kappa"] == pytest.approx(0.61)
+
+    def test_uncalibrated_below_threshold(self):
+        """FR-3.3:kappa 低于阈值时 M5 标记为“未校准”。"""
+        m = qd.compute_m5(_fake_judge_report(), {"kappa": 0.2, "calibrated": False})
+        assert m["calibrated"] is False and m["calibration_label"] == "未校准"
+
+    def test_missing_calibration_marks_uncalibrated(self):
+        m = qd.compute_m5(_fake_judge_report(), None)
+        assert m["status"] == "ok" and m["calibration_label"] == "未校准"
+
+    def test_missing_judge_report(self):
+        m = qd.compute_m5(None, None)
+        assert m["status"] == "missing"
+
+
+class TestM6:
+    def test_metrics(self):
+        m = qd.compute_m6(_fake_rel_eval())
+        assert m["status"] == "ok"
+        assert m["shuihu_subtype_accuracy"] == pytest.approx(0.62)
+        assert m["shuihu_target_met"] is True
+        assert m["xiyouji_not_below_baseline"] is True
+
+    def test_target_not_met(self):
+        ev = _fake_rel_eval()
+        ev["shuihu"]["subtype"]["accuracy"] = 0.40
+        m = qd.compute_m6(ev)
+        assert m["shuihu_target_met"] is False
+
+    def test_missing(self):
+        assert qd.compute_m6(None)["status"] == "missing"
+
+
 class TestParseLlmJson:
     def test_plain(self):
         assert qd.parse_llm_json('{"locations": ["a"]}') == {"locations": ["a"]}
@@ -288,3 +349,52 @@ class TestReports:
                                   {"generated_at": "t", "db_md5": "x"},
                                   {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
         assert "均未触发" in md
+
+
+# ── FR-3.4 六指标报告 ──
+
+class TestSixMetricReport:
+    def test_render_novel_md_with_m5(self):
+        r = _fake_report()
+        r["m5"] = qd.compute_m5(_fake_judge_report(), {"kappa": 0.61, "calibrated": True})
+        md = qd.render_novel_md(r)
+        assert "M5 抽取忠实度" in md
+        assert "M5 综合: 80.0%" in md
+        assert "已校准" in md and "κ=0.610" in md
+
+    def test_render_novel_md_m5_missing(self):
+        r = _fake_report()
+        r["m5"] = qd.compute_m5(None, None)
+        md = qd.render_novel_md(r)
+        assert "M5 缺失" in md
+
+    def test_summary_table_has_six_metrics(self):
+        """指标总表含 M5/M6 两列;M6 只在水浒/西游行有值。"""
+        m5 = qd.compute_m5(_fake_judge_report(), {"kappa": 0.2, "calibrated": False})
+        m6 = qd.compute_m6(_fake_rel_eval())
+        reports = []
+        for slug, title in (("xiyouji", "西游记"), ("shuihu", "水浒传"),
+                            ("honglou", "红楼梦")):
+            r = _fake_report()
+            r["slug"], r["title"] = slug, title
+            r["m5"] = m5
+            reports.append(r)
+        md = qd.render_summary_md(
+            reports, {"generated_at": "t", "db_md5": "x"},
+            {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0},
+            m6,
+        )
+        assert "M5 faithfulness" in md and "M6 关系维度" in md
+        # M5 未校准标记进表
+        assert "80.0%(未校准)" in md
+        # M6:水浒类型级 / 西游 category / 红楼无
+        assert "类型级 62.0%(达标)" in md
+        assert "category 88.0%(不低于旧基线)" in md
+
+    def test_summary_without_m6_backward_compatible(self):
+        """m6=None 时 M6 列记 —,旧调用签名不变。"""
+        md = qd.render_summary_md([_fake_report()],
+                                  {"generated_at": "t", "db_md5": "x"},
+                                  {"prompt_tokens": 0, "completion_tokens": 0,
+                                   "cost_usd": 0.0})
+        assert "M6 关系维度" in md

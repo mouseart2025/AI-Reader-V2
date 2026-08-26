@@ -17,6 +17,9 @@ class CharacterFact(BaseModel):
     appearance: str | None = None
     abilities_gained: list[AbilityGained] = []
     locations_in_chapter: list[str] = []
+    # FR-4.1: 来源标记("main" 首遍 / "recall_pass" 查漏补漏)。
+    # 可选字段、默认 "main",旧 JSON 反序列化不变。
+    source: str = "main"
 
     @field_validator("abilities_gained", mode="before")
     @classmethod
@@ -49,6 +52,8 @@ class RelationshipFact(BaseModel):
     # (rel_subtype -> vote count, includes the main extraction pass as one vote).
     # None when voting did not run (switch off or single-sample config).
     subtype_vote: dict[str, int] | None = None
+    # FR-4.1: 来源标记("main" 首遍 / "recall_pass" 查漏补漏),默认 "main"。
+    source: str = "main"
 
 
 class LocationFact(BaseModel):
@@ -91,6 +96,11 @@ class EventFact(BaseModel):
     importance: str = "medium"  # high/medium/low
     participants: list[str] = []
     location: str | None = None
+    # FR-3.1: 原文证据 span(与 RelationshipFact.evidence 对齐)。
+    # 可选字段、默认 "",旧 JSON 反序列化不变。
+    evidence: str = ""
+    # FR-4.1: 来源标记("main" 首遍 / "recall_pass" 查漏补漏),默认 "main"。
+    source: str = "main"
 
 
 class ConceptFact(BaseModel):
