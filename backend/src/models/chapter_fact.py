@@ -40,6 +40,15 @@ class RelationshipFact(BaseModel):
     is_new: bool = True
     previous_type: str | None = None
     evidence: str = ""
+    # Dimension schema v1 (docs/analysis/relation-dimension-schema-v1.md, FR-1.1).
+    # All optional with None default: legacy JSON without these fields deserializes unchanged.
+    polarity: str | None = None  # "positive" / "negative" / "neutral"
+    rel_subtype: str | None = None  # e.g. 结拜 / 师门-同门 / 辈分-亲属 / 主从 / 同盟 / 敌对 / 爱慕
+    closeness: str | None = None  # "close" / "distant" / "unknown"
+    # FR-1.3: self-consistency vote distribution for rel_subtype
+    # (rel_subtype -> vote count, includes the main extraction pass as one vote).
+    # None when voting did not run (switch off or single-sample config).
+    subtype_vote: dict[str, int] | None = None
 
 
 class LocationFact(BaseModel):

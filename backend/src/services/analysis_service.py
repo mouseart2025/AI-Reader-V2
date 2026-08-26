@@ -895,6 +895,23 @@ class AnalysisService:
                 self._auto_spatial_completion(novel_id),
                 name=f"spatial-completion-{novel_id}",
             )
+            # 3. Entity resolution (Epic 2; LLM, gated by ENTITY_RESOLUTION_ENABLED)
+            from src.infra.config import ENTITY_RESOLUTION_ENABLED
+            if ENTITY_RESOLUTION_ENABLED:
+                asyncio.create_task(
+                    self._auto_entity_resolution(novel_id),
+                    name=f"entity-resolution-{novel_id}",
+                )
+
+    async def _auto_entity_resolution(self, novel_id: str) -> None:
+        """Post-analysis LLM entity resolution (Epic 2). Non-fatal."""
+        try:
+            from src.services import entity_resolver
+
+            report = await entity_resolver.resolve_novel(novel_id)
+            logger.info("Auto entity resolution for %s: %s", novel_id, report)
+        except Exception:
+            logger.exception("Auto entity resolution failed for %s", novel_id)
 
     async def _auto_rebuild_hierarchy(self, novel_id: str) -> None:
         """Background task: rebuild hierarchy via Edmonds pipeline after analysis.

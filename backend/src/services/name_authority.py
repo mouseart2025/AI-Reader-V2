@@ -866,6 +866,30 @@ def is_generic_person(name: str, genre: str | None = None) -> str | None:
     return None
 
 
+def similar_name_conflict(a: str, b: str) -> bool:
+    """Detect structurally similar but distinct names (e.g., 阮小二 vs 阮小七).
+
+    Returns True if the names share a prefix but differ in the last character,
+    suggesting they are different characters with parallel naming patterns.
+    Also detects prefix-suffix relationships (阮小 vs 阮小二).
+
+    Single source of truth for the anti-bridging constraint — used by both
+    the Union-Find auto pipeline (alias_resolver._safe_union Layer 0) and the
+    LLM entity-resolution path (entity_resolver, FR-2.3).
+    """
+    la, lb = len(a), len(b)
+    # Same length, same prefix, different last char
+    # (阮小二 vs 阮小七, 解珍 vs 解宝)
+    if la == lb and la >= 2 and a[:-1] == b[:-1] and a[-1] != b[-1]:
+        return True
+    # Prefix relationship: shorter is strict prefix of longer
+    # (阮小 vs 阮小二 — "阮小" is a truncated form)
+    short, long = (a, b) if la < lb else (b, a)
+    if len(short) >= 2 and long.startswith(short) and len(long) - len(short) == 1:
+        return True
+    return False
+
+
 def is_nickname_or_title(name: str) -> bool:
     """Check if a name looks like a nickname, courtesy name, or title form.
 

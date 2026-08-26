@@ -128,3 +128,45 @@ def classify_relation_category(normalized_type: str) -> str:
     if any(kw in normalized_type for kw in ("友", "同", "邻", "盟")):
         return "social"
     return "other"
+
+
+# ── Dimension schema v1 → legacy category derivation (FR-1.4) ──
+# Value table frozen in docs/analysis/relation-dimension-schema-v1.md.
+# Category assignment mirrors _RELATION_CATEGORY above: 夫妻 follows 辈分-亲属
+# (family), 结拜 is intimate, 师门-同门 is a peer (social) bond, 爱慕 is
+# one-sided (social, not intimate).
+_REL_SUBTYPE_CATEGORY: dict[str, str] = {
+    "辈分-亲属": "family",
+    "结拜": "intimate",
+    "婚恋": "intimate",
+    "爱慕": "social",
+    "师门-师徒": "hierarchical",
+    "师门-同门": "social",
+    "主从": "hierarchical",
+    "君臣-上下级": "hierarchical",
+    "同盟": "social",
+    "朋友-社交": "social",
+    "恩怨-报恩": "social",
+    "敌对": "hostile",
+    "其他": "other",
+}
+
+
+def derive_category_from_dimensions(
+    rel_subtype: str | None,
+    polarity: str | None = None,
+    closeness: str | None = None,
+) -> str | None:
+    """Derive the legacy six-class category from dimension schema fields (FR-1.4).
+
+    Returns None when no usable dimension data exists (rel_subtype missing or
+    out-of-vocabulary) — callers must then fall back to
+    classify_relation_category(normalize_relation_type(...)), keeping behavior
+    byte-identical to the legacy path (NFR-3).
+
+    v1 derives from rel_subtype only; polarity/closeness are orthogonal
+    dimensions reserved for views and do not affect the category.
+    """
+    if rel_subtype is None:
+        return None
+    return _REL_SUBTYPE_CATEGORY.get(rel_subtype)

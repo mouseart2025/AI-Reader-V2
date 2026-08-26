@@ -60,7 +60,10 @@
         "relation_type": "兄弟",
         "is_new": true,
         "previous_type": null,
-        "evidence": "在他身边紧挨着的另一人，是二哥韩铸"
+        "evidence": "在他身边紧挨着的另一人，是二哥韩铸",
+        "polarity": "positive",
+        "rel_subtype": "辈分-亲属",
+        "closeness": "close"
       },
       {
         "person_a": "韩立",
@@ -68,7 +71,10 @@
         "relation_type": "叔侄",
         "is_new": true,
         "previous_type": null,
-        "evidence": "这位贵客，是跟他血缘很近的一位至亲——他的亲三叔"
+        "evidence": "这位贵客，是跟他血缘很近的一位至亲——他的亲三叔",
+        "polarity": "positive",
+        "rel_subtype": "辈分-亲属",
+        "closeness": "close"
       },
       {
         "person_a": "韩立",
@@ -76,7 +82,10 @@
         "relation_type": "父子",
         "is_new": true,
         "previous_type": null,
-        "evidence": "韩父反复嘱咐韩立，做人要老实"
+        "evidence": "韩父反复嘱咐韩立，做人要老实",
+        "polarity": "positive",
+        "rel_subtype": "辈分-亲属",
+        "closeness": "close"
       },
       {
         "person_a": "韩立",
@@ -84,7 +93,10 @@
         "relation_type": "母子",
         "is_new": true,
         "previous_type": null,
-        "evidence": "韩母则要他多注意身体，要吃好睡好"
+        "evidence": "韩母则要他多注意身体，要吃好睡好",
+        "polarity": "positive",
+        "rel_subtype": "辈分-亲属",
+        "closeness": "close"
       }
     ],
     "locations": [
@@ -484,7 +496,10 @@
         "relation_type": "君臣",
         "is_new": true,
         "previous_type": null,
-        "evidence": "众猴拜石猴为王，赤尻马猴等为臣"
+        "evidence": "众猴拜石猴为王，赤尻马猴等为臣",
+        "polarity": "neutral",
+        "rel_subtype": "君臣-上下级",
+        "closeness": "close"
       },
       {
         "person_a": "石猴",
@@ -492,7 +507,10 @@
         "relation_type": "君臣",
         "is_new": true,
         "previous_type": null,
-        "evidence": "众猴拜石猴为王，通背猿猴等为臣"
+        "evidence": "众猴拜石猴为王，通背猿猴等为臣",
+        "polarity": "neutral",
+        "rel_subtype": "君臣-上下级",
+        "closeness": "close"
       },
       {
         "person_a": "玉皇大帝",
@@ -500,7 +518,10 @@
         "relation_type": "君臣",
         "is_new": true,
         "previous_type": null,
-        "evidence": "玉帝差千里眼、顺风耳开南天门观看"
+        "evidence": "玉帝差千里眼、顺风耳开南天门观看",
+        "polarity": "neutral",
+        "rel_subtype": "君臣-上下级",
+        "closeness": "distant"
       },
       {
         "person_a": "玉皇大帝",
@@ -508,7 +529,10 @@
         "relation_type": "君臣",
         "is_new": true,
         "previous_type": null,
-        "evidence": "玉帝差千里眼、顺风耳开南天门观看"
+        "evidence": "玉帝差千里眼、顺风耳开南天门观看",
+        "polarity": "neutral",
+        "rel_subtype": "君臣-上下级",
+        "closeness": "distant"
       }
     ],
     "locations": [
