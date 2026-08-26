@@ -191,6 +191,14 @@ def test_span_located_whitespace_normalized():
     assert not span_located("", text)
 
 
+def test_span_located_quote_style_normalized():
+    """真实冒烟实测:LLM 引用时改写引号样式(“” ↔ ''),定位应容忍。"""
+    text = '众猴听说，即拱伏无违，朝上礼拜，都称“千岁大王”。'
+    assert span_located("众猴听说，即拱伏无违，朝上礼拜，都称'千岁大王'", text)
+    # 引号之外的内容差异仍判不可定位
+    assert not span_located("众猴听说，即拱伏无违，朝上礼拜，都称'百岁大王'", text)
+
+
 # ── 开关(NFR-3 回退)──
 
 
