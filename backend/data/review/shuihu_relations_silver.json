@@ -1,0 +1,2101 @@
+{
+  "_novel": "水浒传",
+  "_label_level": "silver_draft",
+  "_total": 120,
+  "_instructions": "silver 草稿标注:规则生成(all_types 优先级 + 旧类型→rel_subtype 映射) + 少量基于原著知识的 curated override(reason 以 [curated] 开头),未经人工复核,不得作为论文绝对数字。rel_subtype 必填;polarity/closeness 为规则默认值。取样自 demo/shuihu/graph.json.gz 冻结抽取产物(只读,未修改)。schema:docs/analysis/relation-dimension-schema-v1.md(13 个 rel_subtype 取值)。",
+  "_schema_version": "relation-dimension-schema-v1",
+  "_source": "demo/shuihu/graph.json.gz (frozen extraction, read-only)",
+  "relations": [
+    {
+      "person_a": "宋江",
+      "person_b": "晁盖",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "上下级",
+        "朋友",
+        "君臣",
+        "继任"
+      ],
+      "system_category": "social",
+      "mention_count": 20,
+      "first_seen": "ch19",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 郓城故交,生辰纲事发宋江冒死报信;书中无结拜记载,后为前后任寨主",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "吴用",
+      "person_b": "晁盖",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "朋友",
+        "上下级",
+        "主仆"
+      ],
+      "system_category": "social",
+      "mention_count": 8,
+      "first_seen": "ch15",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 吴用与晁盖自幼结交,为其心腹智囊",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "杨雄",
+      "person_b": "石秀",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "朋友",
+        "同门",
+        "救援"
+      ],
+      "system_category": "social",
+      "mention_count": 8,
+      "first_seen": "ch45",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 石秀与杨雄结拜为兄弟",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "刘唐",
+      "person_b": "晁盖",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "上下级",
+        "朋友",
+        "救助",
+        "主仆"
+      ],
+      "system_category": "social",
+      "mention_count": 7,
+      "first_seen": "ch15",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "公孙胜",
+      "person_b": "晁盖",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "朋友",
+        "上下级",
+        "求见",
+        "主仆"
+      ],
+      "system_category": "social",
+      "mention_count": 6,
+      "first_seen": "ch16",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "公孙胜",
+      "person_b": "吴用",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "上下级",
+        "朋友",
+        "同门"
+      ],
+      "system_category": "social",
+      "mention_count": 5,
+      "first_seen": "ch17",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "林冲",
+      "person_b": "鲁智深",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "朋友",
+        "师兄弟"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch8",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 鲁智深与林冲结为好友(schema v1 例子),野猪林相救",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "吴用",
+      "person_b": "阮小七",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "上下级",
+        "朋友"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch16",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "吴用",
+      "person_b": "阮小五",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "朋友",
+        "上下级"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch16",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张青",
+      "person_b": "鲁智深",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "救助",
+        "朋友",
+        "同门"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch18",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 十字坡相识后同上二龙山,书中无结拜记载",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张青",
+      "person_b": "武松",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟",
+        "朋友"
+      ],
+      "system_category": "social",
+      "mention_count": 3,
+      "first_seen": "ch28",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['结拜兄弟', '朋友'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "燕顺",
+      "person_b": "王矮虎",
+      "system_type": "结拜兄弟",
+      "system_all_types": [
+        "结拜兄弟"
+      ],
+      "system_category": "social",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['结拜兄弟'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "智真长老",
+      "person_b": "鲁智深",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 4,
+      "first_seen": "ch5",
+      "rel_subtype": "师门-师徒",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['师徒'] 按优先级规则取“师门-师徒”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "公孙胜",
+      "person_b": "罗真人",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 4,
+      "first_seen": "ch54",
+      "rel_subtype": "师门-师徒",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 公孙胜拜罗真人为师学道",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "王庆",
+      "person_b": "龚正",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒",
+        "上下级",
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 4,
+      "first_seen": "ch103",
+      "rel_subtype": "师门-师徒",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['师徒', '上下级', '君臣'] 按优先级规则取“师门-师徒”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孔亮",
+      "person_b": "宋江",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒",
+        "朋友",
+        "救助",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "rel_subtype": "师门-师徒",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['师徒', '朋友', '救助', '上下级'] 按优先级规则取“师门-师徒”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "王庆",
+      "person_b": "龚端",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch103",
+      "rel_subtype": "师门-师徒",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['师徒', '上下级'] 按优先级规则取“师门-师徒”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "史文恭",
+      "person_b": "苏定",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒",
+        "同门"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 2,
+      "first_seen": "ch61",
+      "rel_subtype": "师门-师徒",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['师徒', '同门'] 按优先级规则取“师门-师徒”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "史进",
+      "person_b": "王进",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 1,
+      "first_seen": "ch3",
+      "rel_subtype": "师门-师徒",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 王进点拨史进武艺,有师徒之实",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "史进",
+      "person_b": "李忠",
+      "system_type": "师徒",
+      "system_all_types": [
+        "师徒"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 1,
+      "first_seen": "ch4",
+      "rel_subtype": "师门-师徒",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['师徒'] 按优先级规则取“师门-师徒”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "卢俊义",
+      "person_b": "燕青",
+      "system_type": "主仆",
+      "system_all_types": [
+        "主仆",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 7,
+      "first_seen": "ch62",
+      "rel_subtype": "主从",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 燕青为卢俊义自幼收养的心腹家人,主仆之实",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "卢俊义",
+      "person_b": "李固",
+      "system_type": "主仆",
+      "system_all_types": [
+        "主仆",
+        "敌对"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 4,
+      "first_seen": "ch62",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[curated] 李固为卢俊义府上都管,主仆关系",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "林冲",
+      "person_b": "锦儿",
+      "system_type": "主仆",
+      "system_all_types": [
+        "主仆"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch8",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['主仆'] 按优先级规则取“主从”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "晁盖",
+      "person_b": "杜迁",
+      "system_type": "主仆",
+      "system_all_types": [
+        "主仆",
+        "结拜兄弟",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch20",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['主仆', '结拜兄弟', '上下级'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋万",
+      "person_b": "晁盖",
+      "system_type": "主仆",
+      "system_all_types": [
+        "主仆",
+        "结拜兄弟",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch20",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['主仆', '结拜兄弟', '上下级'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "李应",
+      "person_b": "杜兴",
+      "system_type": "主仆",
+      "system_all_types": [
+        "主仆"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch48",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['主仆'] 按优先级规则取“主从”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "太公",
+      "person_b": "李吉",
+      "system_type": "雇佣",
+      "system_all_types": [
+        "雇佣"
+      ],
+      "system_category": "other",
+      "mention_count": 1,
+      "first_seen": "ch3",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['雇佣'] 按优先级规则取“主从”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "铁匠待诏",
+      "person_b": "鲁智深",
+      "system_type": "雇佣",
+      "system_all_types": [
+        "雇佣"
+      ],
+      "system_category": "other",
+      "mention_count": 1,
+      "first_seen": "ch5",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['雇佣'] 按优先级规则取“主从”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "侯健",
+      "person_b": "黄文炳",
+      "system_type": "雇佣",
+      "system_all_types": [
+        "雇佣"
+      ],
+      "system_category": "other",
+      "mention_count": 1,
+      "first_seen": "ch42",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['雇佣'] 按优先级规则取“主从”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "扈三娘",
+      "person_b": "王矮虎",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻",
+        "敌对"
+      ],
+      "system_category": "intimate",
+      "mention_count": 12,
+      "first_seen": "ch49",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 宋江主婚,扈三娘嫁王英为夫妻(平辈姻亲)",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "阮小七",
+      "person_b": "阮小五",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 10,
+      "first_seen": "ch16",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孙二娘",
+      "person_b": "张青",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻"
+      ],
+      "system_category": "intimate",
+      "mention_count": 10,
+      "first_seen": "ch18",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['夫妻'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "宋清",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 10,
+      "first_seen": "ch23",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋太公",
+      "person_b": "宋江",
+      "system_type": "父子",
+      "system_all_types": [
+        "父子"
+      ],
+      "system_category": "family",
+      "mention_count": 9,
+      "first_seen": "ch23",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['父子'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张清",
+      "person_b": "琼英",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻",
+        "恋人",
+        "同门",
+        "上下级"
+      ],
+      "system_category": "intimate",
+      "mention_count": 8,
+      "first_seen": "ch99",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['夫妻', '恋人', '同门', '上下级'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孙新",
+      "person_b": "顾大嫂",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻"
+      ],
+      "system_category": "intimate",
+      "mention_count": 7,
+      "first_seen": "ch50",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['夫妻'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孔亮",
+      "person_b": "孔明",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 6,
+      "first_seen": "ch33",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张横",
+      "person_b": "张顺",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 5,
+      "first_seen": "ch38",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋太公",
+      "person_b": "宋清",
+      "system_type": "父子",
+      "system_all_types": [
+        "父子"
+      ],
+      "system_category": "family",
+      "mention_count": 3,
+      "first_seen": "ch23",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['父子'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "童威",
+      "person_b": "童猛",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 3,
+      "first_seen": "ch42",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "巧云",
+      "person_b": "杨雄",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻"
+      ],
+      "system_category": "intimate",
+      "mention_count": 3,
+      "first_seen": "ch45",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['夫妻'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "蔡庆",
+      "person_b": "蔡福",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 3,
+      "first_seen": "ch63",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "琼英",
+      "person_b": "邬梨",
+      "system_type": "父女",
+      "system_all_types": [
+        "父女",
+        "父子"
+      ],
+      "system_category": "family",
+      "mention_count": 3,
+      "first_seen": "ch98",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['父女', '父子'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "田彪",
+      "person_b": "田虎",
+      "system_type": "兄弟",
+      "system_all_types": [
+        "兄弟"
+      ],
+      "system_category": "family",
+      "mention_count": 3,
+      "first_seen": "ch98",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['兄弟'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "段三娘",
+      "person_b": "王庆",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻"
+      ],
+      "system_category": "intimate",
+      "mention_count": 3,
+      "first_seen": "ch105",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['夫妻'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "金翠莲",
+      "person_b": "金老",
+      "system_type": "父女",
+      "system_all_types": [
+        "父女",
+        "父子"
+      ],
+      "system_category": "family",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['父女', '父子'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "林冲",
+      "person_b": "林冲娘子",
+      "system_type": "夫妻",
+      "system_all_types": [
+        "夫妻"
+      ],
+      "system_category": "intimate",
+      "mention_count": 2,
+      "first_seen": "ch8",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['夫妻'] 按优先级规则取“辈分-亲属”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "童贯",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "上下级"
+      ],
+      "system_category": "hostile",
+      "mention_count": 5,
+      "first_seen": "ch76",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对', '上下级'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "林冲",
+      "person_b": "高太尉",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "上下级"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch8",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对', '上下级'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "武松",
+      "person_b": "蒋门神",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch30",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[curated] 蒋门神夺施恩快活林,武松醉打蒋门神",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孔亮",
+      "person_b": "武松",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "朋友",
+        "师徒"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 白虎山不打不相识;孔明孔亮之师为宋江,非武松",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "刘高",
+      "person_b": "花荣",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "同僚"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch33",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对', '同僚'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "吕方",
+      "person_b": "郭盛",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "师兄弟",
+        "朋友",
+        "同门"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch36",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 对影山比武对手,后同上梁山为同僚,非同门",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "黄文炳",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch40",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "公孙胜",
+      "person_b": "李逵",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "上下级"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch55",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对', '上下级'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张清",
+      "person_b": "董平",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "同门",
+        "朋友"
+      ],
+      "system_category": "hostile",
+      "mention_count": 3,
+      "first_seen": "ch71",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 梁山马军同僚,书中无同门记载",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "史进",
+      "person_b": "李吉",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "雇佣"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch3",
+      "rel_subtype": "主从",
+      "polarity": "neutral",
+      "closeness": "close",
+      "reason": "[rule] all_types=['敌对', '雇佣'] 按优先级规则取“主从”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "郑屠",
+      "person_b": "鲁智深",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[curated] 鲁智深三拳打死镇关西",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "杨志",
+      "person_b": "林冲",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "朋友"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch13",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对', '朋友'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "杨志",
+      "person_b": "高太尉",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch13",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "武大郎",
+      "person_b": "西门庆",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch26",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "武松",
+      "person_b": "王婆",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch27",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孙二娘",
+      "person_b": "武松",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "朋友",
+        "爱慕",
+        "叔嫂"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch28",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 十字坡张青孙二娘与武松结拜,武松认二人为兄嫂",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "孙二娘",
+      "person_b": "鲁智深",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "同门"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch28",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 十字坡不打不相识,后同为二龙山头领,非同门",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "施恩",
+      "person_b": "蒋门神",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch30",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张蒙方",
+      "person_b": "武松",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对",
+        "上下级",
+        "陷害"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch31",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对', '上下级', '陷害'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张团练",
+      "person_b": "武松",
+      "system_type": "敌对",
+      "system_all_types": [
+        "敌对"
+      ],
+      "system_category": "hostile",
+      "mention_count": 2,
+      "first_seen": "ch31",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['敌对'] 按优先级规则取“敌对”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "吴用",
+      "person_b": "宋江",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "君臣",
+        "朋友",
+        "友军",
+        "同死"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 64,
+      "first_seen": "ch37",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['上下级', '君臣', '朋友', '友军', '同死'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "李逵",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "主仆",
+        "君臣",
+        "朋友",
+        "结拜兄弟",
+        "看觑",
+        "求情",
+        "约束",
+        "主从",
+        "敌对"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 38,
+      "first_seen": "ch39",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 李逵为宋江嫡系步军头领,忠诚统属关系,书中无结拜记载",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "卢俊义",
+      "person_b": "宋江",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "爱慕",
+        "结拜兄弟",
+        "君臣",
+        "同门"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 33,
+      "first_seen": "ch61",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 梁山正副寨主统属关系;all_types 中“爱慕”为抽取噪声",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "戴宗",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "朋友",
+        "主仆",
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 31,
+      "first_seen": "ch39",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 戴宗为宋江心腹,梁山统属关系,非主仆",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "公孙胜",
+      "person_b": "宋江",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "君臣",
+        "牵挂",
+        "敌对",
+        "师徒"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 25,
+      "first_seen": "ch43",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 公孙胜为梁山头领受宋江统属;其师为罗真人,与宋江非师徒",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "花荣",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "结拜兄弟",
+        "朋友",
+        "君臣",
+        "救助",
+        "同死"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 22,
+      "first_seen": "ch33",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['上下级', '结拜兄弟', '朋友', '君臣', '救助', '同死'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "鲁智深",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "结拜兄弟",
+        "仰慕",
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 16,
+      "first_seen": "ch59",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 鲁智深率二龙山并入梁山后受宋江统属,无结拜记载",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "林冲",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "朋友"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 15,
+      "first_seen": "ch23",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['上下级', '朋友'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "关胜",
+      "person_b": "宋江",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "敌对",
+        "招降"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 15,
+      "first_seen": "ch65",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 关胜被擒后感宋江义气归顺,为梁山马军头领",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "柴进",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "朋友",
+        "同伙",
+        "结拜兄弟"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 14,
+      "first_seen": "ch23",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 柴进多次庇护资助宋江(沧州避难、资助盘缠)",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "朱仝",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "同伙",
+        "朋友",
+        "救助",
+        "结拜兄弟"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 13,
+      "first_seen": "ch23",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 朱仝先后义释晁盖、宋江,有救命/庇护之恩",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "武松",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "结拜兄弟",
+        "朋友",
+        "资助",
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 13,
+      "first_seen": "ch24",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 柴进庄上结拜为义兄弟(schema v1 例子)",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "秦明",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "朋友",
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 13,
+      "first_seen": "ch35",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['上下级', '朋友', '君臣'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "燕青",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "主仆",
+        "结拜兄弟"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 12,
+      "first_seen": "ch63",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 燕青随卢俊义上梁山为头领,与宋江为统属关系,非结拜/主仆",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "刘唐",
+      "person_b": "宋江",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级",
+        "结拜兄弟"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 10,
+      "first_seen": "ch37",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['上下级', '结拜兄弟'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "张清",
+      "system_type": "上下级",
+      "system_all_types": [
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 10,
+      "first_seen": "ch71",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['上下级'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "道君皇帝",
+      "person_b": "高太尉",
+      "system_type": "君臣",
+      "system_all_types": [
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch56",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['君臣'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "大辽郎主",
+      "person_b": "御弟大王",
+      "system_type": "君臣",
+      "system_all_types": [
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch85",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['君臣'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "大辽郎主",
+      "person_b": "褚坚",
+      "system_type": "君臣",
+      "system_all_types": [
+        "君臣"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch85",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['君臣'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "叶清",
+      "person_b": "田虎",
+      "system_type": "君臣",
+      "system_all_types": [
+        "君臣",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 3,
+      "first_seen": "ch99",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['君臣', '上下级'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "石勇",
+      "system_type": "君臣",
+      "system_all_types": [
+        "君臣",
+        "朋友",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 2,
+      "first_seen": "ch36",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['君臣', '朋友', '上下级'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "杨雄",
+      "system_type": "君臣",
+      "system_all_types": [
+        "君臣",
+        "上下级"
+      ],
+      "system_category": "hierarchical",
+      "mention_count": 2,
+      "first_seen": "ch48",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['君臣', '上下级'] 按优先级规则取“君臣-上下级”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "林冲",
+      "person_b": "柴进",
+      "system_type": "救助",
+      "system_all_types": [
+        "救助",
+        "朋友",
+        "投奔",
+        "主客"
+      ],
+      "system_category": "other",
+      "mention_count": 4,
+      "first_seen": "ch10",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 柴进收留庇护发配途中的林冲并修书荐往梁山",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "李逵",
+      "person_b": "柴进",
+      "system_type": "救助",
+      "system_all_types": [
+        "救助",
+        "庇护"
+      ],
+      "system_category": "other",
+      "mention_count": 3,
+      "first_seen": "ch53",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['救助', '庇护'] 按优先级规则取“恩怨-报恩”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "金翠莲",
+      "person_b": "鲁智深",
+      "system_type": "救助",
+      "system_all_types": [
+        "救助"
+      ],
+      "system_category": "other",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 金翠莲父女感念鲁智深救命之恩(schema v1 例子)",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "晁盖",
+      "person_b": "朱仝",
+      "system_type": "救助",
+      "system_all_types": [
+        "救助",
+        "同伙"
+      ],
+      "system_category": "other",
+      "mention_count": 2,
+      "first_seen": "ch19",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['救助', '同伙'] 按优先级规则取“恩怨-报恩”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "金二",
+      "person_b": "鲁智深",
+      "system_type": "救助",
+      "system_all_types": [
+        "救助"
+      ],
+      "system_category": "other",
+      "mention_count": 1,
+      "first_seen": "ch4",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['救助'] 按优先级规则取“恩怨-报恩”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "金老",
+      "person_b": "鲁智深",
+      "system_type": "施恩",
+      "system_all_types": [
+        "施恩",
+        "救助"
+      ],
+      "system_category": "other",
+      "mention_count": 2,
+      "first_seen": "ch4",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['施恩', '救助'] 按优先级规则取“恩怨-报恩”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "两个猎户",
+      "person_b": "武松",
+      "system_type": "施恩",
+      "system_all_types": [
+        "施恩"
+      ],
+      "system_category": "other",
+      "mention_count": 1,
+      "first_seen": "ch24",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['施恩'] 按优先级规则取“恩怨-报恩”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "小张乙",
+      "system_type": "施恩",
+      "system_all_types": [
+        "施恩"
+      ],
+      "system_category": "other",
+      "mention_count": 1,
+      "first_seen": "ch39",
+      "rel_subtype": "恩怨-报恩",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['施恩'] 按优先级规则取“恩怨-报恩”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "刘唐",
+      "person_b": "吴用",
+      "system_type": "朋友",
+      "system_all_types": [
+        "朋友",
+        "结拜兄弟",
+        "上下级"
+      ],
+      "system_category": "social",
+      "mention_count": 7,
+      "first_seen": "ch15",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "王矮虎",
+      "system_type": "朋友",
+      "system_all_types": [
+        "朋友",
+        "上下级",
+        "敌对",
+        "主从",
+        "君臣"
+      ],
+      "system_category": "social",
+      "mention_count": 6,
+      "first_seen": "ch33",
+      "rel_subtype": "君臣-上下级",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 王英(王矮虎)拜服宋江后为梁山头领,统属关系",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "晁盖",
+      "person_b": "阮小七",
+      "system_type": "朋友",
+      "system_all_types": [
+        "朋友",
+        "结拜兄弟",
+        "上下级"
+      ],
+      "system_category": "social",
+      "mention_count": 5,
+      "first_seen": "ch16",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "晁盖",
+      "person_b": "阮小五",
+      "system_type": "朋友",
+      "system_all_types": [
+        "朋友",
+        "结拜兄弟",
+        "上下级"
+      ],
+      "system_category": "social",
+      "mention_count": 5,
+      "first_seen": "ch16",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 七星聚义共谋生辰纲,对等联盟,非结拜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "史进",
+      "person_b": "朱武",
+      "system_type": "朋友",
+      "system_all_types": [
+        "朋友",
+        "上下级",
+        "敌对"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch3",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 史进与少华山朱武结交,书信往来",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "李忠",
+      "person_b": "鲁智深",
+      "system_type": "朋友",
+      "system_all_types": [
+        "朋友",
+        "师徒"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch4",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 渭州相识的旧交;李忠是史进之师,与鲁智深非师徒",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "朱仝",
+      "person_b": "雷横",
+      "system_type": "同门",
+      "system_all_types": [
+        "同门",
+        "上下级",
+        "朋友",
+        "同事",
+        "同官",
+        "结拜兄弟",
+        "同行"
+      ],
+      "system_category": "social",
+      "mention_count": 10,
+      "first_seen": "ch14",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 郓城县马步军都头同僚兼好友",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "张顺",
+      "person_b": "李俊",
+      "system_type": "同门",
+      "system_all_types": [
+        "同门",
+        "结拜兄弟",
+        "朋友",
+        "上下级"
+      ],
+      "system_category": "social",
+      "mention_count": 8,
+      "first_seen": "ch41",
+      "rel_subtype": "结拜",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['同门', '结拜兄弟', '朋友', '上下级'] 按优先级规则取“结拜”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "李逵",
+      "person_b": "鲁智深",
+      "system_type": "同门",
+      "system_all_types": [
+        "同门",
+        "朋友"
+      ],
+      "system_category": "social",
+      "mention_count": 7,
+      "first_seen": "ch62",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 梁山同僚,书中无同门记载",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "秦明",
+      "person_b": "花荣",
+      "system_type": "同门",
+      "system_all_types": [
+        "同门",
+        "敌对",
+        "朋友",
+        "郎舅",
+        "连襟",
+        "同事"
+      ],
+      "system_category": "social",
+      "mention_count": 6,
+      "first_seen": "ch35",
+      "rel_subtype": "辈分-亲属",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 秦明娶花荣之妹,郎舅姻亲",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "武松",
+      "person_b": "鲁智深",
+      "system_type": "师兄弟",
+      "system_all_types": [
+        "师兄弟",
+        "同门",
+        "朋友",
+        "结拜兄弟"
+      ],
+      "system_category": "social",
+      "mention_count": 13,
+      "first_seen": "ch32",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 二龙山共事至交,书中无同门/结拜记载",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "智清禅师",
+      "person_b": "智真长老",
+      "system_type": "师兄弟",
+      "system_all_types": [
+        "师兄弟"
+      ],
+      "system_category": "social",
+      "mention_count": 1,
+      "first_seen": "ch6",
+      "rel_subtype": "师门-同门",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['师兄弟'] 按优先级规则取“师门-同门”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "潘金莲",
+      "person_b": "西门庆",
+      "system_type": "恋人",
+      "system_all_types": [
+        "恋人",
+        "通奸"
+      ],
+      "system_category": "intimate",
+      "mention_count": 3,
+      "first_seen": "ch25",
+      "rel_subtype": "婚恋",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 双向私通的情人关系(非单向爱慕)",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "婆惜",
+      "person_b": "宋江",
+      "system_type": "恋人",
+      "system_all_types": [
+        "恋人",
+        "夫妻"
+      ],
+      "system_category": "intimate",
+      "mention_count": 2,
+      "first_seen": "ch22",
+      "rel_subtype": "婚恋",
+      "polarity": "negative",
+      "closeness": "close",
+      "reason": "[curated] 阎婆惜为宋江外室,情人关系;后交恶,宋江怒杀阎婆惜",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "婆惜",
+      "person_b": "过街老鼠张三",
+      "system_type": "恋人",
+      "system_all_types": [
+        "恋人"
+      ],
+      "system_category": "intimate",
+      "mention_count": 1,
+      "first_seen": "ch22",
+      "rel_subtype": "婚恋",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['恋人'] 按优先级规则取“婚恋”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "婆惜",
+      "person_b": "张文远",
+      "system_type": "恋人",
+      "system_all_types": [
+        "恋人"
+      ],
+      "system_category": "intimate",
+      "mention_count": 1,
+      "first_seen": "ch23",
+      "rel_subtype": "婚恋",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[rule] all_types=['恋人'] 按优先级规则取“婚恋”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "武松",
+      "person_b": "潘金莲",
+      "system_type": "爱慕",
+      "system_all_types": [
+        "爱慕",
+        "叔嫂"
+      ],
+      "system_category": "social",
+      "mention_count": 2,
+      "first_seen": "ch25",
+      "rel_subtype": "敌对",
+      "polarity": "negative",
+      "closeness": "unknown",
+      "reason": "[curated] 潘金莲毒杀武大郎,武松杀嫂复仇,亲属名分被仇恨主导",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "小衙内",
+      "person_b": "朱仝",
+      "system_type": "爱慕",
+      "system_all_types": [
+        "爱慕"
+      ],
+      "system_category": "social",
+      "mention_count": 1,
+      "first_seen": "ch52",
+      "rel_subtype": "主从",
+      "polarity": "positive",
+      "closeness": "close",
+      "reason": "[curated] 朱仝受沧州知府托付看顾小衙内,看顾之责;“爱慕”为疼爱误抽",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "宋江",
+      "person_b": "李师师",
+      "system_type": "爱慕",
+      "system_all_types": [
+        "爱慕",
+        "社交"
+      ],
+      "system_category": "social",
+      "mention_count": 1,
+      "first_seen": "ch73",
+      "rel_subtype": "朋友-社交",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[curated] 宋江借李师师通关节求招安,事务性交往,非恋慕",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "娇秀",
+      "person_b": "王庆",
+      "system_type": "爱慕",
+      "system_all_types": [
+        "爱慕"
+      ],
+      "system_category": "social",
+      "mention_count": 1,
+      "first_seen": "ch102",
+      "rel_subtype": "爱慕",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['爱慕'] 按优先级规则取“爱慕”,未经人工复核",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "时迁",
+      "person_b": "石秀",
+      "system_type": "同伙",
+      "system_all_types": [
+        "同伙",
+        "朋友",
+        "同门"
+      ],
+      "system_category": "social",
+      "mention_count": 4,
+      "first_seen": "ch47",
+      "rel_subtype": "朋友-社交",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 结伴同上梁山的同伴,非同门",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "吴用",
+      "person_b": "白胜",
+      "system_type": "同伙",
+      "system_all_types": [
+        "同伙",
+        "供出",
+        "同门"
+      ],
+      "system_category": "social",
+      "mention_count": 3,
+      "first_seen": "ch17",
+      "rel_subtype": "同盟",
+      "polarity": "positive",
+      "closeness": "unknown",
+      "reason": "[curated] 生辰纲同伙,对等联盟,非同门",
+      "label_source": "silver_draft"
+    },
+    {
+      "person_a": "叶清",
+      "person_b": "张清",
+      "system_type": "同伙",
+      "system_all_types": [
+        "同伙",
+        "上下级",
+        "同门"
+      ],
+      "system_category": "social",
+      "mention_count": 3,
+      "first_seen": "ch99",
+      "rel_subtype": "师门-同门",
+      "polarity": "neutral",
+      "closeness": "unknown",
+      "reason": "[rule] all_types=['同伙', '上下级', '同门'] 按优先级规则取“师门-同门”,未经人工复核",
+      "label_source": "silver_draft"
+    }
+  ]
+}
