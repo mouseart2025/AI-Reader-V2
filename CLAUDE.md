@@ -319,6 +319,16 @@ uv sync              # Install/update Python dependencies
 uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 ```
 
+### Quality Loop (质量改进循环)
+
+After any extraction/aggregation quality change, close the loop with one command:
+
+```bash
+cd backend && .venv/bin/python scripts/quality_loop.py --tag <label>
+```
+
+It runs the golden pytest gate, aggregates M1–M6 (Q0 dashboard / judge / relation-dimension eval / smoke artifacts), appends a record to `audit_reports/quality_history.jsonl`, and diffs against the previous run — hard regressions (golden failures, gold accuracy drops) exit non-zero, soft metric drops warn. Use `--no-pytest` to only aggregate existing artifacts. Real-LLM end-to-end validation: `scripts/smoke_extraction_quality.py` (one chapter, Epic 1–4 switches on, reports dimension fill / evidence span location / recall additions / hallucination verdicts + cost).
+
 ## Development Process — MANDATORY
 
 ### Change Risk Levels
