@@ -12,7 +12,8 @@ from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
-from src.models.chapter_fact import ChapterFact, CharacterFact
+from src.models.chapter_fact import ChapterFact, CharacterFact, RelationshipFact
+from src.services.relation_utils import derive_category_from_dimensions
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,41 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 # Segment splitting thresholds (chars). Only used when budget.segment_enabled.
 _SEGMENT_THRESHOLD_2 = 7000   # >7000 chars -> split into 2 segments
 _SEGMENT_THRESHOLD_3 = 12000  # >12000 chars -> split into 3 segments
+
+# ── Relation dimension schema v1 (FR-1.2/FR-1.3) ──
+# Value tables frozen in docs/analysis/relation-dimension-schema-v1.md.
+# rel_subtype validity is checked via derive_category_from_dimensions (single
+# source of truth in relation_utils._REL_SUBTYPE_CATEGORY).
+_VALID_POLARITY = frozenset({"positive", "negative", "neutral"})
+_VALID_CLOSENESS = frozenset({"close", "distant", "unknown"})
+
+# Conservative class for vote ties (FR-1.3): the lowest-priority generic social
+# default "朋友-社交". On a tie, the candidate latest in this order wins, so
+# 朋友-社交 (last) is the terminal conservative fallback.
+_SUBTYPE_TIE_BREAK_ORDER: list[str] = [
+    "辈分-亲属", "结拜", "婚恋", "师门-师徒", "主从", "君臣-上下级",
+    "师门-同门", "爱慕", "同盟", "恩怨-报恩", "敌对", "其他", "朋友-社交",
+]
+CONSERVATIVE_SUBTYPE = "朋友-社交"
+
+# Structured-output schema for the lightweight rel_subtype vote call (FR-1.3).
+_VOTE_RESPONSE_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "votes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": {"type": "integer"},
+                    "rel_subtype": {"type": "string"},
+                },
+                "required": ["index", "rel_subtype"],
+            },
+        }
+    },
+    "required": ["votes"],
+}
 
 
 @dataclass
@@ -178,6 +214,98 @@ def _merge_chapter_facts(
     )
 
 
+def _sanitize_relation_dimensions(fact: ChapterFact, chapter_id: int) -> None:
+    """Reject out-of-vocabulary dimension values on relationships (FR-1.2).
+
+    Value tables are frozen in docs/analysis/relation-dimension-schema-v1.md.
+    Invalid values are reset to None (so downstream falls back to the legacy
+    relation_type path) and logged — dirty values never reach the store.
+    """
+    for rel in fact.relationships:
+        if rel.polarity is not None:
+            rel.polarity = rel.polarity.strip()
+            if rel.polarity not in _VALID_POLARITY:
+                logger.warning(
+                    "Chapter %d: invalid polarity %r for %s-%s, reset to None",
+                    chapter_id, rel.polarity, rel.person_a, rel.person_b,
+                )
+                rel.polarity = None
+        if rel.rel_subtype is not None:
+            rel.rel_subtype = rel.rel_subtype.strip()
+            if derive_category_from_dimensions(rel.rel_subtype) is None:
+                logger.warning(
+                    "Chapter %d: invalid rel_subtype %r for %s-%s, reset to None",
+                    chapter_id, rel.rel_subtype, rel.person_a, rel.person_b,
+                )
+                rel.rel_subtype = None
+        if rel.closeness is not None:
+            rel.closeness = rel.closeness.strip()
+            if rel.closeness not in _VALID_CLOSENESS:
+                logger.warning(
+                    "Chapter %d: invalid closeness %r for %s-%s, reset to None",
+                    chapter_id, rel.closeness, rel.person_a, rel.person_b,
+                )
+                rel.closeness = None
+
+
+def _pick_majority_subtype(counts: dict[str, int]) -> str:
+    """Majority vote winner; ties go to the most conservative candidate.
+
+    Conservative = latest in _SUBTYPE_TIE_BREAK_ORDER, with the generic social
+    default 朋友-社交 (CONSERVATIVE_SUBTYPE) as the terminal fallback (FR-1.3).
+    """
+    top = max(counts.values())
+    tied = [s for s, c in counts.items() if c == top]
+    if len(tied) == 1:
+        return tied[0]
+    return max(
+        tied,
+        key=lambda s: _SUBTYPE_TIE_BREAK_ORDER.index(s)
+        if s in _SUBTYPE_TIE_BREAK_ORDER else -1,
+    )
+
+
+def _parse_vote_response(
+    result: object, n_relations: int, chapter_id: int,
+) -> dict[int, str]:
+    """Parse one vote-sample response into {relation_index: rel_subtype}.
+
+    Out-of-vocabulary subtypes and out-of-range indexes are dropped and logged.
+    """
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Chapter %d: vote response not parseable as JSON, sample dropped",
+                chapter_id,
+            )
+            return {}
+    if isinstance(result, dict):
+        items = result.get("votes", [])
+    elif isinstance(result, list):
+        items = result
+    else:
+        return {}
+
+    votes: dict[int, str] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        idx = item.get("index")
+        subtype = item.get("rel_subtype")
+        if not isinstance(idx, int) or not (0 <= idx < n_relations):
+            continue
+        if not isinstance(subtype, str) or derive_category_from_dimensions(subtype.strip()) is None:
+            logger.warning(
+                "Chapter %d: vote sample returned invalid rel_subtype %r, dropped",
+                chapter_id, subtype,
+            )
+            continue
+        votes[idx] = subtype.strip()
+    return votes
+
+
 # Genre-specific context injected into the extraction system prompt.
 # Helps the LLM understand domain-specific naming patterns.
 _GENRE_CONTEXT: dict[str, str] = {
@@ -199,6 +327,15 @@ def _load_vot_guide() -> str:
     from src.extraction.prompt_registry import get_prompt
     try:
         return get_prompt("vot_spatial_guide")
+    except FileNotFoundError:
+        return ""
+
+
+def _load_dimension_guide() -> str:
+    """Load relation dimension schema guide (FR-1.2). Returns empty string if file missing."""
+    from src.extraction.prompt_registry import get_prompt
+    try:
+        return get_prompt("relation_dimensions_guide")
     except FileNotFoundError:
         return ""
 
@@ -226,6 +363,11 @@ def _build_extraction_schema() -> dict:
             # Remove default null to encourage filling
             props["location"].pop("default", None)
 
+    # Patch RelationshipFact: subtype_vote is internal vote metadata (FR-1.3),
+    # not something the LLM should produce — hide it from the output schema.
+    if "RelationshipFact" in defs:
+        defs["RelationshipFact"].get("properties", {}).pop("subtype_vote", None)
+
     # Patch ChapterFact: require non-empty characters, relationships, locations, events
     root_props = schema.get("properties", {})
     for field in ("characters", "relationships", "locations", "events"):
@@ -243,6 +385,7 @@ class ChapterFactExtractor:
         self.llm = llm or get_llm_client()
         self.system_template = _load_system_prompt()
         self._vot_guide = _load_vot_guide()
+        self._dimension_guide = _load_dimension_guide()
         self.examples = _load_examples()
         self._schema = _build_extraction_schema()
         self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
@@ -251,14 +394,24 @@ class ChapterFactExtractor:
         """Build the few-shot examples section for the user prompt.
 
         For small context windows (≤16K), only 1 example is sent to save ~1.2K
-        tokens of input budget.
+        tokens of input budget. When RELATION_DIMENSIONS_ENABLED is off, the
+        dimension fields are stripped from the examples so the prompt stays
+        identical to the pre-dimension version (NFR-3).
         """
         if not self.examples:
             return ""
+        from src.infra.config import RELATION_DIMENSIONS_ENABLED
+        examples = self.examples
+        if not RELATION_DIMENSIONS_ENABLED:
+            examples = json.loads(json.dumps(self.examples))  # deep copy
+            for ex in examples:
+                for rel in ex.get("relationships", []):
+                    for key in ("polarity", "rel_subtype", "closeness"):
+                        rel.pop(key, None)
         budget = get_budget()
-        examples_to_show = [self.examples[0]]
-        if len(self.examples) >= 4 and budget.context_window > 16384:
-            examples_to_show.append(self.examples[3])
+        examples_to_show = [examples[0]]
+        if len(examples) >= 4 and budget.context_window > 16384:
+            examples_to_show.append(examples[3])
         examples_json = json.dumps(examples_to_show, ensure_ascii=False, indent=2)
         return f"## 参考示例\n```json\n{examples_json}\n```\n\n"
 
@@ -318,6 +471,17 @@ class ChapterFactExtractor:
                 else:
                     logger.warning("VoT injection skipped: marker %r not found in system prompt", marker)
 
+        # Inject relation dimension guide (FR-1.2) — gated by config switch (NFR-3).
+        # When RELATION_DIMENSIONS_ENABLED is False the prompt stays byte-identical
+        # to the pre-dimension version.
+        from src.infra.config import RELATION_DIMENSIONS_ENABLED
+        if RELATION_DIMENSIONS_ENABLED and self._dimension_guide:
+            marker = "## 地点提取规则"
+            if marker in system:
+                system = system.replace(marker, self._dimension_guide + "\n\n" + marker, 1)
+            else:
+                logger.warning("Dimension guide injection skipped: marker %r not found in system prompt", marker)
+
         original_len = len(chapter_text)
         meta = ExtractionMeta(original_len=original_len)
 
@@ -350,12 +514,24 @@ class ChapterFactExtractor:
             fact, usage = await self._extract_segmented(
                 system, novel_id, chapter_id, segments,
             )
-            return fact, usage, meta
+        else:
+            # Single segment — original flow with retry
+            fact, usage = await self._extract_single(
+                system, novel_id, chapter_id, chapter_text,
+            )
 
-        # Single segment — original flow with retry
-        fact, usage = await self._extract_single(
-            system, novel_id, chapter_id, chapter_text,
-        )
+        # Dimension post-processing (FR-1.2 sanitize + FR-1.3 vote)
+        if RELATION_DIMENSIONS_ENABLED and fact.relationships:
+            _sanitize_relation_dimensions(fact, chapter_id)
+            from src.infra.config import RELATION_SUBTYPE_VOTE_SAMPLES
+            if RELATION_SUBTYPE_VOTE_SAMPLES >= 2:
+                vote_usage = await self._vote_rel_subtypes(
+                    fact, novel_id, chapter_id,
+                )
+                usage.prompt_tokens += vote_usage.prompt_tokens
+                usage.completion_tokens += vote_usage.completion_tokens
+                usage.total_tokens += vote_usage.total_tokens
+
         return fact, usage, meta
 
     async def _extract_single(
@@ -462,6 +638,105 @@ class ChapterFactExtractor:
             len(merged.characters), len(merged.locations), len(merged.events),
         )
         return merged, total_usage
+
+    async def _vote_rel_subtypes(
+        self,
+        fact: ChapterFact,
+        novel_id: str,
+        chapter_id: int,
+    ) -> LlmUsage:
+        """Self-consistency vote for rel_subtype (FR-1.3).
+
+        The main extraction pass counts as the first vote; this method makes
+        RELATION_SUBTYPE_VOTE_SAMPLES - 1 additional *lightweight* calls that
+        classify only the rel_subtype dimension for the already-extracted
+        relationships (relation_type + evidence as input, no full chapter
+        re-extraction — NFR-2). Majority wins; ties go to the conservative
+        class (see _SUBTYPE_TIE_BREAK_ORDER). The vote distribution is stored
+        on each RelationshipFact.subtype_vote as confidence metadata.
+
+        Failures in individual vote calls are non-fatal: the relationship
+        keeps its main-pass rel_subtype.
+        """
+        from src.infra import config as _cfg
+
+        total_usage = LlmUsage()
+        relations = fact.relationships
+        relations_payload = [
+            {
+                "index": i,
+                "person_a": rel.person_a,
+                "person_b": rel.person_b,
+                "relation_type": rel.relation_type,
+                "evidence": rel.evidence,
+            }
+            for i, rel in enumerate(relations)
+        ]
+        system = (
+            "你是小说人物关系类型判定专家。根据给定的人物、关系类型与原文依据，"
+            "为每条关系判定 rel_subtype（细化关系类型，13 选 1）。只输出 JSON，不要输出多余文本。\n\n"
+            + self._dimension_guide
+        )
+        user_prompt = (
+            "请为以下人物关系逐条判定 rel_subtype：\n"
+            f"```json\n{json.dumps(relations_payload, ensure_ascii=False, indent=2)}\n```\n"
+            '输出格式：{"votes": [{"index": 0, "rel_subtype": "结拜"}, ...]}，'
+            "必须覆盖所有 index，rel_subtype 必须是取值表中的值。"
+        )
+
+        budget = get_budget()
+        n_samples = _cfg.RELATION_SUBTYPE_VOTE_SAMPLES
+        extra_votes: list[dict[int, str]] = []
+        for sample_idx in range(n_samples - 1):
+            try:
+                result, usage = await self.llm.generate(
+                    system=system,
+                    prompt=user_prompt,
+                    format=_VOTE_RESPONSE_SCHEMA,
+                    temperature=0.7,  # higher temp for vote diversity (self-consistency)
+                    max_tokens=4096,
+                    timeout=300,
+                    num_ctx=budget.extraction_num_ctx,
+                )
+                total_usage.prompt_tokens += usage.prompt_tokens
+                total_usage.completion_tokens += usage.completion_tokens
+                total_usage.total_tokens += usage.total_tokens
+                extra_votes.append(
+                    _parse_vote_response(result, len(relations), chapter_id)
+                )
+            except Exception as err:
+                logger.warning(
+                    "Chapter %d: subtype vote sample %d/%d failed: %s",
+                    chapter_id, sample_idx + 2, n_samples, err,
+                )
+
+        # Aggregate votes per relationship (main extraction = first vote)
+        for i, rel in enumerate(relations):
+            counts: dict[str, int] = {}
+            if rel.rel_subtype:
+                counts[rel.rel_subtype] = 1
+            for votes in extra_votes:
+                v = votes.get(i)
+                if v:
+                    counts[v] = counts.get(v, 0) + 1
+            if not counts:
+                continue
+            rel.subtype_vote = counts
+            winner = _pick_majority_subtype(counts)
+            if winner != rel.rel_subtype:
+                logger.info(
+                    "Chapter %d: rel_subtype vote override %s-%s: %s -> %s (votes=%s)",
+                    chapter_id, rel.person_a, rel.person_b,
+                    rel.rel_subtype, winner, counts,
+                )
+                rel.rel_subtype = winner
+
+        logger.info(
+            "Chapter %d: subtype vote done, %d relations, %d/%d extra samples ok, %d extra tokens",
+            chapter_id, len(relations), len(extra_votes), n_samples - 1,
+            total_usage.total_tokens,
+        )
+        return total_usage
 
     @staticmethod
     def _is_transient_error(err: Exception) -> bool:

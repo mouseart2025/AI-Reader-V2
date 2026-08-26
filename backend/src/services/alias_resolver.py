@@ -185,15 +185,36 @@ async def _apply_user_overrides(novel_id: str, alias_map: dict[str, str]) -> dic
     targets: dict[str, set[str]] = {}
     detached: dict[str, set[str]] = {}
 
-    for ov in overrides:
+    # FR-2.4 (Epic 2): LLM 决策(llm_merge)先于手动 override 应用 — 手动
+    # merge/split/rename 始终是 last writer,优先级高于任何 LLM 决策。
+    # 无 llm_merge 条目时应用顺序与改动前完全一致(逐字节不变量)。
+    ordered = (
+        [ov for ov in overrides if ov["override_type"] == "llm_merge"]
+        + [ov for ov in overrides if ov["override_type"] != "llm_merge"]
+    )
+
+    for ov in ordered:
         j = ov.get("override_json") or {}
         snapshot = j.get("auto_snapshot") or {}
 
-        if ov["override_type"] == "alias_merge":
+        if ov["override_type"] in ("alias_merge", "llm_merge"):
             canon = j.get("canonical")
             if not canon:
                 continue
             for member in j.get("members", []):
+                # FR-2.3: 防桥接约束在 LLM 路径同样生效 — 与 canonical 结构
+                # 相似但不同名(阮小二≠阮小七类)的成员永不并入。手动 merge 是
+                # 用户的显式意图,不做此拦截。
+                if (
+                    ov["override_type"] == "llm_merge"
+                    and member != canon
+                    and name_authority.similar_name_conflict(member, canon)
+                ):
+                    logger.info(
+                        "Merge blocked by similar-name conflict: '%s' → '%s' (%s)",
+                        member, canon, ov["override_type"],
+                    )
+                    continue
                 # Detect drift vs. the auto result at override-creation time.
                 cur_auto = alias_map.get(member, member)
                 snap = snapshot.get(member)
@@ -367,21 +388,10 @@ async def _build_merged(novel_id: str) -> dict[str, str]:
     def _similar_name_conflict(a: str, b: str) -> bool:
         """Detect structurally similar but distinct names (e.g., 阮小二 vs 阮小七).
 
-        Returns True if the names share a prefix but differ in the last character,
-        suggesting they are different characters with parallel naming patterns.
-        Also detects prefix-suffix relationships (阮小 vs 阮小二).
+        Delegates to name_authority.similar_name_conflict() — single source of
+        truth, shared with the LLM entity-resolution path (Epic 2, FR-2.3).
         """
-        la, lb = len(a), len(b)
-        # Same length, same prefix, different last char
-        # (阮小二 vs 阮小七, 解珍 vs 解宝)
-        if la == lb and la >= 2 and a[:-1] == b[:-1] and a[-1] != b[-1]:
-            return True
-        # Prefix relationship: shorter is strict prefix of longer
-        # (阮小 vs 阮小二 — "阮小" is a truncated form)
-        short, long = (a, b) if la < lb else (b, a)
-        if len(short) >= 2 and long.startswith(short) and len(long) - len(short) == 1:
-            return True
-        return False
+        return name_authority.similar_name_conflict(a, b)
 
     def _safe_union(name: str, alias: str, source: str) -> None:
         """Union name and alias with multi-layer conflict detection.

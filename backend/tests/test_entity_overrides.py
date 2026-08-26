@@ -314,6 +314,98 @@ async def test_invalidate_clears_conflicts():
     assert NOVEL not in alias_resolver._alias_override_targets
 
 
+# ── LLM 决策 (llm_merge) 与手动 override 优先级 (Epic 2, FR-2.4) ──
+
+
+@pytest.mark.asyncio
+async def test_llm_merge_applies_like_manual_merge():
+    """llm_merge 与手动 alias_merge 走同一 override 通道。"""
+    invalidate_alias_cache(NOVEL)
+    ov = [{
+        "override_type": "llm_merge",
+        "override_key": "观音菩萨",
+        "override_json": {
+            "members": ["观音菩萨", "南海观世音"],
+            "canonical": "观音菩萨",
+            "reason": "同一人物的不同尊称",
+            "prompt_version": "er-cluster-v1",
+        },
+    }]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, {})
+    assert out["南海观世音"] == "观音菩萨"
+    assert "观音菩萨" not in out  # canonical 不自映射
+
+
+@pytest.mark.asyncio
+async def test_manual_split_overrides_llm_merge():
+    """FR-2.4: 手动 split 优先级高于 LLM 合并决策(无论写入顺序)。"""
+    invalidate_alias_cache(NOVEL)
+    # LLM 决策写入时间晚于手动 split,但手动仍然胜出。
+    ov = [
+        {
+            "override_type": "alias_split",
+            "override_key": "观音菩萨→观世音",
+            "override_json": {"source": "观音菩萨", "aliases": ["南海观世音"],
+                              "to": "观世音"},
+        },
+        {
+            "override_type": "llm_merge",
+            "override_key": "观音菩萨",
+            "override_json": {"members": ["观音菩萨", "南海观世音"],
+                              "canonical": "观音菩萨"},
+        },
+    ]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, {})
+    # 手动 split 是 last writer:南海观世音 不并入 观音菩萨
+    assert out["南海观世音"] == "观世音"
+
+
+@pytest.mark.asyncio
+async def test_manual_merge_locks_canonical_over_llm_decision():
+    """FR-2.4: 手动 merge 选择的 canonical 覆盖 LLM 决策的 canonical。"""
+    invalidate_alias_cache(NOVEL)
+    ov = [
+        {
+            "override_type": "llm_merge",
+            "override_key": "观音",
+            "override_json": {"members": ["观音菩萨", "南海观世音", "观音"],
+                              "canonical": "观音"},
+        },
+        {
+            "override_type": "alias_merge",
+            "override_key": "观音菩萨",
+            "override_json": {"members": ["观音菩萨", "南海观世音", "观音"],
+                              "canonical": "观音菩萨"},
+        },
+    ]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, {})
+    assert out["南海观世音"] == "观音菩萨"
+    assert out["观音"] == "观音菩萨"
+    assert "观音菩萨" not in out
+
+
+@pytest.mark.asyncio
+async def test_llm_merge_survives_rebuild():
+    """llm_merge 存于 entity_overrides,每次 build 重新应用 — survives-rebuild。"""
+    invalidate_alias_cache(NOVEL)
+    ov = [{
+        "override_type": "llm_merge",
+        "override_key": "观音菩萨",
+        "override_json": {"members": ["观音菩萨", "南海观世音"],
+                          "canonical": "观音菩萨"},
+    }]
+    with _patch_overrides(ov):
+        first = await _apply_user_overrides(NOVEL, {})
+        # 模拟 rebuild:自动层结果变化,override 重新应用结果不变
+        second = await _apply_user_overrides(NOVEL, {"齐天大圣": "孙悟空"})
+    assert first["南海观世音"] == "观音菩萨"
+    assert second["南海观世音"] == "观音菩萨"
+    assert second["齐天大圣"] == "孙悟空"  # 自动层结果保留
+
+
 # ── Edit markers on profiles (Story 2.2) ────────────────────────
 
 

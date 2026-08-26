@@ -50,6 +50,31 @@ VOT_SPATIAL_ENABLED: bool = True
 # When True, a single LLM call reviews top entities after aggregation.
 LLM_QUALITY_REVIEW: bool = False
 
+# Relation dimension schema v1 (FR-1.2/FR-1.3; docs/analysis/relation-dimension-schema-v1.md).
+# When False, the dimension guide is not injected into the extraction prompt and
+# dimension sanitization/voting is skipped — prompt and parsing behave exactly
+# as before the dimension upgrade (NFR-3).
+RELATION_DIMENSIONS_ENABLED: bool = os.environ.get(
+    "RELATION_DIMENSIONS_ENABLED", "true"
+).strip().lower() not in ("0", "false", "no", "off")
+
+# Self-consistency sample count for rel_subtype voting (FR-1.3). The main
+# extraction pass counts as the first sample, so N=3 (default) adds 2
+# lightweight dimension-only calls per chapter. 1 disables voting.
+RELATION_SUBTYPE_VOTE_SAMPLES: int = int(os.environ.get("RELATION_SUBTYPE_VOTE_SAMPLES", "3"))
+
+# LLM 增量实体消解 (Epic 2, FR-2.1–2.4)。默认开;关闭后聚合期不做
+# embedding blocking + LLM 聚类判定,行为与 v0.73 完全一致 (NFR-3)。
+ENTITY_RESOLUTION_ENABLED: bool = os.environ.get(
+    "ENTITY_RESOLUTION_ENABLED", "true"
+).strip().lower() not in ("0", "false", "no", "off")
+
+# Candidate blocking: 余弦相似度阈值 + top-k 近邻成簇,簇外不做 LLM 判定 (FR-2.1)。
+ER_SIMILARITY_THRESHOLD: float = float(os.environ.get("ER_SIMILARITY_THRESHOLD", "0.75"))
+ER_TOP_K: int = int(os.environ.get("ER_TOP_K", "5"))
+# 单簇最大成员数 — 超出则按相似度截断,保证 LLM 调用量与人物数近似线性 (NFR-2)。
+ER_MAX_CLUSTER_SIZE: int = int(os.environ.get("ER_MAX_CLUSTER_SIZE", "12"))
+
 # Context window size (tokens). Auto-detected at startup; 8192 = conservative default.
 CONTEXT_WINDOW_SIZE: int = 8192
 
