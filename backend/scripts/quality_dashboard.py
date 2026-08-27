@@ -208,7 +208,9 @@ def compute_m1(
                 break
         return depth
 
-    dist = {"1": 0, "2": 0, "3": 0, "4+": 0}
+    # "0" 桶:只作为父节点出现、自身无 parent 链路的节点(旧管线层级数据的
+    # 真实形态,Epic 6 Q0 实测四本旧层级触发 KeyError '0')。
+    dist = {"0": 0, "1": 0, "2": 0, "3": 0, "4+": 0}
     for n in nodes:
         d = _depth(n)
         dist["4+" if d >= 4 else str(d)] += 1
