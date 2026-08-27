@@ -111,3 +111,25 @@ class TestChapterFactDoesNotFailOnNullSpatialValue:
         fact = ChapterFact.model_validate(payload)
         assert len(fact.spatial_relationships) == 2
         assert fact.spatial_relationships[0].relation_type == "contains"
+
+
+class TestConceptFactCategoryDefault:
+    """ConceptFact.category 缺省时落默认值,不应整章校验失败(Epic 6 实测:
+    封神第 62 章因 new_concepts.3.category 缺失连续两轮失败)。"""
+
+    def test_missing_category_defaults_and_chapter_survives(self):
+        from src.models.chapter_fact import ConceptFact
+
+        concept = ConceptFact.model_validate({"name": "金霞冠"})
+        assert concept.category == "其他"
+
+        payload = {
+            "chapter_id": 62,
+            "novel_id": "test",
+            "characters": [{"name": "姜子牙"}],
+            "locations": [],
+            "events": [{"summary": "三路分兵", "type": "战斗"}],
+            "new_concepts": [{"name": "金霞冠"}],
+        }
+        fact = ChapterFact.model_validate(payload)
+        assert fact.new_concepts[0].category == "其他"
