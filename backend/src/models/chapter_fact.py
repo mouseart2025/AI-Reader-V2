@@ -105,7 +105,8 @@ class EventFact(BaseModel):
 
 class ConceptFact(BaseModel):
     name: str
-    category: str  # 修炼体系/种族/货币/功法/...
+    # 带默认值:LLM 偶尔漏填 category(真实重跑实测),不应因此整章失败。
+    category: str = "其他"  # 修炼体系/种族/货币/功法/...
     definition: str | None = ""
     related: list[str] = []
 
