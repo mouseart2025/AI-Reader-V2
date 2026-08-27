@@ -95,7 +95,8 @@ class TestM1:
         # max_children：主世界有 2 个子节点
         assert m["max_children"] == 2 and m["max_children_node"] == "主世界"
         # 深度：主世界1 东胜神洲2 傲来国3 花果山4 水帘洞5 灵山2
-        assert m["depth_distribution"] == {"1": 1, "2": 2, "3": 1, "4+": 2}
+        # (含 "0" 桶:只作父节点、自身无链路的节点,见 compute_m1 注释)
+        assert m["depth_distribution"] == {"0": 0, "1": 1, "2": 2, "3": 1, "4+": 2}
         assert m["depth_ge3_ratio"] == pytest.approx(3 / 6)
 
     def test_empty_tree(self):
