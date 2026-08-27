@@ -106,3 +106,9 @@ session-*.zip
 # IAA 导出脚本含标注员真实姓名,移至内部仓 paper/scripts/
 backend/scripts/iaa_export.py
 backend/scripts/multi_seed_results/
+
+# Epic 6 scratch rerun workspace (large DB + chroma + maps, generated during quality reruns)
+backend/data/epic6-rerun/
+
+# Internal paper screenshot / E2E verification workspace (generated PNGs + ad-hoc Playwright scripts)
+scripts/paper-shots-v2/
