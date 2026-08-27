@@ -930,23 +930,37 @@ class AnalysisService:
 
         # Auto-trigger post-analysis pipeline (non-fatal, independent background tasks)
         if final_status in ("completed", "completed_with_errors"):
-            # 1. Hierarchy rebuild (Edmonds, no LLM, <1s) — must run before spatial
+            self._schedule_post_analysis(novel_id)
+
+    def _schedule_post_analysis(self, novel_id: str) -> None:
+        """调度分析完成后的后台任务(全部非致命,失败不阻塞).
+
+        顺序约束: 层级重建(无 LLM, <1s)必须先于空间补全(LLM, 60-300s)完成。
+        两者都对 world_structures 做 load-modify-save 整文档写回,并发时
+        后完成的 spatial completion 会用启动时加载的旧基线覆盖重建结果
+        (last-writer-wins,Epic 6 实测: 西游 ws 被旧层级覆盖, roots=332 失真)。
+        因此 geo 链串行为单个任务;entity resolution 不写 world_structures,
+        保持并发。
+        """
+        asyncio.create_task(
+            self._run_geo_pipeline(novel_id),
+            name=f"post-analysis-geo-{novel_id}",
+        )
+        # Entity resolution (Epic 2; LLM, gated by ENTITY_RESOLUTION_ENABLED)
+        from src.infra.config import ENTITY_RESOLUTION_ENABLED
+        if ENTITY_RESOLUTION_ENABLED:
             asyncio.create_task(
-                self._auto_rebuild_hierarchy(novel_id),
-                name=f"auto-rebuild-{novel_id}",
+                self._auto_entity_resolution(novel_id),
+                name=f"entity-resolution-{novel_id}",
             )
-            # 2. Spatial completion (LLM, ~60-300s)
-            asyncio.create_task(
-                self._auto_spatial_completion(novel_id),
-                name=f"spatial-completion-{novel_id}",
-            )
-            # 3. Entity resolution (Epic 2; LLM, gated by ENTITY_RESOLUTION_ENABLED)
-            from src.infra.config import ENTITY_RESOLUTION_ENABLED
-            if ENTITY_RESOLUTION_ENABLED:
-                asyncio.create_task(
-                    self._auto_entity_resolution(novel_id),
-                    name=f"entity-resolution-{novel_id}",
-                )
+
+    async def _run_geo_pipeline(self, novel_id: str) -> None:
+        """串行执行 geo 后台链: 层级重建 → 空间补全.
+
+        两个步骤各自捕获异常(非致命),故 await 顺序执行不会互相阻塞。
+        """
+        await self._auto_rebuild_hierarchy(novel_id)
+        await self._auto_spatial_completion(novel_id)
 
     async def _auto_entity_resolution(self, novel_id: str) -> None:
         """Post-analysis LLM entity resolution (Epic 2). Non-fatal."""
@@ -962,26 +976,19 @@ class AnalysisService:
         """Background task: rebuild hierarchy via Edmonds pipeline after analysis.
 
         Uses GeoOrchestrator v2 (TierClassifier → VoteBuilder → KnowledgePrior
-        → EdmondsResolver). No LLM, deterministic, <1s. Automatically applies
-        result to WorldStructure so the user gets a complete hierarchy
-        without manual "智能重绘".
+        → EdmondsResolver → SuffixNormalizer,与 rebuild-hierarchy-v2 端点
+        共用 build_default_orchestrator)。No LLM, deterministic, <1s.
+        Automatically applies result to WorldStructure so the user gets a
+        complete hierarchy without manual "智能重绘".
         """
         try:
             from src.db import novel_store
-            from src.services.geo_skills.orchestrator import GeoOrchestrator
-            from src.services.geo_skills.tier_classifier import TierClassifier
-            from src.services.geo_skills.vote_builder import VoteBuilder
-            from src.services.geo_skills.knowledge_prior import KnowledgePrior
-            from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+            from src.services.geo_skills.orchestrator import build_default_orchestrator
 
             novel = await novel_store.get_novel(novel_id)
             title = novel.get("title", "") if novel else ""
 
-            orch = GeoOrchestrator(novel_id)
-            orch.add_skill("tier", TierClassifier(novel_id))
-            orch.add_skill("votes", VoteBuilder(novel_id))
-            orch.add_skill("prior", KnowledgePrior(novel_title=title))
-            orch.add_skill("edmonds", EdmondsResolver())
+            orch = build_default_orchestrator(novel_id, novel_title=title)
 
             # Consume all progress events (pipeline runs via async generator)
             async for event in orch.run():
