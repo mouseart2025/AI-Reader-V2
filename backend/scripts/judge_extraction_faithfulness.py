@@ -502,6 +502,10 @@ async def run_judge_for_novel(
         "slug": slug,
         "judged_at": datetime.now(timezone.utc).isoformat(),
         "judge_prompt_version": PROMPT_VERSION,
+        # judge 模型必须落报告:跨厂商/跨模型对比与校准(NFR-5 可审计)依赖它,
+        # 同名报告换 judge 模型时以此区分(如 20260827-deepseek vs -qwen)。
+        "judge_model": os.environ.get("LLM_MODEL", ""),
+        "judge_base_url": os.environ.get("LLM_BASE_URL", ""),
         "seed": SEED,
         "sample_chapters": [r["chapter_num"] for r in chapter_results],
         "chapters": chapter_results,
@@ -616,6 +620,8 @@ async def run_calibration(
     overall = compute_calibration_kappa(pairs_all)
     report = {
         "judge_prompt_version": PROMPT_VERSION,
+        "judge_model": os.environ.get("LLM_MODEL", ""),
+        "judge_base_url": os.environ.get("LLM_BASE_URL", ""),
         "iaa_file": iaa_file.name,
         "calibrated_at": datetime.now(timezone.utc).isoformat(),
         **overall,
