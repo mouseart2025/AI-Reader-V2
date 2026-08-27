@@ -1078,30 +1078,17 @@ async def rebuild_hierarchy_v2(novel_id: str):
 
     async def event_stream():
         try:
-            from src.services.geo_skills.orchestrator import GeoOrchestrator
-            from src.services.geo_skills.vote_builder import VoteBuilder
-            from src.services.geo_skills.edmonds_resolver import EdmondsResolver
-            from src.services.geo_skills.knowledge_prior import KnowledgePrior
-            from src.services.geo_skills.reviewer_skill import ReviewerSkill
-            from src.services.geo_skills.tier_classifier import TierClassifier
-            from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
-            from src.services.geo_skills.snapshot import HierarchyMetrics
+            from src.services.geo_skills.orchestrator import build_default_orchestrator
 
             title = novel.get("title", "")
 
-            # Build orchestrator with full skill pipeline
-            orch = GeoOrchestrator(novel_id)
+            # Build orchestrator with the shared default pipeline
+            # (build_default_orchestrator 与分析后自动重建共用,单一实现).
             # Incremental pipeline: respect LLM extraction + targeted fixes
             # Lean pipeline: no LLM dependencies, completes in <1s
             # v0.71.1: SuffixNormalizer runs LAST so its variant merges
             # (乌斯藏国界→乌斯藏国, 石头城→都中 etc.) have the final say.
-            # Running before Edmonds allowed name-containment/vote weights
-            # to re-override the merges.
-            orch.add_skill("tier", TierClassifier(novel_id))
-            orch.add_skill("votes", VoteBuilder(novel_id))
-            orch.add_skill("prior", KnowledgePrior(novel_title=title))
-            orch.add_skill("edmonds", EdmondsResolver())
-            orch.add_skill("suffix", SuffixNormalizer())
+            orch = build_default_orchestrator(novel_id, novel_title=title)
 
             # Run pipeline, convert ProgressEvents to SSE
             async for event in orch.run():
