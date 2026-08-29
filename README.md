@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.74.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.74.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.74.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.74.0/AI.Reader_0.74.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.74.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.74.0/AI.Reader_0.74.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.74.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.74.1/AI.Reader_0.74.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.74.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.74.1/AI.Reader_0.74.1_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -136,7 +136,8 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
-| **v0.74.0** | 未发布 | **质量提升轮 Epic 1–4 + Epic 6 重跑** — ①关系三维抽取 schema（关系类型/方向/强度/证据锚定）；②LLM 增量实体消解（跨章别名识别与 protected_names 保护）；③证据锚定抽取（每个事实带原文 span 与引用）；④judge 校验回路（自动化抽取忠实度评分，记录 judge_model/judge_base_url）；⑤两遍制 recall（每章二次查漏，召回遗漏的人物/关系/事件）；⑥幻觉人物 LLM 过滤层（银驮类规则漏网人物二次判断）；⑦分析后后台任务竞态修复（geo 链串行化，防止 world_structures 被覆盖）；⑧质量改进循环编排（M1–M6 指标聚合 + 硬回归守卫 + `quality_history.jsonl`）；⑨五本 demo 数据用 v0.73+ 管线全量重跑。790 backend tests 通过 |
+| **v0.74.1** | 2026-08-30 | **热修：桌面端上传小说 401（issue #68）** — v0.73.1 的 sidecar 令牌鉴权（V-01）要求所有 API 请求携带令牌，但带进度条的上传走独立 XHR 通道漏挂 Authorization 头，桌面端上传小说一律「未授权：缺少或无效的 sidecar 令牌」；其他功能走正常通道不受影响。v0.73.1 / v0.74.0 均受影响，请桌面用户升级至此版本。frontend tsc + vitest 通过 |
+| **v0.74.0** | 2026-08-28 | **质量提升轮 Epic 1–4 + Epic 6 重跑** — ①关系三维抽取 schema（关系类型/方向/强度/证据锚定）；②LLM 增量实体消解（跨章别名识别与 protected_names 保护）；③证据锚定抽取（每个事实带原文 span 与引用）；④judge 校验回路（自动化抽取忠实度评分，记录 judge_model/judge_base_url）；⑤两遍制 recall（每章二次查漏，召回遗漏的人物/关系/事件）；⑥幻觉人物 LLM 过滤层（银驮类规则漏网人物二次判断）；⑦分析后后台任务竞态修复（geo 链串行化，防止 world_structures 被覆盖）；⑧质量改进循环编排（M1–M6 指标聚合 + 硬回归守卫 + `quality_history.jsonl`）；⑨五本 demo 数据用 v0.73+ 管线全量重跑。790 backend tests 通过 |
 | **v0.72.0** | 2026-07-21 | **实体修正工具链转正 + 幻觉兜底 + 导出修复** — ①实体别名手动合并/拆分（百科卡/关系图/阅读页「⋯」操作，可撤销、不污染原文，修正节点显紫色虚线环）；②实体改名（少年→杨过类错误命名一键改对，原名保留为别名）；③概念编辑（改名/改分类/删除）；④导出可读分析报告（按章排版的人物/关系/地点/物品/组织/事件/概念 Markdown，名称已套用别名与手动修正）；⑤**幻觉孤岛过滤**（issue #30：本名与别名均未见于原文的人物节点自动剔除，防本地小模型预训练知识泄漏，60+ 本小说回归零误伤）；⑥设定集导出修复（issue #39：导出全部实体/关系/事件，不再截断）；⑦自动重试失败章节 KeyError 崩溃修复；⑧地图地点层级修环改不动点迭代（跨 LLM 复现实验发现）。550 backend tests + frontend build 通过 |
 | **v0.72.1** | 2026-08-05 | **问答模块修复（issue #55 / #56）** — ①流式回复跨对话泄漏修复（issue #55：发送时记录流所属对话，流式气泡渲染与完成写回仅在所属对话进行，切换对话不再残留"思考中"与他话输出，切回即见完整回复）；②问答防幻觉三修复（issue #56）：寒暄类消息前置识别直接回固定引导语（不进检索、不调 LLM，堵住"你好"触发任意章节原文注入的入口）、检索全空不再调用 LLM（直接回"已分析 N 章，未检索到相关内容"，省 token 且杜绝空上下文幻觉）、原文全文检索按分析进度过滤（堵住未分析章节原文泄漏的"未来章节幽灵信息"）；③embedding 语义检索异常日志升级为 warning（桌面端静默失败可定位）。550 backend tests + frontend build + Playwright 端到端复现验证 5/5 通过 |
 | **v0.72.2** | 2026-08-05 | **命名质量守护体系 + 问答加固第二刀（issue #56 后续）** — ①命名决策单一事实来源（`name_authority.py`：canonical 选择/泛称判断各只此一个入口，删除 9 处重复列表，泛称不再凭高频率赢得 canonical，如"爷爷(1872次)"不再压过"刘(1811次)"）；②黄金标准回归守卫（西游/红楼审阅数据转 CI 断言：陈玄奘必须归唐僧、猴王/行者必须归孙悟空、阮小二/阮小五/阮小七相似名绝不合并——今后"孙悟空变猴王"类回归 CI 直接红灯）；③chroma 向量索引生命周期对齐（清除分析/排除章节时同步删向量，堵住重分析后旧章节幽灵检索）；④实体停用词表（"主人公"不再误中别名"公主"注入无关人物档案）；⑤问答系统提示词加硬约束（知识库无关/不足时禁答具体内容）；⑥问答页显示"已分析 N/M 章"进度徽标（分析中途可见，管理预期）。586 backend tests + frontend build 通过 |
