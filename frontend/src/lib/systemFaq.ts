@@ -154,34 +154,42 @@ export interface FaqResult {
 /**
  * Match a user question against the FAQ database.
  * Returns the best match with confidence score, or null if no match.
+ *
+ * 评分口径（issue #67 修复）：按命中关键词个数计分，而非命中数/词条关键词总数——
+ * 后者会惩罚同义词多的词条（"上传"词条 4 个同义词只命中 1 个只得 0.25 分，
+ * 五个预设问题全部过不了 0.8 阈值，全部漏进小说 RAG）。并列时偏好命中更长
+ * （更具体）关键词的词条，如"分析需要多长时间？"应命中"多长时间"而非"分析"。
  */
 export function matchSystemFaq(question: string): FaqResult | null {
   const q = question.toLowerCase().trim()
   if (!q) return null
 
   let bestMatch: FaqEntry | null = null
-  let bestScore = 0
+  let bestCount = 0
+  let bestKwLen = 0
 
   for (const entry of FAQ_ENTRIES) {
     let matchCount = 0
+    let maxKwLen = 0
     for (const kw of entry.keywords) {
       if (q.includes(kw.toLowerCase())) {
         matchCount++
+        maxKwLen = Math.max(maxKwLen, kw.length)
       }
     }
     if (matchCount === 0) continue
 
-    const score = matchCount / entry.keywords.length
-    if (score > bestScore) {
-      bestScore = score
+    if (matchCount > bestCount || (matchCount === bestCount && maxKwLen > bestKwLen)) {
+      bestCount = matchCount
+      bestKwLen = maxKwLen
       bestMatch = entry
     }
   }
 
-  if (!bestMatch || bestScore === 0) return null
+  if (!bestMatch) return null
 
-  // Confidence: base from keyword match ratio
-  let confidence = Math.min(bestScore * 1.5, 1.0)
+  // Confidence: 1 个关键词命中即有较高置信（0.85），多命中递增
+  let confidence = Math.min(0.55 + 0.3 * bestCount, 1.0)
 
   // If question also looks like a novel content question (contains entity-like names),
   // reduce confidence to prefer novel QA path
