@@ -112,6 +112,10 @@ export function uploadNovelWithProgress(
     xhr.addEventListener("abort", () => reject(new Error("上传已取消")))
 
     xhr.open("POST", `${getBase()}/novels/upload`)
+    // V-01：XHR 不会经过 apiFetch，需显式附带 sidecar 令牌（issue #68）
+    for (const [k, v] of Object.entries(sidecarAuthHeaders())) {
+      xhr.setRequestHeader(k, v)
+    }
     xhr.send(form)
   })
 }
