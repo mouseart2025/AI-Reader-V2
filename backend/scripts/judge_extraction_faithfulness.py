@@ -636,6 +636,21 @@ async def run_calibration(
     (out_dir / "judge_calibration.md").write_text(
         render_calibration_md(report), encoding="utf-8"
     )
+    # 逐条判定落盘：多 judge 集成（多数表决/交集/并集）复算 kappa 时不必重调 LLM
+    model_tag = report["judge_model"] or "unknown"
+    items_dump = [
+        {
+            "index": idx,
+            "kind": it["kind"],
+            "claim": it["claim"],
+            "human": it["human"],
+            "judge": judge_labels.get(idx),
+        }
+        for idx, it in enumerate(items)
+    ]
+    (out_dir / f"judge_calibration_items-{model_tag}.json").write_text(
+        json.dumps(items_dump, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"[judge][校准] kappa={overall['kappa']:.3f} "
           f"({'已校准' if overall['calibrated'] else '未校准'}) "
           f"→ {out_dir / 'judge_calibration.json'}")
