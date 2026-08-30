@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.74.1-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.75.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -84,8 +84,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.74.1_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.74.1/AI.Reader_0.74.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.74.1_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.74.1/AI.Reader_0.74.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.75.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.75.0/AI.Reader_0.75.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.75.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.75.0/AI.Reader_0.75.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -136,6 +136,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| **v0.75.0** | 2026-08-30 | **实体修正工具链扩展 + AI 助手预设问题修复（issue #66 Epic 1 / #67）** — ①实体隐藏（误识别实体一键隐藏，百科/图谱/地图/阅读高亮四端即时生效，软删可撤销，重建后存活）；②实体类型修改（人物/地点/物品/组织/概念五类互改，「⋯」菜单入口）；③**小说数据导出补齐 entity_overrides**（此前换机导入会丢全部手动修正，格式 v5→v6，旧包兼容）；④修正冲突提示（重建后实体消失/自动类型漂移时「我的修正」面板标注）；⑤AI 助手预设问题修复（issue #67：FAQ 关键词计分改为命中数制，"怎么上传小说"等预设问题不再误入小说 RAG，本地作答无需 AI）；⑥Dependabot 漏洞清理（前端 npm audit 清零，后端锁文件升级，requires-python ≥3.10）。813 backend tests + frontend tsc/vitest 通过，冻结论文数字复验 20 PASS |
 | **v0.74.1** | 2026-08-30 | **热修：桌面端上传小说 401（issue #68）** — v0.73.1 的 sidecar 令牌鉴权（V-01）要求所有 API 请求携带令牌，但带进度条的上传走独立 XHR 通道漏挂 Authorization 头，桌面端上传小说一律「未授权：缺少或无效的 sidecar 令牌」；其他功能走正常通道不受影响。v0.73.1 / v0.74.0 均受影响，请桌面用户升级至此版本。frontend tsc + vitest 通过 |
 | **v0.74.0** | 2026-08-28 | **质量提升轮 Epic 1–4 + Epic 6 重跑** — ①关系三维抽取 schema（关系类型/方向/强度/证据锚定）；②LLM 增量实体消解（跨章别名识别与 protected_names 保护）；③证据锚定抽取（每个事实带原文 span 与引用）；④judge 校验回路（自动化抽取忠实度评分，记录 judge_model/judge_base_url）；⑤两遍制 recall（每章二次查漏，召回遗漏的人物/关系/事件）；⑥幻觉人物 LLM 过滤层（银驮类规则漏网人物二次判断）；⑦分析后后台任务竞态修复（geo 链串行化，防止 world_structures 被覆盖）；⑧质量改进循环编排（M1–M6 指标聚合 + 硬回归守卫 + `quality_history.jsonl`）；⑨五本 demo 数据用 v0.73+ 管线全量重跑。790 backend tests 通过 |
 | **v0.72.0** | 2026-07-21 | **实体修正工具链转正 + 幻觉兜底 + 导出修复** — ①实体别名手动合并/拆分（百科卡/关系图/阅读页「⋯」操作，可撤销、不污染原文，修正节点显紫色虚线环）；②实体改名（少年→杨过类错误命名一键改对，原名保留为别名）；③概念编辑（改名/改分类/删除）；④导出可读分析报告（按章排版的人物/关系/地点/物品/组织/事件/概念 Markdown，名称已套用别名与手动修正）；⑤**幻觉孤岛过滤**（issue #30：本名与别名均未见于原文的人物节点自动剔除，防本地小模型预训练知识泄漏，60+ 本小说回归零误伤）；⑥设定集导出修复（issue #39：导出全部实体/关系/事件，不再截断）；⑦自动重试失败章节 KeyError 崩溃修复；⑧地图地点层级修环改不动点迭代（跨 LLM 复现实验发现）。550 backend tests + frontend build 通过 |
