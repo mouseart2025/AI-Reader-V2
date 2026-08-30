@@ -58,6 +58,24 @@ For maintainers and contributors:
 - **`.gitignore`**: covers `.env*`, `*.secret*`, `credentials.*`, `*.pem`, `*.key`,
   and other sensitive file patterns by default.
 
+## Known Unpatched Dependency Risks
+
+### chromadb (2 Dependabot alerts: code injection, no patched version)
+
+- **Status**: accepted risk, tracked upstream. Dependabot reports two critical
+  code-injection advisories against `chromadb` with **no fixed release
+  available** (as of 2026-08); upgrading cannot resolve them.
+- **Exposure**: AI Reader V2 uses chromadb exclusively in **embedded mode**
+  (`chromadb.PersistentClient`, see `backend/src/services/embedding_service.py`).
+  No chromadb server is started, no port is bound, and no network attack
+  surface exists — the vector store only reads/writes local files under the
+  app's data directory (`~/.ai-reader-v2/`).
+- **Input trust boundary**: data written to the vector store comes from novels
+  the user imports themselves and from the local analysis pipeline, not from
+  untrusted remote input.
+- **Plan**: monitor upstream chromadb releases and upgrade as soon as a
+  patched version ships. Revisit if a server/client mode is ever introduced.
+
 ## Out of Scope
 
 - Vulnerabilities in third-party LLM providers (OpenAI / Anthropic / DeepSeek / etc.)

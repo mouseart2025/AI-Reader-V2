@@ -102,7 +102,7 @@
 
 ## 快速开始
 
-**环境要求：** Python 3.9+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/)（或云端 API）
+**环境要求：** Python 3.10+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/)（或云端 API）
 
 ```bash
 # 1. 启动 Ollama（本地 LLM）
