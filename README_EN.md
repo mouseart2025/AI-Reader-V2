@@ -87,7 +87,7 @@ No development environment needed — download and run. Built-in Python backend,
 
 ## Quick Start
 
-**Requirements:** Python 3.9+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/) (or cloud API)
+**Requirements:** Python 3.10+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/) (or cloud API)
 
 ```bash
 # 1. Start Ollama (local LLM)
