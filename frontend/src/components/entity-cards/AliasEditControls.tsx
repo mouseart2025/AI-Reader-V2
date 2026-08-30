@@ -7,10 +7,13 @@ import {
   mergeAliases,
   splitAliases,
   renameEntity,
+  hideEntity,
+  retypeEntity,
   listEntityOverrides,
   deleteEntityOverride,
 } from "@/api/client"
 import { useEntityCardStore } from "@/stores/entityCardStore"
+import { ENTITY_COLORS } from "@/lib/entityHighlight"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -38,13 +41,26 @@ function aliasNames(p: EntityProfile): string[] {
   return p.type === "person" ? (p as PersonProfile).aliases.map((a) => a.name) : []
 }
 
+// 五类实体标签(配色复用 lib/entityHighlight 的 ENTITY_COLORS)
+const RETYPE_OPTIONS: { value: EntityType; label: string }[] = [
+  { value: "person", label: "人物" },
+  { value: "location", label: "地点" },
+  { value: "item", label: "物品" },
+  { value: "org", label: "组织" },
+  { value: "concept", label: "概念" },
+]
+
 export function AliasEditControls({ novelId, profile }: Props) {
   const refresh = useEntityCardStore((s) => s.refresh)
   const replaceCurrent = useEntityCardStore((s) => s.replaceCurrent)
+  const closeCard = useEntityCardStore((s) => s.close)
 
   const [mergeOpen, setMergeOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
+  const [retypeOpen, setRetypeOpen] = useState(false)
+  const [hideOpen, setHideOpen] = useState(false)
+  const [retypeTarget, setRetypeTarget] = useState<EntityType | null>(null)
   const [newName, setNewName] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,7 +86,39 @@ export function AliasEditControls({ novelId, profile }: Props) {
     setChecked(new Set())
     setSplitDest("")
     setNewName("")
+    setRetypeTarget(null)
   }, [profile.name])
+
+  async function doRetype() {
+    if (!retypeTarget || retypeTarget === profile.type) return
+    setBusy(true)
+    setError(null)
+    try {
+      await retypeEntity(novelId, profile.name, retypeTarget)
+      setRetypeOpen(false)
+      reset()
+      // 改型后卡片路由到新类型的聚合视图
+      replaceCurrent(profile.name, retypeTarget)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "修改类型失败")
+      setBusy(false)
+    }
+  }
+
+  async function doHide() {
+    setBusy(true)
+    setError(null)
+    try {
+      await hideEntity(novelId, profile.name)
+      setHideOpen(false)
+      reset()
+      // 实体已隐藏,卡片关闭;「我的修正」面板可撤销
+      closeCard()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "隐藏失败")
+      setBusy(false)
+    }
+  }
 
   async function doRename() {
     const to = newName.trim()
@@ -210,6 +258,16 @@ export function AliasEditControls({ novelId, profile }: Props) {
               管理别名（拆分）
             </DropdownMenuItem>
           )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => { reset(); setRetypeOpen(true) }}>
+            修改类型…
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => { reset(); setHideOpen(true) }}
+          >
+            隐藏此实体…
+          </DropdownMenuItem>
           {edited && (
             <>
               <DropdownMenuSeparator />
@@ -321,6 +379,72 @@ export function AliasEditControls({ novelId, profile }: Props) {
               disabled={busy || !newName.trim() || newName.trim() === profile.name}
             >
               {busy ? "改名中…" : "确认改名"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Retype dialog(FR-1.2,配色复用五类高亮色)── */}
+      <Dialog open={retypeOpen} onOpenChange={(o) => { setRetypeOpen(o); if (!o) reset() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>修改「{profile.name}」的类型</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground text-xs">
+              当前类型:{RETYPE_OPTIONS.find((o) => o.value === profile.type)?.label ?? profile.type}。
+              改型后图谱/地图/百科/阅读高亮同步换色换图标;不改动原文数据,可撤销。
+            </p>
+            <div className="space-y-1">
+              {RETYPE_OPTIONS.map((o) => (
+                <label key={o.value} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="retype"
+                    checked={retypeTarget === o.value}
+                    onChange={() => setRetypeTarget(o.value)}
+                    disabled={o.value === profile.type}
+                  />
+                  <span className={`rounded-sm px-1 ${ENTITY_COLORS[o.value] ?? ""}`}>
+                    {o.label}
+                  </span>
+                  {o.value === profile.type && (
+                    <span className="text-muted-foreground text-xs">(当前)</span>
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-destructive text-sm">{error}</p>}
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={doRetype}
+              disabled={busy || !retypeTarget || retypeTarget === profile.type}
+            >
+              {busy ? "修改中…" : "确认修改"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Hide dialog(FR-1.1,软删可撤销)── */}
+      <Dialog open={hideOpen} onOpenChange={(o) => { setHideOpen(o); if (!o) reset() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>隐藏「{profile.name}」?</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">
+            隐藏后该实体不再出现在百科、图谱、地图与阅读高亮中。
+            原文数据不受影响;可在「我的修正」面板随时撤销恢复。
+          </p>
+          {error && <p className="text-destructive text-sm">{error}</p>}
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setHideOpen(false)} disabled={busy}>
+              取消
+            </Button>
+            <Button variant="destructive" size="sm" onClick={doHide} disabled={busy}>
+              {busy ? "隐藏中…" : "确认隐藏"}
             </Button>
           </DialogFooter>
         </DialogContent>

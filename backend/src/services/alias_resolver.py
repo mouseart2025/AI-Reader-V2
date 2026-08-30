@@ -271,6 +271,13 @@ async def _apply_user_overrides(novel_id: str, alias_map: dict[str, str]) -> dic
             alias_map.pop(new, None)      # new is canonical, must not map to itself
             targets.setdefault(new, set()).add(old)
 
+        elif ov["override_type"] == "entity_retype":
+            # Epic 1 (FR-1.2): 类型修正不改 alias_map(不触发别名重算),只把
+            # 该实体标记为"已修正"(FR6),可见性本身由 entity_visibility 在
+            # 读时应用。entity_hide 无卡片可标,跳过。
+            key = ov["override_key"]
+            targets.setdefault(key, set()).add(key)
+
     _alias_conflicts[novel_id] = conflicts
     _alias_override_targets[novel_id] = targets
     _alias_detached[novel_id] = detached

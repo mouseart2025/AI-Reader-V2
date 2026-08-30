@@ -258,3 +258,84 @@ def test_preview_v1_compatible():
 def test_preview_unsupported_version():
     with pytest.raises(ValueError, match="Unsupported"):
         preview_import({"format_version": 99})
+
+
+# ─── v6: entity_overrides 随数据导出/导入(issue #66 FR-1.4)───────
+
+
+@pytest.mark.asyncio
+async def test_export_v6_includes_entity_overrides(seeded_db):
+    await seeded_db.execute(
+        "INSERT INTO entity_overrides (novel_id, override_type, override_key, override_json) "
+        "VALUES (?, ?, ?, ?)",
+        (NOVEL_ID, "entity_hide", "那道人", '{"auto_snapshot": {"type": "person"}}'),
+    )
+    await seeded_db.execute(
+        "INSERT INTO entity_overrides (novel_id, override_type, override_key, override_json) "
+        "VALUES (?, ?, ?, ?)",
+        (NOVEL_ID, "entity_retype", "花果山", '{"from": "location", "to": "org"}'),
+    )
+    await seeded_db.commit()
+
+    result = await export_novel(NOVEL_ID)
+    assert result["format_version"] == 6
+    ov = result["entity_overrides"]
+    assert len(ov) == 2
+    assert ov[0]["override_type"] == "entity_hide"
+    assert ov[1]["override_json"] == '{"from": "location", "to": "org"}'
+
+
+@pytest.mark.asyncio
+async def test_import_v6_restores_entity_overrides(seeded_db):
+    """导出 → 删除 → 导入后,entity overrides 全部还原。"""
+    await seeded_db.execute(
+        "INSERT INTO entity_overrides (novel_id, override_type, override_key, override_json) "
+        "VALUES (?, ?, ?, ?)",
+        (NOVEL_ID, "entity_hide", "那道人", '{"auto_snapshot": {"type": "person"}}'),
+    )
+    await seeded_db.commit()
+    exported = await export_novel(NOVEL_ID)
+
+    await seeded_db.execute("DELETE FROM novels WHERE id = ?", (NOVEL_ID,))
+    await seeded_db.commit()
+
+    result = await import_novel(exported)
+    assert result["entity_overrides_imported"] == 1
+
+    cur = await seeded_db.execute(
+        "SELECT override_type, override_key, override_json FROM entity_overrides WHERE novel_id = ?",
+        (result["id"],),
+    )
+    rows = await cur.fetchall()
+    assert len(rows) == 1
+    assert rows[0]["override_type"] == "entity_hide"
+    assert rows[0]["override_key"] == "那道人"
+
+
+@pytest.mark.asyncio
+async def test_import_v5_without_entity_overrides_backward_compatible(seeded_db):
+    """旧 v5 包(无 entity_overrides 字段)导入不受影响。"""
+    exported = await export_novel(NOVEL_ID)
+    exported["format_version"] = 5
+    del exported["entity_overrides"]
+
+    await seeded_db.execute("DELETE FROM novels WHERE id = ?", (NOVEL_ID,))
+    await seeded_db.commit()
+
+    result = await import_novel(exported)
+    assert result["chapters_imported"] == 2
+    assert result["entity_overrides_imported"] == 0
+
+
+def test_preview_v6_counts_entity_overrides():
+    data = {
+        "format_version": 6,
+        "novel": {"title": "预览"},
+        "chapters": [],
+        "chapter_facts": [],
+        "entity_overrides": [
+            {"override_type": "entity_hide", "override_key": "那道人", "override_json": "{}"},
+        ],
+    }
+    result = preview_import(data)
+    assert result["entity_overrides_count"] == 1

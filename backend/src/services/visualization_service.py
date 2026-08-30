@@ -267,6 +267,35 @@ async def get_graph_data(
         }
 
     override_targets = await get_override_targets(novel_id)
+
+    # 实体级可见性 override(issue #66 Epic 1):隐藏的实体、或改型到非
+    # person 的实体从图谱剔除(节点 + 相关边)。无 override 时零行为变化。
+    from src.services.entity_visibility import (
+        expand_hidden,
+        expand_retype,
+        get_visibility_overrides,
+    )
+
+    hidden, retype = await get_visibility_overrides(novel_id)
+    if hidden or retype:
+        hidden_r = expand_hidden(alias_map, hidden)
+        retype_r = expand_retype(alias_map, retype)
+        gone = {
+            name
+            for name in person_chapters
+            if name in hidden_r or retype_r.get(name, "person") != "person"
+        }
+        if gone:
+            for name in gone:
+                person_chapters.pop(name, None)
+                person_org.pop(name, None)
+                person_aliases.pop(name, None)
+            edge_map = {
+                k: v
+                for k, v in edge_map.items()
+                if k[0] not in gone and k[1] not in gone
+            }
+
     nodes = [
         {
             "id": name,
@@ -793,6 +822,17 @@ def _enhance_constraints(
 _map_cache: dict[str, tuple[float, dict]] = {}  # key → (timestamp, data)
 _MAP_CACHE_TTL = 300  # 5 minutes
 
+
+def invalidate_map_response_cache(novel_id: str) -> None:
+    """丢弃某小说的内存地图响应缓存(实体 override 写入后调用)。
+
+    DB 层布局缓存(map_layouts/layer_layouts)不动 — 隐藏/改型在响应边界
+    过滤,布局坐标本身与可见性无关,可复用。
+    """
+    prefix = f"{novel_id}:"
+    for key in [k for k in _map_cache if k.startswith(prefix)]:
+        _map_cache.pop(key, None)
+
 async def get_map_data(
     novel_id: str, chapter_start: int, chapter_end: int,
     layer_id: str | None = None,
@@ -861,6 +901,45 @@ async def get_map_data(
                     "confidence_score": sr.confidence_score,
                     "waypoints": sr.waypoints,
                 }
+
+    # 实体级可见性 override(issue #66 Epic 1, FR-1.1/FR-1.2):隐藏的、或
+    # 改型到非 location 的地点从地图剔除。地图用的是原始名,override key 是
+    # canonical,经 alias_map 双向展开。无 override 时零行为变化。
+    removed_locations: set[str] = set()
+    from src.services.entity_visibility import (
+        expand_hidden,
+        expand_retype,
+        get_visibility_overrides,
+    )
+
+    hidden_locs, retype_locs = await get_visibility_overrides(novel_id)
+    if hidden_locs or retype_locs:
+        alias_map_vis = await build_alias_map(novel_id)
+        hidden_r = expand_hidden(alias_map_vis, hidden_locs)
+        retype_r = expand_retype(alias_map_vis, retype_locs)
+        for name in list(loc_info):
+            canon = alias_map_vis.get(name, name)
+            if canon in hidden_r or name in hidden_r:
+                removed_locations.add(name)
+            else:
+                target = retype_r.get(canon, retype_r.get(name))
+                if target and target != "location":
+                    removed_locations.add(name)
+        for name in removed_locations:
+            loc_info.pop(name, None)
+            loc_chapters.pop(name, None)
+            loc_role.pop(name, None)
+        if removed_locations:
+            trajectories = defaultdict(list, {
+                p: [e for e in entries if e["location"] not in removed_locations]
+                for p, entries in trajectories.items()
+            })
+            # 引用被剔除地点的空间约束一并丢弃(否则也会被下游 dangling 检查删掉)
+            for key in [
+                k for k in constraint_map
+                if k[0] in removed_locations or k[1] in removed_locations
+            ]:
+                del constraint_map[key]
 
     # Calculate hierarchy levels
     def get_level(name: str, visited: set[str] | None = None) -> int:
@@ -1553,6 +1632,29 @@ async def get_map_data(
     # Space theme only for cosmic layers, NOT for overworld (earth surface).
     _SPACE_LAYER_IDS = {"galaxy", "solarsystem", "trisolaris", "trisolaris-game"}
     space_theme = bool(layer_id and layer_id in _SPACE_LAYER_IDS)
+
+    # 响应边界兜底过滤:DB/内存缓存的布局可能仍含被隐藏地点的坐标
+    if removed_locations:
+        layout_data = [
+            it for it in layout_data if it.get("name") not in removed_locations
+        ]
+        for lid, litems in layer_layouts.items():
+            layer_layouts[lid] = [
+                it for it in litems if it.get("name") not in removed_locations
+            ]
+        if geo_coords_raw:
+            for name in removed_locations:
+                geo_coords_raw.pop(name, None)
+        revealed_names = [n for n in revealed_names if n not in removed_locations]
+        for gc in geo_context:
+            gc["entries"] = [
+                e for e in gc["entries"]
+                if e.get("type") != "location" or e.get("name") not in removed_locations
+            ]
+        location_conflicts = [
+            c for c in location_conflicts
+            if c.get("entity") not in removed_locations
+        ]
 
     result: dict = {
         "locations": locations,
