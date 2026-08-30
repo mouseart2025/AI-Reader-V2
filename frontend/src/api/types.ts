@@ -478,6 +478,8 @@ export interface EntityOverride {
     | "concept_rename"
     | "concept_recategory"
     | "concept_delete"
+    | "entity_hide"
+    | "entity_retype"
   override_key: string
   override_json: {
     members?: string[]
@@ -485,8 +487,12 @@ export interface EntityOverride {
     source?: string
     aliases?: string[]
     to?: string | null
+    from?: string
   }
   created_at: string
+  /** FR7 式漂移标记(实体级 override):与新分析结果冲突时非破坏提示 */
+  conflict?: boolean
+  conflict_reason?: string
 }
 
 // ── Map ──────────────────────────────────────

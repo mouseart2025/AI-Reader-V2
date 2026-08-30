@@ -75,6 +75,46 @@ async def get_category_stats(novel_id: str) -> dict:
                     concepts[cat] = set()
                 concepts[cat].add(name)
 
+    # 实体级可见性 override(issue #66 Epic 1):隐藏不计数,改型换桶。
+    # 桶内是原始名(本函数不做 alias 合并),override key 是 canonical,
+    # 经 alias_map 展开后匹配。无 override 时零行为变化。
+    from src.services.entity_visibility import (
+        expand_hidden,
+        expand_retype,
+        get_visibility_overrides,
+    )
+
+    hidden_ent, retype_ent = await get_visibility_overrides(novel_id)
+    if hidden_ent or retype_ent:
+        from src.services.alias_resolver import build_alias_map
+
+        alias_map = await build_alias_map(novel_id)
+        hidden_r = expand_hidden(alias_map, hidden_ent)
+        retype_r = expand_retype(alias_map, retype_ent)
+        buckets = {"person": persons, "location": locations, "item": items, "org": orgs}
+        for etype, names in buckets.items():
+            for n in list(names):
+                canon = alias_map.get(n, n)
+                if canon in hidden_r or n in hidden_r:
+                    names.discard(n)
+                    continue
+                target = retype_r.get(canon, retype_r.get(n))
+                if target and target != etype:
+                    names.discard(n)
+                    if target == "concept":
+                        concepts.setdefault("其他", set()).add(n)
+                    else:
+                        buckets[target].add(n)
+        for cat, names in list(concepts.items()):
+            for n in list(names):
+                if n in hidden_r:
+                    names.discard(n)
+                    continue
+                target = retype_r.get(n)
+                if target and target != "concept":
+                    names.discard(n)
+                    buckets[target].add(n)
+
     total_concepts = sum(len(v) for v in concepts.values())
 
     return {
@@ -221,6 +261,30 @@ async def get_encyclopedia_entries(
         if hint:
             entry["variant_hint"] = hint
 
+    # 实体级可见性 override(issue #66 Epic 1):隐藏剔除,改型换 type/category。
+    # 无 override 时零行为变化。
+    from src.services.entity_visibility import (
+        expand_hidden,
+        expand_retype,
+        get_visibility_overrides,
+    )
+
+    hidden_ent, retype_ent = await get_visibility_overrides(novel_id)
+    hidden_r: set[str] = set()
+    if hidden_ent or retype_ent:
+        hidden_r = expand_hidden(alias_map, hidden_ent)
+        retype_r = expand_retype(alias_map, retype_ent)
+        for name in list(entries):
+            if name in hidden_r:
+                del entries[name]
+                entry_chapters.pop(name, None)
+                continue
+            target = retype_r.get(name)
+            if target:
+                entries[name]["type"] = target
+                entries[name]["category"] = "其他" if target == "concept" else target
+                entries[name]["edited"] = True
+
     result = list(entries.values())
 
     # Load WorldStructure for tier/icon enrichment and hierarchy sort
@@ -247,7 +311,7 @@ async def get_encyclopedia_entries(
             # Inject virtual parent nodes from location_parents so
             # the tree structure matches WorldStructureEditor
             existing_names = {e["name"] for e in result if e.get("type") == "location"}
-            parent_names = set(ws.location_parents.values())
+            parent_names = set(ws.location_parents.values()) - hidden_r
             for vp in parent_names - existing_names:
                 auth_parent = ws.location_parents.get(vp)
                 tier = (ws.location_tiers or {}).get(vp, "")
@@ -337,6 +401,17 @@ async def get_concept_detail(novel_id: str, name: str) -> dict | None:
     if orig in c_deleted:
         return None
     display_name = c_renames.get(orig, orig)
+
+    # 实体级可见性 override(issue #66 Epic 1):隐藏的概念详情不返回;
+    # 改型离开 concept 的概念也不再走概念详情。
+    from src.services.entity_visibility import get_visibility_overrides
+
+    hidden_ent, retype_ent = await get_visibility_overrides(novel_id)
+    if orig in hidden_ent or name in hidden_ent:
+        return None
+    target = retype_ent.get(orig, retype_ent.get(name))
+    if target and target != "concept":
+        return None
 
     concept_info: dict | None = None
     excerpts: list[dict] = []

@@ -49,8 +49,21 @@ async def get_entity(
     alias_map = await build_alias_map(novel_id)
     resolved_name = alias_map.get(name, name)
 
+    # 实体级可见性 override(issue #66 Epic 1):隐藏的实体卡片 404;
+    # 改型的实体路由到目标类型的聚合器(覆盖 type hint 与自动检测)。
+    from src.services.entity_visibility import (
+        expand_hidden,
+        expand_retype,
+        get_visibility_overrides,
+    )
+
+    hidden_ent, retype_ent = await get_visibility_overrides(novel_id)
+    if resolved_name in expand_hidden(alias_map, hidden_ent):
+        raise HTTPException(status_code=404, detail="实体已被隐藏")
+    retype_target = expand_retype(alias_map, retype_ent).get(resolved_name)
+
     # If type is provided, use it directly. Otherwise, detect from entity list.
-    entity_type = type
+    entity_type = retype_target or type
     if not entity_type:
         entities = await entity_aggregator.get_all_entities(novel_id)
         for e in entities:

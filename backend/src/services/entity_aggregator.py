@@ -674,10 +674,14 @@ async def aggregate_org(novel_id: str, org_name: str) -> OrgProfile:
 # ── Entity List ───────────────────────────────────
 
 
-async def get_all_entities(novel_id: str) -> list[EntitySummary]:
+async def get_all_entities(
+    novel_id: str, *, apply_visibility: bool = True
+) -> list[EntitySummary]:
     """Scan all ChapterFacts and return a deduplicated entity list.
 
     Uses alias_map to merge entities that are aliases of the same canonical name.
+    apply_visibility=False 跳过 entity_hide/entity_retype(用于冲突检测的
+    自动基线);默认 True,所有现存调用方行为不变。
     """
     facts = await _load_chapter_facts(novel_id)
     alias_map = await build_alias_map(novel_id)
@@ -705,6 +709,33 @@ async def get_all_entities(novel_id: str) -> list[EntitySummary]:
 
         for nc in fact.new_concepts:
             entity_map[(nc.name, "concept")].add(ch)
+
+    # ── 实体级可见性 override(issue #66 Epic 1, FR-1.1/FR-1.2)──
+    # entity_hide: 从聚合入口剔除(软删);entity_retype: 把该实体路由到
+    # 目标类型,章节集合取各类型的并集。在类型投票之前应用,投票自然失效。
+    # 无 override 时零行为变化(逐字节不变量)。
+    if apply_visibility:
+        from src.services.entity_visibility import (
+            expand_hidden,
+            expand_retype,
+            get_visibility_overrides,
+        )
+
+        hidden, retype = await get_visibility_overrides(novel_id)
+        if hidden or retype:
+            hidden_r = expand_hidden(alias_map, hidden)
+            for key in [k for k in entity_map if k[0] in hidden_r]:
+                del entity_map[key]
+            for name, target in expand_retype(alias_map, retype).items():
+                keys = [k for k in entity_map if k[0] == name]
+                if not keys:
+                    continue  # 改型目标已不存在(如被后续 merge 吞并)
+                chapters_union: set[int] = set()
+                for k in keys:
+                    chapters_union |= entity_map[k]
+                    if k[1] != target:
+                        del entity_map[k]
+                entity_map[(name, target)] = chapters_union
 
     # ── Entity type voting: resolve cross-type conflicts ──
     # When the same canonical name appears as multiple types (e.g., 林黛玉 as

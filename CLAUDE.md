@@ -107,6 +107,8 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 
 **Safety filtering**: Multi-tier system (`_alias_safety_level()`) prevents generic terms (kinship terms, titles, collective references like "妖精"/"那怪") from becoming Union-Find nodes and bridging unrelated character groups. Unsafe names pass through their safe aliases without registering as UF nodes.
 
+**User override layer**: Manual edits live in the `entity_overrides` table (UPSERT on `(novel_id, override_type, override_key)`), applied on top of the automatic result — `fact_json` stays byte-immutable and deleting an override restores the auto view. Alias-level types (`alias_merge`/`alias_split`/`entity_rename`/`llm_merge`) apply in `alias_resolver._apply_user_overrides`; concept types and entity-level `entity_hide`/`entity_retype` (issue #66) apply at read boundaries via `services/entity_visibility.py` (aggregation entry, graph/map nodes, encyclopedia, reading highlight). Drift vs. `auto_snapshot` surfaces as a non-destructive "冲突" marker in the "我的修正" panel.
+
 ### Fact Validation — Morphological Filtering
 
 `FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with structural rules based on Chinese place name morphology (专名+通名 structure). Person validation uses `_is_generic_person()` to filter pure titles and generic references. Auto-created parent/region locations use `_infer_type_from_name()` to derive type from Chinese name suffix.
@@ -241,11 +243,11 @@ Per-chapter timing with real-time ETA via WebSocket. `ExtractionMeta` reports tr
 
 ### Export (Series Bible)
 
-`ExportPage.tsx` — 4 formats (markdown/docx/pdf/xlsx). Relation chain dedup via `_compress_chain()`. Export format v3 (adds bookmarks, map overrides, world structure overrides). file_hash conflict detection for imports. Noise filters for entity dictionary (remove unknown type) and items (generic items). Timeline noise filter. Template selector for all formats. Chapter range selector. Batch conversation export. Dynamic filename with template + chapter range.
+`ExportPage.tsx` — 4 formats (markdown/docx/pdf/xlsx). Relation chain dedup via `_compress_chain()`. Export format v6 (adds entity_overrides on top of v5's scenes/cost/layouts/conversations; older v1–v5 packages still import). file_hash conflict detection for imports. Noise filters for entity dictionary (remove unknown type) and items (generic items). Timeline noise filter. Template selector for all formats. Chapter range selector. Batch conversation export. Dynamic filename with template + chapter range.
 
 ### Two Databases Only
 
-- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, benchmark_records, bookmarks (15 tables)
+- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, entity_overrides, app_settings, usage_events, benchmark_records, bookmarks (18 tables)
 - **ChromaDB**: chapter embeddings + entity embeddings for semantic search
 
 ## Code Conventions
@@ -391,7 +393,7 @@ Core logic MUST have exactly ONE implementation. Before adding new logic, grep f
 
 ## Database Schema (SQLite)
 
-15 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `benchmark_records`, `bookmarks`.
+18 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `entity_overrides`, `app_settings`, `usage_events`, `benchmark_records`, `bookmarks`.
 
 ## Important Notes
 

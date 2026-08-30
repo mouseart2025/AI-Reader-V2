@@ -150,6 +150,35 @@ async def get_chapter_entities(novel_id: str, chapter_num: int) -> list[dict]:
                     })
         entities.extend(extra_base)
 
+        # 实体级可见性 override(issue #66 Epic 1):隐藏的实体不高亮,
+        # 改型的实体按新类型着色。在 dedupe 之前应用(类型变化影响 dedupe 键)。
+        # 无 override 时零行为变化。
+        from src.services.entity_visibility import get_visibility_overrides
+
+        hidden_ent, retype_ent = await get_visibility_overrides(novel_id)
+        if hidden_ent or retype_ent:
+            try:
+                from src.services.alias_resolver import build_alias_map
+
+                amap = await build_alias_map(novel_id)
+            except Exception:
+                amap = {}
+            hidden_r = set(hidden_ent) | {amap.get(h, h) for h in hidden_ent}
+            retype_r = dict(retype_ent)
+            for k, v in retype_ent.items():
+                retype_r[amap.get(k, k)] = v
+            visible: list[dict] = []
+            for e in entities:
+                target_name = e.get("canonical") or e["name"]
+                canon = amap.get(target_name, target_name)
+                if canon in hidden_r or e["name"] in hidden_r:
+                    continue
+                t = retype_r.get(canon, retype_r.get(e["name"]))
+                if t and t != e["type"]:
+                    e = {**e, "type": t}
+                visible.append(e)
+            entities = visible
+
         # Deduplicate by (name, type)
         seen: set[tuple[str, str]] = set()
         unique: list[dict] = []

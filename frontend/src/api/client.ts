@@ -12,6 +12,7 @@ import type {
   EntityDictionaryResponse,
   EntitySummary,
   EntityOverride,
+  EntityType,
   EnvironmentCheck,
   HierarchyRebuildResult,
   ImportPreview,
@@ -573,6 +574,20 @@ export function conceptDelete(novelId: string, name: string) {
   return overrideRequest<{ status: string; override_id: number }>(
     `/novels/${novelId}/entity-overrides/concept-delete`,
     { method: "POST", body: JSON.stringify({ name }) },
+  )
+}
+
+export function hideEntity(novelId: string, name: string) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/hide`,
+    { method: "POST", body: JSON.stringify({ name }) },
+  )
+}
+
+export function retypeEntity(novelId: string, name: string, to: EntityType) {
+  return overrideRequest<{ status: string; override_id: number }>(
+    `/novels/${novelId}/entity-overrides/retype`,
+    { method: "POST", body: JSON.stringify({ name, to }) },
   )
 }
 

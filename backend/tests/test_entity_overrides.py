@@ -641,3 +641,264 @@ async def test_route_split_happy_path():
         for p in patches:
             p.stop()
     assert res == {"status": "ok", "override_id": 9}
+
+
+# ── 实体级 override:entity_hide / entity_retype(issue #66 Epic 1)──
+
+
+@pytest.mark.asyncio
+async def test_store_hide_and_retype_roundtrip(memory_db):
+    """新 override_type 走同一 (novel_id, type, key) UPSERT 契约。"""
+
+    class _NonClosing:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def __getattr__(self, name):
+            return getattr(self._conn, name)
+
+        async def close(self):
+            pass
+
+    async def _proxy_factory():
+        return _NonClosing(memory_db)
+
+    await memory_db.execute(
+        "INSERT INTO novels (id, title) VALUES (?, ?)", (NOVEL, "西游记"),
+    )
+    await memory_db.commit()
+
+    with patch("src.db.entity_override_store.get_connection", _proxy_factory):
+        await entity_override_store.save_override(
+            NOVEL, "entity_hide", "那道人", {"auto_snapshot": {"type": "person"}},
+        )
+        await entity_override_store.save_override(
+            NOVEL, "entity_retype", "花果山",
+            {"from": "location", "to": "org", "auto_snapshot": {"type": "location"}},
+        )
+        rows = await entity_override_store.load_overrides(NOVEL)
+        assert [r["override_type"] for r in rows] == ["entity_hide", "entity_retype"]
+        assert rows[1]["override_json"]["to"] == "org"
+
+        # 同 key UPSERT 改型,不重复
+        await entity_override_store.save_override(
+            NOVEL, "entity_retype", "花果山",
+            {"from": "location", "to": "concept"},
+        )
+        rows = await entity_override_store.load_overrides(NOVEL)
+        assert len(rows) == 2
+        assert rows[1]["override_json"]["to"] == "concept"
+
+
+@pytest.mark.asyncio
+async def test_retype_marks_entity_edited_in_targets():
+    """entity_retype 不改 alias_map,只把实体标记为 edited(FR6)。"""
+    invalidate_alias_cache(NOVEL)
+    amap = {"猴王": "孙悟空"}
+    ov = [{
+        "override_type": "entity_retype",
+        "override_key": "花果山",
+        "override_json": {"from": "location", "to": "org"},
+    }]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, dict(amap))
+    assert out == amap  # alias_map 逐字节不变
+    assert "花果山" in alias_resolver._alias_override_targets[NOVEL].get("花果山", set())
+
+
+def _patch_visibility_route(saved_id=7, auto_entities=(), retype_map=None):
+    """Patch hide/retype 端点的依赖:novel 检查、alias_map、自动类型、存储、缓存。"""
+    from src.models.entity_profiles import EntitySummary
+
+    async def _get_novel(_n):
+        return {"id": _n}
+
+    async def _build_map(_n):
+        return {}
+
+    async def _all_entities(_n, *, apply_visibility=True):
+        return [
+            EntitySummary(name=n, type=t, chapter_count=2, first_chapter=1)
+            for n, t in auto_entities
+        ]
+
+    async def _save(*_a, **_k):
+        return saved_id
+
+    async def _vis(_n):
+        return set(), (retype_map or {})
+
+    return [
+        patch("src.db.novel_store.get_novel", _get_novel),
+        patch("src.api.routes.entity_overrides.build_alias_map", _build_map),
+        patch("src.api.routes.entity_overrides.entity_aggregator.get_all_entities", _all_entities),
+        patch("src.api.routes.entity_overrides.entity_override_store.save_override", _save),
+        patch("src.api.routes.entity_overrides.entity_aggregator.invalidate_cache", lambda _n: None),
+        patch(
+            "src.api.routes.entity_overrides.visualization_service.invalidate_map_response_cache",
+            lambda _n: None,
+        ),
+        patch("src.services.entity_visibility.get_visibility_overrides", _vis),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_route_hide_happy_path():
+    from src.api.routes.entity_overrides import HideRequest, hide_entity
+
+    patches = _patch_visibility_route(saved_id=21, auto_entities=[("那道人", "person")])
+    for p in patches:
+        p.start()
+    try:
+        res = await hide_entity(NOVEL, HideRequest(name="那道人"))
+    finally:
+        for p in patches:
+            p.stop()
+    assert res == {"status": "ok", "override_id": 21}
+
+
+@pytest.mark.asyncio
+async def test_route_hide_rejects_unknown_entity():
+    from fastapi import HTTPException
+    from src.api.routes.entity_overrides import HideRequest, hide_entity
+
+    patches = _patch_visibility_route(auto_entities=[("孙悟空", "person")])
+    for p in patches:
+        p.start()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            await hide_entity(NOVEL, HideRequest(name="不存在的人"))
+        assert exc.value.status_code == 400
+    finally:
+        for p in patches:
+            p.stop()
+
+
+@pytest.mark.asyncio
+async def test_route_retype_happy_path():
+    from src.api.routes.entity_overrides import RetypeRequest, retype_entity
+
+    patches = _patch_visibility_route(saved_id=33, auto_entities=[("花果山", "location")])
+    for p in patches:
+        p.start()
+    try:
+        res = await retype_entity(NOVEL, RetypeRequest(name="花果山", to="org"))
+    finally:
+        for p in patches:
+            p.stop()
+    assert res == {"status": "ok", "override_id": 33}
+
+
+@pytest.mark.asyncio
+async def test_route_retype_rejects_invalid_type():
+    from fastapi import HTTPException
+    from src.api.routes.entity_overrides import RetypeRequest, retype_entity
+
+    patches = _patch_visibility_route(auto_entities=[("花果山", "location")])
+    for p in patches:
+        p.start()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            await retype_entity(NOVEL, RetypeRequest(name="花果山", to="alien"))
+        assert exc.value.status_code == 400
+    finally:
+        for p in patches:
+            p.stop()
+
+
+@pytest.mark.asyncio
+async def test_route_retype_rejects_same_effective_type():
+    """与当前生效类型(含已存在的改型)相同 → 400,不重复写入。"""
+    from fastapi import HTTPException
+    from src.api.routes.entity_overrides import RetypeRequest, retype_entity
+
+    patches = _patch_visibility_route(
+        auto_entities=[("花果山", "location")], retype_map={"花果山": "org"},
+    )
+    for p in patches:
+        p.start()
+    try:
+        with pytest.raises(HTTPException) as exc:
+            await retype_entity(NOVEL, RetypeRequest(name="花果山", to="org"))
+        assert exc.value.status_code == 400
+    finally:
+        for p in patches:
+            p.stop()
+
+
+@pytest.mark.asyncio
+async def test_list_overrides_flags_retype_drift():
+    """FR7 式漂移标记:自动类型与快照 from 不一致 → conflict=True(非破坏)。"""
+    from src.api.routes.entity_overrides import list_overrides
+    from src.models.entity_profiles import EntitySummary
+
+    async def _get_novel(_n):
+        return {"id": _n}
+
+    async def _load(_n):
+        return [{
+            "id": 1, "override_type": "entity_retype", "override_key": "花果山",
+            "override_json": {"from": "location", "to": "org"},
+            "created_at": "2026-08-30",
+        }]
+
+    async def _build_map(_n):
+        return {}
+
+    async def _all_entities(_n, *, apply_visibility=True):
+        # 重建后自动识别已变成 org — 与快照 from=location 漂移
+        return [EntitySummary(name="花果山", type="org", chapter_count=3, first_chapter=1)]
+
+    patches = [
+        patch("src.db.novel_store.get_novel", _get_novel),
+        patch("src.api.routes.entity_overrides.entity_override_store.load_overrides", _load),
+        patch("src.api.routes.entity_overrides.build_alias_map", _build_map),
+        patch("src.api.routes.entity_overrides.entity_aggregator.get_all_entities", _all_entities),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        res = await list_overrides(NOVEL)
+    finally:
+        for p in patches:
+            p.stop()
+    ov = res["overrides"][0]
+    assert ov["conflict"] is True
+    assert "org" in ov["conflict_reason"]
+
+
+@pytest.mark.asyncio
+async def test_list_overrides_flags_vanished_entity():
+    """隐藏目标在重建后不存在 → conflict=True,override 不静默失效。"""
+    from src.api.routes.entity_overrides import list_overrides
+
+    async def _get_novel(_n):
+        return {"id": _n}
+
+    async def _load(_n):
+        return [{
+            "id": 2, "override_type": "entity_hide", "override_key": "那道人",
+            "override_json": {"auto_snapshot": {"type": "person"}},
+            "created_at": "2026-08-30",
+        }]
+
+    async def _build_map(_n):
+        return {}
+
+    async def _all_entities(_n, *, apply_visibility=True):
+        return []
+
+    patches = [
+        patch("src.db.novel_store.get_novel", _get_novel),
+        patch("src.api.routes.entity_overrides.entity_override_store.load_overrides", _load),
+        patch("src.api.routes.entity_overrides.build_alias_map", _build_map),
+        patch("src.api.routes.entity_overrides.entity_aggregator.get_all_entities", _all_entities),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        res = await list_overrides(NOVEL)
+    finally:
+        for p in patches:
+            p.stop()
+    assert res["overrides"][0]["conflict"] is True

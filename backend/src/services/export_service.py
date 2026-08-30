@@ -8,8 +8,8 @@ from src.db.sqlite_db import get_connection
 
 logger = logging.getLogger(__name__)
 
-CURRENT_FORMAT_VERSION = 5
-SUPPORTED_FORMAT_VERSIONS = {1, 2, 3, 4, 5}
+CURRENT_FORMAT_VERSION = 6
+SUPPORTED_FORMAT_VERSIONS = {1, 2, 3, 4, 5, 6}
 
 
 async def _build_precomputed(novel_id: str) -> dict | None:
@@ -68,6 +68,8 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
 
     Format v5 adds: scenes_json, cost/quality columns, map_layouts,
     layer_layouts, conversations + messages.
+    Format v6 adds: entity_overrides(别名合并/拆分/改名/概念编辑/实体隐藏与
+    改型 — 不换机迁移则用户修正丢失,issue #66 FR-1.4)。
     """
     conn = await get_connection()
     try:
@@ -148,6 +150,14 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
         )
         ws_overrides = [dict(r) for r in await cur.fetchall()]
 
+        # v6: Entity overrides (alias merge/split/rename, concept edits,
+        # entity hide/retype — user corrections must migrate with the data)
+        cur = await conn.execute(
+            "SELECT override_type, override_key, override_json, created_at FROM entity_overrides WHERE novel_id = ?",
+            (novel_id,),
+        )
+        entity_overrides = [dict(r) for r in await cur.fetchall()]
+
         # v5: Map layouts (computed layout cache + quality baseline)
         cur = await conn.execute(
             "SELECT chapter_hash, layout_json, layout_mode, terrain_path, satisfaction_json, created_at FROM map_layouts WHERE novel_id = ?",
@@ -193,6 +203,7 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
             "bookmarks": bookmarks,
             "map_user_overrides": map_user_overrides,
             "world_structure_overrides": ws_overrides,
+            "entity_overrides": entity_overrides,
             "map_layouts": map_layouts,
             "layer_layouts": layer_layouts,
             "conversations": conversations,
@@ -206,7 +217,7 @@ async def export_novel(novel_id: str, *, skip_content: bool = False) -> dict:
 
 
 async def import_novel(data: dict, overwrite: bool = False) -> dict:
-    """Import a novel from exported JSON data (supports v1-v5).
+    """Import a novel from exported JSON data (supports v1-v6).
 
     If overwrite=True and a novel with the same title exists, replace it.
     Otherwise create with a fresh ID.
@@ -224,6 +235,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
     bookmarks = data.get("bookmarks", [])
     map_overrides = data.get("map_user_overrides", [])
     ws_overrides = data.get("world_structure_overrides", [])
+    entity_overrides = data.get("entity_overrides", [])  # v6+
     map_layouts = data.get("map_layouts", [])
     layer_layouts = data.get("layer_layouts", [])
     conversations = data.get("conversations", [])
@@ -429,6 +441,22 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
                 ],
             )
 
+        # v6: Import entity overrides (同一 UPSERT 契约,按 novel 隔离)
+        if entity_overrides:
+            await conn.executemany(
+                "INSERT INTO entity_overrides (novel_id, override_type, override_key, override_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        novel_id,
+                        o["override_type"],
+                        o["override_key"],
+                        o["override_json"],
+                        o.get("created_at"),
+                    )
+                    for o in entity_overrides
+                ],
+            )
+
         # v5: Import map layouts
         if map_layouts:
             await conn.executemany(
@@ -514,6 +542,7 @@ async def import_novel(data: dict, overwrite: bool = False) -> dict:
             "bookmarks_imported": len(bookmarks),
             "map_overrides_imported": len(map_overrides),
             "ws_overrides_imported": len(ws_overrides),
+            "entity_overrides_imported": len(entity_overrides),
             "map_layouts_imported": len(map_layouts),
             "layer_layouts_imported": len(layer_layouts),
             "conversations_imported": len(conversations),
@@ -558,6 +587,7 @@ def preview_import(data: dict) -> dict:
         "bookmarks_count": len(bookmarks),
         "map_overrides_count": len(map_overrides),
         "ws_overrides_count": len(ws_overrides),
+        "entity_overrides_count": len(data.get("entity_overrides", [])),
         "conversations_count": len(conversations),
         "data_size_bytes": data_size,
     }
