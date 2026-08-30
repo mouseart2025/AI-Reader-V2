@@ -21,10 +21,12 @@ so LLM quality doesn't confound the comparison).
 
 Usage:
     cd backend && uv run python scripts/graphrag_style_baseline.py --novel xiyouji
-    cd backend && uv run python scripts/graphrag_style_baseline.py --novel honglou
-    cd backend && uv run python scripts/graphrag_style_baseline.py --both
+    cd backend && uv run python scripts/graphrag_style_baseline.py --novel shuihu
+    cd backend && uv run python scripts/graphrag_style_baseline.py --all
+    cd backend && uv run python scripts/graphrag_style_baseline.py --all --method all
 
-Output: paper/evaluation/v071/baselines/graphrag_style/<slug>.json
+Output: paper/evaluation/v071/baselines/graphrag_style/<slug>.json (louvain)
+        paper/evaluation/v071/baselines/hipporag_style/<slug>.json (ppr)
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -44,6 +47,12 @@ OUTPUT_ROOT = Path(
     os.environ.get(
         "BASELINE_OUTPUT_DIR",
         str(Path.home() / "Baiduyun/AISoul/ai-reader-internal/paper/evaluation/v071/baselines/graphrag_style"),
+    )
+)
+PPR_OUTPUT_ROOT = Path(
+    os.environ.get(
+        "PPR_BASELINE_OUTPUT_DIR",
+        str(OUTPUT_ROOT.parent / "hipporag_style"),
     )
 )
 
@@ -57,6 +66,11 @@ NOVELS: dict[str, dict] = {
         "title": "红楼梦",
         "novel_id": "c384901a-8b71-437a-af35-b5ec1c56c696",
         "gold_file": "tests/fixtures/golden_standard_dream_of_red_chamber.json",
+    },
+    "shuihu": {
+        "title": "水浒传",
+        "novel_id": "4ac43c73-f67b-427c-8d6d-e766a1423977",
+        "gold_file": "tests/fixtures/golden_standard_water_margin.json",
     },
 }
 
@@ -209,6 +223,37 @@ def communities_to_hierarchy(partitions: list[dict[str, int]], mention_count: Co
 
 
 # =============================================================================
+# HippoRAG-style approximation: Personalized-PageRank attachment
+# =============================================================================
+
+def ppr_hierarchy(G, mention_count: Counter, alpha: float = 0.85) -> dict[str, str]:
+    """Approximate HippoRAG-style signal for hierarchy induction.
+
+    HippoRAG / HippoRAG 2 do NOT build hierarchies — their distinctive
+    mechanism is Personalized PageRank over an entity graph for retrieval.
+    This baseline reuses that signal for hierarchy induction: each node's
+    parent is the highest-PPR-scoring node (personalized on the node itself)
+    among nodes with strictly more mentions. The mention-count constraint
+    guarantees acyclicity and terminates at globally salient roots,
+    mirroring "attach to the most salient related superordinate".
+
+    This is a deliberately minimal approximation for a controlled
+    comparison, NOT an end-to-end HippoRAG 2 run (no OpenIE triples, no
+    synonymy edges, no query-time retrieval).
+    """
+    import networkx as nx
+
+    parent_map: dict[str, str] = {}
+    for node in G.nodes:
+        ppr = nx.pagerank(G, alpha=alpha, personalization={node: 1.0}, weight="weight")
+        candidates = [n for n in ppr
+                      if n != node and mention_count.get(n, 0) > mention_count.get(node, 0)]
+        if candidates:
+            parent_map[node] = max(candidates, key=lambda n: (ppr[n], mention_count.get(n, 0)))
+    return parent_map
+
+
+# =============================================================================
 # Structural metrics + gold comparison
 # =============================================================================
 
@@ -279,13 +324,32 @@ def compute_metrics(parent_map: dict[str, str], gold_locs: list[dict]) -> dict:
 # Orchestration
 # =============================================================================
 
+def _load_gold(meta: dict) -> list[dict]:
+    gold_path = Path(__file__).parent.parent / meta["gold_file"]
+    if gold_path.exists():
+        return json.loads(gold_path.read_text()).get("locations", [])
+    return []
+
+
+def _summarize(metrics: dict) -> None:
+    m = metrics
+    print(f"  ─ Structure: roots={m['root_count']}, max_ch={m['max_children']},"
+          f" depth={m['avg_depth']}, cycle={m['has_cycle']}, valid_tree={m['valid_tree']}")
+    if "topology_vs_gold" in m:
+        t = m["topology_vs_gold"]
+        print(f"  ─ vs gold: parent_P={t.get('parent_precision', 0):.3f},"
+              f" recall={t.get('parent_recall', 0):.3f},"
+              f" chain_acc={t.get('chain_accuracy', 0):.3f}")
+
+
 def run_for_novel(slug: str) -> dict:
     meta = NOVELS[slug]
-    print(f"\n=== {meta['title']} ({slug}) ===")
+    print(f"\n=== {meta['title']} ({slug}) — Louvain / GraphRAG-style ===")
     print("  Building co-occurrence graph from chapter_facts...")
     G, mention_count = build_cooccurrence_graph(meta["novel_id"])
     print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
 
+    t0 = time.perf_counter()
     print("  Running hierarchical Louvain community detection (4 resolutions)...")
     partitions = hierarchical_communities(G)
     for i, p in enumerate(partitions):
@@ -294,21 +358,17 @@ def run_for_novel(slug: str) -> dict:
 
     print("  Deriving instance-of hierarchy from communities...")
     parent_map, debug = communities_to_hierarchy(partitions, mention_count, G)
-    print(f"  Parent assignments: {len(parent_map)}")
+    runtime_ms = round((time.perf_counter() - t0) * 1000, 1)
+    print(f"  Parent assignments: {len(parent_map)} (aggregation runtime {runtime_ms} ms, no LLM)")
 
-    # Load gold
-    gold_path = Path(__file__).parent.parent / meta["gold_file"]
-    gold_locs = []
-    if gold_path.exists():
-        gold_locs = json.loads(gold_path.read_text()).get("locations", [])
-
-    metrics = compute_metrics(parent_map, gold_locs)
+    metrics = compute_metrics(parent_map, _load_gold(meta))
 
     result = {
         "slug": slug,
         "title": meta["title"],
         "method": "GraphRAG-style (Louvain hierarchical community detection on co-occurrence graph)",
         "graph": {"nodes": G.number_of_nodes(), "edges": G.number_of_edges()},
+        "aggregation_runtime_ms": runtime_ms,
         "debug": debug,
         "metrics": metrics,
         "parent_map": parent_map,
@@ -318,31 +378,61 @@ def run_for_novel(slug: str) -> dict:
     out = OUTPUT_ROOT / f"{slug}.json"
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str))
     print(f"  Saved: {out}")
+    _summarize(metrics)
+    return result
 
-    # Summary print
-    m = metrics
-    print(f"  ─ Structure: roots={m['root_count']}, max_ch={m['max_children']},"
-          f" depth={m['avg_depth']}, cycle={m['has_cycle']}, valid_tree={m['valid_tree']}")
-    if "topology_vs_gold" in m:
-        t = m["topology_vs_gold"]
-        print(f"  ─ vs gold: parent_P={t.get('parent_precision', 0):.3f},"
-              f" recall={t.get('parent_recall', 0):.3f},"
-              f" chain_acc={t.get('chain_accuracy', 0):.3f}")
+
+def run_ppr_for_novel(slug: str) -> dict:
+    meta = NOVELS[slug]
+    print(f"\n=== {meta['title']} ({slug}) — PPR / HippoRAG-style approximation ===")
+    print("  Building co-occurrence graph from chapter_facts...")
+    G, mention_count = build_cooccurrence_graph(meta["novel_id"])
+    print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+
+    t0 = time.perf_counter()
+    print("  Running per-node Personalized PageRank attachment...")
+    parent_map = ppr_hierarchy(G, mention_count)
+    runtime_ms = round((time.perf_counter() - t0) * 1000, 1)
+    print(f"  Parent assignments: {len(parent_map)} (aggregation runtime {runtime_ms} ms, no LLM)")
+
+    metrics = compute_metrics(parent_map, _load_gold(meta))
+
+    result = {
+        "slug": slug,
+        "title": meta["title"],
+        "method": ("HippoRAG-style approximation (per-node Personalized PageRank "
+                   "attachment on co-occurrence graph; not an end-to-end HippoRAG 2 run)"),
+        "graph": {"nodes": G.number_of_nodes(), "edges": G.number_of_edges()},
+        "aggregation_runtime_ms": runtime_ms,
+        "metrics": metrics,
+        "parent_map": parent_map,
+    }
+
+    PPR_OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    out = PPR_OUTPUT_ROOT / f"{slug}.json"
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    print(f"  Saved: {out}")
+    _summarize(metrics)
     return result
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--novel", choices=list(NOVELS.keys()))
-    ap.add_argument("--both", action="store_true")
+    ap.add_argument("--both", action="store_true", help="deprecated alias for --all")
+    ap.add_argument("--all", action="store_true")
+    ap.add_argument("--method", choices=["louvain", "ppr", "all"], default="louvain")
     args = ap.parse_args()
 
-    targets = list(NOVELS.keys()) if args.both else ([args.novel] if args.novel else [])
+    targets = list(NOVELS.keys()) if (args.all or args.both) else ([args.novel] if args.novel else [])
     if not targets:
-        ap.error("--novel xiyouji|honglou or --both")
+        ap.error("--novel xiyouji|honglou|shuihu or --all")
 
     for slug in targets:
-        run_for_novel(slug)
+        if args.method in ("louvain", "all"):
+            run_for_novel(slug)
+        if args.method in ("ppr", "all"):
+            run_ppr_for_novel(slug)
 
 
 if __name__ == "__main__":
