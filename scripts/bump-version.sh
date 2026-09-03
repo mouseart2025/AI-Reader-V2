@@ -5,6 +5,7 @@
 #
 # 管理的文件清单（新增版本文件时请同步更新此列表）:
 #   1. backend/pyproject.toml          — version = "X.Y.Z"
+#   1b. backend/src/infra/version.py   — BACKEND_VERSION = "X.Y.Z" (sidecar 内置常量)
 #   2. frontend/package.json           — "version": "X.Y.Z"
 #   3. frontend/src-tauri/tauri.conf.json — "version": "X.Y.Z"
 #   4. frontend/src-tauri/Cargo.toml   — version = "X.Y.Z" ([package] section)
@@ -59,6 +60,11 @@ _sed_i() {
 FILE="$PROJECT_ROOT/backend/pyproject.toml"
 _sed_i "s/^version = \"$OLD_VERSION\"/version = \"$VERSION\"/" "$FILE"
 echo "  ✅ backend/pyproject.toml"
+
+# ── 1b. backend/src/infra/version.py (sidecar 内置常量) ─
+FILE="$PROJECT_ROOT/backend/src/infra/version.py"
+_sed_i "s/^BACKEND_VERSION = \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"/BACKEND_VERSION = \"$VERSION\"/" "$FILE"
+echo "  ✅ backend/src/infra/version.py"
 
 # ── 2. frontend/package.json (first match only) ──────
 FILE="$PROJECT_ROOT/frontend/package.json"
@@ -123,6 +129,7 @@ check_version() {
 }
 
 check_version "backend/pyproject.toml" "pyproject.toml"
+check_version "backend/src/infra/version.py" "version.py (BACKEND_VERSION)"
 check_version "frontend/package.json" "package.json"
 check_version "frontend/src-tauri/tauri.conf.json" "tauri.conf.json"
 check_version "frontend/src-tauri/Cargo.toml" "Cargo.toml"

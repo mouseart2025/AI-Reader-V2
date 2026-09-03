@@ -85,7 +85,8 @@
         ],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
-        "installMode": "both"
+        "installMode": "both",
+        "installerHooks": "installer-hooks.nsh"
       }
     }
   },

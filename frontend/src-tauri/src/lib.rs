@@ -33,6 +33,24 @@ fn generate_sidecar_token() -> String {
   bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// 结束 sidecar 进程。
+/// Windows 上 PyInstaller onefile 是 bootloader + 子进程两层结构,只杀 bootloader
+/// 会残留孤儿 Python 进程——它持续占用 sidecar exe,导致升级安装时文件无法替换、
+/// 新旧版本混装(issue #71 根因)。taskkill /T 把整棵进程树带走;其他平台直接 kill。
+fn kill_sidecar(child: tauri_plugin_shell::process::CommandChild) {
+  #[cfg(target_os = "windows")]
+  {
+    let pid = child.pid().to_string();
+    let _ = std::process::Command::new("taskkill")
+      .args(["/PID", pid.as_str(), "/T", "/F"])
+      .output();
+  }
+  #[cfg(not(target_os = "windows"))]
+  {
+    let _ = child.kill();
+  }
+}
+
 #[tauri::command]
 async fn sidecar_start(
   state: State<'_, Mutex<SidecarState>>,
@@ -118,7 +136,7 @@ async fn sidecar_start(
   ).await {
     Ok(Ok(p)) => p,
     Ok(Err(_)) => {
-      let _ = child.kill();
+      kill_sidecar(child);
       let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
       s.starting = false;
       let stderr_msg = stderr_lines.lock().ok()
@@ -132,7 +150,7 @@ async fn sidecar_start(
       return Err(format!("后端启动失败: 进程异常退出{}", hint));
     }
     Err(_) => {
-      let _ = child.kill();
+      kill_sidecar(child);
       let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
       s.starting = false;
       return Err("后端启动超时（120秒），请检查杀毒软件是否拦截".to_string());
@@ -165,10 +183,34 @@ async fn sidecar_start(
 
   if !healthy {
     // Kill the child if health check fails
-    let _ = child.kill();
+    kill_sidecar(child);
     let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
     s.starting = false;
     return Err("Sidecar failed health check after 120s".to_string());
+  }
+
+  // issue #71 版本握手:升级安装时旧 sidecar 可能因进程残留未被替换,
+  // 新旧混装会让新端点返回莫名其妙的 404/405。健康检查通过后比对后端版本,
+  // 不一致(或旧后端无 version 字段)直接给出可操作的提示。
+  let sidecar_version: Option<String> = match client.get(&health_url).send().await {
+    Ok(resp) => resp
+      .json::<serde_json::Value>()
+      .await
+      .ok()
+      .and_then(|v| v.get("version")?.as_str().map(|s| s.to_string())),
+    Err(_) => None,
+  };
+  let app_version = env!("CARGO_PKG_VERSION");
+  if sidecar_version.as_deref() != Some(app_version) {
+    kill_sidecar(child);
+    let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
+    s.starting = false;
+    let backend_desc = sidecar_version.as_deref().unwrap_or("未知(旧版本)");
+    return Err(format!(
+      "后端组件版本不匹配（应用 v{app_version} / 后端 v{backend_desc}）。\
+      通常是升级安装时旧后端进程残留、文件未被替换。\
+      请在任务管理器中结束所有 AI Reader 与 ai-reader-sidecar 进程后重新安装，或先卸载旧版本再安装。"
+    ));
   }
 
   // Store state
@@ -188,7 +230,7 @@ async fn sidecar_start(
 fn sidecar_stop(state: State<'_, Mutex<SidecarState>>) -> Result<(), String> {
   let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
   if let Some(child) = s.child.take() {
-    let _ = child.kill();
+    kill_sidecar(child);
     log::info!("Sidecar stopped");
   }
   s.port = None;
@@ -989,7 +1031,7 @@ pub fn run() {
           let mutex: &Mutex<SidecarState> = handle.state::<Mutex<SidecarState>>().inner();
           if let Ok(mut s) = mutex.lock() {
             if let Some(child) = s.child.take() {
-              let _ = child.kill();
+              kill_sidecar(child);
               log::info!("Sidecar killed on app exit");
             }
             s.port = None;
