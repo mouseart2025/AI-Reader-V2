@@ -50,6 +50,14 @@ def test_health_exempt(token_on):
     assert token_on.get("/api/health").status_code == 200
 
 
+def test_health_exposes_backend_version(token_on):
+    """桌面端宿主启动 sidecar 后比对前后端版本(issue #71 版本握手)。"""
+    from src.infra.version import BACKEND_VERSION
+
+    body = token_on.get("/api/health").json()
+    assert body["version"] == BACKEND_VERSION
+
+
 def test_options_preflight_exempt(token_on):
     r = token_on.options(
         "/api/novels",
