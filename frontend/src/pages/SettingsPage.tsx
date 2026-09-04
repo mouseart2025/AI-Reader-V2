@@ -68,6 +68,7 @@ export default function SettingsPage() {
     fetchBudget().then((data) => {
       setBudgetAmount(data.monthly_budget_cny)
       setMonthlyUsed(data.monthly_used_cny)
+      setMonthlyPassUsed(data.monthly_pass_used_cny ?? 0)
     }).catch(() => {})
 
     setRecordsLoading(true)
@@ -133,6 +134,7 @@ export default function SettingsPage() {
   // Budget state
   const [budgetAmount, setBudgetAmount] = useState(50)
   const [monthlyUsed, setMonthlyUsed] = useState(0)
+  const [monthlyPassUsed, setMonthlyPassUsed] = useState(0)
   const [budgetSaving, setBudgetSaving] = useState(false)
 
   // Analysis records state
@@ -1256,6 +1258,12 @@ export default function SettingsPage() {
                 <span className="text-sm">本月已用</span>
                 <span className="text-sm font-mono">¥{monthlyUsed.toFixed(2)}</span>
               </div>
+              {monthlyPassUsed > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">其中二审（独立重读）</span>
+                  <span className="text-sm font-mono text-muted-foreground">¥{monthlyPassUsed.toFixed(2)}</span>
+                </div>
+              )}
               {budgetAmount > 0 && (
                 <div>
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">

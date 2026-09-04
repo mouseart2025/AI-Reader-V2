@@ -95,6 +95,8 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 
 **Hallucinated-character LLM layer (FR-4.2)**: `hallucination_reviewer.review_chapter_characters()` runs after `FactValidator`'s rule layer and before DB write. Candidates are extracted characters whose name (or `·`-disambiguated base) cannot be located in the chapter text — the cases name-pattern rules cannot catch (银驮类). A single lightweight LLM call judges each candidate against the chapter context: high-confidence hallucinations are removed (with cascade cleanup of relationships/event participants), low-confidence ones are kept but marked "suspect" in the audit log, and every decision lands in `audit_reports/hallucination_review_log.jsonl` (NFR-5). Whitelist protection: entity-dictionary names plus characters established in earlier chapters (`protected_names`) are never judged. Switch: `HALLUCINATION_REVIEW_ENABLED` (default on; off = v0.73 behavior).
 
+**Multi-pass 独立二审 (issue #70)**: 分析完成后可 opt-in 启动 `SourcePassService` 对全书独立重读 —— context 只由原文 + 本 pass 影子 facts + 实体词典构建,机制上读不到一审结果;跳过幻觉层/世界结构/场景/向量索引,产物只写影子表 `analysis_passes` / `pass_chapter_facts`,主表零写入。`PassDiffService` 逐章对比一审/二审暴露分歧,人工裁决只写 history 埋点。WS 进度走 `pass_*` 消息类型。成本分账 (Epic 5):每章 usage 落 pass history,云端费用记独立月度 key `cost_pass_YYYY_MM`(不混入一审 `cost_YYYY_MM`),pass 列表 API 附 `cost_summary`,设置页预算区显示「其中二审」。前端 `PassPanel.tsx` / `passStore.ts`。
+
 ### Token Budget Auto-Scaling
 
 `context_budget.py` (`TokenBudget` dataclass + `compute_budget()` + `get_budget()`) — all LLM budget parameters (chapter truncation length, context summary limits, num_ctx, timeouts) are derived from the model's context window size via linear interpolation: 8K context → conservative "local" values, 128K+ context → generous "cloud" values, intermediate models get proportional values.
@@ -247,7 +249,7 @@ Per-chapter timing with real-time ETA via WebSocket. `ExtractionMeta` reports tr
 
 ### Two Databases Only
 
-- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, entity_overrides, app_settings, usage_events, benchmark_records, bookmarks (18 tables)
+- **SQLite**: novels, chapters, chapter_facts, entity_dictionary, conversations, messages, user_state, analysis_tasks, map_layouts, map_user_overrides, world_structures, layer_layouts, world_structure_overrides, entity_overrides, app_settings, usage_events, benchmark_records, bookmarks, analysis_passes, pass_chapter_facts (20 tables)
 - **ChromaDB**: chapter embeddings + entity embeddings for semantic search
 
 ## Code Conventions
@@ -393,7 +395,7 @@ Core logic MUST have exactly ONE implementation. Before adding new logic, grep f
 
 ## Database Schema (SQLite)
 
-18 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `entity_overrides`, `app_settings`, `usage_events`, `benchmark_records`, `bookmarks`.
+20 tables: `novels`, `chapters`, `chapter_facts`, `entity_dictionary`, `conversations`, `messages`, `user_state`, `analysis_tasks`, `map_layouts`, `map_user_overrides`, `world_structures`, `layer_layouts`, `world_structure_overrides`, `entity_overrides`, `app_settings`, `usage_events`, `benchmark_records`, `bookmarks`, `analysis_passes`, `pass_chapter_facts`.
 
 ## Important Notes
 

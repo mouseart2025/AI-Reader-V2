@@ -335,6 +335,11 @@ export interface BudgetInfo {
   monthly_used_usd: number
   monthly_input_tokens: number
   monthly_output_tokens: number
+  /** 二审(source pass)独立月度分账,不含在上方一审合计里 */
+  monthly_pass_used_cny: number
+  monthly_pass_used_usd: number
+  monthly_pass_input_tokens: number
+  monthly_pass_output_tokens: number
 }
 
 /** All WS messages carry novel_id for cross-novel filtering */
@@ -400,7 +405,139 @@ export interface WsRetryDone extends WsBase {
   failed: number
 }
 
-export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage | WsRetryStart | WsRetryProgress | WsRetryDone
+export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage | WsRetryStart | WsRetryProgress | WsRetryDone | PassWsMessage
+
+// ── Analysis Passes (独立二审, multi-pass MVP) ──────
+
+export type PassStatus = "running" | "paused" | "completed" | "failed" | "cancelled"
+
+/** 每章 history 埋点(Story 1.2 骨架;未发生的事件为 null/0) */
+export interface PassChapterHistory {
+  chapter_id: number | null
+  char_start: number | null
+  char_end: number | null
+  is_truncated: boolean
+  completed_at: string | null
+  findings: Record<string, number>
+  air_unlocked_at: string | null
+  diff_counts: { air_only: number | null; pass_only: number | null; different: number | null }
+  /** 人工裁决计数:confirmed=采纳一审, rejected=采纳二审, neither=两者皆否 */
+  adjudication: { confirmed: number; rejected: number; neither?: number }
+  adjudication_log?: { entry_id: string; verdict: AdjudicationVerdict; at: string }[]
+  /** 每章成本分账(Epic 5 Story 5.2);token 始终记录,费用仅云端模式非零 */
+  usage?: PassChapterUsage
+  error?: string
+  error_type?: string
+}
+
+export interface PassChapterUsage {
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  cost_cny: number
+  model: string
+}
+
+/** 二审成本合计(由后端从 history 埋点聚合) */
+export interface PassCostSummary {
+  billed_chapters: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  cost_cny: number
+}
+
+export interface PassHistory {
+  kind: string
+  model: string | null
+  provider: string | null
+  source_only_completed_at: string | null
+  chapters: Record<string, PassChapterHistory>
+}
+
+export interface AnalysisPass {
+  id: string
+  novel_id: string
+  kind: string
+  model_name: string | null
+  status: PassStatus
+  chapter_start: number
+  chapter_end: number
+  current_chapter: number
+  config_json: { model_override?: string | null; include_dictionary?: boolean }
+  history_json: PassHistory
+  cost_summary?: PassCostSummary
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+export type AdjudicationVerdict = "accept_main" | "accept_pass" | "neither"
+
+/** diff 字段级差异(category: type/identity/boundary/temporal/resolution/other) */
+export interface PassFieldDiff {
+  field: string
+  category: string
+  main: unknown
+  pass: unknown
+}
+
+/** 一条分类差异;only_in_* 带 item,different 带 main/pass/fields */
+export interface PassDiffEntry {
+  collection: string
+  key: string
+  item?: Record<string, unknown>
+  main?: Record<string, unknown>
+  pass?: Record<string, unknown>
+  fields?: PassFieldDiff[]
+  index?: number
+}
+
+export interface PassChapterDiff {
+  pass_id: string
+  novel_id: string
+  chapter: number
+  chapter_id: number
+  counts: { only_in_main: number; only_in_pass: number; different: number }
+  only_in_main: PassDiffEntry[]
+  only_in_pass: PassDiffEntry[]
+  different: PassDiffEntry[]
+  cached: boolean
+}
+
+export interface WsPassProgress extends WsBase {
+  type: "pass_progress"
+  pass_id: string
+  chapter: number
+  total: number
+  done: number
+  stats: AnalysisStats
+}
+
+export interface WsPassProcessing extends WsBase {
+  type: "pass_processing"
+  pass_id: string
+  chapter: number
+  total: number
+}
+
+export interface WsPassChapterDone extends WsBase {
+  type: "pass_chapter_done"
+  pass_id: string
+  chapter: number
+  status: "completed" | "failed"
+  error?: string
+  error_type?: string
+}
+
+export interface WsPassStatus extends WsBase {
+  type: "pass_status"
+  pass_id: string
+  status: PassStatus
+  stats?: AnalysisStats
+}
+
+export type PassWsMessage = WsPassProgress | WsPassProcessing | WsPassChapterDone | WsPassStatus
 
 // ── Entity Profiles ──────────────────────────────
 

@@ -905,6 +905,90 @@ export function fetchAnalysisRecords(): Promise<{
   return apiFetch(`/settings/analysis-records`)
 }
 
+// ── Analysis Passes (独立二审, multi-pass MVP) ──────
+
+export function fetchPasses(
+  novelId: string,
+): Promise<{ passes: import("./types").AnalysisPass[] }> {
+  return apiFetch(`/novels/${novelId}/passes`)
+}
+
+export function startPass(
+  novelId: string,
+  req?: { model_override?: string | null },
+): Promise<{ pass_id: string; status: string }> {
+  return overrideRequest(`/novels/${novelId}/passes`, {
+    method: "POST",
+    body: JSON.stringify(req ?? {}),
+  })
+}
+
+export function fetchPassDiff(
+  novelId: string,
+  passId: string,
+  chapter: number,
+): Promise<import("./types").PassChapterDiff> {
+  return apiFetch(
+    `/novels/${novelId}/passes/${passId}/diff?chapter=${chapter}`,
+  )
+}
+
+export function pausePass(
+  novelId: string,
+  passId: string,
+): Promise<{ pass_id: string; status: string }> {
+  return overrideRequest(`/novels/${novelId}/passes/${passId}/pause`, {
+    method: "POST",
+  })
+}
+
+export function resumePass(
+  novelId: string,
+  passId: string,
+): Promise<{ pass_id: string; status: string }> {
+  return overrideRequest(`/novels/${novelId}/passes/${passId}/resume`, {
+    method: "POST",
+  })
+}
+
+export function cancelPass(
+  novelId: string,
+  passId: string,
+): Promise<{ pass_id: string; status: string }> {
+  return overrideRequest(`/novels/${novelId}/passes/${passId}/cancel`, {
+    method: "POST",
+  })
+}
+
+export function deletePass(
+  novelId: string,
+  passId: string,
+): Promise<{ status: string }> {
+  return overrideRequest(`/novels/${novelId}/passes/${passId}`, {
+    method: "DELETE",
+  })
+}
+
+/** 人工裁决一条 diff:只写 history 埋点,不改正式分析结果。 */
+export function submitAdjudication(
+  novelId: string,
+  passId: string,
+  req: {
+    chapter: number
+    entry_id: string
+    verdict: import("./types").AdjudicationVerdict
+  },
+): Promise<{
+  status: string
+  chapter: number
+  adjudication: { confirmed: number; rejected: number; neither?: number }
+}> {
+  return overrideRequest(`/novels/${novelId}/passes/${passId}/adjudications`, {
+    method: "POST",
+    body: JSON.stringify(req),
+  })
+}
+
 // ── Prescan Dictionary ──────────────────────────
 
 export function fetchPrescanStatus(

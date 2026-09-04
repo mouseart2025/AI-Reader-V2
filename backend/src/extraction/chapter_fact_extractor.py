@@ -321,6 +321,61 @@ def _merge_recall_additions(
     return counts
 
 
+# ── 独立二审 source pass (multi-pass Epic 2, issue #70) ──
+# 对已分析完的小说做一遍独立重读:独立 system prompt(prompts/source_pass_system.txt)
+# + 与主抽取同构的 schema(保证 diff 可比) + 独立 user prompt。产物统一打
+# source="source_pass" 溯源标记,落入 pass_chapter_facts 影子表,不进主表。
+
+def _build_source_pass_schema() -> dict:
+    """独立二审的输出 schema:与主抽取同构(字段集一致,diff 前提),
+    但不加 minItems 非空约束 —— 二审宁可报告不确定也不猜测,空列表是合法输出。
+    内部字段(subtype_vote/source)对 LLM 隐藏,由管线打点。"""
+    schema = ChapterFact.model_json_schema()
+    defs = schema.get("$defs", {})
+    if "RelationshipFact" in defs:
+        defs["RelationshipFact"].get("properties", {}).pop("subtype_vote", None)
+    for model in ("CharacterFact", "RelationshipFact", "EventFact"):
+        if model in defs:
+            defs[model].get("properties", {}).pop("source", None)
+    # 与主抽取 schema 口径一致 (FR-3.1):证据锚定开启时去掉 evidence 默认值
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    if EVIDENCE_GROUNDING_ENABLED:
+        for model in ("RelationshipFact", "EventFact"):
+            if model in defs:
+                props = defs[model].get("properties", {})
+                if "evidence" in props:
+                    props["evidence"].pop("default", None)
+    return schema
+
+
+def _build_source_pass_user_prompt(
+    chapter_id: int, chapter_text: str, example_text: str,
+    segment_hint: str = "",
+) -> str:
+    """构造独立二审 user prompt:原文 + 二审口径要求(独立阅读、报告不确定)。
+
+    签名与 ChapterFactExtractor._build_user_prompt 一致,可直接作为
+    prompt_builder 注入 _extract_single / _extract_segmented。
+    """
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    evidence_req = (
+        "6. evidence：relationships 和 events 每条都必须附 evidence 字段，"
+        "逐字引用原文片段（不得改写），无原文依据的条目不得输出\n"
+        if EVIDENCE_GROUNDING_ENABLED else ""
+    )
+    return (
+        f"{example_text}"
+        f"## 第 {chapter_id} 章{segment_hint}\n\n{chapter_text}\n\n"
+        "【二审要求】\n"
+        "1. 你在进行【独立二审】：只依据本章原文与给定的二审上下文，不要推测任何未给出的信息\n"
+        "2. characters / relationships / locations / events 等只提取原文明确写到的内容\n"
+        "3. 不确定的条目宁可不写，也不要猜测；没有把握的关系/事件直接省略\n"
+        "4. 如果某类内容本章确实没有，输出空列表，不要为凑数而编造\n"
+        "5. spatial_relationships / world_declarations / new_concepts 口径同常规提取，没有则输出空列表\n"
+        f"{evidence_req}"
+    )
+
+
 # ── Citation-grounded 证据锚定 (FR-3.1) ──
 
 def span_located(span: str, chapter_text: str) -> bool:
@@ -541,6 +596,18 @@ def _load_examples() -> list[dict]:
     return get_prompt_json("extraction_examples")
 
 
+def _load_source_pass_system_prompt() -> str:
+    """Load source-pass (独立二审, multi-pass Epic 2) system prompt.
+
+    缺失时回退到主抽取 prompt(打包兜底)。
+    """
+    from src.extraction.prompt_registry import get_prompt
+    try:
+        return get_prompt("source_pass_system")
+    except FileNotFoundError:
+        return _load_system_prompt()
+
+
 def _build_extraction_schema() -> dict:
     """Build a customized JSON schema with stricter constraints for better LLM output."""
     schema = ChapterFact.model_json_schema()
@@ -601,6 +668,7 @@ class ChapterFactExtractor:
         self._dimension_guide = _load_dimension_guide()
         self._evidence_guide = _load_evidence_guide()
         self.examples = _load_examples()
+        self.source_pass_template = _load_source_pass_system_prompt()
         self._schema = _build_extraction_schema()
         self._is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
 
@@ -858,21 +926,101 @@ class ChapterFactExtractor:
             )
         return total_usage
 
+    async def extract_source_pass(
+        self,
+        novel_id: str,
+        chapter_id: int,
+        chapter_text: str,
+        context_summary: str = "",
+        genre_hint: str | None = None,
+    ) -> tuple[ChapterFact, LlmUsage, ExtractionMeta]:
+        """独立二审抽取 (multi-pass Epic 2):独立 system prompt + 同构 schema。
+
+        与 extract() 的差异:不做 recall 补漏、不做 rel_subtype 投票
+        (二者是一审的增量层,二审自身就是独立的一遍,单章恰好 1 次 LLM
+        调用);维度清洗与证据锚定清洗保持与一审同口径,保证 diff 可比。
+        所有产出记录打 source="source_pass" 溯源标记。
+        """
+        genre_context = _GENRE_CONTEXT.get(genre_hint, "") if genre_hint else ""
+        system = self.source_pass_template.replace("{genre_context}", genre_context)
+        system = system.replace("{context}", context_summary or "（无前序上下文）")
+
+        budget = get_budget()
+        original_len = len(chapter_text)
+        meta = ExtractionMeta(original_len=original_len)
+
+        # Truncate very long chapters to avoid token overflow
+        if len(chapter_text) > budget.max_chapter_len:
+            chapter_text = chapter_text[:budget.max_chapter_len]
+            meta.is_truncated = True
+            meta.truncated_len = len(chapter_text)
+
+        if budget.segment_enabled:
+            segments = _split_chapter_text(chapter_text)
+        else:
+            segments = [chapter_text]
+        meta.segment_count = len(segments)
+
+        schema = _build_source_pass_schema()
+        if len(segments) > 1:
+            logger.info(
+                "Chapter %d (source pass): splitting %d chars into %d segments",
+                chapter_id, len(chapter_text), len(segments),
+            )
+            fact, usage = await self._extract_segmented(
+                system, novel_id, chapter_id, segments,
+                prompt_builder=_build_source_pass_user_prompt,
+                schema=schema,
+            )
+        else:
+            fact, usage = await self._extract_single(
+                system, novel_id, chapter_id, chapter_text,
+                prompt_builder=_build_source_pass_user_prompt,
+                schema=schema,
+            )
+
+        # 与一审同口径的规则清洗(开关口径一致,NFR-3);投票与补漏跳过
+        from src.infra.config import (
+            EVIDENCE_GROUNDING_ENABLED,
+            RELATION_DIMENSIONS_ENABLED,
+        )
+        if RELATION_DIMENSIONS_ENABLED and fact.relationships:
+            _sanitize_relation_dimensions(fact, chapter_id)
+        if EVIDENCE_GROUNDING_ENABLED:
+            _sanitize_evidence_grounding(fact, chapter_id, chapter_text, meta)
+
+        # provenance: 二审产出统一打 source="source_pass"
+        for ch in fact.characters:
+            ch.source = "source_pass"
+        for rel in fact.relationships:
+            rel.source = "source_pass"
+        for ev in fact.events:
+            ev.source = "source_pass"
+
+        return fact, usage, meta
+
     async def _extract_single(
         self,
         system: str,
         novel_id: str,
         chapter_id: int,
         chapter_text: str,
+        prompt_builder=None,
+        schema: dict | None = None,
     ) -> tuple[ChapterFact, LlmUsage]:
-        """Extract from a single (non-split) chapter text with retry."""
+        """Extract from a single (non-split) chapter text with retry.
+
+        prompt_builder: 可选的 user prompt 构造函数(默认一审口径
+        _build_user_prompt;独立二审传 _build_source_pass_user_prompt)。
+        """
+        build_prompt = prompt_builder or self._build_user_prompt
         example_text = self._build_example_text()
-        user_prompt = self._build_user_prompt(chapter_id, chapter_text, example_text)
+        user_prompt = build_prompt(chapter_id, chapter_text, example_text)
 
         # First attempt
         try:
             return await self._call_and_parse(
-                system, user_prompt, novel_id, chapter_id,
+                system, user_prompt, novel_id, chapter_id, schema=schema,
             )
         except (LLMError, ExtractionError, Exception) as first_err:
             logger.warning(
@@ -883,11 +1031,11 @@ class ChapterFactExtractor:
         # Retry: truncate text more aggressively
         retry_len = get_budget().retry_len
         truncated = chapter_text[:retry_len] if len(chapter_text) > retry_len else chapter_text
-        retry_prompt = self._build_user_prompt(chapter_id, truncated, example_text)
+        retry_prompt = build_prompt(chapter_id, truncated, example_text)
         retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
         try:
             return await self._call_and_parse(
-                system, retry_prompt, novel_id, chapter_id,
+                system, retry_prompt, novel_id, chapter_id, schema=schema,
             )
         except Exception as second_err:
             raise ExtractionError(
@@ -900,8 +1048,11 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         segments: list[str],
+        prompt_builder=None,
+        schema: dict | None = None,
     ) -> tuple[ChapterFact, LlmUsage]:
         """Extract from multiple segments and merge results."""
+        build_prompt = prompt_builder or self._build_user_prompt
         example_text = self._build_example_text()
         segment_facts: list[ChapterFact] = []
         total_usage = LlmUsage()
@@ -912,14 +1063,14 @@ class ChapterFactExtractor:
                 "Chapter %d segment %d/%d: %d chars",
                 chapter_id, idx + 1, len(segments), len(seg_text),
             )
-            user_prompt = self._build_user_prompt(
+            user_prompt = build_prompt(
                 chapter_id, seg_text, example_text, segment_hint=seg_label,
             )
 
             # Each segment gets its own retry
             try:
                 fact, seg_usage = await self._call_and_parse(
-                    system, user_prompt, novel_id, chapter_id,
+                    system, user_prompt, novel_id, chapter_id, schema=schema,
                 )
                 segment_facts.append(fact)
                 total_usage.prompt_tokens += seg_usage.prompt_tokens
@@ -932,12 +1083,12 @@ class ChapterFactExtractor:
                 )
                 # Retry once
                 try:
-                    retry_prompt = self._build_user_prompt(
+                    retry_prompt = build_prompt(
                         chapter_id, seg_text, example_text, segment_hint=seg_label,
                     )
                     retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
                     fact, seg_usage = await self._call_and_parse(
-                        system, retry_prompt, novel_id, chapter_id,
+                        system, retry_prompt, novel_id, chapter_id, schema=schema,
                     )
                     segment_facts.append(fact)
                     total_usage.prompt_tokens += seg_usage.prompt_tokens
@@ -1081,15 +1232,20 @@ class ChapterFactExtractor:
         novel_id: str,
         chapter_id: int,
         timeout: int = 600,
+        schema: dict | None = None,
     ) -> tuple[ChapterFact, LlmUsage]:
         """Call LLM and parse response into ChapterFact.
 
         Transient errors (429/500/network) get exponential backoff retries.
         Only permanent errors (parse/validation) count as real failures.
+
+        schema: 输出 JSON schema,默认主抽取 schema(独立二审传
+        _build_source_pass_schema() 的同构 schema)。
         """
+        active_schema = schema if schema is not None else self._schema
         effective_system = system
         if self._is_cloud:
-            schema_text = json.dumps(self._schema, ensure_ascii=False, indent=2)
+            schema_text = json.dumps(active_schema, ensure_ascii=False, indent=2)
             effective_system += (
                 f"\n\n## 输出 JSON Schema\n"
                 f"你必须严格按照以下 JSON Schema 输出，不要输出多余字段或文本：\n"
@@ -1109,7 +1265,7 @@ class ChapterFactExtractor:
                 result, usage = await self.llm.generate(
                     system=effective_system,
                     prompt=prompt,
-                    format=self._schema,
+                    format=active_schema,
                     temperature=0.1,
                     max_tokens=max_out,
                     timeout=timeout,
