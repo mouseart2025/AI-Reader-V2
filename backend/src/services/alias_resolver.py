@@ -278,6 +278,19 @@ async def _apply_user_overrides(novel_id: str, alias_map: dict[str, str]) -> dic
             key = ov["override_key"]
             targets.setdefault(key, set()).add(key)
 
+    # 链式收敛(issue #70 高亮回归):merge 类 override 可能把自动簇的 canonical
+    # 并入新 canonical,使未列入 members 的旧簇成员留下 X → 旧canonical → 新canonical
+    # 的二级链;单跳消费方(阅读高亮的全书别名增补、canon_to_aliases 反查)会因此
+    # 断链,一个实体被劈成两瓣。收敛后所有 alias 直达最终 canonical。
+    # 无 override 时自动 map 本身无链,此循环逐字节不变(gold 基线不受影响)。
+    for name in list(alias_map):
+        seen = {name}
+        target = alias_map[name]
+        while target in alias_map and target not in seen:
+            seen.add(target)
+            target = alias_map[target]
+        alias_map[name] = target
+
     _alias_conflicts[novel_id] = conflicts
     _alias_override_targets[novel_id] = targets
     _alias_detached[novel_id] = detached
