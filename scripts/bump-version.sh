@@ -63,7 +63,7 @@ echo "  ✅ backend/pyproject.toml"
 
 # ── 1b. backend/src/infra/version.py (sidecar 内置常量) ─
 FILE="$PROJECT_ROOT/backend/src/infra/version.py"
-_sed_i "s/^BACKEND_VERSION = \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"/BACKEND_VERSION = \"$VERSION\"/" "$FILE"
+_sed_i "s/^BACKEND_VERSION = \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*(-[a-zA-Z0-9.]*)?\"/BACKEND_VERSION = \"$VERSION\"/" "$FILE"
 echo "  ✅ backend/src/infra/version.py"
 
 # ── 2. frontend/package.json (first match only) ──────
@@ -95,7 +95,7 @@ echo "  ✅ frontend/src-tauri/tauri.conf.json"
 
 # ── 4. frontend/src-tauri/Cargo.toml ([package] only) ─
 FILE="$PROJECT_ROOT/frontend/src-tauri/Cargo.toml"
-_sed_i "s/^version = \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"/version = \"$VERSION\"/" "$FILE"
+_sed_i "s/^version = \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*(-[a-zA-Z0-9.]*)?\"/version = \"$VERSION\"/" "$FILE"
 echo "  ✅ frontend/src-tauri/Cargo.toml"
 
 # ── 5. README.md badge + download links ──────────────
