@@ -406,6 +406,50 @@ async def test_llm_merge_survives_rebuild():
     assert second["齐天大圣"] == "孙悟空"  # 自动层结果保留
 
 
+@pytest.mark.asyncio
+async def test_llm_merge_absorbs_auto_canonical_leftovers():
+    """llm_merge 重选 canonical 后,未列入 members 的旧簇成员不得断链(issue #70)。
+
+    自动簇 {宝玉, 宝二爷, 宝哥哥} → 贾宝玉;LLM 决策 members=[贾宝玉, 宝玉, 宝二爷]
+    且重选简称「宝玉」为 canonical。修复前「宝哥哥」仍指向旧 canonical「贾宝玉」,
+    形成 宝哥哥→贾宝玉→宝玉 二级链,单跳消费方(阅读高亮增补)断链、簇被劈开。
+    """
+    invalidate_alias_cache(NOVEL)
+    auto = {"宝玉": "贾宝玉", "宝二爷": "贾宝玉", "宝哥哥": "贾宝玉"}
+    ov = [{
+        "override_type": "llm_merge",
+        "override_key": "宝玉",
+        "override_json": {"members": ["贾宝玉", "宝玉", "宝二爷"],
+                          "canonical": "宝玉"},
+    }]
+    with _patch_overrides(ov):
+        out = await _apply_user_overrides(NOVEL, dict(auto))
+    # 全簇直达最终 canonical,无链无环
+    assert out["宝哥哥"] == "宝玉"
+    assert out["贾宝玉"] == "宝玉"
+    assert out["宝二爷"] == "宝玉"
+    assert "宝玉" not in out  # canonical 不自映射
+    for alias, canon in out.items():
+        assert canon not in out, f"断链: {alias} → {canon} → {out.get(canon)}"
+
+
+@pytest.mark.asyncio
+async def test_chained_manual_merges_flatten():
+    """两次手动 merge 形成 甲→乙→丙 链时,收敛为直达(同一机制,手动路径)。"""
+    invalidate_alias_cache(NOVEL)
+    ovs = [
+        {"override_type": "alias_merge", "override_key": "乙",
+         "override_json": {"members": ["甲", "乙"], "canonical": "乙"}},
+        {"override_type": "alias_merge", "override_key": "丙",
+         "override_json": {"members": ["乙", "丙"], "canonical": "丙"}},
+    ]
+    with _patch_overrides(ovs):
+        out = await _apply_user_overrides(NOVEL, {})
+    assert out["甲"] == "丙"
+    assert out["乙"] == "丙"
+    assert "丙" not in out
+
+
 # ── Edit markers on profiles (Story 2.2) ────────────────────────
 
 
