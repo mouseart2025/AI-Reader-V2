@@ -9,7 +9,7 @@ import uuid
 from fastapi import WebSocket
 
 from src.db import analysis_task_store, chapter_fact_store, entity_dictionary_store
-from src.db import novel_store, world_structure_store
+from src.db import analysis_pass_store, novel_store, world_structure_store
 from src.db.sqlite_db import get_connection
 from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError, ExtractionMeta
 from src.extraction.context_summary_builder import ContextSummaryBuilder
@@ -169,6 +169,12 @@ class AnalysisService:
         existing = await analysis_task_store.get_running_task(novel_id)
         if existing:
             raise ValueError(f"Novel {novel_id} already has an active task: {existing['id']}")
+
+        # 单活互斥 (multi-pass Epic 2): 二审(source pass)进行中时一审不可启动,
+        # 反之亦然(SourcePassService.start 做对称检查)
+        existing_pass = await analysis_pass_store.get_active_pass(novel_id)
+        if existing_pass:
+            raise ValueError(f"Novel {novel_id} already has an active pass: {existing_pass['id']}")
 
         # Ensure pre-scan is done before analysis (skip on force re-analyze)
         if not force:

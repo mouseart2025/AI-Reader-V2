@@ -25,6 +25,10 @@ class ContextSummaryBuilder:
         chapter_num: int,
         location_parents: dict[str, str] | None = None,
         location_tiers: dict[str, str] | None = None,
+        *,
+        facts_provider=None,
+        include_world_structure: bool = True,
+        include_dictionary: bool = True,
     ) -> str:
         """Build context summary for the given chapter.
 
@@ -35,6 +39,16 @@ class ContextSummaryBuilder:
                 (location_name → parent_name). Used to build hierarchy chains.
             location_tiers: Location tier classifications from WorldStructure
                 (location_name → tier). Used for macro hub display.
+            facts_provider: 可选的异步 facts 数据源 (multi-pass Epic 2):
+                ``async (novel_id) -> list[dict]``,返回结构同
+                ``chapter_fact_store.get_all_chapter_facts``。默认 None 读主表
+                chapter_facts(默认路径输出与改动前逐字节一致,gold 基线);
+                独立二审传入读 pass_chapter_facts 影子表的 provider,机制上
+                读不到一审产物。
+            include_world_structure: 是否注入 world_structures 世界结构。
+                二审传 False(不读 world_structures,走「空」分支)。
+            include_dictionary: 是否注入 entity_dictionary 预扫描词典
+                (D1: 默认注入;词典源自原文统计预扫描,非一审 LLM 产物)。
 
         Returns context string. For early chapters with no preceding facts,
         still returns entity dictionary and world structure sections if available.
@@ -46,7 +60,11 @@ class ContextSummaryBuilder:
         # ── Preceding chapter fact aggregation (skip for chapter 1) ──
         chapter_facts: list[ChapterFact] = []
         if chapter_num > 1:
-            all_facts = await get_all_chapter_facts(novel_id)
+            if facts_provider is not None:
+                # 二审: 数据源是 pass_chapter_facts 影子表,机制上读不到主表
+                all_facts = await facts_provider(novel_id)
+            else:
+                all_facts = await get_all_chapter_facts(novel_id)
             if all_facts:
                 preceding = [
                     f for f in all_facts
@@ -168,8 +186,10 @@ class ContextSummaryBuilder:
         # These are available from pre-scan and don't depend on preceding
         # chapter facts, so they must be injected even for early chapters.
 
-        # World structure summary
-        world_section = await self._build_world_structure_section(novel_id)
+        # World structure summary (二审关闭: 不读 world_structures)
+        world_section = ""
+        if include_world_structure:
+            world_section = await self._build_world_structure_section(novel_id)
         if world_section:
             sections.append(world_section)
 
@@ -180,8 +200,10 @@ class ContextSummaryBuilder:
         if geo_state:
             sections.append(geo_state)
 
-        # Entity dictionary injection (pre-scan results)
-        dict_section = await self._build_dictionary_section(novel_id)
+        # Entity dictionary injection (pre-scan results, D1 开关)
+        dict_section = ""
+        if include_dictionary:
+            dict_section = await self._build_dictionary_section(novel_id)
         if dict_section:
             sections.append(dict_section)
 

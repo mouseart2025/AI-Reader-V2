@@ -722,17 +722,27 @@ async def restore_defaults():
 
 @router.get("/budget")
 async def get_budget():
-    """Get monthly budget and current month usage."""
-    from src.services.cost_service import get_monthly_budget, get_monthly_usage
+    """Get monthly budget and current month usage (一审/二审分账)。"""
+    from src.services.cost_service import (
+        SCOPE_SOURCE_PASS,
+        get_monthly_budget,
+        get_monthly_usage,
+    )
 
     budget = await get_monthly_budget()
     usage = await get_monthly_usage()
+    pass_usage = await get_monthly_usage(scope=SCOPE_SOURCE_PASS)
     return {
         "monthly_budget_cny": budget,
         "monthly_used_cny": usage.get("cny", 0.0),
         "monthly_used_usd": usage.get("usd", 0.0),
         "monthly_input_tokens": usage.get("input_tokens", 0),
         "monthly_output_tokens": usage.get("output_tokens", 0),
+        # 二审(source pass)独立月度分账,不含在上方一审合计里
+        "monthly_pass_used_cny": pass_usage.get("cny", 0.0),
+        "monthly_pass_used_usd": pass_usage.get("usd", 0.0),
+        "monthly_pass_input_tokens": pass_usage.get("input_tokens", 0),
+        "monthly_pass_output_tokens": pass_usage.get("output_tokens", 0),
     }
 
 

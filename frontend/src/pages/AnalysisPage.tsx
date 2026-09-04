@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { InlineLlmSetup } from "@/components/shared/InlineLlmSetup"
+import { PassPanel } from "@/components/passes/PassPanel"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -869,6 +870,15 @@ export default function AnalysisPage() {
             </ul>
           </CardContent>
         </Card>
+      )}
+
+      {/* 二审(独立重读):multi-pass MVP,Epic 4。opt-in,一审完成后可用 */}
+      {novelId && (
+        <PassPanel
+          novelId={novelId}
+          mainAnalysisCompleted={isCompleted}
+          mainAnalysisActive={isActive}
+        />
       )}
 
       {/* Start analysis panel (shown when no active task) */}

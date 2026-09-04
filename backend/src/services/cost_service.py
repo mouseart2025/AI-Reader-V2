@@ -145,10 +145,20 @@ def estimate_analysis_cost(
 
 # ── Monthly budget & usage tracking ──────────────────
 
+# 分账口径 (multi-pass Epic 5 Story 5.2):一审(默认,scope=None)沿用历史 key
+# `cost_YYYY_MM`;二审(source pass)写入独立 key `cost_pass_YYYY_MM`,
+# 不混入一审的月度合计。
+SCOPE_SOURCE_PASS = "source_pass"
 
-def _monthly_key() -> str:
-    """Return user_state key for current month, e.g. 'cost_2026_02'."""
-    return f"cost_{datetime.now().strftime('%Y_%m')}"
+
+def _monthly_key(scope: str | None = None) -> str:
+    """Return app_settings key for current month.
+
+    scope=None → 'cost_2026_02' (一审,历史口径);
+    scope='source_pass' → 'cost_pass_2026_02' (二审分账)。
+    """
+    prefix = "cost_pass" if scope == SCOPE_SOURCE_PASS else "cost"
+    return f"{prefix}_{datetime.now().strftime('%Y_%m')}"
 
 
 async def get_monthly_budget() -> float:
@@ -188,8 +198,8 @@ async def set_monthly_budget(amount_cny: float) -> None:
         await conn.close()
 
 
-async def get_monthly_usage() -> dict:
-    """Get current month's cumulative usage.
+async def get_monthly_usage(scope: str | None = None) -> dict:
+    """Get current month's cumulative usage (scope 见 _monthly_key)。
 
     Returns dict with keys: usd, cny, input_tokens, output_tokens.
     """
@@ -199,7 +209,7 @@ async def get_monthly_usage() -> dict:
     try:
         row = await conn.execute(
             "SELECT value FROM app_settings WHERE key=?",
-            (_monthly_key(),),
+            (_monthly_key(scope),),
         )
         result = await row.fetchone()
         if result:
@@ -214,12 +224,16 @@ async def get_monthly_usage() -> dict:
 
 async def add_monthly_usage(
     cost_usd: float, cost_cny: float, input_tokens: int, output_tokens: int,
+    scope: str | None = None,
 ) -> dict:
-    """Add to current month's cumulative usage. Returns updated totals."""
+    """Add to current month's cumulative usage. Returns updated totals.
+
+    scope='source_pass' 时记入二审独立月度 key,不触碰一审合计。
+    """
     from src.db.sqlite_db import get_connection
 
-    key = _monthly_key()
-    current = await get_monthly_usage()
+    key = _monthly_key(scope)
+    current = await get_monthly_usage(scope=scope)
     current["usd"] = round(current["usd"] + cost_usd, 4)
     current["cny"] = round(current["cny"] + cost_cny, 2)
     current["input_tokens"] = current["input_tokens"] + input_tokens

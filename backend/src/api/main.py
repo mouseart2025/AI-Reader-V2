@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from src.db.sqlite_db import init_db
 from src.db.analysis_task_store import recover_stale_tasks
+from src.db.analysis_pass_store import recover_stale_passes
 from src.infra.version import BACKEND_VERSION
 from src.services.sample_data_service import auto_import_samples
 from src.api.routes import (
@@ -21,6 +22,7 @@ from src.api.routes import (
     factions,
     chat,
     analysis,
+    analysis_passes,
     settings,
     encyclopedia,
     export_import,
@@ -97,6 +99,8 @@ async def lifespan(app: FastAPI):
     await auto_import_samples()
     # Recover tasks left in 'running' state from a previous server session
     await recover_stale_tasks()
+    # 同理恢复二审 pass(multi-pass Epic 2): running → paused,供续跑
+    await recover_stale_passes()
     yield
 
 
@@ -173,6 +177,7 @@ app.include_router(timeline.router)
 app.include_router(factions.router)
 app.include_router(chat.router)
 app.include_router(analysis.router)
+app.include_router(analysis_passes.router)
 app.include_router(settings.router)
 app.include_router(encyclopedia.router)
 app.include_router(export_import.router)
