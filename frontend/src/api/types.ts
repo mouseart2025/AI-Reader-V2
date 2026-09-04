@@ -585,7 +585,7 @@ export interface ItemProfile {
   name: string
   type: "item"
   item_type: string
-  flow: { chapter: number; action: string; actor: string; recipient: string | null; description: string }[]
+  flow: { chapter: number; action: string; actor: string | null; recipient: string | null; description: string }[]
   related_items: string[]
   stats: Record<string, number>
   edit_status?: string
