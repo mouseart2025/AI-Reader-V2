@@ -5,4 +5,4 @@ importlib.metadata,因此版本号以常量内置,经 /api/health 暴露给 Taur
 做前后端版本一致性校验(issue #71:升级残留旧 sidecar 时新端点 405)。
 """
 
-BACKEND_VERSION = "0.76.0-beta.1"
+BACKEND_VERSION = "0.76.0-beta.2"
