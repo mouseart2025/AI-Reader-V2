@@ -36,7 +36,7 @@ export const ItemCard = memo(function ItemCard({ profile, onEntityClick, onChapt
           <div key={i} className="text-sm">
             <ChapterTag chapter={f.chapter} onClick={onChapterClick} />
             <span className="ml-1.5">
-              <EntityLink name={f.actor} type="person" onClick={onEntityClick} />
+              {f.actor && <EntityLink name={f.actor} type="person" onClick={onEntityClick} />}
               <span className="mx-1">{f.action}</span>
               {f.recipient && (
                 <>
