@@ -1289,16 +1289,31 @@ class ChapterFactExtractor:
         # Handle LLM returning array [...] instead of object {...}
         if isinstance(result, list):
             dict_items = [item for item in result if isinstance(item, dict)]
-            if dict_items:
+            dropped = len(result) - len(dict_items)
+            if dropped:
+                logger.warning(
+                    "Chapter %d: LLM 返回的数组中含 %d 个非对象元素,已跳过",
+                    chapter_id, dropped,
+                )
+            if not dict_items:
+                raise ExtractionError(
+                    f"Expected dict from structured output, got list with no dict elements"
+                )
+            if len(dict_items) > 1:
+                # 实测(DeepSeek 输出截断压力下):模型把响应拆成多个部分
+                # ChapterFact 对象,section 分散在不同元素里。只取第一个会
+                # 静默丢弃其余元素里的 section,必须按 section 合并所有元素。
+                logger.warning(
+                    "Chapter %d: LLM 返回 %d 个部分对象的数组,按 section 合并所有元素",
+                    chapter_id, len(dict_items),
+                )
+                result = _merge_array_result(dict_items)
+            else:
                 logger.warning(
                     "LLM returned array instead of object for chapter %d, using first dict element",
                     chapter_id,
                 )
                 result = dict_items[0]
-            else:
-                raise ExtractionError(
-                    f"Expected dict from structured output, got list with no dict elements"
-                )
 
         # Normalize LLM field name variants before Pydantic validation
         _normalize_field_names(result)
@@ -1308,6 +1323,42 @@ class ChapterFactExtractor:
         result["chapter_id"] = chapter_id
 
         return ChapterFact.model_validate(result), usage
+
+
+# ChapterFact 的列表型 section 键:数组形式响应合并时按这些键拼接,
+# 其余键(chapter_id/novel_id 等标量)取第一个非空值。
+_LIST_SECTION_KEYS = frozenset({
+    "characters", "relationships", "locations", "spatial_relationships",
+    "item_events", "org_events", "events", "new_concepts",
+    "world_declarations",
+})
+
+
+def _merge_array_result(items: list[dict]) -> dict:
+    """合并数组形式响应的所有 dict 元素为一个 ChapterFact dict。
+
+    每个元素都是部分 ChapterFact 对象(section 分散在不同元素里):
+    - 列表型 section(_LIST_SECTION_KEYS)跨元素拼接,按条目精确内容去重
+      (防模型在不同元素里重复同一条目),保持出现顺序;
+    - 其余标量键取第一个非空值。
+    """
+    merged: dict = {}
+    seen: dict[str, set] = {}
+    for item in items:
+        for key, value in item.items():
+            if key in _LIST_SECTION_KEYS and isinstance(value, list):
+                bucket = merged.setdefault(key, [])
+                bucket_seen = seen.setdefault(key, set())
+                for entry in value:
+                    marker = json.dumps(
+                        entry, sort_keys=True, ensure_ascii=False, default=str,
+                    )
+                    if marker not in bucket_seen:
+                        bucket_seen.add(marker)
+                        bucket.append(entry)
+            elif key not in merged or (not merged[key] and value):
+                merged[key] = value
+    return merged
 
 
 def _normalize_field_names(data: dict) -> None:
@@ -1325,6 +1376,15 @@ def _normalize_field_names(data: dict) -> None:
         if field in data and isinstance(data[field], list):
             # Filter out non-dict items (strings, nulls, etc.)
             data[field] = [item for item in data[field] if isinstance(item, dict)]
+
+    # relationships: 模型在输出截断压力下可能用 source/target 代替 schema
+    # 要求的 person_a/person_b(实测 DeepSeek)。仅在 person_a/person_b 缺失
+    # 时才归一,避免与 RelationshipFact.source 溯源字段冲突。
+    for rel in data.get("relationships", []):
+        if "person_a" not in rel and "source" in rel:
+            rel["person_a"] = rel.pop("source")
+        if "person_b" not in rel and "target" in rel:
+            rel["person_b"] = rel.pop("target")
 
     # item_events: LLM may use 'name'/'type' instead of 'item_name'/'item_type'
     for item in data.get("item_events", []):
