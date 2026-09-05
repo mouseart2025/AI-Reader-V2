@@ -2124,10 +2124,31 @@ async def get_timeline_data(
 # (王国/府邸/会馆/宫殿/院落),会把非组织地点误判为 org,已移除。
 _ORG_TYPE_KEYWORDS = ("门", "派", "宗", "帮", "教", "盟", "军", "朝", "族")
 
+# 单字「门」的歧义排除:这些 type 里「门」指建筑(城门/宫门/营门),
+# 不是门派。三国演义实测:19+ 个城门/宫门类地点(嘉德门/东门/北掖门…)
+# 经 Source 2 被误判为 org。「城门口」由「城门」子串覆盖。
+_ORG_TYPE_GATE_KEYWORDS = ("城门", "宫门", "营门")
+
+# Source 4(概念路径)白名单:只有 category 明确是组织/势力/门派/政权类
+# 的概念才可作为 org。军事计谋/战术/制度/器械/编制等一律排除 ——
+# 三国演义实测 73 个概念 org 中 70 个是此类噪音(军令状/诈死计/掎角之势…)。
+# 命中的真实例:宗教组织(五斗米道/太平道)、军事组织(御林军)。
+_ORG_CONCEPT_CATEGORY_KEYWORDS = (
+    "组织", "势力", "门派", "政权", "朝廷", "同盟", "帮派", "教派", "宗门",
+    "家族",
+)
+
 
 def _is_org_type(loc_type: str) -> bool:
     """Check whether a location type represents an organization."""
+    if any(kw in loc_type for kw in _ORG_TYPE_GATE_KEYWORDS):
+        return False
     return any(kw in loc_type for kw in _ORG_TYPE_KEYWORDS)
+
+
+def _is_org_concept_category(category: str) -> bool:
+    """概念 category 是否明确指组织/势力(Source 4 白名单)。"""
+    return any(kw in category for kw in _ORG_CONCEPT_CATEGORY_KEYWORDS)
 
 
 async def get_factions_data(
@@ -2178,8 +2199,9 @@ async def get_factions_data(
                     }
 
     # ── Source 2: locations with org-like types ──
-    # Many sects/factions appear as locations (type="门派"/"帮派" etc.)
-    # Characters visiting these locations are associated as members.
+    # Many sects/factions appear as locations (type="门派"/"帮派" etc.).
+    # Characters visiting these locations are recorded as visitors (Source 3),
+    # not members. 建筑类「门」(城门/宫门/营门)由 _is_org_type 排除。
     org_locations: set[str] = set()  # canonical location names that are orgs
     for fact in facts:
         for loc in fact.locations:
@@ -2205,10 +2227,12 @@ async def get_factions_data(
                     org_visitors[loc_canonical][char_canonical] += 1
 
     # ── Source 4: new_concepts about org systems ──
+    # 概念 category 是自由文本,军事计谋/战术/制度等噪音极大(实测占绝
+    # 大多数),改用白名单:仅明确组织/势力/门派/政权类才进。
     for fact in facts:
         for concept in fact.new_concepts:
             cat = concept.category
-            if _is_org_type(cat) and concept.name not in org_info:
+            if _is_org_concept_category(cat) and concept.name not in org_info:
                 org_info[concept.name] = {"name": concept.name, "type": cat}
 
     # Build output
