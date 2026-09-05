@@ -43,7 +43,7 @@ AI-Reader-V2/
 │   └── src/
 │       ├── api/
 │       │   ├── main.py             # FastAPI app entry, CORS, lifespan
-│       │   ├── routes/             # REST endpoints (15 routers)
+│       │   ├── routes/             # REST endpoints (16 routers)
 │       │   └── websocket/          # WS handlers (analysis progress, chat streaming)
 │       ├── services/               # Business logic (14 services)
 │       │   └── geo_skills/         # Geographic Agent Skills (Edmonds + snapshots)
@@ -93,7 +93,7 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 
 **Two-pass recall (FR-4.1)**: after the first extraction pass, `ChapterFactExtractor` runs a second "查漏" call per chapter (first-pass result list + chapter text, additions only). Recalled characters/relationships/events are tagged `source="recall_pass"`, sanitized with the same rules as the first pass, and merged additively (first-pass records are never rewritten). Switch: `RECALL_PASS_ENABLED` (default on; off = v0.73 single-pass behavior, NFR-3). Per-chapter LLM calls stay ≤2× (NFR-2).
 
-**Hallucinated-character LLM layer (FR-4.2)**: `hallucination_reviewer.review_chapter_characters()` runs after `FactValidator`'s rule layer and before DB write. Candidates are extracted characters whose name (or `·`-disambiguated base) cannot be located in the chapter text — the cases name-pattern rules cannot catch (银驮类). A single lightweight LLM call judges each candidate against the chapter context: high-confidence hallucinations are removed (with cascade cleanup of relationships/event participants), low-confidence ones are kept but marked "suspect" in the audit log, and every decision lands in `audit_reports/hallucination_review_log.jsonl` (NFR-5). Whitelist protection: entity-dictionary names plus characters established in earlier chapters (`protected_names`) are never judged. Switch: `HALLUCINATION_REVIEW_ENABLED` (default on; off = v0.73 behavior).
+**Hallucinated-character LLM layer (FR-4.2)**: `hallucination_reviewer.review_chapter_characters()` runs after `FactValidator`'s rule layer and before DB write. Candidates are extracted characters whose name (or `·`-disambiguated base) cannot be located in the chapter text — the cases name-pattern rules cannot catch (银驮类) — plus `new_aliases` entries that cannot be located either (canonical-pollution defense: alias claims are reviewed too, removed aliases only leave `new_aliases`, the character itself stays). A single lightweight LLM call judges each candidate against the chapter context: high-confidence hallucinations are removed (with cascade cleanup of relationships/event participants), low-confidence ones are kept but marked "suspect" in the audit log, and every decision lands in `audit_reports/hallucination_review_log.jsonl` (NFR-5). Whitelist protection: entity-dictionary names plus characters established in earlier chapters (`protected_names`) are never judged. Switch: `HALLUCINATION_REVIEW_ENABLED` (default on; off = v0.73 behavior).
 
 **Multi-pass 独立二审 (issue #70)**: 分析完成后可 opt-in 启动 `SourcePassService` 对全书独立重读 —— context 只由原文 + 本 pass 影子 facts + 实体词典构建,机制上读不到一审结果;跳过幻觉层/世界结构/场景/向量索引,产物只写影子表 `analysis_passes` / `pass_chapter_facts`,主表零写入。`PassDiffService` 逐章对比一审/二审暴露分歧,人工裁决只写 history 埋点。WS 进度走 `pass_*` 消息类型。成本分账 (Epic 5):每章 usage 落 pass history,云端费用记独立月度 key `cost_pass_YYYY_MM`(不混入一审 `cost_YYYY_MM`),pass 列表 API 附 `cost_summary`,设置页预算区显示「其中二审」。前端 `PassPanel.tsx` / `passStore.ts`。
 
@@ -116,6 +116,8 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 `FactValidator` (`fact_validator.py`) — post-LLM validation that filters out incorrectly extracted entities. Location validation uses `_is_generic_location()` with structural rules based on Chinese place name morphology (专名+通名 structure). Person validation uses `_is_generic_person()` to filter pure titles and generic references. Auto-created parent/region locations use `_infer_type_from_name()` to derive type from Chinese name suffix.
 
 **Dictionary-driven name corrections**: Fixes LLM extraction errors where numeric-prefix names are truncated (e.g., "愣子" → "二愣子"). **Alias-based character merge**: When character A lists character B as an alias and B exists separately, B is merged into A. **Homonym location disambiguation**: Generic architectural names (夹道, 后门, etc.) are prepended with parent location using middle-dot separator. Syncs across all cross-references in the ChapterFact.
+
+**Name decision provenance (issue #70)**: `NameResolver.resolve()` 的逐名改写与 FactValidator 的 alias-merge 吞并、泛称改名(「地点·泛称」)均落 `audit_reports/name_resolution_log.jsonl`(记录 chapter/from/to/source/rule);加上既有 entity_resolution / hallucination 两条通道,统一由 `GET /api/novels/{id}/audit-log?type=name_resolution|entity_resolution|hallucination&chapter=N&limit=200` 查询(倒序、尾部读取;无 novel_id 的旧记录兼容返回)。前端展示尚未接线。
 
 ### Context Summary Builder — Coreference Resolution
 
