@@ -136,7 +136,8 @@ class VoteBuilder(GeoSkill):
 
         # Chapter fact votes
         total_chapters = max(len(rows), 1)
-        spatial_neighbors: list[tuple[str, str]] = []
+        # (Removed, issue #70 D3) spatial_neighbors 收集与传播已删除:
+        # adjacent/direction/in_between 不再产生 parent 票(邻近≠包含)。
 
         for chapter_idx, row in enumerate(rows):
             data = json.loads(row["fact_json"])
@@ -160,9 +161,6 @@ class VoteBuilder(GeoSkill):
                     continue
                 if (_is_generic_location(src) and src != uber_root) or \
                    (_is_generic_location(tgt) and tgt != uber_root):
-                    continue
-                if rel in ("adjacent", "direction", "in_between"):
-                    spatial_neighbors.append((src, tgt))
                     continue
                 if rel != "contains":
                     continue
@@ -220,22 +218,7 @@ class VoteBuilder(GeoSkill):
                         continue
                     votes.setdefault(ln, Counter())[primary] += 2
 
-        # Spatial neighbor propagation
-        if spatial_neighbors:
-            for _ in range(2):
-                propagated = 0
-                for a, b in spatial_neighbors:
-                    for from_l, to_l in [(a, b), (b, a)]:
-                        fv = votes.get(from_l)
-                        if not fv:
-                            continue
-                        best_p, best_c = fv.most_common(1)[0]
-                        if best_p and best_p != to_l and best_c >= 2:
-                            if votes.get(to_l, Counter()).get(best_p, 0) == 0:
-                                votes.setdefault(to_l, Counter())[best_p] += 1
-                                propagated += 1
-                if propagated == 0:
-                    break
+        # (Removed, issue #70 D3) Spatial neighbor propagation deleted.
 
         # Uber-root vote capping
         if uber_root:

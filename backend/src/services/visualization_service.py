@@ -2119,9 +2119,10 @@ async def get_timeline_data(
 
 # ── Factions (Organization Network) ──────────────
 
-# Location types that indicate an organization
-_ORG_TYPE_KEYWORDS = ("门", "派", "宗", "帮", "教", "盟", "会", "阁", "堂",
-                       "军", "朝", "国", "族", "殿", "府", "院")
+# Location types that indicate an organization.
+# issue #70 (D4): 收窄词表 —— 「国/府/会/阁/堂/殿/院」同时是地点形态词
+# (王国/府邸/会馆/宫殿/院落),会把非组织地点误判为 org,已移除。
+_ORG_TYPE_KEYWORDS = ("门", "派", "宗", "帮", "教", "盟", "军", "朝", "族")
 
 
 def _is_org_type(loc_type: str) -> bool:
@@ -2188,19 +2189,20 @@ async def get_factions_data(
             if _is_org_type(loc.type):
                 org_locations.add(loc_canonical)
 
-    # ── Source 3: characters at org-locations ──
+    # ── Source 3: characters at org-locations → visitors (NOT members) ──
+    # issue #70 (D4): 到访 ≠ 成员。人物出现在 org 类地点只说明到访,
+    # 输出到独立的 visitors 字段,不进成员列表、不计 member_count。
+    # 已有 org_event 成员记录的人物不重复记为访客。
+    org_visitors: dict[str, Counter] = defaultdict(Counter)  # org → person → visit count
     for fact in facts:
         for char in fact.characters:
             char_canonical = alias_map.get(char.name, char.name)
             for loc_name in char.locations_in_chapter:
                 loc_canonical = alias_map.get(loc_name, loc_name)
                 if loc_canonical in org_locations:
-                    if char_canonical not in org_members[loc_canonical]:
-                        org_members[loc_canonical][char_canonical] = {
-                            "person": char_canonical,
-                            "role": "",
-                            "status": "出现",
-                        }
+                    if char_canonical in org_members.get(loc_canonical, {}):
+                        continue
+                    org_visitors[loc_canonical][char_canonical] += 1
 
     # ── Source 4: new_concepts about org systems ──
     for fact in facts:
@@ -2226,4 +2228,17 @@ async def get_factions_data(
         for org, members_map in org_members.items()
     }
 
-    return {"orgs": orgs, "relations": org_relations, "members": members}
+    visitors = {
+        org: [
+            {"person": person, "chapters": count}
+            for person, count in counts.most_common()
+        ]
+        for org, counts in org_visitors.items()
+    }
+
+    return {
+        "orgs": orgs,
+        "relations": org_relations,
+        "members": members,
+        "visitors": visitors,
+    }

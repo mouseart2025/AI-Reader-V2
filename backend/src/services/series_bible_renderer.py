@@ -307,7 +307,7 @@ def _render_locations(lines: list[str], locations: list[dict]) -> None:
         visitors = loc.get("visitors", [])
         if visitors:
             visitor_names = [
-                f"{v['name']}{'(常驻)' if v.get('is_resident') else ''}"
+                f"{v['name']}{'(多次出现)' if v.get('is_resident') else ''}"
                 for v in visitors[:8]
             ]
             lines.append(f"**到访者:** {', '.join(visitor_names)}\n")
