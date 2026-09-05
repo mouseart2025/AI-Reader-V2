@@ -88,6 +88,9 @@ class OrgEventFact(BaseModel):
     action: str = "其他"  # 加入/离开/晋升/阵亡/叛出/逐出 (default for LLM omission tolerance)
     description: str | None = None
     org_relation: OrgRelation | None = None
+    # issue #70 (D5): 原文证据引用。可选字段、默认 "",旧 JSON 反序列化不变。
+    # prompt 引导"无原文证据不记 org_event",但不做强制删除。
+    evidence: str = ""
 
 
 class EventFact(BaseModel):

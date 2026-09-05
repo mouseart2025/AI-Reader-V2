@@ -1493,29 +1493,8 @@ class WorldStructureAgent:
                 # source is container (parent), target is contained (child)
                 self._parent_votes.setdefault(target, Counter())[source] += weight
 
-        # ── Adjacent / Direction / In-between → parent propagation votes ──
-        # These non-contains spatial relationships indicate spatial proximity.
-        # If A is adjacent/direction to B and B already has a parent candidate C,
-        # propagate a weak vote A→C (weight=1). This allows locations near each
-        # other to inherit hierarchy from their neighbors.
-        for sr in fact.spatial_relationships:
-            if sr.relation_type not in ("adjacent", "direction", "in_between"):
-                continue
-            source, target = sr.source, sr.target
-            if source == target:
-                continue
-            if (_is_generic_location(source) and source != uber_root_name) or \
-               (_is_generic_location(target) and target != uber_root_name):
-                continue
-            # Bidirectional propagation: if either has a parent, share with the other
-            for from_loc, to_loc in [(source, target), (target, source)]:
-                from_votes = self._parent_votes.get(from_loc)
-                if not from_votes:
-                    continue
-                best_parent, best_count = from_votes.most_common(1)[0]
-                if best_parent and best_parent != to_loc and best_count >= 2:
-                    # Weak vote — must not exceed direct parent declaration weight
-                    self._parent_votes.setdefault(to_loc, Counter())[best_parent] += 1
+        # (Removed, issue #70 D3) Adjacent/direction/in_between 不再产生 parent
+        # 传播票:邻近 ≠ 包含,该通道曾把「B 距 A 两条街」误转为层级证据。
 
         # ── Name containment parent inference ──
         # If "石圪节公社" and "石圪节" both exist, the longer one is likely
@@ -2231,8 +2210,8 @@ class WorldStructureAgent:
         if self._peer_pairs:
             logger.info("Rebuilt %d peer pairs from chapter facts", len(self._peer_pairs))
 
-        # Collect spatial neighbor pairs for post-loop propagation (A.1)
-        spatial_neighbors: list[tuple[str, str]] = []
+        # (Removed, issue #70 D3) spatial neighbor propagation: adjacent/
+        # direction/in_between pairs no longer propagate parent votes (邻近≠包含).
         # Collect character-location co-occurrence per chapter (A.3)
         char_chapter_locs: dict[str, dict[int, set[str]]] = {}
 
@@ -2279,11 +2258,8 @@ class WorldStructureAgent:
                    (_is_generic_location(target) and target != uber_root_name):
                     continue
 
-                # Collect adjacent/direction/in_between pairs for propagation
-                if rel_type in ("adjacent", "direction", "in_between"):
-                    spatial_neighbors.append((source, target))
-                    continue
-
+                # (Removed, issue #70 D3) adjacent/direction/in_between 不再收集
+                # 为传播对 —— 邻近关系不构成包含证据,直接跳过。
                 if rel_type != "contains":
                     continue
                 # Defensive weight reduction for contains relationships
@@ -2358,32 +2334,8 @@ class WorldStructureAgent:
                         continue  # same or larger tier → sibling, not child
                     votes.setdefault(loc_name, Counter())[primary_setting] += 2
 
-        # ── Spatial neighbor propagation (adjacent/direction/in_between) ──
-        # If A is adjacent/near B and B has a confident parent C, propagate A→C.
-        # Up to 2 rounds to allow transitive propagation (A→B→C chain).
-        if spatial_neighbors:
-            total_propagated = 0
-            for _round in range(2):
-                propagated = 0
-                for a, b in spatial_neighbors:
-                    for from_loc, to_loc in [(a, b), (b, a)]:
-                        from_votes = votes.get(from_loc)
-                        if not from_votes:
-                            continue
-                        best_parent, best_count = from_votes.most_common(1)[0]
-                        if best_parent and best_parent != to_loc and best_count >= 2:
-                            existing = votes.get(to_loc, Counter()).get(best_parent, 0)
-                            if existing == 0:
-                                votes.setdefault(to_loc, Counter())[best_parent] += 1
-                                propagated += 1
-                total_propagated += propagated
-                if propagated == 0:
-                    break
-            if total_propagated:
-                logger.info(
-                    "Spatial neighbor propagation: %d pairs, %d votes propagated",
-                    len(spatial_neighbors), total_propagated,
-                )
+        # (Removed, issue #70 D3) Spatial neighbor propagation (adjacent/
+        # direction/in_between) deleted — 邻近≠包含,不再向邻居传播 parent 票。
 
         # ── Character colocation → parent inference (A.3) ──
         if char_chapter_locs:

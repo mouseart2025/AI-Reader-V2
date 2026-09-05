@@ -117,7 +117,7 @@ export const LocationCard = memo(function LocationCard({ profile, onEntityClick,
             <EntityLink name={v.name} type="person" onClick={onEntityClick} />
             {v.is_resident && (
               <span className="rounded bg-green-100 px-1 text-[10px] text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                常驻
+                多次出现
               </span>
             )}
             <span className="text-muted-foreground text-xs">

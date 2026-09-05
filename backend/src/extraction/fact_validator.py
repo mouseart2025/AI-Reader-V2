@@ -709,6 +709,103 @@ def _infer_type_from_name(name: str) -> str:
     return "区域"
 
 
+# ── Location type consistency soft-check (issue #70, D2) ─────────────
+# LocationFact.type 是 LLM 自由文本,实测出现形态漂移(海洋→"大陆"、街道→"国")。
+# 这里把 type 与名字后缀各自映射到「形态族」,两侧都已知且不同族时判定明显
+# 矛盾 → 软降级为「区域」+ logger.info(不删条目、不抛错)。任一侧未知 → 不动。
+_LOCATION_TYPE_FAMILY: dict[str, str] = {
+    # 水域
+    "海": "water", "海洋": "water", "洋": "water",
+    "江": "water", "河": "water", "河流": "water",
+    "湖": "water", "湖泊": "water", "溪": "water", "溪流": "water",
+    "泉": "water", "潭": "water", "湾": "water", "泊": "water", "池": "water",
+    # 山体
+    "山": "mountain", "山脉": "mountain", "山岭": "mountain", "岭": "mountain",
+    "山峰": "mountain", "峰": "mountain", "山谷": "mountain", "谷": "mountain",
+    "山崖": "mountain", "崖": "mountain",
+    # 宏观地理(大洲/世界层)
+    "大陆": "macro", "大洲": "macro", "洲": "macro",
+    "界": "macro", "界域": "macro", "域": "macro", "世界": "macro",
+    # 行政区划
+    "国": "admin", "王国": "admin", "帝国": "admin", "国家": "admin",
+    "省": "admin", "州": "admin", "郡": "admin", "县": "admin", "地区": "admin",
+    # 聚落
+    "城市": "settlement", "城": "settlement", "城镇": "settlement",
+    "镇": "settlement", "乡": "settlement", "京": "settlement",
+    "都": "settlement", "市": "settlement",
+    "村庄": "settlement", "村": "settlement", "庄园": "settlement",
+    "庄": "settlement", "寨": "settlement",
+    "街道": "settlement", "街": "settlement", "巷": "settlement",
+    # 建筑/人造场所
+    "宫殿": "building", "宫": "building", "殿": "building",
+    "阁楼": "building", "阁": "building", "楼阁": "building",
+    "楼": "building", "塔": "building",
+    "寺庙": "building", "寺": "building", "庙": "building",
+    "道观": "building", "观": "building", "庵": "building",
+    "建筑": "building", "府邸": "building", "宅邸": "building",
+    "园林": "building", "园": "building",
+    "洞府": "building", "门派": "building", "宗门": "building",
+    "关隘": "building", "桥梁": "building", "桥": "building",
+    # 地貌
+    "平原": "terrain", "原": "terrain", "沙漠": "terrain", "漠": "terrain",
+    "林地": "terrain", "林": "terrain", "森林": "terrain",
+    "岛屿": "terrain", "岛": "terrain",
+}
+
+# 名字以江/海/原等结尾但实为城市的已知例外(与 _CONTAINS_SUFFIX_RANK 同口径),
+# 这些名字不参与形态族判断,避免把"上海(type=城市)"误降级。
+_CITY_NAME_EXCEPTIONS = frozenset({
+    "上海", "珠海", "威海", "北海", "青海",
+    "浙江", "镇江", "九江", "湛江", "丽江", "阳江", "内江", "吴江",
+    "太原",
+})
+
+# 名字侧补充后缀:_SUFFIX_TO_TYPE 未覆盖但形态明确的常见通名
+_EXTRA_SUFFIX_FAMILY: list[tuple[str, str]] = [
+    ("街道", "settlement"), ("街", "settlement"),
+    ("巷", "settlement"), ("弄", "settlement"),
+    ("桥", "building"), ("潭", "water"), ("湾", "water"),
+]
+
+
+def _name_suffix_family(name: str) -> str | None:
+    """Infer the morphological family of a location name from its suffix."""
+    if name in _CITY_NAME_EXCEPTIONS:
+        return None
+    inferred = _infer_type_from_name(name)
+    # "府" 双义(行政府 vs 宅邸),不作为矛盾判断依据
+    if inferred not in ("区域", "府"):
+        return _LOCATION_TYPE_FAMILY.get(inferred)
+    for suffix, family in _EXTRA_SUFFIX_FAMILY:
+        if name.endswith(suffix) and len(name) > len(suffix):
+            return family
+    return None
+
+
+def _downgrade_inconsistent_location_type(name: str, loc_type: str) -> str:
+    """Soft-downgrade location type to 区域 when it clearly contradicts the
+    name's morphological family (issue #70 subtype drift, e.g. 海洋→"大陆").
+
+    Never raises and never drops the entry; returns the original type when
+    either side is unknown or both families agree (默认路径行为不变).
+    """
+    if not loc_type or loc_type == "区域":
+        return loc_type
+    type_family = _LOCATION_TYPE_FAMILY.get(loc_type)
+    if type_family is None:
+        return loc_type  # 词表外的 type 不做判断
+    name_family = _name_suffix_family(name)
+    if name_family is None:
+        return loc_type
+    if type_family != name_family:
+        logger.info(
+            "Location type downgrade: '%s' type '%s' → '区域' (suffix family=%s)",
+            name, loc_type, name_family,
+        )
+        return "区域"
+    return loc_type
+
+
 # ── Generic person candidates for disambiguation ─────────────────────
 # These are valid unnamed characters that should be disambiguated with
 # their chapter's primary setting location, not filtered out.
@@ -1242,8 +1339,12 @@ class FactValidator:
                 normalized_parent = _LOCATION_NAME_NORMALIZE.get(
                     normalized_parent, normalized_parent
                 )
+            # D2 (issue #70): type 与名字后缀形态明显矛盾时软降级为「区域」
+            checked_type = _downgrade_inconsistent_location_type(name, loc.type)
             valid.append(
-                loc.model_copy(update={"name": name, "parent": normalized_parent})
+                loc.model_copy(update={
+                    "name": name, "parent": normalized_parent, "type": checked_type,
+                })
             )
 
         # Validate peers field
