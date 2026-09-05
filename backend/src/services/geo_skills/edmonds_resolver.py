@@ -156,6 +156,36 @@ class EdmondsResolver(GeoSkill):
 
         base_parents = dict(snapshot.location_parents)
 
+        # ── Evidence gating for base parents (Epic D3 follow-up) ──
+        # Old parents enter the snapshot from world_structures or previous
+        # hierarchy_snapshots. Preserving them unconditionally makes stale
+        # edges immortal: pre-D3 adjacent/direction propagation pollution
+        # survived every rebuild through this "base parents preserved"
+        # channel. VoteBuilder only casts votes (including baseline ones)
+        # for pairs supported by current evidence (loc.parent / contains /
+        # 主场景推断) and KnowledgePrior adds its own votes, so:
+        #   - child HAS votes but none for this old pair → evidence exists
+        #     and points elsewhere → drop the bare edge; Edmonds re-resolves
+        #     the child from real votes (this kills the D3 pollution class,
+        #     whose children virtually always carry primary-setting votes);
+        #   - child has NO votes at all → no evidence either way → keep the
+        #     old parent. Re-attaching zero-evidence children to uber_root
+        #     fallbacks would feed degree-balancing scatter and oscillate
+        #     between runs, and many such edges are correct (e.g. LLM
+        #     SET_PARENT ops or older legitimate resolutions like 涿郡→幽州).
+        bare_dropped = 0
+        for child, parent in list(base_parents.items()):
+            child_votes = votes.get(child)
+            if child_votes and child_votes.get(parent, 0) <= 0:
+                del base_parents[child]
+                bare_dropped += 1
+        if bare_dropped:
+            logger.info(
+                "EdmondsResolver: dropped %d base parents contradicted by "
+                "current evidence (bare legacy edges)",
+                bare_dropped,
+            )
+
         # Apply name-containment overrides (high-confidence, covers 306+ cases)
         name_contain_applied = 0
         for child in list(all_locs):
