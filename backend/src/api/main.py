@@ -23,6 +23,7 @@ from src.api.routes import (
     chat,
     analysis,
     analysis_passes,
+    audit_log,
     settings,
     encyclopedia,
     export_import,
@@ -178,6 +179,7 @@ app.include_router(factions.router)
 app.include_router(chat.router)
 app.include_router(analysis.router)
 app.include_router(analysis_passes.router)
+app.include_router(audit_log.router)
 app.include_router(settings.router)
 app.include_router(encyclopedia.router)
 app.include_router(export_import.router)
