@@ -368,12 +368,13 @@ class SourcePassService:
                     context_summary=context,
                 )
 
-                # 规则清洗(FactValidator 复用);幻觉判定层(三审职责)跳过
-                fact = validator.validate(fact)
+                # 规则清洗(FactValidator 复用,传入原文做自动补 character 锚定);
+                # 幻觉判定层(三审职责)跳过
+                fact = validator.validate(fact, chapter_text=chapter["content"])
 
-                # D2: 二审命名解析(独立累积,不回写词典)
+                # D2: 二审命名解析(独立累积,不回写词典);双向原文锚定
                 fact = name_resolver.resolve(fact)
-                name_resolver.accumulate_from_chapter(fact)
+                name_resolver.accumulate_from_chapter(fact, chapter_text=chapter["content"])
 
                 elapsed_ms = int(time.time() * 1000) - start_ms
 

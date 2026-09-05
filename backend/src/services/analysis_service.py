@@ -552,9 +552,9 @@ class AnalysisService:
                     _monthly_budget = await get_monthly_budget()
                     cost_stats["monthly_budget_cny"] = _monthly_budget
 
-                # Validate
+                # Validate (传入本章原文:自动补 character 做原文锚定)
                 await self._broadcast_stage(novel_id, chapter_num, "验证数据")
-                fact = validator.validate(fact)
+                fact = validator.validate(fact, chapter_text=chapter["content"])
 
                 # 幻觉人物 LLM 判定层 (FR-4.2): 规则层之后、落库之前;
                 # 已确立人物纳入白名单,后续章节不再判定(真实人物不误杀)
@@ -565,7 +565,8 @@ class AnalysisService:
 
                 # Resolve name variants → canonical (upstream alias unification)
                 fact = name_resolver.resolve(fact)
-                name_resolver.accumulate_from_chapter(fact)
+                # 双向原文锚定:不可定位的 canonical/别名声明不进入映射
+                name_resolver.accumulate_from_chapter(fact, chapter_text=chapter["content"])
 
                 # Update world structure (never blocks pipeline)
                 await self._broadcast_stage(novel_id, chapter_num, "更新世界结构")
@@ -759,7 +760,7 @@ class AnalysisService:
                         chapter_text=retry_ch["content"],
                         context_summary=ctx,
                     )
-                    fact = validator.validate(fact)
+                    fact = validator.validate(fact, chapter_text=retry_ch["content"])
                     # 幻觉人物 LLM 判定层 (FR-4.2),与主循环同口径
                     fact = await self._review_hallucinations(
                         novel_id, retry_num, fact, retry_ch["content"], _protected_names,
@@ -1125,7 +1126,7 @@ class AnalysisService:
                     chapter_text=ch_content,
                     context_summary=ctx,
                 )
-                fact = _retry_validator.validate(fact)
+                fact = _retry_validator.validate(fact, chapter_text=ch_content)
                 # 幻觉人物 LLM 判定层 (FR-4.2),与主分析循环同口径
                 fact = await self._review_hallucinations(
                     novel_id, ch_num, fact, ch_content, None,

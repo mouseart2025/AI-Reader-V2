@@ -5,8 +5,11 @@ Location filtering uses a 3-layer approach based on Chinese place name morpholog
 """
 
 import logging
+from pathlib import Path
 
 from src.utils.location_names import is_homonym_prone
+
+from src.extraction.name_resolver import write_audit_records
 
 from src.models.chapter_fact import (
     ChapterFact,
@@ -821,16 +824,34 @@ def _clamp_name(name: str) -> str:
     return name
 
 
+def _name_in_text(name: str, chapter_text: str) -> bool:
+    """人名原文锚定:复用证据锚定的 span 定位口径(归一化空白后子串匹配)。
+
+    "X·樵夫" 类消歧名按 "·" 后基本名再查一次(与幻觉判定层同口径)。
+    """
+    from src.extraction.chapter_fact_extractor import span_located
+    if span_located(name, chapter_text):
+        return True
+    base = name.split("·")[-1]
+    return base != name and span_located(base, chapter_text)
+
+
 class FactValidator:
     """Validate and clean a ChapterFact instance."""
 
-    def __init__(self, genre: str | None = None, *, skip_validation: bool = False) -> None:
+    def __init__(self, genre: str | None = None, *, skip_validation: bool = False,
+                 audit_log_path: Path | None = None) -> None:
         self._genre = genre
         self._skip_validation = skip_validation  # For ablation experiments
         # name_corrections: short_name → full_name mapping built from
         # entity dictionary.  E.g., {"愣子": "二愣子"} when the dictionary
         # contains "二愣子" with a numeric prefix that jieba/LLM truncated.
         self._name_corrections: dict[str, str] = {}
+        # 决策审计(issue #70 provenance):validate() 内的改名/吞并决策,
+        # 与 NameResolver 改写共用 name_resolution_log.jsonl 通道;
+        # audit_log_path 仅供测试重定向,None = 默认审计路径。
+        self._audit_log_path = audit_log_path
+        self._audit_records: list[dict] = []
 
     def set_name_corrections(self, corrections: dict[str, str]) -> None:
         """Set name correction mapping (truncated_name → full_name).
@@ -841,10 +862,16 @@ class FactValidator:
         """
         self._name_corrections = corrections
 
-    def validate(self, fact: ChapterFact) -> ChapterFact:
-        """Return a cleaned copy of the ChapterFact."""
+    def validate(self, fact: ChapterFact, chapter_text: str | None = None) -> ChapterFact:
+        """Return a cleaned copy of the ChapterFact.
+
+        chapter_text(可选):本章原文。传入后,自动补 character 的交叉检查会做
+        原文锚定(canonical 污染防线)——原文不可定位的名字不凭空造实体条目;
+        默认 None 时跳过该校验,保持旧行为。
+        """
         if self._skip_validation:
             return fact  # Ablation: bypass all validation
+        self._audit_records = []
         characters = self._validate_characters(fact.characters)
         relationships = self._validate_relationships(fact.relationships, characters)
         locations = self._validate_locations(fact.locations, characters)
@@ -868,11 +895,13 @@ class FactValidator:
         events = self._fill_event_locations(locations, events)
 
         # Cross-check: ensure event participants exist in characters
-        characters = self._ensure_participants_in_characters(characters, events)
+        characters = self._ensure_participants_in_characters(
+            characters, events, chapter_text,
+        )
 
         # Cross-check: ensure relationship persons exist in characters
         characters = self._ensure_relation_persons_in_characters(
-            characters, relationships
+            characters, relationships, chapter_text,
         )
 
         # Post-processing: disambiguate homonymous location names (N29.3)
@@ -890,6 +919,15 @@ class FactValidator:
         # the rename_map to sync across relationships and events.
         person_rename_map = self._build_generic_person_rename_map(characters, locations)
         if person_rename_map:
+            # 审计:泛称改名(「地点·泛称」消歧),可追溯每个消歧名的出处
+            for old, new in person_rename_map.items():
+                self._audit_records.append({
+                    "field": "characters",
+                    "from": old,
+                    "to": new,
+                    "source": "correction",
+                    "rule": "generic_person_rename",
+                })
             characters = [
                 ch.model_copy(update={"name": person_rename_map[ch.name]})
                 if ch.name in person_rename_map else ch
@@ -907,6 +945,12 @@ class FactValidator:
                 if any(p in person_rename_map for p in evt.participants) else evt
                 for evt in events
             ]
+
+        if self._audit_records:
+            for rec in self._audit_records:
+                rec["novel_id"] = fact.novel_id
+                rec["chapter_id"] = fact.chapter_id
+            write_audit_records(self._audit_records, self._audit_log_path)
 
         return ChapterFact(
             chapter_id=fact.chapter_id,
@@ -1002,6 +1046,14 @@ class FactValidator:
                 locations_in_chapter=merged_locations,
                 source=keeper_ch.source,  # FR-4.1: 保留来源标记
             )
+            # 审计:alias-merge 吞并角色(issue #70 provenance)
+            self._audit_records.append({
+                "field": "characters",
+                "from": target,
+                "to": keeper,
+                "source": "correction",
+                "rule": "alias_merge",
+            })
             logger.debug(
                 "Merged character '%s' into '%s' via explicit alias link",
                 target, keeper,
@@ -1015,6 +1067,25 @@ class FactValidator:
             cleaned = self._clean_aliases(ch.new_aliases, name, all_names)
             if len(cleaned) != len(ch.new_aliases):
                 seen[name] = ch.model_copy(update={"new_aliases": cleaned})
+
+        # ── Composite character.name defense (canonical 污染防线) ──
+        # _clean_aliases Rule 3 的同款思路应用到 character.name 本身:
+        # name 同时包含同章 ≥2 个其他 character 的完整名字(如"八戒沙僧"),
+        # 是 LLM 把多个人名拼接成了一个伪名,按 Rule 3 的处置方式剔除。
+        # 只含 1 个他人全名不算(如"孙悟空"含"悟空"是合法长名),避免误伤。
+        composite_names = [
+            name for name in seen
+            if sum(
+                1 for other in seen
+                if other != name and len(other) >= 2 and other in name
+            ) >= 2
+        ]
+        for name in composite_names:
+            logger.info(
+                "Dropping composite character name '%s' (含同章多个他人全名)",
+                name,
+            )
+            del seen[name]
 
         return list(seen.values())
 
@@ -1410,9 +1481,15 @@ class FactValidator:
         return updated
 
     def _ensure_participants_in_characters(
-        self, characters: list[CharacterFact], events: list[EventFact]
+        self, characters: list[CharacterFact], events: list[EventFact],
+        chapter_text: str | None = None,
     ) -> list[CharacterFact]:
-        """Add missing event participants as character entries."""
+        """Add missing event participants as character entries.
+
+        canonical 污染防线:传入 chapter_text 时,名字在本章原文中不可定位
+        (span 定位口径)则不补成 character——事件记录本身保留,只是不凭空
+        造实体条目(LLM 编造名由此进入结构化结果的通道)。
+        """
         char_names = {ch.name for ch in characters}
         # Also check aliases
         for ch in characters:
@@ -1422,15 +1499,25 @@ class FactValidator:
             for p in ev.participants:
                 p = p.strip()
                 if p and p not in char_names and len(p) >= _NAME_MIN_LEN and not _is_generic_person(p, self._genre):
+                    if chapter_text is not None and not _name_in_text(p, chapter_text):
+                        logger.info(
+                            "事件参与者 %r 原文不可定位,不自动补为 character", p,
+                        )
+                        continue
                     characters.append(CharacterFact(name=p))
                     char_names.add(p)
                     logger.debug("Auto-added character from event participant: %s", p)
         return characters
 
     def _ensure_relation_persons_in_characters(
-        self, characters: list[CharacterFact], relationships
+        self, characters: list[CharacterFact], relationships,
+        chapter_text: str | None = None,
     ) -> list[CharacterFact]:
-        """Add missing relationship persons as character entries."""
+        """Add missing relationship persons as character entries.
+
+        canonical 污染防线:传入 chapter_text 时,名字在本章原文中不可定位
+        则不补成 character(关系记录本身保留)。
+        """
         char_names = {ch.name for ch in characters}
         for ch in characters:
             char_names.update(ch.new_aliases)
@@ -1439,6 +1526,11 @@ class FactValidator:
             for name in (rel.person_a, rel.person_b):
                 name = name.strip()
                 if name and name not in char_names and len(name) >= _NAME_MIN_LEN and not _is_generic_person(name, self._genre):
+                    if chapter_text is not None and not _name_in_text(name, chapter_text):
+                        logger.info(
+                            "关系人名 %r 原文不可定位,不自动补为 character", name,
+                        )
+                        continue
                     characters.append(CharacterFact(name=name))
                     char_names.add(name)
                     logger.debug("Auto-added character from relationship: %s", name)
