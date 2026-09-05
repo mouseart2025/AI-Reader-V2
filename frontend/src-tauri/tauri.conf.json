@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AI Reader",
-  "version": "0.76.0-beta.5",
+  "version": "0.76.0-beta.6",
   "identifier": "cc.ai-reader.desktop",
   "build": {
     "frontendDist": "../dist",
