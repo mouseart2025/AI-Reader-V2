@@ -91,36 +91,13 @@ class VoteBuilder(GeoSkill):
         # ── Phase 2: Build votes from chapter facts ──
         votes: dict[str, Counter] = {}
 
-        # Baseline injection (existing parents, weight=1)
-        # Only inject when pair is supported by chapter facts
-        cf_pairs: set[tuple[str, str]] = set()
-        children_with_evidence: set[str] = set()
-        for row in rows:
-            data = json.loads(row["fact_json"])
-            for loc in data.get("locations", []):
-                name = loc.get("name", "")
-                parent = loc.get("parent", "")
-                if name and parent and parent != "None" and name != parent:
-                    cf_pairs.add((name, parent))
-                    children_with_evidence.add(name)
-            for sr in data.get("spatial_relationships", []):
-                if sr.get("relation_type") == "contains":
-                    src, tgt = sr.get("source", ""), sr.get("target", "")
-                    if src and tgt:
-                        cf_pairs.add((tgt, src))
-                        children_with_evidence.add(tgt)
-
-        known_locs = set(tiers.keys())
-        if snapshot.location_parents:
-            baseline_injected = 0
-            for child, parent in snapshot.location_parents.items():
-                if parent not in known_locs and parent != uber_root:
-                    continue
-                if child in children_with_evidence and (child, parent) not in cf_pairs:
-                    continue
-                votes.setdefault(child, Counter())[parent] += 1
-                baseline_injected += 1
-            logger.info("Baseline: %d parents injected", baseline_injected)
+        # Evidence pairs actually cast as votes from current chapter facts
+        # (loc.parent 直接证据 / contains 空间关系 / 主场景推断).
+        # Baseline injection below is gated on this set (Epic D3 follow-up):
+        # old parents whose pair has NO current evidence must not be
+        # re-injected — otherwise pre-D3 propagation pollution (adjacent/
+        # direction→parent) is immortal via the baseline channel.
+        evidence_pairs: set[tuple[str, str]] = set()
 
         # Peer pairs
         peer_pairs: set[frozenset[str]] = set()
@@ -153,6 +130,7 @@ class VoteBuilder(GeoSkill):
                     pair_key = frozenset({name, parent})
                     w = 0.33 if pair_key in peer_pairs else 1.0
                     votes.setdefault(name, Counter())[parent] += w * chapter_weight
+                    evidence_pairs.add((name, parent))
 
             for sr in data.get("spatial_relationships", []):
                 rel = sr.get("relation_type", "")
@@ -174,6 +152,7 @@ class VoteBuilder(GeoSkill):
                 if s_rank > t_rank:
                     src, tgt = tgt, src
                 votes.setdefault(tgt, Counter())[src] += weight * chapter_weight
+                evidence_pairs.add((tgt, src))
 
             # Primary setting inference
             locations = data.get("locations", [])
@@ -217,8 +196,33 @@ class VoteBuilder(GeoSkill):
                     if c_rank <= p_rank:
                         continue
                     votes.setdefault(ln, Counter())[primary] += 2
+                    evidence_pairs.add((ln, primary))
 
         # (Removed, issue #70 D3) Spatial neighbor propagation deleted.
+
+        # ── Baseline injection (existing parents, weight=1) ──
+        # Epic D3 follow-up: only re-inject an old parent edge when current
+        # chapter-fact evidence still supports this exact pair (loc.parent /
+        # contains / 主场景推断 — all recorded in evidence_pairs above).
+        # Bare legacy edges (e.g. pre-D3 adjacent/direction propagation) get
+        # no baseline vote, so EdmondsResolver can re-resolve them from
+        # evidence instead of preserving them forever.
+        known_locs = set(tiers.keys())
+        if snapshot.location_parents:
+            baseline_injected = 0
+            baseline_dropped = 0
+            for child, parent in snapshot.location_parents.items():
+                if parent not in known_locs and parent != uber_root:
+                    continue
+                if (child, parent) not in evidence_pairs:
+                    baseline_dropped += 1
+                    continue
+                votes.setdefault(child, Counter())[parent] += 1
+                baseline_injected += 1
+            logger.info(
+                "Baseline: %d parents injected, %d bare edges not re-injected",
+                baseline_injected, baseline_dropped,
+            )
 
         # Uber-root vote capping
         if uber_root:
