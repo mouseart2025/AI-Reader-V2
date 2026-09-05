@@ -933,6 +933,81 @@ def _name_in_text(name: str, chapter_text: str) -> bool:
     return base != name and span_located(base, chapter_text)
 
 
+# ── Alias 语境指称软校验 (issue #70, E3 验证层闸) ─────────────────────
+# 实测(约会大作战 22 卷)发现系统把「当前语境可指向此人」的临时指称错误
+# 升级为「此人的稳定别名」:代词自称(吾/汝等)、假想名(假如她其实叫 X)、
+# 外观状态短语(身穿某装备)、泛类身份(某组织成员)、临时指称(某某少年)。
+# 命中以下高精确度特征的 alias 不入 new_aliases,记 logger.info +
+# name_resolution 审计。原则:宁可漏拦不可误杀,拿不准的一律放行。
+
+# 代词与自称(语料级小词表,精确匹配)
+_CONTEXTUAL_ALIAS_PRONOUNS = frozenset({
+    "吾", "我", "汝", "尔", "你", "您", "他", "她",
+    "吾等", "我等", "汝等", "尔等", "我们", "你们", "他们", "她们",
+    "在下", "鄙人", "小可", "某家", "俺", "咱", "咱家", "洒家",
+    "老夫", "老朽", "老身", "老奴", "奴家", "妾身", "小女子",
+    "贫道", "贫僧", "贫尼", "老衲",
+    "本座", "本尊", "本王", "本宫", "本将", "本仙", "本神",
+    "朕", "孤", "寡人", "卑职", "微臣", "末将",
+    "诸位", "各位", "众位", "大家",
+})
+
+# 假想/反事实身份特征词(「假如她其实叫 X」「假装叫 Y」类)
+_CONTEXTUAL_ALIAS_HYPOTHETICAL = (
+    "假如", "如果", "要是", "假设", "若是", "倘若",
+    "假装", "冒充", "假扮",
+)
+
+# 外观/状态描述特征词(「身穿某装备」「受伤的 X」类)
+_CONTEXTUAL_ALIAS_APPEARANCE = (
+    "身穿", "身着", "身披", "头戴", "手持", "手执", "手拿", "手握",
+    "腰佩", "背负", "受伤", "带伤", "昏迷",
+)
+
+# 泛类身份后缀(「某组织成员」「一个士兵」类)
+_CONTEXTUAL_ALIAS_ROLE_SUFFIXES = ("成员", "队员", "士兵", "手下", "一员")
+
+# 临时指称前缀(「某某少年」「那个少女」类)
+_CONTEXTUAL_ALIAS_TEMP_PREFIXES = (
+    "某某", "某个", "某名", "某位", "某",
+    "一个", "一名", "一位", "那个", "这个", "那名", "这名",
+)
+
+
+def _is_contextual_alias(alias: str) -> str | None:
+    """判断 alias 是否为语境指称而非稳定别名(issue #70, E3)。
+
+    命中返回原因字符串,未命中返回 None(放行)。
+    只用高精确度特征:代词精确匹配、假想/外观关键词、泛类后缀、
+    临时指称前缀;拿不准的一律放行。
+    """
+    if not alias:
+        return None
+    # 代词与自称(精确匹配,不做子串匹配,避免误伤含这些字的人名)
+    if alias in _CONTEXTUAL_ALIAS_PRONOUNS:
+        return "pronoun/self-address"
+    # 假想/反事实身份
+    for marker in _CONTEXTUAL_ALIAS_HYPOTHETICAL:
+        if marker in alias:
+            return f"hypothetical identity ({marker})"
+    # 外观与状态描述
+    for marker in _CONTEXTUAL_ALIAS_APPEARANCE:
+        if marker in alias:
+            return f"appearance/state phrase ({marker})"
+    # 描述性短语(与 name_authority.alias_safety_level level-0 同口径)
+    if "的" in alias:
+        return "descriptive phrase (contains 的)"
+    # 泛类角色身份
+    for suffix in _CONTEXTUAL_ALIAS_ROLE_SUFFIXES:
+        if len(alias) > len(suffix) and alias.endswith(suffix):
+            return f"generic role ({suffix})"
+    # 临时指称
+    for prefix in _CONTEXTUAL_ALIAS_TEMP_PREFIXES:
+        if len(alias) > len(prefix) and alias.startswith(prefix):
+            return f"temporary reference ({prefix}…)"
+    return None
+
+
 class FactValidator:
     """Validate and clean a ChapterFact instance."""
 
@@ -975,7 +1050,12 @@ class FactValidator:
         spatial_relationships = self._validate_spatial_relationships(
             fact.spatial_relationships, locations
         )
-        item_events = self._validate_item_events(fact.item_events)
+        item_events = self._validate_item_events(
+            fact.item_events,
+            non_item_names=self._collect_non_item_names(
+                characters, locations, fact.org_events, fact.new_concepts,
+            ),
+        )
         org_events = self._validate_org_events(fact.org_events)
         events = self._validate_events(fact.events)
         new_concepts = self._validate_concepts(fact.new_concepts)
@@ -1192,11 +1272,15 @@ class FactValidator:
         owner_name: str,
         all_char_names: set[str],
     ) -> list[str]:
-        """Clean new_aliases by removing three classes of erroneous aliases.
+        """Clean new_aliases by removing four classes of erroneous aliases.
 
         1. Alias is another independent character in this chapter
         2. Alias is too long (>6 chars) — likely a descriptive phrase
         3. Alias contains another character's full name (e.g., "水军头领李俊")
+        4. Alias is a contextual reference, not a stable alias (issue #70, E3):
+           pronouns/self-address, hypothetical names, appearance/state phrases,
+           generic roles, temporary references. Decisions go to logger.info +
+           the name_resolution audit channel.
         """
         cleaned = []
         for alias in aliases:
@@ -1232,6 +1316,24 @@ class FactValidator:
                     contaminated = True
                     break
             if contaminated:
+                continue
+            # Rule 4 (issue #70, E3): 语境指称不是稳定别名
+            # 宁可漏拦不可误杀:仅高精确度特征命中才剔除,拿不准的一律放行
+            ctx_reason = _is_contextual_alias(alias)
+            if ctx_reason:
+                logger.info(
+                    "Alias '%s' dropped from '%s': 语境指称非稳定别名 (%s)",
+                    alias, owner_name, ctx_reason,
+                )
+                self._audit_records.append({
+                    "field": "characters.new_aliases",
+                    "from": alias,
+                    "to": "",
+                    "source": "correction",
+                    "rule": "contextual_alias_drop",
+                    "owner": owner_name,
+                    "reason": ctx_reason,
+                })
                 continue
             cleaned.append(alias)
         return cleaned
@@ -1443,9 +1545,43 @@ class FactValidator:
             ))
         return valid
 
+    @staticmethod
+    def _collect_non_item_names(
+        characters: list[CharacterFact],
+        locations: list,
+        org_events: list[OrgEventFact],
+        concepts: list,
+    ) -> set[str]:
+        """收集本章非物品实体名(人物+别名/地点/组织/概念),供 related item
+        的 target-type 校验使用(issue #70:领域/能力机制类实体不得进入关联物品)。"""
+        names: set[str] = set()
+        for ch in characters:
+            if ch.name:
+                names.add(ch.name)
+            names.update(a for a in ch.new_aliases if a)
+        for loc in locations:
+            if loc.name:
+                names.add(loc.name)
+        for oe in org_events:
+            if oe.org_name:
+                names.add(oe.org_name)
+        for nc in concepts:
+            if nc.name:
+                names.add(nc.name)
+        return names
+
     def _validate_item_events(
-        self, items: list[ItemEventFact]
+        self,
+        items: list[ItemEventFact],
+        non_item_names: set[str] | None = None,
     ) -> list[ItemEventFact]:
+        # 第一遍:本章有效物品名集合,作为 related「两端必须都是物品」的判据
+        chapter_item_names: set[str] = set()
+        for item in items:
+            n = _clamp_name(item.item_name)
+            if len(n) >= _NAME_MIN_LEN_OTHER:
+                chapter_item_names.add(n)
+
         valid = []
         for item in items:
             name = _clamp_name(item.item_name)
@@ -1454,8 +1590,63 @@ class FactValidator:
             action = item.action
             if action not in _VALID_ITEM_ACTIONS:
                 action = "出现"
+            related = self._validate_related_items(
+                item.related, name, chapter_item_names, non_item_names or set(),
+            )
             valid.append(
-                item.model_copy(update={"item_name": name, "action": action})
+                item.model_copy(update={
+                    "item_name": name, "action": action, "related": related,
+                })
+            )
+        return valid
+
+    @staticmethod
+    def _validate_related_items(
+        related: list,
+        owner_name: str,
+        chapter_item_names: set[str],
+        non_item_names: set[str],
+    ) -> list:
+        """related item 软校验(issue #70):logger.info + 剔除,不抛错。
+
+        - 空名/过短名、自引用:剔除
+        - 无 evidence:剔除(related 是证据门控关系,prompt 要求逐字引用原文;
+          口径与 org_event evidence 的「无依据不记录」一致,这里在验证层执行)
+        - 目标不在本章物品列表中:剔除(两端必须都是 item 类型实体;
+          目标是人物/地点/组织/概念时即 issue #70 的 target-type 泄漏)
+        拿不准的一律放行(名字同时是物品与其他实体时不判)。
+        """
+        valid = []
+        seen: set[str] = set()
+        for rel in related:
+            rname = _clamp_name(rel.name)
+            if len(rname) < _NAME_MIN_LEN_OTHER or rname == owner_name:
+                continue
+            if rname in seen:
+                continue
+            if not rel.evidence or not rel.evidence.strip():
+                logger.info(
+                    "Dropping related item '%s' on '%s': 无原文证据(evidence 为空)",
+                    rname, owner_name,
+                )
+                continue
+            if rname not in chapter_item_names:
+                if rname in non_item_names:
+                    logger.info(
+                        "Dropping related item '%s' on '%s': 目标是人物/地点/组织/概念,"
+                        "非物品实体(target-type 泄漏)",
+                        rname, owner_name,
+                    )
+                else:
+                    logger.info(
+                        "Dropping related item '%s' on '%s': 不在本章物品列表中",
+                        rname, owner_name,
+                    )
+                continue
+            seen.add(rname)
+            relation = rel.relation.strip() if rel.relation else ""
+            valid.append(
+                rel.model_copy(update={"name": rname, "relation": relation})
             )
         return valid
 
