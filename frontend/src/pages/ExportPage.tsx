@@ -11,6 +11,7 @@ import {
 } from "@/api/client"
 import type { Chapter, EntitySummary } from "@/api/types"
 import { SERIES_BIBLE_MODULES, SERIES_BIBLE_TEMPLATES } from "@/api/types"
+import { sidecarAuthHeaders } from "@/api/sidecarBridge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -151,7 +152,7 @@ export default function ExportPage() {
           title = n.title || ""
         } catch { /* ignore */ }
       }
-      const resp = await fetch(exportNovelAirUrl(novelId))
+      const resp = await fetch(exportNovelAirUrl(novelId), { headers: { ...sidecarAuthHeaders() } })
       if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
@@ -182,7 +183,7 @@ export default function ExportPage() {
           title = n.title || ""
         } catch { /* ignore */ }
       }
-      const resp = await fetch(exportNovelMarkdownUrl(novelId))
+      const resp = await fetch(exportNovelMarkdownUrl(novelId), { headers: { ...sidecarAuthHeaders() } })
       if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
