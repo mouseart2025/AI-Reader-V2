@@ -18,6 +18,10 @@
 - level 1(存疑)名字仅作为提示出现在 prompt 中,不会被并入任何组。
 - 防桥接约束(阮小二≠阮小七类,name_authority.similar_name_conflict)在
   LLM 决策校验与 override 应用两层都生效。
+- canonical 原文锚定(canonical-name 污染防线):chapter_facts 的名字是
+  LLM 产物,拼接名/幻觉名可能混入候选。LLM 给出的 canonical 必须在全书
+  原文中可定位(词典型名字是原文子串,走快速路径);不 grounded 时改选
+  组内 grounded 成员,全组不 grounded 则拒绝该组并记决策日志。
 
 优先级 (FR-2.4): 手动 merge/split/rename 优先级高于 LLM 决策
 (alias_resolver._apply_user_overrides 先应用 llm_merge 再应用手动条目);
@@ -191,7 +195,14 @@ def name_merge_eligibility(
 async def collect_person_names(novel_id: str) -> dict[str, dict[str, Any]]:
     """聚合期收集人物名:entity_dictionary (person) ∪ chapter_facts 人物。
 
-    返回 {name: {"freq": int, "dict_person_freq": int}}。
+    返回 {name: {"freq": int, "dict_person_freq": int,
+                 "in_dict": bool, "grounded": bool}}。
+
+    grounded 是原文锚定标志(canonical-name 污染防线,B2):词典型名字
+    是原文子串,天然 grounded(快速路径,不扫全文);仅出现在
+    chapter_facts 的名字是 LLM 产物,需在全书 corpus 中可定位才算
+    grounded。corpus 复用 hallucination_filter._get_corpus(构建一次
+    并缓存),不逐名/逐组重建。
     """
     from src.db.sqlite_db import get_connection
     from src.extraction.fact_validator import _normalize_char_variants
@@ -220,7 +231,12 @@ async def collect_person_names(novel_id: str) -> dict[str, dict[str, Any]]:
         name = _normalize_char_variants(row["name"] or "")
         if not name:
             continue
-        entry = meta.setdefault(name, {"freq": 0, "dict_person_freq": 0})
+        entry = meta.setdefault(
+            name,
+            {"freq": 0, "dict_person_freq": 0, "in_dict": False,
+             "grounded": True},
+        )
+        entry["in_dict"] = True
         freq = row["frequency"] or 0
         entry["freq"] = max(entry["freq"], freq)
         if (row["entity_type"] or "") == "person":
@@ -235,10 +251,37 @@ async def collect_person_names(novel_id: str) -> dict[str, dict[str, Any]]:
             name = _normalize_char_variants(char.get("name", ""))
             if not name:
                 continue
-            entry = meta.setdefault(name, {"freq": 0, "dict_person_freq": 0})
+            entry = meta.setdefault(
+                name,
+                {"freq": 0, "dict_person_freq": 0, "in_dict": False,
+                 "grounded": True},
+            )
             entry["freq"] += 1
 
+    # B2: 仅 chapter_facts 来源的名字做全书原文锚定;与
+    # hallucination_filter 一致 — corpus 为空(无法校验)或名字太短
+    # (子串匹配不可靠)时保留。
+    unverified = [n for n, m in meta.items() if not m["in_dict"]]
+    if unverified:
+        from src.services import hallucination_filter
+
+        _count, corpus = await hallucination_filter._get_corpus(novel_id)
+        if corpus:
+            for n in unverified:
+                meta[n]["grounded"] = (
+                    len(n) < hallucination_filter.MIN_VERIFIABLE_LEN
+                    or n in corpus
+                )
+
     return meta
+
+
+def _name_grounded(name: str, name_meta: dict[str, dict[str, Any]]) -> bool:
+    """名字是否有原文锚定(collect_person_names 已预算;词典型快速路径)。"""
+    meta = name_meta.get(name) or {}
+    if meta.get("in_dict"):
+        return True
+    return bool(meta.get("grounded", True))
 
 
 def partition_candidates(
@@ -498,6 +541,9 @@ async def resolve_cluster(
 
     raw_groups = content.get("groups", []) if isinstance(content, dict) else []
     accepted, rejected = validate_groups(cluster, raw_groups, name_meta)
+    # B3: 决策日志带原文锚定标志,便于事后复核 canonical 污染。
+    for g in accepted:
+        g["grounded"] = {m: _name_grounded(m, name_meta) for m in g["members"]}
 
     decision = {
         "novel_id": novel_id,
@@ -573,6 +619,45 @@ async def resolve_novel(
             canonical = group["canonical"]
             if canonical not in members:
                 canonical = name_authority.pick_canonical(members, freq)
+
+            # canonical-name 污染防线 (B1):canonical 必须在全书原文中
+            # 可定位 — 拼接名/幻觉名即使进了 chapter_facts,也不能成为
+            # ER canonical 写进 llm_merge override 污染全书别名映射。
+            canonical_grounded = _name_grounded(canonical, name_meta)
+            grounded_reselected = False
+            if not canonical_grounded:
+                grounded_members = [
+                    m for m in members if _name_grounded(m, name_meta)
+                ]
+                if not grounded_members:
+                    logger.info(
+                        "Entity resolution %s: rejected group %s — "
+                        "no member is grounded in source text",
+                        novel_id, members,
+                    )
+                    write_decision_log(
+                        {
+                            "novel_id": novel_id,
+                            "input_cluster": cluster,
+                            "output_groups": [],
+                            "rejected_groups": [
+                                {
+                                    **group,
+                                    "rejected_reason": (
+                                        "no grounded member in source text "
+                                        "(canonical-name pollution defense)"
+                                    ),
+                                }
+                            ],
+                        },
+                        log_path,
+                    )
+                    continue
+                # 改选:组内 grounded 成员中按 pick_canonical 规则最优者。
+                canonical = name_authority.pick_canonical(grounded_members, freq)
+                canonical_grounded = True
+                grounded_reselected = True
+
             await entity_override_store.save_override(
                 novel_id,
                 "llm_merge",
@@ -584,6 +669,9 @@ async def resolve_novel(
                     "prompt_version": PROMPT_VERSION,
                     "input_cluster": cluster,
                     "auto_snapshot": {m: auto_map.get(m, m) for m in members},
+                    # B3: 原文锚定标志,供「我的修正」/审计复核。
+                    "canonical_grounded": canonical_grounded,
+                    "grounded_reselected": grounded_reselected,
                 },
             )
             merges.append(group)
