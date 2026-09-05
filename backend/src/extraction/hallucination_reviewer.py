@@ -6,6 +6,10 @@ validator.validate() 之后调用)。规则层(name-pattern)抓不住的疑似�
 为真实人物;高置信幻觉剔除,低置信降级为存疑(保留 + 审计标记),决策
 全部落 JSONL 审计日志 (NFR-5)。
 
+别名送审(canonical 污染防线):new_aliases 中原文不可定位且非白名单的
+别名一并进入同一次 LLM 判定(单章仍 ≤1 次调用);高置信幻觉别名从
+new_aliases 剔除(不动 character 本身),低置信保留并审计标记。
+
 白名单保护(真实人物不误杀):
 - protected_names(entity_dictionary 实体 + 本次运行已确立的人物)永不进入判定;
 - 名字(或 "·" 消歧后的基本名,如 平顶山·樵夫 → 樵夫)能在原文中直接
@@ -28,7 +32,7 @@ from src.models.chapter_fact import ChapterFact
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "hr-char-v1"
+PROMPT_VERSION = "hr-char-v2"  # v2: 候选纳入 new_aliases(别名链送审)
 
 # 决策审计日志(JSONL,每章一条)— 与 audit_reports 其他产物同目录。
 AUDIT_LOG_PATH = (
@@ -39,7 +43,8 @@ _VALID_CONFIDENCE = {"high", "medium", "low"}
 
 _SYSTEM_PROMPT = (
     "你是小说人物真实性审核专家。给你章节原文与一组疑似幻觉的人物名"
-    "(这些名字在原文中找不到完全匹配的字面出现),判断每个名字是否指向"
+    "(这些名字在原文中找不到完全匹配的字面出现;其中可能包含别名声明,"
+    "即某角色的 new_aliases 条目),判断每个名字是否指向"
     "原文中真实存在的人物。\n"
     "规则:\n"
     "1. 名字虽无字面匹配、但明显指向原文真实人物(别名、误写、称谓变体、"
@@ -95,6 +100,30 @@ def find_hallucination_candidates(
         if base != name and span_located(base, chapter_text):
             continue
         candidates.append(name)
+    return candidates
+
+
+def find_alias_candidates(
+    fact: ChapterFact,
+    chapter_text: str,
+    protected_names: set[str] | None = None,
+) -> dict[str, list[str]]:
+    """挑选疑似幻觉别名候选:{宿主角色名: [原文不可定位的别名, ...]}。
+
+    与人物候选同口径(span 定位 + 白名单);别名链此前零校验,
+    LLM 编造的别名声明(如"神秘人是 X 的别名")由此进入送审范围。
+    """
+    from src.extraction.chapter_fact_extractor import span_located
+
+    protected = protected_names or set()
+    candidates: dict[str, list[str]] = {}
+    for ch in fact.characters:
+        for alias in (ch.new_aliases or []):
+            if not alias or alias == ch.name or alias in protected:
+                continue
+            if span_located(alias, chapter_text):
+                continue
+            candidates.setdefault(ch.name, []).append(alias)
     return candidates
 
 
@@ -211,6 +240,56 @@ def apply_verdicts(
     }), actions
 
 
+def apply_alias_verdicts(
+    fact: ChapterFact,
+    alias_candidates: dict[str, list[str]],
+    verdicts: dict[str, dict],
+) -> tuple[ChapterFact, list[dict]]:
+    """按裁决处置别名,返回 (新 ChapterFact, actions)。
+
+    与人物裁决同路径:仅 is_real=false + high 才剔除;剔除 = 从宿主角色的
+    new_aliases 列表移除,不动 character 本身。低置信标 alias_suspect(保留),
+    LLM 未覆盖的候选 alias_unjudged(保留)。
+    """
+    actions: list[dict] = []
+    removed: dict[str, set[str]] = {}  # 宿主角色名 → 待剔除别名集合
+    for owner, aliases in alias_candidates.items():
+        for alias in aliases:
+            verdict = verdicts.get(alias)
+            if verdict is None:
+                actions.append({"name": alias, "owner": owner,
+                                "action": "alias_unjudged",
+                                "is_real": None, "confidence": None, "reason": ""})
+                continue
+            if verdict["is_real"]:
+                action = "alias_confirmed"
+            elif verdict["confidence"] == "high":
+                action = "alias_removed"
+                removed.setdefault(owner, set()).add(alias)
+            else:
+                action = "alias_suspect"
+            actions.append({"name": alias, "owner": owner, "action": action, **verdict})
+
+    if not removed:
+        return fact, actions
+
+    characters = []
+    for ch in fact.characters:
+        drop = removed.get(ch.name)
+        if drop:
+            characters.append(ch.model_copy(update={
+                "new_aliases": [a for a in ch.new_aliases if a not in drop],
+            }))
+        else:
+            characters.append(ch)
+    logger.info(
+        "幻觉别名 LLM 层剔除 %d 条高置信幻觉别名: %s",
+        sum(len(v) for v in removed.values()),
+        ", ".join(f"{a}({o})" for o, aliases in removed.items() for a in aliases),
+    )
+    return fact.model_copy(update={"characters": characters}), actions
+
+
 async def review_chapter_characters(
     fact: ChapterFact,
     *,
@@ -231,7 +310,12 @@ async def review_chapter_characters(
         return fact
 
     candidates = find_hallucination_candidates(fact, chapter_text, protected_names)
-    if not candidates:
+    alias_candidates = find_alias_candidates(fact, chapter_text, protected_names)
+    # 别名一并送审(canonical 污染防线):与人物候选合并进同一次 LLM 调用,
+    # 单章仍 ≤1 次轻量调用 (NFR-2)。
+    alias_flat = [a for aliases in alias_candidates.values() for a in aliases]
+    llm_candidates = list(dict.fromkeys(candidates + alias_flat))
+    if not llm_candidates:
         return fact
 
     from src.infra.context_budget import get_budget
@@ -241,7 +325,7 @@ async def review_chapter_characters(
         budget = get_budget()
         # 判定只需上下文依据,按章节截断预算封顶,控制 token 成本 (NFR-2)
         text = chapter_text[: budget.max_chapter_len]
-        prompt = build_review_prompt(candidates, text)
+        prompt = build_review_prompt(llm_candidates, text)
         result, usage = await llm.generate(
             _SYSTEM_PROMPT, prompt, format=_VERDICT_SCHEMA,
         )
@@ -254,8 +338,11 @@ async def review_chapter_characters(
         )
         return fact
 
-    verdicts = parse_verdicts(result, candidates)
+    verdicts = parse_verdicts(result, llm_candidates)
     new_fact, actions = apply_verdicts(fact, candidates, verdicts)
+    new_fact, alias_actions = apply_alias_verdicts(
+        new_fact, alias_candidates, verdicts,
+    )
 
     write_decision_log(
         {
@@ -263,8 +350,9 @@ async def review_chapter_characters(
             "novel_id": novel_id,
             "chapter_id": chapter_id,
             "candidates": candidates,
+            "alias_candidates": alias_candidates,
             "llm_raw_verdicts": result,
-            "actions": actions,
+            "actions": actions + alias_actions,
         },
         log_path or AUDIT_LOG_PATH,
     )
