@@ -527,3 +527,244 @@ async def test_build_alias_map_byte_identical_without_decisions(memory_db):
             p.stop()
     assert result == _EXPECTED_BASELINE_MAP
     alias_resolver.invalidate_alias_cache(NOVEL)
+
+
+# ── canonical-name 污染防线:B1 canonical grounded 校验 / B2 候选标注 / B3 日志 ──
+
+
+def _patch_grounded_db(memory_db):
+    """在 _patch_db 基础上补 hallucination_filter 的 get_connection。
+
+    hallucination_filter 是 `from ... import get_connection` 直接绑定,
+    必须单独 patch 其模块命名空间。
+    """
+
+    async def _proxy():
+        return _NonClosing(memory_db)
+
+    return _patch_db(memory_db) + [
+        patch("src.services.hallucination_filter.get_connection", _proxy),
+    ]
+
+
+async def _seed_grounded_db(memory_db, novel_id: str, corpus_text: str,
+                            fact_names: list[str],
+                            dict_rows: list[tuple] | None = None):
+    """种入 1 章原文 + chapter_facts 人物名(+ 可选词典条目)。"""
+    await memory_db.execute(
+        "INSERT INTO novels (id, title) VALUES (?, ?)", (novel_id, "锚定测试")
+    )
+    cursor = await memory_db.execute(
+        "INSERT INTO chapters (novel_id, chapter_num, title, content)"
+        " VALUES (?, 1, '第一回', ?)",
+        (novel_id, corpus_text),
+    )
+    fact = {"characters": [{"name": n} for n in fact_names]}
+    await memory_db.execute(
+        "INSERT INTO chapter_facts (novel_id, chapter_id, fact_json)"
+        " VALUES (?, ?, ?)",
+        (novel_id, cursor.lastrowid, json.dumps(fact, ensure_ascii=False)),
+    )
+    for name, freq, etype in dict_rows or []:
+        await memory_db.execute(
+            "INSERT INTO entity_dictionary"
+            " (novel_id, name, frequency, aliases, entity_type, source)"
+            " VALUES (?, ?, ?, '[]', ?, 'test')",
+            (novel_id, name, freq, etype),
+        )
+    await memory_db.commit()
+
+
+async def _run_grounded_resolve(memory_db, tmp_path, novel_id, llm):
+    """以林惊羽/林小凡同簇的 mock embedding 跑 resolve_novel。"""
+    from src.services import hallucination_filter
+
+    hallucination_filter.invalidate_cache(novel_id)
+    alias_resolver.invalidate_alias_cache(novel_id)
+    group_of = {"林惊羽": 0, "林小凡": 0}
+
+    async def _noop_cost(_usage):
+        return None
+
+    patches = _patch_grounded_db(memory_db) + [
+        patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        report = await resolve_novel(
+            novel_id, llm=llm, embed_fn=_one_hot_embed(group_of),
+            log_path=tmp_path / "er.jsonl",
+        )
+        rows = await entity_override_store.load_overrides(novel_id)
+    finally:
+        for p in patches:
+            p.stop()
+    return report, rows
+
+
+class TestGroundedCanonical:
+    """B1–B3:ER canonical 原文锚定(canonical-name 污染防线)。"""
+
+    @pytest.mark.asyncio
+    async def test_collect_person_names_marks_grounded(self, memory_db):
+        """B2:词典型名字直接 grounded;facts-only 名字按 corpus 锚定。"""
+        novel = "novel-er-grounded-meta"
+        await _seed_grounded_db(
+            memory_db, novel,
+            corpus_text="林惊羽仗剑而立,远处传来钟声。",
+            fact_names=["林惊羽", "林小凡"],
+            dict_rows=[("孙悟空", 150, "person")],
+        )
+        from src.services import hallucination_filter
+        from src.services.entity_resolver import collect_person_names
+
+        hallucination_filter.invalidate_cache(novel)
+        patches = _patch_grounded_db(memory_db)
+        for p in patches:
+            p.start()
+        try:
+            meta = await collect_person_names(novel)
+        finally:
+            for p in patches:
+                p.stop()
+
+        # 词典型:快速路径,无需扫全文
+        assert meta["孙悟空"]["in_dict"] is True
+        assert meta["孙悟空"]["grounded"] is True
+        # facts-only:按原文锚定
+        assert meta["林惊羽"]["in_dict"] is False
+        assert meta["林惊羽"]["grounded"] is True
+        assert meta["林小凡"]["in_dict"] is False
+        assert meta["林小凡"]["grounded"] is False
+
+    @pytest.mark.asyncio
+    async def test_grounded_canonical_written_normally(self, memory_db, tmp_path):
+        """canonical grounded → override 正常写入,带 grounded 标志 (B1/B3)。"""
+        novel = "novel-er-grounded-ok"
+        await _seed_grounded_db(
+            memory_db, novel,
+            corpus_text="林惊羽仗剑而立,林小凡在旁抚琴。",
+            fact_names=["林惊羽", "林小凡"],
+        )
+        llm = MockLLM(lambda members: [
+            {"canonical": "林惊羽", "members": members, "reason": "同一人物"},
+        ])
+        report, rows = await _run_grounded_resolve(
+            memory_db, tmp_path, novel, llm
+        )
+        assert report["merges"] == 1
+        assert len(rows) == 1
+        j = rows[0]["override_json"]
+        assert j["canonical"] == "林惊羽"
+        assert j["canonical_grounded"] is True
+        assert j["grounded_reselected"] is False
+
+    @pytest.mark.asyncio
+    async def test_ungrounded_canonical_reselected(self, memory_db, tmp_path):
+        """canonical 不 grounded 但组内有 grounded 成员 → 改选 (B1)。"""
+        novel = "novel-er-grounded-reselect"
+        # 原文只有 林惊羽;林小凡 是 LLM 幻觉名
+        await _seed_grounded_db(
+            memory_db, novel,
+            corpus_text="林惊羽仗剑而立,远处传来钟声。",
+            fact_names=["林惊羽", "林小凡"],
+        )
+        llm = MockLLM(lambda members: [
+            {"canonical": "林小凡", "members": members, "reason": "同一人物"},
+        ])
+        report, rows = await _run_grounded_resolve(
+            memory_db, tmp_path, novel, llm
+        )
+        assert report["merges"] == 1
+        assert len(rows) == 1
+        j = rows[0]["override_json"]
+        # 改选为组内唯一 grounded 成员
+        assert j["canonical"] == "林惊羽"
+        assert j["canonical_grounded"] is True
+        assert j["grounded_reselected"] is True
+        assert rows[0]["override_key"] == "林惊羽"
+        assert set(j["members"]) == {"林惊羽", "林小凡"}
+
+    @pytest.mark.asyncio
+    async def test_all_ungrounded_group_rejected(self, memory_db, tmp_path):
+        """全组不 grounded → 拒绝,不写 override,决策日志含拒绝记录 (B1/B3)。"""
+        novel = "novel-er-grounded-reject"
+        await _seed_grounded_db(
+            memory_db, novel,
+            corpus_text="这一天,天色阴沉,大雨滂沱。",
+            fact_names=["林惊羽", "林小凡"],
+        )
+        llm = MockLLM(lambda members: [
+            {"canonical": "林小凡", "members": members, "reason": "同一人物"},
+        ])
+        report, rows = await _run_grounded_resolve(
+            memory_db, tmp_path, novel, llm
+        )
+        assert report["merges"] == 0
+        assert rows == []  # 无 override 写入
+
+        log = tmp_path / "er.jsonl"
+        records = [
+            json.loads(line)
+            for line in log.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        rejected = [
+            r for rec in records for r in rec.get("rejected_groups", [])
+        ]
+        assert any(
+            "no grounded member" in r.get("rejected_reason", "")
+            for r in rejected
+        )
+
+    @pytest.mark.asyncio
+    async def test_dict_names_fast_path_skips_corpus(self, memory_db, tmp_path):
+        """词典型名字走 grounded 快速路径:不构建/扫描全书 corpus (B1)。"""
+        novel = "novel-er-grounded-dict"
+        await _seed_grounded_db(
+            memory_db, novel,
+            corpus_text="正文里没有候选名。",
+            fact_names=["林惊羽", "林小凡"],
+            dict_rows=[("林惊羽", 120, "person"), ("林小凡", 80, "person")],
+        )
+        llm = MockLLM(lambda members: [
+            {"canonical": "林小凡", "members": members, "reason": "同一人物"},
+        ])
+
+        async def _boom(_novel_id):
+            raise AssertionError("_get_corpus should not be called "
+                                 "when all candidates are dict names")
+
+        from src.services import hallucination_filter
+
+        hallucination_filter.invalidate_cache(novel)
+        alias_resolver.invalidate_alias_cache(novel)
+        group_of = {"林惊羽": 0, "林小凡": 0}
+
+        async def _noop_cost(_usage):
+            return None
+
+        patches = _patch_grounded_db(memory_db) + [
+            patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
+            patch("src.services.hallucination_filter._get_corpus", _boom),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            report = await resolve_novel(
+                novel, llm=llm, embed_fn=_one_hot_embed(group_of),
+                log_path=tmp_path / "er.jsonl",
+            )
+            rows = await entity_override_store.load_overrides(novel)
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert report["merges"] == 1
+        assert len(rows) == 1
+        j = rows[0]["override_json"]
+        # 词典型 canonical 视为 grounded,不发生改选
+        assert j["canonical"] == "林小凡"
+        assert j["canonical_grounded"] is True
+        assert j["grounded_reselected"] is False
