@@ -559,9 +559,18 @@ async def aggregate_item(novel_id: str, item_name: str) -> ItemProfile:
     related_set: set[str] = set()
     chapter_set: set[int] = set()
 
+    # issue #70: related_items 只来自 LLM 显式记录的 item_events[].related
+    # (有原文证据的组成/持有转移/互动/同源关系),不再用同章共现启发式
+    # (共现会把搜索时偶然同场的另一物品、同类不同持有者的物品错标为关联)。
+    # all_item_names 是全书物品实体集合,作为读取侧 target-type 防线:
+    # 领域/能力机制等从未作为物品出现的实体不得进入 related_items。
+    all_item_names: set[str] = set()
+    for fact in facts:
+        for ie in fact.item_events:
+            all_item_names.add(alias_map.get(ie.item_name, ie.item_name))
+
     for fact in facts:
         ch = fact.chapter_id
-        chapter_items_in_event: list[str] = []
 
         for ie in fact.item_events:
             ie_canonical = alias_map.get(ie.item_name, ie.item_name)
@@ -578,13 +587,18 @@ async def aggregate_item(novel_id: str, item_name: str) -> ItemProfile:
                         description=ie.description or "",
                     )
                 )
-            chapter_items_in_event.append(ie_canonical)
 
-        # Related items: other items appearing in chapters where this item appears
-        if ch in chapter_set:
-            for other_name in chapter_items_in_event:
-                if other_name != item_name:
-                    related_set.add(other_name)
+            # Explicit related items (both directions: the relation is recorded
+            # on one item's event but displayed on both items' profiles)
+            related_targets = {
+                alias_map.get(rel.name, rel.name) for rel in ie.related
+            }
+            if ie_canonical == item_name:
+                for target in related_targets:
+                    if target != item_name and target in all_item_names:
+                        related_set.add(target)
+            elif item_name in related_targets and ie_canonical in all_item_names:
+                related_set.add(ie_canonical)
 
     profile = ItemProfile(
         name=item_name,

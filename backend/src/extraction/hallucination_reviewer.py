@@ -16,6 +16,12 @@ new_aliases 剔除(不动 character 本身),低置信保留并审计标记。
   定位的人物不进入判定 — 判定的正是 name-pattern 抓不住的疑似的名字;
 - LLM 返回候选集之外的裁决一律忽略。
 
+v3 verdict 语义(issue #70, E1):裁决拆为 entity_exists(原文是否存在
+这个人物)与 name_supported(这个名字本身是否被当前原文支持)两个维度,
+is_real 保留为派生兼容字段(is_real = entity_exists AND name_supported)。
+拼接名(A 姓 + B 名)即使指向真人也 name_supported=false —— 确认真人、
+拒绝错误名字;prompt 明确禁止引入 source 外的作品知识/常识补全姓名。
+
 开关: config.HALLUCINATION_REVIEW_ENABLED(默认开)。关闭时
 review_chapter_characters 为 no-op,行为与 v0.73 一致 (NFR-3)。
 仅当存在候选时才发起 LLM 调用(每章 ≤1 次轻量调用,NFR-2)。
@@ -32,7 +38,7 @@ from src.models.chapter_fact import ChapterFact
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "hr-char-v2"  # v2: 候选纳入 new_aliases(别名链送审)
+PROMPT_VERSION = "hr-char-v3"  # v3: verdict 拆 entity_exists/name_supported, 禁外部知识
 
 # 决策审计日志(JSONL,每章一条)— 与 audit_reports 其他产物同目录。
 AUDIT_LOG_PATH = (
@@ -44,15 +50,24 @@ _VALID_CONFIDENCE = {"high", "medium", "low"}
 _SYSTEM_PROMPT = (
     "你是小说人物真实性审核专家。给你章节原文与一组疑似幻觉的人物名"
     "(这些名字在原文中找不到完全匹配的字面出现;其中可能包含别名声明,"
-    "即某角色的 new_aliases 条目),判断每个名字是否指向"
-    "原文中真实存在的人物。\n"
+    "即某角色的 new_aliases 条目),对每个名字分别判断两个维度:\n"
+    "- entity_exists: 这个名字所指向的人物,在原文中是否真实存在;\n"
+    "- name_supported: 这个名字本身是否被当前章节原文支持"
+    "(原文确实用这个名字称呼该人物)。\n"
     "规则:\n"
-    "1. 名字虽无字面匹配、但明显指向原文真实人物(别名、误写、称谓变体、"
-    "由上下文可唯一确定的人物)时,判 is_real=true。\n"
-    "2. 名字在原文中毫无依据(纯幻觉、张冠李戴、原文不存在的人物)时,"
-    "判 is_real=false。\n"
-    "3. confidence: high=确凿,medium=较有把握,low=拿不准;拿不准一律 low。\n"
-    "4. 每个名字给出简短 reason。只输出 JSON,不要输出多余文本。"
+    "1. 只允许依据所给章节原文判断。严禁引入原文之外的作品知识、"
+    "常识或你自己的记忆来补全、纠正或还原名字。\n"
+    "2. 名字虽无字面匹配、但明显指向原文真实人物,且原文确实以此称呼"
+    "(别名、误写、称谓变体、由上下文可唯一确定的人物)时,"
+    "两个维度都判 true。\n"
+    "3. 拼接名(如取人物 A 的姓与人物 B 的名拼成的名字)或需要原文之外"
+    "的知识才能补全的名字:即使它指向的人物真实存在,也判"
+    "entity_exists=true、name_supported=false —— 确认真人,"
+    "但拒绝这个错误的名字。\n"
+    "4. 名字在原文中毫无依据(纯幻觉、张冠李戴、原文不存在的人物)时,"
+    "两个维度都判 false。\n"
+    "5. confidence: high=确凿,medium=较有把握,low=拿不准;拿不准一律 low。\n"
+    "6. 每个名字给出简短 reason。只输出 JSON,不要输出多余文本。"
 )
 
 _VERDICT_SCHEMA: dict = {
@@ -64,11 +79,13 @@ _VERDICT_SCHEMA: dict = {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "is_real": {"type": "boolean"},
+                    "entity_exists": {"type": "boolean"},
+                    "name_supported": {"type": "boolean"},
                     "confidence": {"type": "string"},
                     "reason": {"type": "string"},
                 },
-                "required": ["name", "is_real", "confidence", "reason"],
+                "required": ["name", "entity_exists", "name_supported",
+                             "confidence", "reason"],
             },
         }
     },
@@ -135,14 +152,21 @@ def build_review_prompt(candidates: list[str], chapter_text: str) -> str:
     lines.append("\n## 章节原文\n")
     lines.append(chapter_text)
     lines.append(
-        '\n按 JSON 输出: {"verdicts": [{"name": "...", "is_real": true/false, '
+        '\n按 JSON 输出: {"verdicts": [{"name": "...", '
+        '"entity_exists": true/false, "name_supported": true/false, '
         '"confidence": "high/medium/low", "reason": "..."}]},必须覆盖每个候选名。'
     )
     return "\n".join(lines)
 
 
 def parse_verdicts(result: object, candidates: list[str]) -> dict[str, dict]:
-    """解析 LLM 裁决为 {name: verdict};候选集之外的裁决忽略并记日志。"""
+    """解析 LLM 裁决为 {name: verdict};候选集之外的裁决忽略并记日志。
+
+    v3 (issue #70, E1):verdict 含 entity_exists / name_supported 两个维度;
+    is_real 为派生兼容字段(is_real = entity_exists AND name_supported),
+    apply_verdicts / apply_alias_verdicts 与审计日志继续可用。
+    模型只返回旧格式(仅 is_real)时,两个维度退化为同一值(旧语义)。
+    """
     candidate_set = set(candidates)
     if isinstance(result, dict):
         items = result.get("verdicts", [])
@@ -162,8 +186,17 @@ def parse_verdicts(result: object, candidates: list[str]) -> dict[str, dict]:
         confidence = item.get("confidence")
         if confidence not in _VALID_CONFIDENCE:
             confidence = "low"  # 非法置信度一律按拿不准处理(保守,不剔除)
+        entity_exists = item.get("entity_exists")
+        name_supported = item.get("name_supported")
+        if entity_exists is None and name_supported is None:
+            # 旧格式兼容:模型未按 v3 schema 返回双维度时退化为 is_real 语义
+            entity_exists = name_supported = bool(item.get("is_real"))
+        entity_exists = bool(entity_exists)
+        name_supported = bool(name_supported)
         verdicts[name] = {
-            "is_real": bool(item.get("is_real")),
+            "entity_exists": entity_exists,
+            "name_supported": name_supported,
+            "is_real": entity_exists and name_supported,
             "confidence": confidence,
             "reason": str(item.get("reason") or ""),
         }
@@ -177,10 +210,14 @@ def apply_verdicts(
 ) -> tuple[ChapterFact, list[dict]]:
     """按裁决处置人物,返回 (新 ChapterFact, actions)。
 
-    - is_real=true            → confirmed(保留);
+    - is_real=true(= entity_exists 且 name_supported) → confirmed(保留);
     - is_real=false + high    → removed(剔除,并级联清理关系/事件参与者等引用);
     - is_real=false + 非 high → suspect(降级为存疑:保留,仅审计标记);
     - LLM 未覆盖的候选        → unjudged(保留)。
+
+    v3 (issue #70, E1):「名字错但人存在」(entity_exists=true 且
+    name_supported=false,如 A 姓 + B 名的拼接名)同样走 is_real=false
+    路径 —— confirmed 只给真人真名,错误名字本身被拒绝。
     """
     actions: list[dict] = []
     removed: set[str] = set()
@@ -188,6 +225,7 @@ def apply_verdicts(
         verdict = verdicts.get(name)
         if verdict is None:
             actions.append({"name": name, "action": "unjudged",
+                            "entity_exists": None, "name_supported": None,
                             "is_real": None, "confidence": None, "reason": ""})
             continue
         if verdict["is_real"]:
@@ -259,6 +297,7 @@ def apply_alias_verdicts(
             if verdict is None:
                 actions.append({"name": alias, "owner": owner,
                                 "action": "alias_unjudged",
+                                "entity_exists": None, "name_supported": None,
                                 "is_real": None, "confidence": None, "reason": ""})
                 continue
             if verdict["is_real"]:

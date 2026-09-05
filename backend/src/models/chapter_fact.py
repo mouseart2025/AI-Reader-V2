@@ -66,6 +66,17 @@ class LocationFact(BaseModel):
     role: str | None = None  # "setting" | "referenced" | "boundary"
 
 
+class RelatedItemFact(BaseModel):
+    """物品-物品直接关系(issue #70):仅当原文明确写出两物品间的
+    组成/持有转移伴随/明确互动/同源关系时由 LLM 记录,evidence 逐字引用原文。
+    同场景共现、同类别、同场战斗出现不得记录(见 extraction prompt 物品事件节)。
+    """
+
+    name: str  # 对方物品名
+    relation: str = ""  # 关系简述,如"组成""同源""持有转移伴随"
+    evidence: str = ""  # 逐字原文引用;验证层对空 evidence 软剔除
+
+
 class ItemEventFact(BaseModel):
     item_name: str
     item_type: str
@@ -73,6 +84,9 @@ class ItemEventFact(BaseModel):
     actor: str | None = None
     recipient: str | None = None
     description: str | None = None
+    # issue #70: 显式物品关系。可选字段、默认 [],旧 JSON 反序列化不变。
+    # 聚合层 related_items 只消费此字段,不再用同章共现启发式。
+    related: list[RelatedItemFact] = []
 
 
 class OrgRelation(BaseModel):
