@@ -26,7 +26,7 @@ from src.models.chapter_fact import (
 )
 from src.models.world_structure import WorldStructure
 from src.services.world_structure_agent import WorldStructureAgent
-from src.services.visualization_service import _is_org_type
+from src.services.visualization_service import _is_org_concept_category, _is_org_type
 
 
 # ── D2: 地点 type 软校验 ──────────────────────────
@@ -275,6 +275,115 @@ class TestIsOrgTypeNarrowed:
         """荣国府类宅邸(type=府邸)不误判为组织。"""
         assert not _is_org_type("府邸")
         assert not _is_org_type("宅邸")
+
+    def test_gate_types_not_org(self):
+        """「门」指建筑(城门/宫门/营门)时不判 org:三国演义实测噪音源
+        (嘉德门/东门/北掖门/吕布寨·辕门/荆州城门外)。"""
+        assert not _is_org_type("城门")
+        assert not _is_org_type("宫门")
+        assert not _is_org_type("营门")
+        assert not _is_org_type("城门口")
+
+    def test_military_camp_types_still_org(self):
+        """真军营类地点保留为 org 候选(曹军水寨/魏寨/蜀营 type=军营)。"""
+        assert _is_org_type("军营")
+        assert _is_org_type("军队")
+        assert _is_org_type("朝廷")
+
+
+class TestIsOrgConceptCategory:
+    """Source 4 概念路径白名单:只有明确组织/势力/门派/政权类才进。"""
+
+    def test_org_categories_match(self):
+        """宗教组织(五斗米道/太平道)、军事组织(御林军)等保留。"""
+        assert _is_org_concept_category("宗教组织")
+        assert _is_org_concept_category("军事组织")
+        assert _is_org_concept_category("门派")
+        assert _is_org_concept_category("政治势力")
+        assert _is_org_concept_category("政权")
+
+    def test_military_concept_categories_excluded(self):
+        """军事计谋/战术/制度/编制/器械一律排除(三国演义实测 70 个噪音)。"""
+        assert not _is_org_concept_category("军事计谋")
+        assert not _is_org_concept_category("军事战术")
+        assert not _is_org_concept_category("军事制度")
+        assert not _is_org_concept_category("军事编制")
+        assert not _is_org_concept_category("军事器械")
+        assert not _is_org_concept_category("军事设施")
+        assert not _is_org_concept_category("军法")
+
+    def test_near_miss_categories_excluded(self):
+        """含单字「宗/教/盟」但非组织的 category 不误判。"""
+        assert not _is_org_concept_category("宗庙制度")
+        assert not _is_org_concept_category("宗教仪式")
+        assert not _is_org_concept_category("盟誓仪式")
+
+
+class TestFactionsOrgNoiseFiltered:
+    """get_factions_data 端到端:城门类地点与军事概念不进 orgs,
+    真组织(军营类地点/宗教组织概念)保留。"""
+
+    @pytest.mark.asyncio
+    async def test_gate_location_and_military_concept_excluded(self, memory_db):
+        from src.services.visualization_service import get_factions_data
+
+        await memory_db.execute(
+            "INSERT INTO novels (id, title) VALUES ('nv3', '测试')"
+        )
+        await memory_db.execute(
+            "INSERT INTO chapters (id, novel_id, chapter_num, title, content) "
+            "VALUES (1, 'nv3', 1, '第一章', '')"
+        )
+        fact = {
+            "chapter_id": 1,
+            "novel_id": "nv3",
+            "characters": [
+                {"name": "曹操", "locations_in_chapter": ["曹军水寨", "东门"]},
+            ],
+            "locations": [
+                {"name": "曹军水寨", "type": "军营"},
+                {"name": "东门", "type": "城门"},
+                {"name": "嘉德门", "type": "宫门"},
+            ],
+            "org_events": [],
+            "new_concepts": [
+                {"name": "太平道", "category": "宗教组织",
+                 "definition": "张角创立的宗教组织"},
+                {"name": "诈死计", "category": "军事计谋",
+                 "definition": "佯装身死的计谋"},
+                {"name": "军令状", "category": "军事制度",
+                 "definition": "立状为凭"},
+            ],
+            "events": [],
+        }
+        await memory_db.execute(
+            "INSERT INTO chapter_facts (novel_id, chapter_id, fact_json) "
+            "VALUES ('nv3', 1, ?)",
+            (json.dumps(fact, ensure_ascii=False),),
+        )
+        await memory_db.commit()
+
+        async def _factory():
+            return _NonClosingConnection(memory_db)
+
+        with patch("src.services.visualization_service.get_connection", _factory), \
+             patch("src.services.alias_resolver.get_connection", _factory):
+            data = await get_factions_data("nv3", 1, 1)
+
+        org_names = {o["name"] for o in data["orgs"]}
+        # 真组织保留
+        assert "曹军水寨" in org_names
+        assert "太平道" in org_names
+        # 噪音剔除
+        assert "东门" not in org_names
+        assert "嘉德门" not in org_names
+        assert "诈死计" not in org_names
+        assert "军令状" not in org_names
+        # 曹操到访曹军水寨 → visitors
+        visitors = data["visitors"].get("曹军水寨", [])
+        assert {v["person"] for v in visitors} == {"曹操"}
+        # 东门不是 org,不产生访客记录
+        assert "东门" not in data["visitors"]
 
 
 class TestFactionsVisitorsNotMembers:
