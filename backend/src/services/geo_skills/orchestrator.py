@@ -53,7 +53,9 @@ class GeoOrchestrator:
         self._skills.append((tag, skill))
         return self
 
-    async def run(self) -> AsyncGenerator[ProgressEvent, None]:
+    async def run(
+        self, fresh: bool = False
+    ) -> AsyncGenerator[ProgressEvent, None]:
         """Execute all skills in sequence, yielding progress events.
 
         Each skill:
@@ -64,10 +66,18 @@ class GeoOrchestrator:
         5. Progress event is yielded
 
         If a skill fails, pipeline continues with previous snapshot.
+
+        ``fresh=True`` 时**忽略** hierarchy_snapshots 的历史快照,始终从
+        world_structures 导入 v0。默认 False 以保持既有行为。
+
+        为何需要 fresh(2026-09-08):默认路径走 ``store.load_latest()``,
+        即「在上次结果上继续优化」。同一份 world_structure 连续 rebuild 两次
+        会因为起点不同而产生 ~50 条 parent 漂移,且随运行次数累积。
+        可复现性验收(repro_check)与「重建」语义都要求同起点,fresh 即为此。
         """
         # Load or create initial snapshot
         yield ProgressEvent("init", "正在加载层级快照...")
-        snapshot = await self.store.load_latest(self.novel_id)
+        snapshot = None if fresh else await self.store.load_latest(self.novel_id)
         if snapshot is None:
             snapshot = await snapshot_from_world_structure(self.novel_id)
             await self.store.save(self.novel_id, snapshot, tag="import")
@@ -294,7 +304,8 @@ class GeoOrchestrator:
         #       itself has no recorded parent) — common when extraction names
         #       a "super-location" that didn't enter tiers.
         candidate_nodes = set(tiers.keys()) | {p for p in parents.values() if p}
-        for name in candidate_nodes:
+        # sorted: 同上,保证补挂顺序确定
+        for name in sorted(candidate_nodes):
             if name == uber_root:
                 continue
             if name not in parents:
@@ -388,4 +399,9 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
     orch.add_skill("prior", KnowledgePrior(novel_title=novel_title))
     orch.add_skill("edmonds", EdmondsResolver())
     orch.add_skill("suffix", SuffixNormalizer())
+    # 实体净化放在最后:等 SuffixNormalizer 完成变体归并后再剔除,否则
+    # 归并可能把子节点重新挂回待剔除的实体上。
+    from src.services.geo_skills.entity_purifier import EntityPurifier
+
+    orch.add_skill("purify", EntityPurifier(novel_id))
     return orch
