@@ -26,6 +26,7 @@ import networkx as nx
 
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
+from src.utils.location_names import is_passage_like
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,18 @@ class EdmondsResolver(GeoSkill):
                     continue
                 if parent not in all_locs:
                     continue
+                # Story 5.2: passage-like node cannot be a parent — drop the edge
+                # so "道路下辖学校" cannot enter the arborescence (input-edge gating).
+                if is_passage_like(parent):
+                    continue
+                # Story 5.2 (AC3): a passage-like child must not be attached to
+                # world root — its only candidate being uber_root means it is a
+                # topology node, not a hierarchy child. Drop that edge so it
+                # stays an orphan instead of dangling under 天下.
+                if is_passage_like(child) and (
+                    parent == uber_root or tiers.get(parent) == "world"
+                ):
+                    continue
                 w = float(weight)
                 if w <= 0:
                     continue
@@ -94,7 +107,10 @@ class EdmondsResolver(GeoSkill):
                     G.add_edge(parent, child, weight=w)
 
         # Ensure all locations are nodes
-        for loc in all_locs:
+        # 遍历顺序必须确定:set 迭代顺序随 PYTHONHASHSEED 变化,会让
+        # networkx 的节点/边插入顺序不同,进而使同权重边的 arborescence
+        # 结果不同(实测同 base 两次重建差 89 条 parent)。
+        for loc in sorted(all_locs):
             if loc not in G:
                 G.add_node(loc)
 
@@ -105,10 +121,19 @@ class EdmondsResolver(GeoSkill):
         # Edmonds' global optimization overrides obvious naming patterns.
         _NAME_CONTAIN_WEIGHT = 25.0  # higher than typical chapter votes (~1-15)
         name_contain_injected = 0
-        sorted_locs = sorted(all_locs, key=len, reverse=True)  # longest first
+        # 二级键 = 字符串本身,保证同长度项的 tie-break 确定
+        # (仅按 len 排序时,stable sort 会沿用 set 迭代顺序 → 非确定)
+        sorted_locs = sorted(all_locs, key=lambda x: (-len(x), x))  # longest first
         for child in list(all_locs):
             for candidate in sorted_locs:
                 if candidate == child or len(candidate) < 2:
+                    continue
+                # Story 5.2: a passage-like child is a topology node, not a
+                # hierarchy child — do not inject a name-containment parent edge.
+                if is_passage_like(child):
+                    break
+                # Story 5.2: a passage-like candidate cannot be a parent either.
+                if is_passage_like(candidate):
                     continue
                 if child.startswith(candidate) and candidate in all_locs:
                     # Don't inject if candidate is a generic prefix
@@ -136,6 +161,10 @@ class EdmondsResolver(GeoSkill):
         _FALLBACK_WEIGHT = 0.001
         for node in G.nodes():
             if node != uber_root and not G.has_edge(uber_root, node):
+                # Story 5.2: a passage-like node is a topology node, not a
+                # hierarchy child — do not force-attach it to uber_root.
+                if is_passage_like(node):
+                    continue
                 G.add_edge(uber_root, node, weight=_FALLBACK_WEIGHT)
 
         logger.info(
@@ -175,6 +204,22 @@ class EdmondsResolver(GeoSkill):
         #     SET_PARENT ops or older legitimate resolutions like 涿郡→幽州).
         bare_dropped = 0
         for child, parent in list(base_parents.items()):
+            # Story 5.2: a passage-like child must not be force-attached via a
+            # legacy edge (e.g. 走廊→天下). Orphan it so it stays a topology node.
+            if is_passage_like(child):
+                del base_parents[child]
+                bare_dropped += 1
+                continue
+            # Story 5.2 (AC1): a passage-like node can never be a PARENT —
+            # including via a legacy/base edge (e.g. 战船→华容道, 公安→华容道).
+            # The vote path already drops passage-like parents (:78) and the
+            # name-containment path too (:130), but base parents carried over
+            # from world_structures bypassed both, leaking AC1 into the final
+            # tree. Story 5.5 real-data check caught 10 such edges on 三国.
+            if is_passage_like(parent):
+                del base_parents[child]
+                bare_dropped += 1
+                continue
             child_votes = votes.get(child)
             if child_votes and child_votes.get(parent, 0) <= 0:
                 del base_parents[child]
@@ -191,6 +236,13 @@ class EdmondsResolver(GeoSkill):
         for child in list(all_locs):
             for candidate in sorted_locs:
                 if candidate == child or len(candidate) < 2:
+                    continue
+                # Story 5.2: a passage-like child is a topology node, not a
+                # hierarchy child — do not inject a name-containment parent edge.
+                if is_passage_like(child):
+                    break
+                # Story 5.2: a passage-like candidate cannot be a parent either.
+                if is_passage_like(candidate):
                     continue
                 if child.startswith(candidate) and candidate in all_locs:
                     if base_parents.get(child) != candidate:
@@ -220,12 +272,37 @@ class EdmondsResolver(GeoSkill):
             )
 
         # Find locations without parents (orphans needing Edmonds)
-        orphans = [loc for loc in all_locs if loc not in base_parents and loc != uber_root]
+        orphans = [loc for loc in sorted(all_locs)
+                   if loc not in base_parents and loc != uber_root]
 
         # ── Phase 2: Edmonds for orphans only ──
-        # Run Edmonds on the full graph but only use its assignments for orphans
+        # Run Edmonds on the graph and use its assignments for orphans.
+        #
+        # Story 5.2 deliberately orphans passage-like nodes (they are *topology*
+        # nodes, not hierarchy children) by refusing to attach them to uber_root
+        # (:161) and by refusing to inject name-containment parents for them
+        # (:127). nx.maximum_spanning_arborescence requires EVERY node to be
+        # reachable from the root, so a single such node makes the whole
+        # arborescence raise — which silently disabled phases 2-5 (orphan
+        # filling, cycle repair, phantom lift, degree balancing) for the entire
+        # novel. Found on 三国 during Story 5.5 real-data acceptance.
+        #
+        # Fix: run the arborescence on the root-reachable subgraph. Intentionally
+        # orphaned nodes stay parentless, which is exactly the 5.2 semantics.
+        reachable = nx.descendants(G, uber_root) | {uber_root}
+        unreachable = set(G.nodes()) - reachable
+        G_arbo = G
+        if unreachable:
+            logger.info(
+                "EdmondsResolver: %d node(s) unreachable from root(%s) — "
+                "excluded from arborescence (Story 5.2 topology nodes): %s%s",
+                len(unreachable), uber_root,
+                sorted(unreachable)[:20],
+                " ..." if len(unreachable) > 20 else "",
+            )
+            G_arbo = G.subgraph(reachable).copy()
         try:
-            T = nx.maximum_spanning_arborescence(G, attr="weight")
+            T = nx.maximum_spanning_arborescence(G_arbo, attr="weight")
         except nx.NetworkXException as e:
             logger.error("Edmonds algorithm failed: %s", e)
             return SkillResult.empty(self.name, f"Edmonds failed: {e}")
@@ -253,7 +330,8 @@ class EdmondsResolver(GeoSkill):
         )
 
         # Ensure single root
-        roots = [loc for loc in all_locs if loc not in parents and loc != uber_root]
+        roots = [loc for loc in sorted(all_locs)
+                 if loc not in parents and loc != uber_root]
         for root in roots:
             if root in edmonds_parents:
                 parents[root] = edmonds_parents[root]
@@ -288,6 +366,34 @@ class EdmondsResolver(GeoSkill):
             parents, votes, edmonds_parents, uber_root
         )
         cycles_broken += final_cycles_broken
+
+        # ── Final AC1 gate (Story 5.5) ──
+        # Every earlier path rejects a passage-like parent — votes (:78),
+        # name-containment (:130 / :228), base parents — but Phases 3-5
+        # reassign parents and can reintroduce one (on 三国 this left
+        # 斜谷道口→斜谷道). Enforce the invariant on the OUTPUT so AC1 holds
+        # unconditionally: a passage-like node is a topology node and never
+        # owns children. The child is left parentless rather than re-attached.
+        # Two ways a passage-like parent can reach the output:
+        #   1. it survives in `parents` (Phases 3-5 reassigned it), or
+        #   2. the child was dropped earlier (orphan) so it is absent from
+        #      `parents` — and HierarchySnapshot.apply() MERGES, meaning the
+        #      legacy edge from the incoming snapshot is preserved untouched.
+        # Case 2 is the subtle one (on 三国: 斜谷道口→斜谷道) and needs an
+        # explicit `None` override, since only `parent is None` deletes (:54-55);
+        # `del parents[child]` leaves the legacy edge in place.
+        ac1_violations = [c for c, p in parents.items() if is_passage_like(p)]
+        for child, parent in list(snapshot.location_parents.items()):
+            if is_passage_like(parent) and parents.get(child) is None:
+                ac1_violations.append(child)
+        if ac1_violations:
+            for c in set(ac1_violations):
+                parents[c] = None
+            logger.info(
+                "EdmondsResolver: dropped %d edge(s) with a passage-like parent "
+                "(Story 5.2 AC1 final gate): %s",
+                len(set(ac1_violations)), sorted(set(ac1_violations))[:10],
+            )
 
         result = SkillResult(
             skill_name=self.name,

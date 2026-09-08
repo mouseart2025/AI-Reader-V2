@@ -57,8 +57,17 @@ class HierarchySnapshot:
                 merged_parents[child] = parent
 
         # Merge tier updates
+        # 值为 None 表示删除该 tier 条目(与 parent_overrides 的 None 语义一致)。
+        # 实体净化需要它:仅删 parent 而不清 tier,会让该实体变成
+        # "在 tiers 里却没有 parent" 的孤儿,随后被
+        # orchestrator._inject_layer_roots 的 Phase 0 重新挂回 uber_root
+        # (2026-09-08: instance_东吴 / 官道 / 江岸 / 各寺院 就是这样复活的)。
         merged_tiers = dict(self.location_tiers)
-        merged_tiers.update(result.tier_updates)
+        for name, tier in result.tier_updates.items():
+            if tier is None:
+                merged_tiers.pop(name, None)
+            else:
+                merged_tiers[name] = tier
 
         return HierarchySnapshot(
             location_parents=merged_parents,

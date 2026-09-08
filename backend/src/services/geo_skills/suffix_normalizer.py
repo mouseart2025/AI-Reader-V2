@@ -152,7 +152,8 @@ class SuffixNormalizer(GeoSkill):
                     variant_to_base[v] = base
 
         # Pass 2: suffix-based detection
-        for name in all_locs:
+        # 遍历顺序必须确定(原因同 edmonds_resolver: set 迭代顺序不稳定)
+        for name in sorted(all_locs):
             if name in variant_to_base:
                 continue
             for suffix, min_len in _MERGE_SUFFIXES:
