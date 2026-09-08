@@ -112,3 +112,10 @@ backend/data/epic6-rerun/
 
 # Internal paper screenshot / E2E verification workspace (generated PNGs + ad-hoc Playwright scripts)
 scripts/paper-shots-v2/
+
+# Local scratch & backups (never commit)
+*.bak
+*.bak-20*
+
+# WorkBuddy agent local memory (user/session specific)
+.workbuddy/
