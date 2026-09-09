@@ -277,7 +277,7 @@ export function NovelMapGL({
             "circle-radius": circleR,
             "circle-color": [
               "match", ["get", "terrainType"],
-              "realm", "#b4963a", "kingdom", "#82aa5f", "city", "#af8c55",
+              "realm", "#9b8fc4", "kingdom", "#82aa5f", "city", "#af8c55",
               "town", "#b9a56e", "mountain", "#786040", "hill", "#9b8c5f",
               "forest", "#469037", "water", "#4182be", "ocean", "#2d64b4",
               "desert", "#c8a046", "valley", "#6ea555", "plain", "#b9aa78",

@@ -19,6 +19,7 @@ class LayerType(str, Enum):
 
 class LocationTier(str, Enum):
     world = "world"           # 整个世界 — 仅容器，不显示为点
+    realm = "realm"           # 架空特殊空间（仙界/魔域/秘境/洞天…）— 非地理尺度，弱提示呈现
     continent = "continent"   # 大洲/大陆/界/域 — zoom 6+
     kingdom = "kingdom"       # 国/大区域 — zoom 7+
     region = "region"         # 郡/山脉/海域 — zoom 8+

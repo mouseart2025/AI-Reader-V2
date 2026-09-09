@@ -58,7 +58,8 @@ export const PARCHMENT_STYLE: MapStyle = {
   },
   terrain: {
     // 提高饱和度：让不同区域在羊皮纸底色上可区分
-    realm:    { fill: [180, 150, 90,  0.5], height: 40,   sigma: 150 },
+    // realm（架空特殊空间）：降饱和紫 + 低 alpha —— 弱提示样式，区别于常规地理地形
+    realm:    { fill: [150, 140, 195, 0.32], height: 30,   sigma: 130 },
     kingdom:  { fill: [130, 170, 95,  0.6], height: 55,   sigma: 120 },
     city:     { fill: [175, 140, 85,  0.6], height: 65,   sigma: 40 },
     town:     { fill: [185, 165, 110, 0.5], height: 60,   sigma: 35 },
@@ -139,6 +140,7 @@ const _ICON_TO_TERRAIN: Record<string, string> = {
 const _TIER_TO_TERRAIN: Record<string, string> = {
   world: "realm", continent: "realm", kingdom: "kingdom",
   region: "valley", city: "city", site: "town", building: "town",
+  realm: "realm", // 特殊空间节点直接映射到 realm 地形（否则会落到 plain 兜底）
 }
 
 // 中文 type 子串 → terrain（兜底）

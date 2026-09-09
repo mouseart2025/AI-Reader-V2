@@ -7,6 +7,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useDemoData } from "@/app/DemoContext"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import type { EntityType } from "@/api/types"
+import { isSpecialSpaceTier, SPECIAL_SPACE_LABEL, SPECIAL_SPACE_ICON } from "@/lib/specialSpace"
 
 interface EncEntry {
   name: string
@@ -46,10 +47,11 @@ const TYPE_LABELS: Record<string, string> = {
 const TIER_COLORS: Record<string, string> = {
   world: "#ef4444", continent: "#f97316", kingdom: "#f59e0b",
   region: "#eab308", city: "#3b82f6", site: "#10b981", building: "#64748b",
+  realm: "#a78bda", // 架空特殊空间：降饱和紫 + 弱提示样式
 }
 
 const TIER_LABELS: Record<string, string> = {
-  world: "世界", continent: "大陆", kingdom: "国",
+  world: "世界", realm: SPECIAL_SPACE_LABEL, continent: "大陆", kingdom: "国",
   region: "区域", city: "城镇", site: "场所", building: "建筑",
 }
 
@@ -99,7 +101,7 @@ function buildLocationTree(ws: WorldStructure, entries: EncEntry[]): TreeNode[] 
   }
 
   const TIER_ORDER: Record<string, number> = {
-    world: 0, continent: 1, kingdom: 2, region: 3, city: 4, site: 5, building: 6,
+    realm: -1, world: 0, continent: 1, kingdom: 2, region: 3, city: 4, site: 5, building: 6,
   }
 
   // Sort roots by tier
@@ -164,7 +166,12 @@ function TreeNodeView({
 
         {/* Tier badge */}
         {node.tier && (
-          <span className="ml-auto text-[10px] text-slate-600">
+          <span
+            className="ml-auto inline-flex items-center gap-0.5 text-[10px]"
+            style={{ color: isSpecialSpaceTier(node.tier) ? TIER_COLORS.realm : "#64748b" }}
+            title={isSpecialSpaceTier(node.tier) ? "架空特殊空间" : undefined}
+          >
+            {isSpecialSpaceTier(node.tier) && <span aria-hidden>{SPECIAL_SPACE_ICON}</span>}
             {TIER_LABELS[node.tier] ?? node.tier}
           </span>
         )}
@@ -455,13 +462,15 @@ export default function DemoEncyclopediaPage() {
                               <span className="font-medium text-sm text-slate-200">{entry.name}</span>
                               {entry.tier && (
                                 <span
-                                  className="rounded px-1.5 py-0.5 text-[10px]"
+                                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px]"
                                   style={{
                                     backgroundColor: (TIER_COLORS[entry.tier] ?? "#6b7280") + "15",
                                     color: TIER_COLORS[entry.tier] ?? "#6b7280",
                                   }}
+                                  title={isSpecialSpaceTier(entry.tier) ? "架空特殊空间" : undefined}
                                 >
-                                  {entry.tier}
+                                  {isSpecialSpaceTier(entry.tier) && <span aria-hidden>{SPECIAL_SPACE_ICON}</span>}
+                                  {TIER_LABELS[entry.tier] ?? entry.tier}
                                 </span>
                               )}
                               <span className="text-xs text-slate-500">
@@ -495,7 +504,14 @@ export default function DemoEncyclopediaPage() {
                       : ""}
                   </p>
                   {selectedEntry.tier && (
-                    <p className="mb-2 text-xs text-slate-500">层级: {selectedEntry.tier}</p>
+                    <p className="mb-2 inline-flex items-center gap-1 text-xs text-slate-500">
+                      层级:{" "}
+                      {isSpecialSpaceTier(selectedEntry.tier) && (
+                        <span aria-hidden style={{ color: TIER_COLORS.realm }}>{SPECIAL_SPACE_ICON}</span>
+                      )}
+                      {TIER_LABELS[selectedEntry.tier] ?? selectedEntry.tier}
+                      {isSpecialSpaceTier(selectedEntry.tier) && <span className="text-slate-600">（架空·非地理尺度）</span>}
+                    </p>
                   )}
                   {selectedEntry.parent && (
                     <p className="mb-2 text-xs text-slate-500">

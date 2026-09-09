@@ -29,6 +29,7 @@ from scipy.optimize import differential_evolution
 from scipy.spatial import Voronoi, Delaunay
 
 from src.infra.config import DATA_DIR
+from src.models.chapter_fact import classify_spatial_relation
 
 logger = logging.getLogger(__name__)
 
@@ -1453,7 +1454,7 @@ def _detect_narrative_axis(
     earliest_names = {name for _, name in earliest_locs}
 
     for c in constraints:
-        if c["relation_type"] != "contains":
+        if classify_spatial_relation(c["relation_type"]) != "hierarchy":
             continue
         parent_name = c["source"]
         child_name = c["target"]
@@ -2032,7 +2033,7 @@ class ConstraintSolver:
                 e += self._e_direction(coords, si, ti, value) * weight
             elif rtype == "distance":
                 e += self._e_distance(coords, si, ti, value, c.get("distance_class")) * weight
-            elif rtype == "contains":
+            elif classify_spatial_relation(rtype) == "hierarchy":
                 e += self._e_contains(coords, si, ti) * weight
             elif rtype == "adjacent":
                 e += self._e_adjacent(coords, si, ti) * weight
@@ -2404,7 +2405,7 @@ class ConstraintSolver:
                 satisfied = self._is_satisfied_direction(coords_2d, si, ti, c["value"])
             elif rtype == "distance":
                 satisfied = self._is_satisfied_distance(coords_2d, si, ti, c["value"], c.get("distance_class"))
-            elif rtype == "contains":
+            elif classify_spatial_relation(rtype) == "hierarchy":
                 satisfied = self._is_satisfied_contains(coords_2d, si, ti)
             elif rtype == "adjacent":
                 satisfied = self._is_satisfied_adjacent(coords_2d, si, ti)
@@ -2641,7 +2642,7 @@ class ConstraintSolver:
                     continue
                 direction = diff / dist
 
-                if rtype == "contains":
+                if classify_spatial_relation(rtype) == "hierarchy":
                     # Pull child toward parent if too far
                     radius = self._get_parent_radius(si)
                     if dist > radius:

@@ -21,7 +21,8 @@ from src.db import world_structure_override_store, world_structure_store
 from src.extraction.fact_validator import _is_generic_location
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMClient, get_llm_client
-from src.models.chapter_fact import ChapterFact
+from src.models.chapter_fact import ChapterFact, classify_spatial_relation
+from src.utils.location_names import is_passage_like, is_special_space
 from src.services.location_hint_service import extract_direction_hint
 from src.services.hierarchy_consolidator import consolidate_hierarchy
 from collections import Counter
@@ -1454,6 +1455,9 @@ class WorldStructureAgent:
                     continue
                 if loc.role in ("referenced", "boundary"):
                     continue
+                # Story 5.2: a passage-like primary setting cannot be a parent.
+                if is_passage_like(primary_setting):
+                    continue
                 _c_suf = _get_suffix_rank(name)
                 c_rank = _c_suf if _c_suf is not None else TIER_ORDER.get(
                     self.structure.location_tiers.get(name, "city"), 4)
@@ -1466,7 +1470,7 @@ class WorldStructureAgent:
         # writing "A contains B" when meaning "A is inside B".
         # Primary signal: suffix rank (name morphology). Fallback: tier comparison.
         for sr in fact.spatial_relationships:
-            if sr.relation_type == "contains" and sr.source != sr.target:
+            if classify_spatial_relation(sr.relation_type) == "hierarchy" and sr.source != sr.target:
                 source, target = sr.source, sr.target
                 # Skip generic locations (exempt uber-root)
                 if (_is_generic_location(source) and source != uber_root_name) or \
@@ -1482,14 +1486,21 @@ class WorldStructureAgent:
                     self.structure.location_tiers.get(source, "city"), 4)
                 tgt_rank_eff = target_suf if target_suf is not None else TIER_ORDER.get(
                     self.structure.location_tiers.get(target, "city"), 4)
-                if src_rank_eff > tgt_rank_eff:
-                    source, target = target, source
-                elif src_rank_eff == tgt_rank_eff:
-                    # Name containment heuristic for tiebreak
-                    if source.startswith(target) and len(source) > len(target):
+                # Story 5.3 (AC2): special spaces are exempt from suffix-rank
+                # direction validation — a realm can contain or be contained by a
+                # conventional place without triggering rank-based inversion.
+                if not (is_special_space(source) or is_special_space(target)):
+                    if src_rank_eff > tgt_rank_eff:
                         source, target = target, source
-                    elif not (target.startswith(source) and len(target) > len(source)):
-                        weight = 1
+                    elif src_rank_eff == tgt_rank_eff:
+                        # Name containment heuristic for tiebreak
+                        if source.startswith(target) and len(source) > len(target):
+                            source, target = target, source
+                        elif not (target.startswith(source) and len(target) > len(source)):
+                            weight = 1
+                # Story 5.2: passage-like node cannot be the container (parent).
+                if is_passage_like(source):
+                    continue
                 # source is container (parent), target is contained (child)
                 self._parent_votes.setdefault(target, Counter())[source] += weight
 
@@ -1564,6 +1575,12 @@ class WorldStructureAgent:
         Layer 5: Parent tier constraint (child cannot be >= parent).
         """
         assert self.structure is not None
+
+        # v0.76 / Story 5.3: 架空特殊空间（仙界/魔域/秘境/洞天…）归入独立 `realm` 层级，
+        # 不参与常规地理 suffix-rank 方向校验。SSOT 见 src.utils.location_names.is_special_space。
+        # 早返回：避免进入 Layer 5 父级约束（TIER_ORDER 未含 realm，否则会污染 _TIER_NAMES 下推逻辑）。
+        if is_special_space(name):
+            return LocationTier.realm.value
 
         # Vague types that LLM uses as catch-all — treat as uninformative
         _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
@@ -2044,6 +2061,9 @@ class WorldStructureAgent:
             # Add votes for pairs with ≥5 co-occurrences (v0.63.0: 3→5 to reduce noise)
             for (big_loc, small_loc), count in pair_counts.items():
                 if count >= 5:
+                    # Story 5.2: passage-like node cannot be a parent.
+                    if is_passage_like(big_loc):
+                        continue
                     # S2a-1: Skip if big and small are in different continents
                     # Walk parent chain to find continent for each
                     _existing_parents = self.structure.location_parents if self.structure else {}
@@ -2110,7 +2130,7 @@ class WorldStructureAgent:
                     _cf_parent_pairs.add((name, parent))
                     _children_with_cf_evidence.add(name)
             for sr in data.get("spatial_relationships", []):
-                if sr.get("relation_type") == "contains":
+                if classify_spatial_relation(sr.get("relation_type", "")) == "hierarchy":
                     source = sr.get("source", "")
                     target = sr.get("target", "")
                     if source and target:
@@ -2130,6 +2150,11 @@ class WorldStructureAgent:
                 if parent not in known_locs and parent != uber_root_name:
                     baseline_skipped += 1
                     continue  # phantom parent
+                # Story 5.2: never re-inject legacy edges involving a
+                # passage-like node (e.g. 走廊→天下, 学校→长街).
+                if is_passage_like(child) or is_passage_like(parent):
+                    baseline_skipped += 1
+                    continue
                 if child in _children_with_cf_evidence and \
                    (child, parent) not in _cf_parent_pairs:
                     baseline_skipped += 1
@@ -2242,6 +2267,9 @@ class WorldStructureAgent:
                 if parent and name and name != parent:
                     if (not _is_generic_location(name) or name == uber_root_name) and \
                        (not _is_generic_location(parent) or parent == uber_root_name):
+                        # Story 5.2: passage-like node cannot be a parent.
+                        if is_passage_like(parent):
+                            continue
                         # Peer vote suppression: weight ÷ 3 when child-parent are known peers
                         pair_key = frozenset({name, parent})
                         if pair_key in self._peer_pairs:
@@ -2260,7 +2288,10 @@ class WorldStructureAgent:
 
                 # (Removed, issue #70 D3) adjacent/direction/in_between 不再收集
                 # 为传播对 —— 邻近关系不构成包含证据,直接跳过。
-                if rel_type != "contains":
+                if classify_spatial_relation(rel_type) != "hierarchy":
+                    continue
+                # Story 5.2: passage-like node cannot be the container (parent).
+                if is_passage_like(source):
                     continue
                 # Defensive weight reduction for contains relationships
                 weight = {"high": 2, "medium": 1, "low": 1}.get(sr.get("confidence", "low"), 1)
@@ -2271,12 +2302,15 @@ class WorldStructureAgent:
                     tiers.get(source, "city"), 4)
                 tgt_rank_eff = target_suf if target_suf is not None else TIER_ORDER.get(
                     tiers.get(target, "city"), 4)
-                if src_rank_eff > tgt_rank_eff:
-                    source, target = target, source
-                elif src_rank_eff == tgt_rank_eff:
-                    if source.startswith(target) and len(source) > len(target):
+                # Story 5.3 (AC2): special spaces exempt from suffix-rank direction
+                # validation.
+                if not (is_special_space(source) or is_special_space(target)):
+                    if src_rank_eff > tgt_rank_eff:
                         source, target = target, source
-                    elif not (target.startswith(source) and len(target) > len(source)):
+                    elif src_rank_eff == tgt_rank_eff:
+                        if source.startswith(target) and len(source) > len(target):
+                            source, target = target, source
+                        elif not (target.startswith(source) and len(target) > len(source)):
                             weight = 1
                 votes.setdefault(target, Counter())[source] += weight * chapter_weight
 
@@ -2314,6 +2348,9 @@ class WorldStructureAgent:
             # from polluting real-world hierarchy (e.g., 太虚幻境 chapter
             # assigning parent votes to 荣国府 interior locations).
             if primary_setting and not _is_realm_location(primary_setting):
+                # Story 5.2: a passage-like primary setting cannot be a parent.
+                if is_passage_like(primary_setting):
+                    continue
                 _p_suf = _get_suffix_rank(primary_setting)
                 p_rank = _p_suf if _p_suf is not None else TIER_ORDER.get(
                     tiers.get(primary_setting, "city"), 4)
@@ -2460,6 +2497,11 @@ class WorldStructureAgent:
                 for winner, _count in votes.most_common():
                     if winner and winner != child:
                         if not known_locs or winner in known_locs:
+                            # Story 5.2 (AC3): a passage-like child must not hang
+                            # under world root — skip the uber_root candidate so it
+                            # stays an orphan (a topology node) instead of dangling.
+                            if is_passage_like(child) and winner == uber_root_name:
+                                continue
                             if winner != uber_root_name:
                                 best_parent = winner
                                 break
@@ -2483,6 +2525,10 @@ class WorldStructureAgent:
             for winner, _count in votes.most_common():
                 if winner and winner != child:
                     if not known_locs or winner in known_locs:
+                        # Story 5.2 (AC3): a passage-like child must not hang under
+                        # world root — skip the uber_root candidate.
+                        if is_passage_like(child) and winner == uber_root_name:
+                            continue
                         raw[child] = winner
                         break
 
