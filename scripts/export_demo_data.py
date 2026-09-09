@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -39,7 +40,14 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
-DEFAULT_BASE_URL = "http://localhost:8000"
+DEFAULT_BASE_URL = os.environ.get("AI_READER_API_BASE", "http://localhost:8000")
+
+
+# Accumulated request failures for the current novel. Without this, a failed
+# endpoint only printed a single "⚠️ Skipped X" line and the script still ended
+# with "✅ Demo 数据已导出" and exit code 0 — a silently truncated export looked
+# identical to a complete one. Cleared at the start of each export_demo().
+_failures: list[str] = []
 
 
 def api_get(base_url: str, path: str) -> dict | list | None:
@@ -51,10 +59,23 @@ def api_get(base_url: str, path: str) -> dict | list | None:
             return json.loads(resp.read().decode())
     except HTTPError as e:
         print(f"  HTTP {e.code} for {path}", file=sys.stderr)
+        _failures.append(f"HTTP {e.code} {path}")
         return None
     except URLError as e:
         print(f"  Connection error for {path}: {e.reason}", file=sys.stderr)
+        _failures.append(f"CONN {path} ({e.reason})")
         return None
+
+
+def _report_failures(count: int) -> None:
+    """Print a consolidated failure report for the novel just exported."""
+    if not count:
+        return
+    print(f"\n❌ {count} 个请求失败,导出不完整:", file=sys.stderr)
+    for item in _failures[:20]:
+        print(f"   - {item}", file=sys.stderr)
+    if count > 20:
+        print(f"   ... 另有 {count - 20} 条", file=sys.stderr)
 
 
 def _get_novels(base_url: str) -> list[dict]:
@@ -333,8 +354,12 @@ def export_entity_profiles(
 def export_demo(
     base_url: str, novel_id: str, output_dir: Path, compress: bool,
     include_text: bool = True, text_only: bool = False,
-) -> None:
-    """Export all visualization endpoints for a novel."""
+) -> int:
+    """Export all visualization endpoints for a novel.
+
+    Returns the number of failed requests (0 == clean export).
+    """
+    _failures.clear()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Verify novel exists
@@ -358,8 +383,12 @@ def export_demo(
         stats["chapter_texts"] = {"count": text_count}
         total_mb = total_size / (1024 * 1024)
         print(f"\n  📦 章节文本总量: {total_mb:.2f} MB ({text_count} 章)")
-        print(f"\n✅ 章节文本已导出到: {output_dir / 'chapters'}")
-        return
+        if _failures:
+            _report_failures(len(_failures))
+            print(f"\n❌ 章节文本导出不完整: {output_dir / 'chapters'}")
+        else:
+            print(f"\n✅ 章节文本已导出到: {output_dir / 'chapters'}")
+        return len(_failures)
 
     # Save novel metadata
     size = save_json(novel, output_dir / "novel.json", compress=compress)
@@ -531,23 +560,62 @@ def export_demo(
     total_mb = total_size / (1024 * 1024)
     print(f"\n  📦 总数据量: {total_mb:.2f} MB")
     if total_mb > 5:
-        print("  ⚠️ 警告: 超过 5MB 目标限制！")
+        # 实测 demo 五本都在 6-12MB(加了章节原文 + 实体卡之后),5MB 早已不是
+        # 可达目标,这里只提示不作为失败条件 —— 见 --all 的 volume 汇总。
+        print("  ⚠️ 超过 5MB 参考值(五本实测 6-12MB,非失败)")
     else:
-        print("  ✅ 在 5MB 限制内")
-    print(f"\n✅ Demo 数据已导出到: {output_dir}")
+        print("  ✅ 在 5MB 参考值内")
+
+    failed = len(_failures)
+    _report_failures(failed)
+    if failed:
+        print(f"\n❌ Demo 数据导出不完整: {output_dir} ({failed} 个请求失败)")
+    else:
+        print(f"\n✅ Demo 数据已导出到: {output_dir}")
+    return failed
 
 
-def _fetch_novel_stats(base_url: str, novel_id: str) -> dict:
-    """Fetch encyclopedia stats for manifest generation."""
+def _read_exported_count(slug_dir: Path, stem: str, key: str) -> int:
+    """Read an item count back out of an already-exported (gzipped) JSON file."""
+    for cand in (slug_dir / f"{stem}.json.gz", slug_dir / f"{stem}.json"):
+        if not cand.exists():
+            continue
+        try:
+            if cand.suffix == ".gz":
+                with gzip.open(cand, "rt", encoding="utf-8") as f:
+                    data = json.loads(f.read())
+            else:
+                data = json.loads(cand.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return 0
+        return _count_items(data, key)
+    return 0
+
+
+def _fetch_novel_stats(
+    base_url: str, novel_id: str, slug_dir: Path | None = None,
+) -> dict:
+    """Fetch stats for manifest generation.
+
+    ``relation_count`` / ``event_count`` do NOT exist in the encyclopedia stats
+    response (``encyclopedia_service.get_category_stats`` only returns category
+    buckets), so reading them via ``data.get(...)`` silently produced 0 forever.
+    They are read back from the exported graph/timeline instead — zero extra
+    requests, and guaranteed consistent with what actually landed on disk.
+    """
     data = api_get(base_url, f"/api/novels/{novel_id}/encyclopedia")
     if not data or not isinstance(data, dict):
         return {}
-    return {
+    stats = {
         "characters": data.get("person", 0),
-        "relations": data.get("relation_count", 0),
         "locations": data.get("location", 0),
-        "events": data.get("event_count", 0),
+        "relations": 0,
+        "events": 0,
     }
+    if slug_dir:
+        stats["relations"] = _read_exported_count(slug_dir, "graph", "edges")
+        stats["events"] = _read_exported_count(slug_dir, "timeline", "events")
+    return stats
 
 
 def generate_manifest(
@@ -559,7 +627,7 @@ def generate_manifest(
     for entry in novel_entries:
         novel_id = entry["id"]
         slug = entry.get("slug", _sanitize_dirname(entry.get("title", novel_id)))
-        stats = _fetch_novel_stats(base_url, novel_id)
+        stats = _fetch_novel_stats(base_url, novel_id, output_dir / slug)
         novels.append({
             "slug": slug,
             "title": entry.get("title", ""),
@@ -584,30 +652,77 @@ def export_all(
     base_url: str, output_dir: Path, compress: bool,
     include_text: bool = True, text_only: bool = False,
     include_manifest: bool = False,
-) -> None:
-    """Export all analyzed novels, each in its own subdirectory."""
+    novel_ids: str | None = None, slugs: str | None = None,
+) -> int:
+    """Export multiple novels, each in its own subdirectory.
+
+    With ``novel_ids`` (comma-separated) only those novels are exported, in the
+    given order. Without it, every novel with ``analysis_progress > 0`` is
+    exported — in a populated DB that is 60+ titles (including duplicate
+    imports of the same book), so it warns loudly before proceeding.
+
+    Returns the total number of failed requests across all novels.
+    """
     novels = _get_novels(base_url)
 
-    analyzed = [n for n in novels if (n.get("analysis_progress", 0) or 0) > 0]
-    if not analyzed:
-        print("No analyzed novels found.", file=sys.stderr)
+    if novel_ids:
+        wanted = [s.strip() for s in novel_ids.split(",") if s.strip()]
+        selected = [n for n in novels if n["id"] in set(wanted)]
+        missing = set(wanted) - {n["id"] for n in selected}
+        if missing:
+            print(f"❌ 未找到小说 ID: {', '.join(sorted(missing))}", file=sys.stderr)
+            sys.exit(1)
+        order = {nid: i for i, nid in enumerate(wanted)}
+        selected.sort(key=lambda n: order[n["id"]])
+    else:
+        selected = [n for n in novels if (n.get("analysis_progress", 0) or 0) > 0]
+        print(
+            f"⚠️ --all 模式:DB 共 {len(novels)} 本,其中 {len(selected)} 本已分析,"
+            f"将全部导出。\n   若只要 demo 五本,改用 "
+            f"--novel-ids <id1,id2,...> --slugs <slug1,slug2,...>",
+            file=sys.stderr,
+        )
+
+    if not selected:
+        print("No matching novels found.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"📚 Found {len(analyzed)} analyzed novel(s)\n")
-    for novel in analyzed:
-        novel_id = novel["id"]
-        title = novel.get("title", novel_id)
-        dirname = _sanitize_dirname(title)
-        novel_output = output_dir / dirname
+    slug_list = [s.strip() for s in slugs.split(",")] if slugs else []
+    resolved: list[tuple[dict, str]] = []
+    for i, novel in enumerate(selected):
+        slug = (
+            slug_list[i]
+            if i < len(slug_list)
+            else _sanitize_dirname(novel.get("title", novel["id"]))
+        )
+        resolved.append((novel, slug))
+
+    print(f"📚 将导出 {len(resolved)} 本:")
+    for novel, slug in resolved:
+        print(f"   - {slug:<12} ← {novel.get('title', '?')} ({novel['id']})")
+
+    total_fail = 0
+    for i, (novel, slug) in enumerate(resolved, start=1):
         print(f"\n{'─' * 50}")
-        export_demo(base_url, novel_id, novel_output, compress,
-                    include_text=include_text, text_only=text_only)
+        print(f"[{i}/{len(resolved)}] {slug}")
+        total_fail += export_demo(
+            base_url, novel["id"], output_dir / slug, compress,
+            include_text=include_text, text_only=text_only,
+        )
+        novel["slug"] = slug  # consumed by generate_manifest
 
     if include_manifest:
-        generate_manifest(base_url, output_dir, analyzed)
+        generate_manifest(base_url, output_dir, [n for n, _ in resolved])
 
     print(f"\n{'═' * 50}")
-    print(f"🎉 All {len(analyzed)} novel(s) exported to: {output_dir}")
+    if total_fail:
+        print(
+            f"❌ {len(resolved)} 本导出结束,但共 {total_fail} 个请求失败",
+            file=sys.stderr,
+        )
+    else:
+        print(f"🎉 All {len(resolved)} novel(s) exported to: {output_dir}")
+    return total_fail
 
 
 def main() -> None:
@@ -627,7 +742,17 @@ def main() -> None:
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Export all analyzed novels (auto-named subdirectories)",
+        help="Export all analyzed novels (auto-named subdirectories). "
+             "WARNING: exports every analyzed novel in the DB, not just demos.",
+    )
+    parser.add_argument(
+        "--novel-ids",
+        help="Comma-separated novel UUIDs to export (explicit whitelist, "
+             "recommended over --all). Order is preserved.",
+    )
+    parser.add_argument(
+        "--slugs",
+        help="Comma-separated directory names, 1:1 positional match with --novel-ids",
     )
     parser.add_argument(
         "--no-compress",
@@ -663,16 +788,25 @@ def main() -> None:
     include_text = not args.no_text
     text_only = args.text_only
 
-    if args.all:
-        export_all(args.base_url, Path(args.output_dir), compress=compress,
-                   include_text=include_text, text_only=text_only,
-                   include_manifest=args.include_manifest)
-        return
+    if args.all or args.novel_ids:
+        if args.novel_ids and not args.slugs:
+            print(
+                "⚠️ 未提供 --slugs,目录名将用小说标题(中文),与 demo 现有 "
+                "英文 slug 不一致。",
+                file=sys.stderr,
+            )
+        failures = export_all(
+            args.base_url, Path(args.output_dir), compress=compress,
+            include_text=include_text, text_only=text_only,
+            include_manifest=args.include_manifest,
+            novel_ids=args.novel_ids, slugs=args.slugs,
+        )
+        sys.exit(1 if failures else 0)
 
     if not args.novel_id:
         parser.error(
             "--novel-id is required (use --list to see available novels, "
-            "or --all to export all)"
+            "--novel-ids for an explicit list, or --all to export all)"
         )
 
     # When --slug is provided, use it as subdirectory under output-dir
@@ -680,7 +814,7 @@ def main() -> None:
     if args.slug:
         output_dir = output_dir / args.slug
 
-    export_demo(
+    failures = export_demo(
         base_url=args.base_url,
         novel_id=args.novel_id,
         output_dir=output_dir,
@@ -695,8 +829,15 @@ def main() -> None:
         if novel and isinstance(novel, dict):
             if args.slug:
                 novel["slug"] = args.slug
-            manifest_dir = Path(args.output_dir)
+                manifest_dir = Path(args.output_dir)
+            else:
+                # No --slug: data landed directly in output_dir, so the manifest
+                # must live one level up and the "slug" is the dir's own name.
+                novel["slug"] = Path(args.output_dir).name
+                manifest_dir = Path(args.output_dir).parent
             generate_manifest(args.base_url, manifest_dir, [novel])
+
+    sys.exit(1 if failures else 0)
 
 
 if __name__ == "__main__":

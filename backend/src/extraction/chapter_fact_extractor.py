@@ -12,7 +12,18 @@ from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
-from src.models.chapter_fact import ChapterFact, CharacterFact, RelationshipFact
+from src.models.chapter_fact import (
+    ChapterFact,
+    CharacterFact,
+    RelationshipFact,
+    LocationFact,
+    SpatialRelationship,
+    ItemEventFact,
+    OrgEventFact,
+    EventFact,
+    ConceptFact,
+    WorldDeclaration,
+)
 from src.services.relation_utils import derive_category_from_dimensions
 
 logger = logging.getLogger(__name__)
@@ -62,14 +73,20 @@ _VOTE_RESPONSE_SCHEMA: dict = {
 @dataclass
 class ExtractionMeta:
     """Quality metadata about the extraction process."""
+    # 输入侧:章节原文超过 max_chapter_len 被切短。
     is_truncated: bool = False
     original_len: int = 0
     truncated_len: int = 0
     segment_count: int = 1
+    # 输出侧(q1-2):LLM 撞上输出上限,响应被 repair 成合法 JSON 但尾部
+    # section 已缺失。与 is_truncated 是两回事,不可混用。
+    output_truncated: bool = False
     # FR-3.1 证据锚定统计(副产物标记,仅 EVIDENCE_GROUNDING_ENABLED 时填充)
     evidence_missing_relations: int = 0
     evidence_missing_events: int = 0
     evidence_unlocated_spans: int = 0
+    # q1-1 条目级宽容解析:按 section 计丢弃的坏条目数(坏条目单丢不废章)
+    dropped_items: dict[str, int] = field(default_factory=dict)
 
 
 class ExtractionError(Exception):
@@ -819,12 +836,12 @@ class ChapterFactExtractor:
                 ", ".join(f"{len(s)}c" for s in segments),
             )
             fact, usage = await self._extract_segmented(
-                system, novel_id, chapter_id, segments,
+                system, novel_id, chapter_id, segments, meta=meta,
             )
         else:
             # Single segment — original flow with retry
             fact, usage = await self._extract_single(
-                system, novel_id, chapter_id, chapter_text,
+                system, novel_id, chapter_id, chapter_text, meta=meta,
             )
 
         # Dimension post-processing (FR-1.2 sanitize + FR-1.3 vote)
@@ -970,13 +987,13 @@ class ChapterFactExtractor:
             fact, usage = await self._extract_segmented(
                 system, novel_id, chapter_id, segments,
                 prompt_builder=_build_source_pass_user_prompt,
-                schema=schema,
+                schema=schema, meta=meta,
             )
         else:
             fact, usage = await self._extract_single(
                 system, novel_id, chapter_id, chapter_text,
                 prompt_builder=_build_source_pass_user_prompt,
-                schema=schema,
+                schema=schema, meta=meta,
             )
 
         # 与一审同口径的规则清洗(开关口径一致,NFR-3);投票与补漏跳过
@@ -1007,11 +1024,13 @@ class ChapterFactExtractor:
         chapter_text: str,
         prompt_builder=None,
         schema: dict | None = None,
+        meta: ExtractionMeta | None = None,
     ) -> tuple[ChapterFact, LlmUsage]:
         """Extract from a single (non-split) chapter text with retry.
 
         prompt_builder: 可选的 user prompt 构造函数(默认一审口径
         _build_user_prompt;独立二审传 _build_source_pass_user_prompt)。
+        meta: 可选,用于回写 q1-1 逐条校验丢弃的坏条目计数(dropped_items)。
         """
         build_prompt = prompt_builder or self._build_user_prompt
         example_text = self._build_example_text()
@@ -1020,7 +1039,7 @@ class ChapterFactExtractor:
         # First attempt
         try:
             return await self._call_and_parse(
-                system, user_prompt, novel_id, chapter_id, schema=schema,
+                system, user_prompt, novel_id, chapter_id, schema=schema, meta=meta,
             )
         except (LLMError, ExtractionError, Exception) as first_err:
             logger.warning(
@@ -1035,7 +1054,7 @@ class ChapterFactExtractor:
         retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
         try:
             return await self._call_and_parse(
-                system, retry_prompt, novel_id, chapter_id, schema=schema,
+                system, retry_prompt, novel_id, chapter_id, schema=schema, meta=meta,
             )
         except Exception as second_err:
             raise ExtractionError(
@@ -1050,8 +1069,12 @@ class ChapterFactExtractor:
         segments: list[str],
         prompt_builder=None,
         schema: dict | None = None,
+        meta: ExtractionMeta | None = None,
     ) -> tuple[ChapterFact, LlmUsage]:
-        """Extract from multiple segments and merge results."""
+        """Extract from multiple segments and merge results.
+
+        meta: 可选,用于回写 q1-1 逐条校验丢弃的坏条目计数(dropped_items)。
+        """
         build_prompt = prompt_builder or self._build_user_prompt
         example_text = self._build_example_text()
         segment_facts: list[ChapterFact] = []
@@ -1070,7 +1093,7 @@ class ChapterFactExtractor:
             # Each segment gets its own retry
             try:
                 fact, seg_usage = await self._call_and_parse(
-                    system, user_prompt, novel_id, chapter_id, schema=schema,
+                    system, user_prompt, novel_id, chapter_id, schema=schema, meta=meta,
                 )
                 segment_facts.append(fact)
                 total_usage.prompt_tokens += seg_usage.prompt_tokens
@@ -1088,7 +1111,7 @@ class ChapterFactExtractor:
                     )
                     retry_prompt += "【重要】请输出严格的 JSON，不要输出多余文本。"
                     fact, seg_usage = await self._call_and_parse(
-                        system, retry_prompt, novel_id, chapter_id, schema=schema,
+                        system, retry_prompt, novel_id, chapter_id, schema=schema, meta=meta,
                     )
                     segment_facts.append(fact)
                     total_usage.prompt_tokens += seg_usage.prompt_tokens
@@ -1233,6 +1256,7 @@ class ChapterFactExtractor:
         chapter_id: int,
         timeout: int = 600,
         schema: dict | None = None,
+        meta: ExtractionMeta | None = None,
     ) -> tuple[ChapterFact, LlmUsage]:
         """Call LLM and parse response into ChapterFact.
 
@@ -1322,6 +1346,29 @@ class ChapterFactExtractor:
         result["novel_id"] = novel_id
         result["chapter_id"] = chapter_id
 
+        # q1-1 条目级宽容解析:逐条目校验,坏条目单丢不废章,计数回写 meta
+        dropped: dict[str, int] = {}
+        result = _tolerant_validate_sections(result, dropped)
+        if dropped:
+            logger.warning(
+                "Chapter %d: 逐条校验丢弃坏条目 %s", chapter_id, dropped,
+            )
+            if meta is not None:
+                for _k, _v in dropped.items():
+                    meta.dropped_items[_k] = meta.dropped_items.get(_k, 0) + _v
+
+        # q1-2 输出截断可见性:模型撞上输出上限(finish_reason=length),
+        # provider 层已把 JSON repair 成合法结构,但尾部 section(locations /
+        # spatial_relationships)实际已经缺失 —— ch2 实测 locations 直接归零。
+        # 这个信号必须落库,否则重跑 550+ 章后无从判断哪些章被砍。
+        # 注意与 meta.is_truncated(输入文本超长)区分,两者语义不同。
+        if meta is not None and getattr(usage, "truncated", False):
+            meta.output_truncated = True
+            logger.warning(
+                "Chapter %d: LLM 输出被截断(finish_reason=length),"
+                "locations/spatial_relationships 可能缺失", chapter_id,
+            )
+
         return ChapterFact.model_validate(result), usage
 
 
@@ -1332,6 +1379,64 @@ _LIST_SECTION_KEYS = frozenset({
     "item_events", "org_events", "events", "new_concepts",
     "world_declarations",
 })
+
+
+# q1-1 条目级宽容解析:列表型 section → 子模型映射(单一事实源)。
+# 键须与 _LIST_SECTION_KEYS 保持一致;新增 section 时两处同步更新。
+_SECTION_MODELS = {
+    "characters": CharacterFact,
+    "relationships": RelationshipFact,
+    "locations": LocationFact,
+    "spatial_relationships": SpatialRelationship,
+    "item_events": ItemEventFact,
+    "org_events": OrgEventFact,
+    "events": EventFact,
+    "new_concepts": ConceptFact,
+    "world_declarations": WorldDeclaration,
+}
+
+
+def _tolerant_validate_sections(
+    result: dict,
+    dropped_items: dict[str, int],
+) -> dict:
+    """对列表型 section 逐条目 Pydantic 校验:丢弃坏条目、保留好条目。
+
+    坏条目(缺必填字段 / 类型错误)不再导致整章 ChapterFact.model_validate
+    失败,而是按 section 计数丢弃——实现「坏条目单丢不废章」(q1-1, Story 1.1)。
+
+    标量字段(novel_id/chapter_id 等)仍由 ChapterFact.model_validate 统一
+    校验,结构性错误照常抛出,保证与改动前语义一致(gold 基线不回退)。
+
+    组合关系:provider 层(_repair_truncated_json)已先修复
+    finish_reason=length 的截断 JSON;本函数在此基础上只丢残留的坏尾条目,
+    从而避免触发 _extract_single 的整段重试(AC-2)。
+    """
+    for key, model in _SECTION_MODELS.items():
+        items = result.get(key)
+        if not isinstance(items, list):
+            continue
+        kept: list[dict] = []
+        for entry in items:
+            if not isinstance(entry, dict):
+                # 非 dict 条目直接丢(与 _normalize_field_names 行为一致)
+                dropped_items[key] = dropped_items.get(key, 0) + 1
+                logger.debug(
+                    "章节 section=%s 丢弃非 dict 条目(类型=%s)",
+                    key, type(entry).__name__,
+                )
+                continue
+            try:
+                model.model_validate(entry)  # 仅探测合法性,保留原始 dict
+                kept.append(entry)
+            except Exception as err:
+                dropped_items[key] = dropped_items.get(key, 0) + 1
+                logger.debug(
+                    "章节 section=%s 丢弃坏条目(校验失败): %s",
+                    key, str(err)[:120],
+                )
+        result[key] = kept
+    return result
 
 
 def _merge_array_result(items: list[dict]) -> dict:

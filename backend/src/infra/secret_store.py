@@ -106,7 +106,18 @@ async def save_api_key(api_key: str) -> str:
 
 
 async def load_api_key() -> str | None:
-    """Load API key from keyring or fallback."""
+    """Load API key from keyring or fallback.
+
+    Set ``AI_READER_FORCE_DB_KEY=1`` to read the key from the app_settings
+    table instead of the OS keyring. The keyring is machine-global (shared by
+    every data dir), so isolating a scratch/alternate data dir on a different
+    provider requires bypassing it — deleting the keyring entry is unreliable
+    on macOS (keychain raises error 100001). Default behaviour unchanged.
+    """
+    import os
+
+    if os.environ.get("AI_READER_FORCE_DB_KEY"):
+        return await _fallback_load()
     key = _try_keyring_load()
     if key:
         return key

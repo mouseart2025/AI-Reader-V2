@@ -37,6 +37,7 @@ ALTER TABLE chapter_facts ADD COLUMN cost_cny REAL;
 ALTER TABLE chapter_facts ADD COLUMN scenes_json TEXT;
 ALTER TABLE chapter_facts ADD COLUMN is_truncated INTEGER DEFAULT 0;
 ALTER TABLE chapter_facts ADD COLUMN segment_count INTEGER DEFAULT 1;
+ALTER TABLE chapter_facts ADD COLUMN output_truncated INTEGER DEFAULT 0;
 ALTER TABLE analysis_tasks ADD COLUMN timing_summary TEXT;
 ALTER TABLE map_layouts ADD COLUMN satisfaction_json TEXT;
 """

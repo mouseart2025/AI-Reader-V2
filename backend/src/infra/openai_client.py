@@ -291,6 +291,11 @@ class OpenAICompatibleClient:
                     "attempting to repair JSON (%d chars)", len(content),
                 )
                 content = _repair_truncated_json(content)
+                # Propagate the signal instead of swallowing it. The repaired
+                # JSON parses fine but is missing its trailing fields (for the
+                # extraction schema that means locations / spatial_relationships
+                # come back empty), so callers must be able to detect this.
+                usage.truncated = True
 
             # Strip <think> blocks that some models emit despite not being requested
             from src.infra.llm_client import _strip_thinking

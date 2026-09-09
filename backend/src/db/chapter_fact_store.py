@@ -18,6 +18,7 @@ async def insert_chapter_fact(
     cost_cny: float = 0.0,
     is_truncated: bool = False,
     segment_count: int = 1,
+    output_truncated: bool = False,
 ) -> None:
     """Insert or replace a chapter fact record."""
     conn = await get_connection()
@@ -27,8 +28,8 @@ async def insert_chapter_fact(
             INSERT OR REPLACE INTO chapter_facts
                 (novel_id, chapter_id, fact_json, llm_model, extraction_ms,
                  input_tokens, output_tokens, cost_usd, cost_cny,
-                 is_truncated, segment_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 is_truncated, segment_count, output_truncated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 novel_id,
@@ -42,6 +43,7 @@ async def insert_chapter_fact(
                 cost_cny,
                 1 if is_truncated else 0,
                 segment_count,
+                1 if output_truncated else 0,
             ),
         )
         await conn.commit()
@@ -87,7 +89,7 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
             """
             SELECT chapter_id, fact_json, llm_model, extracted_at, extraction_ms,
                    input_tokens, output_tokens, cost_usd, cost_cny,
-                   is_truncated, segment_count
+                   is_truncated, segment_count, output_truncated
             FROM chapter_facts
             WHERE novel_id = ?
             ORDER BY chapter_id
@@ -108,6 +110,8 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
                 "cost_cny": row["cost_cny"] or 0.0,
                 "is_truncated": bool(row["is_truncated"]) if row["is_truncated"] is not None else False,
                 "segment_count": row["segment_count"] or 1,
+                # 旧行没有该列时 row["output_truncated"] 取不到,用下标兜底
+                "output_truncated": bool(row["output_truncated"]) if row["output_truncated"] else False,
             }
             for row in rows
         ]

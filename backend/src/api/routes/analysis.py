@@ -206,7 +206,16 @@ async def get_latest_task(novel_id: str):
     # is the DB row ID (not chapter_num), so we count all facts without
     # range filtering to avoid a chapter_id vs chapter_num mismatch.
     stats = {"entities": 0, "relations": 0, "events": 0}
-    quality = {"truncated_chapters": 0, "segmented_chapters": 0, "total_segments": 0}
+    # truncated_chapters    = 输入侧(原文超长被切)
+    # output_truncated_chapters = 输出侧(LLM 撞输出上限,尾部 section 缺失)
+    #   后者才是致命的:JSON 被 repair 后语法合法、locations 却是 0,
+    #   之前完全没有信号,验收指标里显示为"零截断"。
+    quality = {
+        "truncated_chapters": 0,
+        "segmented_chapters": 0,
+        "total_segments": 0,
+        "output_truncated_chapters": 0,
+    }
     if task["status"] in ("running", "paused", "completed", "completed_with_errors"):
         all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
         for ef in all_facts:
@@ -216,6 +225,8 @@ async def get_latest_task(novel_id: str):
             stats["events"] += len(fact.get("events", []))
             if ef.get("is_truncated"):
                 quality["truncated_chapters"] += 1
+            if ef.get("output_truncated"):
+                quality["output_truncated_chapters"] += 1
             seg = ef.get("segment_count", 1)
             if seg > 1:
                 quality["segmented_chapters"] += 1
@@ -336,6 +347,7 @@ async def get_cost_detail(novel_id: str):
     total_entities = 0
     model_used = ""
     truncated_count = 0
+    output_truncated_count = 0
     segmented_count = 0
     total_segments = 0
 
@@ -352,7 +364,10 @@ async def get_cost_detail(novel_id: str):
         c_usd = ef.get("cost_usd", 0.0)
         c_cny = ef.get("cost_cny", 0.0)
         is_trunc = ef.get("is_truncated", False)
+        out_trunc = ef.get("output_truncated", False)
         seg_count = ef.get("segment_count", 1)
+        if out_trunc:
+            output_truncated_count += 1
 
         total_input += inp
         total_output += out
@@ -379,6 +394,7 @@ async def get_cost_detail(novel_id: str):
             "extracted_at": ef.get("extracted_at"),
             "llm_model": ef.get("llm_model", ""),
             "is_truncated": is_trunc,
+            "output_truncated": out_trunc,
             "segment_count": seg_count,
         })
 
@@ -396,6 +412,7 @@ async def get_cost_detail(novel_id: str):
         },
         "quality": {
             "truncated_chapters": truncated_count,
+            "output_truncated_chapters": output_truncated_count,
             "segmented_chapters": segmented_count,
             "total_segments": total_segments,
         },
