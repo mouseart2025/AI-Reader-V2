@@ -17,6 +17,8 @@ from src.extraction.fact_validator import _is_generic_location
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
+from src.models.chapter_fact import classify_spatial_relation
+from src.utils.location_names import is_passage_like
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +129,11 @@ class VoteBuilder(GeoSkill):
                     if (_is_generic_location(name) and name != uber_root) or \
                        (_is_generic_location(parent) and parent != uber_root):
                         continue
+                    # Story 5.2: passage-like nodes never act as a parent
+                    # (a road/corridor does not contain anything). Drop the vote
+                    # so "道路下辖学校" edges cannot form.
+                    if is_passage_like(parent):
+                        continue
                     pair_key = frozenset({name, parent})
                     w = 0.33 if pair_key in peer_pairs else 1.0
                     votes.setdefault(name, Counter())[parent] += w * chapter_weight
@@ -140,7 +147,14 @@ class VoteBuilder(GeoSkill):
                 if (_is_generic_location(src) and src != uber_root) or \
                    (_is_generic_location(tgt) and tgt != uber_root):
                     continue
-                if rel != "contains":
+                if classify_spatial_relation(rel) != "hierarchy":
+                    continue
+                # Story 5.2: passage-like node cannot be the container (parent).
+                # Only the parent (src) is gated — a passage-like child that
+                # carries explicit real-parent votes is still attached to that
+                # parent; only the spurious uber_root fallback is suppressed
+                # (see edmonds_resolver).
+                if is_passage_like(src):
                     continue
                 weight = {"high": 2, "medium": 1, "low": 1}.get(
                     sr.get("confidence", "low"), 1)
@@ -179,6 +193,10 @@ class VoteBuilder(GeoSkill):
                         break
 
             if primary and not self._is_realm(primary):
+                # Story 5.2: a passage-like primary setting must not become a
+                # parent of the chapter's other locations.
+                if is_passage_like(primary):
+                    continue
                 p_suf = _get_suffix_rank(primary)
                 p_rank = p_suf if p_suf is not None else TIER_ORDER.get(
                     tiers.get(primary, "city"), 4)
@@ -198,6 +216,16 @@ class VoteBuilder(GeoSkill):
                     votes.setdefault(ln, Counter())[primary] += 2
                     evidence_pairs.add((ln, primary))
 
+        # 注(Story 5.5 试过并已回退):曾对「只有 topology 证据、无 hierarchy
+        # 证据」的地点对显式发 0 票,想借 EdmondsResolver 的
+        #   「child 有票 且 该 parent 得票 ≤0 → 丢弃遗留边」
+        # 门控清掉 广宗→青州 / 蜀→荆州 这类拓扑传播污染。
+        # **实测是负优化,已回退**:B 指标 3→4,max_children 35→76,边数
+        # 1320→1333。原因:丢边并未提供更好的父节点,Edmonds 只能拿兜底边
+        # 重挂,全部堆到少数枢纽上 —— 正是 edmonds_resolver :196-199 警告的
+        # 「重新挂到 uber_root 导致度均衡发散并在多轮间震荡」。设计上保留
+        # 零证据遗留边是有意的,不要与之对着干。
+
         # (Removed, issue #70 D3) Spatial neighbor propagation deleted.
 
         # ── Baseline injection (existing parents, weight=1) ──
@@ -213,6 +241,12 @@ class VoteBuilder(GeoSkill):
             baseline_dropped = 0
             for child, parent in snapshot.location_parents.items():
                 if parent not in known_locs and parent != uber_root:
+                    continue
+                # Story 5.2: never re-inject legacy edges that involve a
+                # passage-like node (e.g. 走廊→天下, or 学校→长街). Such edges
+                # are topology/orphan, not hierarchy.
+                if is_passage_like(child) or is_passage_like(parent):
+                    baseline_dropped += 1
                     continue
                 if (child, parent) not in evidence_pairs:
                     baseline_dropped += 1

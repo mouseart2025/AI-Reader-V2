@@ -24,6 +24,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Literal
 
+from src.utils.location_names import is_special_space
+
 # Errata reason 解析 - 支持多种格式:
 # 西游记: "tier continent→realm" / "parent X→Y" / "应为XXX"
 # 其他小说: "tier应为city" / "应移除" / "应归入X"
@@ -542,7 +544,6 @@ class RuleValidator:
             if isinstance(v, dict) and "tier" in v
         }
         self._tier_rank = {t: i for i, t in enumerate(tr["inversion_check"]["rank_order"])}
-        self._realm_names = set(tr["special_nodes"]["realm_keywords"]["names"])
 
     def validate_node(
         self,
@@ -609,7 +610,9 @@ class RuleValidator:
                         expected_tier = _zhou_expected_tier(self._genre, all_nodes)
                     if tier != expected_tier:
                         # 豁免: uber-root / realm节点 / 府residence
-                        if is_uber_root or name in self._realm_names:
+                        # Story 5.3: realm detection now uses the shared SSOT
+                        # is_special_space (same constant source as tier_classifier).
+                        if is_uber_root or is_special_space(name):
                             break
                         if suffix == "府" and skip_fu_rule:
                             break
@@ -619,18 +622,21 @@ class RuleValidator:
                         ))
                     break
             # C-tier错误: realm节点被标为continent
-            if name in self._realm_names and tier == "continent":
+            if is_special_space(name) and tier == "continent":
                 errors.append(("C-tier错误", f"界域节点'{name}'应为realm, 不是continent"))
             # C-tier倒置: 子节点rank < 父节点rank
+            # Story 5.3 (AC2): 特殊空间不参与 suffix rank 方向校验 —— 特殊空间
+            # 与常规地点的父子判定不受常规地理尺度排序约束。
             if parent and parent in location_tiers:
-                p_tier = location_tiers[parent]
-                p_rank = self._tier_rank.get(p_tier, -1)
-                c_rank = self._tier_rank.get(tier, -1)
-                if p_rank >= 0 and c_rank >= 0 and c_rank < p_rank:
-                    errors.append((
-                        "C-tier倒置",
-                        f"{name}({tier}) rank高于父{parent}({p_tier})"
-                    ))
+                if not (is_special_space(name) or is_special_space(parent)):
+                    p_tier = location_tiers[parent]
+                    p_rank = self._tier_rank.get(p_tier, -1)
+                    c_rank = self._tier_rank.get(tier, -1)
+                    if p_rank >= 0 and c_rank >= 0 and c_rank < p_rank:
+                        errors.append((
+                            "C-tier倒置",
+                            f"{name}({tier}) rank高于父{parent}({p_tier})"
+                        ))
 
         # === E类: 结构性校验 ===
         # E-幻觉父节点: mc≤2 且 children≥10

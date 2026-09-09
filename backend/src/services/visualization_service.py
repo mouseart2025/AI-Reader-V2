@@ -13,7 +13,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from src.db.sqlite_db import get_connection
-from src.models.chapter_fact import ChapterFact
+from src.models.chapter_fact import ChapterFact, classify_spatial_relation
 from src.db import world_structure_store
 from src.infra.config import DATA_DIR
 from src.services.map_layout_service import (
@@ -579,7 +579,7 @@ def _clean_spatial_constraints(
         rtype = c["relation_type"]
 
         # ── Fix contains inversions ──
-        if rtype == "contains":
+        if classify_spatial_relation(rtype) == "hierarchy":
             src, tgt = c["source"], c["target"]
             src_level = loc_level.get(src, 0)
             tgt_level = loc_level.get(tgt, 0)

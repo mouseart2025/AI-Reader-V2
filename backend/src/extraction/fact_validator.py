@@ -7,7 +7,7 @@ Location filtering uses a 3-layer approach based on Chinese place name morpholog
 import logging
 from pathlib import Path
 
-from src.utils.location_names import is_homonym_prone
+from src.utils.location_names import is_homonym_prone, is_special_space
 
 from src.extraction.name_resolver import write_audit_records
 
@@ -20,6 +20,7 @@ from src.models.chapter_fact import (
     RelationshipFact,
     SpatialRelationship,
     WorldDeclaration,
+    classify_spatial_relation,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,8 +30,8 @@ _VALID_ORG_ACTIONS = {"加入", "离开", "晋升", "阵亡", "叛出", "逐出"
 _VALID_EVENT_TYPES = {"战斗", "成长", "社交", "旅行", "其他"}
 _VALID_IMPORTANCE = {"high", "medium", "low"}
 _VALID_SPATIAL_RELATION_TYPES = {
-    "direction", "distance", "contains", "adjacent", "separated_by", "terrain",
-    "in_between", "travel_path", "relative_scale", "cluster",
+    "direction", "distance", "contains", "located_in", "adjacent", "separated_by",
+    "terrain", "in_between", "travel_path", "relative_scale", "cluster",
 }
 _VALID_CONFIDENCE = {"high", "medium", "low"}
 _VALID_DISTANCE_CLASS = {"near", "medium", "far", "very_far"}
@@ -100,8 +101,13 @@ def _get_contains_rank(name: str) -> int | None:
 
     Returns rank (0=world, 6=building) or None if no suffix matches.
     Used to fix inverted contains relationships.
+
+    Story 5.3 (AC2): special spaces are exempt from suffix-rank direction
+    validation — return None so the contains-direction fix skips them.
     """
     if len(name) < 2:
+        return None
+    if is_special_space(name):
         return None
     for suffix, rank in _CONTAINS_SUFFIX_RANK:
         if name.endswith(suffix):
@@ -1489,7 +1495,7 @@ class FactValidator:
                 )
                 continue
             # ── Contains direction fix: ensure source is larger than target ──
-            if relation_type == "contains":
+            if classify_spatial_relation(relation_type) == "hierarchy":
                 swapped = False
                 src_rank = _get_contains_rank(source)
                 tgt_rank = _get_contains_rank(target)

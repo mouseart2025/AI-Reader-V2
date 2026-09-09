@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { cn } from "@/lib/utils"
 import { trackEvent } from "@/lib/tracker"
 import { recordTabVisit } from "@/lib/tabTracking"
+import { isSpecialSpaceTier, SPECIAL_SPACE_LABEL, SPECIAL_SPACE_ICON } from "@/lib/specialSpace"
 
 interface CategoryStats {
   total: number
@@ -73,6 +74,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TIER_LABELS: Record<string, string> = {
   world: "世界",
+  realm: SPECIAL_SPACE_LABEL,
   continent: "大陆",
   kingdom: "国",
   region: "区域",
@@ -83,6 +85,8 @@ const TIER_LABELS: Record<string, string> = {
 
 const TIER_COLORS: Record<string, string> = {
   world: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  // 架空特殊空间：降饱和紫 + 弱提示样式，区别于常规地理层级
+  realm: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300",
   continent: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   kingdom: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   region: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
@@ -584,7 +588,8 @@ export default function EncyclopediaPage() {
                         </span>
                       )}
                       {entry.tier && TIER_LABELS[entry.tier] && (
-                        <span className={cn("text-[10px] px-1 py-0.5 rounded flex-shrink-0", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
+                        <span className={cn("inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded flex-shrink-0", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
+                          {isSpecialSpaceTier(entry.tier) && <span aria-hidden title="架空特殊空间">{SPECIAL_SPACE_ICON}</span>}
                           {TIER_LABELS[entry.tier]}
                         </span>
                       )}
@@ -629,7 +634,8 @@ export default function EncyclopediaPage() {
                             </span>
                           )}
                           {entry.type === "location" && entry.tier && TIER_LABELS[entry.tier] && (
-                            <span className={cn("text-[10px] px-1 py-0.5 rounded", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
+                            <span className={cn("inline-flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded", TIER_COLORS[entry.tier] ?? "bg-muted text-muted-foreground")}>
+                              {isSpecialSpaceTier(entry.tier) && <span aria-hidden title="架空特殊空间">{SPECIAL_SPACE_ICON}</span>}
                               {TIER_LABELS[entry.tier]}
                             </span>
                           )}

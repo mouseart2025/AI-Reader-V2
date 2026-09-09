@@ -152,6 +152,48 @@ class SpatialRelationship(BaseModel):
         return "" if v is None else v
 
 
+# ── 空间关系类型分类(ARBOR Epic 5 / A-FR1:存储分层) ──
+# 单一事实源:将空间关系归类为 hierarchy(包含/位于)与 topology(连接/相邻),
+# 层级树只消费 hierarchy 类证据。旧值(terrain/relative_scale/cluster 等)原样
+# 存储、归类为 other,不参与层级。新增 located_in/connects/route_to 走同一入口。
+HIERARCHY_SPATIAL_RELATIONS: frozenset[str] = frozenset({"contains", "located_in"})
+TOPOLOGY_SPATIAL_RELATIONS: frozenset[str] = frozenset({
+    "connects", "route_to", "adjacent", "direction", "distance",
+    "in_between", "separated_by", "travel_path",
+})
+_SPATIAL_RELATION_NORM: dict[str, str] = {
+    "neighbor": "adjacent", "neighbour": "adjacent", "near": "adjacent",
+    "next_to": "adjacent", "beside": "adjacent",
+    "linked": "connects", "connected": "connects", "link": "connects",
+    "path": "route_to", "route": "route_to", "leads_to": "route_to",
+    "north_of": "direction", "south_of": "direction",
+    "east_of": "direction", "west_of": "direction",
+    "bordering": "separated_by",
+}
+
+
+def normalize_spatial_relation_type(raw: str) -> str:
+    """归一化空间关系类型到规范值(兼容旧值变体拼写)。"""
+    if raw in HIERARCHY_SPATIAL_RELATIONS or raw in TOPOLOGY_SPATIAL_RELATIONS:
+        return raw
+    return _SPATIAL_RELATION_NORM.get(raw, raw)
+
+
+def classify_spatial_relation(rel_type: str) -> str:
+    """将空间关系类型归类为 hierarchy / topology / other。
+
+    - hierarchy: 包含关系(contains / located_in),产生 parent 票
+    - topology:  连接/相邻/方向/距离等,作为拓扑边
+    - other:     未识别或旧值(terrain/relative_scale/cluster),不进入层级树
+    """
+    norm = normalize_spatial_relation_type(rel_type)
+    if norm in HIERARCHY_SPATIAL_RELATIONS:
+        return "hierarchy"
+    if norm in TOPOLOGY_SPATIAL_RELATIONS:
+        return "topology"
+    return "other"
+
+
 class WorldDeclaration(BaseModel):
     declaration_type: str  # region_division / layer_exists / portal / region_position
     content: dict  # type-specific structured content

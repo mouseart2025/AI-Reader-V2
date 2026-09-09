@@ -15,6 +15,7 @@ import logging
 
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
+from src.utils.location_names import is_special_space, is_passage_like
 
 logger = logging.getLogger(__name__)
 
@@ -239,10 +240,25 @@ class TierClassifier(GeoSkill):
                 "南京": "city",     # 北宋南京 = 应天府
                 "建康": "city",     # 南京古称
                 "燕京": "city",     # 辽朝燕京
+                # v0.76 Story 5.5: 图层根节点。主世界 是 overworld 图层名
+                # (系统生成,非小说地名),Phase 1 判成 region,导致「装着一堆州
+                # 的容器被当成中层区域」。它位于 天下(world)之下、诸州(kingdom)
+                # 之上,按大陆尺度处理。(Rule 11 的相干性上提依赖 Edmonds 之前的
+                # 遗留父子关系,不稳定,故此处用确定性名称覆盖。)
+                "主世界": "continent",
             }
             override = _TIER_OVERRIDES.get(name)
             if override and tier != override:
                 new_tier = override
+
+            # Rule 0 (Story 5.3): special-space classification.
+            # Names denoting fantasy/sci-fi planes (异空间 / 领域 / 维度 / 结界 /
+            # 秘境 / 仙界 / 魔域 …) become the dedicated `realm` tier, never
+            # continent/region. Sub-realms forced to `region` by _TIER_OVERRIDES
+            # (天庭 / 幽冥界, both in _SPECIAL_SPACE_EXCLUDE) win above and stay
+            # region; everything else matching is_special_space → realm.
+            elif is_special_space(name) and tier != "realm":
+                new_tier = "realm"
 
             # Rule 9: X部洲 → continent (四大部洲 pattern)
             elif name.endswith("部洲") and tier != "continent":
@@ -257,6 +273,22 @@ class TierClassifier(GeoSkill):
                 target = _zhou_target_tier(era)
                 if tier != target:
                     new_tier = target
+            # Story 5.3 (chain B guard): special spaces that reached here must
+            # stay realm — chain A already set realm above; this prevents the
+            # mc==0 / parent-coherence demotion rules below from flipping a realm
+            # back to site. (The two if/elif chains are independent, so the guard
+            # is needed in BOTH.)
+            elif is_special_space(name) and tier != "realm":
+                new_tier = "realm"
+
+            # Rule 10 (Story 5.5): 道路/通道类是拓扑节点(Story 5.2),永不是容器。
+            # Phase 1 的 suffix rank 会因「道」后缀把它们提升(华容道/斜谷道 →
+            # kingdom),导致道路在百科里显示为「王国」。一律降为 site。
+            # 不覆盖 realm:特殊空间判定(5.3)优先级更高。
+            elif is_passage_like(name) and tier in (
+                "continent", "kingdom", "region", "city",
+            ):
+                new_tier = "site"
 
             # Rule 5: X界/境界 → region
             elif (name.endswith("界") or name.endswith("境界")) and tier == "city":
@@ -264,6 +296,13 @@ class TierClassifier(GeoSkill):
 
             # Rule 6: X府 + parent=region → site (residence, not administrative)
             elif name.endswith("府") and tier == "city" and parent_tier == "region":
+                new_tier = "site"
+
+            # Rule 6b (Story 5.5): 府/宫/殿/邸/宅 是居所建筑,永不是王国。
+            # Rule 6 只在 tier==city 时触发,东府 被 Phase 1 判成 kingdom 就漏网了。
+            elif name.endswith(("府", "宫", "殿", "邸", "宅")) and tier in (
+                "continent", "kingdom", "realm",
+            ):
                 new_tier = "site"
 
             # Rule 1: Parent-child coherence (只处理严重违反情况)
@@ -282,6 +321,13 @@ class TierClassifier(GeoSkill):
             # Rule 4: 强证据提升 (保守: 需要同时满足高mc和高children)
             elif mc >= 30 and ch >= 15 and tier in ("site", "building"):
                 new_tier = "region"
+
+            # 注:曾尝试「父尺度必须大于子」的自动上提(Rule 11),已回退。
+            # 原因:TierClassifier 在 Edmonds **之前**运行(顺序
+            # tier→votes→prior→edmonds→suffix),此时的 children_count 来自
+            # 四月遗留层级,不可靠 —— 实测把 涿县/沛县(县)、青城山/麴山(山)、
+            # 羌人谷(谷)、长江(江)全提成了 kingdom,比不修更糟。
+            # 「主世界」这类图层根节点改用 _TIER_OVERRIDES 确定性覆盖解决。
 
             if new_tier != tier:
                 updates[name] = new_tier
