@@ -611,6 +611,7 @@ class AnalysisService:
                     cost_cny=_ch_cost_cny,
                     is_truncated=extraction_meta.is_truncated,
                     segment_count=extraction_meta.segment_count,
+                    output_truncated=extraction_meta.output_truncated,
                 )
 
                 # Scene extraction via LLM (non-fatal)

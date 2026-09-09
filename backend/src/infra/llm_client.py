@@ -28,6 +28,13 @@ class LlmUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    # True when the model hit its output cap (finish_reason="length") and the
+    # client had to repair/stub the JSON. This is an OUTPUT-truncation signal,
+    # distinct from the INPUT truncation already tracked by
+    # ExtractionMeta.is_truncated. Per-call (not per-client) so it is safe
+    # under concurrency. Consumers MUST surface it — a repaired response is
+    # syntactically valid but silently missing trailing fields.
+    truncated: bool = False
 
 
 @dataclass

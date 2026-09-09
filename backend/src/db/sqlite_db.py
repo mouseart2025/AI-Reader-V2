@@ -321,6 +321,13 @@ async def init_db() -> None:
             )
         except Exception:
             pass
+        # Migration (q1-2): LLM 输出截断可见性 —— 与 is_truncated(输入超长)区分
+        try:
+            await conn.execute(
+                "ALTER TABLE chapter_facts ADD COLUMN output_truncated INTEGER DEFAULT 0"
+            )
+        except Exception:
+            pass
         # Migration: add error tracking columns to chapters for failure diagnosis
         for col, col_type in [("analysis_error", "TEXT"), ("error_type", "TEXT")]:
             try:

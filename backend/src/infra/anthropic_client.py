@@ -127,6 +127,7 @@ class AnthropicClient:
                     "attempting to repair JSON (%d chars)", len(content),
                 )
                 content = _repair_truncated_json(content)
+                usage.truncated = True
 
             try:
                 return json.loads(content), usage
