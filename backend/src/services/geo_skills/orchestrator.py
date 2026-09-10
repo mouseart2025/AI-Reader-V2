@@ -381,11 +381,11 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
     """构建标准 v2 重建管线(rebuild-hierarchy-v2 端点与分析后自动重建共用).
 
     单一实现,避免两条调用链各自拼装再次漂移。顺序固定:
-    tier → votes → prior → edmonds → suffix。
+    tier → votes → prior → edmonds → suffix → purify。
 
-    v0.71.1 起 SuffixNormalizer 必须最后跑: 其名合并(乌斯藏国界→乌斯藏国,
+    v0.71.1 起 SuffixNormalizer 须排在 Edmonds 之后: 其名合并(乌斯藏国界→乌斯藏国,
     石头城→都中 等)需要最终裁决权;放在 Edmonds 之前会被后续
-    name-containment/vote 权重再次覆盖。
+    name-containment/vote 权重再次覆盖。Story 5.5 起 purify 排最后(见下)。
     """
     from src.services.geo_skills.tier_classifier import TierClassifier
     from src.services.geo_skills.vote_builder import VoteBuilder
