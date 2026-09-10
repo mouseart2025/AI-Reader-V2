@@ -32,9 +32,9 @@ rsync -av --delete --exclude='.git/' \
 
 # === 可选文件和目录 ===
 
-[ -f "$PROJECT_ROOT/PRD.md" ] && {
-    echo "📄 同步 PRD.md ..."
-    cp "$PROJECT_ROOT/PRD.md" "$INTERNAL_REPO/"
+[ -f "$PROJECT_ROOT/PRD-v0-draft.md" ] && {
+    echo "📄 同步 PRD-v0-draft.md ..."
+    cp "$PROJECT_ROOT/PRD-v0-draft.md" "$INTERNAL_REPO/"
 }
 
 [ -f "$PROJECT_ROOT/PRD-v1.0.md" ] && {
