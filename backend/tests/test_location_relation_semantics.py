@@ -367,7 +367,8 @@ class TestFactionsOrgNoiseFiltered:
             return _NonClosingConnection(memory_db)
 
         with patch("src.services.visualization_service.get_connection", _factory), \
-             patch("src.services.alias_resolver.get_connection", _factory):
+             patch("src.services.alias_resolver.get_connection", _factory), \
+             patch("src.db.entity_override_store.get_connection", _factory):
             data = await get_factions_data("nv3", 1, 1)
 
         org_names = {o["name"] for o in data["orgs"]}
@@ -428,7 +429,8 @@ class TestFactionsVisitorsNotMembers:
             return _NonClosingConnection(memory_db)
 
         with patch("src.services.visualization_service.get_connection", _factory), \
-             patch("src.services.alias_resolver.get_connection", _factory):
+             patch("src.services.alias_resolver.get_connection", _factory), \
+             patch("src.db.entity_override_store.get_connection", _factory):
             data = await get_factions_data("nv2", 1, 1)
 
         members = data["members"].get("七玄门", [])
