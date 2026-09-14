@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useMemo } from "react"
-import maplibregl from "maplibre-gl"
+import * as maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import type { MapLocation, MapLayoutItem, TrajectoryPoint } from "@/api/types"
 import {

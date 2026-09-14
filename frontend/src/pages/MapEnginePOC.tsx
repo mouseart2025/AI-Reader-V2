@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // ─── 模拟数据：凡人修仙传风格的地点层级 ───
