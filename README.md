@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.75.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.76.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -85,8 +85,8 @@
 
 | 平台 | 下载 | 架构 |
 |------|------|------|
-| macOS | [AI Reader_0.75.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.75.0/AI.Reader_0.75.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.75.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.75.0/AI.Reader_0.75.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader_0.76.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.76.0/AI.Reader_0.76.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader_0.76.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.76.0/AI.Reader_0.76.0_x64-setup.exe) | x86_64 |
 
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
@@ -137,6 +137,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| **v0.76.0** | 2026-09-16 | **独立二审 Source Pass + 抽取质量加固系列（issue #70）+ 地图预建开图即渲染** — ①独立二审 Source Pass MVP（#70 Phase 1：第二遍独立抽取与一审对照，提升事实召回与一致性）；②抽取/消解质量加固（#70 系列：准入语义三修——幻觉审查双维度/别名语境指称分层/物品关系证据门控、canonical 原文锚定与扶正机制、别名簇劈叉修复、数组形式响应不再静默丢 section、地点层级与关系语义加固——邻近≠包含/到访≠成员/type 收敛、组织识别噪音收窄、裸旧边证据门控、名字决策 provenance 审计与查询 API）；③geo 链确定性修复 + P0 实体净化（Story 5.5）+ passage-like 门控与特殊空间 realm 分类（Story 5.2/5.3）；④**分析后后台预建世界地图 + 地理产物持久化 + 前端会话级地图缓存**——开图即渲染，预建进度可见；⑤分析管线成本/耗时三项优化（#61 #51）+ LLM 输出截断可观测（finish_reason=length 追踪，quality 增 output_truncated_chapters）；⑥桌面端修复：sidecar 版本握手 + Windows 进程树清理防新旧混装（#71）、导出 .air/markdown 补 sidecar 鉴权头修 401（#75）、物品详情 500 修复；⑦工程化：ruff/eslint 告警清零并纳入 CI lint 门禁、maplibre-gl 5→6（XSS 修复）、npm 漏洞清零、可复现性回归 harness（同文本 fresh×2 五层 overlap）。1279 backend tests + frontend tsc/vitest 通过 |
 | **v0.75.0** | 2026-08-30 | **实体修正工具链扩展 + AI 助手预设问题修复（issue #66 Epic 1 / #67）** — ①实体隐藏（误识别实体一键隐藏，百科/图谱/地图/阅读高亮四端即时生效，软删可撤销，重建后存活）；②实体类型修改（人物/地点/物品/组织/概念五类互改，「⋯」菜单入口）；③**小说数据导出补齐 entity_overrides**（此前换机导入会丢全部手动修正，格式 v5→v6，旧包兼容）；④修正冲突提示（重建后实体消失/自动类型漂移时「我的修正」面板标注）；⑤AI 助手预设问题修复（issue #67：FAQ 关键词计分改为命中数制，"怎么上传小说"等预设问题不再误入小说 RAG，本地作答无需 AI）；⑥Dependabot 漏洞清理（前端 npm audit 清零，后端锁文件升级，requires-python ≥3.10）。813 backend tests + frontend tsc/vitest 通过，冻结论文数字复验 20 PASS |
 | **v0.74.1** | 2026-08-30 | **热修：桌面端上传小说 401（issue #68）** — v0.73.1 的 sidecar 令牌鉴权（V-01）要求所有 API 请求携带令牌，但带进度条的上传走独立 XHR 通道漏挂 Authorization 头，桌面端上传小说一律「未授权：缺少或无效的 sidecar 令牌」；其他功能走正常通道不受影响。v0.73.1 / v0.74.0 均受影响，请桌面用户升级至此版本。frontend tsc + vitest 通过 |
 | **v0.74.0** | 2026-08-28 | **质量提升轮 Epic 1–4 + Epic 6 重跑** — ①关系三维抽取 schema（关系类型/方向/强度/证据锚定）；②LLM 增量实体消解（跨章别名识别与 protected_names 保护）；③证据锚定抽取（每个事实带原文 span 与引用）；④judge 校验回路（自动化抽取忠实度评分，记录 judge_model/judge_base_url）；⑤两遍制 recall（每章二次查漏，召回遗漏的人物/关系/事件）；⑥幻觉人物 LLM 过滤层（银驮类规则漏网人物二次判断）；⑦分析后后台任务竞态修复（geo 链串行化，防止 world_structures 被覆盖）；⑧质量改进循环编排（M1–M6 指标聚合 + 硬回归守卫 + `quality_history.jsonl`）；⑨五本 demo 数据用 v0.73+ 管线全量重跑。790 backend tests 通过 |
