@@ -487,7 +487,7 @@ function SDFPanel({ onResult }: { onResult: (r: Partial<PocResult>) => void }) {
   const sdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+  useEffect(() => { onResultRef.current = onResult; });
 
   useEffect(() => {
     if (!wrapperRef.current || !sdfCanvasRef.current || mapRef.current) return;
@@ -616,7 +616,7 @@ function SDFPanel({ onResult }: { onResult: (r: Partial<PocResult>) => void }) {
       mapRef.current = null;
       mapContainer.remove();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   return (
@@ -641,7 +641,7 @@ function HillshadePanel({ onResult }: { onResult: (r: Partial<PocResult>) => voi
   const hillshadeRef = useRef<HTMLCanvasElement>(null);
   const compositeRef = useRef<HTMLCanvasElement>(null);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+  useEffect(() => { onResultRef.current = onResult; });
   const [rendered, setRendered] = useState(false);
 
   const render = useCallback(() => {
@@ -727,10 +727,14 @@ function HillshadePanel({ onResult }: { onResult: (r: Partial<PocResult>) => voi
 
     onResultRef.current({ status: "success", notes, renderTime: Math.round(performance.now() - t0) });
     setRendered(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
-  useEffect(() => { if (!rendered) render(); }, [render, rendered]);
+  useEffect(() => {
+    if (rendered) return;
+    const id = requestAnimationFrame(() => render());
+    return () => cancelAnimationFrame(id);
+  }, [render, rendered]);
 
   return (
     <div className="h-full flex flex-col">
@@ -761,7 +765,7 @@ function ParchmentPanel({ onResult }: { onResult: (r: Partial<PocResult>) => voi
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+  useEffect(() => { onResultRef.current = onResult; });
   const [mode, setMode] = useState<"svg-texture" | "canvas-texture" | "css-filter">("svg-texture");
 
   useEffect(() => {
@@ -893,7 +897,7 @@ function ParchmentPanel({ onResult }: { onResult: (r: Partial<PocResult>) => voi
       mapRef.current?.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [mode]);
 
   return (

@@ -14,6 +14,7 @@ datasets (e.g., game worlds with a hand-crafted TSV).
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import math
@@ -70,6 +71,20 @@ DATASET_REGISTRY: dict[str, GeoDatasetConfig] = {
 
 
 # ── Constants ────────────────────────────────────────────
+
+# Overall cap (seconds) for a single GeoNames dataset download. The per-request
+# httpx timeout only bounds individual socket stalls; a slow-but-progressing
+# download could otherwise keep a map request awaiting indefinitely (#82).
+_GEO_DOWNLOAD_OVERALL_TIMEOUT_S = 300.0
+
+
+class GeoDataUnavailableError(RuntimeError):
+    """GeoNames dataset could not be downloaded or loaded.
+
+    Callers must degrade to the fictional layout instead of letting the
+    request hang. Never persist a geo_type derived from this failure —
+    the next request should retry the download.
+    """
 
 # Common Chinese geographic suffixes to strip for fuzzy matching
 _GEO_SUFFIXES = re.compile(
@@ -938,39 +953,53 @@ class GeoResolver:
         return GEONAMES_DIR / self.config.zip_member
 
     async def _ensure_data(self) -> None:
-        """Download the dataset zip from GeoNames if the TSV doesn't exist."""
+        """Download the dataset zip from GeoNames if the TSV doesn't exist.
+
+        Raises GeoDataUnavailableError on any failure (network, timeout,
+        corrupt zip) so callers can degrade instead of hanging (#82).
+        """
         tsv = self._tsv_path()
         if tsv.exists():
             return
-        GEONAMES_DIR.mkdir(parents=True, exist_ok=True)
-        logger.info(
-            "Downloading GeoNames dataset [%s] from %s ...",
-            self.dataset_key, self.config.url,
-        )
-        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-            resp = await client.get(self.config.url)
-            resp.raise_for_status()
-        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-            # Extract the specific target file (not readme.txt etc.)
-            target = self.config.zip_member
-            if target in zf.namelist():
-                zf.extract(target, GEONAMES_DIR)
-                logger.info("Extracted %s to %s", target, GEONAMES_DIR)
-            else:
-                # Fallback: extract largest .txt file (likely the data file)
-                txt_members = [
-                    m for m in zf.namelist()
-                    if m.endswith(".txt") and not m.lower().startswith("readme")
-                ]
-                if txt_members:
-                    chosen = max(txt_members, key=lambda m: zf.getinfo(m).file_size)
-                    zf.extract(chosen, GEONAMES_DIR)
-                    # Rename to expected name if different
-                    if chosen != target:
-                        (GEONAMES_DIR / chosen).rename(GEONAMES_DIR / target)
-                    logger.info("Extracted %s as %s", chosen, target)
+        try:
+            GEONAMES_DIR.mkdir(parents=True, exist_ok=True)
+            logger.info(
+                "Downloading GeoNames dataset [%s] from %s ...",
+                self.dataset_key, self.config.url,
+            )
+            async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+                resp = await asyncio.wait_for(
+                    client.get(self.config.url),
+                    timeout=_GEO_DOWNLOAD_OVERALL_TIMEOUT_S,
+                )
+                resp.raise_for_status()
+            with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+                # Extract the specific target file (not readme.txt etc.)
+                target = self.config.zip_member
+                if target in zf.namelist():
+                    zf.extract(target, GEONAMES_DIR)
+                    logger.info("Extracted %s to %s", target, GEONAMES_DIR)
+                else:
+                    # Fallback: extract largest .txt file (likely the data file)
+                    txt_members = [
+                        m for m in zf.namelist()
+                        if m.endswith(".txt") and not m.lower().startswith("readme")
+                    ]
+                    if txt_members:
+                        chosen = max(txt_members, key=lambda m: zf.getinfo(m).file_size)
+                        zf.extract(chosen, GEONAMES_DIR)
+                        # Rename to expected name if different
+                        if chosen != target:
+                            (GEONAMES_DIR / chosen).rename(GEONAMES_DIR / target)
+                        logger.info("Extracted %s as %s", chosen, target)
+        except GeoDataUnavailableError:
+            raise
+        except Exception as exc:
+            raise GeoDataUnavailableError(
+                f"GeoNames dataset [{self.dataset_key}] download failed: {exc}"
+            ) from exc
         if not tsv.exists():
-            raise FileNotFoundError(f"Expected {tsv} after extraction")
+            raise GeoDataUnavailableError(f"Expected {tsv} after extraction")
         logger.info("GeoNames dataset [%s] ready at %s", self.dataset_key, tsv)
 
     def _load_index(self) -> dict[str, list[GeoEntry]]:
@@ -1043,9 +1072,18 @@ class GeoResolver:
     # ── Name resolution ──────────────────────────────────
 
     async def ensure_ready(self) -> None:
-        """Ensure dataset is downloaded and index is loaded."""
+        """Ensure dataset is downloaded and index is loaded.
+
+        Raises GeoDataUnavailableError when the dataset cannot be obtained
+        or parsed — callers must degrade to fictional layout (#82).
+        """
         await self._ensure_data()
-        self._load_index()
+        try:
+            self._load_index()
+        except Exception as exc:
+            raise GeoDataUnavailableError(
+                f"GeoNames dataset [{self.dataset_key}] index load failed: {exc}"
+            ) from exc
 
     def resolve_names(
         self, names: list[str],

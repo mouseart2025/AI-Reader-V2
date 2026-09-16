@@ -678,7 +678,7 @@ export function rebuildHierarchy(
         let buffer = ""
         let done_received = false
         let result: HierarchyRebuildResult | null = null
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
@@ -743,7 +743,7 @@ export function spatialCompletion(
         const decoder = new TextDecoder()
         let buffer = ""
         let result: { relations_added: number; layer_changes: number } | null = null
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
