@@ -19,6 +19,7 @@ smoke = importlib.util.module_from_spec(_spec)
 sys.modules["smoke_extraction_quality"] = smoke
 _spec.loader.exec_module(smoke)
 
+from src.infra import config  # noqa: E402
 from src.models.chapter_fact import (  # noqa: E402
     ChapterFact,
     CharacterFact,
@@ -139,7 +140,10 @@ class TestEstimateCost:
 class TestMockEndToEnd:
     """--mock 模式全链路:抽取 → 校验 → 幻觉判定(离线)。"""
 
-    def test_run_smoke_mock(self, tmp_path):
+    def test_run_smoke_mock(self, tmp_path, monkeypatch):
+        # mock 首遍产出充足(2 事件),默认阈值下自适应 recall 会跳过;
+        # 本用例验证 recall 合并路径,故调高阈值强制触发(稀薄分支)
+        monkeypatch.setattr(config, "RECALL_PASS_MIN_SIGNALS", 99)
         llm = smoke.MockLLM()
         log_path = tmp_path / "review.jsonl"
         result = _run(smoke.run_smoke(
@@ -162,6 +166,22 @@ class TestMockEndToEnd:
         assert result["usage"]["total_tokens"] == 5 * 150
         # 审计条目已落盘
         assert log_path.exists()
+
+    def test_run_smoke_mock_recall_skipped_when_abundant(self, tmp_path):
+        """充足分支:mock 首遍产出 2 事件(≥ 默认阈值 2),自适应 recall 跳过,
+        不发起查漏 LLM 调用。"""
+        llm = smoke.MockLLM()
+        result = _run(smoke.run_smoke(
+            _CHAPTER_TEXT * 20, llm,
+            review_log_path=tmp_path / "review.jsonl",
+        ))
+        # 无 recall_pass 来源记录
+        assert result["recall_pass"] == {
+            "characters": 0, "relationships": 0, "events": 0,
+        }
+        # 用量累计:主抽取 + 2 次投票 + 1 次幻觉判定 = 4 次(无 recall)
+        assert result["usage"]["llm_calls"] == 4
+        assert result["usage"]["total_tokens"] == 4 * 150
 
     def test_build_and_render_report(self, tmp_path):
         llm = smoke.MockLLM()

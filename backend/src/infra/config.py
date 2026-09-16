@@ -83,6 +83,11 @@ RECALL_PASS_ENABLED: bool = os.environ.get(
     "RECALL_PASS_ENABLED", "true"
 ).strip().lower() not in ("0", "false", "no", "off")
 
+# 自适应 recall 触发阈值 (成本优化): 仅当首遍产出稀薄时才发起查漏调用 ——
+# spatial_relationships 与 events 均为空,或两者总数低于该阈值。
+# 设为 0 时仅"双空"触发;RECALL_PASS_ENABLED=false 时永不触发(总开关)。
+RECALL_PASS_MIN_SIGNALS: int = int(os.environ.get("RECALL_PASS_MIN_SIGNALS", "2"))
+
 # 幻觉人物 LLM 判定层 (Epic 4, FR-4.2)。默认开;在 FactValidator 规则层之后、
 # 落库之前,对规则层抓不住的疑似幻觉人物(原文中找不到的名字)做 LLM 判定,
 # 高置信幻觉剔除、低置信降级为存疑,决策落 JSONL 审计日志 (NFR-5)。

@@ -860,14 +860,33 @@ class ChapterFactExtractor:
 
         # Recall pass (FR-4.1): 第二遍"查漏"调用,只补漏;补漏记录经同样的
         # sanitize 后标记 source="recall_pass" 并入。失败不影响首遍结果。
-        from src.infra.config import RECALL_PASS_ENABLED
+        # 自适应触发 (成本优化): 仅当首遍产出稀薄(spatial_relationships 与
+        # events 均为空,或两者总数 < RECALL_PASS_MIN_SIGNALS)时才发起查漏,
+        # 避免产出充足的章节白烧一次整章调用。
+        from src.infra.config import RECALL_PASS_ENABLED, RECALL_PASS_MIN_SIGNALS
         if RECALL_PASS_ENABLED:
-            recall_usage = await self._recall_pass(
-                novel_id, chapter_id, chapter_text, fact,
+            _n_spatial = len(fact.spatial_relationships)
+            _n_events = len(fact.events)
+            _sparse = (
+                (_n_spatial == 0 and _n_events == 0)
+                or (_n_spatial + _n_events) < RECALL_PASS_MIN_SIGNALS
             )
-            usage.prompt_tokens += recall_usage.prompt_tokens
-            usage.completion_tokens += recall_usage.completion_tokens
-            usage.total_tokens += recall_usage.total_tokens
+            if _sparse:
+                logger.info(
+                    "Chapter %d: 触发 recall(产出稀薄: %d 空间关系 / %d 事件)",
+                    chapter_id, _n_spatial, _n_events,
+                )
+                recall_usage = await self._recall_pass(
+                    novel_id, chapter_id, chapter_text, fact,
+                )
+                usage.prompt_tokens += recall_usage.prompt_tokens
+                usage.completion_tokens += recall_usage.completion_tokens
+                usage.total_tokens += recall_usage.total_tokens
+            else:
+                logger.info(
+                    "Chapter %d: 跳过 recall(产出充足: %d 空间关系 / %d 事件)",
+                    chapter_id, _n_spatial, _n_events,
+                )
 
         return fact, usage, meta
 

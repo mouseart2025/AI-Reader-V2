@@ -180,6 +180,33 @@ class AnalysisService:
             )
             return fact
 
+    @staticmethod
+    async def _update_world_structure(world_agent, chapter_num, chapter_text, fact) -> None:
+        """世界结构更新(章内并行环节之一;异常由 gather 隔离处处理)。"""
+        await world_agent.process_chapter(chapter_num, chapter_text, fact)
+
+    async def _extract_and_store_scenes(
+        self, novel_id: str, chapter_pk: int, chapter_text: str, chapter_num: int, fact,
+    ) -> None:
+        """场景抽取 + 落库(章内并行环节之一)。须在 insert_chapter_fact 之后
+        运行(chapter_facts 行须已存在,UPDATE 才生效)。"""
+        scenes = await self.scene_extractor.extract(chapter_text, chapter_num, fact)
+        if scenes:
+            await chapter_fact_store.update_scenes(novel_id, chapter_pk, scenes)
+
+    @staticmethod
+    async def _index_chapter_embeddings(novel_id: str, chapter_num: int, chapter_text: str, fact) -> None:
+        """ChromaDB embedding 索引(章内并行环节之一)。同步 SDK 调用保持在
+        协程内(不引入额外线程),与另两个环节的 LLM 网络等待自然交叠。"""
+        fact_data = fact.model_dump()
+        fact_summary = embedding_service.build_fact_summary(fact_data)
+        embedding_service.index_chapter(
+            novel_id, chapter_num, chapter_text, fact_summary
+        )
+        embedding_service.index_entities_from_fact(
+            novel_id, chapter_num, fact_data
+        )
+
     async def start(
         self,
         novel_id: str,
@@ -595,20 +622,6 @@ class AnalysisService:
                 # 双向原文锚定:不可定位的 canonical/别名声明不进入映射
                 name_resolver.accumulate_from_chapter(fact, chapter_text=chapter["content"])
 
-                # Update world structure (never blocks pipeline)
-                await self._broadcast_stage(novel_id, chapter_num, "更新世界结构")
-                world_structure_updated = False
-                try:
-                    await world_agent.process_chapter(
-                        chapter_num, chapter["content"], fact,
-                    )
-                    world_structure_updated = True
-                except Exception as e:
-                    logger.warning(
-                        "World structure agent error for chapter %d: %s",
-                        chapter_num, e,
-                    )
-
                 await self._broadcast_stage(novel_id, chapter_num, "保存数据")
                 elapsed_ms = int(time.time() * 1000) - start_ms
                 _chapter_times.append(elapsed_ms)
@@ -641,34 +654,37 @@ class AnalysisService:
                     output_truncated=extraction_meta.output_truncated,
                 )
 
-                # Scene extraction via LLM (non-fatal)
-                # Must run AFTER insert_chapter_fact so the row exists for UPDATE
-                await self._broadcast_stage(novel_id, chapter_num, "场景分析")
-                try:
-                    scenes = await self.scene_extractor.extract(
-                        chapter["content"], chapter_num, fact,
-                    )
-                    if scenes:
-                        await chapter_fact_store.update_scenes(
-                            novel_id, chapter_pk, scenes,
-                        )
-                except Exception as e:
-                    logger.warning(
-                        "场景提取失败 (chapter %d): %s", chapter_num, e,
-                    )
+                # 章内并行:世界结构更新 / 场景抽取 / embedding 索引互不依赖。
+                # 依赖关系:场景 UPDATE 依赖上面的 INSERT(行须已存在);
+                # embedding 只用 fact 与原文,不消费场景结果;幻觉判定产出
+                # 最终 fact,必须在此之前串行完成。异常隔离保持原容错语义
+                # (各环节失败仅记日志,不阻塞管线)。
+                await self._broadcast_stage(novel_id, chapter_num, "场景分析 · 世界结构更新")
 
-                # Index embeddings in ChromaDB
-                try:
-                    fact_data = fact.model_dump()
-                    fact_summary = embedding_service.build_fact_summary(fact_data)
-                    embedding_service.index_chapter(
-                        novel_id, chapter_num, chapter["content"], fact_summary
-                    )
-                    embedding_service.index_entities_from_fact(
-                        novel_id, chapter_num, fact_data
-                    )
-                except Exception as e:
-                    logger.warning("Embedding indexing failed for chapter %d: %s", chapter_num, e)
+                world_res, scenes_res, embed_res = await asyncio.gather(
+                    self._update_world_structure(
+                        world_agent, chapter_num, chapter["content"], fact,
+                    ),
+                    self._extract_and_store_scenes(
+                        novel_id, chapter_pk, chapter["content"], chapter_num, fact,
+                    ),
+                    self._index_chapter_embeddings(
+                        novel_id, chapter_num, chapter["content"], fact,
+                    ),
+                    return_exceptions=True,
+                )
+                world_structure_updated = world_res is None
+                for _res, _log_msg in (
+                    (world_res, "World structure agent error for chapter %d: %s"),
+                    (scenes_res, "场景提取失败 (chapter %d): %s"),
+                    (embed_res, "Embedding indexing failed for chapter %d: %s"),
+                ):
+                    if _res is None:
+                        continue
+                    if isinstance(_res, Exception):
+                        logger.warning(_log_msg, chapter_num, _res)
+                    else:
+                        raise _res  # CancelledError 等 BaseException 不吞
 
                 # Update chapter status
                 await analysis_task_store.update_chapter_analysis_status(
@@ -795,6 +811,29 @@ class AnalysisService:
                     )
                     _protected_names.update(ch.name for ch in fact.characters)
                     retry_elapsed = int(time.time() * 1000) - retry_start
+                    # Cost accounting: same basis as the first-try path
+                    # (provider-reported usage × model pricing, cloud only)
+                    _retry_cost_usd, _retry_cost_cny = 0.0, 0.0
+                    if is_cloud:
+                        _retry_spent_usd = (
+                            (usage.prompt_tokens / 1_000_000) * _input_price
+                            + (usage.completion_tokens / 1_000_000) * _output_price
+                        )
+                        _retry_cost_usd = round(_retry_spent_usd, 6)
+                        _retry_cost_cny = round(_retry_cost_usd * 7.2, 4)
+                        cost_stats["total_input_tokens"] += usage.prompt_tokens
+                        cost_stats["total_output_tokens"] += usage.completion_tokens
+                        cost_stats["total_cost_usd"] = round(
+                            cost_stats["total_cost_usd"] + _retry_spent_usd, 4
+                        )
+                        cost_stats["total_cost_cny"] = round(
+                            cost_stats["total_cost_usd"] * 7.2, 2
+                        )
+                        updated = await add_monthly_usage(
+                            _retry_spent_usd, _retry_spent_usd * 7.2,
+                            usage.prompt_tokens, usage.completion_tokens,
+                        )
+                        cost_stats["monthly_used_cny"] = updated.get("cny", 0.0)
                     await chapter_fact_store.insert_chapter_fact(
                         novel_id=novel_id,
                         chapter_id=retry_ch["id"],
@@ -803,8 +842,8 @@ class AnalysisService:
                         extraction_ms=retry_elapsed,
                         input_tokens=usage.prompt_tokens,
                         output_tokens=usage.completion_tokens,
-                        cost_usd=0.0,
-                        cost_cny=0.0,
+                        cost_usd=_retry_cost_usd,
+                        cost_cny=_retry_cost_cny,
                     )
                     await analysis_task_store.update_chapter_analysis_status(
                         novel_id, retry_num, "completed"
@@ -1118,6 +1157,12 @@ class AnalysisService:
         ws_struct = await world_structure_store.load(novel_id)
         loc_parents = ws_struct.location_parents if ws_struct else None
         loc_tiers = dict(ws_struct.location_tiers) if ws_struct and ws_struct.location_tiers else None
+        # Cost accounting basis: same as the main loop (cloud only)
+        _retry_is_cloud = _cfg.LLM_PROVIDER == "openai"
+        if _retry_is_cloud:
+            _retry_in_price, _retry_out_price = get_pricing(_cfg.LLM_MODEL or "")
+        else:
+            _retry_in_price, _retry_out_price = 0.0, 0.0
         # Per-retry validator to avoid shared state
         _retry_validator = FactValidator(
             genre=ws_struct.novel_genre_hint if ws_struct and ws_struct.novel_genre_hint else None
@@ -1164,6 +1209,21 @@ class AnalysisService:
                     novel_id, ch_num, fact, ch_content, None,
                 )
 
+                # Cost accounting: same basis as the first-try path
+                # (provider-reported usage × model pricing, cloud only)
+                _ch_cost_usd, _ch_cost_cny = 0.0, 0.0
+                if _retry_is_cloud:
+                    _spent_usd = (
+                        (usage.prompt_tokens / 1_000_000) * _retry_in_price
+                        + (usage.completion_tokens / 1_000_000) * _retry_out_price
+                    )
+                    _ch_cost_usd = round(_spent_usd, 6)
+                    _ch_cost_cny = round(_ch_cost_usd * 7.2, 4)
+                    await add_monthly_usage(
+                        _spent_usd, _spent_usd * 7.2,
+                        usage.prompt_tokens, usage.completion_tokens,
+                    )
+
                 await chapter_fact_store.insert_chapter_fact(
                     novel_id=novel_id,
                     chapter_id=ch_id,
@@ -1172,8 +1232,8 @@ class AnalysisService:
                     extraction_ms=0,
                     input_tokens=usage.prompt_tokens,
                     output_tokens=usage.completion_tokens,
-                    cost_usd=0.0,
-                    cost_cny=0.0,
+                    cost_usd=_ch_cost_usd,
+                    cost_cny=_ch_cost_cny,
                 )
                 await analysis_task_store.update_chapter_analysis_status(
                     novel_id, ch_num, "completed"
