@@ -53,7 +53,7 @@ echo ""
 
 # ── Helper: cross-platform sed (BSD + GNU) ────────────
 _sed_i() {
-  sed -i.bak "$@" && rm -f "${@: -1}.bak"
+  sed -E -i.bak "$@" && rm -f "${@: -1}.bak"
 }
 
 # ── 1. backend/pyproject.toml ─────────────────────────
