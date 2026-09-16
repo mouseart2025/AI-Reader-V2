@@ -96,6 +96,7 @@ export default function ScreenplayPage() {
   // Load chapter content + scenes when chapter changes
   useEffect(() => {
     if (!novelId || !currentChapterNum) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 章节切换时同步进入加载态再拉取内容，标准数据获取模式
     setLoading(true)
     Promise.all([
       fetchChapterContent(novelId, currentChapterNum),

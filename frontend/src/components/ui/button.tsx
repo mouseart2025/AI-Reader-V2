@@ -61,4 +61,5 @@ function Button({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shadcn 惯例：variants 与组件同文件导出，便于外部复用样式
 export { Button, buttonVariants }

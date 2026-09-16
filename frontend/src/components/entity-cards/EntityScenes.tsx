@@ -31,6 +31,7 @@ export function EntityScenes({ novelId, entityName, onChapterClick }: EntityScen
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 重新 fetch 前需同步重置 loaded 标记，数据获取的 intentional 模式
     setLoaded(false)
     fetchEntityScenes(novelId, entityName)
       .then((data) => setScenes(data))

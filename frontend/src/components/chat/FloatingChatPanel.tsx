@@ -47,6 +47,7 @@ export function FloatingChatPanel() {
   useEffect(() => {
     if (prevNovelIdRef.current !== novelId) {
       clearMessages()
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换小说时需同步重置面板 UI 状态并清空消息，属"随 prop 重置"的 intentional 模式
       setShowQuickQuestions(true)
       prevNovelIdRef.current = novelId
     }

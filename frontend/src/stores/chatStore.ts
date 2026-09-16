@@ -329,7 +329,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   _appendStreamToken: (token) =>
     set((s) => ({ streamingContent: s.streamingContent + token, streamingStatus: "" })),
 
-  _finishStream: (_sources) =>
+  _finishStream: () =>
     set({ streaming: false }),
 
   _addMessage: (msg) =>

@@ -71,7 +71,8 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
       <CardSection title="外貌特征" defaultLimit={3}>
         {[...appearances].reverse().map((a, i) => {
           // Support both old ({chapter}) and new ({chapters}) format
-          const chs: number[] = a.chapters ?? ((a as any).chapter != null ? [(a as any).chapter] : [])
+          const legacyChapter = (a as { chapter?: number }).chapter
+          const chs: number[] = a.chapters ?? (legacyChapter != null ? [legacyChapter] : [])
           return (
             <div key={i} className="text-sm">
               {onChapterClick ? (
@@ -129,7 +130,8 @@ export const PersonCard = memo(function PersonCard({ profile, onEntityClick, onC
                     {rel.stages.length > 1 && (
                       <span className="text-muted-foreground ml-1 text-xs">
                         ({rel.stages.map((s, si) => {
-                          const chs: number[] = s.chapters ?? ((s as any).chapter != null ? [(s as any).chapter] : [])
+                          const legacyChapter = (s as { chapter?: number }).chapter
+                          const chs: number[] = s.chapters ?? (legacyChapter != null ? [legacyChapter] : [])
                           if (chs.length === 0) return <span key={si}>{s.relation_type}</span>
                           const tag = chs.length === 1
                             ? `Ch.${chs[0]}`

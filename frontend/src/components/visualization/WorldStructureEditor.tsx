@@ -447,6 +447,7 @@ function LocationTreeTab({
         defaultExpanded.add(child)
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据就绪后一次性初始化默认展开节点（initialized 守卫），属初始化同步的 intentional 模式
     setExpandedNodes(defaultExpanded)
     setInitialized(true)
   }, [roots, childrenMap, initialized])
@@ -689,6 +690,7 @@ function DetailPanel({
   useEffect(() => {
     if (!expanded || !locationName || !novelId) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 展开卡片时同步清空旧详情再拉取新数据，数据获取的 intentional 模式
     setLocationProfile(null)
     fetchEntityProfile(novelId, locationName, "location").then((data) => {
       if (!cancelled && data) setLocationProfile(data as unknown as LocationProfile)

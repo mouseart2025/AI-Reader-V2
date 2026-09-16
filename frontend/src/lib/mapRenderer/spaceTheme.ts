@@ -62,7 +62,6 @@ export function drawSpaceNode(
   x: number, y: number,
   radius: number,
   tier: string,
-  _name: string,
 ) {
   const color = SPACE_THEME.typeColors[tier] || SPACE_THEME.nodeFill
 

@@ -1,6 +1,7 @@
-import { lazy, Suspense } from "react"
-import { createBrowserRouter, Navigate, useRouteError, Link } from "react-router-dom"
+import { lazy } from "react"
+import { createBrowserRouter, Navigate } from "react-router-dom"
 import { NovelLayout } from "./NovelLayout"
+import { SuspenseWrapper, DemoErrorBoundary } from "./routerComponents"
 
 // Platform detection at module level (not a hook — used by createBrowserRouter)
 const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)
@@ -32,49 +33,6 @@ const DemoEncyclopediaPage = lazy(() => import("@/pages/demo/DemoEncyclopediaPag
 const DemoFactionsPage = lazy(() => import("@/pages/demo/DemoFactionsPage"))
 const DemoReadingPage = lazy(() => import("@/pages/demo/DemoReadingPage"))
 const DemoExportPage = lazy(() => import("@/pages/demo/DemoExportPage"))
-
-function SuspenseWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense
-      fallback={
-        <div className="text-muted-foreground flex min-h-screen items-center justify-center text-sm">
-          加载中...
-        </div>
-      }
-    >
-      {children}
-    </Suspense>
-  )
-}
-
-/** Error boundary for demo routes — provides a helpful message and homepage escape */
-function DemoErrorBoundary() {
-  const error = useRouteError()
-  const landingUrl = (import.meta.env.BASE_URL ?? "/").replace(/\/demo\/?$/, "/") || "/"
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center">
-      <span className="mb-4 text-5xl">😵</span>
-      <h1 className="mb-2 text-xl font-bold text-white">Demo 页面加载出错</h1>
-      <p className="mb-6 text-sm text-slate-400">
-        {error instanceof Error ? error.message : "页面未找到或加载失败"}
-      </p>
-      <div className="flex gap-3">
-        <a
-          href={landingUrl}
-          className="rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition"
-        >
-          返回首页
-        </a>
-        <Link
-          to="/demo/honglou/graph"
-          className="rounded-md border border-slate-600 px-6 py-2 text-sm font-semibold text-slate-300 hover:border-blue-500 hover:text-white transition"
-        >
-          打开红楼梦 Demo
-        </Link>
-      </div>
-    </div>
-  )
-}
 
 export const router = createBrowserRouter([
   // Platform-specific routes

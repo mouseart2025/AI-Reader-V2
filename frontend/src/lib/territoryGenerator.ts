@@ -186,7 +186,7 @@ export function generateTerritories(
     if (cellIndices.length === 0) continue
 
     // Get outer boundary by merging Voronoi cells
-    const polygon = mergeVoronoiCells(voronoi, cellIndices, width, height)
+    const polygon = mergeVoronoiCells(voronoi, cellIndices)
     if (polygon.length < 3) continue
 
     // Determine nesting level
@@ -234,8 +234,6 @@ function getAncestorChain(
 function mergeVoronoiCells(
   voronoi: ReturnType<typeof Delaunay.prototype.voronoi>,
   cellIndices: number[],
-  _width: number,
-  _height: number,
 ): Point[] {
   // Collect boundary edges
   // An edge is boundary if it borders a cell NOT in the owned set
@@ -298,7 +296,7 @@ function chainEdges(edges: { p: Point; q: Point }[]): Point[][] {
     if (!firstUnused) continue
 
     const loop: Point[] = []
-    let currentKey = startKey
+    const currentKey = startKey
     let currentEntry = firstUnused
     currentEntry.used = true
     // Mark reverse
