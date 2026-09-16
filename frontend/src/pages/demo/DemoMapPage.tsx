@@ -102,7 +102,7 @@ export default function DemoMapPage() {
       return
     }
     let cancelled = false
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 惰性加载图层数据前同步进入加载态，标准数据获取模式
+
     setLayerLoading(true)
     loadDemoLayerMap<MapData>(novelSlug, activeLayerId)
       .then((d) => {
