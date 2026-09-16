@@ -5,7 +5,9 @@
 - 补漏记录标记 source="recall_pass",可追溯来源;
 - 首遍结果不被改写;
 - 开关关闭时不发起第二遍调用,行为与 v0.73 一致(单遍);
-- 单章 LLM 调用 ≤2 倍 (NFR-2)。
+- 单章 LLM 调用 ≤2 倍 (NFR-2);
+- 自适应触发:首遍产出稀薄(空间关系与事件双空或总数低于阈值)才查漏,
+  产出充足时跳过(不发起第二遍 LLM 调用)。
 """
 
 from __future__ import annotations
@@ -98,6 +100,42 @@ def _recall_response() -> dict:
                 "evidence": "席间柴进提起林冲风雪上梁山之事",
             }
         ],
+    }
+
+
+def _rich_main_response() -> dict:
+    """首遍产出充足:2 事件 + 1 空间关系(总数 ≥ 默认阈值 2,且非双空)。"""
+    resp = _main_response()
+    resp["events"].append({
+        "summary": "宋江武松把酒言欢",
+        "type": "社交",
+        "importance": "low",
+        "participants": ["宋江", "武松"],
+        "location": "柴进庄",
+        "evidence": "两人把酒言欢,结为生死之交",
+    })
+    resp["spatial_relationships"] = [
+        {
+            "source": "柴进庄",
+            "target": "青州",
+            "relation_type": "travel_path",
+            "value": "",
+            "narrative_evidence": "独自上路投青州去了",
+        }
+    ]
+    return resp
+
+
+def _sparse_main_response() -> dict:
+    """首遍产出稀薄:仅人物,无事件、无空间关系(双空)。"""
+    return {
+        "chapter_id": 1,
+        "novel_id": "test-novel",
+        "characters": [{"name": "宋江"}, {"name": "武松"}],
+        "relationships": [],
+        "locations": [{"name": "柴进庄"}],
+        "events": [],
+        "spatial_relationships": [],
     }
 
 
@@ -217,12 +255,59 @@ async def test_switch_off_single_pass_no_recall_call(recall_off):
 
 @pytest.mark.asyncio
 async def test_llm_calls_at_most_2x_per_chapter(recall_on):
-    """NFR-2:开启 recall pass 后单章 LLM 调用恰好 2 倍(首遍 + 查漏)。"""
+    """NFR-2:产出稀薄触发 recall 时,单章 LLM 调用恰好 2 倍(首遍 + 查漏)。"""
     llm = MockLLM(_main_response(), _recall_response())
     extractor = ChapterFactExtractor(llm=llm)
     await extractor.extract("test-novel", 1, CHAPTER_TEXT)
     assert len(llm.prompts) == 2
     assert llm.recall_calls == 1
+
+
+# ── 自适应触发(成本优化)──
+
+
+@pytest.mark.asyncio
+async def test_recall_skipped_when_output_abundant(recall_on):
+    """产出充足(事件+空间关系 ≥ 阈值且非双空):不发起第二遍 LLM 调用。"""
+    llm = MockLLM(_rich_main_response(), _recall_response())
+    extractor = ChapterFactExtractor(llm=llm)
+    fact, usage, _ = await extractor.extract("test-novel", 1, CHAPTER_TEXT)
+
+    assert llm.recall_calls == 0
+    assert len(llm.prompts) == 1  # 只有首遍调用
+    # 查漏 token 未计入 usage
+    assert usage.prompt_tokens == 100
+    assert usage.completion_tokens == 50
+    # 结果即首遍结果,无 recall_pass 记录
+    assert all(ch.source == "main" for ch in fact.characters)
+    assert all(e.source == "main" for e in fact.events)
+    assert len(fact.events) == 2
+
+
+@pytest.mark.asyncio
+async def test_recall_triggered_when_output_sparse(recall_on):
+    """产出稀薄(事件与空间关系双空):触发查漏,补漏并入且标记来源。"""
+    llm = MockLLM(_sparse_main_response(), _recall_response())
+    extractor = ChapterFactExtractor(llm=llm)
+    fact, usage, _ = await extractor.extract("test-novel", 1, CHAPTER_TEXT)
+
+    assert llm.recall_calls == 1
+    char_sources = {ch.name: ch.source for ch in fact.characters}
+    assert char_sources["林冲"] == "recall_pass"
+    event_sources = {ev.summary: ev.source for ev in fact.events}
+    assert event_sources["柴进席间提起林冲之事"] == "recall_pass"
+    # 查漏 token 计入 usage
+    assert usage.prompt_tokens == 100 + 10
+
+
+@pytest.mark.asyncio
+async def test_recall_threshold_configurable(recall_on, monkeypatch):
+    """阈值可配:RECALL_PASS_MIN_SIGNALS=0 时仅"双空"触发,单事件产出跳过。"""
+    monkeypatch.setattr(config, "RECALL_PASS_MIN_SIGNALS", 0)
+    llm = MockLLM(_main_response(), _recall_response())  # 1 事件、0 空间关系
+    extractor = ChapterFactExtractor(llm=llm)
+    await extractor.extract("test-novel", 1, CHAPTER_TEXT)
+    assert llm.recall_calls == 0
 
 
 # ── 失败非致命 ──
