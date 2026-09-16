@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from src.db import novel_store
-from src.services.visualization_service import get_factions_data, get_analyzed_range
+from src.services.visualization_service import get_analyzed_range, get_factions_data
 
 router = APIRouter(prefix="/api/novels/{novel_id}/factions", tags=["factions"])
 

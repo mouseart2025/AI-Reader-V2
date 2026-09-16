@@ -16,6 +16,7 @@ Boundary signals and weights:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -170,10 +171,8 @@ async def extract_scenes(
     fact_data = None
     for row in all_facts:
         if row.get("chapter_id") == chapter_num:
-            try:
+            with contextlib.suppress(json.JSONDecodeError, KeyError):
                 fact_data = json.loads(row["fact_json"]) if isinstance(row["fact_json"], str) else row["fact_json"]
-            except (json.JSONDecodeError, KeyError):
-                pass
             break
 
     scenes = _split_into_scenes(content, title, chapter_num, fact_data)
@@ -727,9 +726,7 @@ def _get_events_in_range(
         summary = evt.get("summary", "")
         participants = evt.get("participants", [])
         # Check if any participant or key summary words appear in scene text
-        if any(p in scene_text for p in participants if p):
-            result.append({"summary": summary, "type": evt.get("type", "")})
-        elif summary and any(kw in scene_text for kw in summary[:10]):
+        if any(p in scene_text for p in participants if p) or (summary and any(kw in scene_text for kw in summary[:10])):
             result.append({"summary": summary, "type": evt.get("type", "")})
 
     return result[:5]  # Limit to 5 events per scene

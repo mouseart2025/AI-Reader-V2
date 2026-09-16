@@ -9,17 +9,14 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
-from functools import lru_cache
 from typing import Any
 
 from src.db.sqlite_db import get_connection
 from src.models.chapter_fact import ChapterFact
-from src.services.alias_resolver import build_alias_map
-from src.services.relation_utils import classify_relation_category, normalize_relation_type
 from src.models.entity_profiles import (
+    AbilityEntry,
     AliasEntry,
     AppearanceEntry,
-    AbilityEntry,
     EntitySummary,
     ItemAssociation,
     ItemFlowEntry,
@@ -35,6 +32,11 @@ from src.models.entity_profiles import (
     PersonProfile,
     RelationChain,
     RelationStage,
+)
+from src.services.alias_resolver import build_alias_map
+from src.services.relation_utils import (
+    classify_relation_category,
+    normalize_relation_type,
 )
 
 # ── Cache ─────────────────────────────────────────
@@ -63,7 +65,9 @@ def _cache_set(key: tuple[str, str, str], value: Any) -> None:
 def invalidate_cache(novel_id: str) -> None:
     """Invalidate all cached profiles and alias map for a novel."""
     from src.services.alias_resolver import invalidate_alias_cache
-    from src.services.hallucination_filter import invalidate_cache as invalidate_hallucination_cache
+    from src.services.hallucination_filter import (
+        invalidate_cache as invalidate_hallucination_cache,
+    )
 
     keys_to_remove = [k for k in _cache if k[0] == novel_id]
     for k in keys_to_remove:
@@ -283,11 +287,9 @@ async def aggregate_person(novel_id: str, person_name: str) -> PersonProfile:
         type_counts: dict[str, int] = defaultdict(int)
         all_chapters: list[int] = []
         all_evidences: list[str] = []
-        first_blood_type: str | None = None
 
         for ch, rtype, evidence in raw_stages:
             normalized = normalize_relation_type(rtype)
-            cat = classify_relation_category(normalized)
             type_counts[normalized] += 1
             all_chapters.append(ch)
             if evidence and evidence not in all_evidences:
@@ -460,7 +462,7 @@ async def aggregate_location(novel_id: str, location_name: str) -> LocationProfi
 
         # Visitors: characters who were at this location
         for char in fact.characters:
-            resolved_locs = {alias_map.get(l, l) for l in char.locations_in_chapter}
+            resolved_locs = {alias_map.get(loc, loc) for loc in char.locations_in_chapter}
             if location_name in resolved_locs:
                 visitor_canonical = alias_map.get(char.name, char.name)
                 visitor_map[visitor_canonical].append(ch)

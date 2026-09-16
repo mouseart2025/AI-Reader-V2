@@ -20,9 +20,7 @@ async def _is_tracking_enabled() -> bool:
         rows = await conn.execute_fetchall(
             "SELECT value FROM app_settings WHERE key = 'tracking_enabled'"
         )
-        if rows and rows[0][0] == "false":
-            return False
-        return True
+        return not (rows and rows[0][0] == "false")
     except Exception:
         return True
     finally:

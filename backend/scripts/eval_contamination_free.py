@@ -147,7 +147,6 @@ def evaluate_locations(gold_locs: list[dict], pipe: dict) -> dict:
     # --- Structural Health ---
     # Subgraph restricted to pipeline output
     def has_cycle(parents: dict) -> tuple[bool, list]:
-        visiting: set[str] = set()
         visited: set[str] = set()
         cycles: list = []
         for start in parents:
@@ -157,7 +156,7 @@ def evaluate_locations(gold_locs: list[dict], pipe: dict) -> dict:
             cur = start
             while cur:
                 if cur in path:
-                    cycles.append(path[path.index(cur):] + [cur])
+                    cycles.append([*path[path.index(cur):], cur])
                     break
                 if cur in visited:
                     break
@@ -304,9 +303,9 @@ def render_report(novel_title: str, novel_id: str, loc: dict, char: dict, rel: d
     lines.append(f"# 《{novel_title}》 Contamination-Free Evaluation")
     lines.append("")
     lines.append(f"- **Novel ID**: `{novel_id}`")
-    lines.append(f"- **Source**: DeepSeek V3 synthetic (not in Claude/GPT pretraining)")
+    lines.append("- **Source**: DeepSeek V3 synthetic (not in Claude/GPT pretraining)")
     lines.append(f"- **Chapters analyzed**: {pipe_meta['chapter_facts_loaded']}")
-    lines.append(f"- **Extraction LLM**: (check Settings page — typically Claude Sonnet 4.6 or DeepSeek V3)")
+    lines.append("- **Extraction LLM**: (check Settings page — typically Claude Sonnet 4.6 or DeepSeek V3)")
     lines.append("")
     lines.append("## Paper Table 2 Row")
     lines.append("")

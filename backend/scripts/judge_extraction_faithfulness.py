@@ -47,7 +47,6 @@ for _p in (str(_BACKEND_DIR), str(_SCRIPTS_DIR)):
 
 # 复用既有实现(单一实现原则):抽样/JSON 解析/seed 约定来自 quality_dashboard,
 # kappa 与 IAA 数据约定来自 compute_iaa,evidence 定位来自抽取器。
-from quality_dashboard import SEED, parse_llm_json, pick_sample  # noqa: E402
 from compute_iaa import (  # noqa: E402
     IAA_DIR,
     NOVEL_TO_SLUG,
@@ -56,6 +55,8 @@ from compute_iaa import (  # noqa: E402
     b_labels_for_relation,
     cohens_kappa,
 )
+from quality_dashboard import SEED, parse_llm_json, pick_sample  # noqa: E402
+
 from src.extraction.chapter_fact_extractor import span_located  # noqa: E402
 
 logger = logging.getLogger(__name__)

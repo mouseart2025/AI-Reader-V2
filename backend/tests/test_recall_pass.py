@@ -233,7 +233,7 @@ async def test_recall_failure_keeps_first_pass_result(recall_on):
     """查漏调用失败不影响首遍结果。"""
     llm = MockLLM(_main_response(), recall_error=RuntimeError("LLM 超时"))
     extractor = ChapterFactExtractor(llm=llm)
-    fact, usage, _ = await extractor.extract("test-novel", 1, CHAPTER_TEXT)
+    fact, _usage, _ = await extractor.extract("test-novel", 1, CHAPTER_TEXT)
 
     assert {ch.name for ch in fact.characters} == {"宋江", "武松", "柴进"}
     assert len(fact.relationships) == 1

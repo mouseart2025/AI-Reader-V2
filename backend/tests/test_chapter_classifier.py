@@ -1,7 +1,7 @@
 """Unit tests for chapter_classifier.classify_chapters() and classify_chapters_detailed()."""
 
-from src.utils.chapter_splitter import ChapterInfo
 from src.utils.chapter_classifier import classify_chapters, classify_chapters_detailed
+from src.utils.chapter_splitter import ChapterInfo
 
 
 def _ch(title: str, content: str, word_count: int | None = None, chapter_num: int = 1) -> ChapterInfo:
@@ -20,7 +20,7 @@ def _dialogue_content(n: int = 5000) -> str:
     Uses ASCII double quote (U+0022) which is what _DIALOGUE_LINE regex matches.
     """
     lines = []
-    for i in range(100):
+    for _i in range(100):
         lines.append('"小明说道，你好。"')
         lines.append("他转过身去，看着远方。")
         lines.append('"好的，"她回答。')

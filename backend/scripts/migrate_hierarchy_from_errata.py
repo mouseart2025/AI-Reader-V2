@@ -30,7 +30,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import sqlite3
 import sys
 from collections import Counter, defaultdict
@@ -344,10 +343,7 @@ def _merge_in_ws(ws: dict, source: str, target: str) -> int:
 def _retier_in_ws(ws: dict, name: str, new_tier: str) -> int:
     """更新tier."""
     tiers = ws.get("location_tiers", {})
-    if name in tiers and tiers[name] != new_tier:
-        tiers[name] = new_tier
-        return 1
-    elif name not in tiers:
+    if (name in tiers and tiers[name] != new_tier) or name not in tiers:
         tiers[name] = new_tier
         return 1
     return 0
@@ -470,7 +466,7 @@ def main():
     print(f"\n[info] Backup saved: {backup_path}")
 
     # Apply
-    print(f"\n[apply] Executing plan...")
+    print("\n[apply] Executing plan...")
     stats = apply_plan_to_ws(ws, plan, verbose=args.verbose)
     print(f"\n[result] {dict(stats)}")
 
@@ -488,7 +484,7 @@ def main():
     )
     conn.commit()
     conn.close()
-    print(f"[info] world_structure updated in DB")
+    print("[info] world_structure updated in DB")
     print(f"\n[next] Run benchmark to verify: "
           f"uv run python scripts/benchmark_hierarchy.py --novel={args.novel} --save-history")
 

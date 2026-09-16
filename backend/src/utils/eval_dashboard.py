@@ -14,10 +14,9 @@ Dimensions:
 from __future__ import annotations
 
 import json
-import sqlite3
 import os
+import sqlite3
 from pathlib import Path
-from collections import Counter
 
 from src.utils.topology_metrics import compute_topology_metrics
 
@@ -79,7 +78,10 @@ def eval_relations(novel_name: str) -> dict | None:
         if r["system_type"] == r["correct_type"]
     )
     # Category accuracy: system category matches correct_category
-    from src.services.relation_utils import normalize_relation_type, classify_relation_category
+    from src.services.relation_utils import (
+        classify_relation_category,
+        normalize_relation_type,
+    )
     cat_correct = 0
     cat_annotated = 0
     for r in annotated:

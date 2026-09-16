@@ -8,23 +8,23 @@ No DB, no LLM — pure data flow tests using constructed fixtures.
 """
 
 import json
-from collections import Counter
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 
-import src.db.entity_override_store as entity_override_store_mod
 import src.services.alias_resolver as alias_resolver_mod
 import src.services.visualization_service as visualization_mod
 from src.extraction.name_resolver import NameResolver
 from src.models.chapter_fact import (
-    ChapterFact, CharacterFact, RelationshipFact, EventFact,
+    ChapterFact,
+    CharacterFact,
+    RelationshipFact,
 )
 from src.models.entity_dict import EntityDictEntry
 from src.services.alias_resolver import build_alias_map
 from src.services.name_authority import pick_canonical
-
 
 # ── Fixtures ──────────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ class TestCanonicalRegressionGuards:
 
     # ── 西游记 ──
 
-    XIYOUJI_EXPECTATIONS = {
+    XIYOUJI_EXPECTATIONS: ClassVar = {
         "孙悟空": (["孙悟空", "行者", "猴王", "大圣", "齐天大圣", "悟空"],
                    {"孙悟空": 152, "行者": 300, "猴王": 89, "大圣": 100,
                     "齐天大圣": 20, "悟空": 374}),
@@ -209,7 +209,7 @@ class TestCanonicalRegressionGuards:
 
     # ── 红楼梦 ──
 
-    HONGLOU_EXPECTATIONS = {
+    HONGLOU_EXPECTATIONS: ClassVar = {
         "贾宝玉": (["贾宝玉", "宝玉", "宝二爷"],
                    {"贾宝玉": 500, "宝玉": 2000, "宝二爷": 100}),
         "林黛玉": (["林黛玉", "黛玉", "林妹妹", "颦儿"],
@@ -230,7 +230,7 @@ class TestCanonicalRegressionGuards:
 
     # ── 水浒传 ──
 
-    SHUIHU_EXPECTATIONS = {
+    SHUIHU_EXPECTATIONS: ClassVar = {
         "宋江": (["宋江", "宋公明", "及时雨", "呼保义"],
                  {"宋江": 800, "宋公明": 30, "及时雨": 20, "呼保义": 15}),
         "林冲": (["林冲", "豹子头"],
@@ -254,7 +254,7 @@ class TestCanonicalRegressionGuards:
                       **self.HONGLOU_EXPECTATIONS,
                       **self.SHUIHU_EXPECTATIONS}
         canonicals = []
-        for expected, (members, freq) in all_groups.items():
+        for _expected, (members, freq) in all_groups.items():
             result = pick_canonical(members, freq)
             canonicals.append(result)
         # All canonicals must be unique

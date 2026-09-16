@@ -1,13 +1,11 @@
 """Tests for alias_resolver — safety levels, char variant normalization, Union-Find merging."""
 
-import pytest
 
 from src.services.alias_resolver import (
     _alias_safety_level,
     _apply_known_hotfix_patches,
     _hotfix_xiyouji_sha_bajie,
 )
-
 
 # ── _alias_safety_level tests ───────────────────────────────────
 

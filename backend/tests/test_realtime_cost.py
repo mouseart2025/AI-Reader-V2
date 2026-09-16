@@ -216,7 +216,6 @@ def test_cost_accumulation_formula():
         total_cost += spent
 
     total_cost = round(total_cost, 4)
-    total_cny = round(total_cost * 7.2, 2)
 
     # Verify
     expected_cost = round(

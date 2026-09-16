@@ -14,7 +14,6 @@ from datetime import datetime
 from src.db.sqlite_db import get_connection
 from src.services.export_service import export_novel, import_novel
 
-
 BACKUP_FORMAT_VERSION = 1
 
 
@@ -25,10 +24,10 @@ def _get_app_version() -> str:
         return version("ai-reader-v2-backend")
     except Exception:
         try:
-            import importlib.resources
-            import tomllib
             # Fallback: read pyproject.toml
             import pathlib
+
+            import tomllib
             pyproject = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
             if pyproject.exists():
                 with open(pyproject, "rb") as f:
@@ -94,7 +93,7 @@ async def preview_backup_import(data: bytes) -> dict:
     try:
         zf = zipfile.ZipFile(io.BytesIO(data), "r")
     except zipfile.BadZipFile:
-        raise ValueError("无效的 ZIP 文件")
+        raise ValueError("无效的 ZIP 文件") from None
 
     manifest_raw = zf.read("manifest.json")
     manifest = json.loads(manifest_raw)
@@ -147,7 +146,7 @@ async def import_all(
     try:
         zf = zipfile.ZipFile(io.BytesIO(data), "r")
     except zipfile.BadZipFile:
-        raise ValueError("无效的 ZIP 文件")
+        raise ValueError("无效的 ZIP 文件") from None
 
     manifest_raw = zf.read("manifest.json")
     manifest = json.loads(manifest_raw)
@@ -189,7 +188,7 @@ async def import_all(
 
             imported += 1
         except Exception as e:
-            errors.append(f"{path}: {str(e)}")
+            errors.append(f"{path}: {e!s}")
 
     return {
         "total": len(novel_files),

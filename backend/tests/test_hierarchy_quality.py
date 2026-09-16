@@ -4,10 +4,8 @@
 - Story 2.3: Location alias normalization
 """
 
-import pytest
 
-from src.services.world_structure_agent import WorldStructureAgent, _get_suffix_rank
-
+from src.services.world_structure_agent import WorldStructureAgent
 
 # ── Story 2.1: Transitivity check ───────────────────────────────
 

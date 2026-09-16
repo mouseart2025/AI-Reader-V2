@@ -1,7 +1,5 @@
 """Tests for spatial scale detection — 9-level scale, per-layer scale, backward compatibility."""
 
-import pytest
-from collections import Counter
 
 from src.models.world_structure import (
     LayerType,
@@ -9,9 +7,8 @@ from src.models.world_structure import (
     SpatialScale,
     WorldStructure,
 )
-from src.services.world_structure_agent import WorldStructureAgent
 from src.services.map_layout_service import SPATIAL_SCALE_CANVAS
-
+from src.services.world_structure_agent import WorldStructureAgent
 
 # ── SpatialScale enum tests ──
 

@@ -9,7 +9,13 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from src.infra.llm_client import LLMError, LLMTimeoutError, LlmUsage, ToolCall, _extract_json
+from src.infra.llm_client import (
+    LLMError,
+    LLMTimeoutError,
+    LlmUsage,
+    ToolCall,
+    _extract_json,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,9 +156,8 @@ def _repair_truncated_json(text: str) -> str:
         elif ch == "}":
             if stack and stack[-1] == "{":
                 stack.pop()
-        elif ch == "]":
-            if stack and stack[-1] == "[":
-                stack.pop()
+        elif ch == "]" and stack and stack[-1] == "[":
+            stack.pop()
 
     closers = ""
     for opener in reversed(stack):
@@ -410,27 +415,26 @@ class OpenAICompatibleClient:
         logger.debug("generate_stream() sending request to cloud API (no semaphore)")
         async with self._make_client(
             httpx.Timeout(timeout, connect=10.0)
-        ) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                headers=self._headers(),
-            ) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    # SSE format: "data: {json}" or "data: [DONE]"
-                    if line.startswith("data: "):
-                        line = line[6:]
-                    if line.strip() == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    delta = chunk.get("choices", [{}])[0].get("delta", {})
-                    token = delta.get("content", "")
-                    if token:
-                        yield token
+        ) as client, client.stream(
+            "POST",
+            f"{self.base_url}/chat/completions",
+            json=payload,
+            headers=self._headers(),
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line:
+                    continue
+                # SSE format: "data: {json}" or "data: [DONE]"
+                if line.startswith("data: "):
+                    line = line[6:]
+                if line.strip() == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                token = delta.get("content", "")
+                if token:
+                    yield token

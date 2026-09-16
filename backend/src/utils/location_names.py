@@ -53,9 +53,7 @@ def is_homonym_prone(name: str) -> bool:
     if name in HOMONYM_PRONE_NAMES:
         return True
     # Short names (≤2 chars) composed entirely of architectural suffixes
-    if len(name) <= 2 and all(c in ARCH_SUFFIXES for c in name):
-        return True
-    return False
+    return bool(len(name) <= 2 and all(c in ARCH_SUFFIXES for c in name))
 
 
 # ── Passage-like / transit forms (Story 5.2) ───────────────────────────
@@ -106,9 +104,7 @@ def is_passage_like(name: str) -> bool:
     # 2+ char names whose final char is a transit suffix (山路, 长街, 回廊,
     # 地道...). Single-char names excluded to avoid false positives (道/路 as
     # standalone nouns).
-    if len(name) >= 2 and name[-1] in PASSAGE_SUFFIXES:
-        return True
-    return False
+    return bool(len(name) >= 2 and name[-1] in PASSAGE_SUFFIXES)
 
 
 # ── Special-space (realm / pocket-dimension) detection (Story 5.3) ──────────

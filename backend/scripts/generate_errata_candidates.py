@@ -100,7 +100,7 @@ def generate_candidates(novel_key: str, novel_id: str, out_dir: Path = OUTPUT_DI
     title, lp, lt, layer_map, mentions = load_snapshot(novel_id)
     all_nodes = (set(lp.keys()) | set(lp.values()) | set(lt.keys())) - {"", None}
     children_count: Counter = Counter()
-    for c, p in lp.items():
+    for _c, p in lp.items():
         children_count[p] += 1
     print(f"  title='{title}' nodes={len(all_nodes)} mentions={sum(mentions.values())}")
 
@@ -172,7 +172,7 @@ def generate_candidates(novel_key: str, novel_id: str, out_dir: Path = OUTPUT_DI
         for t in r["rule_error_types"].split("|"):
             if t:
                 by_type[t] += 1
-    print(f"  Rule-flagged types:")
+    print("  Rule-flagged types:")
     for t, c in by_type.most_common():
         print(f"    {t}: {c}")
 
@@ -193,7 +193,7 @@ def main():
         summary = []
         for key, nid in CLASSICAL_NOVELS.items():
             try:
-                path, n, types = generate_candidates(key, nid, out_dir)
+                _path, n, types = generate_candidates(key, nid, out_dir)
                 summary.append((key, n, dict(types)))
             except Exception as e:
                 print(f"  [error] {key}: {e}", file=sys.stderr)

@@ -21,7 +21,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from scripts.migrate_hierarchy_from_errata import (  # noqa: E402
-    DB_PATH, KB_DIR, NOVEL_ID_MAP,
+    DB_PATH,
+    KB_DIR,
+    NOVEL_ID_MAP,
 )
 
 

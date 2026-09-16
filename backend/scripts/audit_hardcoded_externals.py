@@ -129,7 +129,7 @@ def classify(file_path: Path, label: str, line_text: str = "") -> str:
             return "INFO"
 
     # Everything else: use default severity
-    for pat, lbl, sev in PATTERNS:
+    for _pat, lbl, sev in PATTERNS:
         if lbl == label:
             return sev
     return "UNKNOWN"
@@ -209,7 +209,7 @@ def main():
         # By label within HIGH+MED
         by_label: dict[str, int] = defaultdict(int)
         for sev in ("HIGH", "MED"):
-            for path, _, label, *_ in all_hits.get(sev, []):
+            for _path, _, label, *_ in all_hits.get(sev, []):
                 by_label[label] += 1
         print("\nTop labels (HIGH+MED):")
         for label, cnt in sorted(by_label.items(), key=lambda kv: -kv[1])[:15]:

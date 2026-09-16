@@ -20,18 +20,18 @@ async def _build_precomputed(novel_id: str) -> dict | None:
     files without reimplementing Python aggregation logic in Rust.
     """
     try:
-        from src.services.visualization_service import (
-            get_analyzed_range,
-            get_graph_data,
-            get_map_data,
-            get_timeline_data,
-            get_factions_data,
-        )
+        from src.db.world_structure_store import load_with_overrides
         from src.services.encyclopedia_service import (
             get_category_stats,
             get_encyclopedia_entries,
         )
-        from src.db.world_structure_store import load_with_overrides
+        from src.services.visualization_service import (
+            get_analyzed_range,
+            get_factions_data,
+            get_graph_data,
+            get_map_data,
+            get_timeline_data,
+        )
 
         ch_start, ch_end = await get_analyzed_range(novel_id)
         if ch_start == 0 and ch_end == 0:

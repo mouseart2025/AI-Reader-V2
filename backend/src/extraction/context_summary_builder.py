@@ -1,11 +1,10 @@
 """Build a context summary from preceding ChapterFacts for LLM context."""
 
-import json
 import logging
 from collections import Counter
 
-from src.db.chapter_fact_store import get_all_chapter_facts
 from src.db import entity_dictionary_store, world_structure_store
+from src.db.chapter_fact_store import get_all_chapter_facts
 from src.infra.context_budget import get_budget
 from src.models.chapter_fact import ChapterFact
 from src.models.world_structure import WorldStructure
@@ -670,7 +669,7 @@ class ContextSummaryBuilder:
             # Compact: show last 10 stops
             recent = settings[-10:]
             path_parts = []
-            for ch, loc in recent:
+            for _ch, loc in recent:
                 # Add tier info if available
                 tier = (location_tiers or {}).get(loc, "")
                 tier_tag = f"({tier})" if tier else ""
@@ -737,7 +736,6 @@ class ContextSummaryBuilder:
         # of a long list where small local models might ignore them.
         naming_entries = [e for e in dictionary if e.source == "naming"]
         top = dictionary[:100]
-        included = {e.name for e in top} | {e.name for e in naming_entries}
         # Fill remaining slots from top-100 (skip those already in naming)
         freq_entries = [e for e in top if e.name not in {n.name for n in naming_entries}]
 

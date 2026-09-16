@@ -18,12 +18,12 @@ import pytest
 
 from src.extraction import hallucination_reviewer as hr
 from src.extraction.fact_validator import FactValidator
-from src.extraction.name_resolver import NameResolver
 from src.extraction.hallucination_reviewer import (
     apply_alias_verdicts,
     find_alias_candidates,
     review_chapter_characters,
 )
+from src.extraction.name_resolver import NameResolver
 from src.infra import config
 from src.models.chapter_fact import (
     ChapterFact,

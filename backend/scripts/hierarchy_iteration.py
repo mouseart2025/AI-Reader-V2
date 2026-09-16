@@ -15,7 +15,7 @@ import asyncio
 import json
 import os
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -59,7 +59,7 @@ def compute_precision_recall(predicted: dict[str, str], golden_locs: list[dict])
                 "location": child,
                 "predicted_parent": pred_parent,
                 "golden_parent": gold_parent,
-                "tier": next((l.get("tier", "") for l in golden_locs if l["name"] == child), ""),
+                "tier": next((loc.get("tier", "") for loc in golden_locs if loc["name"] == child), ""),
             })
 
     precision = correct / total if total else 0
@@ -81,8 +81,7 @@ def compute_precision_recall(predicted: dict[str, str], golden_locs: list[dict])
 
 def classify_errors(errors: list[dict], predicted: dict[str, str], golden_locs: list[dict]):
     """Classify each error into actionable categories."""
-    golden_parents = {l["name"]: l.get("correct_parent") for l in golden_locs if l.get("name")}
-    golden_tiers = {l["name"]: l.get("tier", "") for l in golden_locs if l.get("name")}
+    golden_parents = {loc["name"]: loc.get("correct_parent") for loc in golden_locs if loc.get("name")}
 
     # Build ancestor chains
     def get_chain(parents: dict, loc: str, max_depth=10):
@@ -111,7 +110,7 @@ def classify_errors(errors: list[dict], predicted: dict[str, str], golden_locs: 
         elif pred_p in golden_parents and golden_parents.get(pred_p) == golden_parents.get(loc):
             # Pred parent has same golden parent as child → siblings swapped
             err["error_type"] = "wrong_sibling"
-        elif pred_p not in {l["name"] for l in golden_locs}:
+        elif pred_p not in {loc["name"] for loc in golden_locs}:
             # Pred parent is not even in golden standard → phantom parent
             err["error_type"] = "phantom_parent"
         else:
@@ -222,10 +221,9 @@ async def trigger_rebuild(novel_id: str, base_url: str = "http://localhost:8000"
     import httpx
 
     url = f"{base_url}/api/novels/{novel_id}/world-structure/rebuild-hierarchy"
-    print(f"  Triggering rebuild-hierarchy...")
+    print("  Triggering rebuild-hierarchy...")
 
-    async with httpx.AsyncClient(timeout=300) as client:
-        async with client.stream("POST", url) as resp:
+    async with httpx.AsyncClient(timeout=300) as client, client.stream("POST", url) as resp:
             if resp.status_code != 200:
                 print(f"  ERROR: rebuild returned {resp.status_code}")
                 return False

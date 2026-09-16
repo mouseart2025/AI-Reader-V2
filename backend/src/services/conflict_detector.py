@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 
 from src.db import chapter_fact_store
 from src.services.alias_resolver import build_alias_map
+from src.utils.location_names import is_homonym_prone
 
 logger = logging.getLogger(__name__)
 
@@ -259,8 +260,6 @@ def _detect_relation_conflicts(
 
 
 # ── Location hierarchy conflict detection ─────────
-
-from src.utils.location_names import is_homonym_prone
 
 # Minimum number of chapters the minority parent must appear in
 # to be reported as a conflict.  A single-chapter minority is most

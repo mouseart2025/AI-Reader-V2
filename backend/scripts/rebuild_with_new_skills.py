@@ -27,9 +27,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from src.services.geo_skills.tier_classifier import TierClassifier, _detect_era  # noqa: E402
 from src.services.geo_skills.edmonds_resolver import EdmondsResolver  # noqa: E402
 from src.services.geo_skills.snapshot import HierarchySnapshot  # noqa: E402
+from src.services.geo_skills.tier_classifier import (  # noqa: E402
+    TierClassifier,
+    _detect_era,
+)
 
 DB_PATH = Path.home() / ".ai-reader-v2" / "data.db"
 NOVELS = {
@@ -115,8 +118,8 @@ async def run_refinement(novel_key: str, novel_id: str, apply: bool):
 
     if not apply:
         # Show top 5 tier changes
-        print(f"  Sample tier changes:")
-        for i, (name, new_tier) in enumerate(list(tier_changes.items())[:5]):
+        print("  Sample tier changes:")
+        for _i, (name, new_tier) in enumerate(list(tier_changes.items())[:5]):
             old = snapshot.location_tiers[name]
             mc = snapshot.location_frequencies.get(name, 0)
             print(f"    {name}: {old}→{new_tier} (mc={mc})")
@@ -139,7 +142,7 @@ async def run_refinement(novel_key: str, novel_id: str, apply: bool):
     conn.execute("DELETE FROM layer_layouts WHERE novel_id=?", (novel_id,))
     conn.commit()
     conn.close()
-    print(f"  [applied] map cache cleared")
+    print("  [applied] map cache cleared")
     return len(tier_changes), phantoms_lifted
 
 
@@ -159,11 +162,11 @@ async def amain():
         total_tier += t
         total_phantom += p
 
-    print(f"\n=== SUMMARY ===")
+    print("\n=== SUMMARY ===")
     print(f"  Total tier changes: {total_tier}")
     print(f"  Total phantoms lifted: {total_phantom}")
     if args.apply:
-        print(f"\n[next] Run benchmark: uv run python scripts/benchmark_hierarchy.py --novel=xiyouji")
+        print("\n[next] Run benchmark: uv run python scripts/benchmark_hierarchy.py --novel=xiyouji")
     return 0
 
 

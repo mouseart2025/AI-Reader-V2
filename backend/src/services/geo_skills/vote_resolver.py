@@ -16,8 +16,8 @@ from collections import Counter
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.services.world_structure_agent import (
-    TIER_ORDER,
     _NAME_SUFFIX_TIER,
+    TIER_ORDER,
     _get_suffix_rank,
 )
 
@@ -145,7 +145,7 @@ class VoteResolver(GeoSkill):
             if c_rank - p_rank < 2:
                 continue
             for cand, _ in votes.get(child, Counter()).items():
-                if cand == parent or cand == child:
+                if cand in (parent, child):
                     continue
                 cr = _get_suffix_rank(cand)
                 if cr is None:

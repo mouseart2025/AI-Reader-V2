@@ -8,16 +8,14 @@
 """
 
 import json
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
-from unittest.mock import patch
 
-from src.db import entity_override_store
+from src.db import chapter_store, entity_override_store
 from src.services import alias_resolver as alias_resolver_mod
-from src.services import entity_aggregator, visualization_service
-from src.services import encyclopedia_service
-from src.db import chapter_store
+from src.services import encyclopedia_service, entity_aggregator, visualization_service
 
 NOVEL = "test-visibility"
 
@@ -101,7 +99,7 @@ async def vis_db(memory_db):
 
     async def _empty_layout(_novel_id, _hash, locations, *_a, **_kw):
         # 轻量布局桩:只验证 locations 过滤,不跑约束求解器
-        return ([{"name": l["name"], "x": 0.0, "y": 0.0} for l in locations],
+        return ([{"name": loc["name"], "x": 0.0, "y": 0.0} for loc in locations],
                 "hierarchy", None, None)
 
     await _seed(memory_db)
@@ -190,11 +188,11 @@ async def test_hide_removes_entity_from_all_views(vis_db):
 async def test_hide_location_removes_map_node(vis_db):
     await _reset_overrides(vis_db)
     base = await visualization_service.get_map_data(NOVEL, 1, 2)
-    assert "白骨洞" in {l["name"] for l in base["locations"]}
+    assert "白骨洞" in {loc["name"] for loc in base["locations"]}
 
     await _hide("白骨洞")
     m = await visualization_service.get_map_data(NOVEL, 1, 2)
-    names = {l["name"] for l in m["locations"]}
+    names = {loc["name"] for loc in m["locations"]}
     assert "白骨洞" not in names
     assert "花果山" in names
     assert all(
@@ -254,7 +252,7 @@ async def test_retype_location_to_person(vis_db):
 
     # 地图上不再是地点节点
     m = await visualization_service.get_map_data(NOVEL, 1, 2)
-    assert "白骨洞" not in {l["name"] for l in m["locations"]}
+    assert "白骨洞" not in {loc["name"] for loc in m["locations"]}
 
 
 @pytest.mark.asyncio

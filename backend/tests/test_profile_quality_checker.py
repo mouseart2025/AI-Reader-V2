@@ -6,12 +6,10 @@ import pytest
 
 from src.models.entity_profiles import PersonProfile, RelationChain, RelationStage
 from src.services.profile_quality_checker import (
-    QualityFinding,
     check_person_profile,
     fix_relation_mutations,
     remove_self_references,
 )
-
 
 # ── Helper to build test profiles ──
 
@@ -239,7 +237,7 @@ class TestEventParticipantBoundary:
             type="其他", importance="low", location="",
             participants=[],
         )]
-        result = validator._fill_event_participants(chars, events)
+        validator._fill_event_participants(chars, events)
         # Not blocked because "朝" is not in the blocklist
         # But this specific case "王" appears before "朝" not in blocklist
         # This is an acceptable edge case — single-char names are inherently ambiguous
@@ -365,8 +363,8 @@ class TestBuildEntitySummary:
     """Test the summary builder for LLM review."""
 
     def test_basic_summary(self):
-        from src.services.profile_quality_checker import _build_entity_summary
         from src.models.entity_profiles import AliasEntry
+        from src.services.profile_quality_checker import _build_entity_summary
 
         profiles = [
             PersonProfile(
@@ -403,7 +401,7 @@ class TestBuildEntitySummary:
             p.stats = {"chapter_count": 50 - i}
 
         summary = _build_entity_summary(profiles, max_entities=5)
-        lines = [l for l in summary.split("\n") if l.strip()]
+        lines = [line for line in summary.split("\n") if line.strip()]
         assert len(lines) == 5
 
 
@@ -413,6 +411,7 @@ class TestLLMReviewProfiles:
     @pytest.mark.asyncio
     async def test_llm_review_returns_findings(self):
         from unittest.mock import AsyncMock, patch
+
         from src.services.profile_quality_checker import llm_review_profiles
 
         mock_llm = AsyncMock()
@@ -453,6 +452,7 @@ class TestLLMReviewProfiles:
     @pytest.mark.asyncio
     async def test_llm_review_handles_failure(self):
         from unittest.mock import AsyncMock, patch
+
         from src.services.profile_quality_checker import llm_review_profiles
 
         mock_llm = AsyncMock()
@@ -469,6 +469,7 @@ class TestLLMReviewProfiles:
     @pytest.mark.asyncio
     async def test_llm_review_handles_invalid_json(self):
         from unittest.mock import AsyncMock, patch
+
         from src.services.profile_quality_checker import llm_review_profiles
 
         mock_llm = AsyncMock()

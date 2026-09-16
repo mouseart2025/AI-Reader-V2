@@ -15,9 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import sys
-from collections import Counter
 from pathlib import Path
 
 _BACKEND = Path(__file__).resolve().parents[1]
@@ -59,7 +57,7 @@ async def trace(slug: str, tag: str) -> None:
 
     # apply 后的最终结果(含 _inject_layer_roots)
     await orch.apply_to_world_structure()
-    print(f"  [apply] done", flush=True)
+    print("  [apply] done", flush=True)
 
 
 def compare(t1: str, t2: str, slug: str = "sanguo") -> None:

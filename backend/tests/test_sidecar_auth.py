@@ -70,12 +70,16 @@ def test_options_preflight_exempt(token_on):
 
 
 def test_ws_rejected_without_token(token_on):
-    with pytest.raises(WebSocketDisconnect):
-        with token_on.websocket_connect("/ws/chat/test-session"):
-            pass
+    with (
+        pytest.raises(WebSocketDisconnect),
+        token_on.websocket_connect("/ws/chat/test-session"),
+    ):
+        pass
 
 
 def test_ws_rejected_with_wrong_token(token_on):
-    with pytest.raises(WebSocketDisconnect):
-        with token_on.websocket_connect("/ws/chat/test-session?token=wrong"):
-            pass
+    with (
+        pytest.raises(WebSocketDisconnect),
+        token_on.websocket_connect("/ws/chat/test-session?token=wrong"),
+    ):
+        pass

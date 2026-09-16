@@ -5,7 +5,6 @@
 合法全量输入零丢弃(不回退 gold 基线)。
 """
 
-import pytest
 
 from src.extraction.chapter_fact_extractor import _tolerant_validate_sections
 from src.models.chapter_fact import ChapterFact

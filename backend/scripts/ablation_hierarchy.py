@@ -13,23 +13,25 @@ Output: markdown table for paper Section 4.
 """
 
 import asyncio
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 async def run_ablation(novel_id: str, title: str):
-    from src.services.geo_skills.orchestrator import GeoOrchestrator
-    from src.services.geo_skills.vote_builder import VoteBuilder
+    from src.db.sqlite_db import get_connection
     from src.services.geo_skills.edmonds_resolver import EdmondsResolver
-    from src.services.geo_skills.vote_resolver import VoteResolver
-    from src.services.geo_skills.tier_classifier import TierClassifier
     from src.services.geo_skills.knowledge_prior import KnowledgePrior
+    from src.services.geo_skills.orchestrator import GeoOrchestrator
     from src.services.geo_skills.snapshot import HierarchyMetrics
     from src.services.geo_skills.snapshot_store import (
-        SnapshotStore, snapshot_from_world_structure,
+        SnapshotStore,
+        snapshot_from_world_structure,
     )
-    from src.db.sqlite_db import get_connection
+    from src.services.geo_skills.tier_classifier import TierClassifier
+    from src.services.geo_skills.vote_builder import VoteBuilder
+    from src.services.geo_skills.vote_resolver import VoteResolver
 
     store = SnapshotStore()
 

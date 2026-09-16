@@ -26,7 +26,6 @@ import json
 import os
 import sqlite3
 import sys
-from collections import Counter
 from pathlib import Path
 
 _BACKEND = Path(__file__).resolve().parents[1]
@@ -37,15 +36,15 @@ from src.models.chapter_fact import classify_spatial_relation  # noqa: E402
 from src.services.geo_skills.orchestrator import (  # noqa: E402
     build_default_orchestrator,
 )
+from src.services.geo_skills.suffix_normalizer import (  # noqa: E402
+    _EXPLICIT_SYNONYMS,
+    _MERGE_SUFFIXES,
+)
 from src.services.world_structure_agent import (  # noqa: E402
     TIER_ORDER,
     _get_suffix_rank,
 )
 from src.utils.location_names import is_passage_like  # noqa: E402
-from src.services.geo_skills.suffix_normalizer import (  # noqa: E402
-    _EXPLICIT_SYNONYMS,
-    _MERGE_SUFFIXES,
-)
 
 OUT_DIR = _BACKEND / "audit_reports"
 
@@ -163,8 +162,8 @@ def build_evidence_index(novel_id: str, tiers: dict[str, str]) -> dict:
         # 主场景推断 —— 复刻 vote_builder 的逻辑
         primary = None
         settings = [
-            l for l in (fact.get("locations") or [])
-            if l.get("role") == "setting" and l.get("name")
+            loc for loc in (fact.get("locations") or [])
+            if loc.get("role") == "setting" and loc.get("name")
         ]
         if settings:
             best = 999

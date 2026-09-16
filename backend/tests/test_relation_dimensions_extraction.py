@@ -95,7 +95,7 @@ def no_vote(monkeypatch):
 async def test_valid_dimensions_pass_through(no_vote):
     llm = MockLLM(_fact_response([_rel()]))
     extractor = ChapterFactExtractor(llm=llm)
-    fact, usage, _ = await extractor.extract("test-novel", 1, "宋江与武松结拜。")
+    fact, _usage, _ = await extractor.extract("test-novel", 1, "宋江与武松结拜。")
     rel = fact.relationships[0]
     assert rel.polarity == "positive"
     assert rel.rel_subtype == "结拜"

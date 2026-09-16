@@ -162,7 +162,7 @@ class HierarchyMetrics:
 
         # Children count
         children_count: Counter = Counter()
-        for child, parent in parents.items():
+        for _child, parent in parents.items():
             children_count[parent] += 1
         top = children_count.most_common(1)
         max_ch = top[0][1] if top else 0

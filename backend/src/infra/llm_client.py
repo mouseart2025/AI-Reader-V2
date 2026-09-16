@@ -12,7 +12,10 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from src.infra.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER, OLLAMA_BASE_URL, OLLAMA_MODEL
+from src.infra.config import (
+    OLLAMA_BASE_URL,
+    OLLAMA_MODEL,
+)
 
 if TYPE_CHECKING:
     from src.infra.anthropic_client import AnthropicClient
@@ -278,25 +281,24 @@ class LLMClient:
         logger.debug("generate_stream() sending request (no semaphore)")
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout, connect=10.0)
-        ) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/api/chat",
-                json=payload,
-            ) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    try:
-                        chunk = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    token = chunk.get("message", {}).get("content", "")
-                    if token:
-                        yield token
-                    if chunk.get("done"):
-                        break
+        ) as client, client.stream(
+            "POST",
+            f"{self.base_url}/api/chat",
+            json=payload,
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    yield token
+                if chunk.get("done"):
+                    break
 
     async def generate_with_tools(
         self,

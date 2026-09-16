@@ -7,8 +7,8 @@ Usage:
 """
 
 import json
-import sqlite3
 import os
+import sqlite3
 import sys
 from collections import Counter
 from pathlib import Path
@@ -16,11 +16,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.extraction.fact_validator import (
+    _get_contains_rank,
     _is_generic_location,
     _is_generic_person,
-    _get_contains_rank,
 )
-from src.services.relation_utils import normalize_relation_type, classify_relation_category
+from src.services.relation_utils import (
+    classify_relation_category,
+    normalize_relation_type,
+)
 from src.utils.topology_metrics import compute_topology_metrics
 
 DB_PATH = os.path.expanduser("~/.ai-reader-v2/data.db")
@@ -214,7 +217,7 @@ def ablation_location_hierarchy(novel_name: str, novel_id: str):
     # Simulate w/o consolidation: remove all orphan rescue effects
     # Orphans that consolidate rescued go back to being orphans
     no_consolidate_parents = {}
-    golden_names = {l["name"] for l in golden}
+    golden_names = {loc["name"] for loc in golden}
     for child, parent in current_parents.items():
         if child in golden_names or parent in golden_names:
             no_consolidate_parents[child] = parent
@@ -349,7 +352,7 @@ def main():
         # Location hierarchy ablation
         r3 = ablation_location_hierarchy(novel_name, novel_id)
         if r3:
-            print(f"\n  [地点层级]")
+            print("\n  [地点层级]")
             print(f"    Full: P={r3['full_system']['parent_precision']} C={r3['full_system']['chain_accuracy']}")
             print(f"    w/o Suffix Rank: P={r3['without_suffix_rank']['parent_precision']} C={r3['without_suffix_rank']['chain_accuracy']}")
             print(f"    Suffix Rank Δ={r3['delta_suffix_pp']}pp ({r3['without_suffix_rank']['corrections_removed']} corrections)")

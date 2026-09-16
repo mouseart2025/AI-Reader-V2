@@ -66,7 +66,7 @@ class TestBreakCyclesFixpoint:
         votes = {"a": Counter({"b": 5})}
         edmonds_parents = {"b": "root"}  # b's Edmonds parent is outside
 
-        out, broken = EdmondsResolver._break_cycles_fixpoint(
+        out, _broken = EdmondsResolver._break_cycles_fixpoint(
             parents, votes, edmonds_parents, uber_root="root"
         )
         assert _count_cycles(out) == 0
@@ -90,7 +90,7 @@ class TestBreakCyclesFixpoint:
     def test_self_loop_deleted_as_last_resort(self):
         # uber_root can't help if the cycle contains it
         parents = {"root": "root"}
-        out, broken = EdmondsResolver._break_cycles_fixpoint(
+        out, _broken = EdmondsResolver._break_cycles_fixpoint(
             parents, {}, {}, uber_root="root"
         )
         assert _count_cycles(out) == 0

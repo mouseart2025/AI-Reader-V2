@@ -189,7 +189,7 @@ def main():
     print("=" * 70)
     print("L2 · Reproducibility Check — paper v14.1 vs current DB")
     print("=" * 70)
-    for slug, data in report.items():
+    for _slug, data in report.items():
         print()
         if data.get("status") == "NOVEL_MISSING":
             print(f"❌ {data['title']:<10} [novel row missing in DB]")

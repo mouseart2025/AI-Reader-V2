@@ -3,8 +3,7 @@
 All tests use synthetic text — no external files required.
 """
 
-from src.utils.chapter_splitter import split_chapters_ex, detect_text_genre, SplitResult, ChapterInfo
-
+from src.utils.chapter_splitter import detect_text_genre, split_chapters_ex
 
 # ── Helper ────────────────────────────────────────────────────
 
@@ -368,7 +367,7 @@ def test_genre_novel_high_dialogue():
     """AC11: High dialogue text should be classified as novel."""
     # Generate text with > 5% dialogue lines
     lines = []
-    for i in range(200):
+    for _i in range(200):
         lines.append('"你好，" 他说。')
         lines.append("她微笑着看着远方。")
     text = "\n".join(lines)
@@ -381,7 +380,7 @@ def test_genre_safety_valve_large_text():
     """AC11b: Text > 50K chars should NOT be essay even if low dialogue."""
     # 80K chars, no dialogue, but too large for essay
     text = ("这是一段纯叙述性的长文本内容。\n" * 5000)  # ~80K chars
-    genre, confidence = detect_text_genre(text)
+    genre, _confidence = detect_text_genre(text)
     # Safety valve: > 50K can't be essay
     assert genre != "essay"
     assert genre != "poetry"

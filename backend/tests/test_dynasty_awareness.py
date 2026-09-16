@@ -8,8 +8,9 @@ Covers:
   - TextVerifier.context(): snippet extraction with window
 """
 
-import pytest
 from collections import Counter
+
+import pytest
 
 from src.services.geo_skills.tier_classifier import (
     TierClassifier,
@@ -18,11 +19,8 @@ from src.services.geo_skills.tier_classifier import (
 )
 from src.services.hierarchy_validator import (
     TextVerifier,
-    RuleValidator,
-    KnowledgeBase,
     _zhou_expected_tier,
 )
-
 
 # ── Era detection ───────────────────────────────────────────────
 

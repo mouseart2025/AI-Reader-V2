@@ -7,8 +7,9 @@
 - 世界结构注入在二审走「空」分支(不读 world_structures)。
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from src.db import chapter_fact_store, entity_dictionary_store, world_structure_store
 from src.extraction.context_summary_builder import ContextSummaryBuilder

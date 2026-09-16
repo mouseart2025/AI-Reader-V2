@@ -152,7 +152,6 @@ def communities_to_hierarchy(partitions: list[dict[str, int]], mention_count: Co
 
     Returns (parent_map, debug_info).
     """
-    import networkx as nx
 
     # For each resolution level, compute community → best representative
     # representative = node with highest weighted degree within its community
@@ -174,7 +173,6 @@ def communities_to_hierarchy(partitions: list[dict[str, int]], mention_count: Co
     # parent = representative of the same coarser-level community
     # root = representative of coarsest-level community containing node
 
-    finest = levels[-1]  # most fine-grained partition
     parent_map: dict[str, str] = {}
 
     # Pre-compute communities at each level: {level_index: {community_id: set(nodes)}}
@@ -190,7 +188,6 @@ def communities_to_hierarchy(partitions: list[dict[str, int]], mention_count: Co
     for node in G.nodes:
         # Walk coarsest → finest: find a level where node has a parent
         # representative that is NOT itself
-        current = node
         for lvl_idx in range(num_levels - 1, 0, -1):
             part = levels[lvl_idx]
             if node not in part:
@@ -265,7 +262,7 @@ def compute_metrics(parent_map: dict[str, str], gold_locs: list[dict]) -> dict:
 
     # Cycle detect
     def has_cycle() -> tuple[bool, list]:
-        visiting, visited = set(), set()
+        visited = set()
         cycles = []
         for start in list(parent_map.keys()):
             if start in visited:
@@ -274,7 +271,7 @@ def compute_metrics(parent_map: dict[str, str], gold_locs: list[dict]) -> dict:
             cur = start
             while cur:
                 if cur in path:
-                    cycles.append(path[path.index(cur):] + [cur])
+                    cycles.append([*path[path.index(cur):], cur])
                     break
                 if cur in visited:
                     break

@@ -7,15 +7,30 @@ All functions accept chapter_start/chapter_end to filter by range.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from src.db.sqlite_db import get_connection
-from src.models.chapter_fact import ChapterFact, classify_spatial_relation
 from src.db import world_structure_store
+from src.db.sqlite_db import get_connection
+from src.extraction.fact_validator import _LOCATION_NAME_NORMALIZE
 from src.infra.config import DATA_DIR
+from src.models.chapter_fact import ChapterFact, classify_spatial_relation
+from src.models.world_structure import LayerType
+from src.services.alias_resolver import build_alias_map
+from src.services.conflict_detector import (
+    _detect_direction_conflicts,
+    _detect_distance_conflicts,
+    _detect_location_conflicts,
+)
+from src.services.geo_resolver import (
+    auto_resolve as geo_auto_resolve,
+)
+from src.services.geo_resolver import (
+    place_unresolved_geo_coords,
+)
 from src.services.map_layout_service import (
     CANVAS_HEIGHT,
     CANVAS_WIDTH,
@@ -32,20 +47,8 @@ from src.services.map_layout_service import (
     layout_to_list,
     place_unresolved_near_neighbors,
 )
-from src.services.alias_resolver import build_alias_map
-from src.services.geo_resolver import (
-    auto_resolve as geo_auto_resolve,
-    place_unresolved_geo_coords,
-)
-from src.extraction.fact_validator import _LOCATION_NAME_NORMALIZE
-from src.services.conflict_detector import (
-    _detect_location_conflicts,
-    _detect_direction_conflicts,
-    _detect_distance_conflicts,
-)
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
-from src.models.world_structure import LayerType
 
 logger = logging.getLogger(__name__)
 
@@ -119,13 +122,15 @@ async def get_analyzed_range(novel_id: str) -> tuple[int, int]:
 async def get_graph_data(
     novel_id: str, chapter_start: int, chapter_end: int
 ) -> dict:
-    from src.services.relation_utils import classify_relation_category
     from src.services.name_authority import (
         CANONICAL_BLOCKLIST,
         GENERIC_PERSON_ALIASES,
-        is_generic_person as _is_generic_person,
         is_surname_plus_shi,
     )
+    from src.services.name_authority import (
+        is_generic_person as _is_generic_person,
+    )
+    from src.services.relation_utils import classify_relation_category
 
     facts = await _load_facts_in_range(novel_id, chapter_start, chapter_end)
     alias_map = await build_alias_map(novel_id)
@@ -167,9 +172,7 @@ async def get_graph_data(
         if len(name) >= 3 and name.endswith("等"):
             return True
         # 长描述性名称 (飞东洋游普世感恩行孝黄毛红嘴白鹦哥)
-        if len(name) >= 10:
-            return True
-        return False
+        return len(name) >= 10
 
     # Collect person nodes
     person_chapters: dict[str, set[int]] = defaultdict(set)
@@ -417,6 +420,7 @@ def _snap_sea_orphans_to_land(
     children of snapped parents also move to land. Returns total snap count.
     """
     import math
+
     import numpy as np
     from scipy.spatial import KDTree
 
@@ -438,8 +442,8 @@ def _snap_sea_orphans_to_land(
             ocean_names.add(loc["name"])
 
     def _is_on_land(x: float, y: float) -> bool:
-        gxi = int(round(x / cell_size))
-        gyi = int(round(y / cell_size))
+        gxi = round(x / cell_size)
+        gyi = round(y / cell_size)
         if 0 <= gyi < grid_h and 0 <= gxi < grid_w:
             return bool(land_mask[gyi, gxi])
         return False
@@ -709,9 +713,7 @@ def _enhance_constraints(
                 return True
             cur = p
         # Both rootless → trivially share "no parent" ancestor
-        if not loc_parent.get(a) and not loc_parent.get(b):
-            return True
-        return False
+        return bool(not loc_parent.get(a) and not loc_parent.get(b))
 
     for _person, path in trajectories.items():
         if len(path) < 2:
@@ -972,7 +974,7 @@ async def get_map_data(
         }
         for name, info in loc_info.items()
     ]
-    locations.sort(key=lambda l: (-l["mention_count"], l["name"]))
+    locations.sort(key=lambda loc: (-loc["mention_count"], loc["name"]))
 
     # Deduplicate trajectories
     for person in list(trajectories.keys()):
@@ -1182,7 +1184,7 @@ async def get_map_data(
                 if len(active_regions) > MAX_DISPLAY_REGIONS:
                     # Count locations per region
                     region_loc_counts: dict[str, int] = {}
-                    for loc_name_r, region_name_r in ws.location_region_map.items():
+                    for _loc_name_r, region_name_r in ws.location_region_map.items():
                         region_loc_counts[region_name_r] = region_loc_counts.get(region_name_r, 0) + 1
                     active_regions.sort(
                         key=lambda r: region_loc_counts.get(r["name"], 0), reverse=True,
@@ -1320,7 +1322,7 @@ async def get_map_data(
                     # Pass through auto_resolve even for non-realistic types,
                     # because auto_resolve applies genre-based overrides
                     # (e.g., historical novels with cached "fantasy" → "mixed").
-                    geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
+                    _geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
                         ws.novel_genre_hint, all_names, major_names, loc_parent_map,
                         known_geo_type=ws.geo_type,
                     )
@@ -1330,7 +1332,7 @@ async def get_map_data(
                         await world_structure_store.save(novel_id, ws)
                 else:
                     # First-time detection — run full detection and persist
-                    geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
+                    _geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
                         ws.novel_genre_hint, all_names, major_names, loc_parent_map,
                     )
                     ws.geo_type = geo_type
@@ -1617,7 +1619,7 @@ async def get_map_data(
         if _missing:
             logger.debug(
                 "Filled %d/%d missing layout positions via parent fallback",
-                len(_missing) - len([l for l in locations if l["name"] not in _layout_map]),
+                len(_missing) - len([loc for loc in locations if loc["name"] not in _layout_map]),
                 len(_missing),
             )
 
@@ -1676,7 +1678,7 @@ async def get_map_data(
         "canvas_size": {"width": _resp_cw, "height": _resp_ch},
         "geography_context": geo_context,
         "location_conflicts": location_conflicts,
-        "max_mention_count": max((l["mention_count"] for l in locations), default=1),
+        "max_mention_count": max((loc["mention_count"] for loc in locations), default=1),
         "suggested_min_mentions": 3 if len(locations) > 300 else (2 if len(locations) > 150 else 1),
         "space_theme": space_theme,
     }
@@ -1876,10 +1878,8 @@ async def _compute_or_load_layout(
             terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
             cached_satisfaction = None
             if row["satisfaction_json"]:
-                try:
+                with contextlib.suppress(json.JSONDecodeError, TypeError):
                     cached_satisfaction = json.loads(row["satisfaction_json"])
-                except (json.JSONDecodeError, TypeError):
-                    pass
             return layout_data, row["layout_mode"], terrain_url, cached_satisfaction
     finally:
         await conn.close()
@@ -2104,7 +2104,6 @@ async def get_timeline_data(
                      [rel.person_a, rel.person_b], None, ch)
 
     # ── Compute suggested defaults ──
-    total = len(events)
     suggested_hidden_types = ["角色登场", "物品交接"]
     suggested_min_swimlane = 5 if len(swimlanes) > 100 else 3 if len(swimlanes) > 30 else 1
 

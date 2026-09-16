@@ -65,7 +65,7 @@ class EdmondsResolver(GeoSkill):
         all_locs.update(votes.keys())
         all_locs.add(uber_root)
 
-        from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
+        from src.services.world_structure_agent import _get_suffix_rank
 
         for child, vote_counter in votes.items():
             for parent, weight in vote_counter.items():
@@ -583,7 +583,7 @@ class EdmondsResolver(GeoSkill):
                 cm.setdefault(parent, []).append(child)
             return cm
 
-        for iteration in range(10):
+        for _iteration in range(10):
             children_map = _rebuild_children_map()
             any_change = False
 
@@ -592,7 +592,6 @@ class EdmondsResolver(GeoSkill):
                 if len(kids) <= max_children:
                     continue
 
-                node_rank = TIER_ORDER.get(tiers.get(node, "world"), 0)
 
                 # Sort kids: non-leaf first (intermediates), then by tier rank desc
                 kid_has_children = {

@@ -6,7 +6,7 @@ import logging
 import re
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.api.schemas.novels import (
@@ -16,7 +16,13 @@ from src.api.schemas.novels import (
 )
 from src.db import novel_store
 from src.utils.chapter_classifier import classify_chapters
-from src.utils.chapter_splitter import AVAILABLE_MODES, ChapterInfo, SplitResult, split_chapters, split_chapters_ex, infer_pattern_from_points
+from src.utils.chapter_splitter import (
+    AVAILABLE_MODES,
+    ChapterInfo,
+    SplitResult,
+    infer_pattern_from_points,
+    split_chapters_ex,
+)
 from src.utils.text_processor import decode_text
 
 # In-memory cache for upload previews (file_hash -> cached data)
@@ -33,6 +39,9 @@ class _CachedUpload:
 
 
 _upload_cache: dict[str, _CachedUpload] = {}
+
+# Strong refs to fire-and-forget tasks (prevents GC mid-run, RUF006)
+_background_tasks: set[asyncio.Task] = set()
 
 _MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 _LARGE_CHAPTER_WORDS = 50_000
@@ -285,8 +294,8 @@ async def parse_upload(filename: str, content: bytes) -> UploadPreviewResponse:
     # Detect text hygiene issues
     hygiene_report = None
     try:
-        from src.utils.text_sanitizer import detect_noise
         from src.api.schemas.novels import HygieneReport, SuspectLine
+        from src.utils.text_sanitizer import detect_noise
 
         noise = detect_noise(text, split_result.chapters)
         if noise.total_suspect_lines > 0:
@@ -393,7 +402,9 @@ async def confirm_import(
         except Exception as e:
             logging.getLogger(__name__).warning("预扫描后台任务失败: %s", e)
 
-    asyncio.create_task(_run_prescan())
+    task = asyncio.create_task(_run_prescan())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     # Return the created novel
     novel = await novel_store.get_novel(novel_id)

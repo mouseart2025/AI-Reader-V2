@@ -5,37 +5,37 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.db.sqlite_db import init_db
-from src.db.analysis_task_store import recover_stale_tasks
-from src.db.analysis_pass_store import recover_stale_passes
-from src.infra.version import BACKEND_VERSION
-from src.services.sample_data_service import auto_import_samples
 from src.api.routes import (
-    novels,
-    chapters,
-    annotations,
-    entities,
-    entity_overrides,
-    graph,
-    map,
-    timeline,
-    factions,
-    chat,
     analysis,
     analysis_passes,
+    annotations,
     audit_log,
-    settings,
-    encyclopedia,
-    export_import,
-    world_structure,
-    prescan,
-    series_bible,
     backup,
+    chapters,
+    chat,
     conflicts,
+    encyclopedia,
+    entities,
+    entity_overrides,
+    export_import,
+    factions,
+    graph,
+    map,
+    novels,
+    prescan,
     scenes,
+    series_bible,
+    settings,
+    timeline,
     usage,
+    world_structure,
 )
 from src.api.websocket import analysis_ws, chat_ws
+from src.db.analysis_pass_store import recover_stale_passes
+from src.db.analysis_task_store import recover_stale_tasks
+from src.db.sqlite_db import init_db
+from src.infra.version import BACKEND_VERSION
+from src.services.sample_data_service import auto_import_samples
 
 
 async def _restore_persisted_settings() -> None:

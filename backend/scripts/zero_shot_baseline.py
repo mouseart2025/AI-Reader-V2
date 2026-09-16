@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Load backend/.env (same convention as src.infra.config) so ANTHROPIC_API_KEY
 # is sourced from the repo's .env rather than whatever leaks in from the shell.
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
@@ -193,7 +193,8 @@ def aggregate_novel(slug: str) -> dict:
     try:
         from src.extraction.fact_validator import _get_contains_rank
     except Exception:
-        _get_contains_rank = lambda _n: None  # type: ignore
+        def _get_contains_rank(_n):  # type: ignore
+            return None
 
     for f in files:
         try:

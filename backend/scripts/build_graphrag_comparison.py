@@ -39,7 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from graphrag_style_baseline import (  # noqa: E402
+from graphrag_style_baseline import (
     DB_PATH,
     NOVELS,
     OUTPUT_ROOT,
@@ -162,8 +162,8 @@ def main() -> None:
             },
         }
         # Gold coverage denominator (exact-match topology metrics)
-        gold_pairs = {l["name"]: l["correct_parent"] for l in gold_locs
-                      if l.get("name") and l.get("tier") != "DELETE" and l.get("correct_parent")}
+        gold_pairs = {loc["name"]: loc["correct_parent"] for loc in gold_locs
+                      if loc.get("name") and loc.get("tier") != "DELETE" and loc.get("correct_parent")}
         entry["gold_parent_pairs"] = len(gold_pairs)
         comparison["novels"][slug] = entry
 

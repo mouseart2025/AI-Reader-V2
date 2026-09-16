@@ -1,6 +1,5 @@
 """Tests for cost estimation service."""
 
-import pytest
 
 from src.services.cost_service import CostEstimate, estimate_analysis_cost, get_pricing
 

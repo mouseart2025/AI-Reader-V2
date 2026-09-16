@@ -24,8 +24,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from scripts.migrate_hierarchy_from_errata import (  # noqa: E402
-    DB_PATH, KB_DIR, NOVEL_ID_MAP,
-    _delete_in_ws, _reparent_in_ws, _retier_in_ws,
+    DB_PATH,
+    KB_DIR,
+    NOVEL_ID_MAP,
+    _delete_in_ws,
+    _reparent_in_ws,
+    _retier_in_ws,
 )
 
 # 按后缀模式的修复规则
@@ -83,7 +87,8 @@ def main():
     cur = conn.cursor()
     cur.execute("SELECT structure_json FROM world_structures WHERE novel_id=?", (novel_id,))
     ws = json.loads(cur.fetchone()[0])
-    lp = ws["location_parents"]; lt = ws["location_tiers"]
+    lp = ws["location_parents"]
+    lt = ws["location_tiers"]
 
     # 收集所有 C-tier倒置 节点 (error + suspect)
     candidates = []
@@ -122,7 +127,7 @@ def main():
     print(f"[info] Backup: {backup_path.name}")
 
     edits = 0
-    for name, parent, tier, ptier, mc, action, param in candidates:
+    for name, parent, _tier, _ptier, _mc, action, param in candidates:
         if action == "skip":
             continue
         if action == "retier":

@@ -15,13 +15,13 @@ from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import (
     ChapterFact,
     CharacterFact,
-    RelationshipFact,
-    LocationFact,
-    SpatialRelationship,
-    ItemEventFact,
-    OrgEventFact,
-    EventFact,
     ConceptFact,
+    EventFact,
+    ItemEventFact,
+    LocationFact,
+    OrgEventFact,
+    RelationshipFact,
+    SpatialRelationship,
     WorldDeclaration,
 )
 from src.services.relation_utils import derive_category_from_dimensions
@@ -171,9 +171,7 @@ def _merge_chapter_facts(
     loc_map: dict[str, object] = {}
     for fact in facts:
         for loc in fact.locations:
-            if loc.name not in loc_map:
-                loc_map[loc.name] = loc
-            elif loc.description and not loc_map[loc.name].description:
+            if loc.name not in loc_map or (loc.description and not loc_map[loc.name].description):
                 loc_map[loc.name] = loc
 
     # Spatial relationships: deduplicate by (source, target, relation_type)
@@ -667,10 +665,10 @@ def _build_extraction_schema() -> dict:
 
     # Patch ChapterFact: require non-empty characters, relationships, locations, events
     root_props = schema.get("properties", {})
-    for field in ("characters", "relationships", "locations", "events"):
-        if field in root_props:
-            root_props[field]["minItems"] = 1
-            root_props[field].pop("default", None)
+    for field_name in ("characters", "relationships", "locations", "events"):
+        if field_name in root_props:
+            root_props[field_name]["minItems"] = 1
+            root_props[field_name].pop("default", None)
 
     return schema
 
@@ -1308,7 +1306,7 @@ class ChapterFactExtractor:
                 raise  # permanent error or max retries exhausted
 
         if isinstance(result, str):
-            raise ExtractionError(f"Expected dict from structured output, got str")
+            raise ExtractionError("Expected dict from structured output, got str")
 
         # Handle LLM returning array [...] instead of object {...}
         if isinstance(result, list):
@@ -1321,7 +1319,7 @@ class ChapterFactExtractor:
                 )
             if not dict_items:
                 raise ExtractionError(
-                    f"Expected dict from structured output, got list with no dict elements"
+                    "Expected dict from structured output, got list with no dict elements"
                 )
             if len(dict_items) > 1:
                 # 实测(DeepSeek 输出截断压力下):模型把响应拆成多个部分
@@ -1477,10 +1475,10 @@ def _normalize_field_names(data: dict) -> None:
         "characters", "relationships", "locations", "item_events",
         "org_events", "events", "spatial_relationships", "new_concepts",
     )
-    for field in array_fields:
-        if field in data and isinstance(data[field], list):
+    for field_name in array_fields:
+        if field_name in data and isinstance(data[field_name], list):
             # Filter out non-dict items (strings, nulls, etc.)
-            data[field] = [item for item in data[field] if isinstance(item, dict)]
+            data[field_name] = [item for item in data[field_name] if isinstance(item, dict)]
 
     # relationships: 模型在输出截断压力下可能用 source/target 代替 schema
     # 要求的 person_a/person_b(实测 DeepSeek)。仅在 person_a/person_b 缺失

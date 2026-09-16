@@ -149,7 +149,7 @@ def main() -> None:
     lines = [
         "# Story 5.5 — 三国层级边 180 条人工抽查表(已判定)",
         "",
-        f"- 来源:`/tmp/sanguo-rebuild`(三国 120 章,Epic 5 当前代码重建后)",
+        "- 来源:`/tmp/sanguo-rebuild`(三国 120 章,Epic 5 当前代码重建后)",
         f"- 边总数:{data['total_edges']} · 本次抽样:{total}",
         "- 抽样:核心层 17 条**全查**;常规层 81;微观层补足到 180",
         "- 口径:「child 是否确实位于 parent 之内」,按《三国演义》地理常识判",

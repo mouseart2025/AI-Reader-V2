@@ -11,9 +11,8 @@
 全部使用 mock LLM + memory DB,不打真实 API、不写真实数据库。
 """
 
-import json
 import re
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -136,7 +135,7 @@ def _start_capture():
 
     def fake_create_task(coro, **kwargs):
         captured["coro"] = coro
-        return object()
+        return MagicMock()
 
     return captured, fake_create_task
 

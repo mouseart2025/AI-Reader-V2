@@ -39,7 +39,9 @@ def _get_embed_fn() -> Any:
         os.environ.setdefault("HF_HUB_OFFLINE", "1")
         os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
-        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+        from chromadb.utils.embedding_functions import (
+            SentenceTransformerEmbeddingFunction,
+        )
 
         device = "mps" if sys.platform == "darwin" else "cpu"
         _embed_fn = SentenceTransformerEmbeddingFunction(
@@ -200,7 +202,7 @@ def search_chapters(
 
     matches: list[dict] = []
     if results and results["ids"] and results["ids"][0]:
-        for i, doc_id in enumerate(results["ids"][0]):
+        for i, _doc_id in enumerate(results["ids"][0]):
             meta = results["metadatas"][0][i] if results["metadatas"] else {}
             matches.append({
                 "chapter_num": meta.get("chapter_num", 0),
@@ -234,7 +236,7 @@ def search_entities(
 
     matches: list[dict] = []
     if results and results["ids"] and results["ids"][0]:
-        for i, doc_id in enumerate(results["ids"][0]):
+        for i, _doc_id in enumerate(results["ids"][0]):
             meta = results["metadatas"][0][i] if results["metadatas"] else {}
             matches.append({
                 "name": meta.get("name", ""),

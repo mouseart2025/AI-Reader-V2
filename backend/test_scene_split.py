@@ -3,13 +3,12 @@
 Run: cd backend && uv run python test_scene_split.py
 """
 import sys
+
 sys.path.insert(0, ".")
 
 from src.services.scene_extractor import (
-    _split_into_scenes,
     _compute_boundary_scores,
-    _find_break_points,
-    _is_dialogue,
+    _split_into_scenes,
 )
 
 
@@ -59,13 +58,13 @@ def analyze_chapter(title: str, content: str, chapter_num: int):
     print(f"\n总段落数: {len(paragraphs)}")
     print(f"检测到场景数: {len(scenes)}")
 
-    print(f"\n--- 高分边界信号 (score >= 3) ---")
+    print("\n--- 高分边界信号 (score >= 3) ---")
     for i, s in enumerate(scores):
         if s >= 3:
             preview = paragraphs[i][:50].replace("\n", " ")
             print(f"  段落 {i:3d} | 得分 {s:.0f} | {preview}...")
 
-    print(f"\n--- 场景切分结果 ---")
+    print("\n--- 场景切分结果 ---")
     for scene in scenes:
         pr = scene.get("paragraph_range", [0, 0])
         char_roles = scene.get("character_roles", [])
@@ -126,7 +125,7 @@ def main():
 
     from collections import Counter
     dist = Counter(all_scene_counts)
-    print(f"\n  场景数分布:")
+    print("\n  场景数分布:")
     for k in sorted(dist):
         print(f"    {k} 场景: {'█' * dist[k]} ({dist[k]})")
 

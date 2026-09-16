@@ -4,19 +4,16 @@ These tests verify that the shared module correctly handles all naming
 scenarios that previously caused regressions across NameResolver and AliasResolver.
 """
 
-import pytest
 
 from src.services.name_authority import (
-    alias_safety_level,
-    is_blocked_name,
-    is_nickname_or_title,
-    is_unsafe_alias,
-    pick_canonical,
     CANONICAL_BLOCKLIST,
     GENERIC_PERSON_ALIASES,
     KINSHIP_TERMS,
+    alias_safety_level,
+    is_blocked_name,
+    is_nickname_or_title,
+    pick_canonical,
 )
-
 
 # ── alias_safety_level ────────────────────────────────────────
 
@@ -320,7 +317,10 @@ class TestCanonicalBlocklistCoverage:
     """The canonical blocklist must cover every list-based generic term."""
 
     def test_covers_generic_person_aliases(self):
-        from src.services.name_authority import CANONICAL_BLOCKLIST, GENERIC_PERSON_ALIASES
+        from src.services.name_authority import (
+            CANONICAL_BLOCKLIST,
+            GENERIC_PERSON_ALIASES,
+        )
         missing = GENERIC_PERSON_ALIASES - CANONICAL_BLOCKLIST
         assert not missing, f"GENERIC_PERSON_ALIASES not in CANONICAL_BLOCKLIST: {missing}"
 
@@ -331,7 +331,9 @@ class TestCanonicalBlocklistCoverage:
 
     def test_covers_person_words_and_pure_titles(self):
         from src.services.name_authority import (
-            CANONICAL_BLOCKLIST, GENERIC_PERSON_WORDS, PURE_TITLE_WORDS,
+            CANONICAL_BLOCKLIST,
+            GENERIC_PERSON_WORDS,
+            PURE_TITLE_WORDS,
         )
         missing = (GENERIC_PERSON_WORDS | PURE_TITLE_WORDS) - CANONICAL_BLOCKLIST
         assert not missing, f"person words/titles not in CANONICAL_BLOCKLIST: {missing}"

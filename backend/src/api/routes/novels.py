@@ -67,7 +67,7 @@ async def re_split_chapters(req: ReSplitRequest):
             split_points=req.split_points,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return preview
 
 
@@ -91,7 +91,7 @@ async def infer_pattern(req: ReSplitRequest):
             split_points=req.split_points,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return result
 
 
@@ -104,7 +104,7 @@ async def clean_and_resplit(req: CleanAndReSplitRequest):
             clean_mode=req.clean_mode,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return preview
 
 
@@ -119,7 +119,7 @@ async def confirm_import(req: ConfirmImportRequest):
             excluded_chapters=req.excluded_chapters or None,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return novel
 
 

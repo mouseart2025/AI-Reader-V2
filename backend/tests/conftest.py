@@ -1,10 +1,9 @@
 """Shared test fixtures for backend tests."""
 
-import aiosqlite
-import pytest
-import pytest_asyncio
-
 from unittest.mock import patch
+
+import aiosqlite
+import pytest_asyncio
 
 # Import schema from production code + apply all migrations inline.
 # Tests get a fresh DB each time, so we merge base schema + migrations

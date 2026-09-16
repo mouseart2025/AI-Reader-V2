@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator
+
 from src.db import chapter_fact_store, chapter_store, conversation_store
 from src.infra.llm_client import get_llm_client
 from src.services import embedding_service, entity_aggregator

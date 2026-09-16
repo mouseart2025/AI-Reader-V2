@@ -49,9 +49,7 @@ def _matches(rec: dict, novel_id: str, chapter: int | None) -> bool:
     rec_novel = rec.get("novel_id")
     if rec_novel and rec_novel != novel_id:
         return False
-    if chapter is not None and rec.get("chapter_id") != chapter:
-        return False
-    return True
+    return not (chapter is not None and rec.get("chapter_id") != chapter)
 
 
 def _load_matching(

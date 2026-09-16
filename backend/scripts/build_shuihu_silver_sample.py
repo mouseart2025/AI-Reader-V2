@@ -308,7 +308,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=_OUT_PATH)
     args = parser.parse_args()
 
-    graph = json.load(gzip.open(_GRAPH_PATH))
+    with gzip.open(_GRAPH_PATH) as fh:
+        graph = json.load(fh)
     edges = graph["edges"]
     node_weight = {n["id"]: n.get("chapter_count", 0) for n in graph["nodes"]}
 

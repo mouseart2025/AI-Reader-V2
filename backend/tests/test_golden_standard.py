@@ -8,19 +8,18 @@ Story 2.2 (西游记) + Story 2.4 (红楼梦).
 """
 
 import json
-import os
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
 
+from src.extraction.fact_validator import _is_generic_person
 from src.services.name_authority import (
     alias_safety_level,
     is_blocked_name,
-    is_unsafe_alias,
 )
-from src.extraction.fact_validator import _is_generic_person
 
 REVIEW_DIR = Path(__file__).parent.parent / "data" / "review"
 
@@ -30,7 +29,7 @@ def _load_review_json(filename: str) -> dict | None:
     path = REVIEW_DIR / filename
     if not path.exists():
         return None
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -128,7 +127,7 @@ class TestXiyoujiGoldenCharacters:
     # ARE catchable by pattern rules today — the filters must never get worse.
     # The rest (银驮/碗子山妖魔/洪江龙王/平顶山·樵夫) are LLM-layer
     # hallucinations that name-pattern filters cannot catch by design.
-    MIN_CAUGHT = {"太监", "持国天王"}
+    MIN_CAUGHT: ClassVar = {"太监", "持国天王"}
 
     def test_invalid_characters_caught_regression_floor(self):
         """Hard gate: pattern-catchable invalid characters must stay caught.
@@ -377,7 +376,7 @@ class TestHonglouGoldenCharacters:
     # not a generic term). The floor is therefore empty today; add entries
     # here if future filters learn to catch review-flagged names, so the
     # guard never regresses below the recorded baseline.
-    MIN_CAUGHT: set[str] = set()
+    MIN_CAUGHT: ClassVar[set[str]] = set()
 
     def test_invalid_characters_caught_regression_floor(self):
         """Hard gate: pattern-catchable invalid characters must stay caught."""
@@ -486,9 +485,7 @@ async def _run_er_pipeline(review_data: dict, mode: str, log_path) -> dict:
     group_of: dict[str, int] = {}
     for gi, g in enumerate(groups):
         names = (
-            [g["canonical_name"]]
-            + list(g.get("system_aliases", []))
-            + list(g.get("missing_aliases", []))
+            [g["canonical_name"], *list(g.get("system_aliases", [])), *list(g.get("missing_aliases", []))]
         )
         for n in names:
             entry = name_meta.setdefault(n, {"freq": 0, "dict_person_freq": 0})

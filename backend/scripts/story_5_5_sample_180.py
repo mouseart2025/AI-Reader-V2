@@ -129,7 +129,7 @@ def main() -> None:
         "| 书 | 总边数 | 抽样 | 核心 | 常规 | 微观 |",
         "|---|---|---|---|---|---|",
     ]
-    for slug, title, total, cnt in summary:
+    for _slug, title, total, cnt in summary:
         lines.append(
             f"| {title} | {total} | {sum(cnt.values())} | "
             f"{cnt.get('核心', 0)} | {cnt.get('常规', 0)} | {cnt.get('微观', 0)} |"

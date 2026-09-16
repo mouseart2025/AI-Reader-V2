@@ -44,7 +44,7 @@ class TestParsePytestSummary:
 def _record(tag: str, golden_failed: int = 0, m6_acc: float = 0.6,
             smoke_cov: float = 0.9) -> dict:
     return {
-        "timestamp": f"2026-08-26T00:00:00+00:00",
+        "timestamp": "2026-08-26T00:00:00+00:00",
         "tag": tag,
         "git": {"sha": "abc1234", "branch": "beta"},
         "switches": {"RECALL_PASS_ENABLED": True},
@@ -151,7 +151,7 @@ class TestRunLoop:
     def test_first_run_appends_history(self, tmp_path, monkeypatch):
         _patch_collectors(monkeypatch)
         monkeypatch.setattr(ql, "HISTORY_PATH", tmp_path / "h.jsonl")
-        record, prev, rows, code = ql.run_loop(
+        record, prev, _rows, code = ql.run_loop(
             tag="baseline", no_pytest=True, report_dir=tmp_path,
             history_path=tmp_path / "h.jsonl",
         )

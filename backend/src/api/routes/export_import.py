@@ -20,11 +20,11 @@ def _decode_import_content(raw: bytes) -> dict:
         try:
             raw = gzip.decompress(raw)
         except Exception:
-            raise HTTPException(400, "无法解压 .air 文件")
+            raise HTTPException(400, "无法解压 .air 文件") from None
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        raise HTTPException(400, "无效的 JSON 文件")
+        raise HTTPException(400, "无效的 JSON 文件") from None
 
 
 @router.get("/novels/{novel_id}/export")
@@ -40,7 +40,9 @@ async def export_novel(novel_id: str, format: str = Query("json")):
         raise HTTPException(404, "Novel not found")
     try:
         if format == "markdown":
-            from src.services.chapter_facts_markdown_renderer import render_novel_markdown
+            from src.services.chapter_facts_markdown_renderer import (
+                render_novel_markdown,
+            )
 
             md, filename = await render_novel_markdown(novel_id)
             encoded = quote(filename)
@@ -77,7 +79,7 @@ async def export_novel(novel_id: str, format: str = Query("json")):
             },
         )
     except Exception as e:
-        raise HTTPException(500, f"Export failed: {e}")
+        raise HTTPException(500, f"Export failed: {e}") from e
 
 
 @router.post("/novels/import/preview")
@@ -89,7 +91,7 @@ async def preview_import(file: UploadFile):
     try:
         preview = export_service.preview_import(data)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
 
     # Enrich with LLM model info from chapter_facts
     facts = data.get("chapter_facts", [])
@@ -134,8 +136,8 @@ async def confirm_import(file: UploadFile, overwrite: bool = False):
     try:
         result = await export_service.import_novel(data, overwrite=overwrite)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     except Exception as e:
-        raise HTTPException(500, f"Import failed: {e}")
+        raise HTTPException(500, f"Import failed: {e}") from e
 
     return result

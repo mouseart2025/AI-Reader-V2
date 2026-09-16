@@ -295,9 +295,7 @@ def _flatten_gate(prefix: str, gate: dict, out: dict) -> None:
         full = f"{prefix}.{key}"
         if isinstance(val, dict):  # m5 的 per-slug 子表
             _flatten_gate(full, val, out)
-        elif isinstance(val, bool):
-            out[full] = val
-        elif isinstance(val, (int, float)):
+        elif isinstance(val, (bool, int, float)):
             out[full] = val
 
 
@@ -347,17 +345,13 @@ def compare_records(prev: dict | None, curr: dict) -> list[dict]:
         delta = cur - prv
         verdict = "ok"
         if key in HARD_NUMERIC_KEYS:
-            if key == "golden.failed" and delta > 0:
-                verdict = "fail"
-            elif key == "golden.pass_rate" and (
+            if (key == "golden.failed" and delta > 0) or (key == "golden.pass_rate" and (
                 delta < -_EPS or (cur is not None and cur < GOLDEN_PASS_THRESHOLD)
-            ):
+            )):
                 verdict = "fail"
         else:
             direction = _direction_for(key)
-            if direction == "higher" and delta < -_EPS:
-                verdict = "warn"
-            elif direction == "lower" and delta > _EPS:
+            if (direction == "higher" and delta < -_EPS) or (direction == "lower" and delta > _EPS):
                 verdict = "warn"
         rows.append({"key": key, "label": label, "prev": prv,
                      "curr": cur, "delta": delta, "verdict": verdict})
@@ -442,10 +436,7 @@ def run_loop(
     """测量 → 记录 → 对比。返回 (record, prev_record, rows, exit_code)。"""
     history_path = history_path or report_dir / "quality_history.jsonl"
 
-    if no_pytest:
-        golden = {"status": "skipped"}
-    else:
-        golden = golden_runner()
+    golden = {"status": "skipped"} if no_pytest else golden_runner()
 
     gates = {
         "git": git_info(),

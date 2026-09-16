@@ -24,7 +24,6 @@ from src.infra.secret_store import (
     _try_keyring_save,
 )
 
-
 # ── Ollama three-state detection ──────────────────────
 
 
@@ -169,18 +168,20 @@ async def test_start_ollama_success():
     mock_response = MagicMock()
     mock_response.status_code = 200
 
-    with patch("src.api.routes.settings.shutil") as mock_shutil:
+    with (
+        patch("src.api.routes.settings.shutil") as mock_shutil,
+        patch("src.api.routes.settings.subprocess.Popen") as mock_popen,
+        patch("src.api.routes.settings.httpx.AsyncClient") as mock_client_cls,
+    ):
         mock_shutil.which.return_value = "/usr/local/bin/ollama"
-        with patch("src.api.routes.settings.subprocess.Popen") as mock_popen:
-            with patch("src.api.routes.settings.httpx.AsyncClient") as mock_client_cls:
-                mock_client = AsyncMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=False)
-                mock_client.get = AsyncMock(return_value=mock_response)
-                mock_client_cls.return_value = mock_client
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client_cls.return_value = mock_client
 
-                with patch("src.api.routes.settings.asyncio.sleep", new_callable=AsyncMock):
-                    result = await start_ollama()
+        with patch("src.api.routes.settings.asyncio.sleep", new_callable=AsyncMock):
+            result = await start_ollama()
 
     assert result["success"] is True
     mock_popen.assert_called_once()
@@ -295,7 +296,6 @@ async def test_cloud_providers_list():
 
 def test_cloud_providers_have_required_fields():
     """Each provider preset should have id, name, base_url, default_model."""
-    import asyncio
     result = asyncio.get_event_loop().run_until_complete(get_cloud_providers())
     for p in result["providers"]:
         assert "id" in p
@@ -403,9 +403,11 @@ async def test_switch_to_ollama():
     """Should switch to Ollama mode and update runtime config."""
     req = SwitchModeRequest(mode="ollama", ollama_model="qwen3:4b")
 
-    with patch("src.db.sqlite_db.get_connection", _mock_get_connection()):
-        with patch("src.infra.config.switch_to_ollama"):
-            result = await switch_llm_mode(req)
+    with (
+        patch("src.db.sqlite_db.get_connection", _mock_get_connection()),
+        patch("src.infra.config.switch_to_ollama"),
+    ):
+        result = await switch_llm_mode(req)
 
     assert result["success"] is True
     assert result["mode"] == "ollama"
@@ -423,10 +425,12 @@ async def test_switch_invalid_mode():
 @pytest.mark.asyncio(loop_scope="session")
 async def test_restore_defaults():
     """Should reset to defaults."""
-    with patch("src.db.sqlite_db.get_connection", _mock_get_connection()):
-        with patch("src.infra.config.switch_to_ollama") as mock_switch:
-            with patch("src.infra.config.update_max_tokens") as mock_tokens:
-                result = await restore_defaults()
+    with (
+        patch("src.db.sqlite_db.get_connection", _mock_get_connection()),
+        patch("src.infra.config.switch_to_ollama") as mock_switch,
+        patch("src.infra.config.update_max_tokens") as mock_tokens,
+    ):
+        result = await restore_defaults()
 
     assert result["success"] is True
     mock_switch.assert_called_once_with("qwen3:8b")

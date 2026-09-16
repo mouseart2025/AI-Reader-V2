@@ -14,14 +14,19 @@ factory in llm_client.py can swap it in transparently.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
 
 import httpx
 
-from src.infra.llm_client import LLMError, LLMTimeoutError, LlmUsage, ToolCall, _extract_json
+from src.infra.llm_client import (
+    LLMError,
+    LLMTimeoutError,
+    LlmUsage,
+    ToolCall,
+    _extract_json,
+)
 from src.infra.openai_client import _repair_truncated_json
 
 logger = logging.getLogger(__name__)
@@ -56,7 +61,7 @@ class AnthropicClient:
         self,
         system: str,
         prompt: str,
-        format: dict | None = None,  # noqa: A002
+        format: dict | None = None,
         temperature: float = 0.1,
         max_tokens: int = 4096,
         timeout: int = 120,
@@ -247,37 +252,36 @@ class AnthropicClient:
         logger.debug("Anthropic generate_stream() sending request (no semaphore)")
         async with self._make_client(
             httpx.Timeout(timeout, connect=10.0)
-        ) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/v1/messages",
-                json=payload,
-                headers=self._headers(),
-            ) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line:
+        ) as client, client.stream(
+            "POST",
+            f"{self.base_url}/v1/messages",
+            json=payload,
+            headers=self._headers(),
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line:
+                    continue
+                # SSE lines: "event: ..." or "data: ..."
+                if line.startswith("data: "):
+                    raw = line[6:].strip()
+                    if not raw:
                         continue
-                    # SSE lines: "event: ..." or "data: ..."
-                    if line.startswith("data: "):
-                        raw = line[6:].strip()
-                        if not raw:
-                            continue
-                        try:
-                            chunk = json.loads(raw)
-                        except json.JSONDecodeError:
-                            continue
+                    try:
+                        chunk = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
 
-                        chunk_type = chunk.get("type", "")
-                        if chunk_type == "content_block_delta":
-                            delta = chunk.get("delta", {})
-                            if delta.get("type") == "text_delta":
-                                token = delta.get("text", "")
-                                if token:
-                                    yield token
-                        elif chunk_type == "message_stop":
+                    chunk_type = chunk.get("type", "")
+                    if chunk_type == "content_block_delta":
+                        delta = chunk.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            token = delta.get("text", "")
+                            if token:
+                                yield token
+                    elif chunk_type == "message_stop":
+                        break
+                    elif chunk_type == "message_delta":
+                        # Check if finished
+                        if chunk.get("delta", {}).get("stop_reason"):
                             break
-                        elif chunk_type == "message_delta":
-                            # Check if finished
-                            if chunk.get("delta", {}).get("stop_reason"):
-                                break

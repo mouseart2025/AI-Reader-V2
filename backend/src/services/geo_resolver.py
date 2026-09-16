@@ -22,6 +22,7 @@ import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 import httpx
 
@@ -265,10 +266,8 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "中国海": (18.0, 114.0),         # China Sea (generic)
     "南中国海": (12.0, 113.0),       # South China Sea
     "北太平洋": (30.0, -160.0),      # North Pacific
-    "南太平洋": (-20.0, -140.0),     # South Pacific (already exists but ensure)
     "北大西洋": (40.0, -30.0),       # North Atlantic
     "合恩角": (-55.98, -67.27),      # Cape Horn
-    "好望角": (-34.36, 18.47),       # Cape of Good Hope
     "锡兰岛": (7.87, 80.77),        # Ceylon (Sri Lanka)
     "苏门答腊岛": (0.59, 101.34),    # Sumatra Island
     "爪哇岛": (-7.61, 110.20),       # Java Island
@@ -305,7 +304,6 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "赤道": (0.0, 30.0),             # Equator (generic)
     "赤道线": (0.0, 30.0),           # Equator line
     "南极": (-82.86, 135.0),         # South Pole
-    "南极洲": (-82.86, 135.0),       # Antarctica
     # ── Additional maritime / adventure novel supplements ──
     "麦哲伦海峡": (-52.5, -70.0),     # Strait of Magellan
     "日本海": (40.0, 135.0),          # Sea of Japan
@@ -527,7 +525,6 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     # ── 神秘岛 (Jules Verne) — real-world references ──
     "里士满": (37.54, -77.44),          # Richmond, Virginia
     "伊利诺斯": (40.0, -89.0),          # Illinois
-    "马萨诸塞": (42.41, -71.38),        # Massachusetts
     "衣阿华州": (42.0, -93.5),          # Iowa
     "格林威治": (51.48, 0.0),           # Greenwich
     "墨尔本": (-37.81, 144.96),         # Melbourne
@@ -727,7 +724,6 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "广宗": (37.1, 115.1),         # Guangzong (Hebei, Yellow Turban battle)
     "颍川": (34.2, 113.5),         # Yingchuan commandery (Henan)
     "陈仓": (34.4, 107.4),         # Chencang (Baoji, Shaanxi)
-    "定军山": (33.1, 106.8),       # Mount Dingjun
     "上方谷": (34.0, 107.3),       # Shangfang Valley
     "白马": (35.5, 114.6),         # Baima (Hua county, Henan)
     "安邑": (35.0, 111.0),         # Anyi (southern Shanxi)
@@ -892,7 +888,7 @@ def _resolve_from_zh_alias(
         # Prefer entry closest to parent within 1000km
         closest = None
         closest_dist = float("inf")
-        for lat, lng, pop, feat, cc, gid in entries:
+        for lat, lng, _pop, _feat, _cc, _gid in entries:
             dist = _haversine_km((lat, lng), parent_coord)
             if dist < closest_dist:
                 closest_dist = dist
@@ -928,7 +924,7 @@ class GeoResolver:
     """
 
     # Class-level index caches: {dataset_key: {name: [GeoEntry, ...]}}
-    _indexes: dict[str, dict[str, list[GeoEntry]]] = {}
+    _indexes: ClassVar[dict[str, dict[str, list[GeoEntry]]]] = {}
 
     def __init__(self, dataset_key: str = "cn") -> None:
         if dataset_key not in DATASET_REGISTRY:

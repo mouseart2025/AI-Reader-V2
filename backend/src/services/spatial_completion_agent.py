@@ -347,7 +347,7 @@ class SpatialCompletionAgent:
         for child, parent in parents.items():
             children_of[parent].append(child)
 
-        for parent, children in children_of.items():
+        for _parent, children in children_of.items():
             for i in range(len(children)):
                 for j in range(i + 1, len(children)):
                     a, b = children[i], children[j]

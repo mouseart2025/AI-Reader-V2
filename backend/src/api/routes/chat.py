@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from src.db import conversation_store, novel_store
 
-
 router = APIRouter(tags=["chat"])
 
 

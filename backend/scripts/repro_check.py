@@ -198,7 +198,7 @@ def compare_snapshots(snap_a: dict, snap_b: dict) -> dict:
     layers["hierarchy"] = hier
 
     # 汇总:五层 Jaccard 的宏平均
-    macro = sum(l["jaccard"] for l in layers.values()) / len(layers)
+    macro = sum(layer["jaccard"] for layer in layers.values()) / len(layers)
     return {"layers": layers, "macro_jaccard": macro}
 
 
@@ -231,9 +231,8 @@ _TERMINAL_TASK_STATUS = ("completed", "completed_with_errors", "failed", "cancel
 
 async def build_snapshot(novel_id: str, chapters: int, label: str) -> dict:
     """从本 run 的 sqlite 产出五层 snapshot(复用生产聚合逻辑)。"""
-    from src.db import chapter_fact_store
+    from src.db import chapter_fact_store, world_structure_store
     from src.db.sqlite_db import get_connection
-    from src.db import world_structure_store
     from src.services import alias_resolver
     from src.services.relation_utils import normalize_relation_type
 
@@ -325,9 +324,8 @@ async def build_snapshot(novel_id: str, chapters: int, label: str) -> dict:
 
 async def run_worker(args: argparse.Namespace) -> int:
     """单 run:初始化独立 DB → 切章入库 → 完整分析 → post 链 → snapshot。"""
-    from src.db import novel_store
+    from src.db import analysis_task_store, novel_store
     from src.db.sqlite_db import init_db
-    from src.db import analysis_task_store
     from src.infra import config
     from src.infra import llm_client as _lc
     from src.infra.context_budget import detect_and_update_context_window
@@ -467,10 +465,10 @@ def render_report_md(report: dict) -> str:
     ]
     for name, cn in (("entity", "实体"), ("alias", "别名映射"), ("relation", "关系"),
                      ("event", "事件"), ("hierarchy", "层级")):
-        l = report["layers"][name]
+        layer = report["layers"][name]
         lines.append(
-            f"| {cn} ({name}) | {l['size_a']} | {l['size_b']} | "
-            f"{l['intersection']} | {l['union']} | {_pct(l['jaccard'])} |"
+            f"| {cn} ({name}) | {layer['size_a']} | {layer['size_b']} | "
+            f"{layer['intersection']} | {layer['union']} | {_pct(layer['jaccard'])} |"
         )
     lines += [
         f"| **宏平均** | | | | | **{_pct(report['macro_jaccard'])}** |",
@@ -505,13 +503,13 @@ def render_report_md(report: dict) -> str:
     # 差异样例
     for name, cn in (("entity", "实体"), ("alias", "别名"), ("relation", "关系"),
                      ("hierarchy", "层级边")):
-        l = report["layers"][name]
-        if l.get("only_in_a") or l.get("only_in_b"):
+        layer = report["layers"][name]
+        if layer.get("only_in_a") or layer.get("only_in_b"):
             lines.append(f"### {cn} 差异样例 (各至多 20 条)")
             lines.append("")
-            for s in l.get("only_in_a", []):
+            for s in layer.get("only_in_a", []):
                 lines.append(f"- 仅 A: {s}")
-            for s in l.get("only_in_b", []):
+            for s in layer.get("only_in_b", []):
                 lines.append(f"- 仅 B: {s}")
             lines.append("")
 
