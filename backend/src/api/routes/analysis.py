@@ -308,6 +308,14 @@ async def clear_analysis_data(novel_id: str):
             (novel_id,),
         )
         await conn.execute(
+            "DELETE FROM map_geo_artifacts WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.execute(
+            "DELETE FROM map_layout_meta WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.execute(
             "DELETE FROM map_user_overrides WHERE novel_id = ?",
             (novel_id,),
         )

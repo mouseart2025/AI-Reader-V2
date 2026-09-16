@@ -121,16 +121,16 @@ async def vis_db(memory_db):
         ),
     ):
         yield memory_db
-    alias_resolver_mod.invalidate_alias_cache(NOVEL)
-    entity_aggregator.invalidate_cache(NOVEL)
-    visualization_service.invalidate_map_response_cache(NOVEL)
+        alias_resolver_mod.invalidate_alias_cache(NOVEL)
+        entity_aggregator.invalidate_cache(NOVEL)
+        await visualization_service.invalidate_map_response_cache(NOVEL)
 
 
 async def _reset_overrides(db) -> None:
     """每个用例从干净状态开始 + 全部缓存失效。"""
     await entity_override_store.delete_all_overrides(NOVEL)
     entity_aggregator.invalidate_cache(NOVEL)
-    visualization_service.invalidate_map_response_cache(NOVEL)
+    await visualization_service.invalidate_map_response_cache(NOVEL)
 
 
 async def _hide(name: str) -> None:
@@ -138,7 +138,7 @@ async def _hide(name: str) -> None:
         NOVEL, "entity_hide", name, {"auto_snapshot": {"type": "person"}},
     )
     entity_aggregator.invalidate_cache(NOVEL)
-    visualization_service.invalidate_map_response_cache(NOVEL)
+    await visualization_service.invalidate_map_response_cache(NOVEL)
 
 
 async def _retype(name: str, to: str, frm: str = "") -> None:
@@ -147,7 +147,7 @@ async def _retype(name: str, to: str, frm: str = "") -> None:
         {"from": frm, "to": to, "auto_snapshot": {"type": frm}},
     )
     entity_aggregator.invalidate_cache(NOVEL)
-    visualization_service.invalidate_map_response_cache(NOVEL)
+    await visualization_service.invalidate_map_response_cache(NOVEL)
 
 
 # ── FR-1.1 实体隐藏 ────────────────────────────────
@@ -217,7 +217,7 @@ async def test_hide_undo_restores_byte_identical(vis_db):
     assert len(rows) == 1
     await entity_override_store.delete_override(NOVEL, rows[0]["id"])
     entity_aggregator.invalidate_cache(NOVEL)
-    visualization_service.invalidate_map_response_cache(NOVEL)
+    await visualization_service.invalidate_map_response_cache(NOVEL)
 
     assert [
         e.model_dump() for e in await entity_aggregator.get_all_entities(NOVEL)

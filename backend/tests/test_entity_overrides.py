@@ -781,6 +781,9 @@ def _patch_visibility_route(saved_id=7, auto_entities=(), retype_map=None):
     async def _vis(_n):
         return set(), (retype_map or {})
 
+    async def _noop_invalidate(_n):
+        return None
+
     return [
         patch("src.db.novel_store.get_novel", _get_novel),
         patch("src.api.routes.entity_overrides.build_alias_map", _build_map),
@@ -789,7 +792,7 @@ def _patch_visibility_route(saved_id=7, auto_entities=(), retype_map=None):
         patch("src.api.routes.entity_overrides.entity_aggregator.invalidate_cache", lambda _n: None),
         patch(
             "src.api.routes.entity_overrides.visualization_service.invalidate_map_response_cache",
-            lambda _n: None,
+            _noop_invalidate,
         ),
         patch("src.services.entity_visibility.get_visibility_overrides", _vis),
     ]

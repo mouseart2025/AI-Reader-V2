@@ -3549,6 +3549,56 @@ _OCEAN_TYPE_EXCLUDE = ("海榴", "海棠", "海市")  # false positives (place n
 _ISLAND_TYPE_KEYWORDS = ("岛",)
 
 
+def _point_in_polygon_scalar(px: float, py: float, poly: list[tuple[float, float]]) -> bool:
+    """Ray casting point-in-polygon test (scalar reference implementation).
+
+    Kept for equivalence tests against the vectorized ``_points_in_polygon``.
+    """
+    n_ = len(poly)
+    inside = False
+    j = n_ - 1
+    for i in range(n_):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _points_in_polygon(
+    points: np.ndarray | list[tuple[float, float]],
+    poly: np.ndarray | list[tuple[float, float]],
+) -> np.ndarray:
+    """Vectorized ray casting: batch-test many points against one polygon ring.
+
+    Returns a bool array; element-wise identical to ``_point_in_polygon_scalar``
+    (same expression, same float operation order per edge).
+    """
+    pts = np.asarray(points, dtype=np.float64).reshape(-1, 2)
+    n_pts = len(pts)
+    if n_pts == 0:
+        return np.zeros(0, dtype=bool)
+    poly_arr = np.asarray(poly, dtype=np.float64)
+    if len(poly_arr) < 3:
+        return np.zeros(n_pts, dtype=bool)
+    xi = poly_arr[:, 0]
+    yi = poly_arr[:, 1]
+    xj = np.roll(xi, 1)  # edge (j, i) with j = i - 1, matching the scalar loop
+    yj = np.roll(yi, 1)
+    inside = np.zeros(n_pts, dtype=bool)
+    chunk = 2048  # bound the (points × edges) broadcast temporaries
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for start in range(0, n_pts, chunk):
+            px = pts[start:start + chunk, 0:1]
+            py = pts[start:start + chunk, 1:2]
+            crosses = ((yi > py) != (yj > py)) & (
+                px < (xj - xi) * (py - yi) / (yj - yi) + xi
+            )
+            inside[start:start + chunk] = np.count_nonzero(crosses, axis=1) % 2 == 1
+    return inside
+
+
 def generate_landmasses(
     locations: list[dict],
     layout_data: list[dict],
@@ -3854,19 +3904,6 @@ def generate_landmasses(
             area -= poly[j][0] * poly[i][1]
         return abs(area) / 2.0
 
-    def _point_in_polygon(px: float, py: float, poly: list[tuple[float, float]]) -> bool:
-        """Ray casting point-in-polygon test."""
-        n_ = len(poly)
-        inside = False
-        j = n_ - 1
-        for i in range(n_):
-            xi, yi = poly[i]
-            xj, yj = poly[j]
-            if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
-                inside = not inside
-            j = i
-        return inside
-
     # Convert grid coords to canvas coords
     def _grid_to_canvas(contour: list[tuple[int, int]]) -> list[tuple[float, float]]:
         return [(float(gx[min(c[0], len(gx) - 1)]), float(gy[min(c[1], len(gy) - 1)]))
@@ -3880,13 +3917,9 @@ def generate_landmasses(
     outer_areas = [_unsigned_area(c) for c in canvas_outers]
     canvas_holes = [_grid_to_canvas(c) for c in hole_contours_raw]
 
-    # Count locations inside each outer ring
+    # Count locations inside each outer ring (vectorized ray casting)
     def _count_locations_inside(poly: list[tuple[float, float]]) -> int:
-        count = 0
-        for pt in all_points:
-            if _point_in_polygon(pt[0], pt[1], poly):
-                count += 1
-        return count
+        return int(np.count_nonzero(_points_in_polygon(points_arr, poly)))
 
     # Filter small outer rings (unless they contain locations)
     filtered_outers: list[tuple[list[tuple[float, float]], float, int]] = []
@@ -3915,7 +3948,7 @@ def generate_landmasses(
         hx = sum(p[0] for p in hole_contour) / len(hole_contour)
         hy = sum(p[1] for p in hole_contour) / len(hole_contour)
         for oi, (outer_c, _, _) in enumerate(filtered_outers):
-            if _point_in_polygon(hx, hy, outer_c):
+            if _point_in_polygon_scalar(hx, hy, outer_c):
                 hole_map[oi].append(hole_contour)
                 break
 
@@ -4029,18 +4062,20 @@ def generate_landmasses(
         coast = lm["coastline"]
         if len(coast) < 3:
             continue
-        # Find non-ocean points outside this landmass
+        # Find non-ocean points outside this landmass (vectorized ray casting)
+        outside = points_arr[~_points_in_polygon(points_arr, coast)]
+        if len(outside) == 0:
+            continue
+        # Keep only points near this coastline (within expand_margin * 3).
+        # Squared distances avoid sqrt; chunked to bound temporaries.
+        coast_arr = np.asarray(coast, dtype=np.float64)
+        near_limit_sq = (_expand_margin * 3) ** 2
         uncovered_pts: list[tuple[float, float]] = []
-        for pt in all_points:
-            if _point_in_polygon(pt[0], pt[1], coast):
-                continue
-            # Check if near this coastline (within expand_margin * 3)
-            min_dist = min(
-                math.sqrt((pt[0] - c[0]) ** 2 + (pt[1] - c[1]) ** 2)
-                for c in coast
-            )
-            if min_dist < _expand_margin * 3:
-                uncovered_pts.append(pt)
+        for start in range(0, len(outside), 256):
+            blk = outside[start:start + 256]
+            min_dist_sq = ((blk[:, None, :] - coast_arr[None, :, :]) ** 2).sum(axis=2).min(axis=1)
+            for k in np.nonzero(min_dist_sq < near_limit_sq)[0]:
+                uncovered_pts.append((float(blk[k][0]), float(blk[k][1])))
 
         if not uncovered_pts:
             continue

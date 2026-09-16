@@ -57,10 +57,10 @@ async def _require_novel(novel_id: str) -> None:
         raise HTTPException(status_code=404, detail="小说不存在")
 
 
-def _invalidate_views(novel_id: str) -> None:
+async def _invalidate_views(novel_id: str) -> None:
     """实体级 override 写入后的缓存失效:聚合/别名缓存 + 地图响应缓存。"""
     entity_aggregator.invalidate_cache(novel_id)
-    visualization_service.invalidate_map_response_cache(novel_id)
+    await visualization_service.invalidate_map_response_cache(novel_id)
 
 
 def _snapshot(alias_map: dict[str, str], names: list[str]) -> dict[str, str]:
@@ -243,7 +243,7 @@ async def hide_entity(novel_id: str, body: HideRequest):
         canonical,
         {"auto_snapshot": {"type": auto_type}},
     )
-    _invalidate_views(novel_id)
+    await _invalidate_views(novel_id)
     return {"status": "ok", "override_id": oid}
 
 
@@ -275,7 +275,7 @@ async def retype_entity(novel_id: str, body: RetypeRequest):
         canonical,
         {"from": auto_type, "to": to, "auto_snapshot": {"type": auto_type}},
     )
-    _invalidate_views(novel_id)
+    await _invalidate_views(novel_id)
     return {"status": "ok", "override_id": oid}
 
 
@@ -285,5 +285,5 @@ async def delete_override(novel_id: str, override_id: int):
     await _require_novel(novel_id)
     if not await entity_override_store.delete_override(novel_id, override_id):
         raise HTTPException(status_code=404, detail="修正记录不存在")
-    _invalidate_views(novel_id)
+    await _invalidate_views(novel_id)
     return {"status": "ok"}
