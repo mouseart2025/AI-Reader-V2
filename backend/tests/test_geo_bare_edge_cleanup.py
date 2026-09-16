@@ -17,9 +17,9 @@ from unittest.mock import patch
 
 import pytest
 
+from src.services.geo_skills.edmonds_resolver import EdmondsResolver
 from src.services.geo_skills.snapshot import HierarchySnapshot
 from src.services.geo_skills.vote_builder import VoteBuilder
-from src.services.geo_skills.edmonds_resolver import EdmondsResolver
 
 
 class _NonClosingConnection:

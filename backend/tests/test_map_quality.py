@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import math
-from collections import Counter
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-
 
 # ── T7.1: Water detection tests ──
 
@@ -165,7 +162,7 @@ class TestLLMAnchorInjection:
             "南赡部洲": "天下",
         }
 
-        votes, synonyms, directions = await gen.generate(
+        _votes, _synonyms, directions = await gen.generate(
             "西游记", "xianxia", location_tiers, current_parents,
         )
         assert len(directions) == 1
@@ -355,7 +352,7 @@ class TestDirectionHintEnhancement:
         ]
         first_chapter = {"A": 1, "B": 10, "C": 5, "D": 15, "E": 20, "F": 25}
 
-        dx, dy = _detect_narrative_axis(constraints, first_chapter)
+        dx, _dy = _detect_narrative_axis(constraints, first_chapter)
         # Should have eastward component (positive dx)
         assert dx > 0, f"Expected positive dx for eastward, got {dx}"
 

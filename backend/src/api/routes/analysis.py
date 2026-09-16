@@ -12,8 +12,6 @@ from src.db import (
     analysis_task_store,
     chapter_fact_store,
     novel_store,
-    world_structure_override_store,
-    world_structure_store,
 )
 from src.db.sqlite_db import get_connection
 from src.services import embedding_service
@@ -157,7 +155,7 @@ async def start_analysis(novel_id: str, req: AnalyzeRequest | None = None):
     try:
         task_id = await service.start(novel_id, chapter_start, chapter_end, force=force)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
     return {"task_id": task_id, "status": "running"}
 
@@ -180,7 +178,7 @@ async def patch_task(task_id: str, req: PatchTaskRequest):
         else:
             raise HTTPException(status_code=400, detail=f"无效的状态: {req.status}")
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     return {"task_id": task_id, "status": req.status}
 

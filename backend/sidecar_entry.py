@@ -5,8 +5,8 @@ Usage:
     ./ai-reader-sidecar --port 12345   (after PyInstaller bundling)
 """
 
-import sys
 import multiprocessing
+import sys
 
 # CRITICAL: freeze_support() must be called at module level before any other
 # imports on Windows, otherwise PyInstaller child processes crash immediately.
@@ -14,6 +14,7 @@ if getattr(sys, "frozen", False):
     multiprocessing.freeze_support()
 
 import argparse
+import contextlib
 import os
 from pathlib import Path
 
@@ -60,13 +61,12 @@ def main() -> None:
 
     try:
         import uvicorn
+
         from src.api.main import app
 
         # Clear crash log on successful startup
-        try:
+        with contextlib.suppress(Exception):
             crash_log.unlink(missing_ok=True)
-        except Exception:
-            pass
 
         uvicorn.run(
             app,

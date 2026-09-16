@@ -17,8 +17,12 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from src.db import analysis_pass_store, analysis_task_store, chapter_store
-from src.db import entity_dictionary_store
+from src.db import (
+    analysis_pass_store,
+    analysis_task_store,
+    chapter_store,
+    entity_dictionary_store,
+)
 from src.extraction.chapter_fact_extractor import ChapterFactExtractor
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
@@ -63,6 +67,14 @@ class SourcePassService:
         # pause/cancel 信号与活动循环跟踪(模式同 AnalysisService)
         self._pass_signals: dict[str, str] = {}  # pass_id -> desired status
         self._active_loops: set[str] = set()  # pass_ids with currently-running loops
+        # Strong refs to fire-and-forget tasks (prevents GC mid-run, RUF006)
+        self._background_tasks: set[asyncio.Task] = set()
+
+    def _spawn_background(self, coro) -> None:
+        """Fire-and-forget a coroutine, keeping a strong reference until done."""
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     @staticmethod
     async def _broadcast(novel_id: str, pass_id: str, data: dict) -> None:
@@ -119,7 +131,7 @@ class SourcePassService:
         self._pass_signals[pass_id] = "running"
 
         # Launch background pass loop
-        asyncio.create_task(
+        self._spawn_background(
             self._run_loop(pass_id, novel_id, chapter_start, chapter_end)
         )
         return pass_id
@@ -148,7 +160,7 @@ class SourcePassService:
         # continue on its own — no new loop needed.
         if pass_id not in self._active_loops:
             resume_from = (pass_row["current_chapter"] or 0) + 1
-            asyncio.create_task(
+            self._spawn_background(
                 self._run_loop(
                     pass_id, novel_id, resume_from, pass_row["chapter_end"],
                 )

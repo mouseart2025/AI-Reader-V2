@@ -103,7 +103,7 @@ CONTEXT_WINDOW_SIZE: int = 8192
 
 def update_context_window(size: int) -> None:
     """Update CONTEXT_WINDOW_SIZE at runtime (called after detection)."""
-    global CONTEXT_WINDOW_SIZE  # noqa: PLW0603
+    global CONTEXT_WINDOW_SIZE
     CONTEXT_WINDOW_SIZE = size
 
 
@@ -124,7 +124,7 @@ def update_cloud_config(
 
     Falls back to .env initial values when DB-provided values are empty.
     """
-    global LLM_PROVIDER, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER_FORMAT  # noqa: PLW0603
+    global LLM_PROVIDER, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER_FORMAT
 
     LLM_PROVIDER = provider
     LLM_API_KEY = api_key or _ENV_LLM_API_KEY
@@ -140,7 +140,7 @@ def update_cloud_config(
 
 def switch_to_ollama(model: str = "qwen3:8b") -> None:
     """Hot-switch back to local Ollama mode."""
-    global LLM_PROVIDER, OLLAMA_MODEL, LLM_PROVIDER_FORMAT  # noqa: PLW0603
+    global LLM_PROVIDER, OLLAMA_MODEL, LLM_PROVIDER_FORMAT
 
     LLM_PROVIDER = "ollama"
     OLLAMA_MODEL = model
@@ -163,7 +163,7 @@ def _reset_llm_client() -> None:
 
 def update_max_tokens(max_tokens: int) -> None:
     """Update LLM_MAX_TOKENS at runtime."""
-    global LLM_MAX_TOKENS  # noqa: PLW0603
+    global LLM_MAX_TOKENS
 
     LLM_MAX_TOKENS = max_tokens
 

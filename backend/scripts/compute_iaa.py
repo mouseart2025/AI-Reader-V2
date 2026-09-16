@@ -22,8 +22,6 @@ from __future__ import annotations
 import argparse
 import glob
 import json
-import re
-from collections import Counter
 from pathlib import Path
 
 IAA_DIR = Path("/Users/leonfeng/Baiduyun/AISoul/ai-reader-internal/paper/iaa")
@@ -152,20 +150,23 @@ def cohens_kappa(pairs: list[tuple]) -> tuple[float, float, int, int]:
     b_vals = [b for _, b in valid]
     categories = set(a_vals) | set(b_vals)
     p_e = sum((a_vals.count(c) / n) * (b_vals.count(c) / n) for c in categories)
-    if p_e >= 1:
-        kappa = 1.0
-    else:
-        kappa = (p_o - p_e) / (1 - p_e)
+    kappa = 1.0 if p_e >= 1 else (p_o - p_e) / (1 - p_e)
     return kappa, p_o, agree, n
 
 
 def interpret_kappa(k: float) -> str:
-    if k < 0: return "poor (worse than chance)"
-    if k < 0.20: return "slight"
-    if k < 0.40: return "fair"
-    if k < 0.60: return "moderate"
-    if k < 0.75: return "substantial"
-    if k < 0.81: return "substantial"
+    if k < 0:
+        return "poor (worse than chance)"
+    if k < 0.20:
+        return "slight"
+    if k < 0.40:
+        return "fair"
+    if k < 0.60:
+        return "moderate"
+    if k < 0.75:
+        return "substantial"
+    if k < 0.81:
+        return "substantial"
     return "almost perfect"
 
 
@@ -286,9 +287,9 @@ def main():
     lines: list[str] = []
     lines.append("# Inter-Annotator Agreement (IAA) Report")
     lines.append("")
-    lines.append(f"- **Annotator A**: first author (via per-novel `*_errata_gold.json`)")
+    lines.append("- **Annotator A**: first author (via per-novel `*_errata_gold.json`)")
     lines.append(f"- **Annotator B**: {b_path.name}")
-    lines.append(f"- **Sample size**: 200 nodes (100 西游记 + 100 红楼梦)")
+    lines.append("- **Sample size**: 200 nodes (100 西游记 + 100 红楼梦)")
     lines.append("")
     lines.append("## Cohen's Kappa per Dimension")
     lines.append("")

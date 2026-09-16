@@ -10,7 +10,6 @@
 - delete_pass 级联清除影子数据;recover_stale_passes: running → paused。
 """
 
-import json
 
 import pytest
 

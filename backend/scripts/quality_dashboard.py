@@ -507,7 +507,7 @@ def render_novel_md(report: dict) -> str:
             f"- 初筛候选: {m3['candidates']}（占比 {m3['candidate_ratio']:.1%}）",
             f"- LLM 仲裁: {m3['arbitrated']} 条 → 方向颠倒 {m3['reversed']} 条 "
             f"（unrelated {m3['unclear']} 条）",
-            f"- **direction_error_rate: "
+            "- **direction_error_rate: "
             + (f"{m3['direction_error_rate']:.1%}" if m3["direction_error_rate"] is not None else "N/A")
             + "**",
             "",

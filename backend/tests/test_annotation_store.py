@@ -4,8 +4,9 @@ Covers: add/list round-trip, chapter filtering, partial update
 (color-only / note-only), update of missing id, and delete.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from src.db import annotation_store
 

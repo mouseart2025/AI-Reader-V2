@@ -23,17 +23,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
 # Reuse the DeepSeek client + pricing from the main script
 from scripts.synthesize_novel import (  # noqa: E402
-    DeepSeekClient,
     PRICE_INPUT,
     PRICE_OUTPUT,
-    parse_json_lenient,
+    DeepSeekClient,
     append_metadata,
+    parse_json_lenient,
 )
 
 BIBLE_PATH = Path(

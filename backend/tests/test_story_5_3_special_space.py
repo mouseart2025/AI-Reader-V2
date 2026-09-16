@@ -11,13 +11,13 @@ AC4: 三国(无特殊空间语料)回归 —— is_special_space 对其地名全
      分类结果无漂移。
 """
 
-import pytest
 from collections import Counter
 
-from src.utils.location_names import is_special_space
-from src.services.geo_skills.tier_classifier import TierClassifier
-from src.extraction.fact_validator import _get_contains_rank
+import pytest
 
+from src.extraction.fact_validator import _get_contains_rank
+from src.services.geo_skills.tier_classifier import TierClassifier
+from src.utils.location_names import is_special_space
 
 # ── AC1: 词表识别 ────────────────────────────────────────────────────────
 POSITIVE = [

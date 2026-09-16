@@ -2,7 +2,6 @@
 
 import aiosqlite
 import pytest
-import pytest_asyncio
 
 
 @pytest.mark.asyncio

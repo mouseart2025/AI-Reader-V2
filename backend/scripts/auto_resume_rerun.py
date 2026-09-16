@@ -179,13 +179,13 @@ def _start_instance(port: int) -> None:
     log_dir = BACKEND / "audit_reports"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"rerun_{port}.log"
-    logf = open(log_path, "a")
-    subprocess.Popen(
-        ["uv", "run", "uvicorn", "src.api.main:app",
-         "--host", "127.0.0.1", "--port", str(port)],
-        cwd=str(BACKEND), env=env, start_new_session=True,
-        stdout=logf, stderr=subprocess.STDOUT,
-    )
+    with open(log_path, "a") as logf:
+        subprocess.Popen(
+            ["uv", "run", "uvicorn", "src.api.main:app",
+             "--host", "127.0.0.1", "--port", str(port)],
+            cwd=str(BACKEND), env=env, start_new_session=True,
+            stdout=logf, stderr=subprocess.STDOUT,
+        )
     print(f"    日志 → {log_path}")
 
 
@@ -323,7 +323,7 @@ def main() -> None:
 
     if args.dry_run:
         print(f"\n⚠️ {len(stalled)} 本停滞(dry-run,不动作):")
-        for port, slug, nid, total, start, seg_end in stalled:
+        for port, slug, _nid, _total, start, seg_end in stalled:
             print(f"    [{slug}] port {port}, 补缺口 ch{start}-{seg_end}")
         _save_state(state)
         return
@@ -332,7 +332,7 @@ def main() -> None:
 
     # ── 阶段 1:只在实例真的死了才重启(坑 A:启动会全局暂停别人的任务)──
     needs_start = []
-    for port, slug, nid, total, start, seg_end in stalled:
+    for port, slug, _nid, _total, _start, _seg_end in stalled:
         if _wait_ready(port, timeout=8):
             print(f"  [{slug}] 实例 {port} 存活,直接复用(不重启)")
         else:
@@ -343,7 +343,7 @@ def main() -> None:
     if needs_start:
         time.sleep(3)
         print("\n  -- 拉起实例 --")
-        for port, slug in needs_start:
+        for port, _slug in needs_start:
             _start_instance(port)
         print("  -- 等待就绪 --")
         for port, slug in needs_start:
@@ -352,7 +352,7 @@ def main() -> None:
 
     # ── 阶段 2:清任务 + 触发 ──
     print("\n  -- 清理活跃任务并触发续跑 --")
-    for port, slug, nid, total, start, seg_end in stalled:
+    for port, slug, nid, _total, start, seg_end in stalled:
         _clear_active(nid)
         # 只跑到缺口段末尾而非 total —— 越过它会 force 重跑已完成的章。
         tid = _trigger(port, nid, start, seg_end)
@@ -367,7 +367,7 @@ def main() -> None:
 
     # ── 阶段 3:修复"被别人启动连坐暂停"的非停滞本(坑 A 的兜底)──
     conn2 = _conn()
-    for port, slug, nid, total in NOVELS:
+    for port, slug, nid, _total in NOVELS:
         if any(sl == slug for _, sl, _, _, _, _ in stalled):
             continue
         st = novel_state(conn2, slug, nid)

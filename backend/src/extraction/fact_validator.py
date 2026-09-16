@@ -6,22 +6,20 @@ Location filtering uses a 3-layer approach based on Chinese place name morpholog
 
 import logging
 from pathlib import Path
-
-from src.utils.location_names import is_homonym_prone, is_special_space
+from typing import ClassVar
 
 from src.extraction.name_resolver import write_audit_records
-
 from src.models.chapter_fact import (
     ChapterFact,
     CharacterFact,
     EventFact,
     ItemEventFact,
     OrgEventFact,
-    RelationshipFact,
     SpatialRelationship,
     WorldDeclaration,
     classify_spatial_relation,
 )
+from src.utils.location_names import is_homonym_prone, is_special_space
 
 logger = logging.getLogger(__name__)
 
@@ -1373,7 +1371,6 @@ class FactValidator:
         """
         # Pre-processing: split compound location names joined by conjunctions
         # E.g., "新房与西院" → "新房" + "西院" as separate entries
-        from src.models.chapter_fact import LocationFact
         expanded_locs = []
         for loc in locs:
             split_parts = None
@@ -1505,11 +1502,7 @@ class FactValidator:
                     swapped = True
                 elif src_rank == tgt_rank or (src_rank is None and tgt_rank is None):
                     # Same rank or both unknown: use name length (longer = more specific = smaller)
-                    if len(source) > len(target) + 2:
-                        source, target = target, source
-                        swapped = True
-                    # Name containment tiebreak: "石圪节公社" starts with "石圪节"
-                    elif source.startswith(target) and len(source) > len(target):
+                    if len(source) > len(target) + 2 or (source.startswith(target) and len(source) > len(target)):
                         source, target = target, source
                         swapped = True
                 if swapped:
@@ -1719,7 +1712,7 @@ class FactValidator:
         return cleaned
 
     # Suffixes that indicate a name match is part of a place/org, not a person
-    _NAME_BOUNDARY_BLOCKLIST = set("国省市县镇村区域界地洲岛山河湖海洋城池寺庙观殿阁楼台塔")
+    _NAME_BOUNDARY_BLOCKLIST: ClassVar = set("国省市县镇村区域界地洲岛山河湖海洋城池寺庙观殿阁楼台塔")
 
     def _fill_event_participants(
         self, characters: list[CharacterFact], events: list[EventFact]

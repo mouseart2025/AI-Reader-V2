@@ -16,7 +16,7 @@ async def export_backup():
     try:
         buf = await backup_service.export_all()
     except Exception as e:
-        raise HTTPException(500, f"备份导出失败: {e}")
+        raise HTTPException(500, f"备份导出失败: {e}") from e
 
     date_str = datetime.now().strftime("%Y%m%d")
     filename = f"ai-reader-v2-backup-{date_str}.zip"
@@ -37,7 +37,7 @@ async def preview_backup(file: UploadFile):
     try:
         preview = await backup_service.preview_backup_import(data)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     return preview
 
 
@@ -57,7 +57,7 @@ async def confirm_backup_import(
     try:
         result = await backup_service.import_all(data, conflict_mode=conflict_mode)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     except Exception as e:
-        raise HTTPException(500, f"备份导入失败: {e}")
+        raise HTTPException(500, f"备份导入失败: {e}") from e
     return result

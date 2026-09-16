@@ -50,7 +50,6 @@ sys.path.insert(0, str(_BACKEND_DIR))
 # frozen DB to the scratch dir and sets AI_READER_DATA_DIR) and provides the
 # resolver classes. MUST be imported before any src.* module.
 from scripts import m5_no_edmonds_ablation as m5mod  # noqa: E402
-
 from src.db.sqlite_db import get_connection  # noqa: E402
 from src.services.geo_skills.orchestrator import GeoOrchestrator  # noqa: E402
 from src.services.geo_skills.snapshot_store import SnapshotStore  # noqa: E402

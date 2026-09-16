@@ -11,7 +11,6 @@ and writes results to CSV + summary JSON.  Zero LLM calls.
 import argparse
 import csv
 import json
-import os
 import sys
 import time
 from collections import Counter
@@ -20,8 +19,8 @@ from pathlib import Path
 # Add backend/src to path so we can import modules directly
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.utils.text_processor import decode_text, detect_encoding
 from src.utils.chapter_splitter import split_chapters_ex
+from src.utils.text_processor import decode_text, detect_encoding
 from src.utils.text_sanitizer import detect_noise
 
 # ── "Usable" definition ──

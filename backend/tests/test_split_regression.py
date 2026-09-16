@@ -22,7 +22,6 @@ import pytest
 
 from src.utils.chapter_splitter import split_chapters_ex
 
-
 # ── Fixtures ──────────────────────────────────────────────────
 
 _GT_PATH = Path(__file__).parent.parent.parent / "scripts" / "split_ground_truth" / "baseline.json"

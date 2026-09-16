@@ -89,7 +89,9 @@ class ReviewerSkill(GeoSkill):
                             result.parent_overrides.pop(child, None)
                             applied += 1
                     elif verdict == "sibling":
-                        from src.services.geo_skills.vote_resolver import _find_common_parent
+                        from src.services.geo_skills.vote_resolver import (
+                            _find_common_parent,
+                        )
                         known = set(snapshot.location_tiers.keys())
                         common = _find_common_parent(
                             child, parent, snapshot.parent_votes, known,

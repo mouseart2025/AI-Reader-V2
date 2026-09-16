@@ -130,7 +130,7 @@ async def _import_legacy_sample(json_file: str, txt_file: str) -> None:
         logger.debug("样本 JSON 不存在: %s，跳过", json_path)
         return
 
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
 
     novel_meta = data.get("novel", {})
@@ -196,7 +196,7 @@ async def auto_import_samples() -> None:
 
 async def _restore_chapter_content(novel_id: str, txt_path: Path, expected_chapters: int) -> None:
     """Read TXT, split chapters, and UPDATE chapter content by chapter_num."""
-    with open(txt_path, "r", encoding="utf-8") as f:
+    with open(txt_path, encoding="utf-8") as f:
         text = f.read()
 
     result = split_chapters_ex(text)

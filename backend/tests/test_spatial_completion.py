@@ -1,15 +1,11 @@
 """Tests for spatial completion: constraint enhancement, gap detection, contradiction filtering."""
 
-import pytest
 from collections import Counter
 
+from src.services.spatial_completion_agent import SpatialCompletionAgent
 from src.services.visualization_service import (
     _enhance_constraints,
-    _DIRECTION_OPPOSITES,
-    _CARDINAL_DIRECTIONS,
 )
-from src.services.spatial_completion_agent import SpatialCompletionAgent
-
 
 # ── _enhance_constraints tests ──
 
@@ -246,7 +242,6 @@ class TestGapDetection:
 
     def test_trajectory_gaps(self):
         """B1: Trajectory gaps detected for consecutive movements without existing relations."""
-        from src.models.chapter_fact import ChapterFact
         agent = self._make_agent()
 
         loc_context = {

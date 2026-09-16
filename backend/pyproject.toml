@@ -33,7 +33,35 @@ dev = [
     "pyinstaller>=6.19.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
+    "ruff>=0.16.7",
 ]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "RUF"]
+# E501 (line length) intentionally not selected: the codebase has many long
+# strings/comments; enforcing 88 chars adds noise without catching real bugs.
+ignore = [
+    # RUF001/002/003: this codebase intentionally uses CJK full-width
+    # punctuation (，。：) in user-facing Chinese strings/docstrings/comments —
+    # 1566 hits, all intentional, not confusable-ASCII mistakes.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # SIM102 (collapsible-if): 52 hits. Style-only; the unsafe auto-fix rarely
+    # applies here because the nested ifs carry comments or else branches, and
+    # hand-merging 52 sites risks dropping comments for zero behavior gain.
+    "SIM102",
+    # SIM105 (contextlib.suppress): 14 hits. Style-only try/except-pass blocks;
+    # rewriting them adds imports and churn without catching real bugs.
+    "SIM105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# User actively editing this file; leave its import order untouched for now.
+"tests/test_location_relation_semantics.py" = ["I001"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

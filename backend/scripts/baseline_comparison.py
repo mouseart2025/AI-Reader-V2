@@ -176,11 +176,7 @@ def render():
     out_lines.append("| Novel | Voting Overall | Full Overall | Δ |")
     out_lines.append("|-------|----------------|--------------|---|")
     fair_data = load_json(PAPER_EVAL / "ablation-voting-baseline-fair.json") or {}
-    for slug, display in NOVELS + [
-        ("shuihu", "Water Margin"),
-        ("sanguo", "Three Kingdoms"),
-        ("fengshen", "Investiture of the Gods"),
-    ]:
+    for slug, display in [*NOVELS, ("shuihu", "Water Margin"), ("sanguo", "Three Kingdoms"), ("fengshen", "Investiture of the Gods")]:
         f = fair_data.get(slug, {}).get("fair_intersection", {})
         if not f:
             continue

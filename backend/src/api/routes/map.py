@@ -1,6 +1,5 @@
 """World map data endpoint."""
 
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -8,8 +7,8 @@ from pydantic import BaseModel
 
 from src.db import novel_store
 from src.services.visualization_service import (
-    get_map_data,
     get_analyzed_range,
+    get_map_data,
     save_user_override,
 )
 

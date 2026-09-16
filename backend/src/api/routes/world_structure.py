@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.db import novel_store, world_structure_store, world_structure_override_store
+from src.db import novel_store, world_structure_override_store, world_structure_store
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,9 @@ async def _redetect_genre(novel_id: str, agent) -> None:
     This fixes genre misdetection for novels analyzed with older keyword lists
     (e.g., Water Margin classified as 'fantasy' due to broad single-char keywords).
     """
-    from src.db.sqlite_db import get_connection
     import json as _json
+
+    from src.db.sqlite_db import get_connection
     from src.models.chapter_fact import ChapterFact
 
     ws = agent.structure
@@ -223,8 +224,8 @@ async def rebuild_hierarchy(novel_id: str):
 
     async def event_stream():
         try:
+            from src.infra.config import LLM_PROVIDER, get_model_name
             from src.services.world_structure_agent import WorldStructureAgent
-            from src.infra.config import get_model_name, LLM_PROVIDER
 
             agent = WorldStructureAgent(novel_id)
             agent.structure = ws
@@ -241,7 +242,6 @@ async def rebuild_hierarchy(novel_id: str):
 
             # 0.5. Re-classify stale tiers using current (fixed) classification logic
             # Fixes locations that got "city" tier from old Layer 4 fallback
-            from src.services.world_structure_agent import _get_suffix_rank
             retier_count = 0
             for loc_name in list(ws.location_tiers.keys()):
                 if ("location_tier", loc_name) in agent._overridden_keys:
@@ -260,19 +260,18 @@ async def rebuild_hierarchy(novel_id: str):
             # Clears stale instance_* layers and re-runs detection with current keywords
             yield _sse("init", "正在重新检测世界层级...")
             from src.services.world_structure_agent import (
-                _CELESTIAL_KEYWORDS as _ck,
-                _UNDERWORLD_KEYWORDS as _uk,
-                _REALM_LAYER_KEYWORDS,
                 _INSTANCE_NAME_KEYWORDS,
+            )
+            from src.services.world_structure_agent import (
                 _INSTANCE_TYPE_KEYWORDS as _itk,
             )
             # Remove stale instance_* layers and their assignments
             stale_instance_ids = {
-                l.layer_id for l in ws.layers
-                if l.layer_id.startswith("instance_")
+                lyr.layer_id for lyr in ws.layers
+                if lyr.layer_id.startswith("instance_")
             }
             if stale_instance_ids:
-                ws.layers = [l for l in ws.layers if l.layer_id not in stale_instance_ids]
+                ws.layers = [lyr for lyr in ws.layers if lyr.layer_id not in stale_instance_ids]
                 for loc_name, lid in list(ws.location_layer_map.items()):
                     if lid in stale_instance_ids:
                         ws.location_layer_map[loc_name] = "overworld"
@@ -283,8 +282,8 @@ async def rebuild_hierarchy(novel_id: str):
             # Build a simple type lookup from the latest chapter_facts
             loc_types: dict[str, str] = {}
             try:
+
                 from src.db import chapter_fact_store as _cfs
-                import asyncio as _aio_layer
                 all_facts = await _cfs.get_all_chapter_facts(novel_id)
                 for _f in all_facts:
                     for _loc in _f.get("locations", []):
@@ -315,7 +314,7 @@ async def rebuild_hierarchy(novel_id: str):
                         )
                     )
                     if is_instance:
-                        from src.models.world_structure import MapLayer, LayerType
+                        from src.models.world_structure import LayerType, MapLayer
                         _pk_id = "pockets"
                         if not agent._has_layer(_pk_id):
                             ws.layers.append(MapLayer(
@@ -355,9 +354,9 @@ async def rebuild_hierarchy(novel_id: str):
             yield _sse("skeleton", "正在生成宏观地理骨架...")
             skeleton_synonyms: list[tuple[str, str]] = []
             skeleton_directions: list[dict] = []
-            skeleton_success = False  # Track if skeleton produced useful output
             try:
                 import asyncio as _asyncio_skel
+
                 from src.services.macro_skeleton_generator import MacroSkeletonGenerator
                 skel_gen = MacroSkeletonGenerator()
                 skeleton_votes, skeleton_synonyms, skeleton_directions = await _asyncio_skel.wait_for(
@@ -387,7 +386,6 @@ async def rebuild_hierarchy(novel_id: str):
                             ws.completed_spatial_relations.append(d)
                     parts.append(f"{len(skeleton_directions)} 组方位锚定")
                 if parts:
-                    skeleton_success = True
                     # Cache successful skeleton for reuse on future timeouts
                     ws.cached_skeleton = {
                         "votes": {k: dict(v) for k, v in skeleton_votes.items()} if skeleton_votes else {},
@@ -424,7 +422,6 @@ async def rebuild_hierarchy(novel_id: str):
                             key = (d["source"], d["target"], d["value"])
                             if key not in existing_keys:
                                 ws.completed_spatial_relations.append(d)
-                    skeleton_success = True
                     label = "超时" if is_timeout else "失败"
                     yield _sse("skeleton", f"骨架生成{label}，使用缓存骨架（{len(cached_votes_raw)} 个锚定）")
                     logger.info(
@@ -448,7 +445,9 @@ async def rebuild_hierarchy(novel_id: str):
                 all_scenes = await chapter_fact_store.get_all_scenes(novel_id)
                 if all_scenes:
                     yield _sse("scene", f"正在分析场景转换 ({len(all_scenes)} 个场景)...")
-                    from src.services.scene_transition_analyzer import SceneTransitionAnalyzer
+                    from src.services.scene_transition_analyzer import (
+                        SceneTransitionAnalyzer,
+                    )
                     analyzer = SceneTransitionAnalyzer()
                     scene_votes, scene_analysis = analyzer.analyze(all_scenes)
                     if scene_votes:
@@ -478,7 +477,10 @@ async def rebuild_hierarchy(novel_id: str):
                 )
                 try:
                     import asyncio as _asyncio_review
-                    from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
+
+                    from src.services.location_hierarchy_reviewer import (
+                        LocationHierarchyReviewer,
+                    )
                     reviewer = LocationHierarchyReviewer()
                     review_votes = await _asyncio_review.wait_for(
                         reviewer.review(
@@ -576,7 +578,10 @@ async def rebuild_hierarchy(novel_id: str):
             # 4.2. LLM Reflection on suspicious parent-child pairs
             try:
                 import asyncio as _asyncio_reflect
-                from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer as _ReflReviewer
+
+                from src.services.location_hierarchy_reviewer import (
+                    LocationHierarchyReviewer as _ReflReviewer,
+                )
                 suspicious = agent._suspicious_pairs
                 if suspicious:
                     yield _sse("reflection", f"LLM 反思验证 {len(suspicious)} 对可疑关系...")
@@ -597,7 +602,9 @@ async def rebuild_hierarchy(novel_id: str):
                         if verdict in ("correct", "uncertain", ""):
                             continue  # Story 3.2: uncertain = no action
                         if verdict == "sibling":
-                            from src.services.world_structure_agent import _find_common_parent
+                            from src.services.world_structure_agent import (
+                                _find_common_parent,
+                            )
                             known_locs = set(new_tiers.keys())
                             common = _find_common_parent(
                                 child, parent, agent._parent_votes, known_locs,
@@ -635,7 +642,10 @@ async def rebuild_hierarchy(novel_id: str):
             # 4.5. LLM hierarchy validation (post-consolidation)
             try:
                 import asyncio as _asyncio
-                from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
+
+                from src.services.location_hierarchy_reviewer import (
+                    LocationHierarchyReviewer,
+                )
                 yield _sse("validate", "正在进行 LLM 层级合理性验证...")
                 _val_reviewer = LocationHierarchyReviewer()
                 corrections = await _asyncio.wait_for(
@@ -775,12 +785,14 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
         ws.location_tiers = body.location_tiers
 
     # ── Re-detect layers (clean stale instances, detect realms/pockets) ──
+    from src.models.world_structure import LayerType, MapLayer
     from src.services.world_structure_agent import (
-        WorldStructureAgent,
         _INSTANCE_NAME_KEYWORDS,
+        WorldStructureAgent,
+    )
+    from src.services.world_structure_agent import (
         _INSTANCE_TYPE_KEYWORDS as _itk_apply,
     )
-    from src.models.world_structure import MapLayer, LayerType
 
     _apply_agent = WorldStructureAgent(novel_id)
     _apply_agent.structure = ws
@@ -801,19 +813,19 @@ async def apply_hierarchy_changes(novel_id: str, body: HierarchyChangesRequest):
     # Collect IDs of layers to remove: stale instances + orphaned Chinese-named realms
     _active_layer_ids = set(ws.location_layer_map.values())
     stale_ids: set[str] = set()
-    for l in ws.layers:
-        if l.layer_id.startswith("instance_"):
-            stale_ids.add(l.layer_id)
+    for lyr in ws.layers:
+        if lyr.layer_id.startswith("instance_"):
+            stale_ids.add(lyr.layer_id)
         elif (
-            l.layer_id not in _keyword_layer_ids
-            and l.layer_id != "overworld"
-            and l.layer_id not in _active_layer_ids
+            lyr.layer_id not in _keyword_layer_ids
+            and lyr.layer_id != "overworld"
+            and lyr.layer_id not in _active_layer_ids
         ):
             # Orphaned layer (no locations assigned to it)
-            stale_ids.add(l.layer_id)
+            stale_ids.add(lyr.layer_id)
 
     if stale_ids:
-        ws.layers = [l for l in ws.layers if l.layer_id not in stale_ids]
+        ws.layers = [lyr for lyr in ws.layers if lyr.layer_id not in stale_ids]
         for _ln, _lid in list(ws.location_layer_map.items()):
             if _lid in stale_ids:
                 ws.location_layer_map[_ln] = "overworld"
@@ -1012,6 +1024,7 @@ async def get_topology_metrics(novel_id: str):
     """
     import json as _json
     from pathlib import Path
+
     from src.utils.topology_metrics import compute_topology_metrics
 
     ws = await world_structure_store.load(novel_id)
@@ -1126,8 +1139,8 @@ async def get_hierarchy_versions(novel_id: str):
 @router.post("/hierarchy-rollback")
 async def rollback_hierarchy(novel_id: str, version: int):
     """Rollback hierarchy to a specific snapshot version."""
-    from src.services.geo_skills.snapshot_store import SnapshotStore
     from src.services.geo_skills.orchestrator import GeoOrchestrator
+    from src.services.geo_skills.snapshot_store import SnapshotStore
 
     store = SnapshotStore()
     snap = await store.rollback(novel_id, version)

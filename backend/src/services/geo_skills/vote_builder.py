@@ -14,10 +14,10 @@ import logging
 from collections import Counter
 
 from src.extraction.fact_validator import _is_generic_location
+from src.models.chapter_fact import classify_spatial_relation
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
-from src.models.chapter_fact import classify_spatial_relation
 from src.utils.location_names import is_passage_like
 
 logger = logging.getLogger(__name__)
@@ -68,9 +68,9 @@ class VoteBuilder(GeoSkill):
                     location_chapters.setdefault(name, []).append(ch_id)
             # Primary setting
             settings = [
-                l for l in locations
-                if l.get("role") == "setting" and l.get("name")
-                and (not _is_generic_location(l["name"]) or l["name"] == uber_root)
+                loc for loc in locations
+                if loc.get("role") == "setting" and loc.get("name")
+                and (not _is_generic_location(loc["name"]) or loc["name"] == uber_root)
             ]
             if settings:
                 best_rank, best_name = 999, ""
@@ -171,9 +171,9 @@ class VoteBuilder(GeoSkill):
             # Primary setting inference
             locations = data.get("locations", [])
             setting_candidates = [
-                l for l in locations
-                if l.get("role") == "setting" and l.get("name")
-                and (not _is_generic_location(l["name"]) or l["name"] == uber_root)
+                loc for loc in locations
+                if loc.get("role") == "setting" and loc.get("name")
+                and (not _is_generic_location(loc["name"]) or loc["name"] == uber_root)
             ]
             primary = None
             if setting_candidates:
@@ -260,7 +260,7 @@ class VoteBuilder(GeoSkill):
 
         # Uber-root vote capping
         if uber_root:
-            for loc_name, counter in votes.items():
+            for _loc_name, counter in votes.items():
                 if uber_root in counter and len(counter) > 1:
                     if counter[uber_root] > 2:
                         counter[uber_root] = 2

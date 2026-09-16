@@ -12,6 +12,7 @@ import json
 import logging
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import ClassVar
 
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import get_llm_client
@@ -68,7 +69,7 @@ class LocationHierarchyReviewer:
     _REFLECTION_MAX_BATCHES_CLOUD = 4   # Cloud API: can afford more
     _REFLECTION_TIMEOUT = 60.0  # seconds per batch (v0.63.0: 30→60s)
 
-    _REFLECTION_SCHEMA: dict = {
+    _REFLECTION_SCHEMA: ClassVar[dict] = {
         "type": "object",
         "properties": {
             "results": {
@@ -95,8 +96,8 @@ class LocationHierarchyReviewer:
     @property
     def _reflection_max_batches(self) -> int:
         """Return batch limit based on LLM provider (local vs cloud)."""
-        from src.infra.openai_client import OpenAICompatibleClient
         from src.infra.anthropic_client import AnthropicClient
+        from src.infra.openai_client import OpenAICompatibleClient
         if isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient)):
             return self._REFLECTION_MAX_BATCHES_CLOUD
         return self._REFLECTION_MAX_BATCHES_LOCAL
@@ -338,7 +339,7 @@ class LocationHierarchyReviewer:
                 line for line in hierarchy_lines
                 if any(loc in line for loc in priority_locs)
             ]
-            remaining_lines = [l for l in hierarchy_lines if l not in priority_lines]
+            remaining_lines = [line for line in hierarchy_lines if line not in priority_lines]
             max_remaining = 200 - len(priority_lines)
             all_entries = priority_lines + remaining_lines[:max(0, max_remaining)]
 
@@ -422,7 +423,7 @@ class LocationHierarchyReviewer:
         return votes
 
     # ── LLM output schema for hierarchy validation ──
-    _VALIDATION_SCHEMA: dict = {
+    _VALIDATION_SCHEMA: ClassVar[dict] = {
         "type": "object",
         "properties": {
             "corrections": {
@@ -551,8 +552,8 @@ class LocationHierarchyReviewer:
         all_known = set(location_tiers.keys()) | set(location_parents.values())
 
         # Determine cloud vs local mode for concurrency
-        from src.infra.openai_client import OpenAICompatibleClient
         from src.infra.anthropic_client import AnthropicClient
+        from src.infra.openai_client import OpenAICompatibleClient
         is_cloud = isinstance(self.llm, (OpenAICompatibleClient, AnthropicClient))
 
         # Build coroutines for each slice
@@ -643,7 +644,6 @@ class LocationHierarchyReviewer:
         effective_root = uber_root
 
         # Collect all locations in this subtree
-        subtree_locs = set(subtree_parents.keys()) | set(subtree_parents.values())
 
         # Format root children with tier and child count (within subtree)
         child_count_map: Counter = Counter(subtree_parents.values())
@@ -659,13 +659,11 @@ class LocationHierarchyReviewer:
 
         # Build detail lines (limited to _SUBTREE_MAX_DETAIL)
         detail_lines = []
-        shown = 0
-        for child, parent in sorted(subtree_parents.items()):
+        for shown, (child, parent) in enumerate(sorted(subtree_parents.items())):
             if shown >= self._SUBTREE_MAX_DETAIL:
                 break
             c_tier = location_tiers.get(child, "unknown")
             detail_lines.append(f"  {parent} → {child} [tier={c_tier}]")
-            shown += 1
 
         # Highlight suspicious items: building/site directly under uber-root
         suspicious_lines = []

@@ -25,12 +25,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from cross_llm_replication import run_chain  # noqa: E402
-from src.services.geo_skills.edmonds_resolver import EdmondsResolver  # noqa: E402
-from src.services.geo_skills.knowledge_prior import KnowledgePrior  # noqa: E402
-from src.services.geo_skills.suffix_normalizer import SuffixNormalizer  # noqa: E402
-from src.services.geo_skills.tier_classifier import TierClassifier  # noqa: E402
-from src.services.geo_skills.vote_builder import VoteBuilder  # noqa: E402
+from cross_llm_replication import run_chain
+
+from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+from src.services.geo_skills.knowledge_prior import KnowledgePrior
+from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
+from src.services.geo_skills.tier_classifier import TierClassifier
+from src.services.geo_skills.vote_builder import VoteBuilder
 
 RUNS = {
     "xiyouji": {
@@ -91,12 +92,12 @@ async def main():
                     ("suffix", SuffixNormalizer()),
                 ],
             )
-            bench = run_benchmark(novel_key, nid)
+            run_benchmark(novel_key, nid)
             per_temp[temp] = {"novel_id": nid, "metrics": metrics, "benchmark_file": f"benchmark_{novel_key}_{nid[:8]}.json"}
             print(json.dumps(metrics, ensure_ascii=False))
 
         # aggregate mean ± std over the 3 temps
-        def agg(field):
+        def agg(field, per_temp=per_temp, cfg=cfg):
             vals = [per_temp[t]["metrics"][field] for t in cfg["temps"]]
             return {"mean": statistics.mean(vals), "std": statistics.pstdev(vals), "vals": vals}
 

@@ -170,7 +170,7 @@ def _start_capture():
 
     def fake_create_task(coro, **kwargs):
         captured["coro"] = coro
-        return object()
+        return MagicMock()
 
     return captured, fake_create_task
 

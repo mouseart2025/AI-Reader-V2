@@ -151,7 +151,6 @@ def cmd_benchmark(args):
             args.rules_only = True
 
     # Secondary path: rule-based (with optional Layer 3 text verification)
-    from pathlib import Path as P
     kb = KnowledgeBase.load()
     text_verifier = None
     try:
@@ -179,10 +178,7 @@ def cmd_benchmark(args):
         print("\n" + "=" * 60)
         print("RULE ENGINE EVALUATION (vs gold)")
         print("=" * 60)
-        if gold_errors:
-            recall = len(tp) / len(gold_errors)
-        else:
-            recall = 0.0
+        recall = len(tp) / len(gold_errors) if gold_errors else 0.0
         precision_r = len(tp) / len(rule_errors) if rule_errors else 0.0
         print(f"Gold errors in current snapshot: {len(gold_errors)}")
         print(f"Rule-flagged errors:             {len(rule_errors)}")

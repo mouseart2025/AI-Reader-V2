@@ -50,7 +50,7 @@ class TestGoldenStandardFormat:
     ])
     def test_no_excessive_roots(self, filename):
         locs = _load_golden(filename)
-        roots = [l for l in locs if l["correct_parent"] is None]
+        roots = [loc for loc in locs if loc["correct_parent"] is None]
         assert len(roots) <= 10, f"Too many roots ({len(roots)}), expected ≤10"
 
     @pytest.mark.parametrize("filename", [
@@ -59,7 +59,7 @@ class TestGoldenStandardFormat:
     ])
     def test_no_cycles(self, filename):
         locs = _load_golden(filename)
-        parents = {l["name"]: l["correct_parent"] for l in locs if l.get("correct_parent")}
+        parents = {loc["name"]: loc["correct_parent"] for loc in locs if loc.get("correct_parent")}
         for start in parents:
             visited = set()
             node = start
@@ -76,7 +76,7 @@ class TestGoldenStandardFormat:
     def test_tier_coverage(self, filename):
         """At least 4 different tiers should be represented."""
         locs = _load_golden(filename)
-        tiers = {l["tier"] for l in locs if l.get("tier")}
+        tiers = {loc["tier"] for loc in locs if loc.get("tier")}
         assert len(tiers) >= 4, f"Expected ≥4 tier levels, got {tiers}"
 
 
@@ -221,9 +221,9 @@ class TestGoldenStandardIntegration:
         """Golden standard compared to itself must yield perfect scores."""
         locs = _load_golden(filename)
         predicted = {
-            l["name"]: l["correct_parent"]
-            for l in locs
-            if l.get("correct_parent")
+            loc["name"]: loc["correct_parent"]
+            for loc in locs
+            if loc.get("correct_parent")
         }
         result = compute_topology_metrics(predicted, locs)
         assert result["parent_precision"] == 1.0

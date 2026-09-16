@@ -323,11 +323,7 @@ def _is_sub_location_name(name: str) -> bool:
             return True
 
     # Check containing patterns
-    for pat in _SUB_LOCATION_PATTERNS:
-        if pat in name:
-            return True
-
-    return False
+    return any(pat in name for pat in _SUB_LOCATION_PATTERNS)
 
 
 def _is_geographic_name(name: str) -> bool:
@@ -344,10 +340,7 @@ def _is_geographic_name(name: str) -> bool:
         "寺", "庙", "观", "庵", "祠",
         "国",
     )
-    for suffix in _GEO_SUFFIXES:
-        if name.endswith(suffix) and len(name) >= 2:
-            return True
-    return False
+    return any(name.endswith(suffix) and len(name) >= 2 for suffix in _GEO_SUFFIXES)
 
 
 def _tiered_catchall(
@@ -479,13 +472,12 @@ def _tiered_catchall(
             if saved_parents and not any(kw in orphan for kw in _realm_kw):
                 old_p = saved_parents.get(orphan)
                 if old_p and old_p != uber_root and old_p in all_known:
-                    if old_p in location_parents or any(
+                    if (old_p in location_parents or any(
                         p == old_p for p in location_parents.values()
-                    ):
-                        if _safe_set_parent(orphan, old_p, location_parents,
-                                            f"catchall-saved:{orphan}→{old_p}"):
-                            adopted += 1
-                            saved_ok = True
+                    )) and _safe_set_parent(orphan, old_p, location_parents,
+                                        f"catchall-saved:{orphan}→{old_p}"):
+                        adopted += 1
+                        saved_ok = True
             if not saved_ok and orphan_rank <= 4:  # city 及以上才直接挂天下
                 if _safe_set_parent(orphan, uber_root, location_parents,
                                     f"catchall-adopt:{orphan}"):
@@ -705,9 +697,7 @@ def consolidate_hierarchy(
             # Neither has suffix → use tier comparison
             child_rank = TIER_ORDER.get(location_tiers.get(child, "city"), 4)
             parent_rank = TIER_ORDER.get(location_tiers.get(parent, "city"), 4)
-            if parent_rank > child_rank:
-                should_fix = True
-            elif parent_rank == child_rank and _is_sub_location_name(parent) and _is_geographic_name(child):
+            if parent_rank > child_rank or (parent_rank == child_rank and _is_sub_location_name(parent) and _is_geographic_name(child)):
                 should_fix = True
         # Mixed (one has suffix, one doesn't): skip — ambiguous, let
         # _resolve_parents's vote-based result stand.
@@ -791,10 +781,7 @@ def consolidate_hierarchy(
         for c in direct_children:
             c_tier = location_tiers.get(c, "city")
             c_rank = TIER_ORDER.get(c_tier, 4)
-            if _is_geographic_name(c) and c_rank < best_rank:
-                best_child = c
-                best_rank = c_rank
-            elif best_child is None and c_rank < best_rank:
+            if (_is_geographic_name(c) and c_rank < best_rank) or (best_child is None and c_rank < best_rank):
                 best_child = c
                 best_rank = c_rank
 
@@ -1138,13 +1125,12 @@ def consolidate_hierarchy(
             if old_p and old_p != uber_root and old_p in all_known:
                 # Check the saved parent itself is in the hierarchy
                 # (either has a parent or IS the uber_root's child)
-                if old_p in location_parents or any(
+                if (old_p in location_parents or any(
                     p == old_p for p in location_parents.values()
-                ):
-                    if _safe_set_parent(orphan, old_p, location_parents,
-                                        f"saved-fallback:{reason}"):
-                        changes_made += 1
-                        return True
+                )) and _safe_set_parent(orphan, old_p, location_parents,
+                                    f"saved-fallback:{reason}"):
+                    changes_made += 1
+                    return True
         if _safe_set_parent(orphan, uber_root, location_parents, reason):
             changes_made += 1
             return True

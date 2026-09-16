@@ -16,15 +16,14 @@ related_items 只来自 LLM 显式记录的 item_events[].related(须附原文�
 """
 
 import json
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
-from unittest.mock import patch
 
 from src.extraction.fact_validator import FactValidator
 from src.models.chapter_fact import ChapterFact, ItemEventFact, RelatedItemFact
 from src.services import entity_aggregator
-
 
 # ── FactValidator 软校验 ──────────────────────────────
 

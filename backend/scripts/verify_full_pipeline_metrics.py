@@ -14,10 +14,10 @@ import asyncio
 import logging
 import os
 import sys
-from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.db.sqlite_db import get_connection
 from src.services.geo_skills.edmonds_resolver import EdmondsResolver
 from src.services.geo_skills.knowledge_prior import KnowledgePrior
 from src.services.geo_skills.orchestrator import GeoOrchestrator
@@ -26,7 +26,6 @@ from src.services.geo_skills.snapshot_store import SnapshotStore
 from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
 from src.services.geo_skills.tier_classifier import TierClassifier
 from src.services.geo_skills.vote_builder import VoteBuilder
-from src.db.sqlite_db import get_connection
 
 
 def count_cycles(parents: dict[str, str]) -> int:

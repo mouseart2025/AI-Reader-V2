@@ -1,13 +1,14 @@
 """Tests for sample_data_service: auto-import on first launch."""
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import pytest_asyncio
 
-from src.services.sample_data_service import auto_import_samples, _restore_chapter_content
+from src.services.sample_data_service import (
+    _restore_chapter_content,
+    auto_import_samples,
+)
 
 
 # Minimal v2 JSON sample for testing

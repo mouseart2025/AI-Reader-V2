@@ -160,7 +160,7 @@ def _has_meaningful_dialogue(content: str) -> bool:
         return False
 
     dialogue_lines = sum(1 for line in lines if _DIALOGUE_LINE.search(line.strip()))
-    total_lines = len([l for l in lines if l.strip()])
+    total_lines = len([line for line in lines if line.strip()])
     if total_lines == 0:
         return False
 

@@ -2,7 +2,6 @@
 
 from src.services.hallucination_filter import find_ungrounded_names
 
-
 CORPUS = "话说孙悟空大闹天宫，与猪八戒一同西行取经。那韩立从未在此书出现。"
 
 

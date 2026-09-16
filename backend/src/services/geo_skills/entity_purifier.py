@@ -29,7 +29,6 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections import Counter
-from typing import Iterable
 
 from src.infra.config import DB_PATH
 from src.services.geo_skills.base import GeoSkill, SkillResult

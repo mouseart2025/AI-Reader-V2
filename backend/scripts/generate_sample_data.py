@@ -18,14 +18,13 @@ import asyncio
 import hashlib
 import json
 import sys
-import time
 import uuid
 
 # Add backend src to path
 sys.path.insert(0, ".")
 
-from src.db.sqlite_db import init_db, get_connection
-from src.db import novel_store, analysis_task_store
+from src.db import analysis_task_store, novel_store
+from src.db.sqlite_db import get_connection, init_db
 from src.extraction.entity_pre_scanner import EntityPreScanner
 from src.services.analysis_service import get_analysis_service
 from src.services.export_service import export_novel
@@ -56,7 +55,7 @@ async def wait_for_analysis(task_id: str, novel_id: str, total: int) -> None:
 async def main(args: argparse.Namespace) -> None:
     # Initialize database
     await init_db()
-    print(f"数据库初始化完成")
+    print("数据库初始化完成")
 
     # Read and decode TXT file
     with open(args.input, "rb") as f:
@@ -115,7 +114,8 @@ async def main(args: argparse.Namespace) -> None:
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
 
-    file_size = len(open(args.output, "rb").read())
+    with open(args.output, "rb") as fh:
+        file_size = len(fh.read())
     print(f"\n{'='*50}")
     print(f"导出完成: {args.output}")
     print(f"  格式版本: {data['format_version']}")

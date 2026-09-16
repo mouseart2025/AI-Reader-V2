@@ -15,18 +15,17 @@ from __future__ import annotations
 import logging
 import time
 from collections import Counter
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
+from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import (
     HierarchyMetrics,
     HierarchySnapshot,
-    SkillResult,
 )
 from src.services.geo_skills.snapshot_store import (
     SnapshotStore,
     snapshot_from_world_structure,
 )
-from src.services.geo_skills.base import GeoSkill
 
 logger = logging.getLogger(__name__)
 
@@ -387,11 +386,11 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
     石头城→都中 等)需要最终裁决权;放在 Edmonds 之前会被后续
     name-containment/vote 权重再次覆盖。Story 5.5 起 purify 排最后(见下)。
     """
+    from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+    from src.services.geo_skills.knowledge_prior import KnowledgePrior
+    from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
     from src.services.geo_skills.tier_classifier import TierClassifier
     from src.services.geo_skills.vote_builder import VoteBuilder
-    from src.services.geo_skills.knowledge_prior import KnowledgePrior
-    from src.services.geo_skills.edmonds_resolver import EdmondsResolver
-    from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
 
     orch = GeoOrchestrator(novel_id)
     orch.add_skill("tier", TierClassifier(novel_id))

@@ -14,7 +14,6 @@ import time
 from abc import ABC, abstractmethod
 
 from src.services.geo_skills.snapshot import (
-    HierarchyMetrics,
     HierarchySnapshot,
     SkillResult,
 )

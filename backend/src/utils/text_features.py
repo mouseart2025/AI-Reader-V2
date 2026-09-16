@@ -16,8 +16,8 @@ def compute_dialogue_ratio(text: str) -> float:
 
     Returns a float between 0.0 and 1.0.
     """
-    lines = [l for l in text.split("\n") if l.strip()]
+    lines = [line for line in text.split("\n") if line.strip()]
     if not lines:
         return 0.0
-    dialogue_lines = sum(1 for l in lines if _DIALOGUE_LINE_RE.search(l.strip()))
+    dialogue_lines = sum(1 for line in lines if _DIALOGUE_LINE_RE.search(line.strip()))
     return dialogue_lines / len(lines)

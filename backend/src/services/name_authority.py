@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import re
 
-
 # ═══════════════════════════════════════════════════════════════
 # SECTION 1: GENERIC TERM CONSTANTS
 # These are the authoritative lists. No other module should
@@ -95,7 +94,7 @@ GENERIC_PERSON_ALIASES = frozenset({
     # Classical Chinese deictics
     "那厮", "这厮", "那泼贼", "那贼", "泼贼", "贼人", "贼子",
     "那泼怪", "那泼物", "泼才",
-    "这位", "那位", "此人", "这人", "那人",
+    "这位", "那位", "这人",
     # Collective/vague
     "众人", "其他人", "旁人", "大家", "孩子", "孩子们", "娃娃",
     "老干部", "妇女主任",
@@ -108,12 +107,11 @@ GENERIC_PERSON_ALIASES = frozenset({
     "女婿", "上仙", "大仙", "仙长", "真人",
     "孽畜", "畜生",
     # Xianxia address terms
-    "前辈", "晚辈", "小友", "道友", "仙子", "仙师",
+    "前辈", "小友", "道友", "仙子", "仙师",
     "公子", "少爷", "大爷", "老大",
-    "老夫", "妾身", "本人", "在下", "小生", "老奴",
+    "老夫", "妾身", "本人", "老奴",
     "仁兄", "兄台", "阁下", "对方",
-    "此子", "此女", "此人", "那人",
-    "逆徒", "小徒", "弟子", "记名弟子",
+    "此子", "此女", "逆徒", "小徒", "弟子", "记名弟子",
     "主人", "夫君", "圣子",
     "师叔", "师侄", "师伯",
     # Pronouns / deictics
@@ -134,25 +132,23 @@ GENERIC_PERSON_ALIASES = frozenset({
     "令尊", "令堂", "令兄", "令弟", "令妹", "令郎", "令爱",
     # Buddhist/Daoist titles
     "菩萨", "天王", "金星", "真君", "元帅", "星君", "星官",
-    "罗汉", "尊者", "法师", "禅师", "国师",
+    "罗汉", "尊者", "法师", "禅师",
     # Shared nicknames that bridge unrelated characters
     "大刀", "混世魔王", "飞天大圣",
     # Standalone ranked address
-    "大爷", "二爷", "三爷", "四爷", "大哥", "二哥", "三哥",
+    "二爷", "三爷", "四爷", "大哥", "二哥", "三哥",
     # Water Margin generics
     "童子", "道童", "仙童", "仙女", "渔人",
     "囚徒", "罪犯", "犯人", "配军",
     "长汉", "黑汉", "黑汉子", "黑厮", "黑杀才",
     "后生", "後生", "少年人", "年轻人", "小后生",
     "节级", "都头", "提辖", "制使", "管营", "知寨",
-    "掌柜", "店家", "店主",
-    "煞星", "神医",
-    "小子", "毛头小子", "黄毛小子", "小兄弟",
+    "掌柜", "煞星", "神医",
+    "毛头小子", "黄毛小子", "小兄弟",
     "乡巴佬", "土包子", "土小子",
     "傀儡", "巨猿", "骷髅", "鬼头",
     # v0.70 review — 西游记
-    "外公", "贤弟", "陛下", "万岁",
-    "长老", "贫僧", "老和尚", "老师", "老师父",
+    "外公", "贤弟", "陛下", "长老", "贫僧", "老和尚", "老师", "老师父",
     "尊师", "我弟子", "那长老",
     "劣货", "呆子", "泼孽障", "泼猢狲", "小畜生",
     "夯货", "囊糟食的夯货",
@@ -182,7 +178,7 @@ TITLE_SUFFIXES_2 = frozenset({
     "大人", "老爷", "长老", "掌门", "帮主", "教主", "堂主",
     "将军", "统领", "元帅", "大哥", "老弟", "兄弟", "先生",
     "菩萨", "佛祖", "真君", "星君", "天王", "天尊", "娘娘",
-    "天尊", "老祖", "大长老", "世兄", "世侄", "贤弟", "贤侄",
+    "老祖", "大长老", "世兄", "世侄", "贤弟", "贤侄",
     "施主", "领队",
 })
 
@@ -288,7 +284,7 @@ NICKNAME_SUFFIXES = frozenset({
 NICKNAME_PREFIXES = frozenset({
     "豹子", "黑旋", "没羽", "花和", "没遮", "急先", "玉麒", "小李",
     "九纹", "双鞭", "双枪", "青面", "插翅", "混江", "活阎",
-    "小旋", "铁笛", "黑旋", "浪子", "拼命", "神行",
+    "小旋", "铁笛", "浪子", "拼命", "神行",
 })
 
 
@@ -555,7 +551,7 @@ GENERIC_PERSON_WORDS = frozenset({
     "太太", "大太太", "二太太", "三太太", "老太太",
     "奶奶", "大奶奶", "二奶奶", "三奶奶", "四奶奶",
     "夫人", "大夫人", "二夫人", "三夫人",
-    "姑娘", "大姑娘", "二姑娘", "三姑娘", "四姑娘", "五姑娘",
+    "大姑娘", "二姑娘", "三姑娘", "四姑娘", "五姑娘",
     "嬷嬷", "老嬷嬷", "奶妈", "老奶妈",
     "太爷", "老太爷", "大太爷", "二太爷",
     "老祖宗", "老寿星",  # 指代贾母的泛称
@@ -711,9 +707,8 @@ def alias_safety_level(alias: str) -> int:
 
     # Level 0: narrative fragment
     _NARRATIVE_MARKERS = ("曾", "道", "说", "啊", "呀", "了", "吧", "呢", "吗", "过")
-    if n >= 3 and any(m in alias for m in _NARRATIVE_MARKERS):
-        if n >= 5:
-            return 0
+    if n >= 3 and any(m in alias for m in _NARRATIVE_MARKERS) and n >= 5:
+        return 0
 
     # Level 1: suspicious
     _NUM_CHARS = "一二三四五六七八九十两百千万几数"
@@ -803,7 +798,7 @@ def is_generic_person(name: str, genre: str | None = None) -> str | None:
 
     # P2: Numeric quantifier + group — "三十六员雷将", "十万天兵", "五百灵官"
     if re.match(r"^[一二三四五六七八九十百千万几数]+.{0,3}[员个名位只匹头条]", name):
-        return f"quantified group reference"
+        return "quantified group reference"
     # Also: pure numeric prefix + group suffix
     _GROUP_SUFFIXES = ("天兵", "灵官", "雷将", "雷神", "金刚", "菩萨",
                        "天王", "天将", "小妖", "妖精", "鬼卒", "阴兵")
@@ -889,9 +884,7 @@ def similar_name_conflict(a: str, b: str) -> bool:
     # Prefix relationship: shorter is strict prefix of longer
     # (阮小 vs 阮小二 — "阮小" is a truncated form)
     short, long = (a, b) if la < lb else (b, a)
-    if len(short) >= 2 and long.startswith(short) and len(long) - len(short) == 1:
-        return True
-    return False
+    return bool(len(short) >= 2 and long.startswith(short) and len(long) - len(short) == 1)
 
 
 def is_nickname_or_title(name: str) -> bool:
@@ -924,9 +917,7 @@ def is_nickname_or_title(name: str) -> bool:
     if is_surname_plus_shi(name):
         return True
     # v0.71.1: 取X / X僧 / X人 叙事代称(取经人, 取经僧)
-    if name.startswith("取经") and n <= 4:
-        return True
-    return False
+    return bool(name.startswith("取经") and n <= 4)
 
 
 def pick_canonical(members: list[str], freq: dict[str, int],

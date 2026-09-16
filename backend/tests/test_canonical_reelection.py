@@ -15,16 +15,15 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-
-import pytest
 from unittest.mock import patch
 
+import pytest
+
 from src.db import entity_override_store
-from src.services import alias_resolver, entity_resolver, hallucination_filter
+from src.services import alias_resolver, hallucination_filter
 from src.services.entity_resolver import (
     _anchor_tier,
     collect_person_names,
-    reelect_llm_merge_canonicals,
     resolve_novel,
     select_anchored_canonical,
 )
@@ -133,9 +132,7 @@ async def _run_resolve(memory_db, tmp_path, novel_id, llm=None):
             vecs.append(v)
         return vecs
 
-    patches = _patch_db(memory_db) + [
-        patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-    ]
+    patches = [*_patch_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost)]
     for p in patches:
         p.start()
     try:
@@ -280,7 +277,7 @@ class TestSelectAnchoredCanonical:
             "林小凡": {"grounded": False, "mention_chapters": 1},
             "银驮": {"grounded": False},
         })
-        chosen, info = select_anchored_canonical(["林小凡", "银驮"], meta)
+        _chosen, info = select_anchored_canonical(["林小凡", "银驮"], meta)
         assert info["tier"] == -1
 
     def test_dict_only_group_falls_back_with_label(self):
@@ -335,9 +332,7 @@ class TestNewMergeAnchor:
         async def _noop_cost(_usage):
             return None
 
-        patches = _patch_db(memory_db) + [
-            patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-        ]
+        patches = [*_patch_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost)]
         for p in patches:
             p.start()
         try:
@@ -401,9 +396,7 @@ class TestNewMergeAnchor:
         async def _noop_cost(_usage):
             return None
 
-        patches = _patch_db(memory_db) + [
-            patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-        ]
+        patches = [*_patch_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost)]
         for p in patches:
             p.start()
         try:
@@ -490,7 +483,7 @@ class TestReelection:
         ])
         await _seed_llm_merge(memory_db, novel, "子龙", ["赵云", "子龙"])
 
-        r1, rows1 = await _run_resolve(memory_db, tmp_path, novel)
+        r1, _rows1 = await _run_resolve(memory_db, tmp_path, novel)
         assert r1["reelections"] == 1
         r2, rows2 = await _run_resolve(memory_db, tmp_path, novel)
         assert r2["reelections"] == 0  # 第二次运行无翻转

@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 from pathlib import Path
 
 from src.db import world_structure_override_store, world_structure_store
@@ -22,11 +23,6 @@ from src.extraction.fact_validator import _is_generic_location
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMClient, get_llm_client
 from src.models.chapter_fact import ChapterFact, classify_spatial_relation
-from src.utils.location_names import is_passage_like, is_special_space
-from src.services.location_hint_service import extract_direction_hint
-from src.services.hierarchy_consolidator import consolidate_hierarchy
-from collections import Counter
-
 from src.models.world_structure import (
     LayerType,
     LocationIcon,
@@ -37,6 +33,9 @@ from src.models.world_structure import (
     WorldRegion,
     WorldStructure,
 )
+from src.services.hierarchy_consolidator import consolidate_hierarchy
+from src.services.location_hint_service import extract_direction_hint
+from src.utils.location_names import is_passage_like, is_special_space
 
 logger = logging.getLogger(__name__)
 
@@ -770,9 +769,7 @@ class WorldStructureAgent:
         assert self.structure is not None
         genre = self.structure.novel_genre_hint
         # Urban/realistic novels: disable instance detection
-        if genre in ("urban", "realistic"):
-            return False
-        return True
+        return genre not in ("urban", "realistic")
 
     # ── LLM trigger conditions ───────────────────────────────────
 
@@ -794,7 +791,7 @@ class WorldStructureAgent:
         # Condition 3: layer_transition to a new (not yet existing) layer
         if any(s.signal_type == "layer_transition" for s in signals):
             assert self.structure is not None
-            existing_layer_ids = {l.layer_id for l in self.structure.layers}
+            existing_layer_ids = {lyr.layer_id for lyr in self.structure.layers}
             for s in signals:
                 if s.signal_type != "layer_transition":
                     continue
@@ -814,10 +811,7 @@ class WorldStructureAgent:
             return True
 
         # Condition 5: periodic check every 20 chapters
-        if chapter_num % 20 == 0:
-            return True
-
-        return False
+        return chapter_num % 20 == 0
 
     # ── LLM update pipeline ──────────────────────────────────────
 
@@ -1140,11 +1134,11 @@ class WorldStructureAgent:
 
         for region in layer.regions:
             if region.name == region_name:
-                if "cardinal_direction" in op and op["cardinal_direction"]:
+                if op.get("cardinal_direction"):
                     region.cardinal_direction = op["cardinal_direction"]
-                if "region_type" in op and op["region_type"]:
+                if op.get("region_type"):
                     region.region_type = op["region_type"]
-                if "description" in op and op["description"]:
+                if op.get("description"):
                     region.description = op["description"]
                 return
 
@@ -1640,9 +1634,7 @@ class WorldStructureAgent:
             if "国" in name:
                 raw_tier = LocationTier.kingdom.value
             # site-level features
-            elif any(kw in effective_type for kw in ("洞", "穴", "桥", "渡", "关", "隘", "泉", "潭", "崖")):
-                raw_tier = LocationTier.site.value
-            elif level >= 2:
+            elif any(kw in effective_type for kw in ("洞", "穴", "桥", "渡", "关", "隘", "泉", "潭", "崖")) or level >= 2:
                 raw_tier = LocationTier.site.value
             # region fallback for top-level locations with informative type
             elif level == 0 and parent is None and effective_type and not any(
@@ -1771,8 +1763,8 @@ class WorldStructureAgent:
         base_scale = _TIER_SCALE_MAP.get(highest_tier, "continental")
 
         # Check for multi-layer (celestial / underworld / spirit)
-        non_overworld = [l for l in self.structure.layers if l.layer_id != "overworld"]
-        has_sky = any(l.layer_type == LayerType.sky for l in non_overworld)
+        non_overworld = [lyr for lyr in self.structure.layers if lyr.layer_id != "overworld"]
+        has_sky = any(lyr.layer_type == LayerType.sky for lyr in non_overworld)
 
         # Promote to cosmic if multi-realm
         if has_sky and base_scale in ("continental", "national"):
@@ -1890,7 +1882,7 @@ class WorldStructureAgent:
             "trisolaris-game": (LayerType.pocket, "三体游戏"),
         }
         # Add realm layers from _REALM_LAYER_KEYWORDS
-        for kw, (lid, display_name) in _REALM_LAYER_KEYWORDS.items():
+        for _kw, (lid, display_name) in _REALM_LAYER_KEYWORDS.items():
             if lid not in type_map:
                 type_map[lid] = (LayerType.overworld, display_name)
 
@@ -1907,7 +1899,7 @@ class WorldStructureAgent:
 
     def _has_layer(self, layer_id: str) -> bool:
         assert self.structure is not None
-        return any(l.layer_id == layer_id for l in self.structure.layers)
+        return any(lyr.layer_id == layer_id for lyr in self.structure.layers)
 
     def _assign_region(
         self, name: str, loc_type: str, parent: str | None,
@@ -2096,8 +2088,9 @@ class WorldStructureAgent:
         Also populates ``self._chapter_primary_settings`` mapping chapter_id → primary
         setting location name (used for micro-location auto-mount).
         """
-        from src.db.sqlite_db import get_connection
         import json as _json
+
+        from src.db.sqlite_db import get_connection
 
         votes: dict[str, Counter] = {}
 
@@ -2168,7 +2161,6 @@ class WorldStructureAgent:
                 )
 
         tiers = self.structure.location_tiers if self.structure else {}
-        all_known = set(tiers.keys())
 
         # ── v0.67.1: Build location frequency map (mention counts) ──
         # Used by _resolve_parents for frequency-based tiering: core(≥10),
@@ -2388,7 +2380,7 @@ class WorldStructureAgent:
         # to 2 when OTHER parent candidates exist.
         if uber_root_name:
             capped = 0
-            for loc_name, counter in votes.items():
+            for _loc_name, counter in votes.items():
                 if uber_root_name in counter and len(counter) > 1:
                     # Has both uber-root and specific parents — cap uber-root
                     if counter[uber_root_name] > 2:
@@ -2562,7 +2554,7 @@ class WorldStructureAgent:
                 continue  # direct parent or 1 tier gap — OK
             # Look for intermediate candidates in this child's votes
             for candidate, cand_votes in self._parent_votes.get(child, Counter()).items():
-                if candidate == parent or candidate == child:
+                if candidate in (parent, child):
                     continue
                 cand_rank = _get_suffix_rank(candidate)
                 if cand_rank is None:

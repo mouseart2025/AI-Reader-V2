@@ -19,14 +19,14 @@ import json
 import os
 import random
 import sys
-from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from benchmark_hierarchy import load_snapshot_from_db, default_db_path  # noqa: E402
-from src.services.hierarchy_validator import (  # noqa: E402
+from benchmark_hierarchy import default_db_path, load_snapshot_from_db
+
+from src.services.hierarchy_validator import (
     is_error_resolved,
     load_gold,
     parse_errata_correction,
@@ -50,12 +50,12 @@ FROZEN_DIR = (
 def per_node_error_flags(novel_key: str, novel_id: str, db: Path) -> list[int]:
     """1 = node counts as error toward Overall, 0 = not. Mirrors
     compute_metrics_from_gold's per-node logic exactly."""
-    lp, lt, mentions, _title, _genre = load_snapshot_from_db(novel_id, db)
+    lp, lt, _mentions, _title, _genre = load_snapshot_from_db(novel_id, db)
     current_nodes = (set(lp.keys()) | set(lp.values()) | set(lt.keys())) - {"", None}
     gold, gold_raw = load_gold(novel_key)
 
     children_count: dict[str, int] = {}
-    for c, p in lp.items():
+    for _c, p in lp.items():
         if p:
             children_count[p] = children_count.get(p, 0) + 1
 
@@ -91,7 +91,11 @@ def main():
         err = sum(per_novel[key])
         pt = 1.0 - err / n
         fz = FROZEN_DIR / f"{key}-benchmark.json"
-        fz_overall = json.load(open(fz))["gold_based"]["overall"] if fz.exists() else None
+        if fz.exists():
+            with open(fz) as fh:
+                fz_overall = json.load(fh)["gold_based"]["overall"]
+        else:
+            fz_overall = None
         frozen_overall[key] = fz_overall
         print(
             f"{key:9s} nodes={n:5d} errors={err:3d} "

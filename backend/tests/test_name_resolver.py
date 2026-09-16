@@ -4,14 +4,16 @@ Verifies that name variants are resolved to canonical forms in ChapterFact
 before DB save, preventing alias fragmentation.
 """
 
-import pytest
 from collections import Counter
 
 from src.extraction.name_resolver import NameResolver
-from src.services.name_authority import is_blocked_name
 from src.models.chapter_fact import (
-    ChapterFact, CharacterFact, RelationshipFact, EventFact,
+    ChapterFact,
+    CharacterFact,
+    EventFact,
+    RelationshipFact,
 )
+from src.services.name_authority import is_blocked_name
 
 
 class TestNameResolverMapping:
@@ -301,6 +303,7 @@ class TestCrossComponentConsistency:
     def test_shared_entry_point(self):
         """Both components call name_authority.pick_canonical — no independent logic."""
         import inspect
+
         from src.extraction import name_resolver
         from src.services import alias_resolver
 

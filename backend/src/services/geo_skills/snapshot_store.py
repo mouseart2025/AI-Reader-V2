@@ -249,11 +249,12 @@ async def snapshot_from_world_structure(novel_id: str) -> HierarchySnapshot:
 
     This is the bridge between old system and new snapshot system.
     """
+    import json as _json
+
     from src.db import world_structure_store
     from src.db.sqlite_db import get_connection
-    import json as _json
     from src.extraction.fact_validator import _is_generic_location
-    from src.services.world_structure_agent import _get_suffix_rank, TIER_ORDER
+    from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
 
     ws = await world_structure_store.load(novel_id)
     if not ws:
@@ -291,9 +292,9 @@ async def snapshot_from_world_structure(novel_id: str) -> HierarchySnapshot:
                 location_chapters.setdefault(name, []).append(ch_id)
         # Primary setting
         settings = [
-            l for l in locations
-            if l.get("role") == "setting" and l.get("name")
-            and not _is_generic_location(l["name"])
+            loc for loc in locations
+            if loc.get("role") == "setting" and loc.get("name")
+            and not _is_generic_location(loc["name"])
         ]
         if settings:
             best_rank, best_name = 999, ""

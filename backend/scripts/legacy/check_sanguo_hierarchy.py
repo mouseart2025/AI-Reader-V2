@@ -26,7 +26,6 @@ import json
 import os
 import sqlite3
 import sys
-from collections import Counter
 from pathlib import Path
 
 os.environ.setdefault("AI_READER_DATA_DIR", "/tmp/sanguo-rebuild")
@@ -95,8 +94,8 @@ def build_evidence_index(tiers: dict[str, str]) -> dict[tuple[str, str], set[str
         # 逻辑复刻 vote_builder.execute 的 Primary setting inference 段。
         primary = None
         settings = [
-            l for l in (fact.get("locations") or [])
-            if l.get("role") == "setting" and l.get("name")
+            loc for loc in (fact.get("locations") or [])
+            if loc.get("role") == "setting" and loc.get("name")
         ]
         if settings:
             best_rank = 999

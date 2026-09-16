@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
-from src.infra.llm_client import LlmUsage, get_llm_client
+from src.infra.llm_client import get_llm_client
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import ChapterFact
 
@@ -90,9 +90,11 @@ class SceneLLMExtractor:
         )
 
         # 5. Call LLM
-        from src.infra import config as _cfg  # dynamic read (avoids frozen module-level import)
+        from src.infra import (
+            config as _cfg,  # dynamic read (avoids frozen module-level import)
+        )
         max_out = min(_cfg.LLM_MAX_TOKENS, 4096) if self._is_cloud else 4096
-        result, usage = await self.llm.generate(
+        result, _usage = await self.llm.generate(
             system=system,
             prompt=user_prompt,
             # env override for multi-seed / temperature-sensitivity experiments

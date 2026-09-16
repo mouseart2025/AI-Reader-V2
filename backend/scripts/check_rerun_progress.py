@@ -51,7 +51,7 @@ def snapshot(conn: sqlite3.Connection, model: str, slug: str, nid: str) -> dict:
         except (ValueError, TypeError):
             continue
         n_loc += len(locs)
-        n_parent += sum(1 for l in locs if isinstance(l, dict) and l.get("parent"))
+        n_parent += sum(1 for loc in locs if isinstance(loc, dict) and loc.get("parent"))
     return {
         "slug": slug,
         "status": t[0] if t else "-",

@@ -1,7 +1,5 @@
 """Encyclopedia service: category stats, concept details, entity list with definitions."""
 
-import json
-from collections import Counter
 
 from src.db import chapter_fact_store
 from src.services.name_authority import is_generic_person as _is_generic_person
@@ -105,7 +103,7 @@ async def get_category_stats(novel_id: str) -> dict:
                         concepts.setdefault("其他", set()).add(n)
                     else:
                         buckets[target].add(n)
-        for cat, names in list(concepts.items()):
+        for _cat, names in list(concepts.items()):
             for n in list(names):
                 if n in hidden_r:
                     names.discard(n)

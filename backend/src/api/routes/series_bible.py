@@ -36,7 +36,7 @@ async def export_series_bible(novel_id: str, req: SeriesBibleRequest | None = No
             export_all=body.export_all,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     tpl_name = TEMPLATES[template]["name"]
 

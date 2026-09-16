@@ -9,6 +9,9 @@ from src.db import entity_dictionary_store, novel_store
 
 router = APIRouter(prefix="/api", tags=["prescan"])
 
+# Strong refs to fire-and-forget tasks (prevents GC mid-run, RUF006)
+_background_tasks: set[asyncio.Task] = set()
+
 
 # ---------------------------------------------------------------------------
 # Response models
@@ -60,7 +63,9 @@ async def trigger_prescan(novel_id: str):
         scanner = EntityPreScanner()
         await scanner.scan(novel_id)
 
-    asyncio.create_task(_run())
+    task = asyncio.create_task(_run())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return {"status": "running"}
 

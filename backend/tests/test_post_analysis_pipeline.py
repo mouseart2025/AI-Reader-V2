@@ -9,7 +9,7 @@ build_default_orchestrator(SuffixNormalizer 最后跑)。
 """
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -76,12 +76,13 @@ def test_schedule_creates_geo_chain_and_entity_resolution():
     """调度: geo 链(重建+空间补全)为单个串行任务;
     entity resolution(不写 world_structures)保持独立并发任务。"""
     svc = AnalysisService.__new__(AnalysisService)
+    svc._background_tasks = set()
     names: list[str] = []
 
     def fake_create_task(coro, *, name=None):
         names.append(name)
         coro.close()  # 避免 unawaited coroutine 警告
-        return None
+        return MagicMock()
 
     with patch("asyncio.create_task", side_effect=fake_create_task), \
          patch("src.infra.config.ENTITY_RESOLUTION_ENABLED", True):

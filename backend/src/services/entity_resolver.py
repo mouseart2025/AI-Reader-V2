@@ -44,9 +44,10 @@ from __future__ import annotations
 import json
 import logging
 import math
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from src.infra import config
 from src.services import name_authority
@@ -80,7 +81,7 @@ def default_embed_fn(texts: list[str]) -> list[list[float]]:
 
 def _cosine(a: list[float], b: list[float]) -> float:
     dot = na = nb = 0.0
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         dot += x * y
         na += x * x
         nb += y * y
@@ -140,7 +141,7 @@ def build_candidate_clusters(
     edges = 0
     for i, name in enumerate(names):
         sims: list[tuple[float, int]] = []
-        for j, other in enumerate(names):
+        for j, _other in enumerate(names):
             if i == j:
                 continue
             sims.append((_cosine(vectors[i], vectors[j]), j))
@@ -496,7 +497,7 @@ def validate_groups(
         canonical = group.get("canonical") or ""
         reason = group.get("reason") or ""
 
-        def _reject(why: str) -> None:
+        def _reject(why: str, group: dict = group) -> None:
             rejected.append({**group, "rejected_reason": why})
 
         if len(members) < 2:
@@ -798,8 +799,8 @@ async def resolve_novel(
                 "llm_calls": 0, "merges": 0}
 
     from src.db import entity_override_store
-    from src.services import alias_resolver
     from src.infra.llm_client import get_llm_client
+    from src.services import alias_resolver
 
     llm = llm or get_llm_client()
     embed_fn = embed_fn or default_embed_fn

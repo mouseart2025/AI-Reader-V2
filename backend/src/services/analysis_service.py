@@ -8,18 +8,37 @@ import uuid
 
 from fastapi import WebSocket
 
-from src.db import analysis_task_store, chapter_fact_store, entity_dictionary_store
-from src.db import analysis_pass_store, novel_store, world_structure_store
+from src.db import (
+    analysis_pass_store,
+    analysis_task_store,
+    chapter_fact_store,
+    entity_dictionary_store,
+    novel_store,
+    world_structure_store,
+)
 from src.db.sqlite_db import get_connection
-from src.extraction.chapter_fact_extractor import ChapterFactExtractor, ExtractionError, ExtractionMeta
+from src.extraction.chapter_fact_extractor import (
+    ChapterFactExtractor,
+    ExtractionError,
+)
 from src.extraction.context_summary_builder import ContextSummaryBuilder
 from src.extraction.fact_validator import FactValidator
 from src.extraction.name_resolver import NameResolver
 from src.extraction.scene_llm_extractor import SceneLLMExtractor
-from src.infra.llm_client import LLMError, LLMParseError, LLMTimeoutError, LlmUsage, get_llm_client
+from src.infra.llm_client import (
+    LLMError,
+    LLMParseError,
+    LLMTimeoutError,
+    get_llm_client,
+)
 from src.models.world_structure import WorldStructure
-from src.services.cost_service import add_monthly_usage, get_monthly_budget, get_monthly_usage, get_pricing
 from src.services import embedding_service
+from src.services.cost_service import (
+    add_monthly_usage,
+    get_monthly_budget,
+    get_monthly_usage,
+    get_pricing,
+)
 from src.services.hierarchy_consolidator import consolidate_hierarchy
 from src.services.visualization_service import invalidate_layout_cache
 from src.services.world_structure_agent import WorldStructureAgent
@@ -95,6 +114,8 @@ class AnalysisService:
         # Track running tasks for pause/cancel
         self._task_signals: dict[str, str] = {}  # task_id -> desired status
         self._active_loops: set[str] = set()  # task_ids with currently-running loops
+        # Strong refs to fire-and-forget tasks (prevents GC mid-run, RUF006)
+        self._background_tasks: set[asyncio.Task] = set()
         # Live timing stats per novel (survives page navigation)
         self._live_timing: dict[str, dict] = {}
         # Retry progress per novel (survives page navigation)
@@ -111,6 +132,12 @@ class AnalysisService:
     def get_retrying_novel_ids(self) -> list[str]:
         """Return novel IDs with active retries."""
         return list(self._retry_progress.keys())
+
+    def _spawn_background(self, coro, *, name: str | None = None) -> None:
+        """Fire-and-forget a coroutine, keeping a strong reference until done."""
+        task = asyncio.create_task(coro, name=name)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     @staticmethod
     async def _broadcast_stage(novel_id: str, chapter: int, label: str) -> None:
@@ -185,7 +212,7 @@ class AnalysisService:
         self._task_signals[task_id] = "running"
 
         # Launch background analysis loop
-        asyncio.create_task(self._run_loop(task_id, novel_id, chapter_start, chapter_end, force))
+        self._spawn_background(self._run_loop(task_id, novel_id, chapter_start, chapter_end, force))
 
         return task_id
 
@@ -210,7 +237,7 @@ class AnalysisService:
         if task_id not in self._active_loops:
             resume_from = task["current_chapter"] + 1
             chapter_end = task["chapter_end"]
-            asyncio.create_task(self._run_loop(task_id, novel_id, resume_from, chapter_end))
+            self._spawn_background(self._run_loop(task_id, novel_id, resume_from, chapter_end))
 
     async def pause(self, task_id: str) -> None:
         """Signal a running task to pause after current chapter.
@@ -818,7 +845,9 @@ class AnalysisService:
 
             if all_scenes and world_agent.structure:
                 # Part A: Scene transition analysis (pure algorithm, zero LLM cost)
-                from src.services.scene_transition_analyzer import SceneTransitionAnalyzer
+                from src.services.scene_transition_analyzer import (
+                    SceneTransitionAnalyzer,
+                )
                 analyzer = SceneTransitionAnalyzer()
                 scene_votes, scene_analysis = analyzer.analyze(all_scenes)
 
@@ -829,7 +858,9 @@ class AnalysisService:
                 # Part B: LLM hierarchy review (only when orphan roots >= 3)
                 orphan_count = _count_orphan_roots(world_agent.structure)
                 if orphan_count >= 3:
-                    from src.services.location_hierarchy_reviewer import LocationHierarchyReviewer
+                    from src.services.location_hierarchy_reviewer import (
+                        LocationHierarchyReviewer,
+                    )
                     reviewer = LocationHierarchyReviewer()
                     try:
                         review_votes = await asyncio.wait_for(
@@ -950,14 +981,14 @@ class AnalysisService:
         因此 geo 链串行为单个任务;entity resolution 不写 world_structures,
         保持并发。
         """
-        asyncio.create_task(
+        self._spawn_background(
             self._run_geo_pipeline(novel_id),
             name=f"post-analysis-geo-{novel_id}",
         )
         # Entity resolution (Epic 2; LLM, gated by ENTITY_RESOLUTION_ENABLED)
         from src.infra.config import ENTITY_RESOLUTION_ENABLED
         if ENTITY_RESOLUTION_ENABLED:
-            asyncio.create_task(
+            self._spawn_background(
                 self._auto_entity_resolution(novel_id),
                 name=f"entity-resolution-{novel_id}",
             )
@@ -1078,7 +1109,7 @@ class AnalysisService:
             return {"retried": 0, "total": 0}
 
         # Launch retry in background
-        asyncio.create_task(self._retry_failed_bg(novel_id, rows))
+        self._spawn_background(self._retry_failed_bg(novel_id, rows))
         return {"retried": len(rows), "total": len(rows)}
 
     async def _retry_failed_bg(self, novel_id: str, rows: list[dict]) -> None:

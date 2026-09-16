@@ -1,6 +1,5 @@
 """Tests for FactValidator — location/person filtering, char variant normalization, homonym disambiguation, suffix ranking."""
 
-import pytest
 
 from src.extraction.fact_validator import (
     _get_contains_rank,
@@ -9,7 +8,6 @@ from src.extraction.fact_validator import (
     _normalize_char_variants,
 )
 from src.utils.location_names import is_homonym_prone
-
 
 # ── _is_generic_location tests ──────────────────────────────────
 
@@ -488,8 +486,10 @@ class TestVehicleWordsCleanup:
     def test_moved_entries_still_filtered(self):
         """Filtering decisions must be identical to before the move."""
         from src.extraction.fact_validator import (
-            _is_generic_location, _BUDDHIST_CONCEPTS, _DIRECTIONAL_RELATIVE_PHRASES,
+            _BUDDHIST_CONCEPTS,
+            _DIRECTIONAL_RELATIVE_PHRASES,
             _GENERIC_NON_LOCATION_TERMS,
+            _is_generic_location,
         )
         # Directions — duplicates of _DIRECTIONAL_RELATIVE_PHRASES
         for name in ["东边", "南边", "西边", "北边", "九霄"]:

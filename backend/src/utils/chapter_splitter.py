@@ -1,8 +1,10 @@
 """Chapter splitting engine with pattern modes + heuristic + fixed-size fallback."""
 
+import contextlib
 import logging
 import re
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 logger = logging.getLogger(__name__)
 
@@ -201,8 +203,9 @@ def detect_text_genre(text: str) -> tuple[str, float]:
 
     Safety valve: text > 50K chars auto-downgrades essay/poetry to "unknown".
     """
-    from src.utils.text_features import compute_dialogue_ratio
     from statistics import mean
+
+    from src.utils.text_features import compute_dialogue_ratio
 
     text_len = len(text)
 
@@ -211,7 +214,7 @@ def detect_text_genre(text: str) -> tuple[str, float]:
     dialogue_ratio = compute_dialogue_ratio(sample)
 
     # Paragraph stats
-    paras = [l.strip() for l in sample.split("\n") if l.strip()]
+    paras = [line.strip() for line in sample.split("\n") if line.strip()]
     para_count = len(paras)
     avg_para_len = mean(len(p) for p in paras) if paras else 0
 
@@ -316,10 +319,8 @@ def _score_mode(mode: str, matches: list[re.Match], text: str, genre: str) -> fl
     if mode == "numbered" and count >= 3:
         nums = []
         for m in matches:
-            try:
+            with contextlib.suppress(ValueError, IndexError):
                 nums.append(int(m.group(1)))
-            except (ValueError, IndexError):
-                pass
         if nums:
             resets = sum(1 for i in range(1, len(nums)) if nums[i] <= nums[i - 1])
             if resets > 0:
@@ -708,7 +709,7 @@ def _split_by_points(text: str, points: list[int]) -> SplitResult:
     # Filter points to valid range and add boundaries
     total = len(text)
     valid = [p for p in points if 0 < p < total]
-    boundaries = [0] + valid + [total]
+    boundaries = [0, *valid, total]
 
     chapters: list[ChapterInfo] = []
     for i in range(len(boundaries) - 1):
@@ -1169,7 +1170,7 @@ def _subsplit_by_digit_sections(chapters: list[ChapterInfo]) -> list[ChapterInfo
         if len(digit_matches) >= 2:
             # Verify they look sequential (first is 1 or 2, increases)
             nums = [int(m.group(1)) for m in digit_matches]
-            if nums[0] <= 2 and all(b > a for a, b in zip(nums, nums[1:])):
+            if nums[0] <= 2 and all(b > a for a, b in pairwise(nums)):
                 chapters_with_digits += 1
 
     # Only subsplit if majority of chapters have digit sections
@@ -1182,7 +1183,7 @@ def _subsplit_by_digit_sections(chapters: list[ChapterInfo]) -> list[ChapterInfo
         nums = [int(m.group(1)) for m in digit_matches]
 
         # Verify sequential
-        if len(digit_matches) < 2 or nums[0] > 2 or not all(b > a for a, b in zip(nums, nums[1:])):
+        if len(digit_matches) < 2 or nums[0] > 2 or not all(b > a for a, b in pairwise(nums)):
             result.append(ch)
             continue
 
@@ -1194,7 +1195,7 @@ def _subsplit_by_digit_sections(chapters: list[ChapterInfo]) -> list[ChapterInfo
             content = ch.content[content_start:content_end].strip()
             if not content:
                 continue
-            sub_title = f"{ch.title} ({nums[j]})" if ch.title != "序章" else f"{ch.title} ({nums[j]})"
+            sub_title = f"{ch.title} ({nums[j]})"
             sub_chapters.append(ChapterInfo(
                 chapter_num=0,  # Renumbered later
                 title=sub_title,

@@ -7,8 +7,9 @@ Covers:
   and the 沙僧/八戒 over-merge correction (Story 1.2 / SC5).
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from src.db import entity_override_store
 from src.services import alias_resolver
@@ -552,6 +553,7 @@ async def test_route_merge_happy_path():
 @pytest.mark.asyncio
 async def test_route_merge_rejects_canonical_not_in_members():
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import MergeRequest, merge_aliases
 
     patches = _patch_route()
@@ -569,6 +571,7 @@ async def test_route_merge_rejects_canonical_not_in_members():
 @pytest.mark.asyncio
 async def test_route_split_rejects_to_equals_source():
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import SplitRequest, split_aliases
 
     patches = _patch_route()
@@ -603,7 +606,11 @@ async def test_load_concept_overrides_parses_types():
 
 @pytest.mark.asyncio
 async def test_route_concept_rename_and_delete():
-    from src.api.routes.entity_overrides import ConceptEditRequest, concept_rename, concept_delete
+    from src.api.routes.entity_overrides import (
+        ConceptEditRequest,
+        concept_delete,
+        concept_rename,
+    )
 
     async def _get_novel(_n):
         return {"id": _n}
@@ -630,6 +637,7 @@ async def test_route_concept_rename_and_delete():
 @pytest.mark.asyncio
 async def test_route_concept_rename_rejects_same_name():
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import ConceptEditRequest, concept_rename
 
     async def _get_novel(_n):
@@ -658,6 +666,7 @@ async def test_route_rename_happy_path():
 @pytest.mark.asyncio
 async def test_route_rename_rejects_same_name():
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import RenameRequest, rename_entity
 
     patches = _patch_route()
@@ -804,6 +813,7 @@ async def test_route_hide_happy_path():
 @pytest.mark.asyncio
 async def test_route_hide_rejects_unknown_entity():
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import HideRequest, hide_entity
 
     patches = _patch_visibility_route(auto_entities=[("孙悟空", "person")])
@@ -836,6 +846,7 @@ async def test_route_retype_happy_path():
 @pytest.mark.asyncio
 async def test_route_retype_rejects_invalid_type():
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import RetypeRequest, retype_entity
 
     patches = _patch_visibility_route(auto_entities=[("花果山", "location")])
@@ -854,6 +865,7 @@ async def test_route_retype_rejects_invalid_type():
 async def test_route_retype_rejects_same_effective_type():
     """与当前生效类型(含已存在的改型)相同 → 400,不重复写入。"""
     from fastapi import HTTPException
+
     from src.api.routes.entity_overrides import RetypeRequest, retype_entity
 
     patches = _patch_visibility_route(

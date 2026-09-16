@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -201,20 +201,20 @@ class HierarchyMetrics:
         """打印人类可读的指标报告."""
         lines = [
             f"# 地点层级质量指标 — {self.novel}",
-            f"",
+            "",
             f"总节点: {self.total_nodes} | 正确: {self.correct_count} | "
             f"可疑: {self.suspect_count} | 错误: {self.error_count}",
-            f"",
-            f"| 指标                | 分数    | 错误数 |",
-            f"|---------------------|---------|--------|",
+            "",
+            "| 指标                | 分数    | 错误数 |",
+            "|---------------------|---------|--------|",
             f"| Entity Precision    | {self.entity_precision:.4f}  | {self.category_errors.get('A',0):6d} |",
             f"| Name Accuracy       | {self.name_accuracy:.4f}  | {self.category_errors.get('B',0):6d} |",
             f"| Tier Accuracy       | {self.tier_accuracy:.4f}  | {self.category_errors.get('C',0):6d} |",
             f"| Parent Precision    | {self.parent_precision:.4f}  | {self.category_errors.get('D',0):6d} |",
             f"| Structural Health   | {self.structural_health:.4f}  | {self.category_errors.get('E',0):6d} |",
             f"| **Overall**         | **{self.overall:.4f}** | |",
-            f"",
-            f"## 错误类型分布",
+            "",
+            "## 错误类型分布",
         ]
         for etype, cnt in sorted(self.error_type_counts.items(), key=lambda x: -x[1]):
             lines.append(f"- {etype}: {cnt}")
@@ -270,7 +270,7 @@ def compute_metrics_from_gold(
     current_parents = current_parents or {}
     # 计算当前children count
     current_children_count: dict[str, int] = {}
-    for c, p in current_parents.items():
+    for _c, p in current_parents.items():
         if p:
             current_children_count[p] = current_children_count.get(p, 0) + 1
 
@@ -402,7 +402,7 @@ _PERSON_TITLE_PREFIXES = frozenset({
     "大人", "员外", "长史", "侍郎", "尚书", "学士", "御史",
     "王", "公", "侯", "伯",
     # 红楼梦 specific
-    "贾", "史", "薛", "王", "林", "荣国", "宁国", "北静王", "南安王",
+    "贾", "史", "薛", "林", "荣国", "宁国", "北静王", "南安王",
     # 水浒 specific
     "宿太尉", "高太尉", "蔡太师", "童贯",
 })
@@ -437,9 +437,7 @@ def is_residence_fu(name: str, parent_tier: str | None = None) -> bool:
     if len(prefix) <= 2 and prefix[0] in _COMMON_SURNAMES:
         return True
     # parent 是 city/kingdom/continent → 说明在城/国内部, "府"更可能是府邸
-    if parent_tier in ("city", "kingdom", "continent"):
-        return True
-    return False
+    return parent_tier in ("city", "kingdom", "continent")
 
 
 def _zhou_expected_tier(genre: str, location_names: set[str] | None = None) -> str:
@@ -480,9 +478,8 @@ def is_valid_place_chu(name: str) -> bool:
                 return True
     # Layer 2 heuristic: 短前缀 (≤4字) 默认为人名/称谓, 除非含事件动词
     _EVENT_VERBS = frozenset("插打杀死烧逃逮擒困埋葬砍斩缢吊投跳溺捆绑尽毙亡殁败败")
-    if len(prefix) <= 4 and not any(v in prefix for v in _EVENT_VERBS):
-        return True  # 短前缀 + 无事件动词 → 大概率是人名引用
-    return False
+    # 短前缀 + 无事件动词 → 大概率是人名引用
+    return len(prefix) <= 4 and not any(v in prefix for v in _EVENT_VERBS)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -497,7 +494,7 @@ class KnowledgeBase:
     tier_rules: dict
 
     @classmethod
-    def load(cls, kb_dir: Path | None = None) -> "KnowledgeBase":
+    def load(cls, kb_dir: Path | None = None) -> KnowledgeBase:
         base = kb_dir or (
             Path(__file__).resolve().parents[2] / "data" / "hierarchy_validation" / "knowledge_base"
         )
@@ -666,19 +663,18 @@ class RuleValidator:
             errors.append(("D-孤立顶层", "非世界根但无父节点"))
 
         # === Layer 3: 原文校验 (存在性 + 上下文证据) ===
-        if self._text_verifier:
-            if mc == 0:
-                if not self._text_verifier.exists(name):
-                    errors.append(("E-原文无此名", f"mc=0且原文中未找到'{name}'"))
-                else:
-                    # mc=0 but text has it — evidence for investigation
-                    n = self._text_verifier.count(name)
-                    ctx = self._text_verifier.context(name, window=60, max_snippets=2)
-                    ctx_str = " | ".join(ctx) if ctx else ""
-                    errors.append((
-                        "E-mc零但原文存在",
-                        f"mc=0但原文出现{n}次: {ctx_str}"
-                    ))
+        if self._text_verifier and mc == 0:
+            if not self._text_verifier.exists(name):
+                errors.append(("E-原文无此名", f"mc=0且原文中未找到'{name}'"))
+            else:
+                # mc=0 but text has it — evidence for investigation
+                n = self._text_verifier.count(name)
+                ctx = self._text_verifier.context(name, window=60, max_snippets=2)
+                ctx_str = " | ".join(ctx) if ctx else ""
+                errors.append((
+                    "E-mc零但原文存在",
+                    f"mc=0但原文出现{n}次: {ctx_str}"
+                ))
 
         # 汇总
         if not errors:
@@ -702,7 +698,7 @@ class RuleValidator:
 
         # children count
         children_count: dict[str, int] = {}
-        for c, p in location_parents.items():
+        for _c, p in location_parents.items():
             children_count[p] = children_count.get(p, 0) + 1
 
         results = {}

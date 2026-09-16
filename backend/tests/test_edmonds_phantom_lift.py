@@ -63,7 +63,7 @@ class TestPhantomLift:
             parents[f"child_{i}"] = "phantom"
         freq = Counter({"phantom": 1, "root": 100})
 
-        new_parents, lifted = EdmondsResolver._lift_phantom_parent_children(
+        _new_parents, lifted = EdmondsResolver._lift_phantom_parent_children(
             parents, freq, uber_root="root"
         )
         assert lifted == 0
@@ -76,7 +76,7 @@ class TestPhantomLift:
         freq = Counter({"real_hub": 3, "root": 100})
         # 5 children / 3 mc = 1.67 < 3 → not lifted
         # Note: phantom_mc_threshold is 3, but ratio guard kicks in
-        new_parents, lifted = EdmondsResolver._lift_phantom_parent_children(
+        _new_parents, lifted = EdmondsResolver._lift_phantom_parent_children(
             parents, freq, uber_root="root"
         )
         assert lifted == 0
@@ -88,7 +88,7 @@ class TestPhantomLift:
             parents[f"loc_{i}"] = "root"
         freq = Counter({"root": 0})  # root might have mc=0
 
-        new_parents, lifted = EdmondsResolver._lift_phantom_parent_children(
+        _new_parents, lifted = EdmondsResolver._lift_phantom_parent_children(
             parents, freq, uber_root="root"
         )
         assert lifted == 0

@@ -166,7 +166,7 @@ def _start_capture():
 
     def fake_create_task(coro, **kwargs):
         captured["coro"] = coro
-        return object()
+        return MagicMock()
 
     return captured, fake_create_task
 
@@ -190,7 +190,7 @@ async def _wait_pass_status(pass_id: str, status: str) -> dict:
 
 @pytest.mark.asyncio
 async def test_full_flow(api_env):
-    memory_db, broadcasts, llm, _svc, _diff = api_env
+    memory_db, _broadcasts, _llm, _svc, _diff = api_env
     await _seed(memory_db)
     main_facts_before = await _table_count(memory_db, "chapter_facts")
 

@@ -53,7 +53,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
@@ -97,7 +97,7 @@ FORBIDDEN_NAMES = {
     "唐朝", "宋朝", "明朝", "清朝", "秦朝", "汉朝", "周朝", "商朝", "大唐", "大宋",
     # 真实地名
     "长安", "洛阳", "苏州", "杭州", "泰山", "峨眉", "终南山", "五台山", "九华山",
-    "普陀", "崆峒", "青城山", "武当山", "华山",
+    "普陀", "崆峒", "青城山", "武当山",
 }
 
 
@@ -531,7 +531,7 @@ def validate(out_dir: Path) -> bool:
         aliases = main.get("aliases") or []
         canon = main.get("canonical_name", "")
         # count unique non-substring variants
-        all_variants = [canon] + list(aliases)
+        all_variants = [canon, *list(aliases)]
         unique_variants: list[str] = []
         for v in all_variants:
             if not v:

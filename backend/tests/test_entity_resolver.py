@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-
-import pytest
 from unittest.mock import patch
 
+import pytest
+
 from src.db import entity_override_store
-from src.services import alias_resolver, entity_resolver
+from src.services import alias_resolver
 from src.services.entity_resolver import (
+    PROMPT_VERSION,
     build_candidate_clusters,
     build_cluster_prompt,
     decided_names_from_overrides,
@@ -35,7 +36,6 @@ from src.services.entity_resolver import (
     resolve_cluster,
     resolve_novel,
     validate_groups,
-    PROMPT_VERSION,
 )
 
 NOVEL = "novel-er-test"
@@ -361,9 +361,7 @@ async def test_resolve_novel_end_to_end(memory_db, tmp_path):
     async def _noop_cost(_usage):
         return None
 
-    patches = _patch_db(memory_db) + [
-        patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-    ]
+    patches = [*_patch_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost)]
     for p in patches:
         p.start()
     try:
@@ -415,9 +413,7 @@ async def test_resolve_novel_incremental_skips_decided(memory_db, tmp_path):
           "reason": "同一人物"}]
         if "观音菩萨" in members else []
     ))
-    patches = _patch_db(memory_db) + [
-        patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-    ]
+    patches = [*_patch_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost)]
     for p in patches:
         p.start()
     try:
@@ -542,9 +538,7 @@ def _patch_grounded_db(memory_db):
     async def _proxy():
         return _NonClosing(memory_db)
 
-    return _patch_db(memory_db) + [
-        patch("src.services.hallucination_filter.get_connection", _proxy),
-    ]
+    return [*_patch_db(memory_db), patch("src.services.hallucination_filter.get_connection", _proxy)]
 
 
 async def _seed_grounded_db(memory_db, novel_id: str, corpus_text: str,
@@ -586,9 +580,7 @@ async def _run_grounded_resolve(memory_db, tmp_path, novel_id, llm):
     async def _noop_cost(_usage):
         return None
 
-    patches = _patch_grounded_db(memory_db) + [
-        patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-    ]
+    patches = [*_patch_grounded_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost)]
     for p in patches:
         p.start()
     try:
@@ -745,10 +737,7 @@ class TestGroundedCanonical:
         async def _noop_cost(_usage):
             return None
 
-        patches = _patch_grounded_db(memory_db) + [
-            patch("src.services.entity_resolver._record_llm_cost", _noop_cost),
-            patch("src.services.hallucination_filter._get_corpus", _boom),
-        ]
+        patches = [*_patch_grounded_db(memory_db), patch("src.services.entity_resolver._record_llm_cost", _noop_cost), patch("src.services.hallucination_filter._get_corpus", _boom)]
         for p in patches:
             p.start()
         try:

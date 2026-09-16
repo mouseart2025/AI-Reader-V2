@@ -1,3 +1,5 @@
+import contextlib
+
 import aiosqlite
 
 from src.infra.config import DB_PATH, ensure_data_dir
@@ -309,25 +311,19 @@ async def init_db() -> None:
         except Exception:
             pass  # Column already exists
         # Migration: add quality columns to chapter_facts
-        try:
+        with contextlib.suppress(Exception):
             await conn.execute(
                 "ALTER TABLE chapter_facts ADD COLUMN is_truncated INTEGER DEFAULT 0"
             )
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             await conn.execute(
                 "ALTER TABLE chapter_facts ADD COLUMN segment_count INTEGER DEFAULT 1"
             )
-        except Exception:
-            pass
         # Migration (q1-2): LLM 输出截断可见性 —— 与 is_truncated(输入超长)区分
-        try:
+        with contextlib.suppress(Exception):
             await conn.execute(
                 "ALTER TABLE chapter_facts ADD COLUMN output_truncated INTEGER DEFAULT 0"
             )
-        except Exception:
-            pass
         # Migration: add error tracking columns to chapters for failure diagnosis
         for col, col_type in [("analysis_error", "TEXT"), ("error_type", "TEXT")]:
             try:

@@ -15,7 +15,7 @@ import logging
 
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
-from src.utils.location_names import is_special_space, is_passage_like
+from src.utils.location_names import is_passage_like, is_special_space
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,8 @@ class TierClassifier(GeoSkill):
         return "层级分类"
 
     async def execute(self, snapshot: HierarchySnapshot) -> SkillResult:
-        from src.services.world_structure_agent import WorldStructureAgent
         from src.db import world_structure_store
+        from src.services.world_structure_agent import WorldStructureAgent
 
         ws = await world_structure_store.load(self._novel_id)
         if not ws:
@@ -232,7 +232,6 @@ class TierClassifier(GeoSkill):
                 "两浙": "region", "两广": "region",
                 # v0.71.2 水浒传/三国演义历史地名
                 "辽国": "kingdom",  # 北方辽国
-                "京师": "city",     # 京师 = 京城
                 "汴京": "city",     # 北宋首都(开封别名)
                 "东京": "city",     # 北宋东京 = 开封
                 "西京": "city",     # 北宋西京 = 洛阳
@@ -295,27 +294,9 @@ class TierClassifier(GeoSkill):
                 new_tier = "region"
 
             # Rule 6: X府 + parent=region → site (residence, not administrative)
-            elif name.endswith("府") and tier == "city" and parent_tier == "region":
-                new_tier = "site"
-
-            # Rule 6b (Story 5.5): 府/宫/殿/邸/宅 是居所建筑,永不是王国。
-            # Rule 6 只在 tier==city 时触发,东府 被 Phase 1 判成 kingdom 就漏网了。
-            elif name.endswith(("府", "宫", "殿", "邸", "宅")) and tier in (
+            elif (name.endswith("府") and tier == "city" and parent_tier == "region") or (name.endswith(("府", "宫", "殿", "邸", "宅")) and tier in (
                 "continent", "kingdom", "realm",
-            ):
-                new_tier = "site"
-
-            # Rule 1: Parent-child coherence (只处理严重违反情况)
-            # 父节点是region/site/building, 子节点是continent/kingdom → 降为site
-            elif parent_tier in ("region", "site", "building") and tier in ("continent", "kingdom", "realm"):
-                new_tier = "site"
-
-            # Rule 2: 零证据高tier
-            elif mc == 0 and tier in ("continent", "kingdom", "realm"):
-                new_tier = "site"
-
-            # Rule 3: 单次提及叶节点
-            elif mc == 1 and ch == 0 and tier in ("continent", "kingdom", "realm"):
+            )) or (parent_tier in ("region", "site", "building") and tier in ("continent", "kingdom", "realm")) or (mc == 0 and tier in ("continent", "kingdom", "realm")) or (mc == 1 and ch == 0 and tier in ("continent", "kingdom", "realm")):
                 new_tier = "site"
 
             # Rule 4: 强证据提升 (保守: 需要同时满足高mc和高children)

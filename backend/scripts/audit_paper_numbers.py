@@ -121,10 +121,8 @@ def build_claims() -> list[Claim]:
 
     # Structural: xiyouji Edmonds+Prior+Suffix (Full) max_ch
     xy_full_mc = ab.get("xiyouji", {}).get("suffix", {}).get("max_ch")
-    xy_full_depth = ab.get("xiyouji", {}).get("suffix", {}).get("depth")
     xy_raw_mc = ab.get("xiyouji", {}).get("import", {}).get("max_ch")
     xy_edmonds_mc = ab.get("xiyouji", {}).get("edmonds", {}).get("max_ch")
-    xy_prior_mc = ab.get("xiyouji", {}).get("prior", {}).get("max_ch")
 
     # 5-novel avg full max_ch
     full_mcs = [ab.get(s, {}).get("suffix", {}).get("max_ch") for s in ab]
@@ -136,22 +134,12 @@ def build_claims() -> list[Claim]:
     hl_cot = cot_result("honglou")
     xy_cot_mc = xy_cot.get("max_children")
     hl_cot_mc = hl_cot.get("max_children")
-    xy_cot_roots = xy_cot.get("computed_roots")
-    hl_cot_roots = hl_cot.get("computed_roots")
-    xy_cot_missed = xy_cot.get("missed_count")
-    hl_cot_missed = hl_cot.get("missed_count")
-    xy_cot_halluc = xy_cot.get("hallucinated_count")
-    hl_cot_halluc = hl_cot.get("hallucinated_count")
-    xy_cot_pp = xy_cot.get("topology", {}).get("parent_precision") if xy_cot else None
-    hl_cot_pp = hl_cot.get("topology", {}).get("parent_precision") if hl_cot else None
 
     # Zero-shot baselines
     xy_zs = zero_shot_result("xiyouji")
     hl_zs = zero_shot_result("honglou")
     xy_zs_roots = xy_zs.get("root_count") if xy_zs else None
     hl_zs_roots = hl_zs.get("root_count") if hl_zs else None
-    xy_zs_pp = xy_zs.get("topology", {}).get("parent_precision") if xy_zs else None
-    hl_zs_pp = hl_zs.get("topology", {}).get("parent_precision") if hl_zs else None
 
     # Fair-baseline individual rows (Table 3)
     def fb_field(slug: str, pipe: str) -> float | None:
@@ -315,7 +303,7 @@ def compare(pattern: str, tex: str, expected, tolerance: float) -> tuple[bool, s
     # If pattern has a capture group, extract and compare numerically
     m = re.search(pattern, tex)
     if not m:
-        return False, f"pattern not found in main.tex"
+        return False, "pattern not found in main.tex"
 
     if m.groups():
         actual_str = m.group(1).replace(",", "").replace("{,}", "")
@@ -381,7 +369,7 @@ def main():
 
     if warnings:
         print("\n=== WARNINGS (regex did not match — tex wording may have changed) ===")
-        for c, msg in warnings:
+        for c, _msg in warnings:
             print(f"  {c.name}: pattern='{c.tex_pattern}'")
 
     sys.exit(0 if not failed else 1)

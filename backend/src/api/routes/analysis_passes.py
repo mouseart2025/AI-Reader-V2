@@ -136,7 +136,7 @@ async def start_pass(novel_id: str, body: StartPassRequest | None = None):
             include_dictionary=body.include_dictionary,
         )
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
     return {"pass_id": pass_id, "status": "running"}
 
@@ -160,7 +160,7 @@ async def get_chapter_diff(novel_id: str, pass_id: str, chapter: int = Query(...
     try:
         return await service.get_chapter_diff(pass_id, chapter)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/{pass_id}/pause")
@@ -174,7 +174,7 @@ async def pause_pass(novel_id: str, pass_id: str):
     try:
         await service.pause(pass_id)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"pass_id": pass_id, "status": "paused"}
 
 
@@ -189,7 +189,7 @@ async def resume_pass(novel_id: str, pass_id: str):
     try:
         await service.resume(pass_id)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"pass_id": pass_id, "status": "running"}
 
 
@@ -204,7 +204,7 @@ async def cancel_pass(novel_id: str, pass_id: str):
     try:
         await service.cancel(pass_id)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {"pass_id": pass_id, "status": "cancelled"}
 
 

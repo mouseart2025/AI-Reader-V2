@@ -133,7 +133,6 @@ class SceneTransitionAnalyzer:
                     pair = (min(a, b), max(a, b))
                     if pair not in bidirectional:
                         total = edge_ab.count + edge_ba.count
-                        combined_events = edge_ab.event_types | edge_ba.event_types
                         bidirectional[pair] = total
 
         # Rule 1: High-frequency bidirectional non-travel transitions → siblings
@@ -152,7 +151,7 @@ class SceneTransitionAnalyzer:
 
         # Rule 2: Name containment + transition → parent vote
         for a, targets in graph.items():
-            for b, edge in targets.items():
+            for b, _edge in targets.items():
                 # B.name starts with A.name → B is child of A
                 if b.startswith(a) and len(b) > len(a):
                     votes.setdefault(b, Counter())[a] += 2

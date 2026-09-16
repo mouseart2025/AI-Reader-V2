@@ -104,17 +104,17 @@ class KnowledgePrior(GeoSkill):
         freq = snapshot.location_frequencies
 
         # Select important locations (freq≥3) grouped by tier
-        continents = sorted(l for l, t in tiers.items() if t == "continent")
-        kingdoms = sorted(l for l, t in tiers.items()
-                         if t == "kingdom" and freq.get(l, 0) >= 3)
-        regions = sorted(l for l, t in tiers.items()
-                        if t == "region" and freq.get(l, 0) >= 3)
+        continents = sorted(loc for loc, t in tiers.items() if t == "continent")
+        kingdoms = sorted(loc for loc, t in tiers.items()
+                         if t == "kingdom" and freq.get(loc, 0) >= 3)
+        regions = sorted(loc for loc, t in tiers.items()
+                        if t == "region" and freq.get(loc, 0) >= 3)
 
         # Find uber_root
         uber_root = None
-        for l, t in tiers.items():
+        for loc, t in tiers.items():
             if t == "world":
-                uber_root = l
+                uber_root = loc
                 break
 
         if not uber_root or (not kingdoms and not regions):
@@ -192,7 +192,7 @@ class KnowledgePrior(GeoSkill):
 _XIYOUJI_PRIORS: dict[str, str] = {
     # ── 天下直属（四大部洲+独立区域） ──
     "东胜神洲": "天下", "西牛贺洲": "天下",
-    "南赡部洲": "天下", "南膳部洲": "天下",
+    "南赡部洲": "天下",
     "北俱芦洲": "天下",
     "天庭": "天下", "幽冥界": "天下", "南海": "天下",
     # ── 东胜神洲 ──
@@ -347,12 +347,7 @@ _HONGLOUMENG_PRIORS: dict[str, str] = {
     # 铁槛寺
     "净室": "铁槛寺",
     # 荣国府补充（审核修正）
-    "贾母正房": "荣国府", "贾政处": "荣国府",
-    "二门口": "荣国府", "宝钗房": "荣国府", "袭人房": "荣国府",
-    "薛蟠书房": "荣国府", "正房大院": "荣国府",
-    "南北宽夹道": "荣国府",
     "穿夹道": "荣国府",  # 穿夹道在荣国府内
-    "王夫人上房": "荣国府",
     # 其他
     "街市": "都中",
     "孙家": "都中城外", "下房": "荣国府",
