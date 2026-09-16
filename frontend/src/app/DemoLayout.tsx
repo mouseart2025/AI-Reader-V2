@@ -49,6 +49,7 @@ export default function DemoLayout() {
 
   useEffect(() => {
     if (activeTab !== prevTab.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 需跨渲染周期比较前后 tab 来累计切换次数，effect + prevRef 是刻意选择
       setTabSwitchCount((c) => c + 1)
       prevTab.current = activeTab
     }

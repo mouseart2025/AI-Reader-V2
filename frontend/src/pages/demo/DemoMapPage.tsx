@@ -97,10 +97,12 @@ export default function DemoMapPage() {
   useEffect(() => {
     if (!novelSlug) return
     if (activeLayerId === "overworld") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 切回主图层时同步清空图层数据，属"随状态重置"的 intentional 模式
       setLayerMapData(null)
       return
     }
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 惰性加载图层数据前同步进入加载态，标准数据获取模式
     setLayerLoading(true)
     loadDemoLayerMap<MapData>(novelSlug, activeLayerId)
       .then((d) => {
@@ -120,6 +122,7 @@ export default function DemoMapPage() {
   // Apply backend-suggested mention filter on first load + on novel switch
   useEffect(() => {
     if (!mapData) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 应用后端建议的图层与提及数过滤默认值，属"用外部数据初始化控件"的 intentional 模式
     if (mapData.world_structure?.layers) setLayers(mapData.world_structure.layers)
     const layoutNames = new Set((mapData.layout ?? []).map((li) => li.name))
     const layerLocs = layoutNames.size > 0
@@ -287,6 +290,7 @@ export default function DemoMapPage() {
   }, [playing, selectedTrajectory.length, playSpeed])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换人物时停止播放并重置播放索引，属"随选择重置"的 intentional 模式
     stopPlay()
     setPlayIndex(0)
   }, [selectedPerson, stopPlay])

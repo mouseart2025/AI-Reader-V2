@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { Clock, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,11 +80,7 @@ interface Props {
 export function RegexTemplateSelector({ onApply, disabled }: Props) {
   const [selected, setSelected] = useState<string>("")
   const [customRegex, setCustomRegex] = useState("")
-  const [recentRegexes, setRecentRegexes] = useState<RecentRegex[]>([])
-
-  useEffect(() => {
-    setRecentRegexes(loadRecentRegexes())
-  }, [])
+  const [recentRegexes, setRecentRegexes] = useState<RecentRegex[]>(() => loadRecentRegexes())
 
   const handleApplyAndSave = useCallback(
     (regex: string) => {

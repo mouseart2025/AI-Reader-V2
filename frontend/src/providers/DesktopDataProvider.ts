@@ -11,7 +11,7 @@
  */
 
 import type { MapData, WorldStructureData } from "@/api/types"
-import type { NovelDataProvider, NovelListItem, ChapterContentResult, ChapterRange } from "./types"
+import type { NovelDataProvider, NovelListItem, ChapterContentResult } from "./types"
 import { extractEntitiesFromStats, findEntityInEncyclopedia } from "./dataUtils"
 
 interface NovelManifest {
@@ -140,15 +140,15 @@ export class DesktopDataProvider implements NovelDataProvider {
     return this.loadNovelData<ChapterContentResult>(slug, `chapters/ch-${paddedNum}.json.gz`)
   }
 
-  async getGraphData(slug: string, _range?: ChapterRange): Promise<Record<string, unknown>> {
+  async getGraphData(slug: string): Promise<Record<string, unknown>> {
     return this.loadNovelData<Record<string, unknown>>(slug, "graph.json.gz")
   }
 
-  async getMapData(slug: string, _range?: ChapterRange): Promise<MapData> {
+  async getMapData(slug: string): Promise<MapData> {
     return this.loadNovelData<MapData>(slug, "map.json.gz")
   }
 
-  async getTimelineData(slug: string, _range?: ChapterRange): Promise<Record<string, unknown>> {
+  async getTimelineData(slug: string): Promise<Record<string, unknown>> {
     return this.loadNovelData<Record<string, unknown>>(slug, "timeline.json.gz")
   }
 
@@ -160,7 +160,7 @@ export class DesktopDataProvider implements NovelDataProvider {
     return this.loadNovelData<Record<string, unknown>>(slug, "encyclopedia-stats.json.gz")
   }
 
-  async getFactionsData(slug: string, _range?: ChapterRange): Promise<Record<string, unknown>> {
+  async getFactionsData(slug: string): Promise<Record<string, unknown>> {
     return this.loadNovelData<Record<string, unknown>>(slug, "factions.json.gz")
   }
 
@@ -168,7 +168,7 @@ export class DesktopDataProvider implements NovelDataProvider {
     return this.loadNovelData<WorldStructureData>(slug, "world-structure.json.gz")
   }
 
-  async getEntityProfile(slug: string, name: string, _type?: string): Promise<Record<string, unknown>> {
+  async getEntityProfile(slug: string, name: string): Promise<Record<string, unknown>> {
     const encyclopedia = await this.loadNovelData<Record<string, unknown>>(slug, "encyclopedia.json.gz")
     return findEntityInEncyclopedia(encyclopedia, name)
   }

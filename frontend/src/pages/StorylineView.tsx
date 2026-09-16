@@ -113,12 +113,18 @@ export default function StorylineView({
   // Keep refs in sync for event handlers (avoids re-attaching listeners)
   const zoomKRef = useRef(1)
   const zoomTxRef = useRef(0)
-  zoomKRef.current = zoomK
-  zoomTxRef.current = zoomTx
+  useEffect(() => {
+    zoomKRef.current = zoomK
+    zoomTxRef.current = zoomTx
+  }, [zoomK, zoomTx])
 
   // Refs
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // 渲染期测量容器宽度用于可视区裁剪（culling），带默认值回退。
+  // 命令式虚拟化 SVG 渲染：zoomK/zoomTx 变化会触发重渲染并自我校正，属 intentional 模式。
+  const getContainerW = (fallback: number) => containerRef.current?.clientWidth ?? fallback
 
   // Sorted character list by event count
   const sortedCharacters = useMemo(() => {
@@ -371,7 +377,8 @@ export default function StorylineView({
 
   // Visible chapter range (for culling off-screen nodes)
   const visibleRange = useMemo(() => {
-    const containerW = containerRef.current?.clientWidth ?? 800
+    // eslint-disable-next-line react-hooks/refs -- 渲染期测量容器宽度做可视区裁剪，带回退值，重渲染自我校正，intentional
+    const containerW = getContainerW(800)
     const contentW = containerW - LABEL_WIDTH
     const { min, max } = chapterRange
     const range = max - min || 1
@@ -508,9 +515,10 @@ export default function StorylineView({
                 <rect width="100%" height={svgHeight} className="fill-background" />
 
                 {/* Chapter axis ticks */}
+                {/* eslint-disable-next-line react-hooks/refs -- 渲染期测量容器宽度做刻度裁剪，带回退值，intentional */}
                 {ticks.map((ch) => {
                   const x = zoomedX(ch)
-                  if (x < LABEL_WIDTH - 10 || x > (containerRef.current?.clientWidth ?? 2000) + 50) return null
+                  if (x < LABEL_WIDTH - 10 || x > getContainerW(2000) + 50) return null
                   return (
                     <g key={`tick-${ch}`}>
                       <line x1={x} y1={AXIS_HEIGHT - 4} x2={x} y2={AXIS_HEIGHT} stroke="currentColor" className="text-muted-foreground" strokeWidth={0.5} />
@@ -521,6 +529,7 @@ export default function StorylineView({
                 })}
 
                 {/* Swimlane rows */}
+                {/* eslint-disable-next-line react-hooks/refs -- 渲染期测量容器宽度做泳道裁剪，带回退值，intentional */}
                 {selectedChars.map((char, i) => {
                   const y = AXIS_HEIGHT + i * LANE_HEIGHT
                   const color = charColorMap.get(char) ?? "#6b7280"
@@ -555,7 +564,7 @@ export default function StorylineView({
 
                         for (const [ch, chEvts] of byChapter) {
                           const cx = zoomedX(ch)
-                          if (cx < LABEL_WIDTH - 5 || cx > (containerRef.current?.clientWidth ?? 2000) + 20) continue
+                          if (cx < LABEL_WIDTH - 5 || cx > getContainerW(2000) + 20) continue
 
                           // Show best event per chapter (highest importance)
                           const best = chEvts.reduce((a, b) => impRank(a) >= impRank(b) ? a : b)
@@ -608,10 +617,11 @@ export default function StorylineView({
                 })}
 
                 {/* Convergence lines */}
+                {/* eslint-disable-next-line react-hooks/refs -- 渲染期测量容器宽度做汇聚线裁剪，带回退值，intentional */}
                 {convergences.map(({ event: evt, chars: convChars }) => {
                   if (evt.chapter < visibleRange.min || evt.chapter > visibleRange.max) return null
                   const cx = zoomedX(evt.chapter)
-                  if (cx < LABEL_WIDTH || cx > (containerRef.current?.clientWidth ?? 2000)) return null
+                  if (cx < LABEL_WIDTH || cx > getContainerW(2000)) return null
 
                   const indices = convChars.map((c) => selectedChars.indexOf(c)).filter((i) => i >= 0).sort((a, b) => a - b)
                   if (indices.length < 2) return null
@@ -645,8 +655,9 @@ export default function StorylineView({
                 >
                   <rect x={LABEL_WIDTH} y={0} width="100%" height={MINI_NAV_HEIGHT} className="fill-muted" opacity={0.08} />
                   {/* Viewport indicator only (no density bars — too noisy) */}
+                  {/* eslint-disable-next-line react-hooks/refs -- 渲染期测量容器宽度画视口指示条，带回退值，intentional */}
                   {(() => {
-                    const containerW = containerRef.current?.clientWidth ?? 800
+                    const containerW = getContainerW(800)
                     const contentW = containerW - LABEL_WIDTH
                     const vpFracLeft = Math.max(0, -zoomTx / (contentW * zoomK))
                     const vpFracWidth = Math.min(1, 1 / zoomK)

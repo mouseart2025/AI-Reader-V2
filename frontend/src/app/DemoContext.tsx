@@ -14,8 +14,10 @@ export interface DemoContextValue {
   loadChapterContent: (chapterNum: number) => Promise<DemoChapterContent>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context 与 Provider 同文件是刻意的内聚设计，避免循环导入
 export const DemoCtx = createContext<DemoContextValue | null>(null)
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook 与 Provider 同文件是刻意的内聚设计
 export function useDemoData(): DemoContextValue {
   const ctx = useContext(DemoCtx)
   if (!ctx) throw new Error("useDemoData must be used within DemoProvider")
@@ -41,6 +43,7 @@ export function DemoProvider({ slug, children }: DemoProviderProps) {
 
   useEffect(() => {
     if (!novelInfo) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换小说时同步重置加载态再发起预加载，数据获取的 intentional 模式
     setLoading(true)
     setError(null)
     clearDemoCache()

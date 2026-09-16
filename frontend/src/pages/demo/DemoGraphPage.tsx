@@ -136,6 +136,7 @@ export default function DemoGraphPage() {
   // Set smart defaults based on data size
   useEffect(() => {
     const nodeCount = graphData.nodes.length
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 依据图谱规模应用智能默认过滤阈值，属"用外部数据初始化控件"的 intentional 模式
     if (nodeCount > 400) setMinChapters(3)
     else if (nodeCount > 200) setMinChapters(2)
     if (graphData.suggested_min_edge_weight) {

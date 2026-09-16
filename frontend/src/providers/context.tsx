@@ -16,6 +16,7 @@ const DataProviderContext = createContext<NovelDataProvider | null>(null)
  * 获取当前平台的数据提供者
  * @throws 如果在 DataProviderProvider 外部使用
  */
+// eslint-disable-next-line react-refresh/only-export-components -- hook 与 Provider 同文件是刻意的内聚设计，经 index.ts 统一出口
 export function useDataProvider(): NovelDataProvider {
   const provider = useContext(DataProviderContext)
   if (!provider) {

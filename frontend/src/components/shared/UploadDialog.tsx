@@ -642,7 +642,7 @@ export function UploadDialog({
     if (simulatedProgress >= 90) return
     const targets = [30, 50, 70, 85, 90]
     const delays = [200, 400, 800, 1500, 3000]
-    let idx = targets.findIndex((t) => t > simulatedProgress)
+    const idx = targets.findIndex((t) => t > simulatedProgress)
     if (idx === -1) return
     const timer = setTimeout(() => {
       setSimulatedProgress(targets[idx])

@@ -96,6 +96,7 @@ export default function FactionsPage() {
   useEffect(() => {
     if (!novelId) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 发起 fetch 前同步进入加载态，标准数据获取模式
     setLoading(true)
     trackEvent("view_factions")
 

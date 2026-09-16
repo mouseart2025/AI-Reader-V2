@@ -30,7 +30,8 @@ import {
   type LineHeight,
 } from "@/stores/readingSettingsStore"
 import { EntityCardDrawer } from "@/components/entity-cards/EntityCardDrawer"
-import { ScenePanel, SCENE_BORDER_COLORS } from "@/components/shared/ScenePanel"
+import { ScenePanel } from "@/components/shared/ScenePanel"
+import { SCENE_BORDER_COLORS } from "@/components/shared/sceneStyles"
 import { GuidedTourBubble } from "@/components/shared/GuidedTourBubble"
 import { NovelOverviewCard } from "@/components/shared/NovelOverviewCard"
 import { Button } from "@/components/ui/button"
@@ -146,6 +147,7 @@ function TocSidebar({
   useEffect(() => {
     const ch = chapters.find((c) => c.chapter_num === currentChapterNum)
     if (ch?.volume_num != null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 累积式自动展开当前章节所属分卷，需保留用户手动展开项，effect 是刻意选择
       setExpandedVolumes((prev) => new Set([...prev, ch.volume_num]))
     }
   }, [currentChapterNum, chapters])

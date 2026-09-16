@@ -6,7 +6,7 @@
 import { loadDemoData, loadDemoChapterContent } from "@/api/demoDataAdapter"
 import { getAllDemoNovels } from "@/api/demoNovelMap"
 import type { MapData, WorldStructureData } from "@/api/types"
-import type { NovelDataProvider, NovelListItem, ChapterContentResult, ChapterRange } from "./types"
+import type { NovelDataProvider, NovelListItem, ChapterContentResult } from "./types"
 import { extractEntitiesFromStats, findEntityInEncyclopedia } from "./dataUtils"
 
 export class DemoDataProvider implements NovelDataProvider {
@@ -35,15 +35,15 @@ export class DemoDataProvider implements NovelDataProvider {
     }
   }
 
-  async getGraphData(slug: string, _range?: ChapterRange): Promise<Record<string, unknown>> {
+  async getGraphData(slug: string): Promise<Record<string, unknown>> {
     return loadDemoData<Record<string, unknown>>(slug, "graph")
   }
 
-  async getMapData(slug: string, _range?: ChapterRange): Promise<MapData> {
+  async getMapData(slug: string): Promise<MapData> {
     return loadDemoData<MapData>(slug, "map")
   }
 
-  async getTimelineData(slug: string, _range?: ChapterRange): Promise<Record<string, unknown>> {
+  async getTimelineData(slug: string): Promise<Record<string, unknown>> {
     return loadDemoData<Record<string, unknown>>(slug, "timeline")
   }
 
@@ -55,7 +55,7 @@ export class DemoDataProvider implements NovelDataProvider {
     return loadDemoData<Record<string, unknown>>(slug, "encyclopedia-stats")
   }
 
-  async getFactionsData(slug: string, _range?: ChapterRange): Promise<Record<string, unknown>> {
+  async getFactionsData(slug: string): Promise<Record<string, unknown>> {
     return loadDemoData<Record<string, unknown>>(slug, "factions")
   }
 
@@ -63,7 +63,7 @@ export class DemoDataProvider implements NovelDataProvider {
     return loadDemoData<WorldStructureData>(slug, "world-structure")
   }
 
-  async getEntityProfile(slug: string, name: string, _type?: string): Promise<Record<string, unknown>> {
+  async getEntityProfile(slug: string, name: string): Promise<Record<string, unknown>> {
     const encyclopedia = await loadDemoData<Record<string, unknown>>(slug, "encyclopedia")
     return findEntityInEncyclopedia(encyclopedia, name)
   }
