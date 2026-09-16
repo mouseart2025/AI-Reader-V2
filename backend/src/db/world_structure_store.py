@@ -152,6 +152,176 @@ async def delete_layer_layouts(novel_id: str) -> None:
             "DELETE FROM layer_layouts WHERE novel_id = ?",
             (novel_id,),
         )
+        # Geo artifacts derive from the cached layouts — drop them together
+        await conn.execute(
+            "DELETE FROM map_geo_artifacts WHERE novel_id = ?",
+            (novel_id,),
+        )
+        # Layouts rebuilt from scratch → allow retrying the geographic layout
+        await conn.execute(
+            "DELETE FROM map_layout_meta WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def get_geo_failed(novel_id: str) -> bool:
+    """Whether the geographic layout was attempted and failed for this novel."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT geo_failed FROM map_layout_meta WHERE novel_id = ?",
+            (novel_id,),
+        )
+        row = await cursor.fetchone()
+        return bool(row and row["geo_failed"])
+    finally:
+        await conn.close()
+
+
+async def set_geo_failed(novel_id: str) -> None:
+    """Persist a one-shot marker: geo layout attempted but fell back to solver.
+
+    Prevents the stale-cache check from invalidating the non-geographic
+    overworld layer cache on every cold process (recompute loop).
+    """
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """
+            INSERT INTO map_layout_meta (novel_id, geo_failed, updated_at)
+            VALUES (?, 1, datetime('now'))
+            ON CONFLICT(novel_id) DO UPDATE SET
+                geo_failed = 1,
+                updated_at = datetime('now')
+            """,
+            (novel_id,),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def clear_geo_failed(novel_id: str) -> None:
+    """Clear the geo-failed marker (layout caches rebuilt → geo may be retried)."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "DELETE FROM map_layout_meta WHERE novel_id = ?",
+            (novel_id,),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def save_geo_artifacts(
+    novel_id: str,
+    layer_id: str,
+    chapter_hash: str,
+    landmasses_json: str,
+    shelves_json: str,
+    rivers_json: str,
+    roads_json: str,
+    geo_coords_json: str | None = None,
+) -> None:
+    """Insert or update persisted map geo artifacts (landmass/shelves/rivers/roads)."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """
+            INSERT INTO map_geo_artifacts
+                (novel_id, layer_id, chapter_hash,
+                 landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(novel_id, layer_id, chapter_hash) DO UPDATE SET
+                landmasses_json = excluded.landmasses_json,
+                shelves_json = excluded.shelves_json,
+                rivers_json = excluded.rivers_json,
+                roads_json = excluded.roads_json,
+                geo_coords_json = excluded.geo_coords_json,
+                created_at = datetime('now')
+            """,
+            (novel_id, layer_id, chapter_hash,
+             landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def save_geo_coords(
+    novel_id: str,
+    layer_id: str,
+    chapter_hash: str,
+    geo_coords_json: str,
+) -> None:
+    """Persist resolved geo coords for a geographic-mode layout.
+
+    On conflict only the geo_coords column is updated — landmass/river/road
+    artifacts (written by non-geographic modes) are preserved.
+    """
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            """
+            INSERT INTO map_geo_artifacts
+                (novel_id, layer_id, chapter_hash,
+                 landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json)
+            VALUES (?, ?, ?, '[]', '[]', '[]', '[]', ?)
+            ON CONFLICT(novel_id, layer_id, chapter_hash) DO UPDATE SET
+                geo_coords_json = excluded.geo_coords_json,
+                created_at = datetime('now')
+            """,
+            (novel_id, layer_id, chapter_hash, geo_coords_json),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def load_geo_artifacts(
+    novel_id: str, layer_id: str, chapter_hash: str
+) -> dict | None:
+    """Load persisted map geo artifacts. Returns parsed dict or None."""
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            SELECT landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json
+            FROM map_geo_artifacts
+            WHERE novel_id = ? AND layer_id = ? AND chapter_hash = ?
+            """,
+            (novel_id, layer_id, chapter_hash),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return {
+            "landmasses": json.loads(row["landmasses_json"]),
+            "shelves": json.loads(row["shelves_json"]),
+            "rivers": json.loads(row["rivers_json"]),
+            "roads": json.loads(row["roads_json"]),
+            "geo_coords": (
+                json.loads(row["geo_coords_json"])
+                if row["geo_coords_json"] is not None
+                else None
+            ),
+        }
+    finally:
+        await conn.close()
+
+
+async def delete_geo_artifacts(novel_id: str) -> None:
+    """Delete all persisted map geo artifacts for a novel (cache invalidation)."""
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "DELETE FROM map_geo_artifacts WHERE novel_id = ?",
+            (novel_id,),
+        )
         await conn.commit()
     finally:
         await conn.close()

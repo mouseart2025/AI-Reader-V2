@@ -1033,12 +1033,59 @@ class AnalysisService:
             )
 
     async def _run_geo_pipeline(self, novel_id: str) -> None:
-        """串行执行 geo 后台链: 层级重建 → 空间补全.
+        """串行执行 geo 后台链: 层级重建 → 空间补全 → 地图预建.
 
         两个步骤各自捕获异常(非致命),故 await 顺序执行不会互相阻塞。
+        地图预建必须排在最后: 它消费重建/补全后的 world_structures。
         """
         await self._auto_rebuild_hierarchy(novel_id)
         await self._auto_spatial_completion(novel_id)
+        await self._auto_map_prebuild(novel_id)
+
+    async def _auto_map_prebuild(self, novel_id: str) -> None:
+        """Background task: pre-build the world map after the geo pipeline.
+
+        Runs get_map_data once so landmass/rivers/roads are generated and
+        persisted (map_geo_artifacts) before the user first opens the map.
+        Non-fatal: failures are logged and broadcast, never propagated.
+        """
+        try:
+            from src.db import novel_store
+            from src.services.visualization_service import (
+                get_map_data,
+                invalidate_map_response_cache,
+            )
+
+            novel = await novel_store.get_novel(novel_id)
+            total_chapters = novel.get("total_chapters", 0) if novel else 0
+            if not total_chapters:
+                return
+
+            # geo 链可能改了 world_structures,先丢弃旧缓存再预热
+            await invalidate_map_response_cache(novel_id)
+            await manager.broadcast(novel_id, {
+                "type": "map_prebuild",
+                "status": "running",
+                "stage": "构建世界地图...",
+            })
+            await get_map_data(novel_id, 1, total_chapters)
+            await manager.broadcast(novel_id, {
+                "type": "map_prebuild",
+                "status": "done",
+            })
+            logger.info("Auto map prebuild completed for %s", novel_id)
+        except Exception:
+            logger.warning(
+                "Auto map prebuild failed for %s (non-fatal)",
+                novel_id, exc_info=True,
+            )
+            try:
+                await manager.broadcast(novel_id, {
+                    "type": "map_prebuild",
+                    "status": "error",
+                })
+            except Exception:
+                logger.debug("map_prebuild error broadcast failed for %s", novel_id)
 
     async def _auto_entity_resolution(self, novel_id: str) -> None:
         """Post-analysis LLM entity resolution (Epic 2). Non-fatal."""

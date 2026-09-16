@@ -39,6 +39,7 @@ ALTER TABLE chapter_facts ADD COLUMN segment_count INTEGER DEFAULT 1;
 ALTER TABLE chapter_facts ADD COLUMN output_truncated INTEGER DEFAULT 0;
 ALTER TABLE analysis_tasks ADD COLUMN timing_summary TEXT;
 ALTER TABLE map_layouts ADD COLUMN satisfaction_json TEXT;
+ALTER TABLE map_geo_artifacts ADD COLUMN geo_coords_json TEXT;
 """
 
 _TEST_SCHEMA = _BASE_SCHEMA

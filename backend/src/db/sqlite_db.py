@@ -118,6 +118,25 @@ CREATE TABLE IF NOT EXISTS layer_layouts (
     PRIMARY KEY (novel_id, layer_id, chapter_hash)
 );
 
+CREATE TABLE IF NOT EXISTS map_geo_artifacts (
+    novel_id        TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    layer_id        TEXT NOT NULL,
+    chapter_hash    TEXT NOT NULL,
+    landmasses_json TEXT NOT NULL,
+    shelves_json    TEXT NOT NULL,
+    rivers_json     TEXT NOT NULL,
+    roads_json      TEXT NOT NULL,
+    geo_coords_json TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (novel_id, layer_id, chapter_hash)
+);
+
+CREATE TABLE IF NOT EXISTS map_layout_meta (
+    novel_id        TEXT PRIMARY KEY REFERENCES novels(id) ON DELETE CASCADE,
+    geo_failed      INTEGER NOT NULL DEFAULT 0,
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS world_structure_overrides (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     novel_id      TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
@@ -364,6 +383,13 @@ async def init_db() -> None:
         try:
             await conn.execute(
                 "ALTER TABLE map_layouts ADD COLUMN satisfaction_json TEXT"
+            )
+        except Exception:
+            pass  # Column already exists
+        # Migration: add geo_coords_json to map_geo_artifacts for cached geo coords
+        try:
+            await conn.execute(
+                "ALTER TABLE map_geo_artifacts ADD COLUMN geo_coords_json TEXT"
             )
         except Exception:
             pass  # Column already exists

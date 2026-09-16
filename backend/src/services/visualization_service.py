@@ -822,18 +822,20 @@ def _enhance_constraints(
 
 
 _map_cache: dict[str, tuple[float, dict]] = {}  # key → (timestamp, data)
-_MAP_CACHE_TTL = 300  # 5 minutes
+_MAP_CACHE_TTL = 1800  # 30 minutes
 
 
-def invalidate_map_response_cache(novel_id: str) -> None:
-    """丢弃某小说的内存地图响应缓存(实体 override 写入后调用)。
+async def invalidate_map_response_cache(novel_id: str) -> None:
+    """丢弃某小说的内存地图响应缓存 + 持久化地理 artifacts(实体 override 写入后调用)。
 
     DB 层布局缓存(map_layouts/layer_layouts)不动 — 隐藏/改型在响应边界
-    过滤,布局坐标本身与可见性无关,可复用。
+    过滤,布局坐标本身与可见性无关,可复用。landmass/rivers/roads 由
+    地点集合塑形,地点增删必须重算,故持久化 artifacts 一并删除。
     """
     prefix = f"{novel_id}:"
     for key in [k for k in _map_cache if k.startswith(prefix)]:
         _map_cache.pop(key, None)
+    await world_structure_store.delete_geo_artifacts(novel_id)
 
 async def get_map_data(
     novel_id: str, chapter_start: int, chapter_end: int,
@@ -1257,6 +1259,7 @@ async def get_map_data(
         and target_layer == "overworld"
         and ws and _effective_geo_type in ("realistic", "mixed")
         and cached_layer["layout_mode"] != "geographic"
+        and not await world_structure_store.get_geo_failed(novel_id)
     ):
         logger.info("Invalidating stale overworld cache (geo_type=%s/%s but cached as %s)",
                      ws.geo_type, _effective_geo_type, cached_layer["layout_mode"])
@@ -1272,35 +1275,56 @@ async def get_map_data(
         ) else None
         # Restore geo_coords for cached geographic layouts (coords are not in cache)
         if layout_mode == "geographic" and target_layer == "overworld" and ws:
+            # Fast path: persisted geo_coords artifact skips the full
+            # geo_auto_resolve (geonames index rebuild + whole-book resolution)
             try:
-                all_names = [loc["name"] for loc in locations]
-                loc_parent_map = {
-                    loc["name"]: loc.get("parent")
-                    for loc in locations
-                }
-                _scope, _gtype, _resolver, resolved = await geo_auto_resolve(
-                    ws.novel_genre_hint, all_names, all_names, loc_parent_map,
-                    known_geo_type=ws.geo_type,
+                _coords_art = await world_structure_store.load_geo_artifacts(
+                    novel_id, target_layer, ch_hash,
                 )
-                if resolved:
-                    geo_coords_raw = {
-                        name: {"lat": coord[0], "lng": coord[1]}
-                        for name, coord in resolved.items()
-                    }
-                    # Also estimate geo_coords for unresolved locations
-                    resolved_names = set(resolved.keys())
-                    unresolved_names = [
-                        loc["name"] for loc in locations
-                        if loc["name"] not in resolved_names
-                    ]
-                    if unresolved_names:
-                        estimated = place_unresolved_geo_coords(
-                            unresolved_names, resolved, loc_parent_map,
-                        )
-                        for name, (lat, lng) in estimated.items():
-                            geo_coords_raw[name] = {"lat": lat, "lng": lng}
             except Exception:
-                logger.warning("Failed to restore geo_coords from cache", exc_info=True)
+                logger.warning("Failed to load geo coords artifact", exc_info=True)
+                _coords_art = None
+            if _coords_art is not None and _coords_art.get("geo_coords") is not None:
+                geo_coords_raw = _coords_art["geo_coords"]
+            else:
+                try:
+                    all_names = [loc["name"] for loc in locations]
+                    loc_parent_map = {
+                        loc["name"]: loc.get("parent")
+                        for loc in locations
+                    }
+                    _scope, _gtype, _resolver, resolved = await geo_auto_resolve(
+                        ws.novel_genre_hint, all_names, all_names, loc_parent_map,
+                        known_geo_type=ws.geo_type,
+                    )
+                    if resolved:
+                        geo_coords_raw = {
+                            name: {"lat": coord[0], "lng": coord[1]}
+                            for name, coord in resolved.items()
+                        }
+                        # Also estimate geo_coords for unresolved locations
+                        resolved_names = set(resolved.keys())
+                        unresolved_names = [
+                            loc["name"] for loc in locations
+                            if loc["name"] not in resolved_names
+                        ]
+                        if unresolved_names:
+                            estimated = place_unresolved_geo_coords(
+                                unresolved_names, resolved, loc_parent_map,
+                            )
+                            for name, (lat, lng) in estimated.items():
+                                geo_coords_raw[name] = {"lat": lat, "lng": lng}
+                except Exception:
+                    logger.warning("Failed to restore geo_coords from cache", exc_info=True)
+                # Backfill the artifact so the next cold process hits the fast path
+                if geo_coords_raw:
+                    try:
+                        await world_structure_store.save_geo_coords(
+                            novel_id, target_layer, ch_hash,
+                            json.dumps(geo_coords_raw, ensure_ascii=False),
+                        )
+                    except Exception:
+                        logger.warning("Failed to persist geo coords artifact", exc_info=True)
     else:
         # ── Geographic layout: real-world coordinates via GeoNames ──
         # Only attempt for overworld layer (sub-layers are fictional internal spaces)
@@ -1404,6 +1428,20 @@ async def get_map_data(
                         novel_id, target_layer, ch_hash,
                         layout_data, "geographic",
                     )
+                    # Persist resolved geo coords (pre-override final value,
+                    # unresolved estimates merged) so cold processes skip
+                    # re-running geo_auto_resolve. User lat/lng overrides are
+                    # still applied last at response assembly.
+                    if geo_coords_raw:
+                        try:
+                            await world_structure_store.save_geo_coords(
+                                novel_id, target_layer, ch_hash,
+                                json.dumps(geo_coords_raw, ensure_ascii=False),
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Failed to persist geo coords artifact", exc_info=True,
+                            )
             except Exception:
                 logger.warning(
                     "Geographic layout failed, falling back to solver",
@@ -1453,6 +1491,23 @@ async def get_map_data(
                     first_chapter_map,
                     location_region_bounds=location_region_bounds,
                 )
+
+        # Geo was attempted (effective type realistic/mixed) but the final
+        # overworld layout came out non-geographic — both fall-through paths
+        # (exception fallback / insufficient resolution) land here. Persist a
+        # one-shot failure marker so the stale-cache check above stops
+        # invalidating the layer cache on every cold process. Not set when
+        # geo was never attempted (ws/geo_type missing).
+        if (
+            not geo_resolved
+            and target_layer == "overworld"
+            and ws is not None
+            and _effective_geo_type in ("realistic", "mixed")
+        ):
+            try:
+                await world_structure_store.set_geo_failed(novel_id)
+            except Exception:
+                logger.warning("Failed to persist geo_failed marker", exc_info=True)
 
     # ── Revealed location names for fog of war ──
     revealed_names: list[str] = []
@@ -1524,55 +1579,109 @@ async def get_map_data(
                 break
     landmass_result: dict = {}
     roads: list[dict] = []
-    if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like and not _is_underwater:
-        _lrm = ws.location_region_map if ws else None
+    rivers: list[dict] = []
+
+    # ── Persisted geo artifacts (map_geo_artifacts) ──
+    # Stored AFTER the sea-orphan snap (final state) on the cold path, so the
+    # read path uses them directly without re-running generation or the snap.
+    _geo_artifacts: dict | None = None
+    if layout_mode != "geographic" and _is_overworld_like:
         try:
-            landmass_result = generate_landmasses(
-                locations, layout_data, novel_id,
-                canvas_width=_resp_cw, canvas_height=_resp_ch,
-                location_region_map=_lrm,
+            _geo_artifacts = await world_structure_store.load_geo_artifacts(
+                novel_id, target_layer, ch_hash,
             )
         except Exception:
-            logger.warning("Failed to generate landmasses", exc_info=True)
+            logger.warning("Failed to load map geo artifacts", exc_info=True)
+            _geo_artifacts = None
 
-    # ── Snap sea-orphan locations to nearest land ──
-    # After landmass generation, some unconstrained locations may visually sit
-    # in the ocean. Snap non-ocean locations back to the nearest land cell.
-    if landmass_result and "_land_mask" in landmass_result:
-        _snap_count = _snap_sea_orphans_to_land(
-            layout_data, locations, landmass_result, spatial_constraints,
-        )
-        if _snap_count:
-            logger.info("Snapped %d sea-orphan locations to nearest land", _snap_count)
-            # Regenerate landmass only if significant snaps occurred (>= 3)
-            # to cover new positions. Minor snaps are already near land.
-            if _snap_count >= 3:
+    if _geo_artifacts is not None:
+        landmass_result = {
+            "landmasses": _geo_artifacts["landmasses"],
+            "shelves": _geo_artifacts["shelves"],
+        }
+        rivers = _geo_artifacts["rivers"]
+        roads = _geo_artifacts["roads"]
+        logger.debug("Using persisted map geo artifacts for %s/%s", novel_id, target_layer)
+    else:
+        if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like and not _is_underwater:
+            _lrm = ws.location_region_map if ws else None
+            try:
+                landmass_result = generate_landmasses(
+                    locations, layout_data, novel_id,
+                    canvas_width=_resp_cw, canvas_height=_resp_ch,
+                    location_region_map=_lrm,
+                )
+            except Exception:
+                logger.warning("Failed to generate landmasses", exc_info=True)
+
+        # ── Snap sea-orphan locations to nearest land ──
+        # After landmass generation, some unconstrained locations may visually sit
+        # in the ocean. Snap non-ocean locations back to the nearest land cell.
+        if landmass_result and "_land_mask" in landmass_result:
+            _snap_count = _snap_sea_orphans_to_land(
+                layout_data, locations, landmass_result, spatial_constraints,
+            )
+            if _snap_count:
+                logger.info("Snapped %d sea-orphan locations to nearest land", _snap_count)
+                # Persist snapped positions so cached-layout reads stay consistent
+                # with the post-snap geo artifacts saved below
                 try:
-                    landmass_result = generate_landmasses(
-                        locations, layout_data, novel_id,
-                        canvas_width=_resp_cw, canvas_height=_resp_ch,
-                        location_region_map=_lrm,
-                    )
-                    logger.debug("Regenerated landmasses after sea-orphan snap")
+                    if cached_layer is not None or layout_mode == "layered":
+                        await _save_cached_layer_layout(
+                            novel_id, target_layer, ch_hash, layout_data, layout_mode,
+                        )
+                    else:
+                        conn = await get_connection()
+                        try:
+                            await conn.execute(
+                                "UPDATE map_layouts SET layout_json = ? WHERE novel_id = ? AND chapter_hash = ?",
+                                (json.dumps(layout_data, ensure_ascii=False), novel_id, ch_hash),
+                            )
+                            await conn.commit()
+                        finally:
+                            await conn.close()
                 except Exception:
-                    logger.warning("Failed to regenerate landmasses after snap", exc_info=True)
+                    logger.warning("Failed to write back snapped layout", exc_info=True)
+                # Regenerate landmass only if significant snaps occurred (>= 3)
+                # to cover new positions. Minor snaps are already near land.
+                if _snap_count >= 3:
+                    try:
+                        landmass_result = generate_landmasses(
+                            locations, layout_data, novel_id,
+                            canvas_width=_resp_cw, canvas_height=_resp_ch,
+                            location_region_map=_lrm,
+                        )
+                        logger.debug("Regenerated landmasses after sea-orphan snap")
+                    except Exception:
+                        logger.warning("Failed to regenerate landmasses after snap", exc_info=True)
 
-    # Generate river network AFTER landmasses (clip rivers to land)
-    rivers: list[dict] = []
-    if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like:
-        # Pass land_mask so rivers terminate at coastline
-        _land_mask_info = None
-        if "_land_mask" in landmass_result:
-            _land_mask_info = {
-                "_land_mask": landmass_result["_land_mask"],
-                "_cell_size": landmass_result["_cell_size"],
-            }
-        rivers = generate_rivers(
-            locations, layout_data, novel_id,
-            canvas_width=_resp_cw, canvas_height=_resp_ch,
-            land_mask_info=_land_mask_info,
-        )
-        roads = generate_roads(locations, layout_data, land_mask_info=_land_mask_info)
+        # Generate river network AFTER landmasses (clip rivers to land)
+        if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like:
+            # Pass land_mask so rivers terminate at coastline
+            _land_mask_info = None
+            if "_land_mask" in landmass_result:
+                _land_mask_info = {
+                    "_land_mask": landmass_result["_land_mask"],
+                    "_cell_size": landmass_result["_cell_size"],
+                }
+            rivers = generate_rivers(
+                locations, layout_data, novel_id,
+                canvas_width=_resp_cw, canvas_height=_resp_ch,
+                land_mask_info=_land_mask_info,
+            )
+            roads = generate_roads(locations, layout_data, land_mask_info=_land_mask_info)
+
+            # Persist final (post-snap) geo artifacts for restart-surviving reuse
+            try:
+                await world_structure_store.save_geo_artifacts(
+                    novel_id, target_layer, ch_hash,
+                    json.dumps(landmass_result.get("landmasses", []), ensure_ascii=False),
+                    json.dumps(landmass_result.get("shelves", []), ensure_ascii=False),
+                    json.dumps(rivers, ensure_ascii=False),
+                    json.dumps(roads, ensure_ascii=False),
+                )
+            except Exception:
+                logger.warning("Failed to persist map geo artifacts", exc_info=True)
 
     # ── Fill missing layout coordinates ──
     # Some locations (sub-sites, buildings) may not get layout positions from
@@ -1798,6 +1907,9 @@ async def save_user_override(
         await conn.execute(
             "DELETE FROM map_layouts WHERE novel_id = ?", (novel_id,),
         )
+        await conn.execute(
+            "DELETE FROM map_geo_artifacts WHERE novel_id = ?", (novel_id,),
+        )
         await conn.commit()
     finally:
         await conn.close()
@@ -1835,6 +1947,9 @@ async def invalidate_layout_cache(novel_id: str) -> None:
 
         await conn.execute(
             "DELETE FROM map_layouts WHERE novel_id = ?", (novel_id,),
+        )
+        await conn.execute(
+            "DELETE FROM map_geo_artifacts WHERE novel_id = ?", (novel_id,),
         )
 
         # Store baseline in a sentinel row that will be overwritten on next compute
