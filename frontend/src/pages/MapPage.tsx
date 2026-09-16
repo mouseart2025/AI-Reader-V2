@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react"
 import { useParams } from "react-router-dom"
 import { fetchMapData, saveLocationOverride, saveGeoLocationOverride, rebuildHierarchy, applyHierarchyChanges, spatialCompletion } from "@/api/client"
 import type { MapData, MapLayerInfo, HierarchyRebuildResult } from "@/api/types"
@@ -8,7 +8,10 @@ import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
 // import { NovelMapGL } from "@/components/visualization/NovelMapGL"  // WebGL renderer — hidden until stable
-import { GeoMap } from "@/components/visualization/GeoMap"
+// GeoMap(真实地理模式)带 leaflet ~145KB,仅 geographic 布局用到 → 懒加载
+const GeoMap = lazy(() =>
+  import("@/components/visualization/GeoMap").then((m) => ({ default: m.GeoMap }))
+)
 import { MapLayerTabs } from "@/components/visualization/MapLayerTabs"
 import { GeographyPanel } from "@/components/visualization/GeographyPanel"
 import { MapQualityPanel } from "@/components/visualization/MapQualityPanel"
@@ -864,18 +867,20 @@ export default function MapPage() {
 
           {!loading && locations.length > 0 && (
             layoutMode === "geographic" && mapData?.geo_coords && activeLayerId === "overworld" ? (
-              <GeoMap
-                locations={filteredLocations}
-                geoCoords={mapData.geo_coords}
-                trajectoryPoints={visibleTrajectory}
-                currentLocation={currentLocation}
-                focusLocation={focusLocation}
-                editingLocation={editingLocation}
-                onLocationClick={handleLocationClick}
-                onEditLocation={handleEditLocation}
-                onEditDragEnd={handleEditDragEnd}
-                onEditCancel={handleEditCancel}
-              />
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+                <GeoMap
+                  locations={filteredLocations}
+                  geoCoords={mapData.geo_coords}
+                  trajectoryPoints={visibleTrajectory}
+                  currentLocation={currentLocation}
+                  focusLocation={focusLocation}
+                  editingLocation={editingLocation}
+                  onLocationClick={handleLocationClick}
+                  onEditLocation={handleEditLocation}
+                  onEditDragEnd={handleEditDragEnd}
+                  onEditCancel={handleEditCancel}
+                />
+              </Suspense>
             ) : (
               <NovelMap
                 ref={mapHandle}

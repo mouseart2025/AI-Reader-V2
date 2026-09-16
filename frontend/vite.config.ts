@@ -31,13 +31,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // 只手动拆出全局必用的 React 核心；graph/markdown/d3/maplibre 等
+          // 交给路由懒加载自动分包——子串匹配会把共享 CJS interop 错归 chunk，
+          // 导致入口静态依赖 vendor-graph/vendor-markdown
           if (id.includes("node_modules")) {
             if (id.includes("/react-dom/") || id.includes("/react/") || id.includes("/react-router") || id.includes("/scheduler/")) return "vendor-react"
-            if (id.includes("/react-force-graph") || id.includes("/force-graph/") || id.includes("/canvas-color-tracker/")) return "vendor-graph"
-            if (id.includes("/d3-")) return "vendor-d3"
-            if (id.includes("/radix-ui/") || id.includes("/@radix-ui/")) return "vendor-ui"
-            if (id.includes("/react-markdown/") || id.includes("/micromark") || id.includes("/mdast-") || id.includes("/remark-") || id.includes("/unified/") || id.includes("/hast-") || id.includes("/unist-")) return "vendor-markdown"
-            if (id.includes("/maplibre-gl/")) return "vendor-maplibre"
           }
         },
       },
