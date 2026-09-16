@@ -122,6 +122,8 @@ export default function AnalysisPage() {
     timingStats,
     qualitySummary,
     stageLabel,
+    mapPrebuildStatus,
+    mapPrebuildStage,
     llmModel: wsLlmModel,
     llmProvider: wsLlmProvider,
     failedChapters,
@@ -717,6 +719,12 @@ export default function AnalysisPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {mapPrebuildStatus === "running" && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="inline-block size-2 animate-pulse rounded-full bg-blue-500" />
+                {mapPrebuildStage ?? "正在预建世界地图…"}
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-4 text-center">
               <StatCard label="实体" value={stats.entities} />
               <StatCard label="关系" value={stats.relations} />

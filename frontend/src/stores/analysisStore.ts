@@ -34,6 +34,8 @@ interface AnalysisState {
   timingStats: AnalysisTimingStats | null
   qualitySummary: AnalysisQualitySummary | null
   stageLabel: string | null
+  mapPrebuildStatus: "running" | "done" | "error" | null
+  mapPrebuildStage: string | null
   llmModel: string | null
   llmProvider: string | null // "ollama" | "openai"
   failedChapters: FailedChapter[]
@@ -47,6 +49,8 @@ interface AnalysisState {
   _reconnectTimer: ReturnType<typeof setTimeout> | null
   /** Internal: monotonic connection generation — prevents stale onclose/onmessage from affecting newer connections */
   _connGen: number
+  /** Internal: timer that auto-clears mapPrebuildStatus after done/error */
+  _mapPrebuildTimer: ReturnType<typeof setTimeout> | null
 
   setTask: (task: AnalysisTask | null) => void
   setQualitySummary: (q: AnalysisQualitySummary | null) => void
@@ -58,6 +62,7 @@ interface AnalysisState {
 const initialStats: AnalysisStats = { entities: 0, relations: 0, events: 0 }
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_BASE_DELAY_MS = 1000
+const MAP_PREBUILD_CLEAR_DELAY_MS = 5000
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   task: null,
@@ -69,6 +74,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   timingStats: null,
   qualitySummary: null,
   stageLabel: null,
+  mapPrebuildStatus: null,
+  mapPrebuildStage: null,
   llmModel: null,
   llmProvider: null,
   failedChapters: [],
@@ -78,11 +85,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   _reconnectAttempt: 0,
   _reconnectTimer: null,
   _connGen: 0,
+  _mapPrebuildTimer: null,
 
   setTask: (task) => set({ task }),
   setQualitySummary: (q) => set({ qualitySummary: q }),
 
-  resetProgress: () =>
+  resetProgress: () => {
+    const timer = get()._mapPrebuildTimer
+    if (timer) clearTimeout(timer)
     set({
       progress: 0,
       currentChapter: 0,
@@ -92,11 +102,15 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       timingStats: null,
       qualitySummary: null,
       stageLabel: null,
+      mapPrebuildStatus: null,
+      mapPrebuildStage: null,
+      _mapPrebuildTimer: null,
       llmModel: null,
       llmProvider: null,
       failedChapters: [],
       retryProgress: null,
-    }),
+    })
+  },
 
   connectWs: (novelId: string) => {
     const state = get()
@@ -194,6 +208,34 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
           })
         } else if (msg.type === "retry_done") {
           set({ retryProgress: null })
+        } else if (msg.type === "map_prebuild") {
+          if (s._mapPrebuildTimer) {
+            clearTimeout(s._mapPrebuildTimer)
+            set({ _mapPrebuildTimer: null })
+          }
+          if (msg.status === "running") {
+            set({
+              mapPrebuildStatus: "running",
+              mapPrebuildStage: msg.stage ?? null,
+            })
+          } else {
+            const status = msg.status
+            set({
+              mapPrebuildStatus: status,
+              mapPrebuildStage: msg.stage ?? null,
+            })
+            // Auto-clear terminal status after a few seconds
+            const timer = setTimeout(() => {
+              if (get().mapPrebuildStatus === status) {
+                set({
+                  mapPrebuildStatus: null,
+                  mapPrebuildStage: null,
+                  _mapPrebuildTimer: null,
+                })
+              }
+            }, MAP_PREBUILD_CLEAR_DELAY_MS)
+            set({ _mapPrebuildTimer: timer })
+          }
         } else if (msg.type === "task_status") {
           const task = s.task
           if (task) {
@@ -266,9 +308,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     if (state._reconnectTimer) {
       clearTimeout(state._reconnectTimer)
     }
+    if (state._mapPrebuildTimer) {
+      clearTimeout(state._mapPrebuildTimer)
+    }
     // Bump generation to invalidate all handlers from the current connection
     const gen = state._connGen + 1
-    set({ _connGen: gen, _reconnectTimer: null, _novelId: null })
+    set({ _connGen: gen, _reconnectTimer: null, _novelId: null, _mapPrebuildTimer: null })
     if (state.ws) {
       state.ws.close()
       set({ ws: null })

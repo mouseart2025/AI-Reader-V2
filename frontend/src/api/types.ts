@@ -405,7 +405,13 @@ export interface WsRetryDone extends WsBase {
   failed: number
 }
 
-export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage | WsRetryStart | WsRetryProgress | WsRetryDone | PassWsMessage
+export interface WsMapPrebuild extends WsBase {
+  type: "map_prebuild"
+  status: "running" | "done" | "error"
+  stage?: string
+}
+
+export type AnalysisWsMessage = WsProgress | WsProcessing | WsChapterDone | WsTaskStatus | WsStage | WsRetryStart | WsRetryProgress | WsRetryDone | WsMapPrebuild | PassWsMessage
 
 // ── Analysis Passes (独立二审, multi-pass MVP) ──────
 

@@ -4,6 +4,8 @@ import { fetchMapData, saveLocationOverride, saveGeoLocationOverride, rebuildHie
 import type { MapData, MapLayerInfo, HierarchyRebuildResult } from "@/api/types"
 import { useChapterRangeStore } from "@/stores/chapterRangeStore"
 import { useEntityCardStore } from "@/stores/entityCardStore"
+import { useAnalysisStore } from "@/stores/analysisStore"
+import { useMapDataStore, mapCacheKey, type MapCacheEntry } from "@/stores/mapDataStore"
 import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
@@ -51,13 +53,28 @@ export default function MapPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
   const openEntityCard = useEntityCardStore((s) => s.openCard)
+  const mapPrebuildStatus = useAnalysisStore((s) => s.mapPrebuildStatus)
+  const mapPrebuildStage = useAnalysisStore((s) => s.mapPrebuildStage)
+  const connectWs = useAnalysisStore((s) => s.connectWs)
+  const disconnectWs = useAnalysisStore((s) => s.disconnectWs)
 
-  const [mapData, setMapData] = useState<MapData | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Session-level cache entry for the initial view (novelId:range:overworld),
+  // computed once — avoids a loading/empty flash when remounting with warm cache
+  const initialCacheRef = useRef<MapCacheEntry | null>(null)
+  const initialCacheComputedRef = useRef(false)
+  if (!initialCacheComputedRef.current) {
+    initialCacheComputedRef.current = true
+    initialCacheRef.current = novelId
+      ? useMapDataStore.getState().get(mapCacheKey(novelId, chapterStart, chapterEnd, "overworld")) ?? null
+      : null
+  }
+
+  const [mapData, setMapData] = useState<MapData | null>(initialCacheRef.current?.data ?? null)
+  const [loading, setLoading] = useState(initialCacheRef.current === null)
   const [toast, setToast] = useState<string | null>(null)
 
   // Layer state
-  const [layers, setLayers] = useState<MapLayerInfo[]>([])
+  const [layers, setLayers] = useState<MapLayerInfo[]>(initialCacheRef.current?.layers ?? [])
   const [activeLayerId, setActiveLayerId] = useState("overworld")
 
   // World structure editor
@@ -159,36 +176,58 @@ export default function MapPage() {
 
   useEffect(() => { recordTabVisit("map") }, [])
 
-  // Load data
+  // Load data (session cache first; reloadTrigger bump forces a refetch)
+  const lastReloadRef = useRef(reloadTrigger)
   useEffect(() => {
     if (!novelId) return
     let cancelled = false
-    setLoading(true)
     trackEvent("view_map")
 
+    const cacheKey = mapCacheKey(novelId, chapterStart, chapterEnd, activeLayerId)
+    const forceRefresh = reloadTrigger !== lastReloadRef.current
+    lastReloadRef.current = reloadTrigger
+
+    const applyData = (data: MapData) => {
+      if (data.analyzed_range && data.analyzed_range[0] > 0) {
+        setAnalyzedRange(data.analyzed_range[0], data.analyzed_range[1])
+      }
+      if (data.world_structure?.layers) {
+        setLayers(data.world_structure.layers)
+      }
+      setMapData(data)
+      // Apply mention filter defaults — scope to current layer
+      const layoutNames = new Set((data.layout ?? []).map((li: { name: string }) => li.name))
+      const layerLocs = layoutNames.size > 0
+        ? (data.locations ?? []).filter((l: { name: string }) => layoutNames.has(l.name))
+        : data.locations ?? []
+      const layerCount = layerLocs.length
+      const suggested = layerCount > 300 ? 3 : layerCount > 150 ? 2 : 1
+      const maxMC = Math.max(1, ...layerLocs.map((l: { mention_count: number }) => l.mention_count))
+      setMinMentions(suggested)
+      setDebouncedMinMentions(suggested)
+      setMaxMentionCount(maxMC)
+    }
+
+    if (!forceRefresh) {
+      const cached = useMapDataStore.getState().get(cacheKey)
+      if (cached) {
+        applyData(cached.data)
+        setLoading(false)
+        return
+      }
+    }
+
+    setLoading(true)
     const layerParam =
       activeLayerId !== "overworld" ? activeLayerId : undefined
     fetchMapData(novelId, chapterStart, chapterEnd, layerParam)
       .then((data) => {
         if (cancelled) return
-        if (data.analyzed_range && data.analyzed_range[0] > 0) {
-          setAnalyzedRange(data.analyzed_range[0], data.analyzed_range[1])
-        }
-        if (data.world_structure?.layers) {
-          setLayers(data.world_structure.layers)
-        }
-        setMapData(data)
-        // Apply mention filter defaults — scope to current layer
-        const layoutNames = new Set((data.layout ?? []).map((li: { name: string }) => li.name))
-        const layerLocs = layoutNames.size > 0
-          ? (data.locations ?? []).filter((l: { name: string }) => layoutNames.has(l.name))
-          : data.locations ?? []
-        const layerCount = layerLocs.length
-        const suggested = layerCount > 300 ? 3 : layerCount > 150 ? 2 : 1
-        const maxMC = Math.max(1, ...layerLocs.map((l: { mention_count: number }) => l.mention_count))
-        setMinMentions(suggested)
-        setDebouncedMinMentions(suggested)
-        setMaxMentionCount(maxMC)
+        applyData(data)
+        useMapDataStore.getState().set(cacheKey, {
+          data,
+          layers: data.world_structure?.layers ?? null,
+        })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -198,6 +237,22 @@ export default function MapPage() {
       cancelled = true
     }
   }, [novelId, chapterStart, chapterEnd, activeLayerId, setAnalyzedRange, reloadTrigger])
+
+  // Ensure the analysis WS is connected so map_prebuild messages arrive even
+  // when the user navigated straight here (AnalysisPage owns it otherwise)
+  useEffect(() => {
+    if (!novelId) return
+    connectWs(novelId)
+    return () => disconnectWs()
+  }, [novelId, connectWs, disconnectWs])
+
+  // Prebuild finished → drop cached entries and refetch once (backend is warm now)
+  useEffect(() => {
+    if (mapPrebuildStatus === "done" && novelId) {
+      useMapDataStore.getState().invalidateNovel(novelId)
+      setReloadTrigger((t) => t + 1)
+    }
+  }, [mapPrebuildStatus, novelId])
 
   // Loading stage text animation (time-driven)
   useEffect(() => {
@@ -618,6 +673,7 @@ export default function MapPage() {
     (name: string, lat: number, lng: number) => {
       if (!novelId) return
       saveGeoLocationOverride(novelId, name, lat, lng).then(() => {
+        useMapDataStore.getState().invalidateNovel(novelId)
         setToast(`「${name}」位置已更新`)
         setTimeout(() => setToast(null), 3000)
         // Update local geo_coords immediately for visual feedback
@@ -642,6 +698,7 @@ export default function MapPage() {
     (name: string, x: number, y: number) => {
       if (!novelId) return
       saveLocationOverride(novelId, name, x, y).then(() => {
+        useMapDataStore.getState().invalidateNovel(novelId)
         setToast("位置已保存，下次刷新地图将以此为锚定")
         setTimeout(() => setToast(null), 3000)
       })
@@ -666,7 +723,11 @@ export default function MapPage() {
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                <p className="text-muted-foreground text-sm">{loadingStage}</p>
+                <p className="text-muted-foreground text-sm">
+                  {mapPrebuildStatus === "running"
+                    ? mapPrebuildStage ?? "正在预建世界地图…"
+                    : loadingStage}
+                </p>
               </div>
             </div>
           )}
@@ -966,6 +1027,7 @@ export default function MapPage() {
                     const compRes = await spatialCompletion(novelId, (msg) => addLog(`  ${msg}`))
                     addLog(`✅ 补全完成: ${compRes.relations_added} 条空间关系`)
                     addLog("🗺️ Step 3/3: 重新加载地图...")
+                    useMapDataStore.getState().invalidateNovel(novelId)
                     setReloadTrigger(t => t + 1)
                     addLog("✅ 智能重绘完成！")
                     setTimeout(() => { setRebuilding(false); setRebuildProgress("") }, 2000)
@@ -1163,7 +1225,10 @@ export default function MapPage() {
             novelId={novelId}
             open={editorOpen}
             onClose={() => setEditorOpen(false)}
-            onStructureChanged={() => setReloadTrigger((n) => n + 1)}
+            onStructureChanged={() => {
+              if (novelId) useMapDataStore.getState().invalidateNovel(novelId)
+              setReloadTrigger((n) => n + 1)
+            }}
           />
         )}
 
@@ -1273,6 +1338,7 @@ export default function MapPage() {
                       setRebuildResult(null)
                       setToast(`层级已更新: ${res.root_count} 个根节点`)
                       setTimeout(() => setToast(null), 4000)
+                      useMapDataStore.getState().invalidateNovel(novelId)
                       setReloadTrigger((n) => n + 1)
                     })
                     .catch(() => {
