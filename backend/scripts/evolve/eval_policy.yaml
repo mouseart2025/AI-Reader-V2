@@ -4,17 +4,21 @@
 # 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
 # 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
 
-version: 2
-stage: 2
+version: 3
+stage: 3
 
-# ── 阶段 2 预注册指标（2026-09-18 加入，随本文件冻结）────────────────
-# <slug>.topo.{parent_precision,parent_recall,chain_accuracy}（越高越好,内层三本）:
-#   scratch DB 上跑规则管线(build_default_orchestrator fresh=True)重建层级,
-#   最终 location_parents vs golden fixture 的 topology_metrics。
-#   封神无硬编码先验会走 LLM 路径,故封神跳过 prior skill(父代/候选同口径)。
-# <slug>.rebuild.{max_children,root_count}（越低越好,全五本）:rebuild 树结构护栏
-#   (rebuild 后 orphan 恒 0,orphan_rate 不具备区分度,故换这两个)。
-# stability_jitter_threshold: §6.3 换章节顺序复测的抖动阈值,超过则当前最优降级。
+# ── 阶段 3 预注册指标与噪声底（2026-09-18 实测后冻结）────────────────
+# 快速层（fixtures/stage3_*.json,全部入冻结清单）:内层三本各 5 个冻结章节
+# （dashboard seed=42 抽样章的索引 [0,2,4,6,8] 子集）上用当前 prompt 的
+# "地点提取规则"段重跑单章抽取,对照冻结 T 集（DeepSeek M2 扫描一次性冻结）。
+#   <slug>.prompt.recall          越高越好 |T∩E'|/|T|
+#   <slug>.prompt.count_inflation 越低越好 |E'|/|E0|（防"全提取"刷召回）
+#   <slug>.prompt.generic_rate    越低越好 E' 中 fact_validator 泛称命中率
+#   macro.prompt.recall           越高越好 三本 recall 宏均值（显著性主键）
+# 实测噪声底（E0 原 prompt 双跑 A/B,DeepSeek temp=0 仍非确定）:
+#   recall 单本噪声 [西游 0.0803, 红楼 0.0206, 水浒 0.0];macro 噪声 0.0199
+#   generic_rate 噪声 [0.0085, 0.0194, 0.0147]
+# 显著性阈值 = 噪声底 + 余量(见 thresholds.min_improvement / guard_overrides)。
 metrics:
   geo_unresolved_rate:
     direction: lower
@@ -36,6 +40,13 @@ metrics:
   # + stability_jitter_threshold 才降级。绝对口径会把默认参数自身也降级
   # (实测默认参数 seed=23 换序抖动 0.0209——率型 topo 指标的换序噪声底)。
   stability_rule: candidate_jitter > baseline_jitter + threshold
+  prompt_fast_layer:
+    direction: mixed
+    scope: per_novel_inner + macro
+    source: backend/scripts/evolve/prompt_evolve.py + fixtures/stage3_*.json
+    added_in_stage: 3
+  judge_min_supported: 0.25   # 确认层 judge 抽检新增地名 ok 率下限
+                              # (=E0 双跑 B∖A 差异名的实测基线 0.25,n=4)
 
 # ── 评估集划分（§4.2 双集）─────────────────────────────────────────
 datasets:
@@ -64,6 +75,17 @@ thresholds:
       relative: 1.5
     rebuild.root_count:
       abs: 3.0
+    # 阶段 3:快速层指标的回归阈值按实测噪声底设定(小于噪声的"回归"不可判)
+    prompt.recall:
+      abs: 0.09          # 单本噪声底 0.0803 + 余量
+    prompt.generic_rate:
+      abs: 0.03          # 噪声底 0.0194 + 余量
+    prompt.count_inflation:
+      relative: 1.3      # 抽取量膨胀超 30% 即拒(防"全提取"刷召回)
+  # JIT 入档的"严格改善"显著性下限(阶段 3 起):改善幅度须超过噪声底+余量
+  min_improvement:
+    prompt.recall: 0.09        # 单本噪声底 0.0803 + 余量
+    macro.prompt.recall: 0.03  # macro 噪声底 0.0199 + 余量
 
 # ── Pareto 前沿（§4.2/§4.3 ARCHIVE）────────────────────────────────
 pareto:
@@ -76,8 +98,8 @@ pareto:
 # ── 固定评估预算（autoresearch 原则，§4.2/§6.4）────────────────────
 budget:
   wall_clock_seconds_per_generation: 1800   # 每轮 wall-clock 上限，超预算记失败变异
-  llm_calls_per_generation: 100             # 每轮 LLM 调用上限（计数器未到位的阶段为软上限）
-  max_cost_usd_per_generation: 2.0          # 每轮 LLM 成本上限（软上限，超出告警）
+  llm_calls_per_generation: 100             # 每轮 LLM 调用上限(LlmBudget 硬约束,超限记失败)
+  max_cost_usd_per_generation: 2.0          # 每轮 LLM 成本上限(阶段 3 起硬约束,超出记失败)
 
 # ── 反漂移护栏（§6.4）──────────────────────────────────────────────
 guardrails:

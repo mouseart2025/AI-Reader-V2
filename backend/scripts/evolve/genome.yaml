@@ -149,8 +149,11 @@ genes:
     loci:
       extraction_system:
         file: extraction_system.txt
-        current: "sha256:aa07d509a9b2b306"  # 文件内容现状快照（截断16位）
+        current: "sha256:aa07d509a9b2b306"  # 文件内容现状快照（截断16位,原 prompt）
         description: 抽取 system prompt（地点规则段所在）
+        # 阶段 3:变异面=地点提取规则段(标记定界);当前生效段落见 prompt_state.json
+        mutable_section: "## 地点提取规则（locations） ... ## 空间关系提取规则"
+        state_file: prompt_state.json
       world_structure_update:
         file: world_structure_update.txt
         current: "sha256:e96b00c6ff8f7266"  # 文件内容现状快照（截断16位）
