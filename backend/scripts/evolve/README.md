@@ -15,6 +15,15 @@
   参数钩子 + evolve/ 基建并入；权重阴性结果留档）
 - 回放器证据：词表进化用 max_marginal 策略达同等降幅只需 6/20 代（省 70%）
 
+### 冻结清单所有权规则（并入后生效）
+
+**修改 `frozen_manifest.json` 内文件的任何 commit，必须在同一 commit 内运行
+`.venv/bin/python scripts/evolve/run_loop.py --freeze` 重新生成清单，并在
+commit 消息中注明口径变化原因。** frozen 清单外的文件不受影响。
+伪造/跳过重冻结会被循环启动校验拦下（`check_frozen_or_abort`），
+恢复方式只有人工核对后 `--freeze` 一条路——这是 §6.1 评估器外置的执行点。
+注意：`eval_policy.yaml` 在清单内，改评估口径=改冻结文件，同样适用。
+
 ## 阶段 4 设计（2026-09-18，元层：Dream-RSI 式历史回放，零 LLM）
 
 ### journal 增强（元层四字段）
