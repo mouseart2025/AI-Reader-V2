@@ -109,5 +109,44 @@
       ],
       "dashboard_file": "out/dashboard/fengshen.json"
     }
+  },
+  "ood_guard": {
+    "note": "OOD 跨体裁护栏基线(单一古典分布过拟合修正,用户提出 2026-09-18);级 3/4 变异门禁对照此值,级 1 豁免(保留抽检),级 2 沿用分小说记账",
+    "measured_at": "2026-09-18T14:45:25.545457+00:00",
+    "novels": {
+      "fanren": {
+        "title": "《凡人修仙传》（精校版全本+番外）作者：忘语",
+        "genre_note": "修仙网文(2451 章)",
+        "genre": "wuxia",
+        "nodes": 4349,
+        "m1.orphan_rate": 0.04254829806807728,
+        "m1.roots": 388,
+        "m1.max_children": 379,
+        "m4.generic_residue": 0.09542423545642677,
+        "geo.unresolved_rate": 0.9163025982984594
+      },
+      "motrings": {
+        "title": "魔戒全集(指环王1、2、3)_托尔金_TXT小说天堂",
+        "genre_note": "西方奇幻译本(82 章)",
+        "genre": "wuxia",
+        "nodes": 754,
+        "m1.orphan_rate": 0.02656042496679947,
+        "m1.roots": 4,
+        "m1.max_children": 137,
+        "m4.generic_residue": 0.04376657824933687,
+        "geo.unresolved_rate": 0.903183023872679
+      },
+      "pingfan": {
+        "title": "平凡的世界 路遥",
+        "genre_note": "现代现实主义(171 章)",
+        "genre": "realistic",
+        "nodes": 825,
+        "m1.orphan_rate": 0.03398058252427184,
+        "m1.roots": 1,
+        "m1.max_children": 37,
+        "m4.generic_residue": 0.03151515151515152,
+        "geo.unresolved_rate": 0.8727272727272728
+      }
+    }
   }
 }

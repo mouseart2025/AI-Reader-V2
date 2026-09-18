@@ -269,3 +269,62 @@ class TestCommitJournalMeta:
         h1 = rl.context_hash({"b": 1, "a": [2, 3]})
         h2 = rl.context_hash({"a": [2, 3], "b": 1})
         assert h1 == h2 and len(h1) == 64
+
+
+# ── OOD 跨体裁护栏（eval_policy v4）──────────────────────────────────
+
+class TestOodGuard:
+    POLICY: ClassVar[dict] = {
+        "ood_guard": {
+            "metrics": ["m1.orphan_rate", "m4.generic_residue",
+                        "geo.unresolved_rate"],
+            "applies_to_levels": [3, 4],
+            "regression_abs": 0.01,
+        },
+    }
+    BASELINE: ClassVar[dict] = {
+        "ood_guard": {"novels": {
+            "fanren": {"m1.orphan_rate": 0.043, "m4.generic_residue": 0.095,
+                       "geo.unresolved_rate": 0.916},
+            "motrings": {"m1.orphan_rate": 0.027, "m4.generic_residue": 0.044,
+                         "geo.unresolved_rate": 0.903},
+            "pingfan": {"m1.orphan_rate": 0.034, "m4.generic_residue": 0.032,
+                        "geo.unresolved_rate": 0.873},
+        }},
+    }
+
+    def _fake_current(self, fanren_orphan=0.043):
+        return {
+            "fanren": {"m1.orphan_rate": fanren_orphan,
+                       "m4.generic_residue": 0.095, "geo.unresolved_rate": 0.916},
+            "motrings": {"m1.orphan_rate": 0.027, "m4.generic_residue": 0.044,
+                         "geo.unresolved_rate": 0.903},
+            "pingfan": {"m1.orphan_rate": 0.034, "m4.generic_residue": 0.032,
+                        "geo.unresolved_rate": 0.873},
+        }
+
+    def _patch(self, monkeypatch, current):
+        import build_ood_baseline as ood
+
+        monkeypatch.setattr(ood, "compute_ood_metrics", lambda: current)
+
+    def test_pass_at_baseline(self, monkeypatch):
+        self._patch(monkeypatch, self._fake_current())
+        r = rl.ood_guard_check(self.POLICY, self.BASELINE)
+        assert r["passed"] and r["failures"] == []
+
+    def test_regression_blocked(self, monkeypatch):
+        self._patch(monkeypatch, self._fake_current(fanren_orphan=0.06))
+        r = rl.ood_guard_check(self.POLICY, self.BASELINE)
+        assert not r["passed"]
+        assert r["failures"] == ["ood:fanren.m1.orphan_rate"]
+
+    def test_at_threshold_passes(self, monkeypatch):
+        # 恰好 +0.01 不拒(严格大于口径,与 gate 一致)
+        self._patch(monkeypatch, self._fake_current(fanren_orphan=0.053))
+        r = rl.ood_guard_check(self.POLICY, self.BASELINE)
+        assert r["passed"]
+
+    def test_missing_config_skips(self):
+        r = rl.ood_guard_check({}, {})
+        assert r["passed"] and "跳过" in r["note"]

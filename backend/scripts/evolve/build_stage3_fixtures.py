@@ -69,7 +69,7 @@ async def main() -> int:
 
     cost_acc = {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
 
-    # 1. 章节子集（确定性:抽样章索引 [0,2,4,6,8]）
+    # 1. 章节子集（R2 起扩到全 10 个抽样章——噪声底压缩,eval_policy v5 口径）
     import sqlite3
 
     conn = sqlite3.connect(
@@ -79,7 +79,7 @@ async def main() -> int:
     for slug in pe.INNER:
         dash_path = Path(pe.__file__).parent / "out" / "dashboard" / f"{slug}.json"
         sampled = json.loads(dash_path.read_text(encoding="utf-8"))["m2"]["sampled_chapters"]
-        chapters_fixture[slug] = [sampled[i] for i in (0, 2, 4, 6, 8)]
+        chapters_fixture[slug] = list(sampled)  # 全 10 章(v1 曾为索引 [0,2,4,6,8] 的 5 章)
     pe.CHAPTERS_FIXTURE.parent.mkdir(parents=True, exist_ok=True)
     pe.CHAPTERS_FIXTURE.write_text(
         json.dumps(chapters_fixture, ensure_ascii=False, indent=2) + "\n",

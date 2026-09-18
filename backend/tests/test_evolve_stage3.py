@@ -251,16 +251,115 @@ class TestMinImprovement:
 class TestParentVec:
     def test_fixture_mapping(self):
         e0 = {"novels": {
-            "xiyouji": {"recall_a": 0.35, "generic_rate_a": 0.05},
-            "honglou": {"recall_a": 0.40, "generic_rate_a": 0.10},
-            "shuihu": {"recall_a": 0.55, "generic_rate_a": 0.03},
+            "xiyouji": {"recall_a": 0.35, "recall_b": 0.37,
+                        "generic_rate_a": 0.05, "generic_rate_b": 0.07},
+            "honglou": {"recall_a": 0.40, "recall_b": 0.42,
+                        "generic_rate_a": 0.10, "generic_rate_b": 0.10},
+            "shuihu": {"recall_a": 0.55, "recall_b": 0.55,
+                        "generic_rate_a": 0.03, "generic_rate_b": 0.03},
         }}
         vec = rl._stage3_parent_vec_from_fixture(e0)
-        assert vec["xiyouji.prompt.recall"] == 0.35
+        # v5 口径:A/B 双跑均值
+        assert vec["xiyouji.prompt.recall"] == pytest.approx(0.36)
         assert vec["xiyouji.prompt.count_inflation"] == 1.0
         assert vec["shuihu.prompt.generic_rate"] == 0.03
+        assert vec["xiyouji.prompt.generic_rate"] == pytest.approx(0.06)
+        assert vec["macro.prompt.recall"] == pytest.approx((0.36 + 0.41 + 0.55) / 3)
 
     def test_directions_registered(self):
         assert rl.direction_for("xiyouji.prompt.recall") == "higher"
         assert rl.direction_for("xiyouji.prompt.count_inflation") == "lower"
         assert rl.direction_for("xiyouji.prompt.generic_rate") == "lower"
+
+
+# ── v5:快速层 repeats 合并 + 三次复测确认 ────────────────────────────
+
+class TestEvalRepeatsMerge:
+    def test_recall_mean_guards_worst(self, monkeypatch):
+        import asyncio
+
+        import prompt_evolve as pe
+
+        runs = iter([
+            {"xiyouji": {4: ["花果山", "水帘洞"]}, "honglou": {4: ["大观园"]},
+             "shuihu": {4: ["梁山泊"]}},
+            {"xiyouji": {4: ["花果山"]}, "honglou": {4: ["大观园", "客栈"]},
+             "shuihu": {4: ["梁山泊"]}},
+        ])
+        monkeypatch.setattr(pe, "extract_subset",
+                            lambda *a, **k: _a(next(runs)))
+        monkeypatch.setattr(pe, "build_system_prompt", lambda *a, **k: "sys")
+
+        async def _a(v):
+            return v
+
+        t_set = {"xiyouji": {"chapters": {"4": ["花果山", "水帘洞"]}},
+                 "honglou": {"chapters": {"4": ["大观园", "怡红院"]}},
+                 "shuihu": {"chapters": {"4": ["梁山泊"]}}}
+        fixtures = {"genres": {"xiyouji": "", "honglou": "", "shuihu": ""},
+                    "chapters": {"xiyouji": [4], "honglou": [4], "shuihu": [4]},
+                    "t_set": t_set,
+                    "e0": {"novels": {"xiyouji": {"names": ["花果山"]},
+                                      "honglou": {"names": ["大观园"]},
+                                      "shuihu": {"names": ["梁山泊"]}}}}
+        state = {"override_section": None,
+                 "original_section": pe.split_section(
+                     pe.PROMPT_FILE.read_text(encoding="utf-8"))[1]}
+        cost = {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
+        res = asyncio.run(rl._eval_stage3_candidate(state, fixtures, cost,
+                                                    None, repeats=2))
+        # xiyouji recall: 1.0 与 0.5 → 均值 0.75
+        assert res["metrics"]["xiyouji"]["prompt.recall"] == pytest.approx(0.75)
+        # honglou generic: run1 0/1, run2 1/2(客栈泛称) → 护栏取最差 0.5
+        assert res["metrics"]["honglou"]["prompt.generic_rate"] == pytest.approx(0.5)
+
+
+class TestConfirmRule:
+    POLICY: ClassVar[dict] = {
+        "thresholds": {"metric_regression_abs": 0.01,
+                       "per_novel_regression_abs": 0.045,
+                       "golden_pass_rate_min": 1.0,
+                       "min_improvement": {"prompt.recall": 0.045,
+                                           "macro.prompt.recall": 0.02},
+                       "guard_overrides": {"prompt.recall": {"abs": 0.045}}},
+        "metrics": {"prompt_fast_layer": {"confirm_repeats": 3}},
+    }
+
+    def _run_confirm(self, monkeypatch, run_vecs):
+        import asyncio
+
+        runs = iter(run_vecs)
+
+        async def fake_eval(*a, **k):
+            return {"metrics": next(runs), "extracted": {}}
+
+        monkeypatch.setattr(rl, "_eval_stage3_candidate", fake_eval)
+        parent = {"xiyouji.prompt.recall": 0.40, "macro.prompt.recall": 0.43}
+        return asyncio.run(rl._confirm_stage3_candidate(
+            {"override_section": None, "original_section": "x"}, "new",
+            None, parent, self.POLICY, {"cost_usd": 0}, None, 1))
+
+    def _vec(self, xiyouji_recall):
+        # 快速层 per-novel 结构(macro 由 _stage3_vec_from_metrics 计算)
+        return {"xiyouji": {"prompt.recall": xiyouji_recall},
+                "honglou": {"prompt.recall": 0.45},
+                "shuihu": {"prompt.recall": 0.45}}
+
+    def test_confirmed_when_median_exceeds(self, monkeypatch):
+        c = self._run_confirm(monkeypatch,
+                              [self._vec(0.50), self._vec(0.48), self._vec(0.52)])
+        assert c["confirmed"]
+        assert "xiyouji.prompt.recall" in c["confirmed_keys"]
+
+    def test_rejected_when_median_within_noise(self, monkeypatch):
+        # 单次 0.50 超阈但中位数 0.42 不超 → 拒绝(gen64 情形)
+        c = self._run_confirm(monkeypatch,
+                              [self._vec(0.50), self._vec(0.42), self._vec(0.41)])
+        assert not c["confirmed"]
+        assert "中位数无超阈改善" in c["reason"]
+
+    def test_rejected_when_any_run_regresses(self, monkeypatch):
+        c = self._run_confirm(monkeypatch,
+                              [self._vec(0.50), self._vec(0.33), self._vec(0.52)])
+        assert not c["confirmed"]
+        assert "回归" in c["reason"]
