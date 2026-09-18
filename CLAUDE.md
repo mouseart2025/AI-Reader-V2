@@ -363,6 +363,11 @@ Before writing any L3 code, document in the commit or conversation:
 共享逻辑检查: [grep for existing implementations of same logic]
 ```
 
+### GeoEvolve frozen manifest (自进化评估器冻结)
+
+修改 `backend/scripts/evolve/frozen_manifest.json` 清单内文件的 commit 必须同 commit
+重冻结并注明口径变化——规则详见 `backend/scripts/evolve/README.md`「冻结清单所有权规则」。
+
 ### Pipeline Critical Files
 
 Changes to these files are **L3 by default** and require integration test verification:

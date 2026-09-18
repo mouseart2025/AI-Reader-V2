@@ -1,0 +1,225 @@
+# GeoEvolve 基因组 v0 —— 现行默认配置的落盘（阶段 0：基线与骨架）
+#
+# 规格见 docs/analysis/geo-self-evolve-methodology.md §4.1。
+# 原则：autoresearch "只改 train.py" 的对应物 —— 所有可变异项收敛到本文件，
+# 指标代码 / 黄金数据 / 检测器代码永远不在变异面内（见 frozen_manifest.json）。
+#
+# 取值口径：阶段 0 只记录"当前值 = 代码现状"。能便宜读到的真实默认值填真值
+# （注明 source 文件），读不到的运行时动态值标 TODO 占位，待后续阶段补测。
+#
+# 基因位分五级，按风险从低到高（§4.1）：
+#   level 1 词表/字典类（最安全，ACE 增量 delta 模式，禁止整表重写）
+#   level 2 权重/参数类
+#   level 3 prompt 类（GEPA 反思变异，每次只改一个文件的一段）
+#   level 4 管线结构类（每轮需人工确认）
+#   level 5 模型选择类（仅 A/B 对照，不进主进化循环）
+
+version: 0
+stage: 0
+generated_at: "2026-09-18"
+notes: >
+  阶段 0 恒等基因组。current 字段即代码现状快照；mutable 标记该基因位
+  在对应阶段是否允许进入进化循环。
+
+genes:
+
+  # ── level 1：词表/字典类 ──────────────────────────────────────────
+  vocab_dict:
+    level: 1
+    mutable_from_stage: 1
+    mode: ace_delta          # 增量 delta 条目 + 定期 Curator 去重；禁止整表重写
+    loci:
+      fact_validator_generic_locations:
+        description: fact_validator._is_generic_location 的地点泛称词表（M4 口径的权威实现）
+        source: backend/src/extraction/fact_validator.py
+        current: TODO        # 词表本体在代码内，阶段 1 迁移为外置 delta 文件后落真值
+      name_authority_generic_persons:
+        description: name_authority 的人物泛称集合（只维护人物，地点泛称归 fact_validator）
+        source: backend/src/utils/location_names.py  # TODO: 核实 name_authority 实际路径
+        current: TODO
+      supplement_geo_dict:
+        description: _SUPPLEMENT_GEO 手工地名字典（GeoNames 补充映射）
+        source: backend/src/services/geo_resolver.py
+        delta_file: vocab_delta.json   # GeoEvolve delta 单一事实源（阶段 1 起）
+        current: 见 vocab_delta.json   # 已提交 delta 集合；源文件定界块由其渲染
+      alias_augmentations:
+        description: 别名增补表（阶段 1 起由规则算子从审计产物增量生成）
+        source: null
+        current: {}
+
+  # ── level 2：权重/参数类 ─────────────────────────────────────────
+  weights_params:
+    level: 2
+    mutable_from_stage: 2
+    # 阶段 2(2026-09-18):真值已落。注入机制=EVOLVE_PARAMS_JSON 环境变量经
+    # src/services/geo_skills/evolve_params.py(默认关,生产行为不变);
+    # current=代码原值(单一事实源),进化接受值见 weights_state.json。
+    state_file: weights_state.json
+    injection: EVOLVE_PARAMS_JSON → src/services/geo_skills/evolve_params.py
+    loci:
+      recall_pass_min_signals:
+        description: RECALL_PASS 触发所需最少信号数；0 表示仅"双空"触发
+        source: backend/src/infra/config.py:89
+        current: 2
+        # 不在层级 rebuild 路径上,阶段 2 不进变异池
+      vote_builder.chapter_slope:
+        description: 章节权重斜率(第 i 章权重=1+slope·i/total,后章证据加权)
+        source: backend/src/services/geo_skills/vote_builder.py:123
+        default: 0.5
+        range: [0.0, 2.0]
+        type: float
+        current: 0.5
+      vote_builder.peer_discount:
+        description: peers 互指对的 parent 票折扣(防互挂)
+        source: backend/src/services/geo_skills/vote_builder.py:138
+        default: 0.33
+        range: [0.0, 1.0]
+        type: float
+        current: 0.33
+      vote_builder.spatial_high_weight:
+        description: 高置信空间关系(contains)票权(medium/low 固定 1)
+        source: backend/src/services/geo_skills/vote_builder.py:159
+        default: 2
+        range: [1.0, 4.0]
+        type: float
+        current: 2
+      vote_builder.primary_setting_weight:
+        description: 主场景推断票权(章内无 parent 地点挂到主场景)
+        source: backend/src/services/geo_skills/vote_builder.py:216
+        default: 2
+        range: [0.0, 5.0]
+        type: float
+        current: 2
+      vote_builder.baseline_weight:
+        description: 既有 parent 基线注入票权(证据门控后的保留通道)
+        source: backend/src/services/geo_skills/vote_builder.py:254
+        default: 1
+        range: [0.0, 3.0]
+        type: float
+        current: 1
+      vote_builder.uber_root_cap:
+        description: uber-root 票上限(防天下通吃)
+        source: backend/src/services/geo_skills/vote_builder.py:266
+        default: 2
+        range: [1, 5]
+        type: int
+        current: 2
+      knowledge_prior.prior_weight:
+        description: 知识先验票权(需压过噪声票、让位于强证据;典型正确票 5-15)
+        source: backend/src/services/geo_skills/knowledge_prior.py:27
+        default: 20
+        range: [5.0, 40.0]
+        type: float
+        current: 20
+      edmonds.tier_soft_penalty:
+        description: tier 倒置边软惩罚系数(parent suffix 明显小于 child 时权重折扣)
+        source: backend/src/services/geo_skills/edmonds_resolver.py:99
+        default: 0.1
+        range: [0.01, 0.5]
+        type: float
+        current: 0.1
+      edmonds.name_contain_weight:
+        description: 名包含边注入权(子名以候选地名开头;须高于典型章节票 ~1-15)
+        source: backend/src/services/geo_skills/edmonds_resolver.py:122
+        default: 25.0
+        range: [10.0, 50.0]
+        type: float
+        current: 25.0
+      edmonds.prior_threshold:
+        description: 先验覆盖 LLM parent 的票数阈值
+        source: backend/src/services/geo_skills/edmonds_resolver.py:255
+        default: 15.0
+        range: [5.0, 30.0]
+        type: float
+        current: 15.0
+      edmonds.max_children:
+        description: 度均衡子节点上限(防枢纽爆炸)
+        source: backend/src/services/geo_skills/edmonds_resolver.py:359
+        default: 30
+        range: [15, 60]
+        type: int
+        current: 30
+
+  # ── level 3：prompt 类 ───────────────────────────────────────────
+  prompts:
+    level: 3
+    mutable_from_stage: 3
+    mode: gepa_reflect       # 提议器读失败轨迹反思后改写；每次只改一个文件的一段
+    dir: backend/src/extraction/prompts
+    loci:
+      extraction_system:
+        file: extraction_system.txt
+        current: "sha256:aa07d509a9b2b306"  # 文件内容现状快照（截断16位,原 prompt）
+        description: 抽取 system prompt（地点规则段所在）
+        # 阶段 3:变异面=地点提取规则段(标记定界);当前生效段落见 prompt_state.json
+        mutable_section: "## 地点提取规则（locations） ... ## 空间关系提取规则"
+        state_file: prompt_state.json
+      world_structure_update:
+        file: world_structure_update.txt
+        current: "sha256:e96b00c6ff8f7266"  # 文件内容现状快照（截断16位）
+        description: 世界结构增量更新 prompt
+      hierarchy_review:
+        file: hierarchy_review.txt
+        current: "sha256:9ff5fb4d20d4eec2"  # 文件内容现状快照（截断16位）
+        description: 层级审核 prompt
+      hierarchy_reflection:
+        file: hierarchy_reflection.txt
+        current: "sha256:9b1ae22f50ed5c8f"  # 文件内容现状快照（截断16位）
+        description: 层级反思 prompt
+      hierarchy_validation:
+        file: hierarchy_validation.txt
+        current: "sha256:4f643bf539f5636c"  # 文件内容现状快照（截断16位）
+        description: 层级校验 prompt
+      spatial_completion:
+        file: spatial_completion.txt
+        current: "sha256:36c2f45301ca20f7"  # 文件内容现状快照（截断16位）
+        description: 空间关系补全 prompt
+
+  # ── level 4：管线结构类 ──────────────────────────────────────────
+  pipeline:
+    level: 4
+    mutable_from_stage: null   # 每轮需人工确认；阶段 0-3 不进自动循环
+    loci:
+      geo_skill_order:
+        description: geo-skill 执行顺序（orchestrator.py add_skill 注册序）
+        source: backend/src/services/geo_skills/orchestrator.py
+        current: [tier, votes, prior, edmonds, suffix, purify]
+      feature_switches:
+        description: 五个质量特性开关（config.py，env 可覆盖；默认全 true）
+        source: backend/src/infra/config.py
+        current:
+          RELATION_DIMENSIONS_ENABLED: true
+          ENTITY_RESOLUTION_ENABLED: true
+          EVIDENCE_GROUNDING_ENABLED: true
+          RECALL_PASS_ENABLED: true
+          HALLUCINATION_REVIEW_ENABLED: true
+      vot_spatial_enabled:
+        description: VOT 空间推理开关（config.py 硬编码 True）
+        source: backend/src/infra/config.py
+        current: true
+      reviewer_pass_count:
+        description: reviewer pass 次数
+        source: null
+        current: TODO
+
+  # ── level 5：模型选择类 ──────────────────────────────────────────
+  model:
+    level: 5
+    mutable_from_stage: null   # 仅 A/B 对照，不进主进化循环
+    loci:
+      llm_provider:
+        description: LLM_PROVIDER（ollama / openai 兼容端点）
+        source: backend/src/infra/config.py
+        current: ollama
+      ollama_model:
+        description: OLLAMA_MODEL 本地模型档位
+        source: backend/src/infra/config.py
+        current: "qwen3:8b"
+      llm_model:
+        description: LLM_MODEL 云端模型名（provider=openai 时生效；空=端点默认）
+        source: backend/src/infra/config.py
+        current: ""
+      dashboard_eval_model:
+        description: quality_dashboard M2/M3 测量所用模型（冻结在评估器内，不变异）
+        source: backend/scripts/quality_dashboard.py
+        current: deepseek-chat

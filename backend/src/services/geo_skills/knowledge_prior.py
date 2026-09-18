@@ -16,6 +16,7 @@ import logging
 from collections import Counter
 
 from src.services.geo_skills.base import GeoSkill
+from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 # but not so high that it overrides strong evidence from many chapters.
 # Typical chapter vote for a correct parent: 5-15 across 100 chapters.
 # Prior weight of 20 ensures it wins over noise but loses to strong evidence.
-_PRIOR_WEIGHT = 20
+_PRIOR_WEIGHT = evolve_param("knowledge_prior.prior_weight", 20)
 
 _CLASSIFY_SCHEMA = {
     "type": "object",
