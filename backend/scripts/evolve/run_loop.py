@@ -81,6 +81,9 @@ FROZEN_FILES: list[str] = [
     "backend/scripts/evolve/prompts/propose_s3.txt",
     "backend/scripts/evolve/prompts/judge_spotcheck_s3.txt",
     "backend/scripts/evolve/prompts/extract_user_s3.txt",
+    # R2:标注 prompt(反循环污染:与评估扫描 prompt 分离,冻结入清单)
+    "backend/scripts/evolve/prompts/annotate_a_s4.txt",
+    "backend/scripts/evolve/prompts/annotate_b_s4.txt",
 ]
 FROZEN_GLOBS: list[str] = [
     "backend/tests/fixtures/golden_standard_*.json",
@@ -1667,14 +1670,19 @@ def ood_guard_check(policy: dict, baseline: dict) -> dict:
 
 
 def _stage3_parent_vec_from_fixture(e0: dict) -> dict[str, float]:
-    """E0 冻结基线 → 父代向量（原 prompt,无 LLM 消耗）。"""
+    """E0 冻结基线 → 父代向量（原 prompt,无 LLM 消耗）。
+
+    v5 口径：取 A/B 双跑均值（单点值噪声大,gen64 教训）。
+    """
     vec: dict[str, float] = {}
     recalls = []
     for slug, d in e0["novels"].items():
-        vec[f"{slug}.prompt.recall"] = float(d["recall_a"])
+        recall = (float(d["recall_a"]) + float(d["recall_b"])) / 2
+        generic = (float(d["generic_rate_a"]) + float(d["generic_rate_b"])) / 2
+        vec[f"{slug}.prompt.recall"] = recall
         vec[f"{slug}.prompt.count_inflation"] = 1.0
-        vec[f"{slug}.prompt.generic_rate"] = float(d["generic_rate_a"])
-        recalls.append(float(d["recall_a"]))
+        vec[f"{slug}.prompt.generic_rate"] = generic
+        recalls.append(recall)
     if recalls:
         vec["macro.prompt.recall"] = sum(recalls) / len(recalls)
     return vec
@@ -1715,20 +1723,91 @@ def _append_review(path: Path, record: dict, diff_text: str) -> None:
 
 
 async def _eval_stage3_candidate(state: dict, fixtures: dict, cost_acc: dict,
-                                 llm_budget) -> dict:
-    """阶段 3 EVAL 快速层：候选段落渲染 system prompt → 冻结子集重抽 → 指标。"""
+                                 llm_budget, repeats: int = 1) -> dict:
+    """阶段 3 EVAL 快速层：候选段落渲染 system prompt → 冻结子集重抽 → 指标。
+
+    v5:repeats>1 时重抽多次,recall/macro 取均值(压缩 LLM 非确定噪声),
+    护栏指标(generic_rate/count_inflation)取多次中最差值(保守)。
+    """
     import prompt_evolve as pe
 
     genres = fixtures["genres"]
     section = pe.current_section(state)
     system_by_slug = {slug: pe.build_system_prompt(section, genres[slug])
                       for slug in pe.INNER}
-    extracted = await pe.extract_subset(system_by_slug,
-                                        fixtures["chapters"], cost_acc, llm_budget)
-    metrics = pe.fast_layer_metrics(extracted, fixtures["t_set"],
-                                    fixtures["e0"]["novels"],
-                                    fixtures["chapters"])
-    return {"extracted": extracted, "metrics": metrics}
+    runs = []
+    extracted_last = None
+    for _ in range(max(1, repeats)):
+        extracted_last = await pe.extract_subset(system_by_slug,
+                                                 fixtures["chapters"],
+                                                 cost_acc, llm_budget)
+        runs.append(pe.fast_layer_metrics(extracted_last, fixtures["t_set"],
+                                          fixtures["e0"]["novels"],
+                                          fixtures["chapters"]))
+    if len(runs) == 1:
+        return {"extracted": extracted_last, "metrics": runs[0]}
+    merged: dict[str, dict] = {}
+    for slug in pe.INNER:
+        merged[slug] = {}
+        for key in ("prompt.recall",):
+            vals = [r[slug][key] for r in runs if r[slug].get(key) is not None]
+            merged[slug][key] = sum(vals) / len(vals) if vals else None
+        for key in ("prompt.generic_rate", "prompt.count_inflation"):
+            vals = [r[slug][key] for r in runs if r[slug].get(key) is not None]
+            merged[slug][key] = max(vals) if vals else None  # 护栏取最差
+        merged[slug]["e_size"] = max(r[slug]["e_size"] for r in runs)
+    return {"extracted": extracted_last, "metrics": merged}
+
+
+async def _confirm_stage3_candidate(state: dict, new_section: str,
+                                    fixtures: dict, parent_vec: dict,
+                                    policy: dict, cost_acc: dict, llm_budget,
+                                    generation: int) -> dict:
+    """v5 入档确认（§6.3 强化）：候选独立复测 confirm_repeats 次。
+
+    规则（预注册 eval_policy v5）：
+      - 三次测量逐次过 GATE(对照父代,无超阈回归)
+      - 至少一个"初步入档改善键"的中位数 − 父代 ≥ 其 min_improvement 阈值
+    """
+    import statistics
+
+    trial_state = dict(state, override_section=new_section)
+    runs = []
+    for _ in range(int(policy.get("metrics", {})
+                       .get("prompt_fast_layer", {}).get("confirm_repeats", 3))):
+        res = await _eval_stage3_candidate(trial_state, fixtures, cost_acc,
+                                           llm_budget, repeats=1)
+        runs.append(_stage3_vec_from_metrics(res["metrics"]))
+    # 逐次回归检查
+    for i, r in enumerate(runs):
+        g = gate(r, parent_vec, policy)
+        if not g["passed"]:
+            return {"confirmed": False, "runs": runs,
+                    "reason": f"复测第 {i + 1} 次回归: {g['failures']}"}
+    # 中位数改善检查(只对初测显著改善的键)
+    min_imp = policy["thresholds"].get("min_improvement", {})
+    median_gain: dict[str, float] = {}
+    confirmed_keys = []
+    for key in parent_vec:
+        vals = [r[key] for r in runs if key in r]
+        if not vals:
+            continue
+        med = statistics.median(vals)
+        suffix = key.split(".", 1)[1] if key not in METRIC_DIRECTION and "." in key else key
+        thr = float(min_imp.get(suffix, 0.0))
+        d = med - parent_vec[key]
+        if direction_for(key) == "lower":
+            d = -d
+        if thr > 0 and d > 0:
+            median_gain[key] = round(d, 4)
+        if d > thr + _EPS:
+            confirmed_keys.append(key)
+    if not confirmed_keys:
+        return {"confirmed": False, "runs": runs, "median_gain": median_gain,
+                "reason": "三次复测中位数无超阈改善(单次测量可能撞噪声)"}
+    return {"confirmed": True, "runs": runs, "median_gain": median_gain,
+            "confirmed_keys": confirmed_keys,
+            "reason": None}
 
 
 def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
@@ -1829,11 +1908,20 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                 "必须换一个完全不同的机制角度,不得重复以下已失败思路: "
                 + " / ".join(failed_approaches)
             )
+        # 降级教训入轨迹(gen64:单次测量撞噪声被复测降级 → 提议器应倾向
+        # 更保守、更稳健的小步变异)
+        downgrade_lessons = [
+            {"hypothesis": r.get("hypothesis"),
+             "stability": r.get("stability")}
+            for r in journal_records
+            if r.get("decision") == "downgraded_unstable" and r.get("stage") == 3
+        ]
         context = {
             "current_section": pe.current_section(state),
             "original_section": state["original_section"],
             "failure_trajectory": failures,
             "prompt_history": prompt_history,
+            "downgrade_lessons": downgrade_lessons,
             "stagnation_note": stagnation_note,
             "golden_names": golden_names,
             "guard_snapshot": {k: round(v, 4) for k, v in parent_vec.items()
@@ -1932,12 +2020,15 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
         gate_result = {"passed": False, "failures": ["eval_error"]}
         judge_result: dict | None = None
         ood_result: dict | None = None
+        confirm_result: dict | None = None
         error: str | None = None
         try:
-            # 4. EVAL 快速层(冻结子集重抽)
+            # 4. EVAL 快速层(冻结子集重抽;v5 起 eval_repeats 次取均值)
             trial_state = dict(state, override_section=new_section)
             result = asyncio.run(_eval_stage3_candidate(
-                trial_state, fixtures, cost_acc, llm_budget))
+                trial_state, fixtures, cost_acc, llm_budget,
+                repeats=int(policy.get("metrics", {}).get("prompt_fast_layer", {})
+                            .get("eval_repeats", 1))))
             extracted = result["extracted"]
             vec = _stage3_vec_from_metrics(result["metrics"])
             elapsed = round(time.monotonic() - t0, 3)
@@ -1994,7 +2085,8 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                 else:
                     print("[evolve][ood] 跨体裁护栏通过(凡修/魔戒/平凡 无回归)")
 
-            # 7. ARCHIVE(min_improvement 按噪声底预注册)
+            # 7. ARCHIVE(min_improvement 按噪声底预注册;v5 起过 JIT 后还须
+            #    三次复测确认——gen64 单次测量不可复现的教训,§6.3 实质强化)
             if gate_passed:
                 entry = {
                     "generation": generation,
@@ -2003,10 +2095,24 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                     "metrics": vec,
                     "parent_metrics": parent_vec,
                 }
-                frontier, decision = archive_candidate(frontier, entry, pop_max,
-                                                       policy)
-                save_frontier(frontier, FRONTIER_STAGE3_PATH)
+                new_frontier, decision = archive_candidate(list(frontier), entry,
+                                                           pop_max, policy)
+                confirm_result = None
+                if decision.startswith("archived"):
+                    confirm_result = asyncio.run(_confirm_stage3_candidate(
+                        state, new_section, fixtures, parent_vec, policy,
+                        cost_acc, llm_budget, generation))
+                    if confirm_result["confirmed"]:
+                        frontier = new_frontier
+                        save_frontier(frontier, FRONTIER_STAGE3_PATH)
+                        print(f"[evolve][confirm] 三次复测确认:中位数改善 "
+                              f"{confirm_result['median_gain']} ≥ 阈值")
+                    else:
+                        decision = "rejected_unconfirmed"
+                        print(f"[evolve][confirm] ❌ 复测未确认: "
+                              f"{confirm_result['reason']}")
             else:
+                gate_result["passed"] = gate_passed  # judge/ood 失败也要落到 gate_result
                 decision = "rejected_gate" if not gate_result["passed"] \
                     else "rejected_budget"
         except LlmBudgetExceeded as err:
@@ -2052,6 +2158,12 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                                        "verdicts_path": judge_result.get("verdicts_path")},
             "ood": ood_result and {"passed": ood_result["passed"],
                                    "failures": ood_result["failures"]},
+            "confirm": confirm_result and {
+                "confirmed": confirm_result["confirmed"],
+                "median_gain": confirm_result.get("median_gain"),
+                "reason": confirm_result.get("reason"),
+                "run_macros": [r.get("macro.prompt.recall")
+                               for r in confirm_result.get("runs", [])]},
             "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
                      "llm_calls": llm_budget.calls,
                      "cost_usd": round(cost_acc["cost_usd"], 4)},

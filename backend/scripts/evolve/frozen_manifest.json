@@ -1,11 +1,13 @@
 {
   "version": 0,
-  "generated_at": "2026-09-18T14:49:55.076883+00:00",
+  "generated_at": "2026-09-18T15:52:02.450783+00:00",
   "files": {
-    "backend/scripts/evolve/eval_policy.yaml": "2e6d608988f73d3dad47639bda614dc007eb7449d75eea400dc601a1287f0971",
-    "backend/scripts/evolve/fixtures/stage3_chapters.json": "83a3c544464bb48e60c9108b6651b4837de8ad3d482163b8a39caa3631270c1b",
-    "backend/scripts/evolve/fixtures/stage3_e0_baseline.json": "23cfce0a9b45b9a0ee52cf84271356e4c4348f4626fe05cedd0e047b9d5d5ef5",
+    "backend/scripts/evolve/eval_policy.yaml": "f9763d893f0cb79dacc8bfd7674a0f1ff76454452ab20e83d10f9d87a35a546b",
+    "backend/scripts/evolve/fixtures/stage3_chapters.json": "396788f22ba5103fdca75a5d1a2b7e9e4b2f3045fbe19cf8dd19a72940083beb",
+    "backend/scripts/evolve/fixtures/stage3_e0_baseline.json": "a64c8016c489c59a173bfd66e10f2aa76d19ecbe9accdd4f740ad31c52fa05bf",
     "backend/scripts/evolve/fixtures/stage3_t_set.json": "4ca2c5421238ee800f86cb86b94fe44717ef471019ec2b82977054ce62ac0531",
+    "backend/scripts/evolve/prompts/annotate_a_s4.txt": "1981d4e32563752e5ac4f902c33c66bd2b1516ee423240b79bee0c4bdb37f8c0",
+    "backend/scripts/evolve/prompts/annotate_b_s4.txt": "b9362befcb276c0194b08925b37097bfb5b4e45415734eff5c8933af571c078d",
     "backend/scripts/evolve/prompts/extract_user_s3.txt": "6d275c9d4c6e9a0736f06c4c4f9f4f72be939d16289f1aacd73c8f9b942a682d",
     "backend/scripts/evolve/prompts/judge_spotcheck_s3.txt": "21dc23de337eb14303287a62a8a7d549ae4366ebf5ddf4b8f9fb3ea937611dbf",
     "backend/scripts/evolve/prompts/propose_s3.txt": "fbb5361d8ae0bff375ff54954d1967f0a77933bb04ca8a4dab69d08399aea7c8",
@@ -13,7 +15,9 @@
     "backend/scripts/quality_loop.py": "24c2f28dac44a8e8043a5f149f791645c1ebb80e8552a8dae9395ded285be5c3",
     "backend/src/utils/topology_metrics.py": "663d11eb122da84c5730638cc1159b103455d8c9c7b37c4aaa65ad167789aa4f",
     "backend/tests/fixtures/golden_standard_dream_of_red_chamber.json": "28f0defde3f4fd5086502a68d8ddd0616b9d4e99fe226c950b60d52f2b9992ad",
+    "backend/tests/fixtures/golden_standard_fanren.json": "5b171fa3be91855ef542e920f7ae4eeabfc8c0251318a26441cf586b15a621ea",
     "backend/tests/fixtures/golden_standard_journey_to_west.json": "1991f940c28d79c73d9d925395a0123690fbd6ecaa4e2ed28a1d42201aa6b744",
+    "backend/tests/fixtures/golden_standard_lotr.json": "881b422178c6010f4bd1b8fbbd9c6d0cbcf00c33743a59293180c7c803a30104",
     "backend/tests/fixtures/golden_standard_water_margin-review.json": "c335c9914db69954d9ace42e1a8a0342508882973ed85f7f59213428c4019d70",
     "backend/tests/fixtures/golden_standard_water_margin.json": "c335c9914db69954d9ace42e1a8a0342508882973ed85f7f59213428c4019d70"
   }

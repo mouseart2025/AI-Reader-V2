@@ -215,6 +215,9 @@ def fake_repo(tmp_path: Path) -> Path:
         "backend/scripts/evolve/prompts/propose_s3.txt": "propose\n",
         "backend/scripts/evolve/prompts/judge_spotcheck_s3.txt": "judge\n",
         "backend/scripts/evolve/prompts/extract_user_s3.txt": "extract\n",
+        # R2:标注 prompt(冻结入清单)
+        "backend/scripts/evolve/prompts/annotate_a_s4.txt": "annotate A\n",
+        "backend/scripts/evolve/prompts/annotate_b_s4.txt": "annotate B\n",
     }
     for rel, content in files.items():
         p = tmp_path / rel
@@ -226,7 +229,7 @@ def fake_repo(tmp_path: Path) -> Path:
 class TestFrozenManifest:
     def test_roundtrip_passes(self, fake_repo: Path, tmp_path: Path):
         manifest = rl.build_manifest(fake_repo)
-        assert len(manifest["files"]) == 12  # 6 阶段 3 新增 + 4 固定 + 2 glob
+        assert len(manifest["files"]) == 14  # 12 固定(含 R2 标注 prompt) + 2 glob
         mp = tmp_path / "manifest.json"
         mp.write_text(json.dumps(manifest), encoding="utf-8")
         assert rl.verify_manifest(mp, fake_repo) == []
