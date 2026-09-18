@@ -1,7 +1,19 @@
 # GeoEvolve — 自进化系统实验代码
 
-规格：`docs/analysis/geo-self-evolve-methodology.md`。阶段 0/1/2/3 已完成，
-本文档记录各阶段设计选型（阶段 4 在最上）。
+规格：`docs/analysis/geo-self-evolve-methodology.md`。阶段 0-4 已完成，
+本文档记录各阶段设计选型（最新在最上）。
+
+## 阶段 5 结论与并入状态（2026-09-18）
+
+**并入谈判报告：`docs/analysis/geo-evolve-stage5-merge-report.md`**（git add -f 跟踪）。
+
+- §7 六条：达标 5 / 部分达标 1（7.1 显著改善只有水浒 geo 一项确定成立；
+  prompt recall 方向正但幅度在噪声带内）
+- 证据链：quality_loop exit=0；benchmark_hierarchy 三本 exit=0；
+  `stage5_verify.py` 复测 topo/prompt/geo 全 pass（prompt 幅度声明噪声带内）
+- 结论：**词表 > prompt > 权重**；建议部分并入（词表 delta + prompt 规则 +
+  参数钩子 + evolve/ 基建并入；权重阴性结果留档）
+- 回放器证据：词表进化用 max_marginal 策略达同等降幅只需 6/20 代（省 70%）
 
 ## 阶段 4 设计（2026-09-18，元层：Dream-RSI 式历史回放，零 LLM）
 
