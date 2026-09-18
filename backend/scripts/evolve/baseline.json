@@ -1,0 +1,108 @@
+{
+  "version": 0,
+  "measured_at": "2026-09-18T03:02:57.730555+00:00",
+  "db_md5": "60dc2e4c45bf56a38aa6a45fe264870c",
+  "db_path": "~/.ai-reader-v2/data.db（只读；测量在 scratch 副本上进行）",
+  "scratch_db": "/tmp/q0-data/data.db",
+  "llm_cost_usd": 0.0994,
+  "golden": {
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "pass_rate": 1.0,
+    "status": "ok",
+    "returncode": 0
+  },
+  "m6": {
+    "status": "ok",
+    "shuihu_subtype_accuracy": 0.7,
+    "shuihu_subtype_target": 0.55,
+    "shuihu_target_met": true,
+    "xiyouji_mock_category": 0.9125,
+    "xiyouji_legacy_baseline": 0.8875,
+    "xiyouji_not_below_baseline": true,
+    "note": "compute_m6(load_m6_eval())，与 quality_loop 同一实现"
+  },
+  "novels": {
+    "xiyouji": {
+      "title": "西游记",
+      "set": "inner",
+      "novel_id": "3b2ef56c-1a55-466a-a7d1-34272446a198",
+      "metrics": {
+        "m1.orphan_rate": 0.3683187560738581,
+        "m2.recall_proxy": 0.34798534798534797,
+        "m3.direction_error_rate": 0.0,
+        "m4.generic_residue": 0.04470359572400389,
+        "m5.m5": 0.8883333333333333,
+        "satisfaction": 0.2857142857142857
+      },
+      "missing": [],
+      "dashboard_file": "out/dashboard/xiyouji.json"
+    },
+    "honglou": {
+      "title": "红楼梦",
+      "set": "inner",
+      "novel_id": "c384901a-8b71-437a-af35-b5ec1c56c696",
+      "metrics": {
+        "m1.orphan_rate": 0.3585564610011641,
+        "m2.recall_proxy": 0.3905325443786982,
+        "m3.direction_error_rate": 0.0,
+        "m4.generic_residue": 0.048894062863795114,
+        "m5.m5": 0.8974666666666667
+      },
+      "missing": [
+        "satisfaction"
+      ],
+      "dashboard_file": "out/dashboard/honglou.json"
+    },
+    "shuihu": {
+      "title": "水浒传",
+      "set": "inner",
+      "novel_id": "4ac43c73-f67b-427c-8d6d-e766a1423977",
+      "metrics": {
+        "m1.orphan_rate": 0.2977142857142857,
+        "m2.recall_proxy": 0.6199095022624435,
+        "m3.direction_error_rate": 0.00546448087431694,
+        "m4.generic_residue": 0.038285714285714284,
+        "m5.m5": 0.8470322580645161
+      },
+      "missing": [
+        "satisfaction"
+      ],
+      "dashboard_file": "out/dashboard/shuihu.json"
+    },
+    "sanguo": {
+      "title": "三国演义",
+      "set": "holdout",
+      "novel_id": "b1287ef6-c215-4bd2-842c-cb04aec5eb70",
+      "metrics": {
+        "m1.orphan_rate": 0.29447388342165026,
+        "m2.recall_proxy": 0.6197718631178707,
+        "m3.direction_error_rate": 0.0,
+        "m4.generic_residue": 0.04239212717638153,
+        "m5.m5": 0.9146666666666666
+      },
+      "missing": [
+        "satisfaction"
+      ],
+      "dashboard_file": "out/dashboard/sanguo.json"
+    },
+    "fengshen": {
+      "title": "封神演义",
+      "set": "holdout",
+      "novel_id": "53013970-effd-4f50-aef7-728ca13de69a",
+      "metrics": {
+        "m1.orphan_rate": 0.327217125382263,
+        "m2.recall_proxy": 0.5694444444444444,
+        "m3.direction_error_rate": 0.0,
+        "m4.generic_residue": 0.0290519877675841,
+        "m5.m5": 0.8834166666666666
+      },
+      "missing": [
+        "satisfaction"
+      ],
+      "dashboard_file": "out/dashboard/fengshen.json"
+    }
+  }
+}

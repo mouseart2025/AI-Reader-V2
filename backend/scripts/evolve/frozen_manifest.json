@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "generated_at": "2026-09-18T02:58:21.017108+00:00",
+  "files": {
+    "backend/scripts/evolve/eval_policy.yaml": "48433d0262a8fde0f93f0718a7e2ea7bd7aba64d7c502cc78d2cd55a6860c7a2",
+    "backend/scripts/quality_dashboard.py": "66ae8a24a65baef618bc153c30ee98fd124d38ab366a689345c499f89e855fc6",
+    "backend/scripts/quality_loop.py": "24c2f28dac44a8e8043a5f149f791645c1ebb80e8552a8dae9395ded285be5c3",
+    "backend/src/utils/topology_metrics.py": "663d11eb122da84c5730638cc1159b103455d8c9c7b37c4aaa65ad167789aa4f",
+    "backend/tests/fixtures/golden_standard_dream_of_red_chamber.json": "28f0defde3f4fd5086502a68d8ddd0616b9d4e99fe226c950b60d52f2b9992ad",
+    "backend/tests/fixtures/golden_standard_journey_to_west.json": "1991f940c28d79c73d9d925395a0123690fbd6ecaa4e2ed28a1d42201aa6b744",
+    "backend/tests/fixtures/golden_standard_water_margin-review.json": "c335c9914db69954d9ace42e1a8a0342508882973ed85f7f59213428c4019d70",
+    "backend/tests/fixtures/golden_standard_water_margin.json": "c335c9914db69954d9ace42e1a8a0342508882973ed85f7f59213428c4019d70"
+  }
+}

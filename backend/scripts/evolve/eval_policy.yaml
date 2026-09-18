@@ -1,0 +1,51 @@
+# GeoEvolve 评估策略 v0 —— 冻结门禁口径（阶段 0）
+#
+# 规格见 docs/analysis/geo-self-evolve-methodology.md §4.2 / §6.4。
+# 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
+# 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
+
+version: 0
+stage: 0
+
+# ── 评估集划分（§4.2 双集）─────────────────────────────────────────
+datasets:
+  inner:
+    description: 内层集（选择压力）：3 部黄金小说，黄金指标 + M1-M6 + satisfaction
+    novels: [xiyouji, honglou, shuihu]
+  holdout:
+    description: 留出集（泛化检查）：不进选择压力；内层涨留出跌 = 过拟合，回退谱系
+    novels: [sanguo, fengshen]
+
+# ── 回归阈值（§4.3 GATE）───────────────────────────────────────────
+thresholds:
+  # 冻结指标单项回归阈值（绝对值），沿用 benchmark_hierarchy 惯例：>0.01 即拒
+  metric_regression_abs: 0.01
+  # 分小说退化阈值（Eevee 保持率对应物）：任一小说任一指标退化超过此值即拒，
+  # 防止"西游涨、水浒崩"式灾难性遗忘
+  per_novel_regression_abs: 0.01
+  # golden 门禁：pass_rate 硬阈值（与 quality_loop 一致）
+  golden_pass_rate_min: 1.0
+
+# ── Pareto 前沿（§4.2/§4.3 ARCHIVE）────────────────────────────────
+pareto:
+  population_max: 8          # 前沿小种群上限（方法论建议 4-8）
+  # 入档规则（JIT-Agent）：质量不降（无维度退化超阈值）且至少一维严格改善
+  archive_rule: no_regression_and_strict_improvement
+  # 种群超出上限时淘汰最老的被支配者
+  eviction: oldest_dominated
+
+# ── 固定评估预算（autoresearch 原则，§4.2/§6.4）────────────────────
+budget:
+  wall_clock_seconds_per_generation: 1800   # 每轮 wall-clock 上限，超预算记失败变异
+  llm_calls_per_generation: 100             # 每轮 LLM 调用上限（计数器未到位的阶段为软上限）
+  max_cost_usd_per_generation: 2.0          # 每轮 LLM 成本上限（软上限，超出告警）
+
+# ── 反漂移护栏（§6.4）──────────────────────────────────────────────
+guardrails:
+  no_improvement_pause_generations: 5       # 连续 5 轮无改进 → 自动暂停并输出诊断
+  stagnation_force_switch_generations: 3    # 连续 K 代同机制微调无改进 → 强制切换机制
+
+# ── 空转模式（阶段 0 默认）─────────────────────────────────────────
+dry_run:
+  eval_backend: cached        # cached=直接读 baseline.json，不重复花钱；live=真实评估
+  identity_mutation: true     # 恒等变异（空 diff），PROPOSE 只走骨架
