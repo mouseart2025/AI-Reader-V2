@@ -57,36 +57,44 @@ async def _prompt_fast_layer(state: dict, fixtures: dict, cost_acc: dict) -> dic
 
 
 def verify_prompt_recall() -> dict:
-    """prompt recall 复测：当前 committed prompt(gen64 变异)重跑快速层。"""
+    """prompt recall 复测：当前 committed prompt 快速层重跑。
+
+    有 override 时对照其入档代测量;无 override(原 prompt,如 gen64 降级后)
+    时对照 E0 基线 fixture——抖动应在噪声底内(macro ≤0.03,单本 ≤0.09)。
+    """
     from dotenv import load_dotenv
 
     load_dotenv(_BACKEND_DIR / ".env", override=True)
     state = pe.load_state()
-    assert state["override_section"] is not None, "无已接受 prompt 变异"
     fixtures = {
         "chapters": json.loads(pe.CHAPTERS_FIXTURE.read_text(encoding="utf-8")),
         "t_set": json.loads(pe.T_SET_FIXTURE.read_text(encoding="utf-8")),
         "e0": json.loads(pe.E0_FIXTURE.read_text(encoding="utf-8")),
         "genres": pe.load_genre_hints(),
     }
-    # journal gen64 的原始测量
     journal = rl._load_jsonl_tail(rl.JOURNAL_PATH, n=10_000)
-    gen64 = next(r for r in journal if r.get("generation") == 64)
-    ref = gen64["metrics"]
+    if state["override_section"] is not None:
+        ref_gen = state["history"][-1]["generation"] if state["history"] else 64
+        ref = next(r for r in journal if r.get("generation") == ref_gen)["metrics"]
+        ref_note = f"对照入档代 gen{ref_gen} 的测量"
+    else:
+        # 原 prompt:对照 E0 基线 A 跑(冻结 fixture)
+        e0v = rl._stage3_parent_vec_from_fixture(fixtures["e0"])
+        ref = e0v
+        ref_note = "无 override(原 prompt),对照 E0 冻结基线(A 跑)"
 
     cost_acc = {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
     res = asyncio.run(_prompt_fast_layer(state, fixtures, cost_acc))
     vec = rl._stage3_vec_from_metrics(res["metrics"])
     keys = [k for k in vec if ".prompt.recall" in k]
     jitters = {k: round(abs(vec[k] - ref[k]), 4) for k in keys}
-    limits = {"macro.prompt.recall": 0.03}  # 单本 0.09
     ok = all(j <= (0.09 if k != "macro.prompt.recall" else 0.03)
              for k, j in jitters.items())
-    return {"pass": ok, "jitters": jitters,
+    return {"pass": ok, "jitters": jitters, "ref_note": ref_note,
             "ref_macro": ref["macro.prompt.recall"],
             "remeasure_macro": vec["macro.prompt.recall"],
             "cost_usd": round(cost_acc["cost_usd"], 4),
-            "limits": {**limits, "per_novel": 0.09}}
+            "limits": {"macro.prompt.recall": 0.03, "per_novel": 0.09}}
 
 
 def verify_geo() -> dict:

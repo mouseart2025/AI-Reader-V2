@@ -1,0 +1,148 @@
+{
+  "_meta": {
+    "novel": "凡人修仙传",
+    "author": "忘语",
+    "version": "silver-1.0",
+    "tier": "silver",
+    "provenance": "双模型共识(DeepSeek×Qwen-Max,prompt 视角 A/B),未经人工;仅保留 parent+tier 双字段一致条目",
+    "annotation_rules": [
+      "只标注直接父级,不跳级",
+      "双模型共识,不一致/不确定即丢弃"
+    ],
+    "total_locations": 25,
+    "consensus_stats": {
+      "agree": 25,
+      "disagree": 11,
+      "uncertain": 34,
+      "missing": 0,
+      "agreement_rate": 0.3571
+    }
+  },
+  "locations": [
+    {
+      "name": "灵界",
+      "correct_parent": null,
+      "tier": "world"
+    },
+    {
+      "name": "密室",
+      "correct_parent": "洞府",
+      "tier": "building"
+    },
+    {
+      "name": "越国",
+      "correct_parent": "天南地区",
+      "tier": "kingdom"
+    },
+    {
+      "name": "天南地区",
+      "correct_parent": "人界",
+      "tier": "region"
+    },
+    {
+      "name": "落云宗",
+      "correct_parent": "云梦山",
+      "tier": "site"
+    },
+    {
+      "name": "黄枫谷",
+      "correct_parent": "越国",
+      "tier": "region"
+    },
+    {
+      "name": "昆吾山",
+      "correct_parent": "大晋",
+      "tier": "region"
+    },
+    {
+      "name": "雾海",
+      "correct_parent": "乱星海",
+      "tier": "region"
+    },
+    {
+      "name": "云梦山",
+      "correct_parent": "溪国",
+      "tier": "region"
+    },
+    {
+      "name": "药园",
+      "correct_parent": "彩霞山",
+      "tier": "site"
+    },
+    {
+      "name": "人界",
+      "correct_parent": null,
+      "tier": "world"
+    },
+    {
+      "name": "天星城",
+      "correct_parent": "乱星海",
+      "tier": "city"
+    },
+    {
+      "name": "祭坛",
+      "correct_parent": "虚天殿",
+      "tier": "site"
+    },
+    {
+      "name": "圣界",
+      "correct_parent": null,
+      "tier": "world"
+    },
+    {
+      "name": "神手谷",
+      "correct_parent": "彩霞山",
+      "tier": "site"
+    },
+    {
+      "name": "外星海",
+      "correct_parent": "乱星海",
+      "tier": "region"
+    },
+    {
+      "name": "太岳山脉",
+      "correct_parent": "越国",
+      "tier": "region"
+    },
+    {
+      "name": "虞国",
+      "correct_parent": "天南",
+      "tier": "kingdom"
+    },
+    {
+      "name": "慕兰草原",
+      "correct_parent": "天南地区",
+      "tier": "region"
+    },
+    {
+      "name": "虚天殿内殿",
+      "correct_parent": "虚天殿",
+      "tier": "building"
+    },
+    {
+      "name": "小石山",
+      "correct_parent": "落云宗",
+      "tier": "site"
+    },
+    {
+      "name": "石室",
+      "correct_parent": "神手谷",
+      "tier": "building"
+    },
+    {
+      "name": "血色禁地",
+      "correct_parent": "越国",
+      "tier": "site"
+    },
+    {
+      "name": "元武国",
+      "correct_parent": "天南",
+      "tier": "kingdom"
+    },
+    {
+      "name": "岚州",
+      "correct_parent": "越国",
+      "tier": "region"
+    }
+  ]
+}

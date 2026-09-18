@@ -1,0 +1,223 @@
+{
+  "_meta": {
+    "novel": "魔戒全集",
+    "author": "J.R.R. 托尔金",
+    "version": "silver-1.0",
+    "tier": "silver",
+    "provenance": "双模型共识(DeepSeek×Qwen-Max,prompt 视角 A/B),未经人工;仅保留 parent+tier 双字段一致条目",
+    "annotation_rules": [
+      "只标注直接父级,不跳级",
+      "双模型共识,不一致/不确定即丢弃"
+    ],
+    "total_locations": 40,
+    "consensus_stats": {
+      "agree": 40,
+      "disagree": 21,
+      "uncertain": 9,
+      "missing": 0,
+      "agreement_rate": 0.5714
+    }
+  },
+  "locations": [
+    {
+      "name": "中土大陆",
+      "correct_parent": null,
+      "tier": "world"
+    },
+    {
+      "name": "刚铎",
+      "correct_parent": "中土大陆",
+      "tier": "kingdom"
+    },
+    {
+      "name": "夏尔",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "迷雾山脉",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "魔多",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "幽暗密林",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "洛汗国",
+      "correct_parent": "中土大陆",
+      "tier": "kingdom"
+    },
+    {
+      "name": "米那斯提力斯",
+      "correct_parent": "刚铎",
+      "tier": "city"
+    },
+    {
+      "name": "安都因大河",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "奥斯吉力亚斯",
+      "correct_parent": "刚铎",
+      "tier": "city"
+    },
+    {
+      "name": "河谷镇",
+      "correct_parent": "孤山",
+      "tier": "city"
+    },
+    {
+      "name": "大荒原",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "安都因河",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "伊西立安",
+      "correct_parent": "刚铎",
+      "tier": "region"
+    },
+    {
+      "name": "摩瑞亚矿坑",
+      "correct_parent": "摩瑞亚",
+      "tier": "site"
+    },
+    {
+      "name": "欧散克塔",
+      "correct_parent": "艾辛格",
+      "tier": "building"
+    },
+    {
+      "name": "袋底洞",
+      "correct_parent": "哈比屯",
+      "tier": "building"
+    },
+    {
+      "name": "伊多拉斯",
+      "correct_parent": "洛汗国",
+      "tier": "city"
+    },
+    {
+      "name": "哈比屯",
+      "correct_parent": "夏尔",
+      "tier": "city"
+    },
+    {
+      "name": "法贡森林",
+      "correct_parent": "洛汗国",
+      "tier": "region"
+    },
+    {
+      "name": "帕兰诺平原",
+      "correct_parent": "刚铎",
+      "tier": "region"
+    },
+    {
+      "name": "雄鹿地",
+      "correct_parent": "夏尔",
+      "tier": "region"
+    },
+    {
+      "name": "树沐河",
+      "correct_parent": "洛汗国",
+      "tier": "region"
+    },
+    {
+      "name": "奔流河",
+      "correct_parent": "洛汗国",
+      "tier": "region"
+    },
+    {
+      "name": "洛汗隘口",
+      "correct_parent": "洛汗国",
+      "tier": "site"
+    },
+    {
+      "name": "爱明莫尔",
+      "correct_parent": "中土大陆",
+      "tier": "region"
+    },
+    {
+      "name": "西力斯昂哥",
+      "correct_parent": "魔多",
+      "tier": "site"
+    },
+    {
+      "name": "圣盔谷",
+      "correct_parent": "洛汗国",
+      "tier": "site"
+    },
+    {
+      "name": "多尔安罗斯",
+      "correct_parent": "刚铎",
+      "tier": "city"
+    },
+    {
+      "name": "明都陆安山",
+      "correct_parent": "刚铎",
+      "tier": "region"
+    },
+    {
+      "name": "洛汗",
+      "correct_parent": "中土大陆",
+      "tier": "kingdom"
+    },
+    {
+      "name": "烈酒河",
+      "correct_parent": "夏尔",
+      "tier": "region"
+    },
+    {
+      "name": "死亡沼泽",
+      "correct_parent": "魔多",
+      "tier": "region"
+    },
+    {
+      "name": "登哈洛",
+      "correct_parent": "洛汗国",
+      "tier": "city"
+    },
+    {
+      "name": "长湖镇",
+      "correct_parent": "长湖",
+      "tier": "city"
+    },
+    {
+      "name": "黯影山脉",
+      "correct_parent": "魔多",
+      "tier": "region"
+    },
+    {
+      "name": "医院",
+      "correct_parent": "米那斯提力斯",
+      "tier": "building"
+    },
+    {
+      "name": "安诺瑞安",
+      "correct_parent": "刚铎",
+      "tier": "region"
+    },
+    {
+      "name": "爱隆之屋",
+      "correct_parent": "瑞文戴尔",
+      "tier": "building"
+    },
+    {
+      "name": "食人妖洞穴",
+      "correct_parent": "迷雾山脉",
+      "tier": "site"
+    }
+  ]
+}
