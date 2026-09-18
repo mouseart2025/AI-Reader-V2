@@ -4,8 +4,22 @@
 # 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
 # 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
 
-version: 0
-stage: 0
+version: 1
+stage: 1
+
+# ── 阶段 1 预注册指标（2026-09-18 加入，随本文件冻结）────────────────
+# <slug>.geo.unresolved_rate（越低越好）：取 world_structures.location_parents
+# 全集地名（冻结 DB 只读），用生产函数 GeoResolver(dataset_key="cn")
+# .resolve_names(names, parent_map) 解析，unresolved_rate = 1 − |resolved|/|names|。
+# 对 supplement 字典变异直接敏感；纯规则本地数据，每轮全五本重算 ≈6s。
+# 已知口径偏差：西游生产 geo_type=fantasy（正常管线不解析），本指标绕过
+# geo_type 门测量"解析器+字典覆盖能力"，非生产行为重放。
+metrics:
+  geo_unresolved_rate:
+    direction: lower
+    scope: per_novel
+    source: backend/scripts/evolve/compute_geo_metrics.py
+    added_in_stage: 1
 
 # ── 评估集划分（§4.2 双集）─────────────────────────────────────────
 datasets:

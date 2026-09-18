@@ -40,7 +40,8 @@ genes:
       supplement_geo_dict:
         description: _SUPPLEMENT_GEO 手工地名字典（GeoNames 补充映射）
         source: backend/src/services/geo_resolver.py
-        current: TODO        # 字典条目多，阶段 1 外置后落条目计数与哈希
+        delta_file: vocab_delta.json   # GeoEvolve delta 单一事实源（阶段 1 起）
+        current: 见 vocab_delta.json   # 已提交 delta 集合；源文件定界块由其渲染
       alias_augmentations:
         description: 别名增补表（阶段 1 起由规则算子从审计产物增量生成）
         source: null

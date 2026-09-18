@@ -1,6 +1,6 @@
 {
-  "version": 0,
-  "measured_at": "2026-09-18T03:02:57.730555+00:00",
+  "version": 1,
+  "measured_at": "2026-09-18T03:26:20.328822+00:00",
   "db_md5": "60dc2e4c45bf56a38aa6a45fe264870c",
   "db_path": "~/.ai-reader-v2/data.db（只读；测量在 scratch 副本上进行）",
   "scratch_db": "/tmp/q0-data/data.db",
@@ -35,7 +35,8 @@
         "m3.direction_error_rate": 0.0,
         "m4.generic_residue": 0.04470359572400389,
         "m5.m5": 0.8883333333333333,
-        "satisfaction": 0.2857142857142857
+        "satisfaction": 0.2857142857142857,
+        "geo.unresolved_rate": 0.8087378640776699
       },
       "missing": [],
       "dashboard_file": "out/dashboard/xiyouji.json"
@@ -49,7 +50,8 @@
         "m2.recall_proxy": 0.3905325443786982,
         "m3.direction_error_rate": 0.0,
         "m4.generic_residue": 0.048894062863795114,
-        "m5.m5": 0.8974666666666667
+        "m5.m5": 0.8974666666666667,
+        "geo.unresolved_rate": 0.8697674418604651
       },
       "missing": [
         "satisfaction"
@@ -65,7 +67,8 @@
         "m2.recall_proxy": 0.6199095022624435,
         "m3.direction_error_rate": 0.00546448087431694,
         "m4.generic_residue": 0.038285714285714284,
-        "m5.m5": 0.8470322580645161
+        "m5.m5": 0.8470322580645161,
+        "geo.unresolved_rate": 0.7652769845802398
       },
       "missing": [
         "satisfaction"
@@ -81,7 +84,8 @@
         "m2.recall_proxy": 0.6197718631178707,
         "m3.direction_error_rate": 0.0,
         "m4.generic_residue": 0.04239212717638153,
-        "m5.m5": 0.9146666666666666
+        "m5.m5": 0.9146666666666666,
+        "geo.unresolved_rate": 0.6580937972768532
       },
       "missing": [
         "satisfaction"
@@ -97,7 +101,8 @@
         "m2.recall_proxy": 0.5694444444444444,
         "m3.direction_error_rate": 0.0,
         "m4.generic_residue": 0.0290519877675841,
-        "m5.m5": 0.8834166666666666
+        "m5.m5": 0.8834166666666666,
+        "geo.unresolved_rate": 0.7847328244274809
       },
       "missing": [
         "satisfaction"

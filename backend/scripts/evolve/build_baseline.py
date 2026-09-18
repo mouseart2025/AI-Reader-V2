@@ -131,11 +131,28 @@ def parse_summary_cost(summary_md: Path) -> float | None:
     return float(m.group(1)) if m else None
 
 
-def build_baseline(skip_golden: bool = False,
+def compute_geo_rates() -> dict[str, float]:
+    """阶段 1 起：子进程重算五本 geo.unresolved_rate（口径见 eval_policy v1）。"""
+    try:
+        import run_loop as rl
+
+        geo = rl.compute_geo_metrics_subprocess()
+    except Exception as err:
+        print(f"[baseline] geo 指标计算失败（标 missing）: {err}")
+        return {}
+    return {
+        slug: m["unresolved_rate"]
+        for slug, m in geo.items()
+        if isinstance(m.get("unresolved_rate"), (int, float))
+    }
+
+
+def build_baseline(skip_golden: bool = False, skip_geo: bool = False,
                    dashboard_dir: Path = DASHBOARD_DIR) -> dict:
     """汇总五本小说可得指标 + satisfaction + golden 门禁 → baseline dict。"""
     satisfaction_by_nid = load_satisfaction(SCRATCH_DB)
     golden = {"status": "skipped"} if skip_golden else run_golden_gate()
+    geo_rates = {} if skip_geo else compute_geo_rates()
 
     novels: dict[str, dict] = {}
     db_md5 = None
@@ -164,6 +181,10 @@ def build_baseline(skip_golden: bool = False,
             entry["metrics"]["satisfaction"] = satisfaction_by_nid[nid]
         else:
             entry["missing"].append("satisfaction")
+        if slug in geo_rates:
+            entry["metrics"]["geo.unresolved_rate"] = geo_rates[slug]
+        else:
+            entry["missing"].append("geo.unresolved_rate")
         entry["missing"].sort()
         entry["dashboard_file"] = f"out/dashboard/{slug}.json"
         novels[slug] = entry
@@ -191,7 +212,7 @@ def build_baseline(skip_golden: bool = False,
                 }
 
     return {
-        "version": 0,
+        "version": 1,
         "measured_at": datetime.now(timezone.utc).isoformat(),
         "db_md5": db_md5,
         "db_path": "~/.ai-reader-v2/data.db（只读；测量在 scratch 副本上进行）",
@@ -204,12 +225,14 @@ def build_baseline(skip_golden: bool = False,
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="GeoEvolve 阶段 0 baseline.json 汇总")
+    parser = argparse.ArgumentParser(description="GeoEvolve baseline.json 汇总")
     parser.add_argument("--skip-golden", action="store_true",
                         help="跳过 golden pytest（复用已有人工结果时）")
+    parser.add_argument("--skip-geo", action="store_true",
+                        help="跳过 geo.unresolved_rate 重算（阶段 0 兼容）")
     args = parser.parse_args(argv)
 
-    baseline = build_baseline(skip_golden=args.skip_golden)
+    baseline = build_baseline(skip_golden=args.skip_golden, skip_geo=args.skip_geo)
     BASELINE_PATH.write_text(
         json.dumps(baseline, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
