@@ -437,6 +437,7 @@ class GEPAReflectOperator:
             "guard_snapshot": guards,
             "history": history[-5:],
             "stagnation_note": context.get("stagnation_note"),
+            "downgrade_lessons": context.get("downgrade_lessons"),
         }, ensure_ascii=False, indent=2)
         # 元层(§4.4):提议器输入快照哈希,供回放器校验轨迹一致性
         payload_hash = hashlib.sha256(base_payload.encode()).hexdigest()

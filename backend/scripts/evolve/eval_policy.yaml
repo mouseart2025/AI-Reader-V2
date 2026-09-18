@@ -4,7 +4,7 @@
 # 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
 # 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
 
-version: 4
+version: 5
 stage: 3
 
 # ── 阶段 3 预注册指标与噪声底（2026-09-18 实测后冻结）────────────────
@@ -45,8 +45,14 @@ metrics:
     scope: per_novel_inner + macro
     source: backend/scripts/evolve/prompt_evolve.py + fixtures/stage3_*.json
     added_in_stage: 3
-  judge_min_supported: 0.25   # 确认层 judge 抽检新增地名 ok 率下限
-                              # (=E0 双跑 B∖A 差异名的实测基线 0.25,n=4)
+    # v5(2026-09-18 R2):冻结子集扩到全 10 个抽样章(原 5 章索引子集);
+    # 每代快速层评 2 次取均值(压缩 LLM 非确定噪声);入档前 3 次复测确认
+    eval_repeats: 2
+    confirm_repeats: 3
+    # 入档强化规则(§6.3 实质强化,gen64 单次不可复现教训):
+    # 候选的 3 次复测中位数 − 父代 ≥ min_improvement 且三次无超阈回归才入档
+    confirm_rule: median_of_confirm_repeats_minus_parent >= min_improvement
+  judge_min_supported: 0.42   # v5 更新:10 章子集 E0 双跑 B∖A 实测基线 0.4167(n=12)
 
 # ── OOD 跨体裁护栏（v4,2026-09-18;用户指出选择集单一分布过拟合风险）──
 # 进化选择集(5 本古典章回小说)是单一分布。OOD 护栏集覆盖三种异体裁:
@@ -96,16 +102,18 @@ thresholds:
     rebuild.root_count:
       abs: 3.0
     # 阶段 3:快速层指标的回归阈值按实测噪声底设定(小于噪声的"回归"不可判)
+    # v5:10 章子集 + 每代 2 次取均值 → 单本噪声底估值 0.059/√2≈0.042、
+    # macro 0.027/√2≈0.019(估值,见 merge 报告 R2 节);护栏取最差次均值
     prompt.recall:
-      abs: 0.09          # 单本噪声底 0.0803 + 余量
+      abs: 0.045         # v5:2 次均值后单本噪声底估值 0.042 + 余量
     prompt.generic_rate:
-      abs: 0.03          # 噪声底 0.0194 + 余量
+      abs: 0.04          # v5:10 章子集实测 generic 噪声 0.031 + 余量
     prompt.count_inflation:
       relative: 1.3      # 抽取量膨胀超 30% 即拒(防"全提取"刷召回)
   # JIT 入档的"严格改善"显著性下限(阶段 3 起):改善幅度须超过噪声底+余量
   min_improvement:
-    prompt.recall: 0.09        # 单本噪声底 0.0803 + 余量
-    macro.prompt.recall: 0.03  # macro 噪声底 0.0199 + 余量
+    prompt.recall: 0.045       # v5(2 次均值口径)
+    macro.prompt.recall: 0.02  # v5(2 次均值口径)
 
 # ── Pareto 前沿（§4.2/§4.3 ARCHIVE）────────────────────────────────
 pareto:
@@ -118,7 +126,10 @@ pareto:
 # ── 固定评估预算（autoresearch 原则，§4.2/§6.4）────────────────────
 budget:
   wall_clock_seconds_per_generation: 1800   # 每轮 wall-clock 上限，超预算记失败变异
-  llm_calls_per_generation: 100             # 每轮 LLM 调用上限(LlmBudget 硬约束,超限记失败)
+  llm_calls_per_generation: 200             # 每轮 LLM 调用上限(LlmBudget 硬约束,超限记失败)
+                              # v5.1:R2 实测阶段 3 单代调用量=60(快速层 2×30)+提议 1-3
+                              # +judge ≤12+复测确认 90 ≈ 165,原 100 系阶段 0 口径(15 次/代),
+                              # 口径修正(2026-09-18,随 v5 重冻结;gen191/193 两次超限为证)
   max_cost_usd_per_generation: 2.0          # 每轮 LLM 成本上限(阶段 3 起硬约束,超出记失败)
 
 # ── 反漂移护栏（§6.4）──────────────────────────────────────────────
