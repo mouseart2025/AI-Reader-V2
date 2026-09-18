@@ -95,6 +95,13 @@ PER_NOVEL_METRICS: dict[str, str] = {
     "satisfaction": "higher",
     # 阶段 1 预注册（见 eval_policy v1 / README）：supplement 字典覆盖率指标
     "geo.unresolved_rate": "lower",
+    # 阶段 2 预注册（eval_policy v2）：rebuild 层级 vs golden 的拓扑指标（内层集）
+    "topo.parent_precision": "higher",
+    "topo.parent_recall": "higher",
+    "topo.chain_accuracy": "higher",
+    # 阶段 2 结构护栏（全五本；rebuild 后 orphan 恒 0，改用这两个）
+    "rebuild.max_children": "lower",
+    "rebuild.root_count": "lower",
 }
 
 # ── 变异算子注册表（PROPOSE 接口）────────────────────────────────────
@@ -155,6 +162,47 @@ def compute_geo_metrics_subprocess(timeout: int = 300) -> dict[str, dict]:
     if proc.returncode != 0:
         raise RuntimeError(f"compute_geo_metrics 子进程失败: {proc.stderr[-500:]}")
     return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+# ── 阶段 2 EVAL：子进程注入参数重建层级并测拓扑指标 ───────────────────
+
+COMPUTE_WEIGHT_SCRIPT = _EVOLVE_DIR / "compute_weight_metrics.py"
+CANDIDATE_PARAMS_PATH = OUT_DIR / "candidate_params.json"
+FRONTIER_STAGE2_PATH = OUT_DIR / "frontier_stage2.json"  # 阶段 2 独立前沿(目标空间不同,不与阶段 1 混档)
+
+TOPO_KEYS = ("parent_precision", "parent_recall", "chain_accuracy")
+STRUCT_KEYS = ("max_children", "root_count")
+
+
+def compute_weight_metrics_subprocess(params_path: Path | None = None,
+                                      permute_seed: int | None = None,
+                                      timeout: int = 900) -> dict[str, dict]:
+    """子进程跑 compute_weight_metrics.py（scratch 隔离 + 可选参数注入）。"""
+    import subprocess
+
+    cmd = [str(_BACKEND_DIR / ".venv" / "bin" / "python"), str(COMPUTE_WEIGHT_SCRIPT)]
+    if params_path:
+        cmd += ["--params", str(params_path)]
+    if permute_seed is not None:
+        cmd += ["--permute-chapters", str(permute_seed)]
+    proc = subprocess.run(cmd, cwd=_BACKEND_DIR, capture_output=True,
+                          text=True, timeout=timeout)
+    if proc.returncode != 0:
+        raise RuntimeError(f"compute_weight_metrics 子进程失败: {proc.stderr[-800:]}")
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+def stage2_metric_vector(metrics: dict[str, dict]) -> dict[str, float]:
+    """子进程输出 → 拍平指标向量（topo.* 内层三本 + rebuild.* 全五本护栏）。"""
+    vec: dict[str, float] = {}
+    for slug, m in metrics.items():
+        for key in TOPO_KEYS:
+            if isinstance(m.get(key), (int, float)):
+                vec[f"{slug}.topo.{key}"] = float(m[key])
+        for key in STRUCT_KEYS:
+            if isinstance(m.get(key), (int, float)):
+                vec[f"{slug}.rebuild.{key}"] = float(m[key])
+    return vec
 
 
 # ── 配置加载与校验（手写校验函数，不引新依赖）───────────────────────
@@ -491,6 +539,31 @@ def evaluate_live(generation: int, no_pytest: bool = False) -> dict:
 
 # ── GATE ────────────────────────────────────────────────────────────
 
+def regressed_beyond_threshold(key: str, cur: float, ref: float, policy: dict) -> bool:
+    """单键回归判定（GATE 与 ARCHIVE/JIT 共用同一口径,纯函数）。
+
+    口径:率型指标用 metric/per_novel_regression_abs;计数型结构护栏用
+    thresholds.guard_overrides(relative=相对倍数 / abs=绝对阈值,按后缀匹配)。
+    """
+    direction = direction_for(key)
+    if direction is None:
+        return False
+    th = policy["thresholds"]
+    is_per_novel = key not in METRIC_DIRECTION
+    thr = float(th["per_novel_regression_abs"] if is_per_novel
+                else th["metric_regression_abs"])
+    suffix = key.split(".", 1)[1] if is_per_novel and "." in key else key
+    override = th.get("guard_overrides", {}).get(suffix, {})
+    if "relative" in override and ref:
+        rel = float(override["relative"])
+        return (direction == "lower" and cur > ref * rel + _EPS) or \
+               (direction == "higher" and cur < ref / rel - _EPS)
+    if "abs" in override:
+        thr = float(override["abs"])
+    return (direction == "higher" and (ref - cur) - thr > _EPS) or \
+           (direction == "lower" and (cur - ref) - thr > _EPS)
+
+
 def gate(candidate_vec: dict[str, float], reference_vec: dict[str, float],
          policy: dict) -> dict:
     """GATE：对照 eval_policy 阈值判定回归（纯函数）。
@@ -502,8 +575,6 @@ def gate(candidate_vec: dict[str, float], reference_vec: dict[str, float],
       - 参考向量里缺失的键不参与判定（记 missing，不算回归）
     """
     th = policy["thresholds"]
-    metric_thr = float(th["metric_regression_abs"])
-    novel_thr = float(th["per_novel_regression_abs"])
     golden_min = float(th["golden_pass_rate_min"])
 
     rows: list[dict] = []
@@ -516,13 +587,8 @@ def gate(candidate_vec: dict[str, float], reference_vec: dict[str, float],
                          "verdict": "missing" if cur is None or ref is None else "info"})
             continue
         delta = cur - ref
-        # 全局键（METRIC_DIRECTION 直查命中）用单项阈值；分小说键用分小说阈值
-        is_per_novel = key not in METRIC_DIRECTION
-        thr = novel_thr if is_per_novel else metric_thr
-        # ">阈值 即拒" 为严格大于；加 _EPS 吸收浮点尾差（恰好压线不算回归，
-        # 与 quality_loop 的 _EPS 惯例一致）
-        regressed = (direction == "higher" and (ref - cur) - thr > _EPS) or \
-                    (direction == "lower" and (cur - ref) - thr > _EPS)
+        # 与 ARCHIVE 同一口径:率型走 metric/per_novel 阈值,计数护栏走 guard_overrides
+        regressed = regressed_beyond_threshold(key, cur, ref, policy)
         verdict = "fail" if regressed else "ok"
         if regressed:
             passed = False
@@ -562,7 +628,8 @@ def dominates(a_vec: dict[str, float], b_vec: dict[str, float]) -> bool:
 
 
 def archive_candidate(frontier: list[dict], candidate: dict,
-                      population_max: int) -> tuple[list[dict], str]:
+                      population_max: int,
+                      policy: dict | None = None) -> tuple[list[dict], str]:
     """ARCHIVE：Pareto 前沿更新（纯函数）。返回 (新前沿, 决策)。
 
     决策取值：
@@ -571,6 +638,8 @@ def archive_candidate(frontier: list[dict], candidate: dict,
       archived                入档（支配现任则剔除被支配者；互不支配共存）
       archived_evicted        入档但因种群上限淘汰了最老被支配者
     candidate 需带 metrics / generation 键；reference_vec 为其父代向量。
+    policy 提供时,JIT"质量不降"按 GATE 同口径阈值判定（计数型结构护栏在
+    相对/绝对口径内的变化不算降）;不提供则为最严格口径（任何维变差即拒）。
     """
     cvec = candidate["metrics"]
     ref = candidate.get("parent_metrics") or {}
@@ -582,7 +651,11 @@ def archive_candidate(frontier: list[dict], candidate: dict,
     nc, nr = _norm(cvec), _norm(ref)
     common = sorted(set(nc) & set(nr))
     strictly_better = [k for k in common if nc[k] > nr[k]]
-    worse = [k for k in common if nc[k] < nr[k]]
+    if policy is not None:
+        worse = [k for k in common
+                 if regressed_beyond_threshold(k, cvec[k], ref[k], policy)]
+    else:
+        worse = [k for k in common if nc[k] < nr[k]]
     if worse or not strictly_better:
         return frontier, "rejected_no_improvement"
 
@@ -641,9 +714,14 @@ def commit_journal(record: dict, journal_path: Path = JOURNAL_PATH) -> Path:
 
 def next_generation(journal_path: Path = JOURNAL_PATH) -> int:
     tail = _load_jsonl_tail(journal_path, n=10_000)
-    if not tail:
+    # 跳过非整数代的特殊记录(stability-check / state-correction 等)
+    gens = [int(r["generation"]) for r in tail
+            if isinstance(r.get("generation"), int)
+            or (isinstance(r.get("generation"), str)
+                and r["generation"].isdigit())]
+    if not gens:
         return 0
-    return max(int(r.get("generation", -1)) for r in tail) + 1
+    return max(gens) + 1
 
 
 # ── REPORT ──────────────────────────────────────────────────────────
@@ -1057,13 +1135,414 @@ def run_evolution_stage1(generations: int, no_pytest: bool = False,
     return 0
 
 
+# ── 阶段 2：权重/参数级 live 进化（Pareto 小种群）────────────────────
+
+def _eval_stage2_state(params: dict, baseline_vec: dict, llm_budget: LlmBudget,
+                       no_pytest: bool = False,
+                       permute_seed: int | None = None) -> dict:
+    """阶段 2 EVAL：写参数 JSON → 子进程注入重建 → topo/rebuild 向量 + golden。"""
+    t0 = time.monotonic()
+    CANDIDATE_PARAMS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CANDIDATE_PARAMS_PATH.write_text(
+        json.dumps(params, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    raw = compute_weight_metrics_subprocess(params_path=CANDIDATE_PARAMS_PATH,
+                                            permute_seed=permute_seed)
+    if no_pytest:
+        golden = {"status": "skipped"}
+    else:
+        import quality_loop as ql
+
+        golden = ql.run_golden_gate(timeout=300)
+    vec = dict(baseline_vec)  # geo/m1-m6 等不受权重影响，沿用基线缓存
+    vec.update(stage2_metric_vector(raw))
+    if isinstance(golden.get("pass_rate"), (int, float)):
+        vec["golden.pass_rate"] = float(golden["pass_rate"])
+    return {
+        "metrics": vec,
+        "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                 "llm_calls": llm_budget.calls, "cost_usd": 0.0},
+        "golden": golden,
+    }
+
+
+def stability_check_stage2(params: dict, ref_vec: dict, policy: dict,
+                           baseline_vec_default: dict | None = None,
+                           baseline_jitter: float | None = None,
+                           seeds: tuple[int, ...] = (7, 23)) -> dict:
+    """§6.3 复测:换章节顺序重评当前最优,抖动显著超基线噪声底才降级。
+
+    口径(v2.2 修正):绝对抖动 >阈值 会把默认参数也降级(实测默认参数在
+    seed=23 下自身抖动 0.0209——率型拓扑指标在 ~50-130 个 golden 地点上的
+    换序噪声底)。规则改为:候选抖动 > 基线(默认参数)抖动 + threshold
+    才降级。baseline_jitter 由调用方测量/缓存传入;缺省时退化为绝对阈值。
+    """
+    threshold = float(policy.get("metrics", {})
+                      .get("stability_jitter_threshold", 0.01))
+
+    def _topo_jitter(ref: dict) -> tuple[float, dict]:
+        max_j = 0.0
+        detail: dict[str, float] = {}
+        for seed in seeds:
+            raw = compute_weight_metrics_subprocess(
+                params_path=CANDIDATE_PARAMS_PATH, permute_seed=seed,
+            )
+            vec = stage2_metric_vector(raw)
+            for key, rv in ref.items():
+                if ".topo." not in key or key not in vec:
+                    continue
+                j = abs(vec[key] - rv)
+                detail[f"seed{seed}:{key}"] = round(j, 4)
+                max_j = max(max_j, j)
+        return max_j, detail
+
+    # 候选抖动(调用方已把候选参数写入 CANDIDATE_PARAMS_PATH)
+    cand_jitter, details = _topo_jitter(ref_vec)
+
+    # 基线(默认参数)抖动:测量或复用缓存
+    base_jitter = baseline_jitter
+    if base_jitter is None and baseline_vec_default is not None:
+        CANDIDATE_PARAMS_PATH.write_text("{}", encoding="utf-8")  # 空注入=默认
+        base_jitter, base_details = _topo_jitter(baseline_vec_default)
+        details.update({f"baseline:{k}": v for k, v in base_details.items()})
+
+    if base_jitter is not None:
+        limit = base_jitter + threshold
+        rule = f"候选抖动 {cand_jitter} > 基线噪声底 {base_jitter} + {threshold}"
+        stable = cand_jitter <= limit + _EPS
+    else:
+        limit = threshold
+        rule = f"候选抖动 {cand_jitter} > {threshold}(绝对口径,无基线)"
+        stable = cand_jitter <= limit + _EPS
+    return {"stable": stable, "max_jitter": round(cand_jitter, 4),
+            "baseline_jitter": (round(base_jitter, 4)
+                                if base_jitter is not None else None),
+            "threshold": threshold, "rule": rule, "details": details}
+
+
+def run_evolution_stage2(generations: int, no_pytest: bool = False,
+                         force_param: str | None = None,
+                         verbose: bool = True) -> int:
+    """阶段 2 主循环：权重扰动 + Pareto 小种群 + 复测降级 + 收尾全量门禁。
+
+    force_param("name=value"):首代强制提议指定参数值（走完整 EVAL/GATE/ARCHIVE/
+    COMMIT 路径）——用于候选的拒绝原因已消失（如门禁口径修正）时的人工复测。
+    """
+    check_frozen_or_abort()  # §6.1 评估器外置
+
+    import weight_jitter as wj
+
+    genome = load_yaml_config(GENOME_PATH, validate_genome)
+    policy = load_yaml_config(EVAL_POLICY_PATH, validate_eval_policy)
+    budget_s = float(policy["budget"]["wall_clock_seconds_per_generation"])
+    llm_limit = int(policy["budget"].get("llm_calls_per_generation", 100))
+    pop_max = int(policy["pareto"]["population_max"])
+
+    if not BASELINE_PATH.exists():
+        sys.exit(f"FATAL: 基线不存在: {BASELINE_PATH}（先运行 build_baseline.py）")
+    baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+    baseline_vec = metric_vector_from_baseline(baseline)
+
+    loci = genome["genes"]["weights_params"]["loci"]
+    # §4.3 停滞护栏:同机制连续无改进 → 强制切换机制(jitter → probe)
+    mechanisms = [wj.WeightJitterOperator(loci), wj.WeightProbeOperator(loci)]
+    mech_idx = 0
+    operator = mechanisms[mech_idx]
+    state = wj.load_weights_state()
+
+    frontier = load_frontier(FRONTIER_STAGE2_PATH)
+    gen0 = next_generation()
+    pause_after = int(policy.get("guardrails", {})
+                      .get("no_improvement_pause_generations", 5))
+
+    # 起始:父代向量 = 当前生效参数(default 被已接受 overrides 覆盖)的重评
+    current_params = wj.effective_params(operator.loci, state["overrides"])
+    print(f"[evolve] 测量父代向量（{len(state['overrides'])} 项已接受覆盖）...")
+    parent_eval = _eval_stage2_state(current_params, baseline_vec,
+                                     LlmBudget(llm_limit), no_pytest=no_pytest)
+    parent_vec = parent_eval["metrics"]
+    parent_ref: dict = {"type": "baseline", "measured_at": baseline.get("measured_at")}
+    # 默认参数基线(退出标准对照)持久化
+    if not state.get("baseline_metrics"):
+        if state["overrides"]:
+            default_eval = _eval_stage2_state(
+                wj.effective_params(operator.loci, {}), baseline_vec,
+                LlmBudget(llm_limit), no_pytest=no_pytest)
+            state["baseline_metrics"] = default_eval["metrics"]
+        else:
+            state["baseline_metrics"] = parent_vec
+        wj.save_weights_state(state)
+    topo_keys = sorted(k for k in parent_vec if ".topo." in k)
+    print("[evolve] 父代 topo: "
+          + " ".join(f"{k}={parent_vec[k]:.3f}" for k in topo_keys))
+
+    journal_records = _load_jsonl_tail(JOURNAL_PATH, n=10_000)
+    # 续跑检测:上轮同机制已连续无改进达护栏线 → 直接从下一机制起步
+    trailing_stall = 0
+    for r in reversed(journal_records):
+        if (r.get("operator") in wj.WEIGHT_OPERATORS
+                and not r.get("decision", "").startswith("archived")):
+            trailing_stall += 1
+        else:
+            break
+    if trailing_stall >= pause_after and mech_idx + 1 < len(mechanisms):
+        mech_idx += 1
+        operator = mechanisms[mech_idx]
+        print(f"[evolve] 续跑检测:尾部 {trailing_stall} 连无改进,"
+              f"直接从 {operator.name} 起步（§4.3 停滞切换）")
+
+    no_improve_streak = 0
+    for i in range(generations):
+        generation = gen0 + i
+        t0 = time.monotonic()
+        llm_budget = LlmBudget(llm_limit)
+        print(f"\n[evolve] ══ generation {generation} ══")
+
+        # 1. ANALYZE
+        context = analyze()
+        context["weights_state"] = dict(state["overrides"])
+        context["generation"] = generation
+        context["param_history"] = wj.build_param_history(journal_records)
+        if verbose:
+            n_tried = len(context["param_history"])
+            print(f"[evolve][analyze] 参数池 {len(operator.param_names)} 个, "
+                  f"已试 {n_tried} 个; 已接受覆盖 {len(state['overrides'])} 项")
+
+        # 2. PROPOSE（轮询+动量,单参数扰动;首代可人工强制复测）
+        if force_param and i == 0:
+            pname, _, raw_val = force_param.partition("=")
+            if pname not in operator.loci:
+                sys.exit(f"FATAL: --force-param 未知参数: {pname}")
+            val: float = float(raw_val)
+            if operator.loci[pname].get("type") == "int":
+                val = int(val)
+            lo, hi = operator.loci[pname]["range"]
+            if not lo <= val <= hi:
+                sys.exit(f"FATAL: --force-param 值 {val} 超出 {pname} 范围 [{lo}, {hi}]")
+            cur = current_params[pname]
+            candidate = {
+                "operator": operator.name,
+                "hypothesis": (f"人工复测: {pname} {cur} → {val}"
+                               f"（此前拒绝原因已消失,按现行口径重评,走完整门禁）"),
+                "genome_diff": {"weights.set": {pname: val}},
+                "param": pname,
+                "direction": +1 if val > cur else -1,
+                "old_value": cur,
+            }
+        else:
+            candidate = operator(genome, context)
+        print(f"[evolve][propose] {candidate['hypothesis']}")
+        if candidate.get("exhausted"):
+            print("[evolve][propose] 无可扰动空间，如实停止。")
+            break
+
+        # 3. APPLY（候选参数 JSON;源码零接触,无脏状态）
+        candidate_params = dict(current_params)
+        candidate_params.update(candidate["genome_diff"]["weights.set"])
+        decision = "failed_error"
+        vec: dict | None = None
+        gate_result = {"passed": False, "failures": ["eval_error"]}
+        cost = {"wall_clock_s": 0.0, "llm_calls": 0, "cost_usd": 0.0}
+        error: str | None = None
+        gen_parent_ref = parent_ref
+        prev_parent_vec = parent_vec
+        try:
+            # 4. EVAL
+            result = _eval_stage2_state(candidate_params, baseline_vec, llm_budget,
+                                        no_pytest=no_pytest)
+            vec = result["metrics"]
+            cost = result["cost"]
+            cost["wall_clock_s"] = round(time.monotonic() - t0, 3)
+            over_budget = cost["wall_clock_s"] > budget_s
+            print(f"[evolve][eval] 指标 {len(vec)} 维 耗时 {cost['wall_clock_s']}s"
+                  f"（预算 {budget_s:.0f}s）llm_calls={cost['llm_calls']}"
+                  + (" ⚠️超 wall-clock 预算，记失败变异" if over_budget else ""))
+
+            # 5. GATE（对照父代向量;分小说/分指标记账）
+            gate_result = gate(vec, parent_vec, policy)
+            gate_passed = gate_result["passed"] and not over_budget
+            if over_budget:
+                gate_result["failures"] = gate_result["failures"] + ["wall_clock_budget"]
+            print(f"[evolve][gate] {'通过' if gate_passed else '拒绝'} "
+                  f"(failures: {gate_result['failures'] or '无'})")
+
+            # 6. ARCHIVE（Pareto 小种群）
+            if gate_passed:
+                entry = {
+                    "generation": generation,
+                    "operator": candidate["operator"],
+                    "genome_diff": candidate["genome_diff"],
+                    "metrics": vec,
+                    "parent_metrics": parent_vec,
+                }
+                frontier, decision = archive_candidate(frontier, entry, pop_max,
+                                                       policy)
+                save_frontier(frontier, FRONTIER_STAGE2_PATH)
+            else:
+                decision = "rejected_gate"
+        except LlmBudgetExceeded as err:
+            error = str(err)
+            decision = "failed_llm_budget"
+            gate_result = {"passed": False, "failures": ["llm_budget"]}
+            print(f"[evolve][eval] ❌ {error}，该代记失败变异")
+        except Exception as err:
+            error = f"{type(err).__name__}: {err}"
+            gate_result = {"passed": False, "failures": ["eval_error"]}
+            print(f"[evolve][eval] ❌ 评估异常: {error}，该代记失败变异")
+
+        # 接受:覆盖值落 weights_state.json(单一事实源);拒绝:状态文件未动,无需回退
+        if decision.startswith("archived"):
+            state["overrides"].update(candidate["genome_diff"]["weights.set"])
+            wj.save_weights_state(state)
+            current_params = candidate_params
+            parent_vec = vec
+            parent_ref = {"type": "generation", "generation": generation}
+        print(f"[evolve][archive] 决策: {decision} (前沿大小 {len(frontier)}/{pop_max})")
+
+        # 7. COMMIT（journal 完整 lineage）
+        record = {
+            "generation": generation,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "operator": candidate["operator"],
+            "hypothesis": candidate["hypothesis"],
+            "genome_diff": candidate["genome_diff"],
+            "param": candidate.get("param"),
+            "direction": candidate.get("direction"),
+            "old_value": candidate.get("old_value"),
+            "eval_backend": "live",
+            "metrics": vec,
+            "gate": {"passed": gate_result["passed"],
+                     "failures": gate_result["failures"]},
+            "cost": cost,
+            "parent": gen_parent_ref,
+            "decision": decision,
+            "error": error,
+            "dry_run": False,
+            "stage": 2,
+        }
+        commit_journal(record)
+        journal_records.append(record)
+
+        # 8. REPORT（每轮摘要:内层 topo 均值轨迹）
+        if vec is not None and prev_parent_vec is not None:
+            deltas = [f"{k.split('.')[0]}.{k.split('.')[2]}:"
+                      f"{prev_parent_vec.get(k)}→{vec.get(k)}"
+                      for k in topo_keys
+                      if vec.get(k) != prev_parent_vec.get(k)]
+            print(f"[evolve][report] gen{generation}: 决策={decision}; 变化: "
+                  + ("; ".join(deltas) if deltas else "无"))
+        else:
+            print(f"[evolve][report] gen{generation}: 决策={decision}")
+
+        # §6.4 反漂移护栏;§4.3 同机制停滞 → 强制切换机制后再停
+        if decision.startswith("archived"):
+            no_improve_streak = 0
+        else:
+            no_improve_streak += 1
+        if no_improve_streak >= pause_after:
+            if mech_idx + 1 < len(mechanisms):
+                mech_idx += 1
+                operator = mechanisms[mech_idx]
+                switch_record = {
+                    "generation": generation,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "operator": "mechanism_switch",
+                    "hypothesis": (
+                        f"§4.3 停滞护栏:weight_jitter 连续 {no_improve_streak} 代 "
+                        f"零变化(平台期),强制切换为 {operator.name}(步长 "
+                        f"±{operator.step_min:.0%}-{operator.step_max:.0%})"
+                    ),
+                    "genome_diff": {},
+                    "eval_backend": "live",
+                    "metrics": None,
+                    "gate": {"passed": True, "failures": []},
+                    "cost": {"wall_clock_s": 0.0, "llm_calls": 0, "cost_usd": 0.0},
+                    "parent": parent_ref,
+                    "decision": "mechanism_switch",
+                    "dry_run": False,
+                    "stage": 2,
+                }
+                commit_journal(switch_record)
+                journal_records.append(switch_record)
+                no_improve_streak = 0
+                print(f"[evolve][guardrail] {switch_record['hypothesis']}")
+                continue
+            print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进,"
+                  f"机制已穷尽({mechanisms[-1].name}),自动暂停。"
+                  f"诊断: 最近决策见 journal。")
+            break
+
+    # ── §6.3 收尾复测:换章节顺序重评当前最优,抖动显著超基线噪声底才降级 ──
+    if state["overrides"] and parent_vec is not None:
+        print("\n[evolve] §6.3 复测:换章节顺序(2 种子)重评当前最优...")
+        CANDIDATE_PARAMS_PATH.write_text(
+            json.dumps(current_params, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        # 基线(默认参数)噪声底:weights_state 缓存,缺则现测
+        baseline_jitter = state.get("baseline_stability", {}).get("max_jitter")
+        stab = stability_check_stage2(
+            current_params, parent_vec, policy,
+            baseline_vec_default=state.get("baseline_metrics"),
+            baseline_jitter=baseline_jitter,
+        )
+        if baseline_jitter is None and stab.get("baseline_jitter") is not None:
+            state["baseline_stability"] = {"max_jitter": stab["baseline_jitter"],
+                                           "seeds": [7, 23]}
+            wj.save_weights_state(state)
+        stab_record = {
+            "generation": "stability-check",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "operator": "stability_check",
+            "hypothesis": "§6.3 换序复测当前最优",
+            "genome_diff": {},
+            "eval_backend": "live",
+            "metrics": None,
+            "gate": {"passed": stab["stable"], "failures": []},
+            "cost": {"wall_clock_s": None, "llm_calls": 0, "cost_usd": 0.0},
+            "parent": parent_ref,
+            "decision": "stable" if stab["stable"] else "downgraded_unstable",
+            "stability": stab,
+            "stage": 2,
+        }
+        commit_journal(stab_record)
+        if stab["stable"]:
+            print(f"[evolve] 复测稳定:{stab['rule'].replace(' > ', ' ≤ ')}")
+        else:
+            print(f"[evolve] ⚠️ 复测不稳定:{stab['rule']},"
+                  f"当前最优降级(移出前沿并回退该代参数覆盖)")
+            # 降级 = 移出前沿 + 回退该代 genome_diff 设置的参数覆盖
+            down_gen = parent_ref.get("generation")
+            gen_rec = next((r for r in journal_records
+                            if r.get("generation") == down_gen), None)
+            if gen_rec:
+                for pname in (gen_rec.get("genome_diff", {}).get("weights.set") or {}):
+                    state["overrides"].pop(pname, None)
+                wj.save_weights_state(state)
+                current_params = wj.effective_params(operator.loci, state["overrides"])
+            frontier = [e for e in frontier
+                        if e.get("generation") != down_gen]
+            save_frontier(frontier, FRONTIER_STAGE2_PATH)
+
+    # ── 收尾全量门禁(退出标准:过 quality_loop)──
+    print("\n[evolve] 收尾:quality_loop 全量门禁...")
+    import quality_loop as ql
+
+    _rec, _prev, rows, ql_exit = ql.run_loop(tag="evolve-stage2-final")
+    n_fail = sum(1 for r in rows if r.get("verdict") == "fail")
+    print(f"[evolve] quality_loop exit={ql_exit} hard_fails={n_fail}")
+
+    print("\n[evolve] 循环结束。")
+    print(render_report())
+    return ql_exit
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="GeoEvolve 进化循环（阶段 0 骨架 / 阶段 1 词表级 ACE）",
+        description="GeoEvolve 进化循环（阶段 0 骨架 / 阶段 1 词表级 ACE / 阶段 2 权重级 Pareto）",
         epilog="规格: docs/analysis/geo-self-evolve-methodology.md §4.3/§5/§6",
     )
-    parser.add_argument("--stage", type=int, choices=[0, 1], default=0,
-                        help="进化阶段：0=恒等变异骨架；1=词表/字典级 ACE live 进化")
+    parser.add_argument("--stage", type=int, choices=[0, 1, 2], default=0,
+                        help="进化阶段：0=恒等变异骨架；1=词表级 ACE；2=权重/参数级 Pareto")
     parser.add_argument("--generations", type=int, default=1, help="进化轮数")
     parser.add_argument("--batch-size", type=int, default=10,
                         help="阶段 1 每代提议的 delta 条数")
@@ -1073,6 +1552,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="评估后端：cached=读 baseline.json；live=跑 quality_loop 门禁")
     parser.add_argument("--no-pytest", action="store_true",
                         help="live 后端跳过 golden pytest 子集")
+    parser.add_argument("--force-param", metavar="NAME=VALUE",
+                        help="阶段 2 首代强制提议指定参数值（人工复测，走完整门禁）")
     parser.add_argument("--report", action="store_true", help="输出当前前沿与趋势后退出")
     parser.add_argument("--freeze", action="store_true",
                         help="重新生成 frozen_manifest.json（仅限有意更新评估器后）")
@@ -1092,6 +1573,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_evolution_stage1(generations=args.generations,
                                     no_pytest=args.no_pytest,
                                     batch_size=args.batch_size)
+    if args.stage == 2:
+        return run_evolution_stage2(generations=args.generations,
+                                    no_pytest=args.no_pytest,
+                                    force_param=args.force_param)
     return run_evolution(generations=args.generations, eval_backend=args.eval_backend,
                          dry_run=args.dry_run, no_pytest=args.no_pytest)
 

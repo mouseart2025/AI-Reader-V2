@@ -16,6 +16,7 @@ from collections import Counter
 from src.extraction.fact_validator import _is_generic_location
 from src.models.chapter_fact import classify_spatial_relation
 from src.services.geo_skills.base import GeoSkill
+from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
 from src.utils.location_names import is_passage_like
@@ -120,7 +121,9 @@ class VoteBuilder(GeoSkill):
 
         for chapter_idx, row in enumerate(rows):
             data = json.loads(row["fact_json"])
-            chapter_weight = 1.0 + 0.5 * (chapter_idx / total_chapters)
+            chapter_weight = 1.0 + evolve_param(
+                "vote_builder.chapter_slope", 0.5
+            ) * (chapter_idx / total_chapters)
 
             for loc in data.get("locations", []):
                 parent = loc.get("parent")
@@ -135,7 +138,8 @@ class VoteBuilder(GeoSkill):
                     if is_passage_like(parent):
                         continue
                     pair_key = frozenset({name, parent})
-                    w = 0.33 if pair_key in peer_pairs else 1.0
+                    w = evolve_param("vote_builder.peer_discount", 0.33) \
+                        if pair_key in peer_pairs else 1.0
                     votes.setdefault(name, Counter())[parent] += w * chapter_weight
                     evidence_pairs.add((name, parent))
 
@@ -156,7 +160,8 @@ class VoteBuilder(GeoSkill):
                 # (see edmonds_resolver).
                 if is_passage_like(src):
                     continue
-                weight = {"high": 2, "medium": 1, "low": 1}.get(
+                weight = {"high": evolve_param("vote_builder.spatial_high_weight", 2),
+                          "medium": 1, "low": 1}.get(
                     sr.get("confidence", "low"), 1)
                 # Direction validation
                 s_suf = _get_suffix_rank(src)
@@ -213,7 +218,9 @@ class VoteBuilder(GeoSkill):
                         tiers.get(ln, "city"), 4)
                     if c_rank <= p_rank:
                         continue
-                    votes.setdefault(ln, Counter())[primary] += 2
+                    votes.setdefault(ln, Counter())[primary] += evolve_param(
+                        "vote_builder.primary_setting_weight", 2
+                    )
                     evidence_pairs.add((ln, primary))
 
         # 注(Story 5.5 试过并已回退):曾对「只有 topology 证据、无 hierarchy
@@ -251,7 +258,9 @@ class VoteBuilder(GeoSkill):
                 if (child, parent) not in evidence_pairs:
                     baseline_dropped += 1
                     continue
-                votes.setdefault(child, Counter())[parent] += 1
+                votes.setdefault(child, Counter())[parent] += evolve_param(
+                    "vote_builder.baseline_weight", 1
+                )
                 baseline_injected += 1
             logger.info(
                 "Baseline: %d parents injected, %d bare edges not re-injected",
@@ -260,10 +269,11 @@ class VoteBuilder(GeoSkill):
 
         # Uber-root vote capping
         if uber_root:
+            uber_cap = evolve_param("vote_builder.uber_root_cap", 2)
             for _loc_name, counter in votes.items():
                 if uber_root in counter and len(counter) > 1:
-                    if counter[uber_root] > 2:
-                        counter[uber_root] = 2
+                    if counter[uber_root] > uber_cap:
+                        counter[uber_root] = uber_cap
 
         n_core = sum(1 for c in loc_freq.values() if c >= 10)
         n_reg = sum(1 for c in loc_freq.values() if 3 <= c <= 9)

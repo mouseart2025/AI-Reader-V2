@@ -3,6 +3,62 @@
 规格：`docs/analysis/geo-self-evolve-methodology.md`。阶段 0（基线与骨架）已完成，
 本文档记录**阶段 1（词表/字典级自进化，ACE 模式）**的设计选型。
 
+## 阶段 2 设计（2026-09-18 调研后定型）
+
+### 外置参数（11 个，genome.yaml level 2 已落真值）
+
+| 参数 | 出处 | 默认 | 范围 | 选择理由 |
+|---|---|---|---|---|
+| vote_builder.chapter_slope | vote_builder.py:123 | 0.5 | [0,2] | 后章证据加权斜率，直接影响票分布 |
+| vote_builder.peer_discount | vote_builder.py:138 | 0.33 | [0,1] | peers 互指折扣，影响互挂边 |
+| vote_builder.spatial_high_weight | vote_builder.py:159 | 2 | [1,4] | 高置信 contains 票权 |
+| vote_builder.primary_setting_weight | vote_builder.py:216 | 2 | [0,5] | 主场景推断票权（orphan 主要来源通道） |
+| vote_builder.baseline_weight | vote_builder.py:254 | 1 | [0,3] | 既有 parent 保留强度 |
+| vote_builder.uber_root_cap | vote_builder.py:266 | 2 | [1,5] int | 天下通吃抑制 |
+| knowledge_prior.prior_weight | knowledge_prior.py:27 | 20 | [5,40] | 先验 vs 章节票的力量对比（注释明写 5-15 典型票） |
+| edmonds.tier_soft_penalty | edmonds_resolver.py:99 | 0.1 | [0.01,0.5] | tier 倒置软惩罚 |
+| edmonds.name_contain_weight | edmonds_resolver.py:122 | 25.0 | [10,50] | 名包含注入权（注释明写须 >典型票 1-15） |
+| edmonds.prior_threshold | edmonds_resolver.py:255 | 15.0 | [5,30] | 先验覆盖 LLM parent 的阈值 |
+| edmonds.max_children | edmonds_resolver.py:359 | 30 | [15,60] int | 度均衡上限 |
+
+**弃选记录**：tier_classifier 阈值（mc≥30/ch≥15 等）嵌在复合布尔表达式里，
+外置注入点大、行为漂移风险高，弃；ConstraintSolver 约束权重——satisfaction
+只有西游有布局且布局重算成本高，留到地图质量专项；`fallback_weight=0.001`
+（edmonds :161）量级太小不敏感，弃。
+
+### 注入机制（生产行为逐字节不变）
+
+新文件 `src/services/geo_skills/evolve_params.py`：`evolve_param(key, default)`
+未设 `EVOLVE_PARAMS_JSON` 环境变量时原样返回 default（=原硬编码字面量）；
+设置后按 key 注入（mtime 缓存，EVAL 每代换文件即生效）。11 个注入点均为
+"原字面量包一层"的最小编辑。**不变证据**：钩子合入后、未设环境变量跑
+compute_weight_metrics 全量重建，五本 topo/结构指标与合入前完全一致
+（xiyouji 0.3438/0.3235/0.2553 等逐值相同）；设参后 sanguo max_children
+64→87，证明注入真实生效。
+
+### 敏感指标（eval_policy v2 预注册）
+
+内层三本：`<slug>.topo.{parent_precision,parent_recall,chain_accuracy}`——
+scratch DB 上 fresh 重建（规则管线 ~4.5s/五本，无 LLM；封神跳过 prior skill
+避 LLM 路径，父子同口径）后 vs golden fixture 的 topology_metrics。
+默认参数基线：西游 0.344/0.324/0.255，红楼 0.583/0.539/0.337，水浒 0.600/0.548/0.449。
+全五本护栏：`<slug>.rebuild.{max_children,root_count}`（rebuild 后 orphan 恒 0，
+orphan_rate 无区分度故弃）。
+
+### 算子与种群
+
+`weight_jitter`：单代只扰动 1 个参数（归因），±10-20% 乘性小步 + clamp +
+int 取整 + 零值加性退化；目标选择=**轮询**（gen % 11）+动量（改善同向、
+被拒反向），替代阶段 1 的单点贪心。Pareto 前沿**按阶段分档**
+（`out/frontier_stage2.json`）——阶段 1 前沿与阶段 2 目标空间不同，
+混档会导致跨阶段支配误判（实测 gen23 因此被误拒，已修）。
+
+### §6.3 复测降级
+
+收尾用 `--permute-chapters`（scratch 里按种子置换 chapter_facts 的 fact_json，
+行序不动）以 2 个种子重评当前最优；任一内层 topo 指标抖动 >0.01 即降级
+（移出前沿 + journal 记 downgraded_unstable）。
+
 ## 阶段 1 设计（2026-09-18 调研后定型）
 
 ### (a) 可变异基因位
@@ -93,11 +149,14 @@ cd backend
 .venv/bin/python scripts/evolve/run_loop.py --generations 3 --dry-run
 # 阶段 1 live 进化（真实评估：golden 门禁 + geo 未解析率逐轮重算）
 .venv/bin/python scripts/evolve/run_loop.py --stage 1 --generations 20 --eval-backend live
+# 阶段 2 live 进化（权重扰动 + rebuild 拓扑指标 + 收尾复测与全量门禁）
+.venv/bin/python scripts/evolve/run_loop.py --stage 2 --generations 22
 # 报告
 .venv/bin/python scripts/evolve/run_loop.py --report
 # 重建基线（含 geo.unresolved_rate）
 .venv/bin/python scripts/evolve/build_baseline.py
 ```
 
-产物：`baseline.json` / `vocab_delta.json` / `evolution_journal.jsonl`（git 跟踪）；
-`out/`（dashboard 产物、frontier.json，gitignored）。
+产物：`baseline.json` / `vocab_delta.json` / `weights_state.json` /
+`evolution_journal.jsonl`（git 跟踪）；`out/`（dashboard 产物、frontier*.json、
+candidate_params.json，gitignored）。
