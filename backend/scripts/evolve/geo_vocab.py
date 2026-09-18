@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sqlite3
@@ -286,9 +287,53 @@ class GeoSupplementDeltaOperator:
 
     name = "geo_supplement_delta"
 
-    def __init__(self, *, batch_size: int = 10, db_path: Path = REAL_DB):
+    def __init__(self, *, batch_size: int = 10, db_path: Path = REAL_DB,
+                 novel_policy: str = "largest_pool"):
         self.batch_size = batch_size
         self.db_path = db_path
+        # 阶段 4 元层回放选出的可选策略(默认 largest_pool = 阶段 1 实际行为):
+        # max_marginal=边际收益最大(批次条数/该本地名数,回放离线最优);
+        # round_robin=轮询;ucb1=UCB1(奖励=已接受降幅,经 note_outcome 回写)
+        self.novel_policy = novel_policy
+        self._ucb: dict = {"counts": {}, "rewards": {}}
+        self._rr_cursor = 0
+
+    def note_outcome(self, slug: str, rate_gain: float) -> None:
+        """UCB1 奖励回写(接受后由主循环调用)。"""
+        self._ucb["counts"][slug] = self._ucb["counts"].get(slug, 0) + 1
+        self._ucb["rewards"][slug] = self._ucb["rewards"].get(slug, 0.0) + rate_gain
+
+    def _pick_novel(self, pools: dict) -> tuple[str | None, dict | None]:
+        """按 novel_policy 选目标小说(均跳过空池;破平按 NOVELS 次序)。"""
+        avail = [(slug, p) for slug, _t, _ in NOVELS
+                 if (p := pools.get(slug)) and p["pool_size"] > 0]
+        if not avail:
+            return None, None
+        if self.novel_policy == "largest_pool":
+            return max(avail, key=lambda kv: kv[1]["pool_size"])
+        if self.novel_policy == "max_marginal":
+            return max(avail, key=lambda kv: min(kv[1]["pool_size"], self.batch_size)
+                       / max(kv[1]["names"], 1))
+        if self.novel_policy == "round_robin":
+            for i in range(len(NOVELS)):
+                slug = NOVELS[(self._rr_cursor + i) % len(NOVELS)][0]
+                for s, p in avail:
+                    if s == slug:
+                        self._rr_cursor = (self._rr_cursor + i + 1) % len(NOVELS)
+                        return s, p
+        if self.novel_policy == "ucb1":
+            counts, rewards = self._ucb["counts"], self._ucb["rewards"]
+            total = sum(counts.values())
+
+            def score(kv):
+                slug, _p = kv
+                if counts.get(slug, 0) == 0:
+                    return float("inf")
+                return (rewards.get(slug, 0.0) / counts[slug]
+                        + math.sqrt(2 * math.log(max(total, 1)) / counts[slug]))
+
+            return max(avail, key=score)
+        raise ValueError(f"未知 novel_policy: {self.novel_policy}")
 
     def build_pools(self, store: dict, resolver=None,
                     conn: sqlite3.Connection | None = None) -> dict[str, dict]:
@@ -353,12 +398,7 @@ class GeoSupplementDeltaOperator:
     def __call__(self, genome: dict, context: dict) -> dict:
         """OPERATORS 协议：(genome, context) → candidate。context 需带 pools。"""
         pools = context.get("pools") or {}
-        # 目标小说：剩余池最大者（确定顺序按 NOVELS 次序破平）
-        best_slug, best = None, None
-        for slug, _t, _ in NOVELS:
-            p = pools.get(slug)
-            if p and p["pool_size"] > 0 and (best is None or p["pool_size"] > best["pool_size"]):
-                best_slug, best = slug, p
+        best_slug, best = self._pick_novel(pools)
         if best is None:
             return {
                 "operator": self.name,

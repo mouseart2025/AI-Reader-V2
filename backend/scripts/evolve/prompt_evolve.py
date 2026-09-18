@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -437,6 +438,8 @@ class GEPAReflectOperator:
             "history": history[-5:],
             "stagnation_note": context.get("stagnation_note"),
         }, ensure_ascii=False, indent=2)
+        # 元层(§4.4):提议器输入快照哈希,供回放器校验轨迹一致性
+        payload_hash = hashlib.sha256(base_payload.encode()).hexdigest()
 
         # 带反馈重试：anti-hack 命中或输出畸形时,把被拒原因喂回提议器重写
         # (被拒的变异本身已按 §6.3 记录;重写产生的是新提议)
@@ -468,6 +471,7 @@ class GEPAReflectOperator:
                     "new_section": new_section,
                     "attempts": attempt + 1,
                     "retry_errors": errors,
+                    "context_hash": payload_hash,
                 }
             feedback = (f"\n\n# 上次输出被拒：新增文本含有禁用具体地名 "
                         f"{anti_hack_hits}（它们属于评测基准答案,写入 prompt 即作弊）。"
@@ -479,4 +483,5 @@ class GEPAReflectOperator:
             "rejected_anti_hack": anti_hack_hits,
             "attempts": 3,
             "retry_errors": errors,
+            "context_hash": payload_hash,
         }
