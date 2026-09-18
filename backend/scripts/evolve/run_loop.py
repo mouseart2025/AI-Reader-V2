@@ -35,6 +35,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import copy
 import glob
 import hashlib
@@ -73,6 +74,13 @@ FROZEN_FILES: list[str] = [
     "backend/scripts/quality_loop.py",
     "backend/src/utils/topology_metrics.py",
     "backend/scripts/evolve/eval_policy.yaml",
+    # 阶段 3:prompt 级评估的冻结基准与提议器/judge prompt(§6.1 提议器不外置)
+    "backend/scripts/evolve/fixtures/stage3_chapters.json",
+    "backend/scripts/evolve/fixtures/stage3_t_set.json",
+    "backend/scripts/evolve/fixtures/stage3_e0_baseline.json",
+    "backend/scripts/evolve/prompts/propose_s3.txt",
+    "backend/scripts/evolve/prompts/judge_spotcheck_s3.txt",
+    "backend/scripts/evolve/prompts/extract_user_s3.txt",
 ]
 FROZEN_GLOBS: list[str] = [
     "backend/tests/fixtures/golden_standard_*.json",
@@ -85,6 +93,8 @@ METRIC_DIRECTION: dict[str, str] = {
     "golden.pass_rate": "higher",
     "m6.shuihu_subtype_accuracy": "higher",
     "m6.xiyouji_mock_category": "higher",
+    # 阶段 3:内层三本 prompt.recall 的宏均值(显著性判定主键,噪声底见 v3)
+    "macro.prompt.recall": "higher",
 }
 PER_NOVEL_METRICS: dict[str, str] = {
     "m1.orphan_rate": "lower",
@@ -102,6 +112,10 @@ PER_NOVEL_METRICS: dict[str, str] = {
     # 阶段 2 结构护栏（全五本；rebuild 后 orphan 恒 0，改用这两个）
     "rebuild.max_children": "lower",
     "rebuild.root_count": "lower",
+    # 阶段 3 预注册（eval_policy v3）：冻结章节子集上的 prompt 敏感指标
+    "prompt.recall": "higher",
+    "prompt.count_inflation": "lower",
+    "prompt.generic_rate": "lower",
 }
 
 # ── 变异算子注册表（PROPOSE 接口）────────────────────────────────────
@@ -650,11 +664,24 @@ def archive_candidate(frontier: list[dict], candidate: dict,
     # JIT-Agent 入档规则：相对父代质量不降且至少一维严格改善
     nc, nr = _norm(cvec), _norm(ref)
     common = sorted(set(nc) & set(nr))
-    strictly_better = [k for k in common if nc[k] > nr[k]]
     if policy is not None:
+        # 显著性下限(thresholds.min_improvement,按后缀匹配):改善幅度须超过
+        # 预注册噪声底才算"严格改善"(阶段 3 起;缺省 0 = 任意严格改善)
+        min_imp = policy["thresholds"].get("min_improvement", {})
+
+        def _improved(k: str) -> bool:
+            suffix = k.split(".", 1)[1] if k not in METRIC_DIRECTION and "." in k else k
+            thr = float(min_imp.get(suffix, 0.0))
+            d = cvec[k] - ref[k]
+            if direction_for(k) == "higher":
+                return d > thr + _EPS
+            return -d > thr + _EPS
+
+        strictly_better = [k for k in common if _improved(k)]
         worse = [k for k in common
                  if regressed_beyond_threshold(k, cvec[k], ref[k], policy)]
     else:
+        strictly_better = [k for k in common if nc[k] > nr[k]]
         worse = [k for k in common if nc[k] < nr[k]]
     if worse or not strictly_better:
         return frontier, "rejected_no_improvement"
@@ -1536,13 +1563,429 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
     return ql_exit
 
 
+# ── 阶段 3：prompt 级 live 进化（GEPA 模式）──────────────────────────
+
+FRONTIER_STAGE3_PATH = OUT_DIR / "frontier_stage3.json"
+REVIEW_MD_PATH = OUT_DIR / "stage3_review.md"
+
+
+def _stage3_parent_vec_from_fixture(e0: dict) -> dict[str, float]:
+    """E0 冻结基线 → 父代向量（原 prompt,无 LLM 消耗）。"""
+    vec: dict[str, float] = {}
+    recalls = []
+    for slug, d in e0["novels"].items():
+        vec[f"{slug}.prompt.recall"] = float(d["recall_a"])
+        vec[f"{slug}.prompt.count_inflation"] = 1.0
+        vec[f"{slug}.prompt.generic_rate"] = float(d["generic_rate_a"])
+        recalls.append(float(d["recall_a"]))
+    if recalls:
+        vec["macro.prompt.recall"] = sum(recalls) / len(recalls)
+    return vec
+
+
+def _stage3_vec_from_metrics(metrics: dict[str, dict]) -> dict[str, float]:
+    """快速层 per-novel 指标 → 拍平向量(含 macro.prompt.recall 宏均值)。"""
+    vec: dict[str, float] = {}
+    recalls = []
+    for slug, m in metrics.items():
+        for k, v in m.items():
+            if isinstance(v, (int, float)) and k != "e_size":
+                vec[f"{slug}.{k}"] = float(v)
+        if isinstance(m.get("prompt.recall"), (int, float)):
+            recalls.append(float(m["prompt.recall"]))
+    if recalls:
+        vec["macro.prompt.recall"] = sum(recalls) / len(recalls)
+    return vec
+
+
+def _append_review(path: Path, record: dict, diff_text: str) -> None:
+    """人工复核汇总：每代的假设/diff/指标变化追加到 stage3_review.md。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n## gen{record['generation']} — {record['decision']}\n\n")
+        f.write(f"- 假设: {record.get('hypothesis', '')}\n")
+        f.write(f"- 时间: {record.get('timestamp')} · 成本: "
+                f"${record.get('cost', {}).get('cost_usd', 0):.4f}\n")
+        if record.get("metrics"):
+            m = record["metrics"]
+            recalls = {k: round(v, 4) for k, v in m.items() if ".prompt.recall" in k}
+            f.write(f"- recall: {recalls}\n")
+        if record.get("judge"):
+            f.write(f"- judge 抽检: supported_rate="
+                    f"{record['judge'].get('supported_rate')} (n={record['judge'].get('n')})\n")
+        if diff_text:
+            f.write("\n```diff\n" + diff_text + "\n```\n")
+
+
+async def _eval_stage3_candidate(state: dict, fixtures: dict, cost_acc: dict,
+                                 llm_budget) -> dict:
+    """阶段 3 EVAL 快速层：候选段落渲染 system prompt → 冻结子集重抽 → 指标。"""
+    import prompt_evolve as pe
+
+    genres = fixtures["genres"]
+    section = pe.current_section(state)
+    system_by_slug = {slug: pe.build_system_prompt(section, genres[slug])
+                      for slug in pe.INNER}
+    extracted = await pe.extract_subset(system_by_slug,
+                                        fixtures["chapters"], cost_acc, llm_budget)
+    metrics = pe.fast_layer_metrics(extracted, fixtures["t_set"],
+                                    fixtures["e0"]["novels"],
+                                    fixtures["chapters"])
+    return {"extracted": extracted, "metrics": metrics}
+
+
+def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
+    """阶段 3 主循环：GEPA 反思提议 + 分层评估 + judge 抽检 + 门禁/入档。"""
+    import difflib
+
+    import prompt_evolve as pe
+
+    check_frozen_or_abort()  # §6.1 评估器外置(含提议器/judge prompt 与冻结基准)
+
+    from dotenv import load_dotenv
+
+    load_dotenv(_BACKEND_DIR / ".env", override=True)
+
+    genome = load_yaml_config(GENOME_PATH, validate_genome)
+    policy = load_yaml_config(EVAL_POLICY_PATH, validate_eval_policy)
+    budget_s = float(policy["budget"]["wall_clock_seconds_per_generation"])
+    llm_limit = int(policy["budget"].get("llm_calls_per_generation", 100))
+    cost_limit = float(policy["budget"].get("max_cost_usd_per_generation", 2.0))
+    pop_max = int(policy["pareto"]["population_max"])
+    pause_after = int(policy.get("guardrails", {})
+                      .get("no_improvement_pause_generations", 5))
+    judge_min = float(policy.get("metrics", {}).get("judge_min_supported", 0.7))
+
+    state = pe.load_state()
+    if pe.heal_prompt_file(state):
+        print("[evolve] prompt 文件偏离已提交状态，已按 prompt_state.json 重渲染自愈")
+    fixtures = {
+        "chapters": json.loads(pe.CHAPTERS_FIXTURE.read_text(encoding="utf-8")),
+        "t_set": json.loads(pe.T_SET_FIXTURE.read_text(encoding="utf-8")),
+        "e0": json.loads(pe.E0_FIXTURE.read_text(encoding="utf-8")),
+        "genres": pe.load_genre_hints(),
+    }
+    golden_names = pe.load_golden_names()
+
+    frontier = load_frontier(FRONTIER_STAGE3_PATH)
+    gen0 = next_generation()
+    journal_records = _load_jsonl_tail(JOURNAL_PATH, n=10_000)
+
+    # 父代:无 override 时用 E0 冻结基线(零 LLM);有 override(续跑)时实测
+    parent_ref: dict = {"type": "baseline", "fixture": "stage3_e0_baseline"}
+    if state["override_section"] is None:
+        parent_vec = _stage3_parent_vec_from_fixture(fixtures["e0"])
+        current_extracted = None  # None = 失败轨迹用 E0 并集近似
+        print("[evolve] 父代=E0 冻结基线 recall: "
+              + " ".join(f"{s}={parent_vec[f'{s}.prompt.recall']:.4f}" for s in pe.INNER))
+    else:
+        print("[evolve] 续跑检测:存在已接受 prompt 变异,实测当前状态作为父代...")
+        cost0 = {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
+        res = asyncio.run(_eval_stage3_candidate(state, fixtures, cost0,
+                                                 LlmBudget(llm_limit)))
+        parent_vec = _stage3_vec_from_metrics(res["metrics"])
+        current_extracted = res["extracted"]
+        print(f"[evolve] 父代实测成本 ${cost0['cost_usd']:.4f}")
+
+    no_improve_streak = 0
+    total_cost = 0.0
+    for i in range(generations):
+        generation = gen0 + i
+        t0 = time.monotonic()
+        llm_budget = LlmBudget(llm_limit)
+        cost_acc = {"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
+        print(f"\n[evolve] ══ generation {generation} ══")
+
+        # 1. ANALYZE:失败轨迹(相对当前生效 prompt 的漏提) + prompt 变异史
+        e_current = current_extracted
+        if e_current is None:
+            # 原 prompt:用 E0 A 跑结果构造按章视图不可得,E0 存的是并集;
+            # 失败轨迹用并集近似(语境窗口仍按章取)
+            e_current = {}
+            for slug in pe.INNER:
+                e0_names = set(fixtures["e0"]["novels"][slug]["names"])
+                e_current[slug] = {ch: [n for n in e0_names]  # 并集近似
+                                   for ch in fixtures["chapters"][slug]}
+        failures = pe.build_failure_trajectory(fixtures["t_set"], e_current)
+        prompt_history = [
+            {"generation": r.get("generation"), "hypothesis": r.get("hypothesis"),
+             "decision": r.get("decision"),
+             "gate_failures": (r.get("gate") or {}).get("failures"),
+             "recall": {k: v for k, v in (r.get("metrics") or {}).items()
+                        if ".prompt.recall" in k}}
+            for r in journal_records if r.get("stage") == 3
+        ]
+        # §4.3 同质停滞护栏:近 2 代提议假设雷同(确定性提议器在不变轨迹下
+        # 会产出同样文本) → 在轨迹里附停滞警示,强制换角度(提议器 prompt
+        # 本身冻结,此为轨迹数据而非 prompt 变更)
+        stagnation_note = None
+        recent_hyps = [h.get("hypothesis", "")[:60] for h in prompt_history[-2:]]
+        if len(recent_hyps) == 2 and recent_hyps[0] == recent_hyps[1]:
+            failed_approaches = [h.get("hypothesis", "")[:100]
+                                 for h in prompt_history[-5:]]
+            stagnation_note = (
+                "停滞警示:最近几次提议的假设完全雷同且均被门禁拒绝"
+                f"（失败原因: {[h.get('gate_failures') for h in prompt_history[-5:]]}）。"
+                "必须换一个完全不同的机制角度,不得重复以下已失败思路: "
+                + " / ".join(failed_approaches)
+            )
+        context = {
+            "current_section": pe.current_section(state),
+            "original_section": state["original_section"],
+            "failure_trajectory": failures,
+            "prompt_history": prompt_history,
+            "stagnation_note": stagnation_note,
+            "golden_names": golden_names,
+            "guard_snapshot": {k: round(v, 4) for k, v in parent_vec.items()
+                               if ".prompt." in k},
+        }
+        print(f"[evolve][analyze] 失败样例 {len(failures)} 条; "
+              f"prompt 变异史 {len(prompt_history)} 条")
+
+        # 2. PROPOSE(GEPA 反思,冻结提议器 prompt)
+        operator = pe.GEPAReflectOperator(llm_budget, cost_acc)
+        try:
+            candidate = asyncio.run(operator.propose_async(genome, context))
+        except LlmBudgetExceeded as err:
+            print(f"[evolve][propose] ❌ {err},该代记失败变异")
+            candidate = None
+            record = {
+                "generation": generation,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "operator": "prompt_gepa_reflect", "hypothesis": "",
+                "genome_diff": {}, "eval_backend": "live", "metrics": None,
+                "gate": {"passed": False, "failures": ["llm_budget"]},
+                "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                         "llm_calls": llm_budget.calls,
+                         "cost_usd": round(cost_acc["cost_usd"], 4)},
+                "parent": parent_ref, "decision": "failed_llm_budget",
+                "error": str(err), "dry_run": False, "stage": 3,
+            }
+            commit_journal(record)
+            journal_records.append(record)
+            no_improve_streak += 1
+            if no_improve_streak >= pause_after:
+                print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进，自动暂停。")
+                break
+            continue
+        except Exception as err:
+            print(f"[evolve][propose] ❌ 提议异常: {type(err).__name__}: {err}")
+            record = {
+                "generation": generation,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "operator": "prompt_gepa_reflect", "hypothesis": "",
+                "genome_diff": {}, "eval_backend": "live", "metrics": None,
+                "gate": {"passed": False, "failures": ["proposal_error"]},
+                "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                         "llm_calls": llm_budget.calls,
+                         "cost_usd": round(cost_acc["cost_usd"], 4)},
+                "parent": parent_ref, "decision": "failed_proposal",
+                "error": f"{type(err).__name__}: {err}", "dry_run": False, "stage": 3,
+            }
+            commit_journal(record)
+            journal_records.append(record)
+            no_improve_streak += 1
+            if no_improve_streak >= pause_after:
+                print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进，自动暂停。")
+                break
+            continue
+
+        print(f"[evolve][propose] 假设: {candidate['hypothesis']}")
+
+        # anti-hack 拒绝(新增文本含 golden 答案串)
+        if candidate.get("rejected_anti_hack"):
+            print(f"[evolve][anti-hack] 拒绝:新增文本含 golden 答案串 "
+                  f"{candidate['rejected_anti_hack']}")
+            record = {
+                "generation": generation,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "operator": candidate["operator"],
+                "hypothesis": candidate["hypothesis"],
+                "genome_diff": {}, "eval_backend": "live", "metrics": None,
+                "gate": {"passed": False, "failures": ["anti_hack_golden_terms"]},
+                "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                         "llm_calls": llm_budget.calls,
+                         "cost_usd": round(cost_acc["cost_usd"], 4)},
+                "parent": parent_ref, "decision": "rejected_anti_hack",
+                "anti_hack_rejected": candidate["rejected_anti_hack"],
+                "dry_run": False, "stage": 3,
+            }
+            commit_journal(record)
+            journal_records.append(record)
+            no_improve_streak += 1
+            if no_improve_streak >= pause_after:
+                print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进，自动暂停。")
+                break
+            continue
+
+        new_section = candidate["new_section"]
+        diff_text = "\n".join(difflib.unified_diff(
+            pe.current_section(state).splitlines(), new_section.splitlines(),
+            lineterm="", n=2))
+
+        # 3. APPLY(段落替换;finally 逐字节还原到已提交状态)
+        pe.apply_section(state, new_section)
+        gen_parent_ref = parent_ref
+        prev_parent_vec = parent_vec
+        decision = "failed_error"
+        vec: dict | None = None
+        gate_result = {"passed": False, "failures": ["eval_error"]}
+        judge_result: dict | None = None
+        error: str | None = None
+        try:
+            # 4. EVAL 快速层(冻结子集重抽)
+            trial_state = dict(state, override_section=new_section)
+            result = asyncio.run(_eval_stage3_candidate(
+                trial_state, fixtures, cost_acc, llm_budget))
+            extracted = result["extracted"]
+            vec = _stage3_vec_from_metrics(result["metrics"])
+            elapsed = round(time.monotonic() - t0, 3)
+            over_wall = elapsed > budget_s
+            over_cost = cost_acc["cost_usd"] > cost_limit
+            print(f"[evolve][eval] 快速层 {len(vec)} 维 耗时 {elapsed}s "
+                  f"llm_calls={llm_budget.calls} 成本=${cost_acc['cost_usd']:.4f}"
+                  f"（预算 {budget_s:.0f}s/${cost_limit}）"
+                  + (" ⚠️超预算记失败" if over_wall or over_cost else ""))
+
+            # 5. GATE(快速层门禁)
+            gate_result = gate(vec, parent_vec, policy)
+            gate_passed = gate_result["passed"] and not over_wall and not over_cost
+            if over_wall:
+                gate_result["failures"] += ["wall_clock_budget"]
+            if over_cost:
+                gate_result["failures"] += ["cost_budget"]
+            print(f"[evolve][gate] {'通过' if gate_passed else '拒绝'} "
+                  f"(failures: {gate_result['failures'] or '无'})")
+
+            # 6. 确认层:judge 抽检(§6.3 逐级加严,过门禁才花这个钱)
+            if gate_passed:
+                judge_result = asyncio.run(pe.judge_spotcheck(
+                    extracted, {s: {"names": fixtures["e0"]["novels"][s]["names"]}
+                                for s in pe.INNER}, cost_acc, llm_budget))
+                rate = judge_result.get("supported_rate")
+                if rate is not None and rate < judge_min:
+                    gate_passed = False
+                    gate_result["failures"] += ["judge_spotcheck"]
+                    print(f"[evolve][judge] ❌ 新增地名 supported_rate={rate:.2f} "
+                          f"< {judge_min}(n={judge_result['n']})")
+                else:
+                    print(f"[evolve][judge] 抽检通过 supported_rate={rate} "
+                          f"(n={judge_result['n']})")
+
+            # 7. ARCHIVE(min_improvement 按噪声底预注册)
+            if gate_passed:
+                entry = {
+                    "generation": generation,
+                    "operator": candidate["operator"],
+                    "genome_diff": candidate["genome_diff"],
+                    "metrics": vec,
+                    "parent_metrics": parent_vec,
+                }
+                frontier, decision = archive_candidate(frontier, entry, pop_max,
+                                                       policy)
+                save_frontier(frontier, FRONTIER_STAGE3_PATH)
+            else:
+                decision = "rejected_gate" if not gate_result["passed"] \
+                    else "rejected_budget"
+        except LlmBudgetExceeded as err:
+            error = str(err)
+            decision = "failed_llm_budget"
+            gate_result = {"passed": False, "failures": ["llm_budget"]}
+            print(f"[evolve][eval] ❌ {error}，该代记失败变异")
+        except Exception as err:
+            error = f"{type(err).__name__}: {err}"
+            gate_result = {"passed": False, "failures": ["eval_error"]}
+            print(f"[evolve][eval] ❌ 评估异常: {error}，该代记失败变异")
+        finally:
+            # 还原到已提交状态(接受时文件已是新状态,apply 幂等)
+            pe.apply_section(state, pe.current_section(state))
+
+        # 接受:提交 override 落 state
+        if decision.startswith("archived"):
+            state["override_section"] = new_section
+            state["history"].append({
+                "generation": generation,
+                "hypothesis": candidate["hypothesis"],
+                "sha256": hashlib.sha256(new_section.encode()).hexdigest()[:16],
+            })
+            pe.save_state(state)
+            parent_vec = vec
+            parent_ref = {"type": "generation", "generation": generation}
+            current_extracted = extracted
+        print(f"[evolve][archive] 决策: {decision} (前沿大小 {len(frontier)}/{pop_max})")
+
+        # 8. COMMIT + review.md
+        record = {
+            "generation": generation,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "operator": candidate["operator"],
+            "hypothesis": candidate["hypothesis"],
+            "genome_diff": candidate["genome_diff"],
+            "eval_backend": "live",
+            "metrics": vec,
+            "gate": {"passed": gate_result["passed"],
+                     "failures": gate_result["failures"]},
+            "judge": judge_result and {"supported_rate": judge_result["supported_rate"],
+                                       "n": judge_result["n"]},
+            "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                     "llm_calls": llm_budget.calls,
+                     "cost_usd": round(cost_acc["cost_usd"], 4)},
+            "parent": gen_parent_ref,
+            "decision": decision,
+            "attempts": candidate.get("attempts"),
+            "retry_errors": candidate.get("retry_errors"),
+            "error": error,
+            "dry_run": False,
+            "stage": 3,
+        }
+        commit_journal(record)
+        journal_records.append(record)
+        total_cost += cost_acc["cost_usd"]
+        _append_review(REVIEW_MD_PATH, record, diff_text)
+
+        # REPORT 每轮摘要
+        if vec is not None and prev_parent_vec is not None:
+            deltas = [f"{k}: {prev_parent_vec.get(k)}→{round(vec.get(k), 4)}"
+                      for k in sorted(vec) if ".prompt.recall" in k
+                      and vec.get(k) != prev_parent_vec.get(k)]
+            print(f"[evolve][report] gen{generation}: 决策={decision}; recall 变化: "
+                  + ("; ".join(deltas) if deltas else "无")
+                  + f"; 累计成本 ${total_cost:.3f}")
+        else:
+            print(f"[evolve][report] gen{generation}: 决策={decision}")
+
+        # §6.4 反漂移护栏
+        if decision.startswith("archived"):
+            no_improve_streak = 0
+        else:
+            no_improve_streak += 1
+        if no_improve_streak >= pause_after:
+            print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进，自动暂停。"
+                  f"诊断: 最近决策见 journal; prompt diff 复核见 {REVIEW_MD_PATH}")
+            break
+
+    # 收尾全量门禁
+    print("\n[evolve] 收尾:quality_loop 全量门禁...")
+    import quality_loop as ql
+
+    _rec, _prev, rows, ql_exit = ql.run_loop(tag="evolve-stage3-final")
+    n_fail = sum(1 for r in rows if r.get("verdict") == "fail")
+    print(f"[evolve] quality_loop exit={ql_exit} hard_fails={n_fail}")
+    print(f"[evolve] 阶段 3 总 LLM 成本 ≈ ${total_cost:.4f}")
+    print(f"[evolve] 人工复核材料: {REVIEW_MD_PATH}")
+
+    print("\n[evolve] 循环结束。")
+    print(render_report())
+    return ql_exit
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="GeoEvolve 进化循环（阶段 0 骨架 / 阶段 1 词表级 ACE / 阶段 2 权重级 Pareto）",
         epilog="规格: docs/analysis/geo-self-evolve-methodology.md §4.3/§5/§6",
     )
-    parser.add_argument("--stage", type=int, choices=[0, 1, 2], default=0,
-                        help="进化阶段：0=恒等变异骨架；1=词表级 ACE；2=权重/参数级 Pareto")
+    parser.add_argument("--stage", type=int, choices=[0, 1, 2, 3], default=0,
+                        help="进化阶段：0=恒等骨架；1=词表级 ACE；2=权重级 Pareto；3=prompt 级 GEPA")
     parser.add_argument("--generations", type=int, default=1, help="进化轮数")
     parser.add_argument("--batch-size", type=int, default=10,
                         help="阶段 1 每代提议的 delta 条数")
@@ -1577,6 +2020,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_evolution_stage2(generations=args.generations,
                                     no_pytest=args.no_pytest,
                                     force_param=args.force_param)
+    if args.stage == 3:
+        return run_evolution_stage3(generations=args.generations)
     return run_evolution(generations=args.generations, eval_backend=args.eval_backend,
                          dry_run=args.dry_run, no_pytest=args.no_pytest)
 

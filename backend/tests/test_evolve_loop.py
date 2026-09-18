@@ -208,6 +208,13 @@ def fake_repo(tmp_path: Path) -> Path:
         "backend/scripts/evolve/eval_policy.yaml": "version: 0\n",
         "backend/tests/fixtures/golden_standard_a.json": '{"a": 1}\n',
         "backend/tests/fixtures/golden_standard_b.json": '{"b": 2}\n',
+        # 阶段 3 冻结基准与提议器/judge prompt
+        "backend/scripts/evolve/fixtures/stage3_chapters.json": "{}\n",
+        "backend/scripts/evolve/fixtures/stage3_t_set.json": "{}\n",
+        "backend/scripts/evolve/fixtures/stage3_e0_baseline.json": "{}\n",
+        "backend/scripts/evolve/prompts/propose_s3.txt": "propose\n",
+        "backend/scripts/evolve/prompts/judge_spotcheck_s3.txt": "judge\n",
+        "backend/scripts/evolve/prompts/extract_user_s3.txt": "extract\n",
     }
     for rel, content in files.items():
         p = tmp_path / rel
@@ -219,7 +226,7 @@ def fake_repo(tmp_path: Path) -> Path:
 class TestFrozenManifest:
     def test_roundtrip_passes(self, fake_repo: Path, tmp_path: Path):
         manifest = rl.build_manifest(fake_repo)
-        assert len(manifest["files"]) == 6  # 4 固定 + 2 glob
+        assert len(manifest["files"]) == 12  # 6 阶段 3 新增 + 4 固定 + 2 glob
         mp = tmp_path / "manifest.json"
         mp.write_text(json.dumps(manifest), encoding="utf-8")
         assert rl.verify_manifest(mp, fake_repo) == []
