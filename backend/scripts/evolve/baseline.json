@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "measured_at": "2026-09-18T03:26:20.328822+00:00",
+  "measured_at": "2026-09-18T03:55:45.168576+00:00",
   "db_md5": "60dc2e4c45bf56a38aa6a45fe264870c",
   "db_path": "~/.ai-reader-v2/data.db（只读；测量在 scratch 副本上进行）",
   "scratch_db": "/tmp/q0-data/data.db",
@@ -36,7 +36,7 @@
         "m4.generic_residue": 0.04470359572400389,
         "m5.m5": 0.8883333333333333,
         "satisfaction": 0.2857142857142857,
-        "geo.unresolved_rate": 0.8087378640776699
+        "geo.unresolved_rate": 0.8077669902912621
       },
       "missing": [],
       "dashboard_file": "out/dashboard/xiyouji.json"
@@ -51,7 +51,7 @@
         "m3.direction_error_rate": 0.0,
         "m4.generic_residue": 0.048894062863795114,
         "m5.m5": 0.8974666666666667,
-        "geo.unresolved_rate": 0.8697674418604651
+        "geo.unresolved_rate": 0.8686046511627907
       },
       "missing": [
         "satisfaction"
@@ -68,7 +68,7 @@
         "m3.direction_error_rate": 0.00546448087431694,
         "m4.generic_residue": 0.038285714285714284,
         "m5.m5": 0.8470322580645161,
-        "geo.unresolved_rate": 0.7652769845802398
+        "geo.unresolved_rate": 0.6870359794403198
       },
       "missing": [
         "satisfaction"
@@ -85,7 +85,7 @@
         "m3.direction_error_rate": 0.0,
         "m4.generic_residue": 0.04239212717638153,
         "m5.m5": 0.9146666666666666,
-        "geo.unresolved_rate": 0.6580937972768532
+        "geo.unresolved_rate": 0.6558245083207261
       },
       "missing": [
         "satisfaction"

@@ -4,22 +4,38 @@
 # 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
 # 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
 
-version: 1
-stage: 1
+version: 2
+stage: 2
 
-# ── 阶段 1 预注册指标（2026-09-18 加入，随本文件冻结）────────────────
-# <slug>.geo.unresolved_rate（越低越好）：取 world_structures.location_parents
-# 全集地名（冻结 DB 只读），用生产函数 GeoResolver(dataset_key="cn")
-# .resolve_names(names, parent_map) 解析，unresolved_rate = 1 − |resolved|/|names|。
-# 对 supplement 字典变异直接敏感；纯规则本地数据，每轮全五本重算 ≈6s。
-# 已知口径偏差：西游生产 geo_type=fantasy（正常管线不解析），本指标绕过
-# geo_type 门测量"解析器+字典覆盖能力"，非生产行为重放。
+# ── 阶段 2 预注册指标（2026-09-18 加入，随本文件冻结）────────────────
+# <slug>.topo.{parent_precision,parent_recall,chain_accuracy}（越高越好,内层三本）:
+#   scratch DB 上跑规则管线(build_default_orchestrator fresh=True)重建层级,
+#   最终 location_parents vs golden fixture 的 topology_metrics。
+#   封神无硬编码先验会走 LLM 路径,故封神跳过 prior skill(父代/候选同口径)。
+# <slug>.rebuild.{max_children,root_count}（越低越好,全五本）:rebuild 树结构护栏
+#   (rebuild 后 orphan 恒 0,orphan_rate 不具备区分度,故换这两个)。
+# stability_jitter_threshold: §6.3 换章节顺序复测的抖动阈值,超过则当前最优降级。
 metrics:
   geo_unresolved_rate:
     direction: lower
     scope: per_novel
     source: backend/scripts/evolve/compute_geo_metrics.py
     added_in_stage: 1
+  topo_metrics:
+    direction: higher
+    scope: per_novel_inner
+    source: backend/scripts/evolve/compute_weight_metrics.py
+    added_in_stage: 2
+  rebuild_struct_guard:
+    direction: lower
+    scope: per_novel
+    source: backend/scripts/evolve/compute_weight_metrics.py
+    added_in_stage: 2
+  stability_jitter_threshold: 0.01
+  # §6.3 复测降级口径(v2.2 修正):候选 topo 抖动 > 基线(默认参数)换序抖动
+  # + stability_jitter_threshold 才降级。绝对口径会把默认参数自身也降级
+  # (实测默认参数 seed=23 换序抖动 0.0209——率型 topo 指标的换序噪声底)。
+  stability_rule: candidate_jitter > baseline_jitter + threshold
 
 # ── 评估集划分（§4.2 双集）─────────────────────────────────────────
 datasets:
@@ -39,6 +55,15 @@ thresholds:
   per_novel_regression_abs: 0.01
   # golden 门禁：pass_rate 硬阈值（与 quality_loop 一致）
   golden_pass_rate_min: 1.0
+  # 分指标口径覆写（阶段 2 起,按指标后缀匹配）:计数型结构护栏不适用
+  # 0.01 绝对阈值(那是率型指标的口径)。relative=劣化超 ref 的该倍数即拒;
+  # abs=绝对阈值覆写。口径理由:guard 意图是防结构爆炸,不是冻结参数本身
+  # (三国基线 DB 层级 max_children 即有 93,64→87 非爆炸)。
+  guard_overrides:
+    rebuild.max_children:
+      relative: 1.5
+    rebuild.root_count:
+      abs: 3.0
 
 # ── Pareto 前沿（§4.2/§4.3 ARCHIVE）────────────────────────────────
 pareto:

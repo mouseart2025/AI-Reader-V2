@@ -51,27 +51,94 @@ genes:
   weights_params:
     level: 2
     mutable_from_stage: 2
+    # 阶段 2(2026-09-18):真值已落。注入机制=EVOLVE_PARAMS_JSON 环境变量经
+    # src/services/geo_skills/evolve_params.py(默认关,生产行为不变);
+    # current=代码原值(单一事实源),进化接受值见 weights_state.json。
+    state_file: weights_state.json
+    injection: EVOLVE_PARAMS_JSON → src/services/geo_skills/evolve_params.py
     loci:
       recall_pass_min_signals:
         description: RECALL_PASS 触发所需最少信号数；0 表示仅"双空"触发
-        source: backend/src/infra/config.py
+        source: backend/src/infra/config.py:89
         current: 2
-      parent_vote_weights:
-        description: parent 票聚合权重（VoteBuilder 内部）
-        source: backend/src/services/geo_skills/vote_builder.py  # TODO: 核实路径
-        current: TODO
-      edmonds_prior_weights:
-        description: edmonds 最大生成树先验权重（EdmondsResolver 内部）
-        source: backend/src/services/geo_skills/edmonds_resolver.py
-        current: TODO
-      constraint_solver_weights:
-        description: ConstraintSolver 各约束权重（满意度计算）
-        source: backend/src/services/map_layout_service.py
-        current: TODO
-      tier_confidence_thresholds:
-        description: tier 分类/置信阈值（TierClassifier 内部）
-        source: backend/src/services/geo_skills/tier_classifier.py
-        current: TODO
+        # 不在层级 rebuild 路径上,阶段 2 不进变异池
+      vote_builder.chapter_slope:
+        description: 章节权重斜率(第 i 章权重=1+slope·i/total,后章证据加权)
+        source: backend/src/services/geo_skills/vote_builder.py:123
+        default: 0.5
+        range: [0.0, 2.0]
+        type: float
+        current: 0.5
+      vote_builder.peer_discount:
+        description: peers 互指对的 parent 票折扣(防互挂)
+        source: backend/src/services/geo_skills/vote_builder.py:138
+        default: 0.33
+        range: [0.0, 1.0]
+        type: float
+        current: 0.33
+      vote_builder.spatial_high_weight:
+        description: 高置信空间关系(contains)票权(medium/low 固定 1)
+        source: backend/src/services/geo_skills/vote_builder.py:159
+        default: 2
+        range: [1.0, 4.0]
+        type: float
+        current: 2
+      vote_builder.primary_setting_weight:
+        description: 主场景推断票权(章内无 parent 地点挂到主场景)
+        source: backend/src/services/geo_skills/vote_builder.py:216
+        default: 2
+        range: [0.0, 5.0]
+        type: float
+        current: 2
+      vote_builder.baseline_weight:
+        description: 既有 parent 基线注入票权(证据门控后的保留通道)
+        source: backend/src/services/geo_skills/vote_builder.py:254
+        default: 1
+        range: [0.0, 3.0]
+        type: float
+        current: 1
+      vote_builder.uber_root_cap:
+        description: uber-root 票上限(防天下通吃)
+        source: backend/src/services/geo_skills/vote_builder.py:266
+        default: 2
+        range: [1, 5]
+        type: int
+        current: 2
+      knowledge_prior.prior_weight:
+        description: 知识先验票权(需压过噪声票、让位于强证据;典型正确票 5-15)
+        source: backend/src/services/geo_skills/knowledge_prior.py:27
+        default: 20
+        range: [5.0, 40.0]
+        type: float
+        current: 20
+      edmonds.tier_soft_penalty:
+        description: tier 倒置边软惩罚系数(parent suffix 明显小于 child 时权重折扣)
+        source: backend/src/services/geo_skills/edmonds_resolver.py:99
+        default: 0.1
+        range: [0.01, 0.5]
+        type: float
+        current: 0.1
+      edmonds.name_contain_weight:
+        description: 名包含边注入权(子名以候选地名开头;须高于典型章节票 ~1-15)
+        source: backend/src/services/geo_skills/edmonds_resolver.py:122
+        default: 25.0
+        range: [10.0, 50.0]
+        type: float
+        current: 25.0
+      edmonds.prior_threshold:
+        description: 先验覆盖 LLM parent 的票数阈值
+        source: backend/src/services/geo_skills/edmonds_resolver.py:255
+        default: 15.0
+        range: [5.0, 30.0]
+        type: float
+        current: 15.0
+      edmonds.max_children:
+        description: 度均衡子节点上限(防枢纽爆炸)
+        source: backend/src/services/geo_skills/edmonds_resolver.py:359
+        default: 30
+        range: [15, 60]
+        type: int
+        current: 30
 
   # ── level 3：prompt 类 ───────────────────────────────────────────
   prompts:
