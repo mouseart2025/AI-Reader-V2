@@ -119,3 +119,6 @@ scripts/paper-shots-v2/
 
 # WorkBuddy agent local memory (user/session specific)
 .workbuddy/
+
+# GeoEvolve 阶段 0 运行产物（baseline/journal/genome 等 tracked 文件在上一级）
+backend/scripts/evolve/out/

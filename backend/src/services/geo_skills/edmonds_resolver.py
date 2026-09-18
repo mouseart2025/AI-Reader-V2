@@ -25,6 +25,7 @@ from collections import Counter
 import networkx as nx
 
 from src.services.geo_skills.base import GeoSkill
+from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.utils.location_names import is_passage_like
 
@@ -96,7 +97,7 @@ class EdmondsResolver(GeoSkill):
                 p_suf = _get_suffix_rank(parent)
                 c_suf = _get_suffix_rank(child)
                 if p_suf is not None and c_suf is not None and p_suf > c_suf:
-                    w *= 0.1  # heavy penalty but not blocked
+                    w *= evolve_param("edmonds.tier_soft_penalty", 0.1)  # heavy penalty but not blocked
 
                 # Edge: parent → child
                 if G.has_edge(parent, child):
@@ -119,7 +120,7 @@ class EdmondsResolver(GeoSkill):
         # (e.g., "花果山辕门" starts with "花果山"), inject a high-weight
         # edge making that location the parent. This fixes 276 cases where
         # Edmonds' global optimization overrides obvious naming patterns.
-        _NAME_CONTAIN_WEIGHT = 25.0  # higher than typical chapter votes (~1-15)
+        _NAME_CONTAIN_WEIGHT = evolve_param("edmonds.name_contain_weight", 25.0)  # higher than typical chapter votes (~1-15)
         name_contain_injected = 0
         # 二级键 = 字符串本身,保证同长度项的 tie-break 确定
         # (仅按 len 排序时,stable sort 会沿用 set 迭代顺序 → 非确定)
@@ -252,7 +253,7 @@ class EdmondsResolver(GeoSkill):
 
         # Apply prior overrides from votes (KnowledgePrior injected w=20+ edges)
         # These represent domain knowledge that should override LLM extraction errors
-        _PRIOR_THRESHOLD = 15.0  # only override if prior weight is high
+        _PRIOR_THRESHOLD = evolve_param("edmonds.prior_threshold", 15.0)  # only override if prior weight is high
         prior_applied = 0
         for child, vote_counter in votes.items():
             if not vote_counter:
@@ -356,7 +357,7 @@ class EdmondsResolver(GeoSkill):
             )
 
         # ── Phase 5: Degree balancing ──
-        _MAX_CHILDREN = 30
+        _MAX_CHILDREN = evolve_param("edmonds.max_children", 30)
         parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN)
 
         # ── Final structural pass ──

@@ -1,0 +1,5 @@
+以下是小说《{title}》第{chapter_num}回《{chapter_title}》的正文片段：
+
+{content}
+
+请严格按系统提示的要求提取本章的结构化事实，输出严格 JSON。locations 数组每项必须含 name、type、parent、role 字段；其余字段按系统提示要求输出。不要输出任何解释、不要用 markdown 代码块。

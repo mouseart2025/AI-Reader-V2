@@ -1,0 +1,112 @@
+# GeoEvolve 评估策略 v0 —— 冻结门禁口径（阶段 0）
+#
+# 规格见 docs/analysis/geo-self-evolve-methodology.md §4.2 / §6.4。
+# 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
+# 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
+
+version: 3
+stage: 3
+
+# ── 阶段 3 预注册指标与噪声底（2026-09-18 实测后冻结）────────────────
+# 快速层（fixtures/stage3_*.json,全部入冻结清单）:内层三本各 5 个冻结章节
+# （dashboard seed=42 抽样章的索引 [0,2,4,6,8] 子集）上用当前 prompt 的
+# "地点提取规则"段重跑单章抽取,对照冻结 T 集（DeepSeek M2 扫描一次性冻结）。
+#   <slug>.prompt.recall          越高越好 |T∩E'|/|T|
+#   <slug>.prompt.count_inflation 越低越好 |E'|/|E0|（防"全提取"刷召回）
+#   <slug>.prompt.generic_rate    越低越好 E' 中 fact_validator 泛称命中率
+#   macro.prompt.recall           越高越好 三本 recall 宏均值（显著性主键）
+# 实测噪声底（E0 原 prompt 双跑 A/B,DeepSeek temp=0 仍非确定）:
+#   recall 单本噪声 [西游 0.0803, 红楼 0.0206, 水浒 0.0];macro 噪声 0.0199
+#   generic_rate 噪声 [0.0085, 0.0194, 0.0147]
+# 显著性阈值 = 噪声底 + 余量(见 thresholds.min_improvement / guard_overrides)。
+metrics:
+  geo_unresolved_rate:
+    direction: lower
+    scope: per_novel
+    source: backend/scripts/evolve/compute_geo_metrics.py
+    added_in_stage: 1
+  topo_metrics:
+    direction: higher
+    scope: per_novel_inner
+    source: backend/scripts/evolve/compute_weight_metrics.py
+    added_in_stage: 2
+  rebuild_struct_guard:
+    direction: lower
+    scope: per_novel
+    source: backend/scripts/evolve/compute_weight_metrics.py
+    added_in_stage: 2
+  stability_jitter_threshold: 0.01
+  # §6.3 复测降级口径(v2.2 修正):候选 topo 抖动 > 基线(默认参数)换序抖动
+  # + stability_jitter_threshold 才降级。绝对口径会把默认参数自身也降级
+  # (实测默认参数 seed=23 换序抖动 0.0209——率型 topo 指标的换序噪声底)。
+  stability_rule: candidate_jitter > baseline_jitter + threshold
+  prompt_fast_layer:
+    direction: mixed
+    scope: per_novel_inner + macro
+    source: backend/scripts/evolve/prompt_evolve.py + fixtures/stage3_*.json
+    added_in_stage: 3
+  judge_min_supported: 0.25   # 确认层 judge 抽检新增地名 ok 率下限
+                              # (=E0 双跑 B∖A 差异名的实测基线 0.25,n=4)
+
+# ── 评估集划分（§4.2 双集）─────────────────────────────────────────
+datasets:
+  inner:
+    description: 内层集（选择压力）：3 部黄金小说，黄金指标 + M1-M6 + satisfaction
+    novels: [xiyouji, honglou, shuihu]
+  holdout:
+    description: 留出集（泛化检查）：不进选择压力；内层涨留出跌 = 过拟合，回退谱系
+    novels: [sanguo, fengshen]
+
+# ── 回归阈值（§4.3 GATE）───────────────────────────────────────────
+thresholds:
+  # 冻结指标单项回归阈值（绝对值），沿用 benchmark_hierarchy 惯例：>0.01 即拒
+  metric_regression_abs: 0.01
+  # 分小说退化阈值（Eevee 保持率对应物）：任一小说任一指标退化超过此值即拒，
+  # 防止"西游涨、水浒崩"式灾难性遗忘
+  per_novel_regression_abs: 0.01
+  # golden 门禁：pass_rate 硬阈值（与 quality_loop 一致）
+  golden_pass_rate_min: 1.0
+  # 分指标口径覆写（阶段 2 起,按指标后缀匹配）:计数型结构护栏不适用
+  # 0.01 绝对阈值(那是率型指标的口径)。relative=劣化超 ref 的该倍数即拒;
+  # abs=绝对阈值覆写。口径理由:guard 意图是防结构爆炸,不是冻结参数本身
+  # (三国基线 DB 层级 max_children 即有 93,64→87 非爆炸)。
+  guard_overrides:
+    rebuild.max_children:
+      relative: 1.5
+    rebuild.root_count:
+      abs: 3.0
+    # 阶段 3:快速层指标的回归阈值按实测噪声底设定(小于噪声的"回归"不可判)
+    prompt.recall:
+      abs: 0.09          # 单本噪声底 0.0803 + 余量
+    prompt.generic_rate:
+      abs: 0.03          # 噪声底 0.0194 + 余量
+    prompt.count_inflation:
+      relative: 1.3      # 抽取量膨胀超 30% 即拒(防"全提取"刷召回)
+  # JIT 入档的"严格改善"显著性下限(阶段 3 起):改善幅度须超过噪声底+余量
+  min_improvement:
+    prompt.recall: 0.09        # 单本噪声底 0.0803 + 余量
+    macro.prompt.recall: 0.03  # macro 噪声底 0.0199 + 余量
+
+# ── Pareto 前沿（§4.2/§4.3 ARCHIVE）────────────────────────────────
+pareto:
+  population_max: 8          # 前沿小种群上限（方法论建议 4-8）
+  # 入档规则（JIT-Agent）：质量不降（无维度退化超阈值）且至少一维严格改善
+  archive_rule: no_regression_and_strict_improvement
+  # 种群超出上限时淘汰最老的被支配者
+  eviction: oldest_dominated
+
+# ── 固定评估预算（autoresearch 原则，§4.2/§6.4）────────────────────
+budget:
+  wall_clock_seconds_per_generation: 1800   # 每轮 wall-clock 上限，超预算记失败变异
+  llm_calls_per_generation: 100             # 每轮 LLM 调用上限(LlmBudget 硬约束,超限记失败)
+  max_cost_usd_per_generation: 2.0          # 每轮 LLM 成本上限(阶段 3 起硬约束,超出记失败)
+
+# ── 反漂移护栏（§6.4）──────────────────────────────────────────────
+guardrails:
+  no_improvement_pause_generations: 5       # 连续 5 轮无改进 → 自动暂停并输出诊断
+  stagnation_force_switch_generations: 3    # 连续 K 代同机制微调无改进 → 强制切换机制
+
+# ── 空转模式（阶段 0 默认）─────────────────────────────────────────
+dry_run:
+  eval_backend: cached        # cached=直接读 baseline.json，不重复花钱；live=真实评估
+  identity_mutation: true     # 恒等变异（空 diff），PROPOSE 只走骨架

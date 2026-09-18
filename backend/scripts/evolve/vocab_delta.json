@@ -1,0 +1,6034 @@
+{
+  "entries": {
+    "一出坡": {
+      "ancestor": "翠屏山",
+      "coords": [
+        34.2598,
+        117.277
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "一山坡": {
+      "ancestor": "一山",
+      "coords": [
+        27.0053,
+        114.355
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "七宝村": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "万城": {
+      "ancestor": "隆中山",
+      "coords": [
+        32.01036,
+        112.08142
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "万寿门": {
+      "ancestor": "太尉府",
+      "coords": [
+        33.62973,
+        113.75769
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "万松林": {
+      "ancestor": "乌龙岭",
+      "coords": [
+        31.65439,
+        109.43082
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "三仙岛": {
+      "ancestor": "金鳌岛",
+      "coords": [
+        32.5714,
+        105.868
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "三十五里溪": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "三宫殿": {
+      "ancestor": "山西",
+      "coords": [
+        37.5,
+        112.0
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "三山五岳": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "三山关驿": {
+      "ancestor": "三山关",
+      "coords": [
+        26.07925,
+        119.11205
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "三座关": {
+      "ancestor": "青州",
+      "coords": [
+        36.7,
+        118.5
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "三济仓": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "三清殿": {
+      "ancestor": "介休",
+      "coords": [
+        37.03138,
+        112.00171
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "三碗不过冈酒店": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "上大夫府": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "上水头": {
+      "ancestor": "清溪县",
+      "coords": [
+        28.982,
+        120.078
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "东京·金殿": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "东京·馆驿": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "东京去沧州路上": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京太师府": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京紫宸殿": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京进奏院": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京郊外": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "东北水寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东华门": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "东南水寨": {
+      "ancestor": "水泊",
+      "coords": [
+        35.80228,
+        116.11701
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东厢": {
+      "ancestor": "段家庄",
+      "coords": [
+        39.41667,
+        114.01667
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东小巷": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东廊三间小正房": {
+      "ancestor": "北门外",
+      "coords": [
+        25.31817,
+        110.29869
+      ],
+      "frequency": 2,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "东海之滨": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "东海许州": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "东郭门": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "东门": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 9,
+      "generation": 2,
+      "novel": "shuihu"
+    },
+    "东门外": {
+      "ancestor": "东门",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "两军阵前": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "严州": {
+      "ancestor": "江南",
+      "coords": [
+        30.5,
+        120.0
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "中军帐": {
+      "ancestor": "中军",
+      "coords": [
+        22.62831,
+        107.12476
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "临县": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "临潼关·囹圄": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "临潼关外": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "临潼关外草茵": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "临潼关山冈": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "临潼关帅府": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "临潼关殿前": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "临潼关监中": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "临潼帅府": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 80,
+      "novel": "fengshen"
+    },
+    "临潼扎板": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "临潼闩锁": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "乌龙神庙": {
+      "ancestor": "高岭",
+      "coords": [
+        38.69292,
+        115.22721
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "九仙山桃源洞": {
+      "ancestor": "九仙山",
+      "coords": [
+        28.80315,
+        114.94527
+      ],
+      "frequency": 3,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "九宫八卦阵": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "九宫山白鹤洞": {
+      "ancestor": "九宫山",
+      "coords": [
+        29.5188,
+        114.6814
+      ],
+      "frequency": 4,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "九曲栏": {
+      "ancestor": "摘星楼",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "九曲栏枰": {
+      "ancestor": "九曲栏",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "九曲雕栏": {
+      "ancestor": "摘星楼",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 97,
+      "novel": "fengshen"
+    },
+    "九曲雕栏之外": {
+      "ancestor": "九曲雕栏",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "九间大殿": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 7,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "九鼎铁叉山": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "九龙侍席": {
+      "ancestor": "摘星楼",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "九龙岛": {
+      "ancestor": "梅山",
+      "coords": [
+        31.72913,
+        115.91241
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "乾元山金光洞": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 6,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "二仙山麻姑洞": {
+      "ancestor": "二仙山",
+      "coords": [
+        36.5258,
+        116.995
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "二龙山黄峰岭": {
+      "ancestor": "九仙山",
+      "coords": [
+        28.80315,
+        114.94527
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "二龙桥": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "云堂": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "云霄洞": {
+      "ancestor": "五龙山",
+      "coords": [
+        36.0717,
+        113.265
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "五关": {
+      "ancestor": "渑池县",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 8,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "五凤楼": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "五夷山": {
+      "ancestor": "曹州",
+      "coords": [
+        29.50131,
+        121.01407
+      ],
+      "frequency": 3,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "五夷山山坡": {
+      "ancestor": "五夷山",
+      "coords": [
+        29.50131,
+        121.01407
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "五夷山白云洞": {
+      "ancestor": "五夷山",
+      "coords": [
+        29.50131,
+        121.01407
+      ],
+      "frequency": 1,
+      "generation": 81,
+      "novel": "fengshen"
+    },
+    "五岗镇": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "五岳": {
+      "ancestor": "青峰山",
+      "coords": [
+        41.49958,
+        119.58752
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "五岳楼": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "五方队伍": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "五里": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "五龙山云霄洞": {
+      "ancestor": "五龙山",
+      "coords": [
+        36.0717,
+        113.265
+      ],
+      "frequency": 4,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "低泽": {
+      "ancestor": "夹龙山",
+      "coords": [
+        24.58542,
+        106.52965
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "余化府": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "佳梦关": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 7,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "佳梦关帅府": {
+      "ancestor": "佳梦关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "佳梦关教场": {
+      "ancestor": "佳梦关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "使臣房": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "便殿": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "候潮门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "僧堂": {
+      "ancestor": "大相国寺",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "元觉洞": {
+      "ancestor": "灵鹫山",
+      "coords": [
+        31.03054,
+        106.78437
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "八卦阵": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "八宝灵光洞": {
+      "ancestor": "九鼎铁叉山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "六和塔": {
+      "ancestor": "杭州市",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "六宫": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "其他诸侯国": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "冀川": {
+      "ancestor": "青峰山",
+      "coords": [
+        41.49958,
+        119.58752
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "冀州殿上": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "冀州殿前": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "冀州馆驿": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 1,
+      "generation": 82,
+      "novel": "fengshen"
+    },
+    "内宫": {
+      "ancestor": "青鸾",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 98,
+      "novel": "fengshen"
+    },
+    "内庭": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 5,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "内廷": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "冷宫": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "净室": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "净慈港": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "函关": {
+      "ancestor": "五龙山",
+      "coords": [
+        36.0717,
+        113.265
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "刑部": {
+      "ancestor": "江南",
+      "coords": [
+        30.5,
+        120.0
+      ],
+      "frequency": 4,
+      "generation": 112,
+      "novel": "honglou"
+    },
+    "刘太公庄院": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "前堂": {
+      "ancestor": "宋家庄",
+      "coords": [
+        39.78302,
+        113.02171
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "前村": {
+      "ancestor": "燕山",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "化血阵": {
+      "ancestor": "十绝阵",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "北关门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "北海": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 10,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "北海眼": {
+      "ancestor": "北海",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "北疆": {
+      "ancestor": "北海",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "北门外": {
+      "ancestor": "北门",
+      "coords": [
+        25.31817,
+        110.29869
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "十绝阵": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "十里亭": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "十里长亭": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 4,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "午门外": {
+      "ancestor": "午门",
+      "coords": [
+        36.8205,
+        110.66925
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "华州牢": {
+      "ancestor": "华州",
+      "coords": [
+        34.51523,
+        109.75759
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "单身房": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "南粤": {
+      "ancestor": "北海",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "南郊": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "南郊山中": {
+      "ancestor": "南郊",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "南门": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "卢员外家": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "卫国": {
+      "ancestor": "九鼎铁叉山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "叁济仓": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "司天台": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "司狱司前": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "后厅": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "后帐": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 99,
+      "novel": "fengshen"
+    },
+    "后营": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "周朝营寨": {
+      "ancestor": "金鸡岭",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "周营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 24,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "周营·中军": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "周营·中军帐": {
+      "ancestor": "周营·中军",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "周营·辕门": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 9,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "周营辕门": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 76,
+      "novel": "fengshen"
+    },
+    "命馆": {
+      "ancestor": "朝歌南门",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商容府": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 83,
+      "novel": "fengshen"
+    },
+    "商朝": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商朝大营": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商朝营": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商朝营地": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商朝营寨": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "商朝营寨·辕门": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "商朝辕门": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商朝领地": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "商营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商郊": {
+      "ancestor": "镐京",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "商阵": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 100,
+      "novel": "fengshen"
+    },
+    "囚车": {
+      "ancestor": "穿云关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "四不象": {
+      "ancestor": "曹州",
+      "coords": [
+        29.50131,
+        121.01407
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "团营": {
+      "ancestor": "西岐北门",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "围场": {
+      "ancestor": "南郊",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "囹圄": {
+      "ancestor": "青龙关",
+      "coords": [
+        40.33333,
+        119.13333
+      ],
+      "frequency": 7,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "土冈子": {
+      "ancestor": "淮西",
+      "coords": [
+        32.0,
+        116.0
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "地烈阵": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "地藏庵": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 2,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "坟庵": {
+      "ancestor": "高岭",
+      "coords": [
+        38.69292,
+        115.22721
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "城外营中": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "城敌楼": {
+      "ancestor": "陈塘关",
+      "coords": [
+        27.8671,
+        87.4139
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "城濠": {
+      "ancestor": "陕州城",
+      "coords": [
+        34.72164,
+        111.10136
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "城隍庙": {
+      "ancestor": "房山",
+      "coords": [
+        39.72445,
+        115.84575
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "外营": {
+      "ancestor": "周营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "大相国寺": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "大观园·角门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "大观园厨房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "大辕门": {
+      "ancestor": "商朝营寨",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "天地坛": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "天绝阵": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "太华山云宵洞": {
+      "ancestor": "太华山",
+      "coords": [
+        31.1633,
+        119.63558
+      ],
+      "frequency": 1,
+      "generation": 84,
+      "novel": "fengshen"
+    },
+    "太华山云霄洞": {
+      "ancestor": "太华山",
+      "coords": [
+        31.1633,
+        119.63558
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "太华山支霄洞": {
+      "ancestor": "太华山",
+      "coords": [
+        31.1633,
+        119.63558
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "太平街": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "太庙": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "太湖石": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "夹龙山猛兽崖": {
+      "ancestor": "夹龙山",
+      "coords": [
+        24.58542,
+        106.52965
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "夹龙山飞云洞": {
+      "ancestor": "夹龙山",
+      "coords": [
+        24.58542,
+        106.52965
+      ],
+      "frequency": 6,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "奉口镇": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "女墙": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "女娲宫": {
+      "ancestor": "天地坛",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "姜子牙命馆": {
+      "ancestor": "朝歌南门",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "威胜城": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "子牙中军大营": {
+      "ancestor": "渑池县",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "子牙大营": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "孔宣营中": {
+      "ancestor": "金鸡岭",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "孔宣行营": {
+      "ancestor": "金鸡岭",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "孔宣行营後": {
+      "ancestor": "金鸡岭",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "孟津大营": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "孟津战场": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "宁国府·上房": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 2,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "宋国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "宋太公庄院": {
+      "ancestor": "宋家村",
+      "coords": [
+        34.4469,
+        109.30169
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "宋异人庄上": {
+      "ancestor": "天地坛",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 101,
+      "novel": "fengshen"
+    },
+    "宋异人後花园": {
+      "ancestor": "宋家庄",
+      "coords": [
+        39.78302,
+        113.02171
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "宋江大寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 9,
+      "generation": 2,
+      "novel": "shuihu"
+    },
+    "宋江行寨": {
+      "ancestor": "常州",
+      "coords": [
+        31.66715,
+        119.66527
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "宗祠": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 3,
+      "generation": 112,
+      "novel": "honglou"
+    },
+    "宝玉房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 8,
+      "generation": 112,
+      "novel": "honglou"
+    },
+    "宝玉房·里间": {
+      "ancestor": "宝玉房",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "客舍": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "宣德楼": {
+      "ancestor": "西京",
+      "coords": [
+        27.41786,
+        111.151
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "密室": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 85,
+      "novel": "fengshen"
+    },
+    "寒冰阵": {
+      "ancestor": "十绝阵",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "寿仙宫": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 6,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "封国": {
+      "ancestor": "商朝营",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "封神台": {
+      "ancestor": "西岐营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 15,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "小金桥": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "少华山山寨": {
+      "ancestor": "华州",
+      "coords": [
+        34.51523,
+        109.75759
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "尤浑府": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "山南军": {
+      "ancestor": "小树林",
+      "coords": [
+        47.20805,
+        124.86141
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "山南水寨": {
+      "ancestor": "山南",
+      "coords": [
+        28.5563,
+        92.55684
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "山子石": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "山川社稷": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "山脚石穴": {
+      "ancestor": "夹龙山",
+      "coords": [
+        24.58542,
+        106.52965
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "岐山纣营": {
+      "ancestor": "岐山",
+      "coords": [
+        34.41139,
+        107.69972
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "岐州": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "峨眉山罗浮洞": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "崆峒山元阳洞": {
+      "ancestor": "凤凰山",
+      "coords": [
+        40.33112,
+        119.40086
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "崇营": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 3,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "崇营中军": {
+      "ancestor": "崇营",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "崇营后营": {
+      "ancestor": "崇营",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "崇营辕门": {
+      "ancestor": "崇营",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "市曹": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "市镇": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "平川旷野": {
+      "ancestor": "东昌府",
+      "coords": [
+        36.44591,
+        115.88373
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "幽魂白骨": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "异人庄": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 86,
+      "novel": "fengshen"
+    },
+    "张桂芳大营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "张桂芳营": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "张桂芳营·辕门": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "张都监宅": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "张青家": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "後厅": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "後花园": {
+      "ancestor": "宋家庄",
+      "coords": [
+        39.78302,
+        113.02171
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "後营": {
+      "ancestor": "商朝营地",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "御书阁": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "御园": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "御花园": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "怡红院·回廊": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "总兵府": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "惜春房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 9,
+      "generation": 111,
+      "novel": "honglou"
+    },
+    "成汤大营": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 5,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "成汤营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 31,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "成汤营·中军": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 6,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "成汤营·右营": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "成汤营·后营": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "成汤营·左营": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 77,
+      "novel": "fengshen"
+    },
+    "成汤营·辕门": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 13,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "截教": {
+      "ancestor": "灵鹫山",
+      "coords": [
+        31.03054,
+        106.78437
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "截教道场": {
+      "ancestor": "截教",
+      "coords": [
+        31.03054,
+        106.78437
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "扈家庄": {
+      "ancestor": "独龙山",
+      "coords": [
+        39.54948,
+        113.57455
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "打麦场": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "抄事房": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "抱厦厅": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 3,
+      "generation": 112,
+      "novel": "honglou"
+    },
+    "抱犊山": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "摘星楼": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 23,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "敌楼": {
+      "ancestor": "游魂关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "教军场": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "文书房": {
+      "ancestor": "滴水",
+      "coords": [
+        27.71637,
+        111.51171
+      ],
+      "frequency": 7,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "断金亭": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "断金亭子": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "无为军": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "昆仑山玉虚宫": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 7,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "昆仑山麒麟崖": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "昭德城北十里": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "昭德城北门": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "昭德城南门": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "昱岭关": {
+      "ancestor": "临安县",
+      "coords": [
+        30.23333,
+        119.71667
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "显庆殿": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 13,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "显德殿": {
+      "ancestor": "寿仙宫",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "晁盖庄上": {
+      "ancestor": "东溪村",
+      "coords": [
+        28.62753,
+        120.76732
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "晋国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 102,
+      "novel": "fengshen"
+    },
+    "晋宁": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 5,
+      "generation": 4,
+      "novel": "shuihu"
+    },
+    "晓翠堂": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "普陀山落伽洞": {
+      "ancestor": "翠屏山",
+      "coords": [
+        34.2598,
+        117.277
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "曹国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "月下": {
+      "ancestor": "鹿台",
+      "coords": [
+        34.09509,
+        117.4115
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "月洞门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "朝歌·偏殿": {
+      "ancestor": "滴水",
+      "coords": [
+        27.71637,
+        111.51171
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "朝歌·后宫": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 87,
+      "novel": "fengshen"
+    },
+    "朝歌·御花园": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "朝歌·正宫": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "朝歌·馆驿": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "朝歌东门": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "朝歌南门": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 4,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "朝歌城四门": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "朝歌城馆驿": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "朝歌西门": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "朱贵酒店": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 7,
+      "generation": 2,
+      "novel": "shuihu"
+    },
+    "机密房": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "村店": {
+      "ancestor": "古庙",
+      "coords": [
+        31.49633,
+        113.14751
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "村酒店": {
+      "ancestor": "蜈蚣岭",
+      "coords": [
+        29.75007,
+        118.61568
+      ],
+      "frequency": 6,
+      "generation": 3,
+      "novel": "shuihu"
+    },
+    "杜元铣": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "杜太师府": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "杞国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "杨雄家": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "极乐世界": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "枢密院": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "柳叶渚": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "柳树下": {
+      "ancestor": "朝歌南门",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "柴进庄院": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 5,
+      "generation": 4,
+      "novel": "shuihu"
+    },
+    "桃花园": {
+      "ancestor": "玉虚宫",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "棋盘山": {
+      "ancestor": "玉泉山",
+      "coords": [
+        28.49228,
+        112.7542
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "楚国": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "榆柳庄": {
+      "ancestor": "太湖",
+      "coords": [
+        31.22,
+        120.13
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "正宫": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "正宫·后宫": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "武吉家": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "武大家": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "武学": {
+      "ancestor": "西京",
+      "coords": [
+        27.41786,
+        111.151
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "武成王府": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 5,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "武王寝宫": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "武门": {
+      "ancestor": "宋家庄",
+      "coords": [
+        39.78302,
+        113.02171
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "死囚牢": {
+      "ancestor": "开封府",
+      "coords": [
+        34.60417,
+        114.49722
+      ],
+      "frequency": 7,
+      "generation": 3,
+      "novel": "shuihu"
+    },
+    "殷上": {
+      "ancestor": "武成王府",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 88,
+      "novel": "fengshen"
+    },
+    "殷洪营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 103,
+      "novel": "fengshen"
+    },
+    "殷洪行营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "殷郊营": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "比干府": {
+      "ancestor": "天地坛",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "汉江": {
+      "ancestor": "南丰城",
+      "coords": [
+        27.1276,
+        116.51384
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "汜水关": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 23,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "汜水关·辕门": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "汜水关·馆驿": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "汜水关帅府": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "汜水关教场": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "江州牢城营": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "沁芳桥": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 5,
+      "generation": 112,
+      "novel": "honglou"
+    },
+    "沁芳闸": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "沧州牢城营": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "法华寺": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "法司": {
+      "ancestor": "天地坛",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "泛水关": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "洪锦中军帐": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "洪锦营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "济州·馆驿": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "济州府": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "济州府衙": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 6,
+      "generation": 3,
+      "novel": "shuihu"
+    },
+    "海棠轩": {
+      "ancestor": "陈塘关帅府",
+      "coords": [
+        27.8671,
+        87.4139
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "海疆": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 3,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "涌金门": {
+      "ancestor": "杭州",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "清溪县帮源洞": {
+      "ancestor": "清溪县",
+      "coords": [
+        28.982,
+        120.078
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "渑池县城下": {
+      "ancestor": "渑池县",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "渑池县帅府": {
+      "ancestor": "渑池县",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 1,
+      "generation": 89,
+      "novel": "fengshen"
+    },
+    "渑池城下": {
+      "ancestor": "渑池城",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "游魂关": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 5,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "滕国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "滴水檐": {
+      "ancestor": "滴水",
+      "coords": [
+        27.71637,
+        111.51171
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "滴翠亭": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "潇湘馆·套间": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "潇湘馆·里间": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 114,
+      "novel": "honglou"
+    },
+    "潘公家": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "潼关城上": {
+      "ancestor": "潼关城",
+      "coords": [
+        34.48639,
+        110.26361
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "灵隐寺": {
+      "ancestor": "青州",
+      "coords": [
+        36.7,
+        118.5
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "灵霄殿": {
+      "ancestor": "西岐山",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "灵鹫山元觉洞": {
+      "ancestor": "灵鹫山",
+      "coords": [
+        31.03054,
+        106.78437
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "炮烙": {
+      "ancestor": "九间殿",
+      "coords": [
+        41.49235,
+        122.4116
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "炮烙之刑": {
+      "ancestor": "九间殿",
+      "coords": [
+        41.49235,
+        122.4116
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "点视厅": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 6,
+      "generation": 4,
+      "novel": "shuihu"
+    },
+    "烈阵": {
+      "ancestor": "西岐山",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "照墙": {
+      "ancestor": "司天台",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "燕国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "燕山": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 8,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "牡丹亭": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "独龙冈前": {
+      "ancestor": "独龙山",
+      "coords": [
+        39.54948,
+        113.57455
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "独龙山前": {
+      "ancestor": "独龙山",
+      "coords": [
+        39.54948,
+        113.57455
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "狮子崖": {
+      "ancestor": "九仙山",
+      "coords": [
+        28.80315,
+        114.94527
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "猛兽崖": {
+      "ancestor": "夹龙山",
+      "coords": [
+        24.58542,
+        106.52965
+      ],
+      "frequency": 1,
+      "generation": 90,
+      "novel": "fengshen"
+    },
+    "玄都洞八景宫": {
+      "ancestor": "玄都洞",
+      "coords": [
+        31.8684,
+        105.912
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "玉屋洞": {
+      "ancestor": "金庭山",
+      "coords": [
+        29.5572,
+        121.044
+      ],
+      "frequency": 0,
+      "generation": 104,
+      "novel": "fengshen"
+    },
+    "玉柱洞": {
+      "ancestor": "终南山",
+      "coords": [
+        34.05,
+        108.85
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "玉泉山金霞洞": {
+      "ancestor": "玉泉山",
+      "coords": [
+        28.49228,
+        112.7542
+      ],
+      "frequency": 5,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "玉虚宫": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 14,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "王婆茶坊": {
+      "ancestor": "紫石街",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "琵琶亭": {
+      "ancestor": "揭阳岭",
+      "coords": [
+        23.31281,
+        116.12187
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "界牌关·中军": {
+      "ancestor": "界牌关",
+      "coords": [
+        29.7135,
+        103.55397
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "界牌关·辕门": {
+      "ancestor": "界牌关",
+      "coords": [
+        29.7135,
+        103.55397
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "界牌关·银安殿": {
+      "ancestor": "界牌关",
+      "coords": [
+        29.7135,
+        103.55397
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "界牌关帅府": {
+      "ancestor": "界牌关",
+      "coords": [
+        29.7135,
+        103.55397
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "留守司": {
+      "ancestor": "北京",
+      "coords": [
+        39.9075,
+        116.39723
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "瘟癀阵": {
+      "ancestor": "穿云关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "瘟部": {
+      "ancestor": "二仙山",
+      "coords": [
+        36.5258,
+        116.995
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白云岛": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白柳村": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白莺林": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白虎山": {
+      "ancestor": "青州",
+      "coords": [
+        36.7,
+        118.5
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "白骨洞": {
+      "ancestor": "翠屏山",
+      "coords": [
+        34.2598,
+        117.277
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白鹤墩": {
+      "ancestor": "凤凰山",
+      "coords": [
+        40.33112,
+        119.40086
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白鹿岛": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 1,
+      "generation": 91,
+      "novel": "fengshen"
+    },
+    "白鹿洞前": {
+      "ancestor": "白鹿岛",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "白龙神庙": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "百谷岭": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "皇城": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "皇天后土": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "相府": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 27,
+      "generation": 70,
+      "novel": "fengshen"
+    },
+    "相府·银安殿": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "相府书房": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "相府皇城": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "碧游": {
+      "ancestor": "终南山",
+      "coords": [
+        34.05,
+        108.85
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "碧游宫": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 6,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "碧游床": {
+      "ancestor": "终南山",
+      "coords": [
+        34.05,
+        108.85
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "祝家庄庄门": {
+      "ancestor": "祝家庄",
+      "coords": [
+        34.47236,
+        107.7806
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "祝家庄门楼": {
+      "ancestor": "祝家庄",
+      "coords": [
+        34.47236,
+        107.7806
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "神厨": {
+      "ancestor": "蜈蚣岭",
+      "coords": [
+        29.75007,
+        118.61568
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "禁中": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "穆太公庄院": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "空地": {
+      "ancestor": "中途",
+      "coords": [
+        29.80933,
+        116.96895
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "穿云关": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 8,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "穿云关·府": {
+      "ancestor": "穿云关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "穿云关帅府": {
+      "ancestor": "穿云关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "穿云关府": {
+      "ancestor": "穿云关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "穿云关民家": {
+      "ancestor": "穿云关",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "第三关": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "第二关": {
+      "ancestor": "太行山",
+      "coords": [
+        38.03756,
+        114.64131
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "管国": {
+      "ancestor": "镐京",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "紫云崖": {
+      "ancestor": "碧游宫",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 2,
+      "generation": 78,
+      "novel": "fengshen"
+    },
+    "紫宸殿": {
+      "ancestor": "东京郊外",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "紫石街": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "紫芝崖": {
+      "ancestor": "碧游宫",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "紫虚观": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "紫阳洞": {
+      "ancestor": "青峰山",
+      "coords": [
+        41.49958,
+        119.58752
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "紫霄宫": {
+      "ancestor": "凤凰山",
+      "coords": [
+        40.33112,
+        119.40086
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "红水阵": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "红沙阵": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "纣王营": {
+      "ancestor": "临潼关",
+      "coords": [
+        34.36915,
+        109.1915
+      ],
+      "frequency": 0,
+      "generation": 105,
+      "novel": "fengshen"
+    },
+    "纣营": {
+      "ancestor": "岐山",
+      "coords": [
+        34.41139,
+        107.69972
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "纪国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "终南山玉柱洞": {
+      "ancestor": "终南山",
+      "coords": [
+        34.05,
+        108.85
+      ],
+      "frequency": 7,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "绣房": {
+      "ancestor": "鹿台",
+      "coords": [
+        34.09509,
+        117.4115
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "羑里": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 4,
+      "generation": 74,
+      "novel": "fengshen"
+    },
+    "羑里城": {
+      "ancestor": "羑里",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "群星列宿": {
+      "ancestor": "九宫山",
+      "coords": [
+        29.5188,
+        114.6814
+      ],
+      "frequency": 1,
+      "generation": 92,
+      "novel": "fengshen"
+    },
+    "肉林": {
+      "ancestor": "摘星楼",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "胡梯": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "艮山门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "节堂": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "芦篷": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 13,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "芦花荡": {
+      "ancestor": "石碣村",
+      "coords": [
+        23.09546,
+        113.79195
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "苏侯中军帐": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "苏侯大营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "苏侯营中军": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "苏侯营外": {
+      "ancestor": "苏侯大营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "苏侯行营": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "苏护营": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "茂林": {
+      "ancestor": "燕山",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "草堂": {
+      "ancestor": "宋家庄",
+      "coords": [
+        39.78302,
+        113.02171
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "草屋": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "荒郊草地": {
+      "ancestor": "玉泉山",
+      "coords": [
+        28.49228,
+        112.7542
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "莒国": {
+      "ancestor": "商朝营",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "菜市门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "菡萏阵": {
+      "ancestor": "九宫山",
+      "coords": [
+        29.5188,
+        114.6814
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "落魂阵": {
+      "ancestor": "西岐山",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "蓟县": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 106,
+      "novel": "fengshen"
+    },
+    "蓟国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "蓟州城里": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "蓬莱岛": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "蓬菜岛": {
+      "ancestor": "青峰山",
+      "coords": [
+        41.49958,
+        119.58752
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "蓼溆": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 3,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "蔡国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "薛国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "虎儿崖": {
+      "ancestor": "终南山",
+      "coords": [
+        34.05,
+        108.85
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "虎兒崖": {
+      "ancestor": "终南山",
+      "coords": [
+        34.05,
+        108.85
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "虚皇坛": {
+      "ancestor": "龙虎山",
+      "coords": [
+        28.12346,
+        116.97592
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "虞国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "虢国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "虿盆": {
+      "ancestor": "摘星楼",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 6,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "蜂腰桥": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 3,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "蟠龙岭": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "行营": {
+      "ancestor": "岐山",
+      "coords": [
+        34.41139,
+        107.69972
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "袁洪营": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "袁洪营·中军": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "袁洪营·辕门": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 1,
+      "generation": 93,
+      "novel": "fengshen"
+    },
+    "西京新安县": {
+      "ancestor": "西京",
+      "coords": [
+        27.41786,
+        111.151
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "西华门": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "西岐·辕门": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐·金殿": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐东门": {
+      "ancestor": "西岐北门",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "西岐北门": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "西岐南门": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "西岐南门外": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐城·内宫": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐城·宫内": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐城东门": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 107,
+      "novel": "fengshen"
+    },
+    "西岐城北门": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐城南门": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐城敌楼": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐城相府": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐城芦篷": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐城西门": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐战场": {
+      "ancestor": "西岐营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐相府": {
+      "ancestor": "西岐营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐纣营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西岐芦篷": {
+      "ancestor": "苏侯大营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岐营地": {
+      "ancestor": "西岐营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西岳庙": {
+      "ancestor": "华州",
+      "coords": [
+        34.51523,
+        109.75759
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "西海九龙岛": {
+      "ancestor": "西海",
+      "coords": [
+        40.43397,
+        122.31321
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西门外": {
+      "ancestor": "西门",
+      "coords": [
+        28.32818,
+        121.19824
+      ],
+      "frequency": 1,
+      "generation": 94,
+      "novel": "fengshen"
+    },
+    "西门小河": {
+      "ancestor": "西门",
+      "coords": [
+        28.32818,
+        121.19824
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "西门庆生药铺": {
+      "ancestor": "西门",
+      "coords": [
+        28.32818,
+        121.19824
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "西陵桥": {
+      "ancestor": "西湖",
+      "coords": [
+        30.24,
+        120.14
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "议事厅": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 3,
+      "generation": 113,
+      "novel": "honglou"
+    },
+    "许国": {
+      "ancestor": "渑池县",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 0,
+      "generation": 108,
+      "novel": "fengshen"
+    },
+    "费仲本宅": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "贾母内院": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 56,
+      "generation": 111,
+      "novel": "honglou"
+    },
+    "赤井洞": {
+      "ancestor": "九仙山",
+      "coords": [
+        28.80315,
+        114.94527
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "赭山门": {
+      "ancestor": "海盐县",
+      "coords": [
+        30.51667,
+        120.95
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "赵公明营地": {
+      "ancestor": "西岐南门",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "迎春房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 4,
+      "generation": 112,
+      "novel": "honglou"
+    },
+    "通天教主道场": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 7,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "邓九公帅府": {
+      "ancestor": "三山关",
+      "coords": [
+        26.07925,
+        119.11205
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "邓婵玉": {
+      "ancestor": "梅山",
+      "coords": [
+        31.72913,
+        115.91241
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "邱鸣山": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "邾国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "郓城县县衙": {
+      "ancestor": "郓城县",
+      "coords": [
+        35.61972,
+        115.85556
+      ],
+      "frequency": 5,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "郕国": {
+      "ancestor": "燕国",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "金亭馆驿": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "金光洞": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "金光阵": {
+      "ancestor": "十绝阵",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "金庭山玉屋洞": {
+      "ancestor": "金庭山",
+      "coords": [
+        29.5572,
+        121.044
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "金殿": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "金沙滩小寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "金銮宝殿": {
+      "ancestor": "朝歌城",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "金銮殿": {
+      "ancestor": "寿仙宫",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "金霞洞": {
+      "ancestor": "玉泉山",
+      "coords": [
+        28.49228,
+        112.7542
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "金鸡岭": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 9,
+      "generation": 71,
+      "novel": "fengshen"
+    },
+    "金龙幔帐": {
+      "ancestor": "寿仙宫",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "镐京": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "长朝殿": {
+      "ancestor": "天地坛",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "闻太师府": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 95,
+      "novel": "fengshen"
+    },
+    "闻太师营": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "阐教": {
+      "ancestor": "燕山",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 75,
+      "novel": "fengshen"
+    },
+    "阮小二家": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "阳谷县县衙": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 4,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "陈国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 109,
+      "novel": "fengshen"
+    },
+    "陈塘关城楼": {
+      "ancestor": "陈塘关",
+      "coords": [
+        27.8671,
+        87.4139
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "陈塘关帅府": {
+      "ancestor": "陈塘关",
+      "coords": [
+        27.8671,
+        87.4139
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "陈塘关帅府后院": {
+      "ancestor": "陈塘关",
+      "coords": [
+        27.8671,
+        87.4139
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "陷车": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "雷部": {
+      "ancestor": "金鳌岛",
+      "coords": [
+        32.5714,
+        105.868
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "霍国": {
+      "ancestor": "渑池县",
+      "coords": [
+        34.83333,
+        111.8
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "青峰山紫阳洞": {
+      "ancestor": "青峰山",
+      "coords": [
+        41.49958,
+        119.58752
+      ],
+      "frequency": 6,
+      "generation": 73,
+      "novel": "fengshen"
+    },
+    "青鸾": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "青鸾斗阙": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "青龙关大路": {
+      "ancestor": "青龙关",
+      "coords": [
+        40.33333,
+        119.13333
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "韩荣帅府": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "风吼阵": {
+      "ancestor": "成汤营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "飞云洞": {
+      "ancestor": "夹龙山",
+      "coords": [
+        24.58542,
+        106.52965
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "飞云浦": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "飞云阁": {
+      "ancestor": "御园",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "飞廉府": {
+      "ancestor": "朝歌",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "飞虎峪": {
+      "ancestor": "大名府",
+      "coords": [
+        36.3,
+        115.23333
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "饮马川": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "馆舍": {
+      "ancestor": "冀州",
+      "coords": [
+        37.5,
+        115.5
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "香房": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "香林洼": {
+      "ancestor": "水泊",
+      "coords": [
+        35.80228,
+        116.11701
+      ],
+      "frequency": 4,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "魔家四将军营": {
+      "ancestor": "西岐城",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "魔家四将大营": {
+      "ancestor": "洪锦营",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "魔家四将营": {
+      "ancestor": "西岐",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "鲁国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "鸭嘴滩小寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "鸳鸯楼": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "鹿台·偏殿": {
+      "ancestor": "鹿台",
+      "coords": [
+        34.09509,
+        117.4115
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "鹿台之下": {
+      "ancestor": "鹿台",
+      "coords": [
+        34.09509,
+        117.4115
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "麒麟崖": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 7,
+      "generation": 72,
+      "novel": "fengshen"
+    },
+    "黄河阵": {
+      "ancestor": "黄河",
+      "coords": [
+        35.0,
+        110.0
+      ],
+      "frequency": 2,
+      "generation": 79,
+      "novel": "fengshen"
+    },
+    "黄泥冈": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "黄滚府": {
+      "ancestor": "界牌关",
+      "coords": [
+        29.7135,
+        103.55397
+      ],
+      "frequency": 0,
+      "generation": 110,
+      "novel": "fengshen"
+    },
+    "龙潭虎穴": {
+      "ancestor": "孟津",
+      "coords": [
+        34.83333,
+        112.46667
+      ],
+      "frequency": 1,
+      "generation": 96,
+      "novel": "fengshen"
+    },
+    "龙门山": {
+      "ancestor": "淮西",
+      "coords": [
+        32.0,
+        116.0
+      ],
+      "frequency": 2,
+      "generation": 20,
+      "novel": "shuihu"
+    }
+  },
+  "rejected": {
+    "东京开封府": {
+      "at": "2026-09-18T03:33:58.968930+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "中军": {
+      "at": "2026-09-18T14:10:59.605991+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "二龙山": {
+      "at": "2026-09-18T03:31:23.505167+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "五台山": {
+      "at": "2026-09-18T03:31:51.154715+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "京畿": {
+      "at": "2026-09-18T14:10:29.079077+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "伊阙山": {
+      "at": "2026-09-18T03:32:39.540050+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "会芳园": {
+      "at": "2026-09-18T14:17:00.781740+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "凌州": {
+      "at": "2026-09-18T03:31:51.154716+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "北门": {
+      "at": "2026-09-18T14:14:15.811989+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "十字坡": {
+      "at": "2026-09-18T03:32:47.455900+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "十里": {
+      "at": "2026-09-18T14:12:15.093306+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "卫州": {
+      "at": "2026-09-18T03:31:33.396137+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "唐州": {
+      "at": "2026-09-18T03:32:47.455926+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "大牢": {
+      "at": "2026-09-18T03:32:07.310352+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "天庭": {
+      "at": "2026-09-18T14:10:59.605977+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "天香楼": {
+      "at": "2026-09-18T14:17:00.781758+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "太公庄院": {
+      "at": "2026-09-18T03:32:55.035036+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "太师府": {
+      "at": "2026-09-18T03:31:51.154717+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "威胜": {
+      "at": "2026-09-18T03:31:23.505169+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "威胜州": {
+      "at": "2026-09-18T03:32:55.035054+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "孟州道": {
+      "at": "2026-09-18T03:31:33.396139+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宁荣街": {
+      "at": "2026-09-18T14:17:00.781756+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宛州": {
+      "at": "2026-09-18T03:31:33.396140+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宝珠寺": {
+      "at": "2026-09-18T03:31:59.365499+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宿太尉府": {
+      "at": "2026-09-18T03:31:43.366748+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "寇州": {
+      "at": "2026-09-18T03:32:55.035055+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "少华山": {
+      "at": "2026-09-18T03:31:43.366771+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "山冈": {
+      "at": "2026-09-18T14:12:37.633883+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "岳庙": {
+      "at": "2026-09-18T03:31:43.366773+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "州衙": {
+      "at": "2026-09-18T03:31:59.365524+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "帅府": {
+      "at": "2026-09-18T03:31:43.366775+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "帮源洞": {
+      "at": "2026-09-18T03:31:43.366776+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "平望镇": {
+      "at": "2026-09-18T03:33:02.722019+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "延安府": {
+      "at": "2026-09-18T03:31:33.396142+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "怡红院": {
+      "at": "2026-09-18T14:16:52.819724+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "扬子江": {
+      "at": "2026-09-18T03:32:15.545027+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "报恩寺": {
+      "at": "2026-09-18T03:33:02.722035+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "揭阳镇": {
+      "at": "2026-09-18T03:31:59.365526+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "昭德": {
+      "at": "2026-09-18T03:31:43.366777+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "昭德城": {
+      "at": "2026-09-18T03:31:33.396148+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "昭德府": {
+      "at": "2026-09-18T03:32:15.545043+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "暖香坞": {
+      "at": "2026-09-18T14:17:00.781766+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "曾头市": {
+      "at": "2026-09-18T03:33:10.547719+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "李师师家": {
+      "at": "2026-09-18T03:33:10.547732+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "村镇": {
+      "at": "2026-09-18T03:33:10.547734+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "松树林": {
+      "at": "2026-09-18T03:31:59.365528+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "栊翠庵": {
+      "at": "2026-09-18T14:16:52.819747+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "梁山泊聚义厅": {
+      "at": "2026-09-18T03:31:23.505170+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "檀州": {
+      "at": "2026-09-18T03:31:43.366778+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "殿帅府": {
+      "at": "2026-09-18T03:31:33.396150+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "沁芳亭": {
+      "at": "2026-09-18T14:16:52.819748+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "洳州": {
+      "at": "2026-09-18T03:33:10.547735+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "济州": {
+      "at": "2026-09-18T03:31:23.504938+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "济州城": {
+      "at": "2026-09-18T03:33:18.878905+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "济州大牢": {
+      "at": "2026-09-18T03:32:23.916555+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "浔阳江": {
+      "at": "2026-09-18T03:31:51.154701+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "清风山": {
+      "at": "2026-09-18T03:31:51.154713+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "潇湘馆": {
+      "at": "2026-09-18T14:16:52.819744+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "火云洞": {
+      "at": "2026-09-18T14:11:32.270175+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "牢城营": {
+      "at": "2026-09-18T03:33:18.878916+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "独龙冈": {
+      "at": "2026-09-18T03:31:59.365529+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "王府": {
+      "at": "2026-09-18T14:14:15.812627+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "盖州": {
+      "at": "2026-09-18T03:31:33.396119+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "睢州": {
+      "at": "2026-09-18T03:33:26.621800+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "秋爽斋": {
+      "at": "2026-09-18T14:16:52.819750+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "紫菱洲": {
+      "at": "2026-09-18T14:16:52.819752+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "聚义厅": {
+      "at": "2026-09-18T03:31:23.505164+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "芦苇": {
+      "at": "2026-09-18T03:33:34.962312+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "芦苇泊": {
+      "at": "2026-09-18T03:33:34.962327+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "蓟州": {
+      "at": "2026-09-18T03:31:23.505166+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "蓼儿洼": {
+      "at": "2026-09-18T03:33:34.962329+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "蓼风轩": {
+      "at": "2026-09-18T14:17:08.403366+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "藕香榭": {
+      "at": "2026-09-18T14:16:52.819749+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "蘅芜苑": {
+      "at": "2026-09-18T14:16:52.819746+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "赤松林": {
+      "at": "2026-09-18T03:33:43.211515+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "金沙滩": {
+      "at": "2026-09-18T03:31:23.505162+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "阳城": {
+      "at": "2026-09-18T03:33:43.211535+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "马行街": {
+      "at": "2026-09-18T03:33:43.211537+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "高太尉府": {
+      "at": "2026-09-18T03:32:31.722700+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    }
+  },
+  "updated_at": "2026-09-18T14:17:23.861141+00:00",
+  "version": 1
+}
