@@ -4,7 +4,7 @@
 # 本文件在 frozen_manifest.json 的 hash 清单内：循环启动时校验，不符即中止。
 # 指标口径与阈值是"预注册"的，进化循环内不得修改（防 Goodhart）。
 
-version: 3
+version: 4
 stage: 3
 
 # ── 阶段 3 预注册指标与噪声底（2026-09-18 实测后冻结）────────────────
@@ -47,6 +47,26 @@ metrics:
     added_in_stage: 3
   judge_min_supported: 0.25   # 确认层 judge 抽检新增地名 ok 率下限
                               # (=E0 双跑 B∖A 差异名的实测基线 0.25,n=4)
+
+# ── OOD 跨体裁护栏（v4,2026-09-18;用户指出选择集单一分布过拟合风险）──
+# 进化选择集(5 本古典章回小说)是单一分布。OOD 护栏集覆盖三种异体裁:
+# 修仙网文/西方奇幻译本/现代现实主义。级 3(prompt)/级 4(管线结构)变异
+# 必须 OOD 三本无回归才允许入档;级 1(词表)豁免(精确名匹配,跨体裁零
+# 影响,保留抽检);级 2(权重)沿用分小说记账。
+# 基线值实测于 2026-09-18,存 baseline.json["ood_guard"]:
+#   fanren  orphan 0.043 / generic 0.095 / unresolved 0.916(4349 节点)
+#   motrings orphan 0.027 / generic 0.044 / unresolved 0.903(754 节点)
+#   pingfan orphan 0.034 / generic 0.032 / unresolved 0.873(825 节点)
+# 注:unresolved 高企因 geo_type=fantasy 的管线行为;本指标绕过 geo_type 门
+# 测"解析器+字典覆盖能力"(阶段 1 口径),作护栏不作优化目标。
+ood_guard:
+  novels:
+    fanren: "凡人修仙传(修仙网文,2451 章)"
+    motrings: "魔戒全集(西方奇幻译本,82 章)"
+    pingfan: "平凡的世界(现代现实主义,171 章)"
+  metrics: [m1.orphan_rate, m4.generic_residue, geo.unresolved_rate]
+  applies_to_levels: [3, 4]
+  regression_abs: 0.01   # OOD 回归阈值(与 per_novel_regression_abs 同口径)
 
 # ── 评估集划分（§4.2 双集）─────────────────────────────────────────
 datasets:

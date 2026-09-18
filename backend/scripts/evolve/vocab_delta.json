@@ -30,6 +30,46 @@
       "generation": 20,
       "novel": "shuihu"
     },
+    "七宝莲台": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 1,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
+    "七星坛": {
+      "ancestor": "南屏山",
+      "coords": [
+        25.68825,
+        117.62695
+      ],
+      "frequency": 1,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "万丈深潭": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 1,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
+    "万圣龙宫": {
+      "ancestor": "龙宫",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 0,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
     "万城": {
       "ancestor": "隆中山",
       "coords": [
@@ -39,6 +79,16 @@
       "frequency": 1,
       "generation": 20,
       "novel": "shuihu"
+    },
+    "万安溪草庵": {
+      "ancestor": "万安溪",
+      "coords": [
+        27.77839,
+        110.21478
+      ],
+      "frequency": 1,
+      "generation": 189,
+      "novel": "sanguo"
     },
     "万寿门": {
       "ancestor": "太尉府",
@@ -80,6 +130,16 @@
       "generation": 80,
       "novel": "fengshen"
     },
+    "三块青石头": {
+      "ancestor": "草庵",
+      "coords": [
+        32.0827,
+        118.136
+      ],
+      "frequency": 0,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
     "三宫殿": {
       "ancestor": "山西",
       "coords": [
@@ -110,6 +170,26 @@
       "generation": 97,
       "novel": "fengshen"
     },
+    "三山门": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 1,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
+    "三山门外": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 1,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
     "三座关": {
       "ancestor": "青州",
       "coords": [
@@ -130,6 +210,16 @@
       "generation": 76,
       "novel": "fengshen"
     },
+    "三清坛场": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
+    },
     "三清殿": {
       "ancestor": "介休",
       "coords": [
@@ -139,6 +229,16 @@
       "frequency": 1,
       "generation": 20,
       "novel": "shuihu"
+    },
+    "三清观宇": {
+      "ancestor": "三清观",
+      "coords": [
+        31.72742,
+        105.06106
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
     },
     "三碗不过冈酒店": {
       "ancestor": "阳谷县",
@@ -150,6 +250,16 @@
       "generation": 20,
       "novel": "shuihu"
     },
+    "上夜房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 116,
+      "novel": "honglou"
+    },
     "上大夫府": {
       "ancestor": "西岐城",
       "coords": [
@@ -160,6 +270,16 @@
       "generation": 97,
       "novel": "fengshen"
     },
+    "上庸": {
+      "ancestor": "江陵",
+      "coords": [
+        30.3,
+        112.2
+      ],
+      "frequency": 6,
+      "generation": 179,
+      "novel": "sanguo"
+    },
     "上水头": {
       "ancestor": "清溪县",
       "coords": [
@@ -169,6 +289,36 @@
       "frequency": 1,
       "generation": 20,
       "novel": "shuihu"
+    },
+    "上邽": {
+      "ancestor": "天水",
+      "coords": [
+        34.65222,
+        105.80699
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
+    "下辨": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
+    "丛绿堂": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
     },
     "东京·金殿": {
       "ancestor": "东京",
@@ -240,6 +390,16 @@
       "generation": 7,
       "novel": "shuihu"
     },
+    "东凹里": {
+      "ancestor": "天井",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
     "东北水寨": {
       "ancestor": "梁山泊",
       "coords": [
@@ -260,6 +420,16 @@
       "generation": 5,
       "novel": "shuihu"
     },
+    "东南一隅": {
+      "ancestor": "姑苏",
+      "coords": [
+        31.3,
+        120.62
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
     "东南水寨": {
       "ancestor": "水泊",
       "coords": [
@@ -269,6 +439,16 @@
       "frequency": 1,
       "generation": 21,
       "novel": "shuihu"
+    },
+    "东厕": {
+      "ancestor": "三清观",
+      "coords": [
+        31.72742,
+        105.06106
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
     },
     "东厢": {
       "ancestor": "段家庄",
@@ -300,6 +480,46 @@
       "generation": 21,
       "novel": "shuihu"
     },
+    "东山凹": {
+      "ancestor": "青龙山",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
+    },
+    "东山顶上": {
+      "ancestor": "东山顶",
+      "coords": [
+        27.23428,
+        115.91849
+      ],
+      "frequency": 0,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
+    "东崖": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
+    },
+    "东崖上": {
+      "ancestor": "东崖",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 0,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
     "东廊三间小正房": {
       "ancestor": "北门外",
       "coords": [
@@ -309,6 +529,16 @@
       "frequency": 2,
       "generation": 113,
       "novel": "honglou"
+    },
+    "东汉": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 48,
+      "generation": 179,
+      "novel": "sanguo"
     },
     "东海之滨": {
       "ancestor": "东海",
@@ -330,6 +560,46 @@
       "generation": 80,
       "novel": "fengshen"
     },
+    "东海龙宫": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 0,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
+    "东禅堂": {
+      "ancestor": "荇叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
+    "东边小角门": {
+      "ancestor": "北府",
+      "coords": [
+        34.60914,
+        109.53352
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
+    },
+    "东边崖上": {
+      "ancestor": "黑水河",
+      "coords": [
+        37.82707,
+        114.29897
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
+    },
     "东郭门": {
       "ancestor": "东京",
       "coords": [
@@ -350,6 +620,16 @@
       "generation": 2,
       "novel": "shuihu"
     },
+    "东门厢": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
+    },
     "东门外": {
       "ancestor": "东门",
       "coords": [
@@ -360,6 +640,16 @@
       "generation": 10,
       "novel": "shuihu"
     },
+    "丞相府": {
+      "ancestor": "成都",
+      "coords": [
+        30.57,
+        104.07
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
     "两军阵前": {
       "ancestor": "孟津",
       "coords": [
@@ -369,6 +659,16 @@
       "frequency": 0,
       "generation": 97,
       "novel": "fengshen"
+    },
+    "两边树上": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
     },
     "严州": {
       "ancestor": "江南",
@@ -390,6 +690,16 @@
       "generation": 97,
       "novel": "fengshen"
     },
+    "中途草舍": {
+      "ancestor": "紫云山",
+      "coords": [
+        29.13828,
+        121.2473
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
     "临县": {
       "ancestor": "河东",
       "coords": [
@@ -399,6 +709,36 @@
       "frequency": 2,
       "generation": 11,
       "novel": "shuihu"
+    },
+    "临安伯府": {
+      "ancestor": "淮南",
+      "coords": [
+        32.5,
+        117.0
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
+    },
+    "临安伯府里": {
+      "ancestor": "淮南",
+      "coords": [
+        32.5,
+        117.0
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
+    "临潼关": {
+      "ancestor": "商朝",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 8,
+      "generation": 115,
+      "novel": "fengshen"
     },
     "临潼关·囹圄": {
       "ancestor": "临潼关",
@@ -500,6 +840,46 @@
       "generation": 81,
       "novel": "fengshen"
     },
+    "丹墀下": {
+      "ancestor": "东山顶",
+      "coords": [
+        27.23428,
+        115.91849
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
+    "乌巢": {
+      "ancestor": "浮屠山",
+      "coords": [
+        29.90478,
+        115.0822
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
+    },
+    "乌林子": {
+      "ancestor": "平顶山",
+      "coords": [
+        33.81265,
+        113.00431
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
+    },
+    "乌程": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
     "乌龙神庙": {
       "ancestor": "高岭",
       "coords": [
@@ -519,6 +899,16 @@
       "frequency": 3,
       "generation": 74,
       "novel": "fengshen"
+    },
+    "九叉头杨树": {
+      "ancestor": "清华洞",
+      "coords": [
+        25.4586,
+        100.545
+      ],
+      "frequency": 1,
+      "generation": 148,
+      "novel": "xiyouji"
     },
     "九宫八卦阵": {
       "ancestor": "河北",
@@ -560,6 +950,16 @@
       "generation": 97,
       "novel": "fengshen"
     },
+    "九曲盘桓洞": {
+      "ancestor": "竹节山",
+      "coords": [
+        33.88391,
+        120.28412
+      ],
+      "frequency": 2,
+      "generation": 145,
+      "novel": "xiyouji"
+    },
     "九曲雕栏": {
       "ancestor": "摘星楼",
       "coords": [
@@ -580,6 +980,16 @@
       "generation": 98,
       "novel": "fengshen"
     },
+    "九江": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
     "九间大殿": {
       "ancestor": "朝歌",
       "coords": [
@@ -589,6 +999,26 @@
       "frequency": 7,
       "generation": 71,
       "novel": "fengshen"
+    },
+    "九霄碧汉": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "九霄空内": {
+      "ancestor": "翠云山",
+      "coords": [
+        29.68817,
+        106.58852
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
     },
     "九鼎铁叉山": {
       "ancestor": "乾元山",
@@ -620,6 +1050,36 @@
       "generation": 76,
       "novel": "fengshen"
     },
+    "书院": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
+    "乱石山碧波潭": {
+      "ancestor": "乱石山",
+      "coords": [
+        41.10406,
+        114.45016
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "乱石磷磷": {
+      "ancestor": "清华洞",
+      "coords": [
+        25.4586,
+        100.545
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
     "乾元山金光洞": {
       "ancestor": "乾元山",
       "coords": [
@@ -630,6 +1090,16 @@
       "generation": 72,
       "novel": "fengshen"
     },
+    "乾方集": {
+      "ancestor": "玉华州",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
     "二仙山麻姑洞": {
       "ancestor": "二仙山",
       "coords": [
@@ -639,6 +1109,66 @@
       "frequency": 1,
       "generation": 81,
       "novel": "fengshen"
+    },
+    "二天门": {
+      "ancestor": "武当山",
+      "coords": [
+        32.4,
+        111.0
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "二层厂厅": {
+      "ancestor": "虎口洞",
+      "coords": [
+        24.29833,
+        115.35056
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
+    "二层山门": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
+    },
+    "二山门": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "二府之门": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
+    "二郎真君之庙": {
+      "ancestor": "东山顶",
+      "coords": [
+        27.23428,
+        115.91849
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
     },
     "二龙山黄峰岭": {
       "ancestor": "九仙山",
@@ -660,6 +1190,16 @@
       "generation": 81,
       "novel": "fengshen"
     },
+    "云南": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
     "云堂": {
       "ancestor": "河东",
       "coords": [
@@ -669,6 +1209,16 @@
       "frequency": 2,
       "generation": 11,
       "novel": "shuihu"
+    },
+    "云楼宫殿": {
+      "ancestor": "云楼宫",
+      "coords": [
+        20.04312,
+        110.58231
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
     },
     "云霄洞": {
       "ancestor": "五龙山",
@@ -699,6 +1249,26 @@
       "frequency": 1,
       "generation": 81,
       "novel": "fengshen"
+    },
+    "五凤楼前": {
+      "ancestor": "五凤楼",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "五台山秘魔岩": {
+      "ancestor": "五台山",
+      "coords": [
+        25.9266,
+        102.66763
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
     },
     "五夷山": {
       "ancestor": "曹州",
@@ -760,6 +1330,116 @@
       "generation": 11,
       "novel": "shuihu"
     },
+    "五庄观·庭下": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
+    "五庄观·廊下": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
+    "五庄观·正殿": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 2,
+      "generation": 145,
+      "novel": "xiyouji"
+    },
+    "五庄观二层门": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "五庄观厨房": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "五庄观山门": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "五庄观正殿": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 149,
+      "novel": "xiyouji"
+    },
+    "五庄观花园": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "五庄观菜园": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "五庄观道房": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "五府六部各衙门": {
+      "ancestor": "月城",
+      "coords": [
+        23.5633,
+        116.2691
+      ],
+      "frequency": 0,
+      "generation": 164,
+      "novel": "xiyouji"
+    },
     "五方队伍": {
       "ancestor": "西岐城",
       "coords": [
@@ -769,6 +1449,36 @@
       "frequency": 0,
       "generation": 98,
       "novel": "fengshen"
+    },
+    "五显祠": {
+      "ancestor": "陡崖",
+      "coords": [
+        37.40855,
+        120.98354
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "五色琉璃塔": {
+      "ancestor": "翠云山",
+      "coords": [
+        29.68817,
+        106.58852
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "五行山·山根下": {
+      "ancestor": "五行山",
+      "coords": [
+        46.05841,
+        125.69651
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
     },
     "五里": {
       "ancestor": "冀州",
@@ -780,6 +1490,16 @@
       "generation": 98,
       "novel": "fengshen"
     },
+    "五间正殿": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
+    },
     "五龙山云霄洞": {
       "ancestor": "五龙山",
       "coords": [
@@ -789,6 +1509,96 @@
       "frequency": 4,
       "generation": 73,
       "novel": "fengshen"
+    },
+    "京兆": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
+    "亭台里面": {
+      "ancestor": "水府",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "亭外头棚下": {
+      "ancestor": "小亭",
+      "coords": [
+        31.8218,
+        105.201
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
+    "亭阁": {
+      "ancestor": "紫云山",
+      "coords": [
+        29.13828,
+        121.2473
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "人参园": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "仁清巷": {
+      "ancestor": "姑苏",
+      "coords": [
+        31.3,
+        120.62
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
+    "仓房": {
+      "ancestor": "压龙山",
+      "coords": [
+        28.54541,
+        92.31998
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "仙庄·穿堂": {
+      "ancestor": "仙庄",
+      "coords": [
+        29.31904,
+        120.38129
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "会稽": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
     },
     "低泽": {
       "ancestor": "夹龙山",
@@ -860,6 +1670,16 @@
       "generation": 76,
       "novel": "fengshen"
     },
+    "倒厅": {
+      "ancestor": "长安县",
+      "coords": [
+        38.06667,
+        114.58333
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
+    },
     "候潮门": {
       "ancestor": "杭州城",
       "coords": [
@@ -869,6 +1689,16 @@
       "frequency": 2,
       "generation": 11,
       "novel": "shuihu"
+    },
+    "假山石后": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
     },
     "僧堂": {
       "ancestor": "大相国寺",
@@ -890,6 +1720,16 @@
       "generation": 82,
       "novel": "fengshen"
     },
+    "光禄寺库上": {
+      "ancestor": "光禄寺",
+      "coords": [
+        29.8904,
+        104.328
+      ],
+      "frequency": 0,
+      "generation": 134,
+      "novel": "honglou"
+    },
     "八卦阵": {
       "ancestor": "周营",
       "coords": [
@@ -909,6 +1749,16 @@
       "frequency": 1,
       "generation": 82,
       "novel": "fengshen"
+    },
+    "公馆": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 1,
+      "generation": 117,
+      "novel": "honglou"
     },
     "六和塔": {
       "ancestor": "杭州市",
@@ -939,6 +1789,36 @@
       "frequency": 0,
       "generation": 98,
       "novel": "fengshen"
+    },
+    "典赡所": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "养性楼": {
+      "ancestor": "慈云寺",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "冀城": {
+      "ancestor": "天水",
+      "coords": [
+        34.65222,
+        105.80699
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
     },
     "冀川": {
       "ancestor": "青峰山",
@@ -980,6 +1860,16 @@
       "generation": 82,
       "novel": "fengshen"
     },
+    "内宅": {
+      "ancestor": "高陵",
+      "coords": [
+        34.50641,
+        109.06076
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
     "内宫": {
       "ancestor": "青鸾",
       "coords": [
@@ -989,6 +1879,16 @@
       "frequency": 0,
       "generation": 98,
       "novel": "fengshen"
+    },
+    "内宫门": {
+      "ancestor": "长安县",
+      "coords": [
+        38.06667,
+        114.58333
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
     },
     "内庭": {
       "ancestor": "相府",
@@ -1010,6 +1910,16 @@
       "generation": 99,
       "novel": "fengshen"
     },
+    "内院": {
+      "ancestor": "须弥山",
+      "coords": [
+        26.43472,
+        118.83686
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
     "冷宫": {
       "ancestor": "朝歌城",
       "coords": [
@@ -1019,6 +1929,16 @@
       "frequency": 1,
       "generation": 83,
       "novel": "fengshen"
+    },
+    "净土": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
     },
     "净室": {
       "ancestor": "相府",
@@ -1040,6 +1960,86 @@
       "generation": 12,
       "novel": "shuihu"
     },
+    "净水池": {
+      "ancestor": "莲花洞",
+      "coords": [
+        25.50083,
+        111.98278
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "凌云渡": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 2,
+      "generation": 145,
+      "novel": "xiyouji"
+    },
+    "凝曦轩": {
+      "ancestor": "天齐庙",
+      "coords": [
+        35.5565,
+        116.707
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
+    "凤仙郡·新寺": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "凤仙郡界": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "凤仪亭": {
+      "ancestor": "相府",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
+    "凤辇龙车": {
+      "ancestor": "压龙山",
+      "coords": [
+        28.54541,
+        92.31998
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
+    },
+    "凸碧山庄": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
     "函关": {
       "ancestor": "五龙山",
       "coords": [
@@ -1049,6 +2049,26 @@
       "frequency": 0,
       "generation": 99,
       "novel": "fengshen"
+    },
+    "分宫楼": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 150,
+      "novel": "xiyouji"
+    },
+    "分宫楼下": {
+      "ancestor": "分宫楼",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 165,
+      "novel": "xiyouji"
     },
     "刑部": {
       "ancestor": "江南",
@@ -1070,6 +2090,46 @@
       "generation": 12,
       "novel": "shuihu"
     },
+    "刘姥姥家": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
+    "刘家": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "刘家山庄": {
+      "ancestor": "东岳",
+      "coords": [
+        29.8253,
+        103.24634
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "刺史住宅": {
+      "ancestor": "地灵县",
+      "coords": [
+        42.59008,
+        124.43232
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
     "前堂": {
       "ancestor": "宋家庄",
       "coords": [
@@ -1079,6 +2139,26 @@
       "frequency": 0,
       "generation": 99,
       "novel": "fengshen"
+    },
+    "前山坡下": {
+      "ancestor": "白虎岭",
+      "coords": [
+        30.24701,
+        111.62726
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
+    "前山门": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
     },
     "前村": {
       "ancestor": "燕山",
@@ -1090,6 +2170,16 @@
       "generation": 90,
       "novel": "fengshen"
     },
+    "剥皮亭": {
+      "ancestor": "麒麟山",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
     "化血阵": {
       "ancestor": "十绝阵",
       "coords": [
@@ -1100,6 +2190,16 @@
       "generation": 83,
       "novel": "fengshen"
     },
+    "化龙池": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
     "北关门": {
       "ancestor": "杭州城",
       "coords": [
@@ -1109,6 +2209,56 @@
       "frequency": 3,
       "generation": 7,
       "novel": "shuihu"
+    },
+    "北山": {
+      "ancestor": "徐州",
+      "coords": [
+        34.26,
+        117.19
+      ],
+      "frequency": 2,
+      "generation": 183,
+      "novel": "sanguo"
+    },
+    "北岸": {
+      "ancestor": "长江",
+      "coords": [
+        30.0,
+        115.0
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
+    "北府内宫门": {
+      "ancestor": "北府",
+      "coords": [
+        34.60914,
+        109.53352
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "北府前殿": {
+      "ancestor": "北府",
+      "coords": [
+        34.60914,
+        109.53352
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "北府精致小院": {
+      "ancestor": "北府",
+      "coords": [
+        34.60914,
+        109.53352
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
     },
     "北海": {
       "ancestor": "乾元山",
@@ -1130,6 +2280,16 @@
       "generation": 99,
       "novel": "fengshen"
     },
+    "北界墙根下": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
     "北疆": {
       "ancestor": "北海",
       "coords": [
@@ -1149,6 +2309,26 @@
       "frequency": 1,
       "generation": 83,
       "novel": "fengshen"
+    },
+    "北门外桥上": {
+      "ancestor": "北门外",
+      "coords": [
+        25.31817,
+        110.29869
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
+    "十字街": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
     },
     "十绝阵": {
       "ancestor": "成汤营",
@@ -1170,6 +2350,16 @@
       "generation": 83,
       "novel": "fengshen"
     },
+    "十里街": {
+      "ancestor": "姑苏",
+      "coords": [
+        31.3,
+        120.62
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
     "十里长亭": {
       "ancestor": "朝歌",
       "coords": [
@@ -1180,6 +2370,26 @@
       "generation": 73,
       "novel": "fengshen"
     },
+    "千步廊南": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "千花洞": {
+      "ancestor": "紫云山",
+      "coords": [
+        29.13828,
+        121.2473
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
     "午门外": {
       "ancestor": "午门",
       "coords": [
@@ -1189,6 +2399,36 @@
       "frequency": 1,
       "generation": 83,
       "novel": "fengshen"
+    },
+    "华光破屋": {
+      "ancestor": "海州",
+      "coords": [
+        34.59543,
+        119.13163
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "华夷楼": {
+      "ancestor": "东山顶",
+      "coords": [
+        27.23428,
+        115.91849
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
+    "华夷阁": {
+      "ancestor": "御花园",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
     },
     "华州牢": {
       "ancestor": "华州",
@@ -1209,6 +2449,106 @@
       "frequency": 4,
       "generation": 5,
       "novel": "shuihu"
+    },
+    "南安郡王祭棚": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
+    "南山涧": {
+      "ancestor": "南山",
+      "coords": [
+        22.56416,
+        113.95319
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
+    "南山涧下": {
+      "ancestor": "南山涧",
+      "coords": [
+        22.56416,
+        113.95319
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "南岸": {
+      "ancestor": "长江",
+      "coords": [
+        30.0,
+        115.0
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
+    "南庄人家": {
+      "ancestor": "南庄",
+      "coords": [
+        23.7188,
+        102.815
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
+    "南徐": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 5,
+      "generation": 179,
+      "novel": "sanguo"
+    },
+    "南洋苦海": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 151,
+      "novel": "xiyouji"
+    },
+    "南海普陀山": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "南海普陀落伽山": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "南海落伽山": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
     },
     "南粤": {
       "ancestor": "北海",
@@ -1250,6 +2590,36 @@
       "generation": 76,
       "novel": "fengshen"
     },
+    "南门头破瓦窑": {
+      "ancestor": "小子城",
+      "coords": [
+        30.70271,
+        81.00236
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "南韶道": {
+      "ancestor": "北门外",
+      "coords": [
+        25.31817,
+        110.29869
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "博望坡": {
+      "ancestor": "南阳",
+      "coords": [
+        33.0,
+        112.5
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
     "卢员外家": {
       "ancestor": "河北",
       "coords": [
@@ -1259,6 +2629,26 @@
       "frequency": 2,
       "generation": 12,
       "novel": "shuihu"
+    },
+    "卧虎石": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "卧龙冈": {
+      "ancestor": "南阳",
+      "coords": [
+        33.0,
+        112.5
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
     },
     "卫国": {
       "ancestor": "九鼎铁叉山",
@@ -1270,6 +2660,16 @@
       "generation": 99,
       "novel": "fengshen"
     },
+    "厨下": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 1,
+      "generation": 118,
+      "novel": "honglou"
+    },
     "叁济仓": {
       "ancestor": "西岐城",
       "coords": [
@@ -1278,6 +2678,26 @@
       ],
       "frequency": 0,
       "generation": 99,
+      "novel": "fengshen"
+    },
+    "受禅坛": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
+    "右营": {
+      "ancestor": "商朝营地",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 178,
       "novel": "fengshen"
     },
     "司天台": {
@@ -1300,6 +2720,16 @@
       "generation": 12,
       "novel": "shuihu"
     },
+    "各处角门": {
+      "ancestor": "山子石",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
     "后厅": {
       "ancestor": "冀州",
       "coords": [
@@ -1309,6 +2739,26 @@
       "frequency": 2,
       "generation": 76,
       "novel": "fengshen"
+    },
+    "后宫·鳷鹊宫": {
+      "ancestor": "后宫",
+      "coords": [
+        35.35778,
+        111.39832
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "后宫门": {
+      "ancestor": "后宫",
+      "coords": [
+        35.35778,
+        111.39832
+      ],
+      "frequency": 2,
+      "generation": 145,
+      "novel": "xiyouji"
     },
     "后帐": {
       "ancestor": "周营",
@@ -1320,6 +2770,16 @@
       "generation": 99,
       "novel": "fengshen"
     },
+    "后殿": {
+      "ancestor": "河南",
+      "coords": [
+        34.0,
+        113.5
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
     "后营": {
       "ancestor": "周营",
       "coords": [
@@ -1330,6 +2790,66 @@
       "generation": 100,
       "novel": "fengshen"
     },
+    "后街": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "后角门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "吕布寨": {
+      "ancestor": "小沛",
+      "coords": [
+        34.7,
+        116.6
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
+    "吴会": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
+    "吴侯府": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 9,
+      "generation": 179,
+      "novel": "sanguo"
+    },
+    "吴郡": {
+      "ancestor": "吴城",
+      "coords": [
+        33.5156,
+        118.805
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
     "周朝营寨": {
       "ancestor": "金鸡岭",
       "coords": [
@@ -1339,6 +2859,26 @@
       "frequency": 1,
       "generation": 83,
       "novel": "fengshen"
+    },
+    "周瑜寨": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
+    "周瑜寨·中军帐": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
     },
     "周营": {
       "ancestor": "西岐",
@@ -1399,6 +2939,16 @@
       "frequency": 0,
       "generation": 100,
       "novel": "fengshen"
+    },
+    "哈咇国": {
+      "ancestor": "小子城",
+      "coords": [
+        30.70271,
+        81.00236
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
     },
     "商容府": {
       "ancestor": "朝歌",
@@ -1520,6 +3070,26 @@
       "generation": 100,
       "novel": "fengshen"
     },
+    "善才庵": {
+      "ancestor": "长安县",
+      "coords": [
+        38.06667,
+        114.58333
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "嘉德殿": {
+      "ancestor": "太庙",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 184,
+      "novel": "sanguo"
+    },
     "囚车": {
       "ancestor": "穿云关",
       "coords": [
@@ -1540,6 +3110,26 @@
       "generation": 101,
       "novel": "fengshen"
     },
+    "四众生祠": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "四姑娘屋子": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
     "团营": {
       "ancestor": "西岐北门",
       "coords": [
@@ -1549,6 +3139,106 @@
       "frequency": 1,
       "generation": 84,
       "novel": "fengshen"
+    },
+    "园中·侧门": {
+      "ancestor": "园中",
+      "coords": [
+        26.10454,
+        119.35934
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "园中小门": {
+      "ancestor": "园中",
+      "coords": [
+        26.10454,
+        119.35934
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "园中花园": {
+      "ancestor": "园中",
+      "coords": [
+        26.10454,
+        119.35934
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "园中院落": {
+      "ancestor": "园中",
+      "coords": [
+        26.10454,
+        119.35934
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "园内厨房": {
+      "ancestor": "园内",
+      "coords": [
+        25.05379,
+        118.15261
+      ],
+      "frequency": 1,
+      "generation": 119,
+      "novel": "honglou"
+    },
+    "园内腰门": {
+      "ancestor": "园内",
+      "coords": [
+        25.05379,
+        118.15261
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
+    "园后墙": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
+    "园后门": {
+      "ancestor": "山子石",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "园子·角门": {
+      "ancestor": "园子",
+      "coords": [
+        39.04589,
+        112.95579
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "园门角门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
     },
     "围场": {
       "ancestor": "南郊",
@@ -1570,6 +3260,16 @@
       "generation": 71,
       "novel": "fengshen"
     },
+    "土井": {
+      "ancestor": "稻香村",
+      "coords": [
+        39.22237,
+        121.66548
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
     "土冈子": {
       "ancestor": "淮西",
       "coords": [
@@ -1579,6 +3279,26 @@
       "frequency": 2,
       "generation": 12,
       "novel": "shuihu"
+    },
+    "土地庙": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "地灵县": {
+      "ancestor": "铜台府",
+      "coords": [
+        42.59008,
+        124.43232
+      ],
+      "frequency": 2,
+      "generation": 145,
+      "novel": "xiyouji"
     },
     "地烈阵": {
       "ancestor": "成汤营",
@@ -1610,6 +3330,26 @@
       "generation": 12,
       "novel": "shuihu"
     },
+    "垂柳阴": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 135,
+      "novel": "honglou"
+    },
+    "城南二百多地": {
+      "ancestor": "城南",
+      "coords": [
+        23.27217,
+        116.60502
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
     "城外营中": {
       "ancestor": "西岐",
       "coords": [
@@ -1629,6 +3369,16 @@
       "frequency": 1,
       "generation": 84,
       "novel": "fengshen"
+    },
+    "城池·后宫": {
+      "ancestor": "城池",
+      "coords": [
+        30.00828,
+        108.71423
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
     },
     "城濠": {
       "ancestor": "陕州城",
@@ -1650,6 +3400,26 @@
       "generation": 13,
       "novel": "shuihu"
     },
+    "夔关": {
+      "ancestor": "青城山",
+      "coords": [
+        30.87709,
+        103.59035
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "外宫门": {
+      "ancestor": "长安县",
+      "coords": [
+        38.06667,
+        114.58333
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
     "外营": {
       "ancestor": "周营",
       "coords": [
@@ -1660,6 +3430,116 @@
       "generation": 101,
       "novel": "fengshen"
     },
+    "外藩公馆": {
+      "ancestor": "天齐庙",
+      "coords": [
+        35.5565,
+        116.707
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
+    "外边": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "外间台矶": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "多宝台": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "多浑虫家": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
+    "大书房": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
+    "大兴山": {
+      "ancestor": "涿郡",
+      "coords": [
+        39.5,
+        115.9
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "大冲之内": {
+      "ancestor": "大冲",
+      "coords": [
+        27.33458,
+        114.84651
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "大圣禅寺": {
+      "ancestor": "盱眙山",
+      "coords": [
+        32.91963,
+        118.54769
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "大堂·暖阁": {
+      "ancestor": "大堂",
+      "coords": [
+        22.37428,
+        112.97796
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "大堂廊下": {
+      "ancestor": "大堂",
+      "coords": [
+        22.37428,
+        112.97796
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
     "大相国寺": {
       "ancestor": "东京",
       "coords": [
@@ -1669,6 +3549,56 @@
       "frequency": 4,
       "generation": 5,
       "novel": "shuihu"
+    },
+    "大西天天雷音寺": {
+      "ancestor": "五台山",
+      "coords": [
+        25.9266,
+        102.66763
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "大观园·嘉荫堂": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "大观园·夹道": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 120,
+      "novel": "honglou"
+    },
+    "大观园·正门": {
+      "ancestor": "沁芳闸",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
+    "大观园·甬道": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
     },
     "大观园·角门": {
       "ancestor": "大观园",
@@ -1690,6 +3620,36 @@
       "generation": 113,
       "novel": "honglou"
     },
+    "大观园后门": {
+      "ancestor": "花障子",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "大观园后院": {
+      "ancestor": "荇叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "大观园正门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
     "大辕门": {
       "ancestor": "商朝营寨",
       "coords": [
@@ -1699,6 +3659,56 @@
       "frequency": 0,
       "generation": 101,
       "novel": "fengshen"
+    },
+    "大门口": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "大雄宝殿": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 0,
+      "generation": 166,
+      "novel": "xiyouji"
+    },
+    "大香铺": {
+      "ancestor": "应天府",
+      "coords": [
+        31.0959,
+        108.13693
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
+    "天井": {
+      "ancestor": "宝林寺",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 1,
+      "generation": 152,
+      "novel": "xiyouji"
+    },
+    "天井中": {
+      "ancestor": "天井",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
     },
     "天地坛": {
       "ancestor": "朝歌",
@@ -1710,6 +3720,36 @@
       "generation": 84,
       "novel": "fengshen"
     },
+    "天竺国后宫": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
+    "天竺国外郡": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
+    "天竺国都城": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
     "天绝阵": {
       "ancestor": "成汤营",
       "coords": [
@@ -1719,6 +3759,56 @@
       "frequency": 1,
       "generation": 84,
       "novel": "fengshen"
+    },
+    "天荡山": {
+      "ancestor": "汉中",
+      "coords": [
+        33.1,
+        107.0
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "天香楼下": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "天香楼下·外间": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 136,
+      "novel": "honglou"
+    },
+    "天香楼下·里间": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "天香楼下箭道": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
     },
     "太华山云宵洞": {
       "ancestor": "太华山",
@@ -1750,6 +3840,16 @@
       "generation": 85,
       "novel": "fengshen"
     },
+    "太和宫": {
+      "ancestor": "武当山",
+      "coords": [
+        32.4,
+        111.0
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
     "太平街": {
       "ancestor": "朝歌",
       "coords": [
@@ -1779,6 +3879,26 @@
       "frequency": 1,
       "generation": 85,
       "novel": "fengshen"
+    },
+    "夹脊小路": {
+      "ancestor": "须弥山",
+      "coords": [
+        26.43472,
+        118.83686
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "夹道东门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
     },
     "夹龙山猛兽崖": {
       "ancestor": "夹龙山",
@@ -1829,6 +3949,46 @@
       "frequency": 1,
       "generation": 85,
       "novel": "fengshen"
+    },
+    "女道丹房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
+    "妆台": {
+      "ancestor": "獬豸洞·后宫",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "妙岩宫": {
+      "ancestor": "竹节山",
+      "coords": [
+        33.88391,
+        120.28412
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "姑苏城": {
+      "ancestor": "姑苏",
+      "coords": [
+        31.3,
+        120.62
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
     },
     "姜子牙命馆": {
       "ancestor": "朝歌南门",
@@ -1900,6 +4060,16 @@
       "generation": 85,
       "novel": "fengshen"
     },
+    "孝堂": {
+      "ancestor": "寇家",
+      "coords": [
+        34.89689,
+        108.5646
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
     "孟津大营": {
       "ancestor": "孟津",
       "coords": [
@@ -1928,6 +4098,56 @@
       ],
       "frequency": 2,
       "generation": 113,
+      "novel": "honglou"
+    },
+    "宁国府·暖阁": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
+    "宁国府·正房": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
+    "宁国府·正门": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "宁国府正室": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "守园门小厮班房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 121,
       "novel": "honglou"
     },
     "宋国": {
@@ -2000,6 +4220,86 @@
       "generation": 112,
       "novel": "honglou"
     },
+    "定陶": {
+      "ancestor": "青城山",
+      "coords": [
+        30.87709,
+        103.59035
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "宝林寺山门": {
+      "ancestor": "宝林寺",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
+    "宝林寺正殿": {
+      "ancestor": "宝林寺",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
+    "宝林寺禅堂": {
+      "ancestor": "宝林寺",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "宝玉书房": {
+      "ancestor": "宝玉房",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 121,
+      "novel": "honglou"
+    },
+    "宝玉屋": {
+      "ancestor": "宝玉房",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "宝玉屋·外间": {
+      "ancestor": "宝玉房",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "宝玉屋·里间": {
+      "ancestor": "宝玉房",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
     "宝玉房": {
       "ancestor": "大观园",
       "coords": [
@@ -2019,6 +4319,76 @@
       "frequency": 2,
       "generation": 114,
       "novel": "honglou"
+    },
+    "宝玉院内": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "宝莲台": {
+      "ancestor": "潮音洞",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "宝莲台下": {
+      "ancestor": "宝莲台",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
+    "宝莲座": {
+      "ancestor": "五台山",
+      "coords": [
+        25.9266,
+        102.66763
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "宝莲池": {
+      "ancestor": "潮音洞",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
+    },
+    "宝钗新房": {
+      "ancestor": "柳叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "审理厅": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
     },
     "客舍": {
       "ancestor": "西岐",
@@ -2040,6 +4410,26 @@
       "generation": 13,
       "novel": "shuihu"
     },
+    "家学": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "寅将军洞府": {
+      "ancestor": "双叉岭",
+      "coords": [
+        41.20904,
+        125.8874
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
     "密室": {
       "ancestor": "相府",
       "coords": [
@@ -2050,6 +4440,16 @@
       "generation": 85,
       "novel": "fengshen"
     },
+    "寇员外家": {
+      "ancestor": "铜台府",
+      "coords": [
+        42.59008,
+        124.43232
+      ],
+      "frequency": 2,
+      "generation": 145,
+      "novel": "xiyouji"
+    },
     "寒冰阵": {
       "ancestor": "十绝阵",
       "coords": [
@@ -2059,6 +4459,16 @@
       "frequency": 1,
       "generation": 86,
       "novel": "fengshen"
+    },
+    "寝宫": {
+      "ancestor": "皇宫内院",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 153,
+      "novel": "xiyouji"
     },
     "寿仙宫": {
       "ancestor": "朝歌",
@@ -2090,6 +4500,26 @@
       "generation": 70,
       "novel": "fengshen"
     },
+    "小花厅": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 137,
+      "novel": "honglou"
+    },
+    "小西天山坡": {
+      "ancestor": "寇家",
+      "coords": [
+        34.89689,
+        108.5646
+      ],
+      "frequency": 0,
+      "generation": 167,
+      "novel": "xiyouji"
+    },
     "小金桥": {
       "ancestor": "西岐城",
       "coords": [
@@ -2099,6 +4529,16 @@
       "frequency": 1,
       "generation": 86,
       "novel": "fengshen"
+    },
+    "小雷音寺后边": {
+      "ancestor": "陡崖",
+      "coords": [
+        37.40855,
+        120.98354
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
     },
     "少华山山寨": {
       "ancestor": "华州",
@@ -2110,6 +4550,16 @@
       "generation": 6,
       "novel": "shuihu"
     },
+    "尤三姐绣房": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
     "尤浑府": {
       "ancestor": "朝歌城",
       "coords": [
@@ -2120,15 +4570,75 @@
       "generation": 86,
       "novel": "fengshen"
     },
-    "山南军": {
-      "ancestor": "小树林",
+    "山凹中": {
+      "ancestor": "草庵",
       "coords": [
-        47.20805,
-        124.86141
+        32.0827,
+        118.136
       ],
-      "frequency": 2,
-      "generation": 13,
-      "novel": "shuihu"
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
+    "山凹之间": {
+      "ancestor": "小子城",
+      "coords": [
+        30.70271,
+        81.00236
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "山凹草舍": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
+    "山凹里": {
+      "ancestor": "麒麟山",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "山前树下": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "山北凹": {
+      "ancestor": "白虎岭",
+      "coords": [
+        30.24701,
+        111.62726
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "山北凹里": {
+      "ancestor": "山北凹",
+      "coords": [
+        30.24701,
+        111.62726
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
     },
     "山南水寨": {
       "ancestor": "山南",
@@ -2140,6 +4650,36 @@
       "generation": 7,
       "novel": "shuihu"
     },
+    "山南里": {
+      "ancestor": "压龙山",
+      "coords": [
+        28.54541,
+        92.31998
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "山坡底下": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "山坡桂树底下": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
     "山子石": {
       "ancestor": "大观园",
       "coords": [
@@ -2149,6 +4689,26 @@
       "frequency": 2,
       "generation": 114,
       "novel": "honglou"
+    },
+    "山子石后": {
+      "ancestor": "山子石",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "山巅": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
     },
     "山川社稷": {
       "ancestor": "朝歌",
@@ -2160,6 +4720,36 @@
       "generation": 102,
       "novel": "fengshen"
     },
+    "山石之后": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "山石背后": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "山窟窿": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
     "山脚石穴": {
       "ancestor": "夹龙山",
       "coords": [
@@ -2169,6 +4759,46 @@
       "frequency": 1,
       "generation": 86,
       "novel": "fengshen"
+    },
+    "山脚边": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "山野": {
+      "ancestor": "平顶山",
+      "coords": [
+        33.81265,
+        113.00431
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "山门外头墙根": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 122,
+      "novel": "honglou"
+    },
+    "山门外头墙根下": {
+      "ancestor": "山门外头墙根",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
     },
     "岐山纣营": {
       "ancestor": "岐山",
@@ -2189,6 +4819,16 @@
       "frequency": 0,
       "generation": 102,
       "novel": "fengshen"
+    },
+    "峨眉山清凉洞": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
     },
     "峨眉山罗浮洞": {
       "ancestor": "峨眉山",
@@ -2250,6 +4890,36 @@
       "generation": 77,
       "novel": "fengshen"
     },
+    "崇阁": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "川中": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "巴丘": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
     "市曹": {
       "ancestor": "江州",
       "coords": [
@@ -2270,15 +4940,45 @@
       "generation": 14,
       "novel": "shuihu"
     },
-    "平川旷野": {
-      "ancestor": "东昌府",
+    "布金寺": {
+      "ancestor": "宝华山",
       "coords": [
-        36.44591,
-        115.88373
+        32.13497,
+        119.07287
       ],
       "frequency": 2,
-      "generation": 14,
-      "novel": "shuihu"
+      "generation": 145,
+      "novel": "xiyouji"
+    },
+    "帘杏溪桃": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "平坦宽阔大路": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "幽尼佛寺": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
     },
     "幽魂白骨": {
       "ancestor": "临潼关",
@@ -2290,6 +4990,66 @@
       "generation": 86,
       "novel": "fengshen"
     },
+    "庄农人家": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "庐江": {
+      "ancestor": "成都",
+      "coords": [
+        30.57,
+        104.07
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "度月": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "度月门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "庭下": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "建平": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
     "异人庄": {
       "ancestor": "朝歌城",
       "coords": [
@@ -2299,6 +5059,36 @@
       "frequency": 1,
       "generation": 86,
       "novel": "fengshen"
+    },
+    "异箱轩": {
+      "ancestor": "亭子",
+      "coords": [
+        32.11409,
+        119.17504
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
+    "弘农": {
+      "ancestor": "并州",
+      "coords": [
+        37.5,
+        112.0
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
+    "弘农县": {
+      "ancestor": "海州",
+      "coords": [
+        34.59543,
+        119.13163
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
     },
     "张桂芳大营": {
       "ancestor": "西岐",
@@ -2350,6 +5140,66 @@
       "generation": 14,
       "novel": "shuihu"
     },
+    "弱河": {
+      "ancestor": "阴山",
+      "coords": [
+        31.9349,
+        104.087
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
+    "彝陵": {
+      "ancestor": "江陵",
+      "coords": [
+        30.3,
+        112.2
+      ],
+      "frequency": 6,
+      "generation": 179,
+      "novel": "sanguo"
+    },
+    "彝陵城": {
+      "ancestor": "彝陵",
+      "coords": [
+        30.3,
+        112.2
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
+    "彩楼": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
+    "往后角门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "待客馆": {
+      "ancestor": "玉华王府",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 1,
+      "generation": 154,
+      "novel": "xiyouji"
+    },
     "後厅": {
       "ancestor": "相府",
       "coords": [
@@ -2400,6 +5250,16 @@
       "generation": 77,
       "novel": "fengshen"
     },
+    "御案": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
     "御花园": {
       "ancestor": "朝歌",
       "coords": [
@@ -2410,6 +5270,26 @@
       "generation": 102,
       "novel": "fengshen"
     },
+    "怡红院·书架后": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "怡红院·后门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
     "怡红院·回廊": {
       "ancestor": "大观园",
       "coords": [
@@ -2418,6 +5298,36 @@
       ],
       "frequency": 2,
       "generation": 114,
+      "novel": "honglou"
+    },
+    "怡红院·抱厦": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "怡红院·暖阁": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "怡红院·里间": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
       "novel": "honglou"
     },
     "总兵府": {
@@ -2430,6 +5340,26 @@
       "generation": 87,
       "novel": "fengshen"
     },
+    "悬崖削壁": {
+      "ancestor": "麒麟山",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
+    "惜春卧房": {
+      "ancestor": "惜春房",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
     "惜春房": {
       "ancestor": "大观园",
       "coords": [
@@ -2439,6 +5369,46 @@
       "frequency": 9,
       "generation": 111,
       "novel": "honglou"
+    },
+    "惜春院": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "惜春院内": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 138,
+      "novel": "honglou"
+    },
+    "慈云寺": {
+      "ancestor": "金平府",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "慈云寺后园": {
+      "ancestor": "慈云寺",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
     },
     "成汤大营": {
       "ancestor": "乾元山",
@@ -2510,6 +5480,16 @@
       "generation": 70,
       "novel": "fengshen"
     },
+    "成皋": {
+      "ancestor": "北海",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 2,
+      "generation": 185,
+      "novel": "sanguo"
+    },
     "截教": {
       "ancestor": "灵鹫山",
       "coords": [
@@ -2560,6 +5540,26 @@
       "generation": 8,
       "novel": "shuihu"
     },
+    "折带朱栏板桥": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 123,
+      "novel": "honglou"
+    },
+    "披素亭": {
+      "ancestor": "寇家",
+      "coords": [
+        34.89689,
+        108.5646
+      ],
+      "frequency": 0,
+      "generation": 168,
+      "novel": "xiyouji"
+    },
     "抱厦厅": {
       "ancestor": "宁国府",
       "coords": [
@@ -2580,6 +5580,36 @@
       "generation": 8,
       "novel": "shuihu"
     },
+    "探春卧室": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "探春房": {
+      "ancestor": "稻香村",
+      "coords": [
+        39.22237,
+        121.66548
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "探春院": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
     "摘星楼": {
       "ancestor": "朝歌",
       "coords": [
@@ -2589,6 +5619,16 @@
       "frequency": 23,
       "generation": 70,
       "novel": "fengshen"
+    },
+    "摩陂": {
+      "ancestor": "许都",
+      "coords": [
+        34.0,
+        113.8
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
     },
     "敌楼": {
       "ancestor": "游魂关",
@@ -2600,6 +5640,16 @@
       "generation": 102,
       "novel": "fengshen"
     },
+    "救生寺": {
+      "ancestor": "陈家庄",
+      "coords": [
+        32.73126,
+        110.23837
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
     "教军场": {
       "ancestor": "西岐城",
       "coords": [
@@ -2610,6 +5660,26 @@
       "generation": 87,
       "novel": "fengshen"
     },
+    "教场": {
+      "ancestor": "青鸾",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 4,
+      "generation": 115,
+      "novel": "fengshen"
+    },
+    "散关": {
+      "ancestor": "汉中",
+      "coords": [
+        33.1,
+        107.0
+      ],
+      "frequency": 3,
+      "generation": 181,
+      "novel": "sanguo"
+    },
     "文书房": {
       "ancestor": "滴水",
       "coords": [
@@ -2619,6 +5689,16 @@
       "frequency": 7,
       "generation": 72,
       "novel": "fengshen"
+    },
+    "文武衙门": {
+      "ancestor": "光禄寺",
+      "coords": [
+        29.8904,
+        104.328
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
     },
     "断金亭": {
       "ancestor": "梁山泊",
@@ -2640,6 +5720,26 @@
       "generation": 14,
       "novel": "shuihu"
     },
+    "方椿家": {
+      "ancestor": "应天府",
+      "coords": [
+        31.0959,
+        108.13693
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "旁门": {
+      "ancestor": "天井",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
     "无为军": {
       "ancestor": "江州",
       "coords": [
@@ -2650,6 +5750,46 @@
       "generation": 8,
       "novel": "shuihu"
     },
+    "日规台": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
+    "旧宅": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "旧所": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "旻天县": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
     "昆仑山玉虚宫": {
       "ancestor": "昆仑山",
       "coords": [
@@ -2659,6 +5799,16 @@
       "frequency": 7,
       "generation": 72,
       "novel": "fengshen"
+    },
+    "昆仑山金霞岭": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
     },
     "昆仑山麒麟崖": {
       "ancestor": "昆仑山",
@@ -2770,6 +5920,16 @@
       "generation": 114,
       "novel": "honglou"
     },
+    "普陀山": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
     "普陀山落伽洞": {
       "ancestor": "翠屏山",
       "coords": [
@@ -2779,6 +5939,86 @@
       "frequency": 1,
       "generation": 87,
       "novel": "fengshen"
+    },
+    "普陀岩": {
+      "ancestor": "落伽山",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
+    "普陀崖": {
+      "ancestor": "落伽山",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
+    "晴雯屋": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "晴雯旧屋": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "晴雯被窝里": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "暴纱亭": {
+      "ancestor": "玉华县",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "曲径": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 124,
+      "novel": "honglou"
+    },
+    "曹军水寨": {
+      "ancestor": "江北",
+      "coords": [
+        32.0,
+        118.0
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
     },
     "曹国": {
       "ancestor": "乾元山",
@@ -2790,6 +6030,66 @@
       "generation": 103,
       "novel": "fengshen"
     },
+    "曹操寨": {
+      "ancestor": "当阳县",
+      "coords": [
+        30.83116,
+        111.83337
+      ],
+      "frequency": 7,
+      "generation": 179,
+      "novel": "sanguo"
+    },
+    "曹操府": {
+      "ancestor": "当阳县",
+      "coords": [
+        30.83116,
+        111.83337
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
+    "曹操旱寨": {
+      "ancestor": "当阳县",
+      "coords": [
+        30.83116,
+        111.83337
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "曹真寨": {
+      "ancestor": "斜谷",
+      "coords": [
+        33.9,
+        107.5
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
+    "曹营": {
+      "ancestor": "许都",
+      "coords": [
+        34.0,
+        113.8
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
+    "曼荆凹": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
     "月下": {
       "ancestor": "鹿台",
       "coords": [
@@ -2800,6 +6100,16 @@
       "generation": 103,
       "novel": "fengshen"
     },
+    "月洞窗": {
+      "ancestor": "柳叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
     "月洞门": {
       "ancestor": "大观园",
       "coords": [
@@ -2809,6 +6119,36 @@
       "frequency": 2,
       "generation": 114,
       "novel": "honglou"
+    },
+    "有凤来仪": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "望经楼": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
+    },
+    "朝会殿": {
+      "ancestor": "灵霄殿",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 155,
+      "novel": "xiyouji"
     },
     "朝歌·偏殿": {
       "ancestor": "滴水",
@@ -2910,6 +6250,46 @@
       "generation": 88,
       "novel": "fengshen"
     },
+    "朝门之外": {
+      "ancestor": "月城",
+      "coords": [
+        23.5633,
+        116.2691
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
+    "朝门外": {
+      "ancestor": "月城",
+      "coords": [
+        23.5633,
+        116.2691
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "木香棚": {
+      "ancestor": "池上",
+      "coords": [
+        36.3599,
+        118.079
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "本观塔下": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
     "朱贵酒店": {
       "ancestor": "梁山泊",
       "coords": [
@@ -2929,6 +6309,56 @@
       "frequency": 3,
       "generation": 8,
       "novel": "shuihu"
+    },
+    "李纨妆奁": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "李纨房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "杏帘在望": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "杏树下": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "杏花园": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
     },
     "村店": {
       "ancestor": "古庙",
@@ -2980,6 +6410,16 @@
       "generation": 103,
       "novel": "fengshen"
     },
+    "杨老庄院": {
+      "ancestor": "西坡",
+      "coords": [
+        33.84772,
+        106.43039
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
     "杨雄家": {
       "ancestor": "河北",
       "coords": [
@@ -2989,6 +6429,16 @@
       "frequency": 3,
       "generation": 9,
       "novel": "shuihu"
+    },
+    "松根旁": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
     },
     "极乐世界": {
       "ancestor": "峨眉山",
@@ -3000,6 +6450,46 @@
       "generation": 78,
       "novel": "fengshen"
     },
+    "枕翠庵": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "枕霞阁": {
+      "ancestor": "史家",
+      "coords": [
+        29.64136,
+        104.99892
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "林如海家": {
+      "ancestor": "维扬",
+      "coords": [
+        32.41161,
+        119.45177
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "林子里": {
+      "ancestor": "陡崖",
+      "coords": [
+        37.40855,
+        120.98354
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
     "枢密院": {
       "ancestor": "东京",
       "coords": [
@@ -3009,6 +6499,16 @@
       "frequency": 3,
       "generation": 9,
       "novel": "shuihu"
+    },
+    "枫树底下": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
     },
     "柳叶渚": {
       "ancestor": "大观园",
@@ -3020,6 +6520,36 @@
       "generation": 114,
       "novel": "honglou"
     },
+    "柳叶渚至潇湘馆": {
+      "ancestor": "柳叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "柳嫂子家": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 125,
+      "novel": "honglou"
+    },
+    "柳林坡": {
+      "ancestor": "清华洞",
+      "coords": [
+        25.4586,
+        100.545
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
     "柳树下": {
       "ancestor": "朝歌南门",
       "coords": [
@@ -3029,6 +6559,16 @@
       "frequency": 0,
       "generation": 103,
       "novel": "fengshen"
+    },
+    "柴桑郡": {
+      "ancestor": "柴桑",
+      "coords": [
+        29.7,
+        116.0
+      ],
+      "frequency": 5,
+      "generation": 179,
+      "novel": "sanguo"
     },
     "柴进庄院": {
       "ancestor": "沧州",
@@ -3040,6 +6580,26 @@
       "generation": 4,
       "novel": "shuihu"
     },
+    "栏外山石后": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "树林子后头": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
     "桃花园": {
       "ancestor": "玉虚宫",
       "coords": [
@@ -3049,6 +6609,26 @@
       "frequency": 2,
       "generation": 78,
       "novel": "fengshen"
+    },
+    "桐槛": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "梦中花园": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
     },
     "棋盘山": {
       "ancestor": "玉泉山",
@@ -3060,6 +6640,16 @@
       "generation": 88,
       "novel": "fengshen"
     },
+    "棠木舡": {
+      "ancestor": "荇叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
     "楚国": {
       "ancestor": "冀州",
       "coords": [
@@ -3070,6 +6660,16 @@
       "generation": 103,
       "novel": "fengshen"
     },
+    "楼船": {
+      "ancestor": "西山",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
     "榆柳庄": {
       "ancestor": "太湖",
       "coords": [
@@ -3079,6 +6679,56 @@
       "frequency": 2,
       "generation": 15,
       "novel": "shuihu"
+    },
+    "榆荫堂": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "槐绿低窗": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "樊口": {
+      "ancestor": "西山",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
+    "正南上": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "正南街": {
+      "ancestor": "小西天",
+      "coords": [
+        41.11708,
+        118.49635
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
     },
     "正宫": {
       "ancestor": "朝歌",
@@ -3099,6 +6749,56 @@
       "frequency": 1,
       "generation": 88,
       "novel": "fengshen"
+    },
+    "正殿门": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "正面楼上": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "此岸": {
+      "ancestor": "凌云渡",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
+    "步廊": {
+      "ancestor": "琵琶洞",
+      "coords": [
+        42.64188,
+        130.38515
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "武关": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
     },
     "武吉家": {
       "ancestor": "西岐城",
@@ -3129,6 +6829,16 @@
       "frequency": 2,
       "generation": 15,
       "novel": "shuihu"
+    },
+    "武库": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
     },
     "武成王府": {
       "ancestor": "朝歌",
@@ -3220,6 +6930,106 @@
       "generation": 89,
       "novel": "fengshen"
     },
+    "毛颖山": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "水府": {
+      "ancestor": "龙宫",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "水府之西": {
+      "ancestor": "水府",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "水晶宫": {
+      "ancestor": "龙宫",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 7,
+      "generation": 143,
+      "novel": "xiyouji"
+    },
+    "水脏洞": {
+      "ancestor": "花亭",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
+    "水鼋之第": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 1,
+      "generation": 156,
+      "novel": "xiyouji"
+    },
+    "永安": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
+    "永镇华夷阁": {
+      "ancestor": "御花园",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "汉水": {
+      "ancestor": "汉中",
+      "coords": [
+        33.1,
+        107.0
+      ],
+      "frequency": 5,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "汉水之西": {
+      "ancestor": "汉水",
+      "coords": [
+        33.1,
+        107.0
+      ],
+      "frequency": 2,
+      "generation": 186,
+      "novel": "sanguo"
+    },
     "汉江": {
       "ancestor": "南丰城",
       "coords": [
@@ -3290,6 +7100,76 @@
       "generation": 9,
       "novel": "shuihu"
     },
+    "江州私衙": {
+      "ancestor": "草庵",
+      "coords": [
+        32.0827,
+        118.136
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "江津": {
+      "ancestor": "小子城",
+      "coords": [
+        30.70271,
+        81.00236
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
+    "江西粮道衙门": {
+      "ancestor": "江西",
+      "coords": [
+        27.66667,
+        115.66667
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "池上芙蓉": {
+      "ancestor": "池上",
+      "coords": [
+        36.3599,
+        118.079
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "池中滴翠亭": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "池边": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 126,
+      "novel": "honglou"
+    },
+    "沁芳亭子": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
     "沁芳桥": {
       "ancestor": "大观园",
       "coords": [
@@ -3298,6 +7178,26 @@
       ],
       "frequency": 5,
       "generation": 112,
+      "novel": "honglou"
+    },
+    "沁芳泉": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
+    "沁芳溪": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
       "novel": "honglou"
     },
     "沁芳闸": {
@@ -3310,6 +7210,56 @@
       "generation": 114,
       "novel": "honglou"
     },
+    "沁芳闸桥": {
+      "ancestor": "沁芳闸",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "沓中": {
+      "ancestor": "长城",
+      "coords": [
+        27.8609,
+        112.874
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "沔阳": {
+      "ancestor": "汉中",
+      "coords": [
+        33.1,
+        107.0
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "沙滩空地": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "沛城": {
+      "ancestor": "徐州",
+      "coords": [
+        34.26,
+        117.19
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
     "沧州牢城营": {
       "ancestor": "沧州",
       "coords": [
@@ -3319,6 +7269,26 @@
       "frequency": 2,
       "generation": 15,
       "novel": "shuihu"
+    },
+    "河心": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 0,
+      "generation": 169,
+      "novel": "xiyouji"
+    },
+    "河渎": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
     },
     "法华寺": {
       "ancestor": "山东",
@@ -3350,6 +7320,46 @@
       "generation": 89,
       "novel": "fengshen"
     },
+    "泾河水府": {
+      "ancestor": "龙宫",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "洪州城隍": {
+      "ancestor": "瀛洲",
+      "coords": [
+        34.63055,
+        112.39516
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
+    "洪江口": {
+      "ancestor": "洪江",
+      "coords": [
+        27.2329,
+        110.1205
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "洪福寺": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
     "洪锦中军帐": {
       "ancestor": "西岐",
       "coords": [
@@ -3369,6 +7379,36 @@
       "frequency": 1,
       "generation": 89,
       "novel": "fengshen"
+    },
+    "流沙河界": {
+      "ancestor": "海州",
+      "coords": [
+        34.59543,
+        119.13163
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
+    "测字摊": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 0,
+      "generation": 139,
+      "novel": "honglou"
+    },
+    "济北": {
+      "ancestor": "南山",
+      "coords": [
+        22.56416,
+        113.95319
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
     },
     "济州·馆驿": {
       "ancestor": "山东",
@@ -3400,6 +7440,26 @@
       "generation": 3,
       "novel": "shuihu"
     },
+    "浮桥": {
+      "ancestor": "渭南",
+      "coords": [
+        34.93694,
+        109.735
+      ],
+      "frequency": 5,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "海底": {
+      "ancestor": "泾河",
+      "coords": [
+        31.40006,
+        121.22955
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
     "海棠轩": {
       "ancestor": "陈塘关帅府",
       "coords": [
@@ -3409,6 +7469,16 @@
       "frequency": 1,
       "generation": 89,
       "novel": "fengshen"
+    },
+    "海榴亭": {
+      "ancestor": "御花园",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
     },
     "海疆": {
       "ancestor": "太平县",
@@ -3420,6 +7490,16 @@
       "generation": 113,
       "novel": "honglou"
     },
+    "海藏": {
+      "ancestor": "东海龙宫",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
     "涌金门": {
       "ancestor": "杭州",
       "coords": [
@@ -3430,6 +7510,66 @@
       "generation": 16,
       "novel": "shuihu"
     },
+    "涪水关": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "清凉瓦舍": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
+    "清华仙府": {
+      "ancestor": "东岳",
+      "coords": [
+        29.8253,
+        103.24634
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
+    "清华庄": {
+      "ancestor": "柳林坡",
+      "coords": [
+        25.4586,
+        100.545
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "清堂茅舍": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
+    "清幽观宇": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
     "清溪县帮源洞": {
       "ancestor": "清溪县",
       "coords": [
@@ -3439,6 +7579,26 @@
       "frequency": 2,
       "generation": 16,
       "novel": "shuihu"
+    },
+    "清虚观·大殿": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
+    "清虚观·山门": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
     },
     "渑池县城下": {
       "ancestor": "渑池县",
@@ -3470,6 +7630,26 @@
       "generation": 90,
       "novel": "fengshen"
     },
+    "渤海岸": {
+      "ancestor": "平顶山",
+      "coords": [
+        33.81265,
+        113.00431
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "港洞": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
     "游魂关": {
       "ancestor": "乾元山",
       "coords": [
@@ -3479,6 +7659,16 @@
       "frequency": 5,
       "generation": 73,
       "novel": "fengshen"
+    },
+    "湘云厢房": {
+      "ancestor": "池上",
+      "coords": [
+        36.3599,
+        118.079
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
     },
     "滕国": {
       "ancestor": "乾元山",
@@ -3510,6 +7700,16 @@
       "generation": 114,
       "novel": "honglou"
     },
+    "潇湘馆·回廊": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
     "潇湘馆·套间": {
       "ancestor": "大观园",
       "coords": [
@@ -3530,6 +7730,66 @@
       "generation": 114,
       "novel": "honglou"
     },
+    "潇湘馆回廊": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
+    "潇湘馆外": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
+    "潇湘馆外间空床": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
+    "潇湘馆平台": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 127,
+      "novel": "honglou"
+    },
+    "潇湘馆里间": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
+    "潇湘馆门口": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
     "潘公家": {
       "ancestor": "河北",
       "coords": [
@@ -3540,6 +7800,36 @@
       "generation": 16,
       "novel": "shuihu"
     },
+    "潭岸": {
+      "ancestor": "乱石山碧波潭",
+      "coords": [
+        41.10406,
+        114.45016
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
+    "潮音洞": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 6,
+      "generation": 143,
+      "novel": "xiyouji"
+    },
+    "潮音洞外": {
+      "ancestor": "潮音洞",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
     "潼关城上": {
       "ancestor": "潼关城",
       "coords": [
@@ -3549,6 +7839,136 @@
       "frequency": 0,
       "generation": 104,
       "novel": "fengshen"
+    },
+    "濡须": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "濡须口": {
+      "ancestor": "濡须",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "濡须坞": {
+      "ancestor": "濡须",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "瀛洲海岛": {
+      "ancestor": "瀛洲",
+      "coords": [
+        34.63055,
+        112.39516
+      ],
+      "frequency": 1,
+      "generation": 157,
+      "novel": "xiyouji"
+    },
+    "灌口": {
+      "ancestor": "寇家",
+      "coords": [
+        34.89689,
+        108.5646
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
+    "火焰山土地庙": {
+      "ancestor": "火焰山",
+      "coords": [
+        25.8042,
+        107.496
+      ],
+      "frequency": 0,
+      "generation": 170,
+      "novel": "xiyouji"
+    },
+    "火焰山界": {
+      "ancestor": "火焰山",
+      "coords": [
+        25.8042,
+        107.496
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "灯楼": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
+    "灵山后崖化龙池": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "灵山大雷音宝刹": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "灵山胜境": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "灵感大王庙": {
+      "ancestor": "陈家庄",
+      "coords": [
+        32.73126,
+        110.23837
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
+    "灵旁": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
     },
     "灵隐寺": {
       "ancestor": "青州",
@@ -3570,6 +7990,16 @@
       "generation": 90,
       "novel": "fengshen"
     },
+    "灵霄殿外": {
+      "ancestor": "灵霄殿",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
     "灵鹫山元觉洞": {
       "ancestor": "灵鹫山",
       "coords": [
@@ -3579,6 +8009,16 @@
       "frequency": 3,
       "generation": 75,
       "novel": "fengshen"
+    },
+    "灵鹫高峰": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
     },
     "炮烙": {
       "ancestor": "九间殿",
@@ -3650,6 +8090,26 @@
       "generation": 71,
       "novel": "fengshen"
     },
+    "牛渚": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "牡丹丛": {
+      "ancestor": "竹节山",
+      "coords": [
+        33.88391,
+        120.28412
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
     "牡丹亭": {
       "ancestor": "朝歌",
       "coords": [
@@ -3659,6 +8119,16 @@
       "frequency": 2,
       "generation": 78,
       "novel": "fengshen"
+    },
+    "犄角子": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
     },
     "独龙冈前": {
       "ancestor": "独龙山",
@@ -3690,6 +8160,26 @@
       "generation": 90,
       "novel": "fengshen"
     },
+    "狱中": {
+      "ancestor": "洛阳",
+      "coords": [
+        34.62,
+        112.45
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "猇亭": {
+      "ancestor": "御营",
+      "coords": [
+        31.31888,
+        104.56003
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
     "猛兽崖": {
       "ancestor": "夹龙山",
       "coords": [
@@ -3700,6 +8190,76 @@
       "generation": 90,
       "novel": "fengshen"
     },
+    "獬豸洞": {
+      "ancestor": "麒麟山",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "獬豸洞·二门": {
+      "ancestor": "獬豸洞",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
+    "獬豸洞·后宫": {
+      "ancestor": "麒麟山",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "獬豸洞外": {
+      "ancestor": "獬豸洞",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "玄德营寨": {
+      "ancestor": "零陵",
+      "coords": [
+        30.3,
+        112.2
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "玄武池": {
+      "ancestor": "许昌",
+      "coords": [
+        34.0,
+        113.8
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "玄英洞": {
+      "ancestor": "青龙山",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
     "玄都洞八景宫": {
       "ancestor": "玄都洞",
       "coords": [
@@ -3709,6 +8269,36 @@
       "frequency": 2,
       "generation": 78,
       "novel": "fengshen"
+    },
+    "玉华县城": {
+      "ancestor": "玉华县",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "玉华王府": {
+      "ancestor": "玉华县",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "玉华王府前院": {
+      "ancestor": "玉华王府",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
     },
     "玉屋洞": {
       "ancestor": "金庭山",
@@ -3740,6 +8330,46 @@
       "generation": 73,
       "novel": "fengshen"
     },
+    "玉皇宝殿": {
+      "ancestor": "沁芳闸",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
+    "玉真观": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "玉石牌坊": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
+    },
+    "玉英宫": {
+      "ancestor": "长安城·皇宫",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
     "玉虚宫": {
       "ancestor": "昆仑山",
       "coords": [
@@ -3749,6 +8379,36 @@
       "frequency": 14,
       "generation": 70,
       "novel": "fengshen"
+    },
+    "王允宅": {
+      "ancestor": "长安",
+      "coords": [
+        34.26,
+        108.94
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "王夫人屋": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
+    "王奶奶家": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
     },
     "王婆茶坊": {
       "ancestor": "紫石街",
@@ -3760,6 +8420,26 @@
       "generation": 9,
       "novel": "shuihu"
     },
+    "王宫": {
+      "ancestor": "月城",
+      "coords": [
+        23.5633,
+        116.2691
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "珍楼": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
     "琵琶亭": {
       "ancestor": "揭阳岭",
       "coords": [
@@ -3769,6 +8449,56 @@
       "frequency": 2,
       "generation": 16,
       "novel": "shuihu"
+    },
+    "瑞岩观": {
+      "ancestor": "盱眙山",
+      "coords": [
+        32.91963,
+        118.54769
+      ],
+      "frequency": 0,
+      "generation": 171,
+      "novel": "xiyouji"
+    },
+    "甄府": {
+      "ancestor": "姑苏",
+      "coords": [
+        31.3,
+        120.62
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
+    "甘霖普济寺": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "田庄": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
+    },
+    "界牌关": {
+      "ancestor": "商朝",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 10,
+      "generation": 115,
+      "novel": "fengshen"
     },
     "界牌关·中军": {
       "ancestor": "界牌关",
@@ -3810,6 +8540,16 @@
       "generation": 105,
       "novel": "fengshen"
     },
+    "留云下院": {
+      "ancestor": "高老庄",
+      "coords": [
+        34.3425,
+        108.63556
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
     "留守司": {
       "ancestor": "北京",
       "coords": [
@@ -3819,6 +8559,26 @@
       "frequency": 4,
       "generation": 6,
       "novel": "shuihu"
+    },
+    "留春亭": {
+      "ancestor": "御花园",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "畸角儿": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
     },
     "瘟癀阵": {
       "ancestor": "穿云关",
@@ -3840,6 +8600,16 @@
       "generation": 91,
       "novel": "fengshen"
     },
+    "登仙阁": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
     "白云岛": {
       "ancestor": "东海",
       "coords": [
@@ -3859,6 +8629,16 @@
       "frequency": 1,
       "generation": 91,
       "novel": "fengshen"
+    },
+    "白玉阶": {
+      "ancestor": "金銮殿",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 6,
+      "generation": 143,
+      "novel": "xiyouji"
     },
     "白莺林": {
       "ancestor": "乾元山",
@@ -3960,6 +8740,66 @@
       "generation": 105,
       "novel": "fengshen"
     },
+    "皇宫内院": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "皇榜": {
+      "ancestor": "鼓楼",
+      "coords": [
+        26.07711,
+        119.29153
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "皖城": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "皮袋": {
+      "ancestor": "翠云山",
+      "coords": [
+        29.68817,
+        106.58852
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "监门": {
+      "ancestor": "铜台府",
+      "coords": [
+        42.59008,
+        124.43232
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
+    "相国寺": {
+      "ancestor": "花亭",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
     "相府": {
       "ancestor": "西岐城",
       "coords": [
@@ -4000,6 +8840,136 @@
       "generation": 105,
       "novel": "fengshen"
     },
+    "省亲别院": {
+      "ancestor": "天齐庙",
+      "coords": [
+        35.5565,
+        116.707
+      ],
+      "frequency": 0,
+      "generation": 140,
+      "novel": "honglou"
+    },
+    "省亲正殿": {
+      "ancestor": "池上",
+      "coords": [
+        36.3599,
+        118.079
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
+    },
+    "矮槐树": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "石匣": {
+      "ancestor": "五行山",
+      "coords": [
+        46.05841,
+        125.69651
+      ],
+      "frequency": 1,
+      "generation": 158,
+      "novel": "xiyouji"
+    },
+    "石后大桂树阴": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
+    },
+    "石头城": {
+      "ancestor": "建业",
+      "coords": [
+        32.06,
+        118.8
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "石头崖": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "石屋虚堂": {
+      "ancestor": "南庄",
+      "coords": [
+        23.7188,
+        102.815
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "石屏山坡": {
+      "ancestor": "石屏",
+      "coords": [
+        23.73385,
+        102.44474
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "石桥三港": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
+    },
+    "石榴树下": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 1,
+      "generation": 128,
+      "novel": "honglou"
+    },
+    "石矶": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
+    },
+    "碧波潭": {
+      "ancestor": "乱石山",
+      "coords": [
+        41.10406,
+        114.45016
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
     "碧游": {
       "ancestor": "终南山",
       "coords": [
@@ -4030,6 +9000,56 @@
       "generation": 92,
       "novel": "fengshen"
     },
+    "碧空": {
+      "ancestor": "毛颖山",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "碧纱": {
+      "ancestor": "东岳",
+      "coords": [
+        29.8253,
+        103.24634
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "碾房": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 172,
+      "novel": "xiyouji"
+    },
+    "祁山前": {
+      "ancestor": "祁山",
+      "coords": [
+        29.84431,
+        117.71937
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "祁山大寨": {
+      "ancestor": "祁山",
+      "coords": [
+        29.84431,
+        117.71937
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
     "祝家庄庄门": {
       "ancestor": "祝家庄",
       "coords": [
@@ -4050,15 +9070,15 @@
       "generation": 17,
       "novel": "shuihu"
     },
-    "神厨": {
-      "ancestor": "蜈蚣岭",
+    "祭赛国·御花园": {
+      "ancestor": "小西天",
       "coords": [
-        29.75007,
-        118.61568
+        41.11708,
+        118.49635
       ],
-      "frequency": 2,
-      "generation": 17,
-      "novel": "shuihu"
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
     },
     "禁中": {
       "ancestor": "临潼关",
@@ -4069,6 +9089,46 @@
       "frequency": 1,
       "generation": 92,
       "novel": "fengshen"
+    },
+    "禅台": {
+      "ancestor": "金銮殿",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "秋桐房": {
+      "ancestor": "应天府",
+      "coords": [
+        31.0959,
+        108.13693
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "秦川": {
+      "ancestor": "陕西",
+      "coords": [
+        36.0,
+        109.0
+      ],
+      "frequency": 2,
+      "generation": 187,
+      "novel": "sanguo"
+    },
+    "秦氏卧房": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
     },
     "穆太公庄院": {
       "ancestor": "江州",
@@ -4089,6 +9149,16 @@
       "frequency": 0,
       "generation": 105,
       "novel": "fengshen"
+    },
+    "穿云": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
     },
     "穿云关": {
       "ancestor": "乾元山",
@@ -4140,6 +9210,46 @@
       "generation": 105,
       "novel": "fengshen"
     },
+    "穿云门": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
+    },
+    "窝铺": {
+      "ancestor": "南庄",
+      "coords": [
+        23.7188,
+        102.815
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "竹林": {
+      "ancestor": "落伽山",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "笔峰": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
     "第三关": {
       "ancestor": "梁山泊",
       "coords": [
@@ -4160,6 +9270,16 @@
       "generation": 17,
       "novel": "shuihu"
     },
+    "箕谷": {
+      "ancestor": "荆州",
+      "coords": [
+        30.33,
+        112.24
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
     "管国": {
       "ancestor": "镐京",
       "coords": [
@@ -4169,6 +9289,36 @@
       "frequency": 0,
       "generation": 105,
       "novel": "fengshen"
+    },
+    "篱门": {
+      "ancestor": "稻香村",
+      "coords": [
+        39.22237,
+        121.66548
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
+    },
+    "篷厂": {
+      "ancestor": "玉华王府前院",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "精舍": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
     },
     "紫云崖": {
       "ancestor": "碧游宫",
@@ -4240,6 +9390,16 @@
       "generation": 75,
       "novel": "fengshen"
     },
+    "紫鹃房": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
     "红水阵": {
       "ancestor": "成汤营",
       "coords": [
@@ -4259,6 +9419,46 @@
       "frequency": 3,
       "generation": 75,
       "novel": "fengshen"
+    },
+    "红砖壁下": {
+      "ancestor": "火焰山",
+      "coords": [
+        25.8042,
+        107.496
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "红草坡": {
+      "ancestor": "平顶山",
+      "coords": [
+        33.81265,
+        113.00431
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "红香圃": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
+    },
+    "红香绿玉": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
     },
     "纣王营": {
       "ancestor": "临潼关",
@@ -4300,6 +9500,26 @@
       "generation": 72,
       "novel": "fengshen"
     },
+    "给孤布金寺": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "绛芸轩": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
     "绣房": {
       "ancestor": "鹿台",
       "coords": [
@@ -4309,6 +9529,46 @@
       "frequency": 0,
       "generation": 106,
       "novel": "fengshen"
+    },
+    "绿莎坡": {
+      "ancestor": "平顶山",
+      "coords": [
+        33.81265,
+        113.00431
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
+    },
+    "缀锦阁": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
+    "罗帐": {
+      "ancestor": "乱石山",
+      "coords": [
+        41.10406,
+        114.45016
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "美后宫": {
+      "ancestor": "清华洞",
+      "coords": [
+        25.4586,
+        100.545
+      ],
+      "frequency": 1,
+      "generation": 159,
+      "novel": "xiyouji"
     },
     "羑里": {
       "ancestor": "乾元山",
@@ -4340,6 +9600,86 @@
       "generation": 92,
       "novel": "fengshen"
     },
+    "翠岩": {
+      "ancestor": "落伽山",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "翠岩前": {
+      "ancestor": "落伽山",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "翠花楼": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "翰林院": {
+      "ancestor": "亭子",
+      "coords": [
+        32.11409,
+        119.17504
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "老妖洞府": {
+      "ancestor": "天井",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "老妖洞府后园": {
+      "ancestor": "天井",
+      "coords": [
+        41.45638,
+        121.55976
+      ],
+      "frequency": 0,
+      "generation": 173,
+      "novel": "xiyouji"
+    },
+    "老营": {
+      "ancestor": "苏侯行营",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 2,
+      "generation": 115,
+      "novel": "fengshen"
+    },
+    "聚锦门": {
+      "ancestor": "柳叶渚",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 129,
+      "novel": "honglou"
+    },
     "肉林": {
       "ancestor": "摘星楼",
       "coords": [
@@ -4350,6 +9690,16 @@
       "generation": 79,
       "novel": "fengshen"
     },
+    "背阴山": {
+      "ancestor": "蛇盘山",
+      "coords": [
+        36.50443,
+        109.10787
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
     "胡梯": {
       "ancestor": "孟州",
       "coords": [
@@ -4359,6 +9709,16 @@
       "frequency": 3,
       "generation": 9,
       "novel": "shuihu"
+    },
+    "舡坞": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
     },
     "艮山门": {
       "ancestor": "杭州城",
@@ -4380,6 +9740,36 @@
       "generation": 10,
       "novel": "shuihu"
     },
+    "芍药圃": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
+    "芍药栏": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
+    "芙蓉池": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
     "芦篷": {
       "ancestor": "西岐",
       "coords": [
@@ -4399,6 +9789,86 @@
       "frequency": 2,
       "generation": 18,
       "novel": "shuihu"
+    },
+    "花亭": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "花冢": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
+    "花果山·中军帐": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "花果山·辕门": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "花果山水帘洞": {
+      "ancestor": "花果山",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "花果山水帘洞外": {
+      "ancestor": "花果山水帘洞",
+      "coords": [
+        28.5469,
+        112.236
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
+    "花溆": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
+    "花障子": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
     },
     "苏侯中军帐": {
       "ancestor": "成汤营",
@@ -4470,6 +9940,56 @@
       "generation": 79,
       "novel": "fengshen"
     },
+    "茅屋": {
+      "ancestor": "稻香村",
+      "coords": [
+        39.22237,
+        121.66548
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
+    "茉藜槛": {
+      "ancestor": "小西天",
+      "coords": [
+        41.11708,
+        118.49635
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
+    "荆州·馆驿": {
+      "ancestor": "荆州",
+      "coords": [
+        30.33,
+        112.24
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "荇叶渚": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
+    },
+    "荇褐红篱": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 130,
+      "novel": "honglou"
+    },
     "草堂": {
       "ancestor": "宋家庄",
       "coords": [
@@ -4490,6 +10010,46 @@
       "generation": 18,
       "novel": "shuihu"
     },
+    "草庐": {
+      "ancestor": "南阳",
+      "coords": [
+        33.0,
+        112.5
+      ],
+      "frequency": 3,
+      "generation": 182,
+      "novel": "sanguo"
+    },
+    "草科": {
+      "ancestor": "蛇盘山",
+      "coords": [
+        36.50443,
+        109.10787
+      ],
+      "frequency": 5,
+      "generation": 143,
+      "novel": "xiyouji"
+    },
+    "草舍": {
+      "ancestor": "昆仑山",
+      "coords": [
+        36.0,
+        84.0
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "荒坟": {
+      "ancestor": "柳林坡",
+      "coords": [
+        25.4586,
+        100.545
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
     "荒郊草地": {
       "ancestor": "玉泉山",
       "coords": [
@@ -4500,6 +10060,26 @@
       "generation": 93,
       "novel": "fengshen"
     },
+    "荣府东大院": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "荼蘼架": {
+      "ancestor": "山子石",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
     "莒国": {
       "ancestor": "商朝营",
       "coords": [
@@ -4509,6 +10089,26 @@
       "frequency": 0,
       "generation": 106,
       "novel": "fengshen"
+    },
+    "莲花洞·正厅": {
+      "ancestor": "莲花洞",
+      "coords": [
+        25.50083,
+        111.98278
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
+    "菜园": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
     },
     "菜市门": {
       "ancestor": "杭州城",
@@ -4530,6 +10130,36 @@
       "generation": 106,
       "novel": "fengshen"
     },
+    "营前·中军帐": {
+      "ancestor": "营前",
+      "coords": [
+        25.96707,
+        119.46322
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "落伽山": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 8,
+      "generation": 143,
+      "novel": "xiyouji"
+    },
+    "落伽崖": {
+      "ancestor": "落伽山",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
     "落魂阵": {
       "ancestor": "西岐山",
       "coords": [
@@ -4539,6 +10169,36 @@
       "frequency": 2,
       "generation": 79,
       "novel": "fengshen"
+    },
+    "董亭": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "董荼那寨": {
+      "ancestor": "青城山",
+      "coords": [
+        30.87709,
+        103.59035
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "蒲团": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 2,
+      "generation": 116,
+      "novel": "honglou"
     },
     "蓟县": {
       "ancestor": "乾元山",
@@ -4570,6 +10230,16 @@
       "generation": 18,
       "novel": "shuihu"
     },
+    "蓬厂": {
+      "ancestor": "玉华王府前院",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
     "蓬莱岛": {
       "ancestor": "东海",
       "coords": [
@@ -4589,6 +10259,16 @@
       "frequency": 0,
       "generation": 107,
       "novel": "fengshen"
+    },
+    "蓼汀花溆": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
     },
     "蓼溆": {
       "ancestor": "大观园",
@@ -4610,6 +10290,36 @@
       "generation": 107,
       "novel": "fengshen"
     },
+    "蔷薇架": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
+    "蔷薇花架": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
+    "蔷薇院": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
     "薛国": {
       "ancestor": "乾元山",
       "coords": [
@@ -4619,6 +10329,86 @@
       "frequency": 0,
       "generation": 107,
       "novel": "fengshen"
+    },
+    "薛家厅房后面": {
+      "ancestor": "薛家",
+      "coords": [
+        31.86094,
+        119.91437
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "薛家铺面": {
+      "ancestor": "薛家",
+      "coords": [
+        31.86094,
+        119.91437
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "蘅芜苑·床上": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "蘅芜苑·廊檐": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
+    "蘅芜苑·案上": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "蘅芜院": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
+    "蘅芜院·抱厦": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "蘅芷清芬": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
     },
     "虎儿崖": {
       "ancestor": "终南山",
@@ -4680,6 +10470,36 @@
       "generation": 73,
       "novel": "fengshen"
     },
+    "蜀宫": {
+      "ancestor": "成都",
+      "coords": [
+        30.57,
+        104.07
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "蜀寨": {
+      "ancestor": "祁山",
+      "coords": [
+        29.84431,
+        117.71937
+      ],
+      "frequency": 5,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "蜀营": {
+      "ancestor": "荆州",
+      "coords": [
+        30.33,
+        112.24
+      ],
+      "frequency": 12,
+      "generation": 179,
+      "novel": "sanguo"
+    },
     "蜂腰桥": {
       "ancestor": "大观园",
       "coords": [
@@ -4700,6 +10520,36 @@
       "generation": 93,
       "novel": "fengshen"
     },
+    "蠙城": {
+      "ancestor": "盱眙山",
+      "coords": [
+        32.91963,
+        118.54769
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "血盆苦界": {
+      "ancestor": "洪江",
+      "coords": [
+        27.2329,
+        110.1205
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "行宫": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 131,
+      "novel": "honglou"
+    },
     "行营": {
       "ancestor": "岐山",
       "coords": [
@@ -4709,6 +10559,26 @@
       "frequency": 0,
       "generation": 107,
       "novel": "fengshen"
+    },
+    "街市": {
+      "ancestor": "琵琶洞",
+      "coords": [
+        42.64188,
+        130.38515
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
+    "衣架": {
+      "ancestor": "亭子",
+      "coords": [
+        32.11409,
+        119.17504
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
     },
     "袁洪营": {
       "ancestor": "孟津",
@@ -4740,6 +10610,26 @@
       "generation": 93,
       "novel": "fengshen"
     },
+    "袭人家": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "襄江": {
+      "ancestor": "荆州",
+      "coords": [
+        30.33,
+        112.24
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
     "西京新安县": {
       "ancestor": "西京",
       "coords": [
@@ -4750,6 +10640,16 @@
       "generation": 18,
       "novel": "shuihu"
     },
+    "西凉州": {
+      "ancestor": "西凉",
+      "coords": [
+        37.9,
+        102.6
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
+    },
     "西华门": {
       "ancestor": "东京",
       "coords": [
@@ -4759,6 +10659,76 @@
       "frequency": 4,
       "generation": 7,
       "novel": "shuihu"
+    },
+    "西天大雷音寺": {
+      "ancestor": "西天",
+      "coords": [
+        30.30773,
+        106.88104
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
+    "西天路": {
+      "ancestor": "紫云山",
+      "coords": [
+        29.13828,
+        121.2473
+      ],
+      "frequency": 1,
+      "generation": 160,
+      "novel": "xiyouji"
+    },
+    "西天门外": {
+      "ancestor": "西天",
+      "coords": [
+        30.30773,
+        106.88104
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
+    "西宁郡王府": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "西宁郡王祭棚": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "西山": {
+      "ancestor": "江东",
+      "coords": [
+        31.0,
+        119.0
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "西岐": {
+      "ancestor": "商朝",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 59,
+      "generation": 115,
+      "novel": "fengshen"
     },
     "西岐·辕门": {
       "ancestor": "西岐",
@@ -4970,6 +10940,16 @@
       "generation": 18,
       "novel": "shuihu"
     },
+    "西方极乐世界": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
     "西海九龙岛": {
       "ancestor": "西海",
       "coords": [
@@ -4980,6 +10960,26 @@
       "generation": 94,
       "novel": "fengshen"
     },
+    "西羌": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "西街门外": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
     "西门外": {
       "ancestor": "西门",
       "coords": [
@@ -4989,6 +10989,16 @@
       "frequency": 1,
       "generation": 94,
       "novel": "fengshen"
+    },
+    "西门大街": {
+      "ancestor": "西门",
+      "coords": [
+        28.32818,
+        121.19824
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
     },
     "西门小河": {
       "ancestor": "西门",
@@ -5020,6 +11030,26 @@
       "generation": 19,
       "novel": "shuihu"
     },
+    "观音院": {
+      "ancestor": "东海",
+      "coords": [
+        29.0,
+        126.0
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "誊黄寺": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
     "议事厅": {
       "ancestor": "宁国府",
       "coords": [
@@ -5040,6 +11070,46 @@
       "generation": 108,
       "novel": "fengshen"
     },
+    "象牙床": {
+      "ancestor": "高楼",
+      "coords": [
+        33.8309,
+        117.701
+      ],
+      "frequency": 0,
+      "generation": 174,
+      "novel": "xiyouji"
+    },
+    "豫章": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "豹头山": {
+      "ancestor": "玉华州",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 2,
+      "generation": 146,
+      "novel": "xiyouji"
+    },
+    "豹头山虎口洞": {
+      "ancestor": "豹头山",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
     "费仲本宅": {
       "ancestor": "朝歌",
       "coords": [
@@ -5049,6 +11119,36 @@
       "frequency": 0,
       "generation": 109,
       "novel": "fengshen"
+    },
+    "贾府园": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 141,
+      "novel": "honglou"
+    },
+    "贾政上房": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "贾政外厢房": {
+      "ancestor": "维扬",
+      "coords": [
+        32.41161,
+        119.45177
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
     },
     "贾母内院": {
       "ancestor": "大观园",
@@ -5060,6 +11160,66 @@
       "generation": 111,
       "novel": "honglou"
     },
+    "贾母套间": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "贾母正面榻": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
+    },
+    "贾琏院": {
+      "ancestor": "北门外",
+      "coords": [
+        25.31817,
+        110.29869
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "贾芹书房": {
+      "ancestor": "光禄寺",
+      "coords": [
+        29.8904,
+        104.328
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
+    },
+    "贾蓉居室": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "贾雨村书房": {
+      "ancestor": "光禄寺",
+      "coords": [
+        29.8904,
+        104.328
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
+    },
     "赤井洞": {
       "ancestor": "九仙山",
       "coords": [
@@ -5069,6 +11229,16 @@
       "frequency": 0,
       "generation": 109,
       "novel": "fengshen"
+    },
+    "赤瑕宫": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
     },
     "赭山门": {
       "ancestor": "海盐县",
@@ -5090,6 +11260,36 @@
       "generation": 109,
       "novel": "fengshen"
     },
+    "赵姨娘房": {
+      "ancestor": "宁国府",
+      "coords": [
+        30.48328,
+        118.95604
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
+    "轮藏": {
+      "ancestor": "花亭",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "达摩庵": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 132,
+      "novel": "honglou"
+    },
     "迎春房": {
       "ancestor": "大观园",
       "coords": [
@@ -5098,6 +11298,26 @@
       ],
       "frequency": 4,
       "generation": 112,
+      "novel": "honglou"
+    },
+    "退步": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
+    },
+    "逗蜂轩": {
+      "ancestor": "北门外",
+      "coords": [
+        25.31817,
+        110.29869
+      ],
+      "frequency": 1,
+      "generation": 133,
       "novel": "honglou"
     },
     "通天教主道场": {
@@ -5109,6 +11329,56 @@
       "frequency": 7,
       "generation": 72,
       "novel": "fengshen"
+    },
+    "通天河东岸": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
+    "通天河界": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "通天河石匣": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
+    "通天河西岸": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
+    "通天河高崖": {
+      "ancestor": "通天河",
+      "coords": [
+        31.18756,
+        106.70378
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
     },
     "邓九公帅府": {
       "ancestor": "三山关",
@@ -5129,6 +11399,16 @@
       "frequency": 0,
       "generation": 109,
       "novel": "fengshen"
+    },
+    "邢夫人正房": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
     },
     "邱鸣山": {
       "ancestor": "乾元山",
@@ -5170,6 +11450,86 @@
       "generation": 109,
       "novel": "fengshen"
     },
+    "郡中": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "都土地庙": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
+    "都城街道": {
+      "ancestor": "大荒山",
+      "coords": [
+        45.09034,
+        127.11454
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
+    },
+    "郿坞": {
+      "ancestor": "长安",
+      "coords": [
+        34.26,
+        108.94
+      ],
+      "frequency": 3,
+      "generation": 183,
+      "novel": "sanguo"
+    },
+    "郿城": {
+      "ancestor": "兖州",
+      "coords": [
+        35.5,
+        116.8
+      ],
+      "frequency": 3,
+      "generation": 183,
+      "novel": "sanguo"
+    },
+    "里间小炕": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
+    },
+    "野冢": {
+      "ancestor": "阴山",
+      "coords": [
+        31.9349,
+        104.087
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "金亭馆": {
+      "ancestor": "长安城·皇宫",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
+    },
     "金亭馆驿": {
       "ancestor": "朝歌城",
       "coords": [
@@ -5179,6 +11539,26 @@
       "frequency": 1,
       "generation": 95,
       "novel": "fengshen"
+    },
+    "金亭馆驿·客房": {
+      "ancestor": "金亭馆驿",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "金亭馆驿客房": {
+      "ancestor": "金亭馆驿",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 1,
+      "generation": 161,
+      "novel": "xiyouji"
     },
     "金光洞": {
       "ancestor": "乾元山",
@@ -5200,6 +11580,46 @@
       "generation": 95,
       "novel": "fengshen"
     },
+    "金城": {
+      "ancestor": "扬州",
+      "coords": [
+        31.5,
+        119.0
+      ],
+      "frequency": 2,
+      "generation": 188,
+      "novel": "sanguo"
+    },
+    "金山寺·法堂": {
+      "ancestor": "金山寺",
+      "coords": [
+        30.99206,
+        104.24048
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "金平府城": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
+    "金平府府堂": {
+      "ancestor": "天竺",
+      "coords": [
+        40.05756,
+        116.57455
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
+    },
     "金庭山玉屋洞": {
       "ancestor": "金庭山",
       "coords": [
@@ -5209,6 +11629,16 @@
       "frequency": 3,
       "generation": 75,
       "novel": "fengshen"
+    },
+    "金桂房": {
+      "ancestor": "薛家",
+      "coords": [
+        31.86094,
+        119.91437
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
     },
     "金殿": {
       "ancestor": "西岐城",
@@ -5229,6 +11659,26 @@
       "frequency": 2,
       "generation": 19,
       "novel": "shuihu"
+    },
+    "金灯桥": {
+      "ancestor": "金平府",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 2,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
+    "金灯桥上": {
+      "ancestor": "金灯桥",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 0,
+      "generation": 175,
+      "novel": "xiyouji"
     },
     "金銮宝殿": {
       "ancestor": "朝歌城",
@@ -5280,6 +11730,66 @@
       "generation": 109,
       "novel": "fengshen"
     },
+    "钟提": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "钦法国": {
+      "ancestor": "东山顶",
+      "coords": [
+        27.23428,
+        115.91849
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "铜雀台": {
+      "ancestor": "漳河",
+      "coords": [
+        30.95698,
+        112.07076
+      ],
+      "frequency": 4,
+      "generation": 180,
+      "novel": "sanguo"
+    },
+    "银子铺": {
+      "ancestor": "铺子",
+      "coords": [
+        30.746,
+        109.80012
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
+    },
+    "锦云窝": {
+      "ancestor": "九曲盘桓洞",
+      "coords": [
+        33.88391,
+        120.28412
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "锦衣府": {
+      "ancestor": "东郊",
+      "coords": [
+        27.7633,
+        112.548
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
+    },
     "镐京": {
       "ancestor": "乾元山",
       "coords": [
@@ -5290,6 +11800,56 @@
       "generation": 95,
       "novel": "fengshen"
     },
+    "长史府": {
+      "ancestor": "玉华王府",
+      "coords": [
+        28.58111,
+        112.95333
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "长坂桥": {
+      "ancestor": "当阳县",
+      "coords": [
+        30.83116,
+        111.83337
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "长安城·皇宫": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 2,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
+    "长安城·金銮殿": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "长安城西门大街": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
     "长朝殿": {
       "ancestor": "天地坛",
       "coords": [
@@ -5299,6 +11859,16 @@
       "frequency": 1,
       "generation": 95,
       "novel": "fengshen"
+    },
+    "门斗": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
     },
     "闻太师府": {
       "ancestor": "朝歌",
@@ -5319,6 +11889,16 @@
       "frequency": 1,
       "generation": 96,
       "novel": "fengshen"
+    },
+    "阊门外": {
+      "ancestor": "姑苏",
+      "coords": [
+        31.3,
+        120.62
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
     },
     "阐教": {
       "ancestor": "燕山",
@@ -5350,6 +11930,76 @@
       "generation": 7,
       "novel": "shuihu"
     },
+    "阴山背后": {
+      "ancestor": "峨眉山",
+      "coords": [
+        29.52,
+        103.33
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "阴平桥": {
+      "ancestor": "阴平",
+      "coords": [
+        34.27728,
+        118.61231
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "阴间": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
+    },
+    "阶下矮槐树": {
+      "ancestor": "万寿山",
+      "coords": [
+        30.77592,
+        120.70525
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "阿会喃寨": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "陇右": {
+      "ancestor": "益州",
+      "coords": [
+        30.5,
+        104.0
+      ],
+      "frequency": 6,
+      "generation": 179,
+      "novel": "sanguo"
+    },
+    "陈仓古道": {
+      "ancestor": "陈仓",
+      "coords": [
+        34.4,
+        107.4
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
     "陈国": {
       "ancestor": "乾元山",
       "coords": [
@@ -5358,6 +12008,16 @@
       ],
       "frequency": 0,
       "generation": 109,
+      "novel": "fengshen"
+    },
+    "陈塘关": {
+      "ancestor": "商朝",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 3,
+      "generation": 115,
       "novel": "fengshen"
     },
     "陈塘关城楼": {
@@ -5390,6 +12050,66 @@
       "generation": 79,
       "novel": "fengshen"
     },
+    "陈家厢房": {
+      "ancestor": "陈家",
+      "coords": [
+        29.60163,
+        104.80662
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "陈家堂前": {
+      "ancestor": "陈家",
+      "coords": [
+        29.60163,
+        104.80662
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "陈家庄·花园": {
+      "ancestor": "陈家庄",
+      "coords": [
+        32.73126,
+        110.23837
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "陈家花园": {
+      "ancestor": "陈家",
+      "coords": [
+        29.60163,
+        104.80662
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "陡崖之下": {
+      "ancestor": "陡崖",
+      "coords": [
+        37.40855,
+        120.98354
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "陵驿": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
+    },
     "陷车": {
       "ancestor": "汜水关",
       "coords": [
@@ -5399,6 +12119,16 @@
       "frequency": 1,
       "generation": 96,
       "novel": "fengshen"
+    },
+    "零陵": {
+      "ancestor": "江陵",
+      "coords": [
+        30.3,
+        112.2
+      ],
+      "frequency": 4,
+      "generation": 181,
+      "novel": "sanguo"
     },
     "雷部": {
       "ancestor": "金鳌岛",
@@ -5410,6 +12140,46 @@
       "generation": 96,
       "novel": "fengshen"
     },
+    "雷音古刹": {
+      "ancestor": "雷音",
+      "coords": [
+        29.24364,
+        104.22467
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
+    "雷音宝刹": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 3,
+      "generation": 144,
+      "novel": "xiyouji"
+    },
+    "雷音寺·二门": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "雷音寺山门": {
+      "ancestor": "雷音寺",
+      "coords": [
+        30.24958,
+        104.66357
+      ],
+      "frequency": 2,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
     "霍国": {
       "ancestor": "渑池县",
       "coords": [
@@ -5420,6 +12190,16 @@
       "generation": 110,
       "novel": "fengshen"
     },
+    "青岱": {
+      "ancestor": "南海",
+      "coords": [
+        12.0,
+        113.0
+      ],
+      "frequency": 0,
+      "generation": 176,
+      "novel": "xiyouji"
+    },
     "青峰山紫阳洞": {
       "ancestor": "青峰山",
       "coords": [
@@ -5429,6 +12209,26 @@
       "frequency": 6,
       "generation": 73,
       "novel": "fengshen"
+    },
+    "青溪": {
+      "ancestor": "太平县",
+      "coords": [
+        42.02639,
+        121.73194
+      ],
+      "frequency": 1,
+      "generation": 133,
+      "novel": "honglou"
+    },
+    "青琐门": {
+      "ancestor": "长乐宫",
+      "coords": [
+        27.26705,
+        116.80926
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
     },
     "青鸾": {
       "ancestor": "朝歌",
@@ -5450,6 +12250,16 @@
       "generation": 79,
       "novel": "fengshen"
     },
+    "青龙关": {
+      "ancestor": "商朝",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 9,
+      "generation": 115,
+      "novel": "fengshen"
+    },
     "青龙关大路": {
       "ancestor": "青龙关",
       "coords": [
@@ -5459,6 +12269,26 @@
       "frequency": 0,
       "generation": 110,
       "novel": "fengshen"
+    },
+    "青龙山": {
+      "ancestor": "金平府",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 2,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
+    "青龙山玄英洞": {
+      "ancestor": "金平府",
+      "coords": [
+        23.36558,
+        116.69761
+      ],
+      "frequency": 2,
+      "generation": 147,
+      "novel": "xiyouji"
     },
     "韩荣帅府": {
       "ancestor": "汜水关",
@@ -5470,6 +12300,16 @@
       "generation": 96,
       "novel": "fengshen"
     },
+    "须弥山摩耳崖": {
+      "ancestor": "须弥山",
+      "coords": [
+        26.43472,
+        118.83686
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
     "风吼阵": {
       "ancestor": "成汤营",
       "coords": [
@@ -5479,6 +12319,26 @@
       "frequency": 1,
       "generation": 96,
       "novel": "fengshen"
+    },
+    "风庭月榭": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 134,
+      "novel": "honglou"
+    },
+    "风炉": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 134,
+      "novel": "honglou"
     },
     "飞云洞": {
       "ancestor": "夹龙山",
@@ -5510,6 +12370,16 @@
       "generation": 110,
       "novel": "fengshen"
     },
+    "飞凤山": {
+      "ancestor": "燕国",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 1,
+      "generation": 115,
+      "novel": "fengshen"
+    },
     "飞廉府": {
       "ancestor": "朝歌",
       "coords": [
@@ -5519,6 +12389,16 @@
       "frequency": 1,
       "generation": 96,
       "novel": "fengshen"
+    },
+    "飞楼": {
+      "ancestor": "大观园",
+      "coords": [
+        36.66292,
+        116.99029
+      ],
+      "frequency": 1,
+      "generation": 134,
+      "novel": "honglou"
     },
     "飞虎峪": {
       "ancestor": "大名府",
@@ -5570,6 +12450,126 @@
       "generation": 7,
       "novel": "shuihu"
     },
+    "驮梁之上": {
+      "ancestor": "驮梁",
+      "coords": [
+        36.941,
+        104.977
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "骆谷": {
+      "ancestor": "荆州",
+      "coords": [
+        30.33,
+        112.24
+      ],
+      "frequency": 4,
+      "generation": 181,
+      "novel": "sanguo"
+    },
+    "高堂大厦": {
+      "ancestor": "火焰山",
+      "coords": [
+        25.8042,
+        107.496
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "高太公家": {
+      "ancestor": "高老庄",
+      "coords": [
+        34.3425,
+        108.63556
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "高太公家后宅": {
+      "ancestor": "高老庄",
+      "coords": [
+        34.3425,
+        108.63556
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "高峰排戟": {
+      "ancestor": "高峰",
+      "coords": [
+        27.81208,
+        103.31547
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "高老庄·厅堂": {
+      "ancestor": "高老庄",
+      "coords": [
+        34.3425,
+        108.63556
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "高老庄后宅": {
+      "ancestor": "高老庄",
+      "coords": [
+        34.3425,
+        108.63556
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "高阜": {
+      "ancestor": "蛇盘山",
+      "coords": [
+        36.50443,
+        109.10787
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "魏宫": {
+      "ancestor": "长安",
+      "coords": [
+        34.26,
+        108.94
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "魏寨": {
+      "ancestor": "祁山",
+      "coords": [
+        29.84431,
+        117.71937
+      ],
+      "frequency": 7,
+      "generation": 179,
+      "novel": "sanguo"
+    },
+    "魏征府": {
+      "ancestor": "长安城",
+      "coords": [
+        39.51966,
+        116.22107
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
     "魔家四将军营": {
       "ancestor": "西岐城",
       "coords": [
@@ -5610,6 +12610,16 @@
       "generation": 110,
       "novel": "fengshen"
     },
+    "鳷鹊宫": {
+      "ancestor": "翠云山",
+      "coords": [
+        29.68817,
+        106.58852
+      ],
+      "frequency": 2,
+      "generation": 147,
+      "novel": "xiyouji"
+    },
     "鸭嘴滩小寨": {
       "ancestor": "梁山泊",
       "coords": [
@@ -5629,6 +12639,26 @@
       "frequency": 2,
       "generation": 20,
       "novel": "shuihu"
+    },
+    "鹫峰": {
+      "ancestor": "灵山",
+      "coords": [
+        22.27723,
+        109.15539
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
+    },
+    "鹰愁陡涧": {
+      "ancestor": "蛇盘山",
+      "coords": [
+        36.50443,
+        109.10787
+      ],
+      "frequency": 1,
+      "generation": 162,
+      "novel": "xiyouji"
     },
     "鹿台·偏殿": {
       "ancestor": "鹿台",
@@ -5650,6 +12680,16 @@
       "generation": 110,
       "novel": "fengshen"
     },
+    "麒麟山獬豸洞": {
+      "ancestor": "麒麟山",
+      "coords": [
+        21.56842,
+        110.00843
+      ],
+      "frequency": 1,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
     "麒麟崖": {
       "ancestor": "昆仑山",
       "coords": [
@@ -5659,6 +12699,16 @@
       "frequency": 7,
       "generation": 72,
       "novel": "fengshen"
+    },
+    "黄堂": {
+      "ancestor": "铜台府",
+      "coords": [
+        42.59008,
+        124.43232
+      ],
+      "frequency": 1,
+      "generation": 163,
+      "novel": "xiyouji"
     },
     "黄河阵": {
       "ancestor": "黄河",
@@ -5690,6 +12740,106 @@
       "generation": 110,
       "novel": "fengshen"
     },
+    "黄飞虎军营": {
+      "ancestor": "汜水关",
+      "coords": [
+        28.98214,
+        109.66636
+      ],
+      "frequency": 0,
+      "generation": 178,
+      "novel": "fengshen"
+    },
+    "黎阳北岸": {
+      "ancestor": "黎阳",
+      "coords": [
+        35.68226,
+        114.56658
+      ],
+      "frequency": 2,
+      "generation": 189,
+      "novel": "sanguo"
+    },
+    "黑水河中": {
+      "ancestor": "黑水河",
+      "coords": [
+        37.82707,
+        114.29897
+      ],
+      "frequency": 1,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
+    "黑水河水府之西": {
+      "ancestor": "龙宫",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "黑水河神府": {
+      "ancestor": "黑水河",
+      "coords": [
+        37.82707,
+        114.29897
+      ],
+      "frequency": 1,
+      "generation": 163,
+      "novel": "xiyouji"
+    },
+    "黑虎府": {
+      "ancestor": "曹州",
+      "coords": [
+        29.50131,
+        121.01407
+      ],
+      "frequency": 0,
+      "generation": 178,
+      "novel": "fengshen"
+    },
+    "黛山": {
+      "ancestor": "淮南",
+      "coords": [
+        32.5,
+        117.0
+      ],
+      "frequency": 0,
+      "generation": 142,
+      "novel": "honglou"
+    },
+    "齐国": {
+      "ancestor": "乾元山",
+      "coords": [
+        30.5482,
+        120.08
+      ],
+      "frequency": 0,
+      "generation": 178,
+      "novel": "fengshen"
+    },
+    "龙宫法界": {
+      "ancestor": "龙宫",
+      "coords": [
+        26.1025,
+        105.879
+      ],
+      "frequency": 0,
+      "generation": 177,
+      "novel": "xiyouji"
+    },
+    "龙德殿": {
+      "ancestor": "正宫",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 9,
+      "generation": 115,
+      "novel": "fengshen"
+    },
     "龙潭虎穴": {
       "ancestor": "孟津",
       "coords": [
@@ -5698,6 +12848,26 @@
       ],
       "frequency": 1,
       "generation": 96,
+      "novel": "fengshen"
+    },
+    "龙盘石柱": {
+      "ancestor": "青鸾",
+      "coords": [
+        35.60795,
+        114.19363
+      ],
+      "frequency": 0,
+      "generation": 178,
+      "novel": "fengshen"
+    },
+    "龙舟": {
+      "ancestor": "黄河",
+      "coords": [
+        35.0,
+        110.0
+      ],
+      "frequency": 0,
+      "generation": 178,
       "novel": "fengshen"
     },
     "龙门山": {
@@ -5728,6 +12898,10 @@
       "at": "2026-09-18T03:31:51.154715+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "五庄观": {
+      "at": "2026-09-18T14:56:22.624548+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "京畿": {
       "at": "2026-09-18T14:10:29.079077+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
@@ -5744,6 +12918,14 @@
       "at": "2026-09-18T03:31:51.154716+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "凤仙郡": {
+      "at": "2026-09-18T14:56:36.209244+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "化生寺": {
+      "at": "2026-09-18T14:56:36.209264+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "北门": {
       "at": "2026-09-18T14:14:15.811989+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
@@ -5756,6 +12938,10 @@
       "at": "2026-09-18T14:12:15.093306+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "南天门": {
+      "at": "2026-09-18T14:56:22.624533+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "卫州": {
       "at": "2026-09-18T03:31:33.396137+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
@@ -5764,12 +12950,28 @@
       "at": "2026-09-18T03:32:47.455926+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "嘉荫堂": {
+      "at": "2026-09-18T14:53:37.121397+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "土冈": {
+      "at": "2026-09-18T15:01:17.593143+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "大牢": {
       "at": "2026-09-18T03:32:07.310352+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "大雷音寺": {
+      "at": "2026-09-18T14:56:36.209266+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "天庭": {
       "at": "2026-09-18T14:10:59.605977+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "天竺国": {
+      "at": "2026-09-18T14:56:22.624547+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "天香楼": {
@@ -5864,6 +13066,10 @@
       "at": "2026-09-18T03:31:59.365526+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "无稽崖": {
+      "at": "2026-09-18T14:54:12.279646+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "昭德": {
       "at": "2026-09-18T03:31:43.366777+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
@@ -5912,12 +13118,24 @@
       "at": "2026-09-18T03:31:33.396150+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "水帘洞": {
+      "at": "2026-09-18T14:56:22.624545+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "江州": {
+      "at": "2026-09-18T15:01:31.380284+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "沁芳亭": {
       "at": "2026-09-18T14:16:52.819748+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "洳州": {
       "at": "2026-09-18T03:33:10.547735+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "流沙河": {
+      "at": "2026-09-18T14:56:22.624549+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "济州": {
@@ -5952,16 +13170,32 @@
       "at": "2026-09-18T03:33:18.878916+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "牢狱": {
+      "at": "2026-09-18T14:56:02.406218+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "独龙冈": {
       "at": "2026-09-18T03:31:59.365529+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "狮驼国": {
+      "at": "2026-09-18T14:59:38.003090+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "王府": {
       "at": "2026-09-18T14:14:15.812627+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "皇宫": {
+      "at": "2026-09-18T14:56:43.400045+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "盖州": {
       "at": "2026-09-18T03:31:33.396119+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "省亲别墅": {
+      "at": "2026-09-18T14:54:39.511386+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "睢州": {
@@ -5972,8 +13206,16 @@
       "at": "2026-09-18T14:16:52.819750+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "紫檀堡": {
+      "at": "2026-09-18T14:54:46.485605+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "紫菱洲": {
       "at": "2026-09-18T14:16:52.819752+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "缀锦楼": {
+      "at": "2026-09-18T14:54:46.485616+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "聚义厅": {
@@ -5986,6 +13228,18 @@
     },
     "芦苇泊": {
       "at": "2026-09-18T03:33:34.962327+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "芦雪广": {
+      "at": "2026-09-18T14:53:15.482928+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "芦雪庵": {
+      "at": "2026-09-18T14:54:53.227413+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "荣庆堂": {
+      "at": "2026-09-18T14:54:59.984658+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "蓟州": {
@@ -6012,12 +13266,24 @@
       "at": "2026-09-18T03:33:43.211515+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "酸枣": {
+      "at": "2026-09-18T15:01:38.306780+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "金沙滩": {
       "at": "2026-09-18T03:31:23.505162+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
+    "阊门": {
+      "at": "2026-09-18T14:55:13.879891+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
     "阳城": {
       "at": "2026-09-18T03:33:43.211535+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "陕西": {
+      "at": "2026-09-18T14:53:08.120960+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
     },
     "马行街": {
@@ -6027,8 +13293,12 @@
     "高太尉府": {
       "at": "2026-09-18T03:32:31.722700+00:00",
       "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "鹰愁涧": {
+      "at": "2026-09-18T15:00:18.899736+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
     }
   },
-  "updated_at": "2026-09-18T14:17:23.861141+00:00",
+  "updated_at": "2026-09-18T15:01:53.540147+00:00",
   "version": 1
 }

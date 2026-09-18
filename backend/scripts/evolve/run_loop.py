@@ -1637,6 +1637,35 @@ FRONTIER_STAGE3_PATH = OUT_DIR / "frontier_stage3.json"
 REVIEW_MD_PATH = OUT_DIR / "stage3_review.md"
 
 
+def ood_guard_check(policy: dict, baseline: dict) -> dict:
+    """OOD 跨体裁护栏（eval_policy v4）：级 3/4 变异入档前必查。
+
+    纯规则、零 LLM（M1/M4 读冻结 DB,geo 用本地 GeoNames 索引;首次调用
+    ~10s 索引加载,之后进程内缓存）。指标全部 lower-better,回归阈值
+    ood_guard.regression_abs(默认 0.01)。
+    """
+    ood_cfg = policy.get("ood_guard") or {}
+    base = (baseline.get("ood_guard") or {}).get("novels") or {}
+    if not ood_cfg or not base:
+        return {"passed": True, "failures": [], "detail": {},
+                "note": "ood_guard 未配置或无基线,跳过"}
+    import build_ood_baseline as ood
+
+    current = ood.compute_ood_metrics()
+    thr = float(ood_cfg.get("regression_abs", 0.01))
+    failures: list[str] = []
+    detail: dict[str, dict] = {}
+    for slug, cur in current.items():
+        for mk in ood_cfg.get("metrics", []):
+            b, c = base.get(slug, {}).get(mk), cur.get(mk)
+            if b is None or c is None:
+                continue
+            detail[f"{slug}.{mk}"] = {"base": b, "curr": c}
+            if c - b > thr + _EPS:
+                failures.append(f"ood:{slug}.{mk}")
+    return {"passed": not failures, "failures": failures, "detail": detail}
+
+
 def _stage3_parent_vec_from_fixture(e0: dict) -> dict[str, float]:
     """E0 冻结基线 → 父代向量（原 prompt,无 LLM 消耗）。"""
     vec: dict[str, float] = {}
@@ -1723,6 +1752,9 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
     pause_after = int(policy.get("guardrails", {})
                       .get("no_improvement_pause_generations", 5))
     judge_min = float(policy.get("metrics", {}).get("judge_min_supported", 0.7))
+    if not BASELINE_PATH.exists():
+        sys.exit(f"FATAL: 基线不存在: {BASELINE_PATH}（先运行 build_baseline.py）")
+    baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
 
     state = pe.load_state()
     if pe.heal_prompt_file(state):
@@ -1899,6 +1931,7 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
         vec: dict | None = None
         gate_result = {"passed": False, "failures": ["eval_error"]}
         judge_result: dict | None = None
+        ood_result: dict | None = None
         error: str | None = None
         try:
             # 4. EVAL 快速层(冻结子集重抽)
@@ -1948,6 +1981,18 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                 else:
                     print(f"[evolve][judge] 抽检通过 supported_rate={rate} "
                           f"(n={judge_result['n']})")
+
+            # 6b. OOD 跨体裁护栏(v4):级 3/4 变异入档前必查(纯规则零 LLM)
+            ood_result = None
+            if gate_passed and 3 in (policy.get("ood_guard", {})
+                                     .get("applies_to_levels", [])):
+                ood_result = ood_guard_check(policy, baseline)
+                if not ood_result["passed"]:
+                    gate_passed = False
+                    gate_result["failures"] += ood_result["failures"]
+                    print(f"[evolve][ood] ❌ OOD 回归: {ood_result['failures']}")
+                else:
+                    print("[evolve][ood] 跨体裁护栏通过(凡修/魔戒/平凡 无回归)")
 
             # 7. ARCHIVE(min_improvement 按噪声底预注册)
             if gate_passed:
@@ -2005,6 +2050,8 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
             "judge": judge_result and {"supported_rate": judge_result["supported_rate"],
                                        "n": judge_result["n"],
                                        "verdicts_path": judge_result.get("verdicts_path")},
+            "ood": ood_result and {"passed": ood_result["passed"],
+                                   "failures": ood_result["failures"]},
             "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
                      "llm_calls": llm_budget.calls,
                      "cost_usd": round(cost_acc["cost_usd"], 4)},
