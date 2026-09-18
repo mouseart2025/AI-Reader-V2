@@ -731,8 +731,53 @@ def save_frontier(frontier: list[dict], path: Path = FRONTIER_PATH) -> None:
 
 # ── COMMIT（journal）───────────────────────────────────────────────
 
+# 元层（§4.4）增强字段：每次 COMMIT 自动附带
+_POLICY_VERSION_CACHE: tuple[float, int | None] = (0.0, None)
+
+
+def _policy_version(policy_path: Path = EVAL_POLICY_PATH) -> int | None:
+    """eval_policy.yaml 的 version(按 mtime 缓存)。"""
+    try:
+        mtime = policy_path.stat().st_mtime
+    except OSError:
+        return None
+    global _POLICY_VERSION_CACHE
+    if _POLICY_VERSION_CACHE[0] != mtime:
+        try:
+            data = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+            _POLICY_VERSION_CACHE = (mtime, data.get("version"))
+        except Exception:
+            _POLICY_VERSION_CACHE = (mtime, None)
+    return _POLICY_VERSION_CACHE[1]
+
+
+def state_sha256() -> str:
+    """三个基因组状态文件(vocab_delta/weights_state/prompt_state)的组合哈希。"""
+    h = hashlib.sha256()
+    for p in (_EVOLVE_DIR / "vocab_delta.json", _EVOLVE_DIR / "weights_state.json",
+              _EVOLVE_DIR / "prompt_state.json"):
+        h.update(p.name.encode())
+        h.update(p.read_bytes() if p.exists() else b"<absent>")
+    return h.hexdigest()
+
+
+def context_hash(context: object) -> str:
+    """提议器输入快照的确定性哈希（canonical JSON）。"""
+    return hashlib.sha256(
+        json.dumps(context, ensure_ascii=False, sort_keys=True, default=str).encode()
+    ).hexdigest()
+
+
 def commit_journal(record: dict, journal_path: Path = JOURNAL_PATH) -> Path:
-    """COMMIT：追加 evolution_journal.jsonl（每代一条完整 lineage）。"""
+    """COMMIT：追加 evolution_journal.jsonl（每代一条完整 lineage）。
+
+    阶段 4 起自动附带元层字段（缺省时才补，调用方显式给的优先）：
+    policy_version（评估口径版本）/ state_sha256（基因组状态指纹）。
+    context_hash 由调用方给（提议器输入只有调用方知道）。
+    """
+    record.setdefault("policy_version", _policy_version())
+    record.setdefault("state_sha256", state_sha256())
+    record.setdefault("context_hash", None)
     journal_path.parent.mkdir(parents=True, exist_ok=True)
     with open(journal_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
@@ -948,7 +993,8 @@ def _eval_stage1_state(baseline_vec: dict[str, float], policy: dict,
 
 
 def run_evolution_stage1(generations: int, no_pytest: bool = False,
-                         batch_size: int = 10, verbose: bool = True) -> int:
+                         batch_size: int = 10, proposer_policy: str = "largest_pool",
+                         verbose: bool = True) -> int:
     """阶段 1 主循环：ACE 词表增量 + 真实评估 + finally 回退 + 崩溃自愈。"""
     check_frozen_or_abort()  # §6.1 评估器外置
 
@@ -968,7 +1014,8 @@ def run_evolution_stage1(generations: int, no_pytest: bool = False,
     store = gv.load_delta()
     if gv.heal_source(store):
         print("[evolve] 检测到源文件偏离已提交 delta 状态（上次崩溃残留？），已重渲染自愈")
-    operator = gv.GeoSupplementDeltaOperator(batch_size=batch_size)
+    operator = gv.GeoSupplementDeltaOperator(batch_size=batch_size,
+                                             novel_policy=proposer_policy)
     golden_text = gv.load_golden_texts()
 
     frontier = load_frontier()
@@ -1110,6 +1157,11 @@ def run_evolution_stage1(generations: int, no_pytest: bool = False,
                 gv.save_delta(store)
                 parent_vec = vec
                 parent_ref = {"type": "generation", "generation": generation}
+                # 提议策略奖励回写(UCB1 等):接受批次的未解析率降幅
+                names_total = pools.get(candidate["target_novel"], {}).get("names", 0)
+                if names_total:
+                    operator.note_outcome(candidate["target_novel"],
+                                          len(kept) / names_total)
             else:
                 # 拒绝/失败：完全还原到已提交状态（含异常路径）
                 gv.write_source_state(committed)
@@ -1133,6 +1185,11 @@ def run_evolution_stage1(generations: int, no_pytest: bool = False,
             "decision": decision,
             "anti_hack_rejected": ah_rejected,
             "error": error,
+            "context_hash": context_hash({
+                "pools": {s: p["pool_size"] for s, p in pools.items()},
+                "committed": len(store["entries"]),
+                "rejected": sorted(store.get("rejected", {})),
+            }),
             "dry_run": False,
             "stage": 1,
         }
@@ -1249,6 +1306,7 @@ def stability_check_stage2(params: dict, ref_vec: dict, policy: dict,
 
 def run_evolution_stage2(generations: int, no_pytest: bool = False,
                          force_param: str | None = None,
+                         proposer_policy: str = "round_robin",
                          verbose: bool = True) -> int:
     """阶段 2 主循环：权重扰动 + Pareto 小种群 + 复测降级 + 收尾全量门禁。
 
@@ -1272,7 +1330,8 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
 
     loci = genome["genes"]["weights_params"]["loci"]
     # §4.3 停滞护栏:同机制连续无改进 → 强制切换机制(jitter → probe)
-    mechanisms = [wj.WeightJitterOperator(loci), wj.WeightProbeOperator(loci)]
+    mechanisms = [wj.WeightJitterOperator(loci, param_policy=proposer_policy),
+                  wj.WeightProbeOperator(loci, param_policy=proposer_policy)]
     mech_idx = 0
     operator = mechanisms[mech_idx]
     state = wj.load_weights_state()
@@ -1424,6 +1483,10 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
             current_params = candidate_params
             parent_vec = vec
             parent_ref = {"type": "generation", "generation": generation}
+        # 提议策略奖励回写(ucb1/epsilon_greedy 用;round_robin 下无副作用)
+        if candidate.get("param"):
+            operator.note_outcome(candidate["param"],
+                                  decision.startswith("archived"))
         print(f"[evolve][archive] 决策: {decision} (前沿大小 {len(frontier)}/{pop_max})")
 
         # 7. COMMIT（journal 完整 lineage）
@@ -1444,6 +1507,11 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
             "parent": gen_parent_ref,
             "decision": decision,
             "error": error,
+            "context_hash": context_hash({
+                "param_history": context["param_history"],
+                "overrides": context["weights_state"],
+                "mechanism": operator.name,
+            }),
             "dry_run": False,
             "stage": 2,
         }
@@ -1862,6 +1930,15 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                 judge_result = asyncio.run(pe.judge_spotcheck(
                     extracted, {s: {"names": fixtures["e0"]["novels"][s]["names"]}
                                 for s in pe.INNER}, cost_acc, llm_budget))
+                # 元层(§4.4):judge 逐条 verdict 落盘,journal 只存路径+摘要
+                verdicts_dir = OUT_DIR / "judge_verdicts"
+                verdicts_dir.mkdir(parents=True, exist_ok=True)
+                verdicts_path = verdicts_dir / f"gen{generation}.json"
+                verdicts_path.write_text(
+                    json.dumps(judge_result, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+                judge_result["verdicts_path"] = str(
+                    verdicts_path.relative_to(_EVOLVE_DIR))
                 rate = judge_result.get("supported_rate")
                 if rate is not None and rate < judge_min:
                     gate_passed = False
@@ -1926,7 +2003,8 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
             "gate": {"passed": gate_result["passed"],
                      "failures": gate_result["failures"]},
             "judge": judge_result and {"supported_rate": judge_result["supported_rate"],
-                                       "n": judge_result["n"]},
+                                       "n": judge_result["n"],
+                                       "verdicts_path": judge_result.get("verdicts_path")},
             "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
                      "llm_calls": llm_budget.calls,
                      "cost_usd": round(cost_acc["cost_usd"], 4)},
@@ -1934,6 +2012,7 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
             "decision": decision,
             "attempts": candidate.get("attempts"),
             "retry_errors": candidate.get("retry_errors"),
+            "context_hash": candidate.get("context_hash"),
             "error": error,
             "dry_run": False,
             "stage": 3,
@@ -1997,6 +2076,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="live 后端跳过 golden pytest 子集")
     parser.add_argument("--force-param", metavar="NAME=VALUE",
                         help="阶段 2 首代强制提议指定参数值（人工复测，走完整门禁）")
+    parser.add_argument("--proposer-policy", default=None,
+                        help="阶段 4 回放选出的提议策略(默认=现状行为)。"
+                             "阶段 1: largest_pool(默认)/max_marginal/round_robin/ucb1;"
+                             "阶段 2: round_robin(默认)/ucb1/epsilon_greedy")
     parser.add_argument("--report", action="store_true", help="输出当前前沿与趋势后退出")
     parser.add_argument("--freeze", action="store_true",
                         help="重新生成 frozen_manifest.json（仅限有意更新评估器后）")
@@ -2013,14 +2096,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.stage == 1:
         if args.dry_run or args.eval_backend == "cached":
             print("[evolve] 阶段 1 强制 live 评估（--dry-run/--eval-backend cached 仅阶段 0 有效）")
+        s1_policies = ("largest_pool", "max_marginal", "round_robin", "ucb1")
+        policy = args.proposer_policy or "largest_pool"
+        if policy not in s1_policies:
+            sys.exit(f"FATAL: 阶段 1 不支持 --proposer-policy {policy}（可选 {s1_policies}）")
         return run_evolution_stage1(generations=args.generations,
                                     no_pytest=args.no_pytest,
-                                    batch_size=args.batch_size)
+                                    batch_size=args.batch_size,
+                                    proposer_policy=policy)
     if args.stage == 2:
+        s2_policies = ("round_robin", "ucb1", "epsilon_greedy")
+        policy = args.proposer_policy or "round_robin"
+        if policy not in s2_policies:
+            sys.exit(f"FATAL: 阶段 2 不支持 --proposer-policy {policy}（可选 {s2_policies}）")
         return run_evolution_stage2(generations=args.generations,
                                     no_pytest=args.no_pytest,
-                                    force_param=args.force_param)
+                                    force_param=args.force_param,
+                                    proposer_policy=policy)
     if args.stage == 3:
+        if args.proposer_policy:
+            print("[evolve] 阶段 3 提议器为 LLM(GEPA),--proposer-policy 不适用,忽略")
         return run_evolution_stage3(generations=args.generations)
     return run_evolution(generations=args.generations, eval_backend=args.eval_backend,
                          dry_run=args.dry_run, no_pytest=args.no_pytest)

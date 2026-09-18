@@ -1,7 +1,52 @@
 # GeoEvolve — 自进化系统实验代码
 
-规格：`docs/analysis/geo-self-evolve-methodology.md`。阶段 0/1/2 已完成，
-本文档记录各阶段设计选型（阶段 3 在最上）。
+规格：`docs/analysis/geo-self-evolve-methodology.md`。阶段 0/1/2/3 已完成，
+本文档记录各阶段设计选型（阶段 4 在最上）。
+
+## 阶段 4 设计（2026-09-18，元层：Dream-RSI 式历史回放，零 LLM）
+
+### journal 增强（元层四字段）
+
+`commit_journal` 主路径自动附带（调用方显式给的优先）：
+`policy_version`（eval_policy 版本，按 mtime 缓存）、`state_sha256`
+（vocab_delta/weights_state/prompt_state 组合哈希）、`context_hash`
+（提议器输入快照哈希，各阶段在调用点给）、judge verdicts 逐条落盘
+`out/judge_verdicts/gen{N}.json`（journal 只存路径+摘要）。
+
+历史回填（`backfill_journal.py`，幂等）：policy_version 按阶段映射全量回填
+（74/74）；state_sha256 按**重建口径**回填 71/74（vocab 按条目 generation ≤g、
+weights 按 journal weights.set/unset 累积、prompt 按 history 末值；3 条非整数代
+特殊记录为 null）；context_hash 与 verdicts_path 历史代不可重建 → null。
+
+### 回放器（replay.py）保真度分层
+
+| 阶段 | 保真度 | 依据 |
+|---|---|---|
+| 1 词表 | **精确反事实模拟** | 评估全规则无 LLM；世界模型=pristine supplement（减去 delta 块键）+冻结 DB，每步全量重解析（自动复现祖先解锁与 pass-2 校验二阶效应） |
+| 2 权重 | **记录支撑回放** | 动作=(参数,方向,机制,父代覆盖态)；journal 有同动作记录用真实结果，否则 UNEXPLORED → 保守规则（计平均成本、记 rejected_no_improvement、不改变状态，宁低估不夸大） |
+| 3 prompt | **轨迹策略回放** | 动作是 LLM 生成的连续文本，反事实不可知；只对"停滞 K 代即停"规则在已实现轨迹上精确求值 |
+
+重放校验（有效性前提）：阶段 1 actual 策略复现 journal 逐值一致
+（142 入档/58 黑名单/水浒终态 0.687036 完全吻合）；阶段 2 失配 0 处
+（同键多记录=gen33/39 人工复测，取首个=保守）。
+
+### 回放结论（out/replay_result.json）
+
+- **阶段 1（强证据）**：max_marginal（边际收益最大）20 代总降幅 0.311 =
+  实际策略 3.8 倍；达到实际总降幅只需 **6 代（省 70% 预算）**。
+  round_robin/ucb1 居中（0.175，11 代）。→ 已接入 `--proposer-policy max_marginal`。
+- **阶段 2（弱证据）**：33 个已实现动作对 11 参数 × 2 方向 × 2 机制 × 父代态
+  太稀疏，UCB/ε-greedy 大部分动作 UNEXPLORED，无法可靠排名；唯一可靠结论是
+  **激进出切（stall2）在零改善场景下 4 代止损 vs 实际 16 代**（同结论更快）。
+- **阶段 3（停止规则敏感性）**：早停 K=3/5/7 省 $1.1-1.6 但全部错过 gen64 的
+  +0.041 改善；唯一捕获改善的路径是"不停+中途机制干预（停滞警示）"。
+  停止规则不是省预算的杠杆，机制多样性才是。
+
+### --proposer-policy（默认保持现状）
+
+阶段 1：`largest_pool`(默认) / `max_marginal` / `round_robin` / `ucb1`；
+阶段 2：`round_robin`(默认) / `ucb1` / `epsilon_greedy`；阶段 3 不适用（LLM 提议器）。
+奖励经 `note_outcome` 回写（阶段 1=接受批次率降幅，阶段 2=是否入档）。
 
 ## 阶段 3 设计（2026-09-18，GEPA 模式，prompt 级）
 
@@ -209,6 +254,10 @@ cd backend
 .venv/bin/python scripts/evolve/run_loop.py --stage 2 --generations 22
 # 阶段 3 live 进化（GEPA prompt 变异 + 冻结子集快速层 + judge 抽检）
 .venv/bin/python scripts/evolve/run_loop.py --stage 3 --generations 15
+# 阶段 4 元层回放(离线,零 LLM)
+.venv/bin/python scripts/evolve/replay.py --json out/replay_result.json
+# journal 历史代回填(幂等)
+.venv/bin/python scripts/evolve/backfill_journal.py
 # 报告
 .venv/bin/python scripts/evolve/run_loop.py --report
 # 重建基线（含 geo.unresolved_rate）

@@ -64,13 +64,26 @@ class WeightJitterOperator:
     name = "weight_jitter"
 
     def __init__(self, loci: dict, step_min: float = STEP_MIN,
-                 step_max: float = STEP_MAX):
+                 step_max: float = STEP_MAX,
+                 param_policy: str = "round_robin"):
         # 只收声明了 default+range 的参数（recall_pass_min_signals 等不在池内）
         self.loci = {n: loc for n, loc in loci.items()
                      if "default" in loc and "range" in loc}
         self.step_min = step_min
         self.step_max = step_max
         self.param_names = sorted(self.loci)
+        # 阶段 4 可选策略(默认 round_robin = 阶段 2 实际行为):
+        # ucb1=UCB1(奖励=是否入档,note_outcome 回写);
+        # epsilon_greedy=ε=0.3 探索/利用历史最佳
+        self.param_policy = param_policy
+        self._sel: dict = {"counts": {}, "gains": {}}
+        self._eps_rng = random.Random(42)
+
+    def note_outcome(self, pname: str, archived: bool) -> None:
+        """选择策略的奖励回写（入档=1 否则=0）。"""
+        self._sel["counts"][pname] = self._sel["counts"].get(pname, 0) + 1
+        self._sel["gains"][pname] = (self._sel["gains"].get(pname, 0.0)
+                                     + (1.0 if archived else 0.0))
 
     def perturb(self, pname: str, current: float, direction: int,
                 magnitude: float) -> tuple[float, int]:
@@ -99,8 +112,28 @@ class WeightJitterOperator:
         return new, direction
 
     def pick_param(self, generation: int) -> str:
-        """轮询目标选择（确定性）。"""
-        return self.param_names[generation % len(self.param_names)]
+        """参数目标选择：round_robin(默认,确定性) / ucb1 / epsilon_greedy。"""
+        if self.param_policy == "round_robin":
+            return self.param_names[generation % len(self.param_names)]
+        counts, gains = self._sel["counts"], self._sel["gains"]
+        if self.param_policy == "ucb1":
+            import math
+
+            total = sum(counts.values())
+
+            def score(p: str) -> float:
+                if counts.get(p, 0) == 0:
+                    return float("inf")
+                return (gains.get(p, 0.0) / counts[p]
+                        + math.sqrt(2 * math.log(max(total, 1)) / counts[p]))
+
+            return max(self.param_names, key=score)
+        if self.param_policy == "epsilon_greedy":
+            if self._eps_rng.random() < 0.3 or not gains:
+                return self._eps_rng.choice(self.param_names)
+            return max(self.param_names,
+                       key=lambda p: gains.get(p, 0.0) / max(counts.get(p, 1), 1))
+        raise ValueError(f"未知 param_policy: {self.param_policy}")
 
     def __call__(self, genome: dict, context: dict) -> dict:
         """OPERATORS 协议。context 需带:
@@ -174,5 +207,6 @@ class WeightProbeOperator(WeightJitterOperator):
 
     name = "weight_probe"
 
-    def __init__(self, loci: dict):
-        super().__init__(loci, step_min=PROBE_STEP_MIN, step_max=PROBE_STEP_MAX)
+    def __init__(self, loci: dict, param_policy: str = "round_robin"):
+        super().__init__(loci, step_min=PROBE_STEP_MIN, step_max=PROBE_STEP_MAX,
+                         param_policy=param_policy)
