@@ -1,7 +1,7 @@
 # GeoEvolve 阶段 5 —— 总结与并入谈判报告
 
 - 日期：2026-09-18 · 分支：`exp/geo-self-evolve`（从 main@6d7d2391 切出）
-- **状态：已并入 main（merge commit `ff34de34`，2026-09-18；main 上全量 1421 测试 + quality_loop 门禁全绿，未 push）**
+- **状态：两次并入 main 并已 push**——R1 merge `ff34de34`（2026-09-18），R2 merge `91a06984`（2026-09-19，已 `git push origin main` 成功）；main 上最终验证：1429 测试全绿 + quality_loop exit=0
 - 规格：方法论 §5（阶段 5）/ §7（并入 main 的 6 条协商标准）
 - 实验规模：74 代 journal 记录（阶段 0 骨架 2 + 阶段 1 词表 20 + 阶段 2 权重 34 + 阶段 3 prompt 15 + 特殊记录 3），总 LLM 成本 **$3.03**（阶段 3 $1.89 + 冻结基准 $0.56 + 阶段 5 复测 $0.13 + 阶段 0 dashboard $0.10 + judge 基线等 $0.32），阶段 1/2/4 零 LLM 成本
 - 全部证据文件：`backend/scripts/evolve/`（baseline.json / evolution_journal.jsonl / vocab_delta.json / weights_state.json / prompt_state.json / frozen_manifest.json / out/replay_result.json / out/stage5_verification.json / out/stage3_review.md）
@@ -138,6 +138,61 @@ heal 路径逐字节重渲染（剔除后 568 条 → 扫尾后见 §1.6）。
 - 内层集三本全部大幅显著改善（远超 0.02，规则指标零噪声）——§7.1 超额达标
 - 新增 anti-hack 拦截含高频名：狮驼国、鹰愁涧（西游 golden）、江州、酸枣、土冈等
 
+### R2 第二棒收尾（2026-09-19）：噪声底压缩 + silver 标注 + prompt 二轮 + 收尾 push
+
+#### 噪声底压缩（eval_policy v5，已重冻结）
+
+冻结子集 5 章/本 → 全 10 章/本（E0 重建 $0.55；T 集复用未重扫）：
+- 压缩前（5 章单次）：单本噪声 [西游 0.080, 红楼 0.021, 水浒 0.0]，macro 0.020
+- 压缩后（10 章单次）：单本 [0.021, 0.043, 0.059]，macro 0.027
+- 再叠加"每代评 2 次取均值"（v5 新增 eval_repeats=2）：估值单本 ≤0.042、
+  macro ≤0.019（按 1/√2 折算，估值已在 v5 注释声明）
+- 新阈值预注册（v5）：单本 0.045 / macro 0.02 / generic 0.04；judge 下限随新基线
+  更新为 0.42（10 章 E0 B∖A 实测 0.4167, n=12）
+- **入档规则强化（§6.3 实质强化）**：过 JIT 后须三次复测确认——逐次无超阈回归
+  且改善键中位数 − 父代 ≥ min_improvement。gen197 实证拦截了一个
+  "门禁+judge+OOD 全过但复测第 2 次红楼 generic 回归"的候选（单次时代必入档）。
+- 预算口径修正：llm_calls_per_generation 100→200（v5 下单代合法调用量 ~165；
+  gen191/193 两次超限失败为触发证据，修正已随 v5 重冻结注明）
+
+#### 非古典 silver golden 标注（双模型共识，无人工）
+
+- 通道 A=DeepSeek（中文视角）× 通道 B=Qwen-Max（英文视角），prompt 全新并冻结
+  入清单（与评估扫描 prompt 完全分离，反循环污染）
+- 降级声明：Anthropic key 实测 403 不可用 → 改用 DashScope qwen-max，
+  仍为真双模型（不同厂商/不同训练分布）
+- 结果：魔戒 **40 条**（一致率 57.1%）；凡修 **25 条**（一致率 35.7%，
+  不确定 34 条居多——共识口径偏严，如实记录）
+- 产出 tests/fixtures/golden_standard_lotr.json / golden_standard_fanren.json
+  （silver 层级，provenance 注明未经人工；随 golden glob 入冻结清单；
+  不进 quality_loop 原 16/16 硬门禁口径）；成本 ≈ $0.03
+
+#### prompt 二轮（gen190-199，10 代，$7.19，护栏自然停）
+
+| 代 | 决策 | 备注 |
+|---|---|---|
+| 190/192 | rejected_gate | 红楼 generic 超阈 |
+| 191/193 | failed_llm_budget | 触发预算口径修正（100→200） |
+| **194** | **archived** | 三次复测 [0.492/0.501/0.538] 全超基线 0.4603，中位改善 macro +0.041、judge 0.667、OOD 过 |
+| 195/196/198 | rejected_gate | generic/recall 超阈 |
+| 197 | rejected_unconfirmed | 门禁+judge+OOD 全过但复测回归——新规则实证有效 |
+| 199 | rejected（judge 0.4167 压线 0.42 未过；决策标签曾误标 rejected_budget，已修代码，历史记录以 gate.failures 为准） | 随后护栏暂停 |
+
+gen194 语义：在地点规则段加 2b（专名+方位/行政/建筑/山水/场所后缀构成的整体
+地名一律提取，判定标准=前缀是否为专名）/2c（旧名/改名/别称都提）/2d
+（比喻借代中的地名仍是地名）。比 gen64 版更保守（显式判定标准）。
+
+#### 三国尾池（任务 4，$0）
+
+gen200-250：46 代 archived，三国 0.556→**0.2345**；尾部 5 代候选全被 anti-hack
+拦截无指标变化，护栏自然暂停。delta 总量 **1740 条**，黑名单 110。
+
+#### 最终状态
+
+- merge commit：**`91a06984`**（--no-ff）；main 复验 **1429 passed + QL exit=0**；
+  **已 push origin main**（6d7d2391..91a06984；远端提示 3 个 CI status check 待跑）
+- 本棒成本：E0 重建 $0.55 + 标注 $0.03 + prompt 二轮 $7.19 ≈ **$7.77**（预算 $8 内）
+
 ### 决策 4 落地
 
 - 方法论 §8 新增"已排除的搜索方向：权重空间（阶段 2，33 代证据）"
@@ -211,7 +266,7 @@ benchmark_hierarchy.py --novel=shuihu      → exit=0（残留 141；recall 74.5
 | 成果 | 建议 | 理由 / 风险 / 回退 |
 |---|---|---|
 | 571 条词表 delta（geo_resolver.py 定界块） | **并入（已并入）** | 水浒 −0.086 / 红楼 −0.040 / 封神 −0.588 确定性收益（规则指标零噪声）；抽检通过（§1.5）；风险=坐标为"最近已解祖先"近似值；回退=清空 vocab_delta.json 后 heal 重渲染（逐字节还原，有测试锁定） |
-| prompt 三条规则（extraction_system.txt 2b/2c/2d） | **不并入（已降级回退）** | 阶段 5 复测不可复现（三次测量 0.5074/0.4796/0.4603 vs 基线 0.4665/0.4466，均值差 +0.016 < 噪声底 0.03）→ 按 §6.3 降级，文件已逐字节还原（见 §1.5）。规则思路留档于 journal gen64 备查 |
+| prompt 规则段 2b/2c/2d（gen194 版，extraction_system.txt） | **并入（R2 二轮,三次复测确认后）** | gen64 版已按 §6.3 降级;R2 重写版 gen194:macro recall +0.041 超 v5 噪声底,三次复测 [0.492/0.501/0.538] 全部高于基线,judge 0.667≥0.42,OOD 护栏过（见 §1.6)。回退=prompt_state override 置空 + heal |
 | 11 个参数外置钩子（evolve_params.py + 3 文件 11 处注入点） | **并入** | 默认关=行为逐字节不变（实测重建指标逐值一致 + 1421 测试全绿）；为未来调参/灰度实验留通道；风险=近乎零；回退=删钩子恢复字面量 |
 | evolve/ 基建（run_loop/geo_vocab/weight_jitter/prompt_evolve/replay/fixtures/测试） | **并入** | 自包含于 scripts/evolve/，不触生产路径；冻结清单机制对主线也有防护价值；风险=仓库体积（fixtures ~200KB）；回退=整目录删除 |
 | 噪声底数据与 eval_policy 口径 | **并入（随基建）** | 是后续一切质量实验的显著性基准 |
@@ -219,10 +274,10 @@ benchmark_hierarchy.py --novel=shuihu      → exit=0（残留 141；recall 74.5
 | out/ 运行产物（dashboard、review、replay_result） | **留分支/不入库** | gitignored 维持现状 |
 | 阶段 0-2 的 frontier.json 等中间态 | **丢弃**（可再生） | replay/backfill 可从 journal 重建 |
 
-### src 改动的生产行为变化明细（最终态：prompt 已还原，剩两处）
+### src 改动的生产行为变化明细（R2 最终态）
 
 1. **`geo_resolver.py` 定界块**（`_SUPPLEMENT_GEO.update({...})`）：生产行为变化=571 个地名（水浒 142 + 封神 402 + 红楼 27）从"未解析"变为"解析到最近祖先坐标"。影响面：地图管线的坐标解析（这些地点此前由 `place_unresolved_geo_coords` 在布局时近似放置，现在提前到解析层、确定性更强）。测试证据：全量 1421 passed；geo 复算与 journal 逐值一致。
-2. ~~`extraction_system.txt` prompt~~ **（已撤销）**：阶段 5 复测不可复现，按 §6.3 降级后文件与 6d7d2391 逐字节一致，无生产行为变化。
+2. **`extraction_system.txt` prompt**（gen194 版 2b/2c/2d 三条规则）：生产行为变化=未来新抽取会多提"专名+通用后缀整体地名/旧名别称/比喻借代中的地名"。不影响已有五本已存数据。证据：三次复测确认 + judge 0.667 + OOD 无回归 + golden 16/16。与 gen64 版的区别：表述更保守（明确"前缀是否为专名"判定），且通过了 gen64 没有的复测确认门禁。
 3. **`evolve_params.py` + 11 处钩子**：生产行为**逐字节不变**（默认关）；证据=钩子合入前后五本重建指标逐值一致 + 全量测试。仅在设 `EVOLVE_PARAMS_JSON` 环境变量时生效（仅进化评估子进程使用）。
 
 ---

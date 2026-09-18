@@ -24,6 +24,18 @@ commit 消息中注明口径变化原因。** frozen 清单外的文件不受影
 恢复方式只有人工核对后 `--freeze` 一条路——这是 §6.1 评估器外置的执行点。
 注意：`eval_policy.yaml` 在清单内，改评估口径=改冻结文件，同样适用。
 
+## R2 收尾（2026-09-19，已并入 main 并 push，merge `91a06984`）
+
+- 噪声底压缩：快速层 5→10 章/本 + 每代 2 次均值（eval_policy v5）；
+  入档新增三次复测确认（§6.3 强化，gen197 实证拦截）
+- silver golden：魔戒 40 条 / 凡修 25 条（DeepSeek×Qwen-Max 双模型共识，
+  未人工；Anthropic key 403 降级已声明）；provenance 在 fixture _meta
+- prompt 二轮：gen194 入档（macro +0.041，三次复测全超基线 + judge 0.667 +
+  OOD 护栏过）；gen64 教训（单次不可复现）已固化为确认门禁
+- 词表扫尾：五本 geo.unresolved_rate 全部大幅改善（西游 0.81→0.45，
+  封神 0.78→0.17，三国 0.66→0.23），delta 共 1740 条
+- OOD 护栏（v4）：级 3/4 变异强制凡修/魔戒/平凡三本无回归
+
 ## 阶段 4 设计（2026-09-18，元层：Dream-RSI 式历史回放，零 LLM）
 
 ### journal 增强（元层四字段）
