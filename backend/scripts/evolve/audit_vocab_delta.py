@@ -42,6 +42,7 @@ def _haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
 
 def audit() -> dict:
     import geo_vocab as gv
+
     from src.extraction.fact_validator import _is_generic_location
     from src.services.geo_resolver import GeoResolver
 
