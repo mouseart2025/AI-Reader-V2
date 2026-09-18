@@ -93,6 +93,8 @@ PER_NOVEL_METRICS: dict[str, str] = {
     "m4.generic_residue": "lower",
     "m5.m5": "higher",
     "satisfaction": "higher",
+    # 阶段 1 预注册（见 eval_policy v1 / README）：supplement 字典覆盖率指标
+    "geo.unresolved_rate": "lower",
 }
 
 # ── 变异算子注册表（PROPOSE 接口）────────────────────────────────────
@@ -110,6 +112,49 @@ def identity_mutation(genome: dict, context: dict) -> dict:
 
 
 OPERATORS["identity"] = identity_mutation
+
+
+# ── LLM 预算真实计数（§4.2/§6.4）────────────────────────────────────
+
+class LlmBudgetExceeded(RuntimeError):
+    """单代 LLM 调用数超 eval_policy 预算；该代记失败变异。"""
+
+
+class LlmBudget:
+    """EVAL 路径 LLM 调用计数器：每次调用前 charge()，超限即抛。
+
+    阶段 1 的 EVAL 全为规则路径（golden pytest 子进程 + geo 度量子进程），
+    实测每代 0 次；后续阶段的 LLM 提议器/judge 在调用点接 charge() 即用。
+    """
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.calls = 0
+
+    def charge(self, n: int = 1) -> None:
+        self.calls += n
+        if self.calls > self.limit:
+            raise LlmBudgetExceeded(
+                f"LLM 调用 {self.calls} 次超过每代预算 {self.limit}"
+            )
+
+
+# ── 阶段 1 EVAL：子进程重算 geo 指标（fresh import 加载候选 delta）────
+
+COMPUTE_GEO_SCRIPT = _EVOLVE_DIR / "compute_geo_metrics.py"
+
+
+def compute_geo_metrics_subprocess(timeout: int = 300) -> dict[str, dict]:
+    """子进程跑 compute_geo_metrics.py，返回 {slug: {names,resolved,unresolved_rate}}。"""
+    import subprocess
+
+    proc = subprocess.run(
+        [str(_BACKEND_DIR / ".venv" / "bin" / "python"), str(COMPUTE_GEO_SCRIPT)],
+        cwd=_BACKEND_DIR, capture_output=True, text=True, timeout=timeout,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"compute_geo_metrics 子进程失败: {proc.stderr[-500:]}")
+    return json.loads(proc.stdout.strip().splitlines()[-1])
 
 
 # ── 配置加载与校验（手写校验函数，不引新依赖）───────────────────────
@@ -764,12 +809,264 @@ def run_evolution(generations: int, eval_backend: str, dry_run: bool,
     return 0
 
 
+# ── 阶段 1：词表/字典级 live 进化（ACE 模式）─────────────────────────
+
+def _eval_stage1_state(baseline_vec: dict[str, float], policy: dict,
+                       llm_budget: LlmBudget,
+                       no_pytest: bool = False) -> dict:
+    """阶段 1 EVAL：子进程重算 geo.unresolved_rate + golden 门禁；其余沿用基线。
+
+    返回 {metrics, cost, golden}。LLM 调用计数经 llm_budget（规则路径恒 0，
+    任何未来接入的 LLM 评估步骤必须先 llm_budget.charge()）。
+    """
+    t0 = time.monotonic()
+    geo = compute_geo_metrics_subprocess()  # fresh import，加载当前源文件状态
+    if no_pytest:
+        golden = {"status": "skipped"}
+    else:
+        import quality_loop as ql
+
+        golden = ql.run_golden_gate(timeout=300)
+    vec = dict(baseline_vec)  # M1-M6/satisfaction 不受 geo 字典影响，沿用基线缓存
+    for slug, m in geo.items():
+        if isinstance(m.get("unresolved_rate"), (int, float)):
+            vec[f"{slug}.geo.unresolved_rate"] = float(m["unresolved_rate"])
+    if isinstance(golden.get("pass_rate"), (int, float)):
+        vec["golden.pass_rate"] = float(golden["pass_rate"])
+    return {
+        "metrics": vec,
+        "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                 "llm_calls": llm_budget.calls, "cost_usd": 0.0},
+        "golden": golden,
+        "geo": geo,
+    }
+
+
+def run_evolution_stage1(generations: int, no_pytest: bool = False,
+                         batch_size: int = 10, verbose: bool = True) -> int:
+    """阶段 1 主循环：ACE 词表增量 + 真实评估 + finally 回退 + 崩溃自愈。"""
+    check_frozen_or_abort()  # §6.1 评估器外置
+
+    import geo_vocab as gv
+
+    genome = load_yaml_config(GENOME_PATH, validate_genome)
+    policy = load_yaml_config(EVAL_POLICY_PATH, validate_eval_policy)
+    budget_s = float(policy["budget"]["wall_clock_seconds_per_generation"])
+    llm_limit = int(policy["budget"].get("llm_calls_per_generation", 100))
+    pop_max = int(policy["pareto"]["population_max"])
+
+    if not BASELINE_PATH.exists():
+        sys.exit(f"FATAL: 基线不存在: {BASELINE_PATH}（先运行 build_baseline.py）")
+    baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+    baseline_vec = metric_vector_from_baseline(baseline)
+
+    store = gv.load_delta()
+    if gv.heal_source(store):
+        print("[evolve] 检测到源文件偏离已提交 delta 状态（上次崩溃残留？），已重渲染自愈")
+    operator = gv.GeoSupplementDeltaOperator(batch_size=batch_size)
+    golden_text = gv.load_golden_texts()
+
+    frontier = load_frontier()
+    gen0 = next_generation()
+    pause_after = int(policy.get("guardrails", {})
+                      .get("no_improvement_pause_generations", 5))
+
+    # 起始 committed 状态向量（父代）：当前源文件状态 + golden
+    print("[evolve] 测量已提交状态基线向量（父代）...")
+    committed_eval = _eval_stage1_state(baseline_vec, policy, LlmBudget(llm_limit),
+                                        no_pytest=no_pytest)
+    parent_vec = committed_eval["metrics"]
+    parent_ref: dict = {"type": "baseline", "measured_at": baseline.get("measured_at")}
+    print(f"[evolve] 父代向量 {len(parent_vec)} 维；已提交 delta "
+          f"{len(store['entries'])} 条")
+
+    no_improve_streak = 0
+    for i in range(generations):
+        generation = gen0 + i
+        t0 = time.monotonic()
+        llm_budget = LlmBudget(llm_limit)
+        print(f"\n[evolve] ══ generation {generation} ══")
+
+        # 1. ANALYZE（上下文摘要 + 候选池快照）
+        context = analyze()
+        pools = operator.build_pools(store)
+        context["pools"] = pools
+        if verbose:
+            pool_str = " ".join(f"{s}:{p['pool_size']}" for s, p in pools.items())
+            print(f"[evolve][analyze] 候选池: {pool_str}; "
+                  f"已提交 {len(store['entries'])} 条 / 黑名单 {len(store.get('rejected', {}))} 条")
+
+        # 2. PROPOSE（规则算子）
+        candidate = operator(genome, context)
+        print(f"[evolve][propose] {candidate['hypothesis']}")
+        if candidate.get("exhausted"):
+            print("[evolve][propose] 候选池穷尽，如实停止（未凑满轮数）。")
+            break
+        add = candidate["genome_diff"]["vocab_delta.add"]
+
+        # anti-hack（§6.3）：黄金集原文包含检测
+        kept, ah_rejected = gv.anti_hack_filter(add, golden_text)
+        if ah_rejected:
+            print(f"[evolve][anti-hack] 剔除 {len(ah_rejected)} 条命中 golden fixture 的条目: "
+                  f"{ah_rejected}")
+            gv.mark_rejected(store, ah_rejected, "anti-hack: 命中 golden fixture 原文")
+        if not kept:
+            record = {
+                "generation": generation,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "operator": candidate["operator"],
+                "hypothesis": candidate["hypothesis"],
+                "genome_diff": candidate["genome_diff"],
+                "eval_backend": "live",
+                "metrics": None,
+                "gate": {"passed": False, "failures": ["anti_hack_all_rejected"]},
+                "cost": {"wall_clock_s": round(time.monotonic() - t0, 3),
+                         "llm_calls": 0, "cost_usd": 0.0},
+                "parent": parent_ref,
+                "decision": "rejected_anti_hack",
+                "anti_hack_rejected": ah_rejected,
+                "dry_run": False,
+                "stage": 1,
+            }
+            commit_journal(record)
+            no_improve_streak += 1
+            if no_improve_streak >= pause_after:
+                print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进，自动暂停。")
+                break
+            continue
+
+        # 3. APPLY（渲染候选状态；finally 保证回退）
+        gen_parent_ref = parent_ref  # 本代父代指针（谱系用，接受后再前移）
+        prev_parent_vec = parent_vec
+        committed = gv.committed_coords(store)
+        candidate_state = dict(committed)
+        candidate_state.update({n: tuple(c) for n, c in kept.items()})
+        gv.write_source_state(candidate_state)
+        decision = "failed_error"
+        vec: dict | None = None
+        gate_result = {"passed": False, "failures": ["eval_error"]}
+        cost = {"wall_clock_s": 0.0, "llm_calls": 0, "cost_usd": 0.0}
+        error: str | None = None
+        try:
+            # 4. EVAL（子进程 fresh import 候选状态）
+            result = _eval_stage1_state(baseline_vec, policy, llm_budget,
+                                        no_pytest=no_pytest)
+            vec = result["metrics"]
+            cost = result["cost"]
+            cost["wall_clock_s"] = round(time.monotonic() - t0, 3)
+            over_budget = cost["wall_clock_s"] > budget_s
+            print(f"[evolve][eval] 指标 {len(vec)} 维 耗时 {cost['wall_clock_s']}s"
+                  f"（预算 {budget_s:.0f}s）llm_calls={cost['llm_calls']}"
+                  + (" ⚠️超 wall-clock 预算，记失败变异" if over_budget else ""))
+
+            # 5. GATE（对照父代向量）
+            gate_result = gate(vec, parent_vec, policy)
+            gate_passed = gate_result["passed"] and not over_budget
+            if over_budget:
+                gate_result["failures"] = gate_result["failures"] + ["wall_clock_budget"]
+            print(f"[evolve][gate] {'通过' if gate_passed else '拒绝'} "
+                  f"(failures: {gate_result['failures'] or '无'})")
+
+            # 6. ARCHIVE
+            if gate_passed:
+                entry = {
+                    "generation": generation,
+                    "operator": candidate["operator"],
+                    "genome_diff": candidate["genome_diff"],
+                    "metrics": vec,
+                    "parent_metrics": parent_vec,
+                }
+                frontier, decision = archive_candidate(frontier, entry, pop_max)
+                save_frontier(frontier)
+            else:
+                decision = "rejected_gate"
+        except LlmBudgetExceeded as err:
+            error = str(err)
+            decision = "failed_llm_budget"
+            gate_result = {"passed": False, "failures": ["llm_budget"]}
+            print(f"[evolve][eval] ❌ {error}，该代记失败变异")
+        except Exception as err:  # 评估异常：回退后记失败，不中断无人值守循环
+            error = f"{type(err).__name__}: {err}"
+            gate_result = {"passed": False, "failures": ["eval_error"]}
+            print(f"[evolve][eval] ❌ 评估异常: {error}，该代记失败变异")
+        finally:
+            if decision.startswith("archived"):
+                # 接受：delta 落盘（文件已是新提交状态）；父代指针前移
+                ancestors = candidate.get("ancestors", {})
+                freqs = candidate.get("frequencies", {})
+                for n, c in kept.items():
+                    store["entries"][n] = {
+                        "coords": list(c),
+                        "novel": candidate["target_novel"],
+                        "ancestor": ancestors.get(n),
+                        "frequency": freqs.get(n, 0),
+                        "generation": generation,
+                    }
+                gv.save_delta(store)
+                parent_vec = vec
+                parent_ref = {"type": "generation", "generation": generation}
+            else:
+                # 拒绝/失败：完全还原到已提交状态（含异常路径）
+                gv.write_source_state(committed)
+
+        print(f"[evolve][archive] 决策: {decision} (前沿大小 {len(frontier)}/{pop_max})")
+
+        # 7. COMMIT（journal 完整 lineage）
+        record = {
+            "generation": generation,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "operator": candidate["operator"],
+            "hypothesis": candidate["hypothesis"],
+            "genome_diff": {"vocab_delta.add": kept,
+                            "target_novel": candidate["target_novel"]},
+            "eval_backend": "live",
+            "metrics": vec,
+            "gate": {"passed": gate_result["passed"],
+                     "failures": gate_result["failures"]},
+            "cost": cost,
+            "parent": gen_parent_ref,
+            "decision": decision,
+            "anti_hack_rejected": ah_rejected,
+            "error": error,
+            "dry_run": False,
+            "stage": 1,
+        }
+        commit_journal(record)
+
+        # 8. REPORT（每轮摘要）
+        if vec is not None and prev_parent_vec is not None:
+            tgt = candidate["target_novel"]
+            key = f"{tgt}.geo.unresolved_rate"
+            print(f"[evolve][report] gen{generation}: {key} "
+                  f"{prev_parent_vec.get(key)} → {vec.get(key)} 决策={decision}")
+        else:
+            print(f"[evolve][report] gen{generation}: 决策={decision}")
+
+        # §6.4 反漂移护栏
+        if decision.startswith("archived"):
+            no_improve_streak = 0
+        else:
+            no_improve_streak += 1
+        if no_improve_streak >= pause_after:
+            print(f"[evolve][guardrail] 连续 {no_improve_streak} 代无改进，自动暂停。"
+                  f"诊断: 最近决策见 journal。")
+            break
+
+    print("\n[evolve] 循环结束。")
+    print(render_report())
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="GeoEvolve 进化循环骨架（阶段 0）",
+        description="GeoEvolve 进化循环（阶段 0 骨架 / 阶段 1 词表级 ACE）",
         epilog="规格: docs/analysis/geo-self-evolve-methodology.md §4.3/§5/§6",
     )
+    parser.add_argument("--stage", type=int, choices=[0, 1], default=0,
+                        help="进化阶段：0=恒等变异骨架；1=词表/字典级 ACE live 进化")
     parser.add_argument("--generations", type=int, default=1, help="进化轮数")
+    parser.add_argument("--batch-size", type=int, default=10,
+                        help="阶段 1 每代提议的 delta 条数")
     parser.add_argument("--dry-run", action="store_true",
                         help="空转模式：cached 评估后端 + 恒等变异，不花钱")
     parser.add_argument("--eval-backend", choices=["cached", "live"], default="cached",
@@ -789,6 +1086,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.report:
         print(render_report())
         return 0
+    if args.stage == 1:
+        if args.dry_run or args.eval_backend == "cached":
+            print("[evolve] 阶段 1 强制 live 评估（--dry-run/--eval-backend cached 仅阶段 0 有效）")
+        return run_evolution_stage1(generations=args.generations,
+                                    no_pytest=args.no_pytest,
+                                    batch_size=args.batch_size)
     return run_evolution(generations=args.generations, eval_backend=args.eval_backend,
                          dry_run=args.dry_run, no_pytest=args.no_pytest)
 

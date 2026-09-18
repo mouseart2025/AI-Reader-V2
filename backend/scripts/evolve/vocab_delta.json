@@ -1,0 +1,1660 @@
+{
+  "entries": {
+    "七宝村": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "万城": {
+      "ancestor": "隆中山",
+      "coords": [
+        32.01036,
+        112.08142
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "万寿门": {
+      "ancestor": "太尉府",
+      "coords": [
+        33.62973,
+        113.75769
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "万松林": {
+      "ancestor": "乌龙岭",
+      "coords": [
+        31.65439,
+        109.43082
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "三宫殿": {
+      "ancestor": "山西",
+      "coords": [
+        37.5,
+        112.0
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "三座关": {
+      "ancestor": "青州",
+      "coords": [
+        36.7,
+        118.5
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "三清殿": {
+      "ancestor": "介休",
+      "coords": [
+        37.03138,
+        112.00171
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "三碗不过冈酒店": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "上水头": {
+      "ancestor": "清溪县",
+      "coords": [
+        28.982,
+        120.078
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "东京·金殿": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "东京·馆驿": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "东京去沧州路上": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京太师府": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京紫宸殿": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京进奏院": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东京郊外": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "东北水寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东华门": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "东南水寨": {
+      "ancestor": "水泊",
+      "coords": [
+        35.80228,
+        116.11701
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东厢": {
+      "ancestor": "段家庄",
+      "coords": [
+        39.41667,
+        114.01667
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东小巷": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 1,
+      "generation": 21,
+      "novel": "shuihu"
+    },
+    "东郭门": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "东门": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 9,
+      "generation": 2,
+      "novel": "shuihu"
+    },
+    "东门外": {
+      "ancestor": "东门",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 2,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "严州": {
+      "ancestor": "江南",
+      "coords": [
+        30.5,
+        120.0
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "临县": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "乌龙神庙": {
+      "ancestor": "高岭",
+      "coords": [
+        38.69292,
+        115.22721
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "九宫八卦阵": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "云堂": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "五岳楼": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "使臣房": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "候潮门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "僧堂": {
+      "ancestor": "大相国寺",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "六和塔": {
+      "ancestor": "杭州市",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 11,
+      "novel": "shuihu"
+    },
+    "净慈港": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "刘太公庄院": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "北关门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "华州牢": {
+      "ancestor": "华州",
+      "coords": [
+        34.51523,
+        109.75759
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "单身房": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "卢员外家": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "司狱司前": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "土冈子": {
+      "ancestor": "淮西",
+      "coords": [
+        32.0,
+        116.0
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "坟庵": {
+      "ancestor": "高岭",
+      "coords": [
+        38.69292,
+        115.22721
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "城濠": {
+      "ancestor": "陕州城",
+      "coords": [
+        34.72164,
+        111.10136
+      ],
+      "frequency": 2,
+      "generation": 12,
+      "novel": "shuihu"
+    },
+    "城隍庙": {
+      "ancestor": "房山",
+      "coords": [
+        39.72445,
+        115.84575
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "大相国寺": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "奉口镇": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "女墙": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "威胜城": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "宋太公庄院": {
+      "ancestor": "宋家村",
+      "coords": [
+        34.4469,
+        109.30169
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "宋江大寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 9,
+      "generation": 2,
+      "novel": "shuihu"
+    },
+    "宋江行寨": {
+      "ancestor": "常州",
+      "coords": [
+        31.66715,
+        119.66527
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "宣德楼": {
+      "ancestor": "西京",
+      "coords": [
+        27.41786,
+        111.151
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "少华山山寨": {
+      "ancestor": "华州",
+      "coords": [
+        34.51523,
+        109.75759
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "山南军": {
+      "ancestor": "小树林",
+      "coords": [
+        47.20805,
+        124.86141
+      ],
+      "frequency": 2,
+      "generation": 13,
+      "novel": "shuihu"
+    },
+    "山南水寨": {
+      "ancestor": "山南",
+      "coords": [
+        28.5563,
+        92.55684
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "市曹": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "市镇": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "平川旷野": {
+      "ancestor": "东昌府",
+      "coords": [
+        36.44591,
+        115.88373
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "张都监宅": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "张青家": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "扈家庄": {
+      "ancestor": "独龙山",
+      "coords": [
+        39.54948,
+        113.57455
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "打麦场": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "抄事房": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "抱犊山": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "断金亭": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "断金亭子": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "无为军": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "昭德城北十里": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "昭德城北门": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 14,
+      "novel": "shuihu"
+    },
+    "昭德城南门": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "昱岭关": {
+      "ancestor": "临安县",
+      "coords": [
+        30.23333,
+        119.71667
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "晁盖庄上": {
+      "ancestor": "东溪村",
+      "coords": [
+        28.62753,
+        120.76732
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "晋宁": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 5,
+      "generation": 4,
+      "novel": "shuihu"
+    },
+    "朱贵酒店": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 7,
+      "generation": 2,
+      "novel": "shuihu"
+    },
+    "机密房": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 8,
+      "novel": "shuihu"
+    },
+    "村店": {
+      "ancestor": "古庙",
+      "coords": [
+        31.49633,
+        113.14751
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "村酒店": {
+      "ancestor": "蜈蚣岭",
+      "coords": [
+        29.75007,
+        118.61568
+      ],
+      "frequency": 6,
+      "generation": 3,
+      "novel": "shuihu"
+    },
+    "杨雄家": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "枢密院": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "柴进庄院": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 5,
+      "generation": 4,
+      "novel": "shuihu"
+    },
+    "榆柳庄": {
+      "ancestor": "太湖",
+      "coords": [
+        31.22,
+        120.13
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "武大家": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "武学": {
+      "ancestor": "西京",
+      "coords": [
+        27.41786,
+        111.151
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "死囚牢": {
+      "ancestor": "开封府",
+      "coords": [
+        34.60417,
+        114.49722
+      ],
+      "frequency": 7,
+      "generation": 3,
+      "novel": "shuihu"
+    },
+    "汉江": {
+      "ancestor": "南丰城",
+      "coords": [
+        27.1276,
+        116.51384
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "江州牢城营": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "沧州牢城营": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "法华寺": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "济州·馆驿": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 15,
+      "novel": "shuihu"
+    },
+    "济州府": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "济州府衙": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 6,
+      "generation": 3,
+      "novel": "shuihu"
+    },
+    "涌金门": {
+      "ancestor": "杭州",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "清溪县帮源洞": {
+      "ancestor": "清溪县",
+      "coords": [
+        28.982,
+        120.078
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "潘公家": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "灵隐寺": {
+      "ancestor": "青州",
+      "coords": [
+        36.7,
+        118.5
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "点视厅": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 6,
+      "generation": 4,
+      "novel": "shuihu"
+    },
+    "独龙冈前": {
+      "ancestor": "独龙山",
+      "coords": [
+        39.54948,
+        113.57455
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "独龙山前": {
+      "ancestor": "独龙山",
+      "coords": [
+        39.54948,
+        113.57455
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "王婆茶坊": {
+      "ancestor": "紫石街",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "琵琶亭": {
+      "ancestor": "揭阳岭",
+      "coords": [
+        23.31281,
+        116.12187
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "留守司": {
+      "ancestor": "北京",
+      "coords": [
+        39.9075,
+        116.39723
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "白虎山": {
+      "ancestor": "青州",
+      "coords": [
+        36.7,
+        118.5
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "白龙神庙": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 2,
+      "generation": 16,
+      "novel": "shuihu"
+    },
+    "百谷岭": {
+      "ancestor": "河东",
+      "coords": [
+        35.5,
+        111.0
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "祝家庄庄门": {
+      "ancestor": "祝家庄",
+      "coords": [
+        34.47236,
+        107.7806
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "祝家庄门楼": {
+      "ancestor": "祝家庄",
+      "coords": [
+        34.47236,
+        107.7806
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "神厨": {
+      "ancestor": "蜈蚣岭",
+      "coords": [
+        29.75007,
+        118.61568
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "穆太公庄院": {
+      "ancestor": "江州",
+      "coords": [
+        22.53949,
+        107.45718
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "第三关": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "第二关": {
+      "ancestor": "太行山",
+      "coords": [
+        38.03756,
+        114.64131
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "紫宸殿": {
+      "ancestor": "东京郊外",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "紫石街": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 4,
+      "generation": 6,
+      "novel": "shuihu"
+    },
+    "紫虚观": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "胡梯": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 3,
+      "generation": 9,
+      "novel": "shuihu"
+    },
+    "艮山门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 17,
+      "novel": "shuihu"
+    },
+    "节堂": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "芦花荡": {
+      "ancestor": "石碣村",
+      "coords": [
+        23.09546,
+        113.79195
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "草堂": {
+      "ancestor": "宋家庄",
+      "coords": [
+        39.78302,
+        113.02171
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "草屋": {
+      "ancestor": "沧州",
+      "coords": [
+        38.26667,
+        116.75
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "菜市门": {
+      "ancestor": "杭州城",
+      "coords": [
+        30.29365,
+        120.16142
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "蓟州城里": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "虚皇坛": {
+      "ancestor": "龙虎山",
+      "coords": [
+        28.12346,
+        116.97592
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "西京新安县": {
+      "ancestor": "西京",
+      "coords": [
+        27.41786,
+        111.151
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "西华门": {
+      "ancestor": "东京",
+      "coords": [
+        34.8,
+        114.35
+      ],
+      "frequency": 4,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "西岳庙": {
+      "ancestor": "华州",
+      "coords": [
+        34.51523,
+        109.75759
+      ],
+      "frequency": 2,
+      "generation": 18,
+      "novel": "shuihu"
+    },
+    "西门庆生药铺": {
+      "ancestor": "西门",
+      "coords": [
+        28.32818,
+        121.19824
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "西陵桥": {
+      "ancestor": "西湖",
+      "coords": [
+        30.24,
+        120.14
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "赭山门": {
+      "ancestor": "海盐县",
+      "coords": [
+        30.51667,
+        120.95
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "郓城县县衙": {
+      "ancestor": "郓城县",
+      "coords": [
+        35.61972,
+        115.85556
+      ],
+      "frequency": 5,
+      "generation": 5,
+      "novel": "shuihu"
+    },
+    "金沙滩小寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "阮小二家": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "阳谷县县衙": {
+      "ancestor": "阳谷县",
+      "coords": [
+        36.15889,
+        115.85139
+      ],
+      "frequency": 4,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "飞云浦": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "飞虎峪": {
+      "ancestor": "大名府",
+      "coords": [
+        36.3,
+        115.23333
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "饮马川": {
+      "ancestor": "河北",
+      "coords": [
+        38.0,
+        114.5
+      ],
+      "frequency": 2,
+      "generation": 19,
+      "novel": "shuihu"
+    },
+    "香林洼": {
+      "ancestor": "水泊",
+      "coords": [
+        35.80228,
+        116.11701
+      ],
+      "frequency": 4,
+      "generation": 7,
+      "novel": "shuihu"
+    },
+    "鸭嘴滩小寨": {
+      "ancestor": "梁山泊",
+      "coords": [
+        35.79019,
+        116.12797
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "鸳鸯楼": {
+      "ancestor": "孟州",
+      "coords": [
+        34.91667,
+        112.75
+      ],
+      "frequency": 2,
+      "generation": 20,
+      "novel": "shuihu"
+    },
+    "黄泥冈": {
+      "ancestor": "山东",
+      "coords": [
+        36.5,
+        117.0
+      ],
+      "frequency": 3,
+      "generation": 10,
+      "novel": "shuihu"
+    },
+    "龙门山": {
+      "ancestor": "淮西",
+      "coords": [
+        32.0,
+        116.0
+      ],
+      "frequency": 2,
+      "generation": 20,
+      "novel": "shuihu"
+    }
+  },
+  "rejected": {
+    "东京开封府": {
+      "at": "2026-09-18T03:33:58.968930+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "二龙山": {
+      "at": "2026-09-18T03:31:23.505167+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "五台山": {
+      "at": "2026-09-18T03:31:51.154715+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "伊阙山": {
+      "at": "2026-09-18T03:32:39.540050+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "凌州": {
+      "at": "2026-09-18T03:31:51.154716+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "十字坡": {
+      "at": "2026-09-18T03:32:47.455900+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "卫州": {
+      "at": "2026-09-18T03:31:33.396137+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "唐州": {
+      "at": "2026-09-18T03:32:47.455926+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "大牢": {
+      "at": "2026-09-18T03:32:07.310352+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "太公庄院": {
+      "at": "2026-09-18T03:32:55.035036+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "太师府": {
+      "at": "2026-09-18T03:31:51.154717+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "威胜": {
+      "at": "2026-09-18T03:31:23.505169+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "威胜州": {
+      "at": "2026-09-18T03:32:55.035054+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "孟州道": {
+      "at": "2026-09-18T03:31:33.396139+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宛州": {
+      "at": "2026-09-18T03:31:33.396140+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宝珠寺": {
+      "at": "2026-09-18T03:31:59.365499+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "宿太尉府": {
+      "at": "2026-09-18T03:31:43.366748+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "寇州": {
+      "at": "2026-09-18T03:32:55.035055+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "少华山": {
+      "at": "2026-09-18T03:31:43.366771+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "岳庙": {
+      "at": "2026-09-18T03:31:43.366773+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "州衙": {
+      "at": "2026-09-18T03:31:59.365524+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "帅府": {
+      "at": "2026-09-18T03:31:43.366775+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "帮源洞": {
+      "at": "2026-09-18T03:31:43.366776+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "平望镇": {
+      "at": "2026-09-18T03:33:02.722019+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "延安府": {
+      "at": "2026-09-18T03:31:33.396142+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "扬子江": {
+      "at": "2026-09-18T03:32:15.545027+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "报恩寺": {
+      "at": "2026-09-18T03:33:02.722035+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "揭阳镇": {
+      "at": "2026-09-18T03:31:59.365526+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "昭德": {
+      "at": "2026-09-18T03:31:43.366777+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "昭德城": {
+      "at": "2026-09-18T03:31:33.396148+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "昭德府": {
+      "at": "2026-09-18T03:32:15.545043+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "曾头市": {
+      "at": "2026-09-18T03:33:10.547719+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "李师师家": {
+      "at": "2026-09-18T03:33:10.547732+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "村镇": {
+      "at": "2026-09-18T03:33:10.547734+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "松树林": {
+      "at": "2026-09-18T03:31:59.365528+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "梁山泊聚义厅": {
+      "at": "2026-09-18T03:31:23.505170+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "檀州": {
+      "at": "2026-09-18T03:31:43.366778+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "殿帅府": {
+      "at": "2026-09-18T03:31:33.396150+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "洳州": {
+      "at": "2026-09-18T03:33:10.547735+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "济州": {
+      "at": "2026-09-18T03:31:23.504938+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "济州城": {
+      "at": "2026-09-18T03:33:18.878905+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "济州大牢": {
+      "at": "2026-09-18T03:32:23.916555+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "浔阳江": {
+      "at": "2026-09-18T03:31:51.154701+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "清风山": {
+      "at": "2026-09-18T03:31:51.154713+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "牢城营": {
+      "at": "2026-09-18T03:33:18.878916+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "独龙冈": {
+      "at": "2026-09-18T03:31:59.365529+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "盖州": {
+      "at": "2026-09-18T03:31:33.396119+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "睢州": {
+      "at": "2026-09-18T03:33:26.621800+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "聚义厅": {
+      "at": "2026-09-18T03:31:23.505164+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "芦苇": {
+      "at": "2026-09-18T03:33:34.962312+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "芦苇泊": {
+      "at": "2026-09-18T03:33:34.962327+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "蓟州": {
+      "at": "2026-09-18T03:31:23.505166+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "蓼儿洼": {
+      "at": "2026-09-18T03:33:34.962329+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "赤松林": {
+      "at": "2026-09-18T03:33:43.211515+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "金沙滩": {
+      "at": "2026-09-18T03:31:23.505162+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "阳城": {
+      "at": "2026-09-18T03:33:43.211535+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "马行街": {
+      "at": "2026-09-18T03:33:43.211537+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    },
+    "高太尉府": {
+      "at": "2026-09-18T03:32:31.722700+00:00",
+      "reason": "anti-hack: 命中 golden fixture 原文"
+    }
+  },
+  "updated_at": "2026-09-18T03:34:06.386617+00:00",
+  "version": 1
+}
