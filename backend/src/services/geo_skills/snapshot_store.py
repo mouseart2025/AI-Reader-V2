@@ -68,6 +68,7 @@ def _serialize_snapshot(snap: HierarchySnapshot) -> str:
         "source": snap.source,
         "timestamp": snap.timestamp,
         "novel_genre_hint": snap.novel_genre_hint,
+        "prior_edges": sorted(list(e) for e in snap.prior_edges),
     }
     return json.dumps(data, ensure_ascii=False)
 
@@ -90,6 +91,7 @@ def _deserialize_snapshot(raw: str) -> HierarchySnapshot:
         source=data.get("source", ""),
         timestamp=data.get("timestamp", 0.0),
         novel_genre_hint=data.get("novel_genre_hint", ""),
+        prior_edges=frozenset(tuple(e) for e in data.get("prior_edges", [])),
     )
 
 
