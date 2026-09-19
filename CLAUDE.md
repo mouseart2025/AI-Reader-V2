@@ -368,6 +368,30 @@ Before writing any L3 code, document in the commit or conversation:
 修改 `backend/scripts/evolve/frozen_manifest.json` 清单内文件的 commit 必须同 commit
 重冻结并注明口径变化——规则详见 `backend/scripts/evolve/README.md`「冻结清单所有权规则」。
 
+### 仓库边界与推送规则（MANDATORY）
+
+两个仓库的职责边界：
+
+- **AI-Reader-V2（公开）**：产品代码、demo 数据、金标注释（`backend/data/review/` 的
+  `*_characters.json` 等测试fixture）、管线运行时数据（`hierarchy_validation/` 的
+  `knowledge_base/` 与 `*_errata_gold.json`）、构建/发布脚本。
+- **ai-reader-internal（私有）**：研究报告、实验/评审产物、标注过程材料、论文材料、
+  BMAD 工件、营销系统。迁移到 internal 时**镜像相同相对路径**（如
+  `backend/data/review/archive/...` 在两边同路径），保证溯源。
+
+铁律：
+
+1. **禁止 `git add -f` 把 gitignore 覆盖的内部路径强加进公开仓库**——gitignore 里的
+   内部条目就是边界本身。`docs/analysis/` 等研究文档一律写到 internal。
+2. 提交公开仓库前跑 `bash scripts/check-repo-boundary.sh`（CI 的 repo-hygiene
+   工作流会在 push/PR 时强制同一检查）。
+3. **推送规则**：公开仓库在测试全绿后可推送；**ai-reader-internal 只在用户明确指示
+   时才 push**（本地 commit 不受限）。
+4. `backend/scripts/evolve/evolution_journal.jsonl` 是试验日志：本地保留未跟踪工作
+   副本（run_loop 继续追加），`scripts/sync-internal.sh` 负责归档快照到 internal。
+5. internal → public 反向迁移前必须逐文件审查：无标注员真实姓名、无 API key/会话
+   cookie、无未发布论文内容。
+
 ### Pipeline Critical Files
 
 Changes to these files are **L3 by default** and require integration test verification:

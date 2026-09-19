@@ -122,3 +122,12 @@ scripts/paper-shots-v2/
 
 # GeoEvolve 阶段 0 运行产物（baseline/journal/genome 等 tracked 文件在上一级）
 backend/scripts/evolve/out/
+
+# === 内部产物边界（canonical: ai-reader-internal，见 CLAUDE.md「仓库边界与推送规则」）===
+# 已迁移出公开仓库;本地残留/再生成时不得再跟踪,CI repo-hygiene 门禁会拦截
+backend/scripts/evolve/evolution_journal.jsonl
+backend/data/hierarchy_validation/backups/
+backend/data/hierarchy_validation/history/
+backend/data/hierarchy_validation/candidates/
+backend/data/review/archive/
+scripts/qa-review/

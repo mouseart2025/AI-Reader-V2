@@ -1,0 +1,17 @@
+name: Repo Hygiene
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 仓库边界门禁:内部研究/试验产物不得出现在公开仓库。
+# 规则与背景见 CLAUDE.md「仓库边界与推送规则」与 scripts/check-repo-boundary.sh。
+
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check repo boundary
+        run: bash scripts/check-repo-boundary.sh
