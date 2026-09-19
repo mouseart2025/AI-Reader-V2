@@ -854,6 +854,8 @@ export interface WorldStructureData {
   location_icons: Record<string, string>
   novel_genre_hint: string | null
   spatial_scale: string | null
+  /** 虚拟节点(工程根/图层分组根),非小说知识声明——不渲染为地点、不进标注导出 */
+  virtual_locations?: string[]
 }
 
 // ── Chat ──────────────────────────────────────
