@@ -113,6 +113,11 @@ class WorldStructure(BaseModel):
     # Each dict: {source, target, relation_type, value, confidence, evidence_chapters}
     layer_spatial_scales: dict[str, str] = {}  # layer_id → SpatialScale value
     cached_skeleton: dict | None = None  # v0.63.0: cached successful skeleton result
+    # 虚拟节点(2026-09-19,王贺 10.2 驱动的「语义根/工程根分离」):
+    # 图层分组根(主世界/天界/冥界…)与无文本依据的 uber_root 是工程脚手架,
+    # 不是小说的知识声明——不渲染为地点、不进标注导出、不进 gold。
+    # 「天下」仅在文本确有此概念的小说(水浒/三国/封神)中才是真实节点。
+    virtual_locations: set[str] = set()
 
     @classmethod
     def create_default(cls, novel_id: str) -> WorldStructure:
@@ -128,3 +133,21 @@ class WorldStructure(BaseModel):
                 )
             ],
         )
+
+    def is_virtual(self, name: str) -> bool:
+        """该名称是否为虚拟节点(工程根/图层分组根),非小说知识声明。"""
+        return name in self.virtual_locations
+
+    def semantic_parent(self, name: str) -> str | None:
+        """标注/导出用的语义父节点:沿父链跳过虚拟节点。
+
+        红楼 贾政船上→主世界(虚拟)→天下(虚拟) → None(顶层浮动);
+        水浒 山东→天下(真实) → 天下。用于标注导出与 gold 构建,使
+        虚拟脚手架不再泄漏为知识声明(王贺 10.2,2026-09-19)。
+        """
+        node = self.location_parents.get(name)
+        seen = {name}
+        while node and node in self.virtual_locations and node not in seen:
+            seen.add(node)
+            node = self.location_parents.get(node)
+        return node

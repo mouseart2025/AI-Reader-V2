@@ -29,6 +29,18 @@ from src.services.geo_skills.snapshot_store import (
 
 logger = logging.getLogger(__name__)
 
+# 「天下」为文本真实概念的小说(水浒=大宋天下/三国=汉室天下/封神=
+# 成汤天下):其 uber_root 是真实地点节点(tier=world),进入标注与
+# gold。其余小说(西游的四大部洲宇宙、红楼的虚幻地理、未知作品)的
+# uber_root 只是工程根(Edmonds 单根/地图布局/孤儿兜底所需),属
+# 虚拟节点——不渲染为地点、不进标注导出(王贺 10.2:天下≠主世界)。
+REAL_TIANXIA_TITLES = ("水浒", "三国", "封神")
+
+
+def is_real_tianxia_novel(novel_title: str) -> bool:
+    """该小说的「天下」是否为文本内真实概念(而非工程根)。"""
+    return any(k in novel_title for k in REAL_TIANXIA_TITLES)
+
 
 class ProgressEvent:
     """SSE progress event for the rebuild pipeline."""
@@ -42,8 +54,9 @@ class ProgressEvent:
 class GeoOrchestrator:
     """Orchestrate geographic analysis skills with snapshot versioning."""
 
-    def __init__(self, novel_id: str):
+    def __init__(self, novel_id: str, novel_title: str = ""):
         self.novel_id = novel_id
+        self.novel_title = novel_title
         self.store = SnapshotStore()
         self._skills: list[tuple[str, GeoSkill]] = []
 
@@ -231,7 +244,7 @@ class GeoOrchestrator:
         # Goal: 天下's children should be layer roots only, not a flat mix.
         # For each non-overworld layer, re-parent its top-level locations under
         # a layer root node (either an existing location or a virtual one).
-        self._inject_layer_roots(ws)
+        self._inject_layer_roots(ws, self.novel_title)
 
         await world_structure_store.save(self.novel_id, ws)
 
@@ -255,7 +268,7 @@ class GeoOrchestrator:
         }
 
     @staticmethod
-    def _inject_layer_roots(ws) -> None:
+    def _inject_layer_roots(ws, novel_title: str = "") -> None:
         """Inject virtual layer root nodes so 天下's children are grouped by layer.
 
         Before: 天下 → [东胜神洲, 天庭, 幽冥界, 庄院, ...] (flat mix)
@@ -268,6 +281,11 @@ class GeoOrchestrator:
         2. If an existing location matches that name, promote it as root
         3. Otherwise create a virtual node
         4. Re-parent all 天下-children in that layer under the root
+
+        虚拟标记(2026-09-19):新建的图层根节点(主世界/天界…)是渲染分组
+        脚手架,标记进 ws.virtual_locations;被提升为图层根的**真实地点**
+        (如天庭)不标记。uber_root 本身依小说而定:水浒/三国/封神的
+        「天下」是文本真实概念,其余小说的 uber_root 是工程根(虚拟)。
         """
         parents = ws.location_parents
         tiers = ws.location_tiers
@@ -287,6 +305,10 @@ class GeoOrchestrator:
                     break
         if not uber_root:
             return
+        # 工程根虚拟化:水浒/三国/封神的「天下」是文本真实概念(真实节点),
+        # 其余小说的 uber_root 只是工程容器(王贺 10.2,2026-09-19)
+        if not is_real_tianxia_novel(novel_title):
+            ws.virtual_locations.add(uber_root)
 
         # Phase 0 (close orphans): The MWA formulation guarantees every non-root
         # node has an incoming edge from some parent (ultimately uber_root).
@@ -364,6 +386,7 @@ class GeoOrchestrator:
                 parents[root_name] = uber_root
                 tiers[root_name] = "continent" if layer_id == "overworld" else "realm"
                 layer_map[root_name] = layer_id
+                ws.virtual_locations.add(root_name)  # 渲染分组脚手架,非知识声明
                 for c in children:
                     parents[c] = root_name
                 logger.info(
@@ -392,7 +415,7 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
     from src.services.geo_skills.tier_classifier import TierClassifier
     from src.services.geo_skills.vote_builder import VoteBuilder
 
-    orch = GeoOrchestrator(novel_id)
+    orch = GeoOrchestrator(novel_id, novel_title=novel_title)
     orch.add_skill("tier", TierClassifier(novel_id))
     orch.add_skill("votes", VoteBuilder(novel_id))
     orch.add_skill("prior", KnowledgePrior(novel_title=novel_title))
