@@ -85,6 +85,16 @@ class KnowledgePrior(GeoSkill):
             vote_targets = {t for tgts in snapshot.parent_votes.values() for t in tgts}
             injected: list[str] = []
             for child, parent in priors.items():
+                if child not in all_locs:
+                    # 子节点证据门槛补入(2026-09-19,对称于下方父节点注入):
+                    # 汴梁城(freq=4,有票)因提取轮未入 tiers,先验被静默丢弃。
+                    # 子节点须本小说有真实提及证据(频次≥2 或已有票)
+                    if freq.get(child, 0) >= 2 or child in snapshot.parent_votes:
+                        tier_updates.setdefault(child, _guess_tier(child))
+                        all_locs.add(child)
+                        injected.append(child)
+                    else:
+                        continue
                 if parent not in all_locs and child in all_locs:
                     # 证据门槛补入缺失的先验父节点(2026-09-19,西游四大部洲
                     # 因历史 purge 缺席,先验被"双亲须在 tiers"门槛丢弃):
@@ -101,10 +111,11 @@ class KnowledgePrior(GeoSkill):
                 if child in all_locs and parent in all_locs:
                     votes.setdefault(child, Counter())[parent] += _PRIOR_WEIGHT
                     accepted += 1
-            # 补入节点自身的归属(priors 表中它可能排在注入点之前而被跳过)
+            # 补入节点自身的归属(priors 表中它可能排在注入点之前而被跳过;
+            # 已作为 child 投过票的节点不重复补票)
             for node in injected:
                 gp = priors.get(node)
-                if gp and gp in all_locs:
+                if gp and gp in all_locs and votes.get(node, Counter()).get(gp, 0) <= 0:
                     votes.setdefault(node, Counter())[gp] += _PRIOR_WEIGHT
             logger.info(
                 "KnowledgePrior (hardcoded): %d/%d priors accepted, "
@@ -397,7 +408,8 @@ _SHUIHU_PRIORS: dict[str, str] = {
     "河南": "天下", "淮南": "天下", "淮西": "天下",
     "江州": "天下", "华州": "关西",  # 华州属陕西(关西)永兴军路
     "辽国": "天下",
-    "陕西": "华州",
+    # 陕西为路级,原误置华州之下(路挂州,倒置;2026-09-19 修正)
+    "陕西": "天下",
     # ── 山东 ──
     "梁山泊": "山东", "济州": "山东", "青州": "山东",
     "阳谷县": "山东", "高唐州": "山东",
@@ -439,9 +451,11 @@ _SHUIHU_PRIORS: dict[str, str] = {
     "端王宫": "东京", "宿太尉府": "东京",
     "紫宸殿": "东京", "西华门": "东京", "东华门": "东京",
     "蒲东郡": "东京",
-    # 2026-09-19 增补:汴梁城为东京别称;祥符/酸枣门/太尉府皆东京城内
+    # 2026-09-19 增补:汴梁城为东京别称;祥符/酸枣门/太尉府皆东京城内;
+    # 岳庙(林冲娘子烧香处)/蔡河(东京四河之一)皆在东京
     "汴梁城": "东京", "祥符县": "东京", "酸枣门": "东京",
     "太尉府": "东京", "东京开封府": "东京",
+    "岳庙": "东京", "蔡河": "东京",
     # 北京大名府内部
     "梁中书府": "北京大名府", "大牢": "北京", "留守司": "北京",
     "黄河": "大名府", "飞虎峪": "大名府",
@@ -463,7 +477,9 @@ _SHUIHU_PRIORS: dict[str, str] = {
     "孟州": "河南", "宛州": "河南",
     "孟州道": "孟州", "孟州城": "孟州", "安平寨": "孟州",
     "快活林": "孟州道",
-    "荆湖": "宛州", "荆南": "荆湖",
+    "荆湖": "宛州", "荆南": "淮西",
+    # 云安/隆中山皆王庆淮西割据区(120回本王庆篇)
+    "云安": "淮西", "隆中山": "淮西",
     # ── 江州 ──
     "浔阳江": "江州", "江州城": "江州", "江州府": "江州",
     "牢城营": "江州", "无为军": "江州",
@@ -504,7 +520,7 @@ _SHUIHU_PRIORS: dict[str, str] = {
     "龙虎山": "信州",
     "官道": "天下", "村镇": "天下",
     "山南军": "天下", "山南": "天下",
-    "云安": "天下", "开州": "天下",
+    "开州": "天下",
     "陕州": "天下", "鳌山": "天下",
     "少华山": "华州", "华阴县": "华州",
     # 2026-09-19 增补(errata 驱动,皆可核验):

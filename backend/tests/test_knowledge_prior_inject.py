@@ -68,3 +68,33 @@ def test_both_present_behavior_unchanged():
     assert not result.tier_updates
     assert result.new_votes["傲来国"].get("东胜神洲") == 20
     assert result.new_votes["东胜神洲"].get("天下") == 20
+
+
+def test_missing_child_with_evidence_is_injected():
+    """水浒:汴梁城不在 tiers,但有频次/票证据 → 补入并注入先验选票。
+
+    2026-09-19 诊断:汴梁城 freq=4 且有章节票,因提取轮未入 tiers,
+    「汴梁城→东京」先验被静默丢弃,最终错挂京畿。
+    """
+    snap = _snap(
+        tiers={"天下": "world", "京畿": "region", "东京": "city"},
+        freqs={"天下": 100, "京畿": 30, "东京": 50, "汴梁城": 4},
+        votes={"汴梁城": {"京畿": 5.0}},
+    )
+    result = asyncio.run(KnowledgePrior("水浒传").execute(snap))
+
+    assert result.tier_updates.get("汴梁城") is not None  # 补入 tier
+    assert result.new_votes["汴梁城"].get("东京") == 20   # 先验接通
+    # 补入节点不得双倍计票(汴梁城在 priors 表中无自身归属,此处只验不炸)
+
+
+def test_missing_child_without_evidence_is_not_injected():
+    """零证据的缺失子节点不补入(防幻觉)。祥符县当前语料零提及。"""
+    snap = _snap(
+        tiers={"天下": "world", "京畿": "region", "东京": "city"},
+        freqs={"天下": 100, "京畿": 30, "东京": 50},
+    )
+    result = asyncio.run(KnowledgePrior("水浒传").execute(snap))
+
+    assert "祥符县" not in result.tier_updates
+    assert "祥符县" not in result.new_votes
