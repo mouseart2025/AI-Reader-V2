@@ -608,6 +608,10 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "燕京": (39.90, 116.40),       # Beijing (historical)
     "北平": (39.90, 116.40),       # Beijing (Republic era)
     "襄阳": (32.01, 112.14),       # Xiangyang
+    # 盖州:中国历史上有二——辽宁盖州(辽东古城)与山西晋城方向的盖州。
+    # 《水浒传》「宋江征盖州」为后者(田虎篇河东路,王贺 2026-09-18 考据;
+    # 最终把关待其回信确认)。zh_geonames 无此条,cities5000 会误配辽宁。
+    "盖州": (35.49, 112.85),       # Gaizhou (Shanxi, Water Margin; NOT Liaoning)
     "成都": (30.57, 104.07),       # Chengdu
     "大理": (25.69, 100.18),       # Dali (Yunnan)
     "昆明": (25.04, 102.68),       # Kunming
