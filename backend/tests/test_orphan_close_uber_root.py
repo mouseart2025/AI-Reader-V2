@@ -19,6 +19,7 @@ def _make_ws(parents, tiers, layers=None):
         location_tiers=dict(tiers),
         location_layer_map={k: "overworld" for k in tiers},
         layers=layers or [],
+        virtual_locations=set(),
     )
 
 
