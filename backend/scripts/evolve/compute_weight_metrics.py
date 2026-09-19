@@ -67,15 +67,22 @@ SKIP_PRIOR_SLUGS = {"fengshen"}
 
 
 def setup_scratch(permute_seed: int | None) -> Path:
-    """复制真实 DB 到 scratch；可选按种子置换 chapter_facts 的 fact_json。"""
+    """复制真实 DB 到 scratch；可选按种子置换 chapter_facts 的 fact_json。
+
+    复制后清空 hierarchy_snapshots:真实库中的历史快照链会在
+    fresh 重建后让 store.load_latest 取到旧的高版本(快照按
+    INSERT OR REPLACE 从 v0 重写,单轮 7 版,旧链 version 更高),
+    导致测量读到的是陈旧结果而非本轮重建结果(2026-09-19 实测发现)。
+    """
     SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
     dst = SCRATCH_DIR / "data.db"
     shutil.copyfile(REAL_DB, dst)
-    if permute_seed is not None:
-        import sqlite3
+    import sqlite3
 
-        conn = sqlite3.connect(str(dst))
-        try:
+    conn = sqlite3.connect(str(dst))
+    try:
+        conn.execute("DELETE FROM hierarchy_snapshots")
+        if permute_seed is not None:
             for (nid,) in conn.execute("SELECT DISTINCT novel_id FROM chapter_facts"):
                 rows = conn.execute(
                     "SELECT chapter_id, fact_json FROM chapter_facts "
@@ -88,9 +95,9 @@ def setup_scratch(permute_seed: int | None) -> Path:
                         "UPDATE chapter_facts SET fact_json=? WHERE chapter_id=?",
                         (blob, chapter_id),
                     )
-            conn.commit()
-        finally:
-            conn.close()
+        conn.commit()
+    finally:
+        conn.close()
     return dst
 
 
