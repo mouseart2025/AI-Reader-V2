@@ -15,7 +15,8 @@
     2. `各*` 泛指                 —— 各关隘/各寺院/各郡…
     3. 通名黑名单(小表)          —— 官道/江岸/河岸/大道…
     4. 朝代/政权名                —— 东汉/西汉…
-    5. 佛教四大部洲               —— 北俱芦洲等
+    5. 佛教四大部洲               —— 北俱芦洲等(仅当本小说 locations 无
+       真实证据时剔除;西游/封神的部洲是地理骨架,按提及次数豁免)
     6. **数据驱动人物名**         —— 在 characters 中出现、却几乎不出现在
        locations 里的名字,判定为人物而非地点(如 关公)
 
@@ -57,7 +58,8 @@ DYNASTY_NAMES: frozenset[str] = frozenset({
     "大汉", "汉朝", "秦朝", "唐朝", "宋朝", "明朝", "元朝",
 })
 
-# 佛教四大部洲(神话世界观层,不是三国地理实体)
+# 佛教四大部洲——仅在"本小说无真实地点证据"时剔除(三国噪声场景);
+# 西游/封神中它们是真实地理骨架,execute() 按 locations 提及次数豁免
 BUDDHIST_CONTINENTS: frozenset[str] = frozenset({
     "北俱芦洲", "东胜神洲", "西牛贺洲", "南赡部洲",
     "北俱泸州", "东胜神州", "西牛货洲", "南瞻部洲",
@@ -76,11 +78,8 @@ class EntityPurifier(GeoSkill):
         return "实体净化"
 
     # ── 数据驱动:人物名判定 ────────────────────────────────────────────
-    def _character_names(self) -> set[str]:
-        """在 characters 里出现、却几乎不在 locations 里出现的名字 = 人物。
-
-        关公: characters 2 次 / locations 0 次 → 人物,剔除。
-        """
+    def _mention_counts(self) -> tuple[Counter[str], Counter[str]]:
+        """统计本小说 chapter_facts 中名字在 characters / locations 的出现次数。"""
         char_c: Counter[str] = Counter()
         loc_c: Counter[str] = Counter()
         con = sqlite3.connect(str(DB_PATH))
@@ -105,7 +104,15 @@ class EntityPurifier(GeoSkill):
                 nm = loc.get("name")
                 if nm:
                     loc_c[nm] += 1
+        return char_c, loc_c
 
+    def _character_names(
+        self, char_c: Counter[str], loc_c: Counter[str],
+    ) -> set[str]:
+        """在 characters 里出现、却几乎不在 locations 里出现的名字 = 人物。
+
+        关公: characters 2 次 / locations 0 次 → 人物,剔除。
+        """
         return {
             name for name, n in char_c.items()
             if n >= self._min_char_mentions and loc_c.get(name, 0) == 0
@@ -134,12 +141,17 @@ class EntityPurifier(GeoSkill):
         if not parents:
             return SkillResult.empty(self.name, "No parents to purify")
 
-        people = self._character_names()
+        char_c, loc_c = self._mention_counts()
+        people = self._character_names(char_c, loc_c)
+        # 佛教部洲证据豁免:本小说 locations 中确有多次提及(西游/封神的
+        # 四大部洲是真实地理骨架)则保留;三国式零星噪声(loc<2)仍剔除
+        continent_keep = {n for n in BUDDHIST_CONTINENTS if loc_c.get(n, 0) >= 2}
 
         # 1) 判定所有出现的实体(child 与 parent 都要判)
         all_entities: set[str] = set(parents.keys()) | set(parents.values())
         bad = {n: r for n in all_entities
-               if (r := self.classify(n, people)) is not None}
+               if n not in continent_keep
+               and (r := self.classify(n, people)) is not None}
 
         if not bad:
             return SkillResult.empty(self.name, "No invalid entities")

@@ -27,6 +27,15 @@ logger = logging.getLogger(__name__)
 # Prior weight of 20 ensures it wins over noise but loses to strong evidence.
 _PRIOR_WEIGHT = evolve_param("knowledge_prior.prior_weight", 20)
 
+
+def _guess_tier(name: str) -> str:
+    """注入节点的保守 tier 猜测(仅供 Edmonds 软惩罚用,后续 tier 轮会重分)。"""
+    if name.endswith(("洲", "部洲")):
+        return "continent"
+    if name.endswith("国"):
+        return "kingdom"
+    return "region"
+
 _CLASSIFY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -70,16 +79,41 @@ class KnowledgePrior(GeoSkill):
         if priors:
             all_locs = set(snapshot.location_tiers.keys())
             votes: dict[str, Counter] = {}
+            tier_updates: dict[str, str] = {}
             accepted = 0
+            freq = snapshot.location_frequencies or Counter()
+            vote_targets = {t for tgts in snapshot.parent_votes.values() for t in tgts}
+            injected: list[str] = []
             for child, parent in priors.items():
+                if parent not in all_locs and child in all_locs:
+                    # 证据门槛补入缺失的先验父节点(2026-09-19,西游四大部洲
+                    # 因历史 purge 缺席,先验被"双亲须在 tiers"门槛丢弃):
+                    # 父节点须 (a) 在 priors 中有自身归属(链闭合)
+                    # (b) 本小说有真实提及证据(频次≥2 或已是票目标)
+                    if priors.get(parent) and (
+                        freq.get(parent, 0) >= 2 or parent in vote_targets
+                    ):
+                        tier_updates.setdefault(parent, _guess_tier(parent))
+                        all_locs.add(parent)
+                        injected.append(parent)
+                    else:
+                        continue
                 if child in all_locs and parent in all_locs:
                     votes.setdefault(child, Counter())[parent] += _PRIOR_WEIGHT
                     accepted += 1
+            # 补入节点自身的归属(priors 表中它可能排在注入点之前而被跳过)
+            for node in injected:
+                gp = priors.get(node)
+                if gp and gp in all_locs:
+                    votes.setdefault(node, Counter())[gp] += _PRIOR_WEIGHT
             logger.info(
-                "KnowledgePrior (hardcoded): %d/%d priors accepted",
-                accepted, len(priors),
+                "KnowledgePrior (hardcoded): %d/%d priors accepted, "
+                "%d missing parents injected with evidence gate",
+                accepted, len(priors), len(injected),
             )
-            return SkillResult(skill_name=self.name, new_votes=votes)
+            return SkillResult(
+                skill_name=self.name, new_votes=votes, tier_updates=tier_updates,
+            )
 
         # Fallback to LLM for unknown novels
         return await self._llm_priors(snapshot)
