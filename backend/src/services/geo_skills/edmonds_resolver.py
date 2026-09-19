@@ -270,8 +270,10 @@ class EdmondsResolver(GeoSkill):
         for child, parent in sorted(prior_edge_set):
             if child == parent or child not in all_locs or parent not in all_locs:
                 continue
-            if is_passage_like(child) or is_passage_like(parent):
-                continue
+            # 权威先验边豁免 passage 门:通行形态拦截是启发式(防「战船→华容道」
+            # 类幻觉父),而 prior_edges 是人工策展知识——gold/原文确认道路节点
+            # 可作容器(水浒 十字坡→孟州道、快活林→孟州道;红楼 荣国府→宁荣街)。
+            # 2026-09-19 实测 17 条策展边被此门静默拦截(十字坡最终错挂天下)。
             if base_parents.get(child) != parent:
                 base_parents[child] = parent
                 prior_applied += 1
@@ -407,9 +409,16 @@ class EdmondsResolver(GeoSkill):
         # Case 2 is the subtle one (on 三国: 斜谷道口→斜谷道) and needs an
         # explicit `None` override, since only `parent is None` deletes (:54-55);
         # `del parents[child]` leaves the legacy edge in place.
-        ac1_violations = [c for c, p in parents.items() if is_passage_like(p)]
+        # 权威先验边豁免(2026-09-19):prior_edges 是人工策展知识,gold/原文
+        # 确认特定道路节点可作容器(十字坡→孟州道、荣国府→宁荣街);无豁免时
+        # 本门把这类子节点清成 root(水浒 root_count 2→4 实测)。
+        ac1_violations = [
+            c for c, p in parents.items()
+            if is_passage_like(p) and (c, p) not in prior_edge_set
+        ]
         for child, parent in list(snapshot.location_parents.items()):
-            if is_passage_like(parent) and parents.get(child) is None:
+            if (is_passage_like(parent) and parents.get(child) is None
+                    and (child, parent) not in prior_edge_set):
                 ac1_violations.append(child)
         if ac1_violations:
             for c in set(ac1_violations):
