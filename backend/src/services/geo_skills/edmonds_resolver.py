@@ -185,6 +185,8 @@ class EdmondsResolver(GeoSkill):
         # 3. Override LLM parents only when name-containment or priors disagree
 
         base_parents = dict(snapshot.location_parents)
+        prior_edge_set: frozenset[tuple[str, str]] = snapshot.prior_edges
+        prior_edge_children = {c for c, _ in prior_edge_set}
 
         # ── Evidence gating for base parents (Epic D3 follow-up) ──
         # Old parents enter the snapshot from world_structures or previous
@@ -223,6 +225,8 @@ class EdmondsResolver(GeoSkill):
                 continue
             child_votes = votes.get(child)
             if child_votes and child_votes.get(parent, 0) <= 0:
+                if (child, parent) in prior_edge_set:
+                    continue  # 确定性先验边不受裸边清除
                 del base_parents[child]
                 bare_dropped += 1
         if bare_dropped:
@@ -260,7 +264,21 @@ class EdmondsResolver(GeoSkill):
         # These represent domain knowledge that should override LLM extraction errors
         _PRIOR_THRESHOLD = evolve_param("edmonds.prior_threshold", 15.0)  # only override if prior weight is high
         prior_applied = 0
+        # 权威先验边(硬编码知识,经 prior_edges 通道):直接落定并保护,
+        # 不参与下方的"高票即覆盖"——有机票可以超过先验票(三国 荆州→益州
+        # 压过 荆州→天下 的 sibling 倒挂即由此而来,2026-09-19)
+        for child, parent in sorted(prior_edge_set):
+            if child == parent or child not in all_locs or parent not in all_locs:
+                continue
+            if is_passage_like(child) or is_passage_like(parent):
+                continue
+            if base_parents.get(child) != parent:
+                base_parents[child] = parent
+                prior_applied += 1
+            protected.add(child)
         for child, vote_counter in votes.items():
+            if child in prior_edge_children:
+                continue  # 权威先验边已落定,高票不再覆盖
             if not vote_counter:
                 continue
             for parent, weight in vote_counter.most_common():

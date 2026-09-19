@@ -34,6 +34,10 @@ class HierarchySnapshot:
     source: str = ""       # which skill produced this snapshot
     timestamp: float = 0.0
     novel_genre_hint: str = ""
+    # 硬编码知识先验注入的 (child, parent) 边——确定性知识,Edmonds 须将其
+    # 视为权威:裸边清除/票覆盖/幻父上提/度均衡都不得改动(2026-09-19:
+    # 三国 荆州→益州 因益州有机票>15 压过先验 荆州→天下, sibling 倒挂)
+    prior_edges: frozenset[tuple[str, str]] = frozenset()
 
     def apply(self, result: SkillResult) -> HierarchySnapshot:
         """Create a new snapshot by applying a SkillResult.
@@ -80,6 +84,9 @@ class HierarchySnapshot:
             source=result.skill_name,
             timestamp=time.time(),
             novel_genre_hint=self.novel_genre_hint,
+            prior_edges=self.prior_edges | frozenset(
+                (c, p) for c, p in result.prior_edges
+            ),
         )
 
 
@@ -93,6 +100,10 @@ class SkillResult:
     tier_updates: dict[str, str] = field(default_factory=dict)
     synonym_pairs: list[tuple[str, str]] = field(default_factory=list)
     direction_constraints: list[dict] = field(default_factory=list)
+    # 硬编码先验注入的确定性 (child, parent) 边(仅 KnowledgePrior 硬编码
+    # 路径发出;LLM 路径仍只发票)。经 snapshot.apply 累积进
+    # HierarchySnapshot.prior_edges,供 Edmonds 权威化。
+    prior_edges: list[tuple[str, str]] = field(default_factory=list)
 
     # Execution metadata
     success: bool = True

@@ -84,6 +84,7 @@ class KnowledgePrior(GeoSkill):
             freq = snapshot.location_frequencies or Counter()
             vote_targets = {t for tgts in snapshot.parent_votes.values() for t in tgts}
             injected: list[str] = []
+            edge_list: list[tuple[str, str]] = []
             for child, parent in priors.items():
                 if child not in all_locs:
                     # 子节点证据门槛补入(2026-09-19,对称于下方父节点注入):
@@ -111,12 +112,14 @@ class KnowledgePrior(GeoSkill):
                 if child in all_locs and parent in all_locs:
                     votes.setdefault(child, Counter())[parent] += _PRIOR_WEIGHT
                     accepted += 1
+                    edge_list.append((child, parent))
             # 补入节点自身的归属(priors 表中它可能排在注入点之前而被跳过;
             # 已作为 child 投过票的节点不重复补票)
             for node in injected:
                 gp = priors.get(node)
                 if gp and gp in all_locs and votes.get(node, Counter()).get(gp, 0) <= 0:
                     votes.setdefault(node, Counter())[gp] += _PRIOR_WEIGHT
+                    edge_list.append((node, gp))
             logger.info(
                 "KnowledgePrior (hardcoded): %d/%d priors accepted, "
                 "%d missing parents injected with evidence gate",
@@ -124,6 +127,7 @@ class KnowledgePrior(GeoSkill):
             )
             return SkillResult(
                 skill_name=self.name, new_votes=votes, tier_updates=tier_updates,
+                prior_edges=edge_list,
             )
 
         # Fallback to LLM for unknown novels
