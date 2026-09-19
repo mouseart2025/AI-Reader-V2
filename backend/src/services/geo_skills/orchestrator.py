@@ -59,6 +59,12 @@ class GeoOrchestrator:
         self.novel_title = novel_title
         self.store = SnapshotStore()
         self._skills: list[tuple[str, GeoSkill]] = []
+        # run() 的最终快照。apply_to_world_structure 优先用它而非
+        # store.load_latest——后者按 version DESC 取链,若历史残留更高版本
+        # (fresh 重写 v0-6 但旧链 v7+ 仍在),会把陈旧快照当成最新结果应用
+        # (2026-09-19 实测:西游旧链 18 版,demo 重建应用了前一天的快照,
+        # 高老庄→灭法国 等已修复边全部回退)。
+        self._last_run_snapshot: HierarchySnapshot | None = None
 
     def add_skill(self, tag: str, skill: GeoSkill) -> GeoOrchestrator:
         """Add a skill to the pipeline. Returns self for chaining."""
@@ -171,6 +177,7 @@ class GeoOrchestrator:
             )
 
         # Final metrics comparison
+        self._last_run_snapshot = snapshot
         final_metrics = HierarchyMetrics.compute(snapshot)
         yield ProgressEvent(
             "done",
@@ -195,7 +202,7 @@ class GeoOrchestrator:
 
         Returns summary dict.
         """
-        snapshot = await self.store.load_latest(self.novel_id)
+        snapshot = self._last_run_snapshot or await self.store.load_latest(self.novel_id)
         if not snapshot:
             return {"error": "No snapshot available"}
 
