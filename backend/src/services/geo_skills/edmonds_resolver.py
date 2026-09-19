@@ -234,6 +234,10 @@ class EdmondsResolver(GeoSkill):
 
         # Apply name-containment overrides (high-confidence, covers 306+ cases)
         name_contain_applied = 0
+        # 高置信边(名包含/知识先验)集合:Phase 4 幻父上提与 Phase 5 度均衡
+        # 不得改动这些子节点的归属——度均衡曾把 文德殿→东京(先验 w=35)
+        # 重排为 文德殿→内苑,把确定性知识错挂成跳层(2026-09-19 水浒实测)。
+        protected: set[str] = set()
         for child in list(all_locs):
             for candidate in sorted_locs:
                 if candidate == child or len(candidate) < 2:
@@ -249,6 +253,7 @@ class EdmondsResolver(GeoSkill):
                     if base_parents.get(child) != candidate:
                         base_parents[child] = candidate
                         name_contain_applied += 1
+                    protected.add(child)
                     break
 
         # Apply prior overrides from votes (KnowledgePrior injected w=20+ edges)
@@ -264,6 +269,7 @@ class EdmondsResolver(GeoSkill):
                     if current != parent:
                         base_parents[child] = parent
                         prior_applied += 1
+                    protected.add(child)
                     break  # use highest-weight vote if it's a prior
 
         if name_contain_applied or prior_applied:
@@ -348,7 +354,7 @@ class EdmondsResolver(GeoSkill):
         # 都归给这个弱证据锚点. 将零证据子节点上提到grandparent.
         # 出自西游记 errata: 紫云山(mc=1)→27 kids, 黑风山(mc=2)→26 kids 等案例.
         parents, phantoms_lifted = self._lift_phantom_parent_children(
-            parents, freq, uber_root
+            parents, freq, uber_root, protected
         )
         if phantoms_lifted:
             logger.info(
@@ -358,7 +364,7 @@ class EdmondsResolver(GeoSkill):
 
         # ── Phase 5: Degree balancing ──
         _MAX_CHILDREN = evolve_param("edmonds.max_children", 30)
-        parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN)
+        parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN, protected)
 
         # ── Final structural pass ──
         # Phases 4-5 reassign parents and can reintroduce cycles; guarantee
@@ -492,6 +498,7 @@ class EdmondsResolver(GeoSkill):
         parents: dict[str, str],
         freq: Counter,
         uber_root: str,
+        protected: set[str] | None = None,
         phantom_mc_threshold: int = 3,
         phantom_children_threshold: int = 5,
         target_children: int = 3,
@@ -547,6 +554,9 @@ class EdmondsResolver(GeoSkill):
                 # chapter evidence under a phantom is unreliable.
                 if freq.get(c, 0) > 1:
                     continue
+                # 高置信边(先验/名包含)不上提:确定性知识优先于均衡启发式
+                if protected and c in protected:
+                    continue
                 new_parents[c] = grandparent
                 lifted += 1
                 remaining -= 1
@@ -568,6 +578,7 @@ class EdmondsResolver(GeoSkill):
         parents: dict[str, str],
         tiers: dict[str, str],
         max_children: int,
+        protected: set[str] | None = None,
     ) -> dict[str, str]:
         """Redistribute children when a node exceeds max_children.
 
@@ -624,8 +635,11 @@ class EdmondsResolver(GeoSkill):
                     continue
 
                 # Leaves to redistribute (smallest tier first)
+                # 高置信边(先验/名包含)不参与重排:度均衡是结构启发式,
+                # 不得覆盖确定性知识(2026-09-19 水浒 文德殿/聚义厅案例)
                 leaves = sorted(
-                    [k for k in kids if k not in absorbers],
+                    [k for k in kids if k not in absorbers
+                     and not (protected and k in protected)],
                     key=lambda k: TIER_ORDER.get(tiers.get(k, "site"), 5),
                     reverse=True,
                 )
