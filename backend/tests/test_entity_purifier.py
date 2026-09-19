@@ -91,3 +91,26 @@ def test_other_rules_unchanged(facts_db):
     assert out.get("官道") is None
     assert out.get("东汉") is None
     assert out.get("关公") is None
+
+
+class TestDescriptivePhrasePurge:
+    """2026-09-19 水浒 errata A 类驱动的形态规则(描述性/方位/路途短语)。"""
+
+    @pytest.mark.parametrize("name", [
+        "东京去沧州路上",   # 路途短语,曾捕获 11 个子节点全部错挂
+        "古塘深处", "梁山泊深处", "平川旷野之地", "四十里外打火处",  # 描述性
+        "壶关之南", "宛州之东", "祁山之西",  # 之+方位
+        "山顶", "山背后", "城东", "城南",  # 方位泛称
+    ])
+    def test_purges_descriptive_phrases(self, name):
+        purifier = EntityPurifier.__new__(EntityPurifier)
+        assert purifier.classify(name, set()) is not None
+
+    @pytest.mark.parametrize("name", [
+        "西方", "北方",  # 单字方位词不收——封神「西方」是真实教派地理
+        "梁山泊", "盖州", "路上行人欲断魂不可能出现但作为地名不删",
+        "东京", "少华山",
+    ])
+    def test_keeps_real_locations(self, name):
+        purifier = EntityPurifier.__new__(EntityPurifier)
+        assert purifier.classify(name, set()) is None
