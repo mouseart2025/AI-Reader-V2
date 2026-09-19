@@ -62,8 +62,9 @@ NOVELS: dict[str, dict] = {
     "fengshen": {"title": "封神演义", "id": "53013970-effd-4f50-aef7-728ca13de69a",
                  "set": "holdout", "fixture": None},
 }
-# 封神无硬编码先验，KnowledgePrior 会落 LLM 路径（评估预算不允许）→ 跳过该 skill
-SKIP_PRIOR_SLUGS = {"fengshen"}
+# 封神原无硬编码先验会落 LLM 路径(评估预算不允许);2026-09-19 起已有
+# 硬编码 _FENGSHEN_PRIORS(requires_llm=False),不再跳过。
+SKIP_PRIOR_SLUGS: set[str] = set()
 
 
 def setup_scratch(permute_seed: int | None) -> Path:
