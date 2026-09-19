@@ -28,6 +28,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections import Counter
 
@@ -63,6 +64,18 @@ DYNASTY_NAMES: frozenset[str] = frozenset({
 BUDDHIST_CONTINENTS: frozenset[str] = frozenset({
     "北俱芦洲", "东胜神洲", "西牛贺洲", "南赡部洲",
     "北俱泸州", "东胜神州", "西牛货洲", "南瞻部洲",
+})
+
+# 描述性/方位/路途短语(2026-09-19 水浒 errata A 类驱动,形态规则而非穷举):
+# 路途短语「东京去沧州路上」捕获 11 个子节点(殿帅府/御街/天汉州桥…)
+# 全部错挂;「X之南/之东」多为零子节点垃圾方位节点。注意:单字方位词
+# (西方/北方)不收入——封神「西方」(西方教/极乐世界)是真实教派地理。
+_ROUTE_PHRASE_RE = re.compile(r"去.{1,8}[路道]上$")
+_DESCR_PHRASE_RE = re.compile(r"(深处|之地|打火处)$")
+_DIRECTION_OF_RE = re.compile(r"之[东南西北]$")
+DIRECTION_GENERIC: frozenset[str] = frozenset({
+    "山顶", "山背后", "山前", "山后",
+    "城东", "城南", "城西", "城北",
 })
 
 
@@ -132,6 +145,14 @@ class EntityPurifier(GeoSkill):
             return "朝代/政权名"
         if name in BUDDHIST_CONTINENTS:
             return "佛教部洲(神话层)"
+        if _ROUTE_PHRASE_RE.search(name):
+            return "路途短语"
+        if _DESCR_PHRASE_RE.search(name):
+            return "描述性短语"
+        if _DIRECTION_OF_RE.search(name):
+            return "方位短语(之+方位)"
+        if name in DIRECTION_GENERIC:
+            return "方位泛称"
         if name in people:
             return "人物名"
         return None
