@@ -68,7 +68,8 @@ def test_snapshot_apply_threads_prior_edges():
 def test_prior_edges_serialization_roundtrip():
     """snapshot_store 序列化/反序列化保留 prior_edges。"""
     from src.services.geo_skills.snapshot_store import (
-        _deserialize_snapshot, _serialize_snapshot,
+        _deserialize_snapshot,
+        _serialize_snapshot,
     )
 
     snap = _snap(prior_edges=frozenset({("a", "b"), ("c", "d")}))

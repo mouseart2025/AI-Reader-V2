@@ -10,11 +10,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 
 from compute_weight_metrics import FIXTURES, NOVELS, rebuild_parents, setup_scratch
-
-import os
 
 from src.utils.topology_metrics import compute_topology_metrics
 
