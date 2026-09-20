@@ -89,11 +89,113 @@ def _snap(tiers: dict, parents: dict | None = None,
 
 
 async def _run_vote_builder(facts: list[dict], tiers: dict,
-                            parents: dict | None = None) -> dict[str, Counter]:
-    skill = VoteBuilder("n1")
+                            parents: dict | None = None,
+                            novel_title: str = "") -> dict[str, Counter]:
+    skill = VoteBuilder("n1", novel_title=novel_title)
     result = await skill.execute(_snap(tiers, parents=parents))
     assert result.success, result.error_message
     return result.new_votes
+
+
+# ── 地名别名归一(geo_alias.enabled / LOCATION_ALIAS_MAP) ───────────
+
+_ALIAS_FACTS = [
+    # 东京系三方分摊:同一 child 三章分别挂 东京/京师/汴梁城
+    {"locations": [{"name": "高太尉府", "parent": "东京"}]},
+    {"locations": [{"name": "高太尉府", "parent": "京师"}]},
+    {"locations": [{"name": "高太尉府", "parent": "汴梁城"}]},
+    # 北京系:梁中书府→大名府(应并入 北京)
+    {"locations": [{"name": "梁中书府", "parent": "大名府"}]},
+    # 未收录名:不受影响
+    {"locations": [{"name": "五台山僧堂", "parent": "五台山"}]},
+]
+_ALIAS_TIERS = {"高太尉府": "site", "东京": "city", "京师": "city",
+                "汴梁城": "city", "梁中书府": "building", "大名府": "city",
+                "北京": "city", "五台山僧堂": "building", "五台山": "region"}
+
+
+@pytest.mark.asyncio
+async def test_alias_merges_votes_into_canonical(facts_db):
+    """东京系三方票合流为一个 Counter;北京系并入 北京;未收录名不动。"""
+    await _seed_facts(facts_db, _ALIAS_FACTS)
+    votes = await _run_vote_builder(_ALIAS_FACTS, _ALIAS_TIERS,
+                                    novel_title="水浒传")
+    # 5 章 chapter_weight 1.0~1.4:前三章票全部合到 东京;京师/汴梁城 不成键
+    assert votes["高太尉府"]["东京"] == pytest.approx(1.0 + 1.1 + 1.2)
+    assert "京师" not in votes["高太尉府"]
+    assert "汴梁城" not in votes["高太尉府"]
+    assert votes["梁中书府"]["北京"] == pytest.approx(1.3)
+    assert "大名府" not in votes["梁中书府"]
+    assert votes["五台山僧堂"]["五台山"] == pytest.approx(1.4)
+
+
+@pytest.mark.asyncio
+async def test_alias_disabled_keeps_raw_names(facts_db, tmp_path, monkeypatch):
+    """开关关闭:与现状逐边一致(别名各自成键,不合流)。"""
+    await _seed_facts(facts_db, _ALIAS_FACTS)
+    _set_params(tmp_path, monkeypatch, {"geo_alias.enabled": False})
+    votes = await _run_vote_builder(_ALIAS_FACTS, _ALIAS_TIERS,
+                                    novel_title="水浒传")
+    assert votes["高太尉府"]["东京"] == pytest.approx(1.0)
+    assert votes["高太尉府"]["京师"] == pytest.approx(1.1)
+    assert votes["高太尉府"]["汴梁城"] == pytest.approx(1.2)
+    assert votes["梁中书府"]["大名府"] == pytest.approx(1.3)
+
+
+def test_alias_prior_self_loop_removed():
+    """汴梁城→东京 先验边映射后 self-loop 剔除;北京→河北 只投一次(w=20);
+    东京→京畿 不重复(京师→京畿 已迁)。"""
+    from src.services.geo_skills.knowledge_prior import KnowledgePrior
+
+    snap = _snap(
+        tiers={"东京": "city", "京畿": "region", "河北": "region",
+               "北京": "city", "汴梁城": "city", "京师": "city",
+               "大名府": "city", "北京大名府": "city",
+               "梁中书府": "building"},
+        votes={"汴梁城": {"东京": 3.0}, "北京": {"河北": 5.0}},
+    )
+    result = asyncio.run(KnowledgePrior("水浒传").execute(snap))
+    assert result.success
+    assert "汴梁城" not in result.new_votes  # self-loop 整条不投
+    assert ("汴梁城", "东京") not in result.prior_edges
+    assert result.new_votes["北京"]["河北"] == 20  # 一票,不累加
+    assert result.new_votes["东京"]["京畿"] == 20  # 一票(京师→京畿 已迁)
+    assert "大名府" not in result.new_votes
+    assert "北京大名府" not in result.new_votes
+    # 表中残留别名写法的 parent(梁中书府→北京大名府)被短路到 canonical
+    assert result.new_votes["梁中书府"]["北京"] == 20
+
+
+@pytest.mark.asyncio
+async def test_alias_baseline_injection_canonical(facts_db):
+    """baseline 注入按 canonical 对齐 evidence:旧边 高太尉府→京师 有
+    (高太尉府→东京) 证据时,票注到 canonical 边;汴梁城→东京 self-loop 跳过。"""
+    await _seed_facts(facts_db, _ALIAS_FACTS)
+    votes = await _run_vote_builder(
+        _ALIAS_FACTS, _ALIAS_TIERS, novel_title="水浒传",
+        parents={"高太尉府": "京师", "汴梁城": "东京", "京师": "京畿"})
+    # 旧别名边 (高太尉府→京师) canonical 对齐后有证据 → baseline +1 注到 东京
+    assert votes["高太尉府"]["东京"] == pytest.approx(1.0 + 1.1 + 1.2 + 1.0)
+    # 汴梁城→东京 self-loop 跳过,不产生 东京→东京 票
+    assert "东京" not in votes.get("东京", {})
+
+
+def test_revisit_alias_canonicalizes_conflicts():
+    """revisit 指标:同一 city 三章三个异名挂不同 parent,原始口径计冲突,
+    canonical 口径归一后冲突消除。"""
+    from src.utils.spatial_quality import compute_revisit_consistency
+
+    facts = [
+        {"chapter_id": i, "spatial_relationships": [{
+            "source": "高太尉府", "target": t, "relation_type": "located_in",
+        }]} for i, t in enumerate(["东京", "京师", "汴梁城"], start=1)
+    ]
+    raw = compute_revisit_consistency(facts)
+    assert raw["parent_conflicts"] == 1
+    ali = compute_revisit_consistency(
+        facts, alias_map={"京师": "东京", "汴梁城": "东京"})
+    assert ali["parent_conflicts"] == 0
+    assert ali["parent_consistency"] == 1.0
 
 
 # ── A1: confidence_score_blend ──────────────────────────────────────

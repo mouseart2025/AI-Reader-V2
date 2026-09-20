@@ -286,7 +286,10 @@ def find_direction_conflicts(spatial_facts: list[dict]) -> list[dict]:
 # ── 3. Revisit consistency (no golden standard needed) ──────────────
 
 
-def compute_revisit_consistency(chapter_facts: list[dict]) -> dict:
+def compute_revisit_consistency(
+    chapter_facts: list[dict],
+    alias_map: dict[str, str] | None = None,
+) -> dict:
     """Closed-loop revisit consistency over chapter-level facts.
 
     The same location mentioned across chapters should extract consistently:
@@ -297,7 +300,14 @@ def compute_revisit_consistency(chapter_facts: list[dict]) -> dict:
     Returns {"parent_conflicts", "children_multi_asserted",
     "parent_consistency", "direction_conflicts", "cases"} where cases lists
     every conflict with its chapters and assertions for manual review.
+
+    ``alias_map``(可选,默认 None = 行为不变):地名别名→canonical 映射
+    (LOCATION_ALIAS_MAP),source/target 先归一再统计——同一城市的异名
+    (水浒 东京/京师/汴梁城)不再各自计为不同 parent。
     """
+    def _canon(name: str) -> str:
+        return alias_map.get(name, name) if alias_map else name
+
     parent_asserts: dict[str, set[tuple]] = defaultdict(set)
     spatial_facts: list[dict] = []
 
@@ -306,8 +316,8 @@ def compute_revisit_consistency(chapter_facts: list[dict]) -> dict:
         for sr in fact.get("spatial_relationships") or []:
             rel_type = normalize_spatial_relation_type(
                 str(sr.get("relation_type", "") or ""))
-            src = str(sr.get("source", "") or "")
-            tgt = str(sr.get("target", "") or "")
+            src = _canon(str(sr.get("source", "") or ""))
+            tgt = _canon(str(sr.get("target", "") or ""))
             if not src or not tgt or src == tgt:
                 continue
             if rel_type in HIERARCHY_SPATIAL_RELATIONS:

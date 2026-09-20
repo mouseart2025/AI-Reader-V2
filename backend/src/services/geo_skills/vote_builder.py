@@ -19,7 +19,10 @@ from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
-from src.utils.location_names import is_passage_like
+from src.utils.location_names import (
+    is_passage_like,
+    location_alias_map_for_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +30,19 @@ logger = logging.getLogger(__name__)
 class VoteBuilder(GeoSkill):
     """Build parent votes from chapter facts."""
 
-    def __init__(self, novel_id: str):
+    def __init__(self, novel_id: str, novel_title: str = ""):
         self.novel_id = novel_id
+        self.novel_title = novel_title
 
     @property
     def name(self) -> str:
         return "投票构建"
+
+    def _alias_map(self) -> dict[str, str]:
+        """地名别名映射(geo_alias.enabled 默认开;表为空时零行为)。"""
+        if not evolve_param("geo_alias.enabled", True):
+            return {}
+        return location_alias_map_for_title(self.novel_title)
 
     async def execute(self, snapshot: HierarchySnapshot) -> SkillResult:
         from src.db.sqlite_db import get_connection
@@ -53,6 +63,13 @@ class VoteBuilder(GeoSkill):
         tiers = snapshot.location_tiers
         uber_root = self._find_uber_root(snapshot.location_parents)
 
+        # 地名别名归一:所有取名处先过 canonical(票仓合流/freq 归并/
+        # evidence_pairs 与 baseline 注入匹配统一)。表为空时 _canon 是恒等。
+        alias_map = self._alias_map()
+
+        def _canon(name: str) -> str:
+            return alias_map.get(name, name)
+
         # ── Phase 1: Build frequency, chapter settings, location chapters ──
         loc_freq: Counter = Counter()
         chapter_settings: dict[int, str] = {}
@@ -63,7 +80,7 @@ class VoteBuilder(GeoSkill):
             ch_id = data.get("chapter_id", 0)
             locations = data.get("locations", [])
             for loc in locations:
-                name = loc.get("name", "")
+                name = _canon(loc.get("name", ""))
                 if name:
                     loc_freq[name] += 1
                     location_chapters.setdefault(name, []).append(ch_id)
@@ -71,22 +88,24 @@ class VoteBuilder(GeoSkill):
             settings = [
                 loc for loc in locations
                 if loc.get("role") == "setting" and loc.get("name")
-                and (not _is_generic_location(loc["name"]) or loc["name"] == uber_root)
+                and (not _is_generic_location(_canon(loc["name"]))
+                     or _canon(loc["name"]) == uber_root)
             ]
             if settings:
                 best_rank, best_name = 999, ""
                 for loc in settings:
-                    suf = _get_suffix_rank(loc["name"])
+                    cname = _canon(loc["name"])
+                    suf = _get_suffix_rank(cname)
                     rank = suf if suf is not None else TIER_ORDER.get(
-                        tiers.get(loc["name"], "city"), 4)
+                        tiers.get(cname, "city"), 4)
                     if rank < best_rank:
                         best_rank = rank
-                        best_name = loc["name"]
+                        best_name = cname
                 if best_name:
                     chapter_settings[ch_id] = best_name
             elif locations:
                 for loc in locations:
-                    ln = loc.get("name", "")
+                    ln = _canon(loc.get("name", ""))
                     if ln and (not _is_generic_location(ln) or ln == uber_root):
                         chapter_settings[ch_id] = ln
                         break
@@ -108,9 +127,10 @@ class VoteBuilder(GeoSkill):
             data = json.loads(row["fact_json"])
             for loc in data.get("locations", []):
                 peers = loc.get("peers")
-                name = loc.get("name", "")
+                name = _canon(loc.get("name", ""))
                 if peers and name:
                     for peer in peers:
+                        peer = _canon(peer)
                         if peer and peer != name:
                             peer_pairs.add(frozenset({name, peer}))
 
@@ -130,8 +150,8 @@ class VoteBuilder(GeoSkill):
             ) * (chapter_idx / total_chapters)
 
             for loc in data.get("locations", []):
-                parent = loc.get("parent")
-                name = loc.get("name", "")
+                parent = _canon(loc.get("parent") or "")
+                name = _canon(loc.get("name", ""))
                 if parent and name and name != parent:
                     if (_is_generic_location(name) and name != uber_root) or \
                        (_is_generic_location(parent) and parent != uber_root):
@@ -150,7 +170,7 @@ class VoteBuilder(GeoSkill):
 
             for sr in data.get("spatial_relationships", []):
                 rel = sr.get("relation_type", "")
-                src, tgt = sr.get("source", ""), sr.get("target", "")
+                src, tgt = _canon(sr.get("source", "")), _canon(sr.get("target", ""))
                 if not src or not tgt or src == tgt:
                     continue
                 if (_is_generic_location(src) and src != uber_root) or \
@@ -191,21 +211,23 @@ class VoteBuilder(GeoSkill):
             setting_candidates = [
                 loc for loc in locations
                 if loc.get("role") == "setting" and loc.get("name")
-                and (not _is_generic_location(loc["name"]) or loc["name"] == uber_root)
+                and (not _is_generic_location(_canon(loc["name"]))
+                     or _canon(loc["name"]) == uber_root)
             ]
             primary = None
             if setting_candidates:
                 best_rank = 999
                 for loc in setting_candidates:
-                    suf = _get_suffix_rank(loc["name"])
+                    cname = _canon(loc["name"])
+                    suf = _get_suffix_rank(cname)
                     rank = suf if suf is not None else TIER_ORDER.get(
-                        tiers.get(loc["name"], "city"), 4)
+                        tiers.get(cname, "city"), 4)
                     if rank < best_rank:
                         best_rank = rank
-                        primary = loc["name"]
+                        primary = cname
             elif locations:
                 for loc in locations:
-                    ln = loc.get("name", "")
+                    ln = _canon(loc.get("name", ""))
                     if ln and (not _is_generic_location(ln) or ln == uber_root):
                         primary = ln
                         break
@@ -219,7 +241,7 @@ class VoteBuilder(GeoSkill):
                 p_rank = p_suf if p_suf is not None else TIER_ORDER.get(
                     tiers.get(primary, "city"), 4)
                 for loc in locations:
-                    ln = loc.get("name", "")
+                    ln = _canon(loc.get("name", ""))
                     if ln == primary or loc.get("parent"):
                         continue
                     if not ln or (_is_generic_location(ln) and ln != uber_root):
@@ -262,7 +284,15 @@ class VoteBuilder(GeoSkill):
         if snapshot.location_parents:
             baseline_injected = 0
             baseline_dropped = 0
-            for child, parent in snapshot.location_parents.items():
+            for child, parent in sorted(snapshot.location_parents.items()):
+                # 别名归一:旧 ws 里的别名边按 canonical 对齐 evidence_pairs
+                # (修复别名导致的旧边静默丢失);归一并成 self-loop 的
+                # (如 汴梁城→东京)跳过—— canonical 节点的边由本名旧边或
+                # 有机票承担。
+                child, parent = _canon(child), _canon(parent)
+                if child == parent:
+                    baseline_dropped += 1
+                    continue
                 if parent not in known_locs and parent != uber_root:
                     continue
                 # Story 5.2: never re-inject legacy edges that involve a

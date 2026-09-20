@@ -71,21 +71,23 @@ def test_both_present_behavior_unchanged():
 
 
 def test_missing_child_with_evidence_is_injected():
-    """水浒:汴梁城不在 tiers,但有频次/票证据 → 补入并注入先验选票。
+    """水浒:陈桥驿不在 tiers,但有频次/票证据 → 补入并注入先验选票。
 
     2026-09-19 诊断:汴梁城 freq=4 且有章节票,因提取轮未入 tiers,
     「汴梁城→东京」先验被静默丢弃,最终错挂京畿。
+    (2026-09-20:汴梁城→东京 已迁 LOCATION_ALIAS_MAP 别名归一,
+    本回归改用仍属先验表的 陈桥驿→京畿 守住同一证据门槛逻辑。)
     """
     snap = _snap(
         tiers={"天下": "world", "京畿": "region", "东京": "city"},
-        freqs={"天下": 100, "京畿": 30, "东京": 50, "汴梁城": 4},
-        votes={"汴梁城": {"京畿": 5.0}},
+        freqs={"天下": 100, "京畿": 30, "东京": 50, "陈桥驿": 4},
+        votes={"陈桥驿": {"东京": 5.0}},
     )
     result = asyncio.run(KnowledgePrior("水浒传").execute(snap))
 
-    assert result.tier_updates.get("汴梁城") is not None  # 补入 tier
-    assert result.new_votes["汴梁城"].get("东京") == 20   # 先验接通
-    # 补入节点不得双倍计票(汴梁城在 priors 表中无自身归属,此处只验不炸)
+    assert result.tier_updates.get("陈桥驿") is not None  # 补入 tier
+    assert result.new_votes["陈桥驿"].get("京畿") == 20   # 先验接通
+    # 补入节点不得双倍计票(陈桥驿在 priors 表中无自身归属,此处只验不炸)
 
 
 def test_missing_child_without_evidence_is_not_injected():

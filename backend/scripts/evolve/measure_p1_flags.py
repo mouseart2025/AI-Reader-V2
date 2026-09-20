@@ -90,6 +90,10 @@ CONFIGS: dict[str, dict] = {
     # E: 单章孤证降权(两个候选值)
     "e_single_050": {"votes.single_source_discount": 0.5},
     "e_single_025": {"votes.single_source_discount": 0.25},
+    # 地名别名归一(geo_alias.enabled 默认 True;alias_on 显式开便于阅读,
+    # alias_off 为 A/B 关闭通道)
+    "alias_on": {"geo_alias.enabled": True},
+    "alias_off": {"geo_alias.enabled": False},
 }
 
 
@@ -147,12 +151,27 @@ def _nodes_of(parents: dict, tiers: dict) -> set[str]:
     return (set(parents) | set(parents.values()) | set(tiers)) - {"", None}
 
 
-def score_run(slug: str, parents: dict, tiers: dict) -> dict:
-    """errata gold + golden fixture + per-level 指标(纯计算,无 DB)。"""
+def _load_facts(slug: str) -> list[dict]:
+    """从 scratch DB 读 chapter_facts(供 revisit 指标;只读)。"""
+    conn = sqlite3.connect(str(SCRATCH_DIR / "data.db"))
+    try:
+        rows = conn.execute(
+            "SELECT fact_json FROM chapter_facts WHERE novel_id=? "
+            "ORDER BY chapter_id", (NOVELS[slug]["id"],),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [json.loads(r[0]) for r in rows]
+
+
+def score_run(slug: str, parents: dict, tiers: dict,
+              alias_map: dict[str, str] | None = None) -> dict:
+    """errata gold + golden fixture + per-level + revisit 指标。"""
     from src.services.hierarchy_validator import (
         compute_metrics_from_gold,
         load_gold,
     )
+    from src.utils.spatial_quality import compute_revisit_consistency
 
     entry: dict = {}
     gold, gold_raw = load_gold(slug)
@@ -163,6 +182,16 @@ def score_run(slug: str, parents: dict, tiers: dict) -> dict:
     entry["errata_parent_precision"] = round(m.parent_precision, 4)
     entry["errata_overall"] = round(m.overall, 4)
     entry["errata_error_count"] = m.error_count
+
+    # revisit:原始口径(不随票权变化,作锚)+ 别名 canonical 口径(有表时)
+    facts = _load_facts(slug)
+    raw = compute_revisit_consistency(facts)
+    entry["revisit_parent_conflicts"] = raw["parent_conflicts"]
+    entry["revisit_parent_consistency"] = raw["parent_consistency"]
+    if alias_map:
+        ali = compute_revisit_consistency(facts, alias_map=alias_map)
+        entry["revisit_parent_conflicts_alias"] = ali["parent_conflicts"]
+        entry["revisit_parent_consistency_alias"] = ali["parent_consistency"]
 
     fixture = NOVELS[slug]["fixture"]
     if fixture:
@@ -189,7 +218,14 @@ async def amain(config_names: list[str], determinism_config: str) -> dict:
             t0 = time.monotonic()
             try:
                 parents, tiers = await rebuild(info["id"], info["title"])
-                metrics = score_run(slug, parents, tiers)
+                # 别名 canonical revisit:配置启用 geo_alias 且该书有表时
+                alias_map = None
+                if CONFIGS[name].get("geo_alias.enabled", True):
+                    from src.utils.location_names import (
+                        location_alias_map_for_title,
+                    )
+                    alias_map = location_alias_map_for_title(info["title"]) or None
+                metrics = score_run(slug, parents, tiers, alias_map=alias_map)
                 metrics["rebuild_s"] = round(time.monotonic() - t0, 2)
                 entry[name] = metrics
                 parents_by_config[name] = parents

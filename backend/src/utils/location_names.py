@@ -56,6 +56,42 @@ def is_homonym_prone(name: str) -> bool:
     return bool(len(name) <= 2 and all(c in ARCH_SUFFIXES for c in name))
 
 
+# ── 地名别名归一(2026-09-20,方案 A:VoteBuilder canonical 映射)────
+# geo 管线全链路用原始字符串做 key,同一城市的异名(水浒 东京/京师/汴梁城)
+# 各自成节点、票仓被分摊,是 revisit parent 冲突大头。此处收录**双源证据**
+# (errata gold + fixture/原文共指/prior 注释佐证)的别名→canonical 映射;
+# 证据不足的不收。消费方:VoteBuilder(票仓归并)、KnowledgePrior(先验边
+# 短路)、compute_revisit_consistency(可选 canonical 化)。开关
+# evolve_param("geo_alias.enabled", True):默认开,表为空(其余四本)时
+# 零行为。
+#
+# 收录判断(水浒,2026-09-20 实证):
+# - 东京系:errata 东京=正确(city,parent 京畿);fixture 汴梁城→东京;
+#   快照 v7 东京/京师/汴梁城 三个独立 city 节点票仓分摊(50/6/4)。
+# - 北京系:canonical 选「北京」——errata 主称谓"北京(大名府)是北宋四京
+#   之一"、freq 最高(北京 11 / 大名府 10 / 北京大名府 4)、prior 锚点
+#   北京→河北;errata 大名府/北京大名府 带 C-tier 错误(别名分裂所致)。
+# - 明确不收:梁山泊/水浒寨(寨在泊中,fixture/errata 均为父子)、
+#   南丰/南丰城(区域/城父子,fixture 南丰城→南丰)、盖州类同名异地。
+LOCATION_ALIAS_MAP: dict[str, dict[str, str]] = {
+    "水浒": {
+        "京师": "东京",        # errata 东京/京师 同指北宋首都开封;票仓分摊实证
+        "汴梁城": "东京",      # fixture correct_parent=东京;prior 注释"汴梁城为东京别称"
+        "北京大名府": "北京",  # errata 主称谓"北京(大名府)";fixture 三者同 parent 河北
+        "大名府": "北京",      # 同上;errata C-tier 错误(别名分裂)
+    },
+}
+
+
+def location_alias_map_for_title(novel_title: str) -> dict[str, str]:
+    """按小说标题取别名映射(与 KnowledgePrior 的标题匹配约定一致);
+    无匹配(含其余四本)返回空表 = 零行为。"""
+    for key, mapping in LOCATION_ALIAS_MAP.items():
+        if key in novel_title:
+            return mapping
+    return {}
+
+
 # ── Passage-like / transit forms (Story 5.2) ───────────────────────────
 # Roads, corridors, stairs, intersections, and similar transit structures are
 # *edges* in the spatial graph, not *containers*. They must never participate
