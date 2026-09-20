@@ -18,6 +18,7 @@ from collections import Counter
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
+from src.utils.location_names import location_alias_map_for_title
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,20 @@ class KnowledgePrior(GeoSkill):
         # Try hardcoded priors first
         priors = self._get_hardcoded_priors(snapshot)
         if priors:
+            # 地名别名短路(geo_alias.enabled 默认开,表为空时零行为):
+            # 先验的 child/parent 统一过 canonical——映射后 self-loop
+            # (如 汴梁城→东京)跳过;多条并入同一边(北京大名府/大名府→河北
+            # 若仍在表中)按保序首条生效,避免 w=20 重复累加。已迁条目
+            # 见 _SHUIHU_PRIORS 注释;此处兜底覆盖表中残留的别名写法。
+            if evolve_param("geo_alias.enabled", True):
+                alias_map = location_alias_map_for_title(self._novel_title)
+                if alias_map:
+                    mapped: dict[str, str] = {}
+                    for c, p in sorted(priors.items()):
+                        c, p = alias_map.get(c, c), alias_map.get(p, p)
+                        if c != p:
+                            mapped.setdefault(c, p)
+                    priors = mapped
             all_locs = set(snapshot.location_tiers.keys())
             votes: dict[str, Counter] = {}
             tier_updates: dict[str, str] = {}
@@ -477,8 +492,11 @@ _SHUIHU_PRIORS: dict[str, str] = {
     # ── 京畿 ──
     "东京": "京畿",
     # 北宋大名府属河北东路(2026-09-19 修正:原误置京畿;LLM 独立核验一致)
-    "北京大名府": "河北", "大名府": "河北", "北京": "河北", "西京": "京畿", "陈桥驿": "京畿",
-    "京师": "京畿",
+    # 2026-09-20 别名归一:北京大名府/大名府 已迁 LOCATION_ALIAS_MAP
+    # (canonical=北京),北京系只保留 北京→河北 一条;execute 的别名短路
+    # 会把下方 梁中书府→北京大名府 等条目映射到 北京。
+    "北京": "河北", "西京": "京畿", "陈桥驿": "京畿",
+    # (已迁 alias map:京师→东京,原 京师→京畿 与 东京→京畿 重复)
     # 常州属两浙路(原误置京畿,2026-09-19 修正)
     "常州": "两浙",
     # 东京内部
@@ -487,9 +505,10 @@ _SHUIHU_PRIORS: dict[str, str] = {
     "端王宫": "东京", "宿太尉府": "东京",
     "紫宸殿": "东京", "西华门": "东京", "东华门": "东京",
     "蒲东郡": "东京",
-    # 2026-09-19 增补:汴梁城为东京别称;祥符/酸枣门/太尉府皆东京城内;
+    # 2026-09-19 增补:祥符/酸枣门/太尉府皆东京城内;
     # 岳庙(林冲娘子烧香处)/蔡河(东京四河之一)皆在东京
-    "汴梁城": "东京", "祥符县": "东京", "酸枣门": "东京",
+    # (已迁 alias map:汴梁城→东京,映射后 self-loop 从先验移除)
+    "祥符县": "东京", "酸枣门": "东京",
     "太尉府": "东京", "东京开封府": "东京",
     "岳庙": "东京", "蔡河": "东京",
     # 北京大名府内部

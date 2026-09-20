@@ -427,7 +427,7 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
 
     orch = GeoOrchestrator(novel_id, novel_title=novel_title)
     orch.add_skill("tier", TierClassifier(novel_id))
-    orch.add_skill("votes", VoteBuilder(novel_id))
+    orch.add_skill("votes", VoteBuilder(novel_id, novel_title=novel_title))
     orch.add_skill("prior", KnowledgePrior(novel_title=novel_title))
     orch.add_skill("edmonds", EdmondsResolver())
     # P1-C: 入网门禁审计(2026-09-20 起默认启用,五本实测:红楼 fixture
