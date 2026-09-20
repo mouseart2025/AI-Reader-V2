@@ -48,6 +48,21 @@ class TestGenericLocation:
         assert _is_generic_location("大山") is not None
         assert _is_generic_location("小路") is not None
 
+    def test_rule89_specific_name_exemptions(self):
+        """Attested proper nouns exempted from Rule 8/9 morphology filters."""
+        assert _is_generic_location("镇江") is None
+        assert _is_generic_location("州桥") is None
+        assert _is_generic_location("房山") is None
+        assert _is_generic_location("大谷") is None
+        assert _is_generic_location("大谷县") is None
+
+    def test_rule89_exemption_does_not_relax_other_rules(self):
+        """Non-exempt lookalikes are still dropped by Rule 8/9 and other rules."""
+        assert _is_generic_location("村落") is not None  # Rule 9 two-char generic
+        assert _is_generic_location("大川") is not None   # Rule 8 modifier + suffix
+        assert _is_generic_location("山上") is not None   # positional phrase
+        assert _is_generic_location("村口") is not None   # fallback blocklist
+
     def test_character_room(self):
         assert _is_generic_location("宝玉屋内") is not None
         assert _is_generic_location("贾母房中") is not None
