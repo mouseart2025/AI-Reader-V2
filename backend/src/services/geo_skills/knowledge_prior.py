@@ -572,6 +572,12 @@ _SHUIHU_PRIORS: dict[str, str] = {
     # 荆门镇属山东;高岭为京畿山岭(曾误挂描述性节点山左丛林下)
     "南城": "盖州城", "盖州城": "盖州",
     "枪竿岭": "代州", "荆门镇": "山东", "高岭": "京畿",
+    # 2026-09-20 批五(errata 与 gold 两来源一致):
+    # 房山为河北山名(golden_standard correct_parent=河北;
+    # errata verdict=正确 parent=河北)。Rule 8/9 误杀豁免(fact_validator
+    # _RULE89_SPECIFIC_NAME_EXEMPTIONS)使房山入链后被 tier 重分类
+    # 翻转 parent 河北→房州,以此先验边锁回金标父节点。
+    "房山": "河北",
 }
 
 _SANGUO_PRIORS: dict[str, str] = {
