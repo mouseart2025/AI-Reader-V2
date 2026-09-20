@@ -87,6 +87,9 @@ CONFIGS: dict[str, dict] = {
     "vocab_protect": {},
     # 对照用:显式关闭 auditor(回到 auditor 引入前的管线行为)
     "auditor_off": {"auditor.enabled": False},
+    # E: 单章孤证降权(两个候选值)
+    "e_single_050": {"votes.single_source_discount": 0.5},
+    "e_single_025": {"votes.single_source_discount": 0.25},
 }
 
 

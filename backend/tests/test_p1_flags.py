@@ -227,6 +227,47 @@ async def test_b_baseline_votes_not_decayed(facts_db, tmp_path, monkeypatch):
     assert votes["丙村"]["戊郡"] == pytest.approx((1.25 + 1.375) * 0.5)
 
 
+# ── E: single_source_discount(单章孤证降权) ───────────────────────
+
+@pytest.mark.asyncio
+async def test_e_default_discount_is_unchanged(facts_db):
+    facts = _conflict_facts(1, 0)  # 丙村→丁郡 仅 1 章
+    await _seed_facts(facts_db, facts)
+    votes = await _run_vote_builder(facts, _B_TIERS)
+    # 默认 1.0:单章票全价(chapter_weight=1.0)
+    assert votes["丙村"]["丁郡"] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_e_single_chapter_ticket_discounted(facts_db, tmp_path, monkeypatch):
+    facts = _conflict_facts(1, 0)
+    await _seed_facts(facts_db, facts)
+    _set_params(tmp_path, monkeypatch, {"votes.single_source_discount": 0.5})
+    votes = await _run_vote_builder(facts, _B_TIERS)
+    assert votes["丙村"]["丁郡"] == pytest.approx(0.5)
+
+
+@pytest.mark.asyncio
+async def test_e_multi_chapter_ticket_full_price(facts_db, tmp_path, monkeypatch):
+    facts = _conflict_facts(2, 0)  # 同一对跨 2 章
+    await _seed_facts(facts_db, facts)
+    _set_params(tmp_path, monkeypatch, {"votes.single_source_discount": 0.5})
+    votes = await _run_vote_builder(facts, _B_TIERS)
+    # 2 章 corroboration 不降权:1.0 + 1.25
+    assert votes["丙村"]["丁郡"] == pytest.approx(2.25)
+
+
+@pytest.mark.asyncio
+async def test_e_baseline_ticket_exempt(facts_db, tmp_path, monkeypatch):
+    facts = _conflict_facts(1, 0)
+    await _seed_facts(facts_db, facts)
+    _set_params(tmp_path, monkeypatch, {"votes.single_source_discount": 0.5})
+    # baseline 注入票所在 (child,parent) 整条豁免(有机 1.0 + baseline 1.0)
+    votes = await _run_vote_builder(
+        facts, _B_TIERS, parents={"丙村": "丁郡", "丁郡": "天下"})
+    assert votes["丙村"]["丁郡"] == pytest.approx(2.0)
+
+
 # ── C: AuditorSkill 入网门禁 ────────────────────────────────────────
 
 def _run_auditor(snap: HierarchySnapshot, **kwargs) -> object:

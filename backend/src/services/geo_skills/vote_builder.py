@@ -284,6 +284,38 @@ class VoteBuilder(GeoSkill):
                 baseline_injected, baseline_dropped,
             )
 
+        # ── E: 单章孤证降权(默认关,discount=1.0 时零行为变化)──
+        # 只有单章证据的有机票(第①②类,pair_chapters 恰 1 章)是重抽取
+        # 试点结论中的少数派噪声主源;对其降权、多章 corroboration 票保持
+        # 全价,抑制噪声捕获(gen 280 幻影捕获点多为单章票)。
+        # 豁免:baseline 注入票所在的 (child,parent) 票整条不降(沿用 P1-B
+        # 的 baseline_pairs 追踪;有机与 baseline 份额在同一计数格内,
+        # 整条豁免以免误伤 baseline 权威语义);prior 票在本 skill 之后
+        # 注入,天然不在作用域;第③类主场景推断票无 pair_chapters 记录,
+        # 不受影响。与 P1-B 的次序:先做单票级孤证降权,再做 child 级
+        # 冲突降权(后者 gating 看到的是降权后的票值)——两 pass 默认
+        # 都关,叠加时按此次序。
+        single_discount = evolve_param("votes.single_source_discount", 1.0)
+        if single_discount != 1.0:
+            discounted = 0
+            for child in sorted(votes):
+                chapters = pair_chapters.get(child, {})
+                if not chapters:
+                    continue
+                counter = votes[child]
+                new_counter = Counter()
+                for p, w in counter.items():
+                    if ((child, p) not in baseline_pairs
+                            and len(chapters.get(p, ())) == 1):
+                        new_counter[p] = w * single_discount
+                        discounted += 1
+                    else:
+                        new_counter[p] = w
+                votes[child] = new_counter
+            if discounted:
+                logger.info(
+                    "E single-source discount: %d tickets discounted", discounted)
+
         # ── P1-B: TSDF 式冲突降权(默认关,decay=1.0 时零行为变化)──
         # 长期被冲突证据反复拉扯的 child(top1/top2 票比接近且双方都跨
         # ≥2 章有独立证据)整组降置信,降低其对 Edmonds 全局竞争的影响
