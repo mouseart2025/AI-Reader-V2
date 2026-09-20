@@ -116,11 +116,15 @@ class VoteBuilder(GeoSkill):
 
         # Chapter fact votes
         total_chapters = max(len(rows), 1)
+        # P1-B: (child, parent) → 投过该有机票的章节集合(仅第①②类有机票;
+        # prior/baseline 票不进),供聚合后 TSDF 式冲突降权判定证据强度。
+        pair_chapters: dict[str, dict[str, set[int]]] = {}
         # (Removed, issue #70 D3) spatial_neighbors 收集与传播已删除:
         # adjacent/direction/in_between 不再产生 parent 票(邻近≠包含)。
 
         for chapter_idx, row in enumerate(rows):
             data = json.loads(row["fact_json"])
+            ch_id = data.get("chapter_id", 0)
             chapter_weight = 1.0 + evolve_param(
                 "vote_builder.chapter_slope", 0.5
             ) * (chapter_idx / total_chapters)
@@ -142,6 +146,7 @@ class VoteBuilder(GeoSkill):
                         if pair_key in peer_pairs else 1.0
                     votes.setdefault(name, Counter())[parent] += w * chapter_weight
                     evidence_pairs.add((name, parent))
+                    pair_chapters.setdefault(name, {}).setdefault(parent, set()).add(ch_id)
 
             for sr in data.get("spatial_relationships", []):
                 rel = sr.get("relation_type", "")
@@ -163,6 +168,13 @@ class VoteBuilder(GeoSkill):
                 weight = {"high": evolve_param("vote_builder.spatial_high_weight", 2),
                           "medium": 1, "low": 1}.get(
                     sr.get("confidence", "low"), 1)
+                # P1-A1 (默认关): 关系带数值 confidence_score(0-1)时按
+                # (0.5 + score) 连续调权(区间 0.5–1.5),替代高中低三档的
+                # 粗粒度。开关关时完全不启用。
+                if evolve_param("votes.confidence_score_blend", False):
+                    cs = sr.get("confidence_score")
+                    if cs is not None:
+                        weight = weight * (0.5 + float(cs))
                 # Direction validation
                 s_suf = _get_suffix_rank(src)
                 t_suf = _get_suffix_rank(tgt)
@@ -172,6 +184,7 @@ class VoteBuilder(GeoSkill):
                     src, tgt = tgt, src
                 votes.setdefault(tgt, Counter())[src] += weight * chapter_weight
                 evidence_pairs.add((tgt, src))
+                pair_chapters.setdefault(tgt, {}).setdefault(src, set()).add(ch_id)
 
             # Primary setting inference
             locations = data.get("locations", [])
@@ -218,9 +231,11 @@ class VoteBuilder(GeoSkill):
                         tiers.get(ln, "city"), 4)
                     if c_rank <= p_rank:
                         continue
+                    # P1-A2 (默认 1.0 = 零行为变化): 主场景推断票的乘性折扣。
+                    # 推断票是间接证据,冲突场景下应弱于直接证据。
                     votes.setdefault(ln, Counter())[primary] += evolve_param(
                         "vote_builder.primary_setting_weight", 2
-                    )
+                    ) * evolve_param("votes.primary_setting_discount", 1.0)
                     evidence_pairs.add((ln, primary))
 
         # 注(Story 5.5 试过并已回退):曾对「只有 topology 证据、无 hierarchy
@@ -243,6 +258,7 @@ class VoteBuilder(GeoSkill):
         # no baseline vote, so EdmondsResolver can re-resolve them from
         # evidence instead of preserving them forever.
         known_locs = set(tiers.keys())
+        baseline_pairs: set[tuple[str, str]] = set()
         if snapshot.location_parents:
             baseline_injected = 0
             baseline_dropped = 0
@@ -261,11 +277,43 @@ class VoteBuilder(GeoSkill):
                 votes.setdefault(child, Counter())[parent] += evolve_param(
                     "vote_builder.baseline_weight", 1
                 )
+                baseline_pairs.add((child, parent))
                 baseline_injected += 1
             logger.info(
                 "Baseline: %d parents injected, %d bare edges not re-injected",
                 baseline_injected, baseline_dropped,
             )
+
+        # ── P1-B: TSDF 式冲突降权(默认关,decay=1.0 时零行为变化)──
+        # 长期被冲突证据反复拉扯的 child(top1/top2 票比接近且双方都跨
+        # ≥2 章有独立证据)整组降置信,降低其对 Edmonds 全局竞争的影响
+        # (TSDF 滤除不稳定观测)。只降权不删票(显式 0 票清污染边实测是
+        # 负优化,见上方 Story 5.5 注释);baseline 注入票不参与降权
+        # (其权威语义不可被新因子动摇);prior 票由 KnowledgePrior 在
+        # 本 skill 之后注入,天然不在此作用域。
+        conflict_decay = evolve_param("votes.conflict_decay", 1.0)
+        if conflict_decay != 1.0:
+            conflict_ratio = evolve_param("votes.conflict_ratio", 2.0)
+            decayed = 0
+            for child in sorted(votes):
+                counter = votes[child]
+                if len(counter) < 2:
+                    continue
+                # (-weight, name) 排序:同权重 tie-break 确定
+                ranked = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+                (p1, w1), (p2, w2) = ranked[0], ranked[1]
+                if w2 <= 0 or w1 / w2 >= conflict_ratio:
+                    continue
+                chapters = pair_chapters.get(child, {})
+                if len(chapters.get(p1, ())) < 2 or len(chapters.get(p2, ())) < 2:
+                    continue
+                votes[child] = Counter({
+                    p: (w if (child, p) in baseline_pairs else w * conflict_decay)
+                    for p, w in counter.items()
+                })
+                decayed += 1
+            if decayed:
+                logger.info("P1-B conflict decay: %d children decayed", decayed)
 
         # Uber-root vote capping
         if uber_root:

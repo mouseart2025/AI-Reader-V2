@@ -19,10 +19,12 @@ from src.services.geo_skills.orchestrator import build_default_orchestrator
 
 def test_default_chain_suffix_runs_last():
     """auto 链与 rebuild-hierarchy-v2 端点共用同一构建函数,
+    auditor 默认在链路中(edmonds 后 suffix 前,2026-09-20 启用),
     purify 必须最后(Story 5.5 P0: 实体净化需等 suffix 变体归并完成)。"""
     orch = build_default_orchestrator("novel-x", novel_title="西游记")
     tags = [tag for tag, _ in orch._skills]
-    assert tags == ["tier", "votes", "prior", "edmonds", "suffix", "purify"]
+    assert tags == ["tier", "votes", "prior", "edmonds",
+                    "auditor", "suffix", "purify"]
 
 
 @pytest.mark.asyncio

@@ -105,6 +105,11 @@ class SkillResult:
     # HierarchySnapshot.prior_edges,供 Edmonds 权威化。
     prior_edges: list[tuple[str, str]] = field(default_factory=list)
 
+    # 离线分析元数据(不进快照状态;snapshot.apply 只消费上面的票数/覆盖/
+    # tier/同义词/先验边)。AuditorSkill 的 report_only 模式把 violations
+    # 写在这里供离线分析。
+    metadata: dict = field(default_factory=dict)
+
     # Execution metadata
     success: bool = True
     error_message: str = ""

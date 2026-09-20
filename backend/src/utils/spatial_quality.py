@@ -96,6 +96,7 @@ def check_spatial_constraints(
     location_tiers: dict[str, str] | None = None,
     virtual_roots: set[str] | None = None,
     spatial_facts: list[dict] | None = None,
+    scale_skip_macro_exempt: bool = False,
 ) -> list[dict]:
     """Check structural constraints over a location hierarchy.
 
@@ -107,6 +108,12 @@ def check_spatial_constraints(
       (child is a larger geographic entity than its parent).
     - SCALE_SKIP (warning): child rank - parent rank > 2 (e.g. a building
       directly under a continent). Skipped when either side has no rank.
+      With ``scale_skip_macro_exempt=True``, only reported when the parent
+      is world/continent-scale (rank ≤ 1): a site/building hanging directly
+      off a macro root (怡红院→东胜神洲) is a true skip, while direct
+      containment under kingdom/region containers (五台山僧堂→五台山,
+      酒店→阳谷县) is the historical norm, not a violation. Default False
+      preserves the original behavior for existing callers.
     - NOISE_ROOT (warning): a root whose tier is not world/continent/region
       and which is not in ``virtual_roots`` (engineering containers such as
       a novel's uber-root are exempt; real 天下-type roots are not).
@@ -115,7 +122,8 @@ def check_spatial_constraints(
     """
     violations: list[dict] = []
     violations.extend(_check_cycles(location_parents))
-    violations.extend(_check_ranks(location_parents))
+    violations.extend(_check_ranks(
+        location_parents, scale_skip_macro_exempt=scale_skip_macro_exempt))
     violations.extend(_check_noise_roots(
         location_parents, location_tiers, virtual_roots))
     if spatial_facts:
@@ -164,7 +172,8 @@ def _check_cycles(location_parents: dict[str, str]) -> list[dict]:
     return out
 
 
-def _check_ranks(location_parents: dict[str, str]) -> list[dict]:
+def _check_ranks(location_parents: dict[str, str],
+                 scale_skip_macro_exempt: bool = False) -> list[dict]:
     try:
         from src.services.world_structure_agent import _get_suffix_rank
     except ImportError:
@@ -184,6 +193,11 @@ def _check_ranks(location_parents: dict[str, str]) -> list[dict]:
                 "nodes": [child, parent],
             })
         elif cr - pr > 2:
+            # 宏观容器豁免(可选):parent 为 kingdom(2)/region(3) 及以下时,
+            # site/building 直接挂载是常态(僧堂→五台山、酒店→阳谷县),
+            # 只有挂到 world(0)/continent(1) 级宏观根才算真跨级。
+            if scale_skip_macro_exempt and pr >= 2:
+                continue
             out.append({
                 "code": "SCALE_SKIP",
                 "severity": "warning",

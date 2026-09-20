@@ -410,13 +410,16 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
     """构建标准 v2 重建管线(rebuild-hierarchy-v2 端点与分析后自动重建共用).
 
     单一实现,避免两条调用链各自拼装再次漂移。顺序固定:
-    tier → votes → prior → edmonds → suffix → purify。
+    tier → votes → prior → edmonds → auditor → suffix → purify
+    (auditor 2026-09-20 起默认启用,可由 evolve_param("auditor.enabled")
+    关闭)。
 
     v0.71.1 起 SuffixNormalizer 须排在 Edmonds 之后: 其名合并(乌斯藏国界→乌斯藏国,
     石头城→都中 等)需要最终裁决权;放在 Edmonds 之前会被后续
     name-containment/vote 权重再次覆盖。Story 5.5 起 purify 排最后(见下)。
     """
     from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+    from src.services.geo_skills.evolve_params import evolve_param
     from src.services.geo_skills.knowledge_prior import KnowledgePrior
     from src.services.geo_skills.suffix_normalizer import SuffixNormalizer
     from src.services.geo_skills.tier_classifier import TierClassifier
@@ -427,6 +430,13 @@ def build_default_orchestrator(novel_id: str, novel_title: str = "") -> GeoOrche
     orch.add_skill("votes", VoteBuilder(novel_id))
     orch.add_skill("prior", KnowledgePrior(novel_title=novel_title))
     orch.add_skill("edmonds", EdmondsResolver())
+    # P1-C: 入网门禁审计(2026-09-20 起默认启用,五本实测:红楼 fixture
+    # PP +0.0556,无任何书回退 >0.02)。可用 evolve_param 关闭:
+    # auditor.enabled=False;auditor.report_only=True 时只记录不剔除。
+    if evolve_param("auditor.enabled", True):
+        from src.services.geo_skills.auditor_skill import AuditorSkill
+
+        orch.add_skill("auditor", AuditorSkill(novel_id))
     orch.add_skill("suffix", SuffixNormalizer())
     # 实体净化放在最后:等 SuffixNormalizer 完成变体归并后再剔除,否则
     # 归并可能把子节点重新挂回待剔除的实体上。

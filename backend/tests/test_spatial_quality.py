@@ -116,6 +116,26 @@ class TestScaleSkip:
         # 无名地 has no recognizable suffix → no rank check at all
         assert check_spatial_constraints({"无名之地": "东胜神洲"}) == []
 
+    def test_macro_exempt_off_by_default(self):
+        # 默认行为不变:僧堂(6)→五台山(3) gap 3 仍报 SCALE_SKIP
+        violations = check_spatial_constraints({"五台山僧堂": "五台山"})
+        assert any(v["code"] == "SCALE_SKIP" for v in violations)
+
+    def test_macro_exempt_suppresses_kingdom_region_parents(self):
+        # 豁免开:parent 为 region(3)/kingdom(2) 合法容器 → 不报
+        assert check_spatial_constraints(
+            {"五台山僧堂": "五台山"},
+            scale_skip_macro_exempt=True) == []
+        assert check_spatial_constraints(
+            {"曾头市东寨": "曾头市"},
+            scale_skip_macro_exempt=True) == []
+
+    def test_macro_exempt_still_flags_world_continent_parents(self):
+        # 豁免开:parent 为 continent(1) 宏观根 → 仍报(真跨级)
+        violations = check_spatial_constraints(
+            {"怡红院": "东胜神洲"}, scale_skip_macro_exempt=True)
+        assert any(v["code"] == "SCALE_SKIP" for v in violations)
+
 
 class TestNoiseRoot:
     def test_noise_root_is_warning(self):
