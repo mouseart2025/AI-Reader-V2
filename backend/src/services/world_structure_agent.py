@@ -431,6 +431,50 @@ _NAME_SUFFIX_TIER: list[tuple[str, str]] = [
     ("径", "site"),      # 羊肠小径 — path/trail
 ]
 
+# ── 精确名 rank 保护(2026-09-20,五本真实库扫描+金标交叉确认)──
+# 名字以宏观后缀(洲/界/域)结尾、被通用后缀规则误判为 continent(1) 级,
+# 但实际是镇/边境/小地名。通用规则不动(影响面不可控),只按名单豁免。
+# 每条附证据;误剔记录指 Auditor 入网门禁在测量轮中按误判 rank 剔除了
+# 该节点的合法边。故意不收:紫菱洲(gold=site,但其子树金标直属大观园,
+# 洲→continent 的误判恰是 Auditor 正确剔除其子树误挂边的依据);
+# 东胜神洲等四大部洲/幽冥界(gold=continent,真宏观);本省/内省/灌洲
+# (证据不足);黑龙江(既有 2-char 保护条目)。
+_NAME_RANK_EXACT: dict[str, str] = {
+    # 水浒
+    "瓜洲": "city",        # 长江北岸镇(瓜洲渡);快照 tier=site;修复
+                           # 瓜洲→扬州 TIER_INVERSION 与 瓜洲渡口/草房 SCALE_SKIP 误剔
+    "高唐州地界": "region",  # X地界=X辖境,同既有("国界","region");facts 提及+误剔记录
+    "高唐界": "region",      # 同上;误剔记录(高唐界→凌州 TIER_INVERSION)
+    "凌州高唐界": "region",  # 快照 tier=site
+    "寿春县界": "site",      # 金标 golden_standard_water_margin: tier=site, parent=山东
+    "昌平县界": "site",      # 金标: tier=site, parent=河北
+    "南丰地界": "region",    # 快照 tier=building(噪声);X地界→region
+    "水泊梁山水域": "region",  # 水域≈泊(region);快照 tier=city
+    # 水浒 府邸类(府→kingdom(2) 误判,金标 tier=building parent=东京;
+    # rank 取 site 与既有 王府/侯府/国府→site 家族一致,site/building
+    # 均满足全部约束):修复 高太尉府→东京 等 TIER_INVERSION 误剔
+    "高太尉府": "site",      # 金标: tier=building, correct_parent=东京
+    "宿太尉府": "site",      # 金标: tier=building, correct_parent=东京
+    "太尉府": "site",        # 金标: tier=building, correct_parent=东京
+    "太师府": "site",        # 金标: tier=building, correct_parent=东京;
+                             # 封神 太师府(闻仲府邸)同类,快照 tier=city parent=朝歌
+    "蔡太师府": "site",      # 蔡京府邸;快照 tier=site;误剔记录(蔡太师府→御营)
+    "东京太师府": "site",    # 快照 tier=site;误剔记录(东京太师府→东京)
+    "小王都太尉府": "site",  # 快照 tier=city parent=京畿
+    "王都尉府": "site",      # 误剔记录(王都尉府→汴梁城 TIER_INVERSION)
+    # 红楼
+    "京口地界": "region",    # 快照 tier=site;京口(镇江)辖境
+    # 三国
+    "东吴边界": "region",    # X边界 同("国界","region");快照 tier=building(噪声)
+    "徐州界": "region",      # 快照 tier=region
+    "豫州界": "region",      # 快照 tier=region
+    "单于界": "region",      # 匈奴单于辖境;快照 tier=site
+    "鹦鹉洲": "site",        # 长江沙洲(江夏);快照 tier=building(噪声)
+    # 西游
+    "火焰山界": "region",    # 快照 tier=region,parent=火焰山
+    "通天河界": "region",    # 快照 tier=region,parent=通天河
+}
+
 
 def _find_continent(
     name: str,
@@ -457,9 +501,18 @@ def _get_suffix_rank(name: str) -> int | None:
 
     This is more reliable than LLM-classified location_tiers because the
     suffix is factual (from the name itself), not model-inferred.
+
+    Lookup order: (1) _NAME_RANK_EXACT 精确名保护(名单内名字直接返回,
+    不走通用后缀规则);(2) _NAME_SUFFIX_TIER 有序后缀匹配。所有 rank
+    判定消费方(vote_builder 方向校验/edmonds tier 软惩罚/
+    spatial_quality._check_ranks/topology_metrics 等)都经本函数,
+    保护项在每条路径一致生效。
     """
     if len(name) < 2:
         return None
+    exact = _NAME_RANK_EXACT.get(name)
+    if exact is not None:
+        return TIER_ORDER.get(exact, 4)
     for suffix, tier in _NAME_SUFFIX_TIER:
         if name.endswith(suffix):
             # Single-char suffix: require name longer than suffix (proper noun + suffix)

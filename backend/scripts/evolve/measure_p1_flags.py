@@ -81,6 +81,12 @@ CONFIGS: dict[str, dict] = {
     # 精修 SCALE_SKIP(parent 为 kingdom/region 容器豁免)+ warning 级剔除生效
     "c_auditor_refined": {"auditor.enabled": True,
                           "auditor.report_only": False},
+    # 词表精确名保护(_NAME_RANK_EXACT)生效后的测量——保护名单在源码
+    # (world_structure_agent.py),非 evolve_param;此配置参数与 baseline
+    # 相同,对照对象是保护项加入前的 baseline 测量。
+    "vocab_protect": {},
+    # 对照用:显式关闭 auditor(回到 auditor 引入前的管线行为)
+    "auditor_off": {"auditor.enabled": False},
 }
 
 
