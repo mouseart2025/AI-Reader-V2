@@ -156,6 +156,16 @@ _GENERIC_MODIFIERS = frozenset({
     "某条", "某个", "某座", "某处", "某片",
 })
 
+# Real place names whose morphology trips Rule 8 (generic modifier + suffix)
+# or Rule 9 (two-char generic compound) but which are attested proper nouns.
+# Evidence: shuihu pilot re-extraction (2026-09-20) — 镇江(ch111/ch120,
+# also in _CITY_NAME_EXCEPTIONS for type-family), 州桥(ch7, golden target),
+# 房山(ch95, county), 大谷/大谷县(ch100/ch101, county).
+# Exempts ONLY Rules 8/9; every other filter rule still applies.
+_RULE89_SPECIFIC_NAME_EXEMPTIONS = frozenset({
+    "镇江", "州桥", "房山", "大谷", "大谷县",
+})
+
 # Abstract/conceptual spatial terms — never physical locations
 _CONCEPTUAL_GEO_WORDS = frozenset({
     "江湖", "天下", "世界", "人间", "凡间", "尘世", "世间",
@@ -534,7 +544,7 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
 
     # Rule 8: Generic modifier + generic suffix — no specific name part
     # E.g., 小城, 大山, 一个村子, 小路, 石屋
-    if n >= 2:
+    if n >= 2 and name not in _RULE89_SPECIFIC_NAME_EXEMPTIONS:
         for mod in _GENERIC_MODIFIERS:
             if name.startswith(mod):
                 rest = name[len(mod):]
@@ -547,7 +557,7 @@ def _is_generic_location(name: str, genre: str | None = None) -> str | None:
     # Rule 9: 2-char with both chars being generic — e.g., 村落, 山林, 水面
     # These lack a specific name part. BUT exclude X+州/城/镇/县/国 combos
     # because they are often real place names (江州, 海州, 青州, 沧州, etc.)
-    if n == 2:
+    if n == 2 and name not in _RULE89_SPECIFIC_NAME_EXEMPTIONS:
         # Don't filter X+administrative_suffix — these are typically real place names
         if name[1] not in "州城镇县国省郡府":
             if name[0] in _GEO_GENERIC_SUFFIXES | frozenset("水天地场石土半荒深远近") and name[1] in _GEO_GENERIC_SUFFIXES | frozenset("面子落处口边旁"):
