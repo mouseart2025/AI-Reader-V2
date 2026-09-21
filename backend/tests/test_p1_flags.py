@@ -198,6 +198,31 @@ def test_revisit_alias_canonicalizes_conflicts():
     assert ali["parent_consistency"] == 1.0
 
 
+# 扩书条目票合流(2026-09-22):每本至少一条
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "title, child, alias, canonical",
+    [
+        ("西游记", "火云洞", "六百里钻头号山", "号山"),
+        ("红楼梦", "荣国府", "神京", "都中"),
+        ("封神演义", "银安殿", "闻太师府", "太师府"),
+    ],
+)
+async def test_alias_expansion_books_merge(
+        facts_db, title, child, alias, canonical):
+    """西游/红楼/封神新收录条目:别名票合流到 canonical,别名不成键。"""
+    facts = [
+        {"locations": [{"name": child, "parent": alias}]},
+        {"locations": [{"name": child, "parent": canonical}]},
+    ]
+    tiers = {child: "site", alias: "region", canonical: "region"}
+    await _seed_facts(facts_db, facts)
+    votes = await _run_vote_builder(facts, tiers, novel_title=title)
+    # 2 章 chapter_weight 1.0 / 1.25 全部合到 canonical
+    assert votes[child][canonical] == pytest.approx(2.25)
+    assert alias not in votes[child]
+
+
 # ── apply 层别名归并(geo_alias.apply_merge / apply_alias_merge) ──────
 
 _APPLY_PARENTS = {
@@ -262,10 +287,10 @@ def test_apply_alias_merge_disabled_noop(tmp_path, monkeypatch):
 
 
 def test_apply_alias_merge_empty_table_noop():
-    """表为空的小说(其余四本):零行为。"""
+    """表为空的小说(三国:2026-09-22 扩书挖掘零收录):零行为。"""
     from src.services.geo_skills.orchestrator import apply_alias_merge
 
-    merged, report = apply_alias_merge(dict(_APPLY_PARENTS), "红楼梦")
+    merged, report = apply_alias_merge(dict(_APPLY_PARENTS), "三国演义")
     assert report is None
     assert merged == _APPLY_PARENTS
 
