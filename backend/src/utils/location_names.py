@@ -133,6 +133,17 @@ LOCATION_ALIAS_KEEP_EDGES: dict[str, dict[str, str]] = {
         "汴梁城": "东京",  # fixture correct_parent=东京(别名自指边)
         "大名府": "河北",  # fixture correct_parent=河北
     },
+    # 西游(2026-09-22 扩书):全称/简称变体别名,errata gold verdict=正确
+    # 且 parent 与快照一致——保留别名叶节点作为原文全称的层级锚点。
+    # 同级城市别称(水浒 京师/红楼 神京类)即使 errata 标正确也摘除,
+    # 避免平行城市节点(与水浒删 京师→京畿 同口径)。
+    "西游": {
+        "六百里钻头号山": "西牛贺洲",  # errata 正确@西牛贺洲(=canon 号山 fixture 边)
+        "八百里狮驼岭": "狮驼岭",      # errata 正确@狮驼岭(别名自指边)
+        "南海落伽山": "南海",          # errata 正确@南海
+        "号山枯松涧": "号山",          # errata 正确@号山(别名自指边)
+        # 敕建宝林寺:errata 判错误节点(mc=1 却 11 子),归一即消解,不保留
+    },
 }
 
 

@@ -598,3 +598,29 @@ def test_c_refined_scale_skip_still_flags_continent_root(
     )
     result = _run_auditor(snap, virtual_roots=set())
     assert result.parent_overrides == {"怡红院": None}
+
+
+def test_apply_alias_merge_xiyouji_keep_edges():
+    """西游扩书:errata 佐证的全称别名边保留,错误节点(敕建宝林寺)摘除。"""
+    from src.services.geo_skills.orchestrator import apply_alias_merge
+
+    parents = {
+        "号山": "西牛贺洲", "西牛贺洲": "主世界",
+        "六百里钻头号山": "西牛贺洲",   # errata 正确@西牛贺洲 → 保留
+        "石板桥": "六百里钻头号山",     # → 号山
+        "八百里狮驼岭": "狮驼岭",       # 别名自指边,errata 正确 → 保留
+        "南海落伽山": "南海",           # errata 正确@南海 → 保留
+        "号山枯松涧": "号山",           # errata 正确@号山 → 保留
+        "敕建宝林寺": "乌鸡国",         # errata 错误节点 → 删边摘壳
+        "二层山门": "敕建宝林寺",       # → 宝林寺
+        "宝林寺": "乌鸡国",
+    }
+    merged, report = apply_alias_merge(parents, "西游记")
+    assert merged["六百里钻头号山"] == "西牛贺洲"
+    assert merged["八百里狮驼岭"] == "狮驼岭"
+    assert merged["南海落伽山"] == "南海"
+    assert merged["号山枯松涧"] == "号山"
+    assert merged["石板桥"] == "号山"        # 子节点归并
+    assert merged["二层山门"] == "宝林寺"
+    assert "敕建宝林寺" not in merged       # 摘壳
+    assert report["removed_alias_nodes"] == ["敕建宝林寺"]
