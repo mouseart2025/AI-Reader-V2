@@ -198,6 +198,78 @@ def test_revisit_alias_canonicalizes_conflicts():
     assert ali["parent_consistency"] == 1.0
 
 
+# ── apply 层别名归并(geo_alias.apply_merge / apply_alias_merge) ──────
+
+_APPLY_PARENTS = {
+    # canonical 链
+    "东京": "京畿", "京畿": "主世界", "北京": "河北", "河北": "主世界",
+    # 别名节点及其子节点
+    "汴梁城": "东京",          # 佐证保留边(fixture)
+    "金明池": "汴梁城", "香椒铺": "汴梁城",
+    "京师": "京畿",            # 无佐证 → 删边、摘壳
+    "大名府": "河北",          # 佐证保留边(fixture)
+    "大名府留守司": "大名府",
+    "北京大名府": "主世界",     # 无佐证 → 删边、摘壳
+    "徐宁宅": "北京大名府", "店肆": "北京大名府",
+    # 未收录名:不受影响
+    "五台山僧堂": "五台山", "五台山": "河东",
+}
+
+
+def test_apply_alias_merge_repoints_children():
+    """别名节点的 children 改指 canonical;canonical 链与非别名边不动。"""
+    from src.services.geo_skills.orchestrator import apply_alias_merge
+
+    merged, report = apply_alias_merge(dict(_APPLY_PARENTS), "水浒传")
+    assert merged["金明池"] == "东京"
+    assert merged["香椒铺"] == "东京"
+    assert merged["大名府留守司"] == "北京"
+    assert merged["徐宁宅"] == "北京"
+    assert merged["店肆"] == "北京"
+    assert merged["东京"] == "京畿"      # canonical 链不变
+    assert merged["北京"] == "河北"
+    assert merged["五台山僧堂"] == "五台山"  # 未收录名不动
+    assert len(report["repointed_children"]) == 5
+
+
+def test_apply_alias_merge_edge_attestation():
+    """佐证边(汴梁城→东京/大名府→河北)保留;无佐证边
+    (北京大名府→主世界/京师→京畿)删除,空壳别名节点摘除。"""
+    from src.services.geo_skills.orchestrator import apply_alias_merge
+
+    merged, report = apply_alias_merge(dict(_APPLY_PARENTS), "水浒传")
+    assert merged["汴梁城"] == "东京"    # 保留
+    assert merged["大名府"] == "河北"    # 保留
+    assert "京师" not in merged          # 摘壳
+    assert "北京大名府" not in merged    # 摘壳
+    assert ("京师", "京畿") in report["removed_edges"]
+    assert ("北京大名府", "主世界") in report["removed_edges"]
+    assert set(report["kept_alias_edges"]) == {("汴梁城", "东京"), ("大名府", "河北")}
+    assert set(report["removed_alias_nodes"]) == {"京师", "北京大名府"}
+    # 无 self-loop、无指向别名节点的残留边
+    assert all(c != p for c, p in merged.items())
+    assert not set(merged.values()) & {"京师", "汴梁城", "大名府", "北京大名府"}
+
+
+def test_apply_alias_merge_disabled_noop(tmp_path, monkeypatch):
+    """开关关闭:parent 表原样返回(逐边一致),报告为 None。"""
+    from src.services.geo_skills.orchestrator import apply_alias_merge
+
+    _set_params(tmp_path, monkeypatch, {"geo_alias.apply_merge": False})
+    merged, report = apply_alias_merge(dict(_APPLY_PARENTS), "水浒传")
+    assert report is None
+    assert merged == _APPLY_PARENTS
+
+
+def test_apply_alias_merge_empty_table_noop():
+    """表为空的小说(其余四本):零行为。"""
+    from src.services.geo_skills.orchestrator import apply_alias_merge
+
+    merged, report = apply_alias_merge(dict(_APPLY_PARENTS), "红楼梦")
+    assert report is None
+    assert merged == _APPLY_PARENTS
+
+
 # ── A1: confidence_score_blend ──────────────────────────────────────
 
 _A1_FACTS = [{
