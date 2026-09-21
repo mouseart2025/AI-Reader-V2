@@ -92,6 +92,28 @@ def location_alias_map_for_title(novel_title: str) -> dict[str, str]:
     return {}
 
 
+# 别名节点保留边(apply 层归并用,2026-09-21):VoteBuilder 归并票仓后,
+# 旧 ws/snapshot 中仍残留别名节点(汴梁城→东京 等)。apply 归并时别名
+# 节点的 children 一律改指 canonical;别名节点自身的 parent 边只保留
+# 金标(fixture correct_parent)/先验佐证者,列入下表;无佐证的
+# (北京大名府→主世界、京师→京畿)删除,空壳节点随之摘除。
+# 与 LOCATION_ALIAS_MAP 同标题匹配约定;未列出即零行为。
+LOCATION_ALIAS_KEEP_EDGES: dict[str, dict[str, str]] = {
+    "水浒": {
+        "汴梁城": "东京",  # fixture correct_parent=东京(别名自指边)
+        "大名府": "河北",  # fixture correct_parent=河北
+    },
+}
+
+
+def location_alias_keep_edges_for_title(novel_title: str) -> dict[str, str]:
+    """按小说标题取别名保留边表;无匹配返回空表 = 全部删除别名边。"""
+    for key, edges in LOCATION_ALIAS_KEEP_EDGES.items():
+        if key in novel_title:
+            return edges
+    return {}
+
+
 # ── Passage-like / transit forms (Story 5.2) ───────────────────────────
 # Roads, corridors, stairs, intersections, and similar transit structures are
 # *edges* in the spatial graph, not *containers*. They must never participate

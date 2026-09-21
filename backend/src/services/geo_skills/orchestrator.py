@@ -37,6 +37,67 @@ logger = logging.getLogger(__name__)
 REAL_TIANXIA_TITLES = ("水浒", "三国", "封神")
 
 
+def apply_alias_merge(
+    parents: dict[str, str], novel_title: str,
+) -> tuple[dict[str, str], dict | None]:
+    """apply 层别名归并:对既有 parent 表过 LOCATION_ALIAS_MAP。
+
+    - 别名节点的 children 一律改指 canonical(保序遍历,确定性);
+    - 别名节点自身的 parent 边仅保留金标/先验佐证者
+      (LOCATION_ALIAS_KEEP_EDGES),其余删除;映射产生的 self-loop 去除;
+    - 空壳别名节点(边被删且零子)随 parent 表摘除。
+    开关 evolve_param("geo_alias.apply_merge", True);表为空(其余四本)
+    或开关关闭时原样返回,零行为。返回 (新 parent 表, 报告|None)。
+    """
+    from src.services.geo_skills.evolve_params import evolve_param
+    from src.utils.location_names import (
+        location_alias_keep_edges_for_title,
+        location_alias_map_for_title,
+    )
+
+    if not evolve_param("geo_alias.apply_merge", True):
+        return parents, None
+    alias_map = location_alias_map_for_title(novel_title)
+    if not alias_map:
+        return parents, None
+    keep_edges = location_alias_keep_edges_for_title(novel_title)
+
+    new_parents: dict[str, str] = {}
+    repointed: list[tuple[str, str, str]] = []  # (child, old_parent, canonical)
+    removed_edges: list[tuple[str, str]] = []
+    kept_alias_edges: list[tuple[str, str]] = []
+    for child, parent in parents.items():
+        if parent in alias_map:
+            canon = alias_map[parent]
+            repointed.append((child, parent, canon))
+            parent = canon
+        if child in alias_map:
+            # 别名节点自身的 parent 边:仅保留佐证表内的
+            if keep_edges.get(child) == parent and child != parent:
+                new_parents[child] = parent
+                kept_alias_edges.append((child, parent))
+            else:
+                removed_edges.append((child, parent))
+            continue
+        if child == parent:
+            removed_edges.append((child, parent))  # 映射产生的 self-loop
+            continue
+        new_parents[child] = parent
+
+    # 摘除:所有未保留佐证边的别名节点。即便它本就不以 child 身份出现
+    # (纯 parent 残留,子节点已归并),也必须从 tiers 中摘除,否则
+    # _inject_layer_roots 的 Phase 0 orphan 兜底会把它重挂到根。
+    kept_children = {c for c, _ in kept_alias_edges}
+    removed_nodes = sorted(set(alias_map) - kept_children)
+    report = {
+        "repointed_children": repointed,
+        "removed_edges": removed_edges,
+        "kept_alias_edges": kept_alias_edges,
+        "removed_alias_nodes": removed_nodes,
+    }
+    return new_parents, report
+
+
 def is_real_tianxia_novel(novel_title: str) -> bool:
     """该小说的「天下」是否为文本内真实概念(而非工程根)。"""
     return any(k in novel_title for k in REAL_TIANXIA_TITLES)
@@ -216,6 +277,22 @@ class GeoOrchestrator:
         ws.location_parents = dict(snapshot.location_parents)
         ws.location_tiers = dict(snapshot.location_tiers)
 
+        # Apply 层别名归并(geo_alias.apply_merge 默认开,表空零行为):
+        # VoteBuilder 归并票仓后,旧 ws 残留的别名节点(汴梁城等)在此
+        # 归并——children 改指 canonical,无佐证别名边删除,空壳摘除。
+        merged_parents, alias_merge_report = apply_alias_merge(
+            ws.location_parents, self.novel_title,
+        )
+        ws.location_parents = merged_parents
+        # 被摘除的别名节点同步移出 tiers/layer/icon 表——否则
+        # _inject_layer_roots 的 Phase 0 orphan 兜底会把它们重挂到根。
+        if alias_merge_report:
+            for _name in alias_merge_report["removed_alias_nodes"]:
+                ws.location_tiers.pop(_name, None)
+                ws.location_layer_map.pop(_name, None)
+                if hasattr(ws, "location_icons"):
+                    ws.location_icons.pop(_name, None)
+
         # ── Re-detect layers after parent changes ──
         # Parent changes may invalidate old layer propagation (e.g., a location
         # was under 天庭→celestial but is now under 傲来国→overworld).
@@ -266,7 +343,8 @@ class GeoOrchestrator:
             "version": snapshot.version,
             "source": snapshot.source,
             "old_parent_count": old_parents,
-            "new_parent_count": len(snapshot.location_parents),
+            "new_parent_count": len(ws.location_parents),
+            "alias_merge": alias_merge_report,
             "metrics": {
                 "avg_depth": metrics.avg_depth,
                 "max_children": metrics.max_children,
