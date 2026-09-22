@@ -88,6 +88,50 @@ def compute_per_level_metrics(
     return {"levels": out_levels, "macro_precision": macro}
 
 
+# ── 1b. Virtual-aware topology metrics ──────────────────────────────
+
+
+def resolve_virtual_parents(
+    predicted: dict[str, str],
+    virtual_nodes: set[str] | frozenset[str] | None,
+) -> dict[str, str]:
+    """沿父链穿透虚拟节点(与 WorldStructure.semantic_parent 同语义)。
+
+    图层分组根(主世界/天界…)与工程 uber_root 是渲染脚手架,不是知识
+    声明:京畿→主世界(virtual)→天下 在语义上即 京畿→天下。
+    返回穿透后的 {child: parent} 新表;virtual 为空时逐边原样返回。
+    """
+    if not virtual_nodes:
+        return dict(predicted)
+    resolved: dict[str, str] = {}
+    for child, parent in predicted.items():
+        node = parent
+        seen = {child}
+        while node in virtual_nodes and node in predicted and node not in seen:
+            seen.add(node)
+            node = predicted[node]
+        resolved[child] = node
+    return resolved
+
+
+def compute_topology_metrics_virtual_aware(
+    predicted: dict[str, str],
+    golden_locations: list[dict],
+    virtual_nodes: set[str] | frozenset[str] | None,
+) -> dict:
+    """virtual 穿透后的 topology 指标(applied 口径的诚实测量)。
+
+    评分前先把 predicted 中指向虚拟渲染脚手架的边穿透到其语义 parent,
+    再委托 frozen 的 compute_topology_metrics——PP 与 chain 都按
+    穿透后的边计算。virtual_nodes 为空时与原函数逐边一致。
+    """
+    from src.utils.topology_metrics import compute_topology_metrics
+
+    return compute_topology_metrics(
+        resolve_virtual_parents(predicted, virtual_nodes), golden_locations,
+    )
+
+
 # ── 2. Executable structural constraints ────────────────────────────
 
 

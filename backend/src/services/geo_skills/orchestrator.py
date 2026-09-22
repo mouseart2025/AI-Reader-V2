@@ -376,6 +376,22 @@ class GeoOrchestrator:
         tiers = ws.location_tiers
         layer_map = ws.location_layer_map
 
+        # 资信边免疫(layer.credentialed_edge_immunity 默认开):
+        # fixture/errata/prior 佐证的边不被本函数的图层分组/跨层解挂/
+        # 孤儿补挂覆盖(2026-09-22 归因:水浒 20 条金标 天下 边被 主世界
+        # 分组覆盖、西游 龙宫→东海 被 Phase A 解挂、红楼 芦雪庵 被
+        # Phase 0 补挂 主世界)。开关关闭时零行为变化。
+        from src.services.geo_skills.credentialed_edges import (
+            credentialed_edges,
+            credentialed_parents_for,
+        )
+        from src.services.geo_skills.evolve_params import evolve_param
+        immune = (
+            credentialed_edges(novel_title)
+            if evolve_param("layer.credentialed_edge_immunity", True)
+            else frozenset()
+        )
+
         # Find uber_root (天下 or equivalent)
         uber_root = None
         for name, tier in tiers.items():
@@ -415,7 +431,32 @@ class GeoOrchestrator:
             if name == uber_root:
                 continue
             if name not in parents:
-                parents[name] = uber_root
+                # 资信孤儿补挂:金标/errata/先验给出了 parent 且该 parent
+                # 已在图中、不成环时,优先挂资信 parent,而不是 uber_root
+                # (红楼 芦雪庵→大观园 由此恢复,而非误挂 主世界)。
+                attached = False
+                if immune:
+                    for cand in credentialed_parents_for(name, novel_title):
+                        if cand == name:
+                            continue
+                        if cand not in candidate_nodes and cand != uber_root:
+                            continue
+                        # 环检查:从 cand 沿父链向上不得回到 name
+                        node, seen = cand, {name}
+                        while node in parents and node not in seen:
+                            seen.add(node)
+                            node = parents[node]
+                        if node == name:
+                            continue
+                        parents[name] = cand
+                        attached = True
+                        logger.info(
+                            "Credentialed orphan attach: %s → %s (was uber_root fallback)",
+                            name, cand,
+                        )
+                        break
+                if not attached:
+                    parents[name] = uber_root
 
         # Phase A: Fix cross-layer parenting — locations whose parent is
         # in a different layer should be detached to become layer top-level.
@@ -425,6 +466,10 @@ class GeoOrchestrator:
             c_layer = layer_map.get(child, "overworld")
             p_layer = layer_map.get(parent, "overworld")
             if c_layer != "overworld" and p_layer != c_layer and parent != uber_root:
+                # 资信边免疫:金标/errata/先验佐证的跨层边(如西游 龙宫→东海)
+                # 不解挂——资信优先级高于图层整洁。
+                if (child, parent) in immune:
+                    continue
                 parents[child] = uber_root
 
         # Collect uber_root's direct children, grouped by layer
@@ -461,6 +506,10 @@ class GeoOrchestrator:
                 # Use existing location as root — re-parent siblings under it
                 for c in children:
                     if c != existing_root:
+                        # 资信边免疫:佐证边(如水浒 京畿→天下)不参与分组,
+                        # 保持原 parent;虚拟根仍为其余子节点创建。
+                        if (c, uber_root) in immune:
+                            continue
                         parents[c] = existing_root
                 logger.info(
                     "Layer root [%s]: %s (existing, %d children adopted)",
@@ -473,6 +522,9 @@ class GeoOrchestrator:
                 layer_map[root_name] = layer_id
                 ws.virtual_locations.add(root_name)  # 渲染分组脚手架,非知识声明
                 for c in children:
+                    # 资信边免疫:同上,佐证边保持原 parent。
+                    if (c, uber_root) in immune:
+                        continue
                     parents[c] = root_name
                 logger.info(
                     "Layer root [%s]: %s (virtual, %d children)",
