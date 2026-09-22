@@ -250,12 +250,6 @@ async def test_rebuild_apply_idempotent_honglou(tmp_path, monkeypatch):
     assert not diff, f"两轮 rebuild+apply 非幂等,{len(diff)} 边震荡: {sorted(diff)[:10]}"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="金标区域同样震荡(2026-09-22 实测 6 条:嘉荫堂/大明宫/"
-           "省亲别墅/翠烟桥/芦雪广/芦雪庵,大观园区域为主)——机制同整表"
-           " xfail(Edmonds base 敏感 + MWA 全局重组),修复后此守卫应转绿",
-)
 @pytest.mark.skipif(not _LIVE_DB.exists(), reason="需要真实库副本")
 @pytest.mark.asyncio
 async def test_rebuild_apply_idempotent_honglou_gold_region(
@@ -267,7 +261,10 @@ async def test_rebuild_apply_idempotent_honglou_gold_region(
     翠烟桥/芦雪广/芦雪庵),大观园区域为主。此前"震荡全在非金标区域"
     的推断(由各轮 fixture 指标稳定得出)不成立——指标稳定只证明同输入
     确定性,跨 ws 起点的边级漂移早以 fixture PP 0.8511↔0.8958 轮间
-    漂移的形式存在。此测试作为修复后的转绿守卫保留(xfail)。
+    漂移的形式存在。真凶=_balance_degrees 票盲改挂(纯结构启发式不看
+    票仓);修复=edmonds.zero_vote_reassign 守卫(当前 parent 有正票而
+    候选 absorber 零票时禁止改挂)后本测试转绿。整图版(含非金标震荡)
+    仍 xfail,不在本期范围。
     """
     import shutil
 

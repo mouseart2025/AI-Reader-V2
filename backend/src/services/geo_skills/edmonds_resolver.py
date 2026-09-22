@@ -384,7 +384,8 @@ class EdmondsResolver(GeoSkill):
 
         # ── Phase 5: Degree balancing ──
         _MAX_CHILDREN = evolve_param("edmonds.max_children", 30)
-        parents = self._balance_degrees(parents, tiers, _MAX_CHILDREN, protected)
+        parents = self._balance_degrees(
+            parents, tiers, _MAX_CHILDREN, protected, votes)
 
         # ── Final structural pass ──
         # Phases 4-5 reassign parents and can reintroduce cycles; guarantee
@@ -606,6 +607,7 @@ class EdmondsResolver(GeoSkill):
         tiers: dict[str, str],
         max_children: int,
         protected: set[str] | None = None,
+        votes: dict[str, Counter] | None = None,
     ) -> dict[str, str]:
         """Redistribute children when a node exceeds max_children.
 
@@ -613,6 +615,13 @@ class EdmondsResolver(GeoSkill):
         Phase 1: Redistribute leaf children to existing intermediate nodes
         Phase 2: For remaining overflows, redistribute to ANY smaller-tier
                  child (not just intermediates) — creating new intermediate layers
+
+        零票改挂禁止(evolve_param "edmonds.zero_vote_reassign",默认
+        "forbid"):叶节点对**当前** parent 有正票、而候选 absorber 零票
+        时,度均衡不得覆盖票仓多数决——本 phase 是纯结构启发式(只读
+        tier/度),此前票盲改挂曾把 红楼 省亲别墅({大观园: 4.5 全票})
+        重排到 0 票的 紫菱洲,造成两轮 rebuild 间金标边交替(2026-09-22
+        确诊)。"allow" 恢复旧行为(A/B 对照通道)。
         """
         from src.services.world_structure_agent import TIER_ORDER
 
@@ -693,6 +702,15 @@ class EdmondsResolver(GeoSkill):
                             best_score = score
 
                     if best:
+                        # 零票改挂禁止:当前 parent 有正票而 absorber 零票 →
+                        # 跳过该叶(结构均衡让位票仓多数决)
+                        if votes and evolve_param(
+                                "edmonds.zero_vote_reassign", "forbid"
+                        ) == "forbid":
+                            leaf_votes = votes.get(leaf) or {}
+                            if (leaf_votes.get(parents[leaf], 0) > 0
+                                    and leaf_votes.get(best, 0) <= 0):
+                                continue
                         parents[leaf] = best
                         kids.remove(leaf)
                         children_map.setdefault(best, []).append(leaf)
