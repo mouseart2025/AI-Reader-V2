@@ -614,6 +614,8 @@ def test_apply_alias_merge_xiyouji_keep_edges():
         "敕建宝林寺": "乌鸡国",         # errata 错误节点 → 删边摘壳
         "二层山门": "敕建宝林寺",       # → 宝林寺
         "宝林寺": "乌鸡国",
+        "南膳部洲": "南赡部洲",         # 错字别名(2026-09-22 收)→ 删边摘壳
+        "南赡部洲": "天下",
     }
     merged, report = apply_alias_merge(parents, "西游记")
     assert merged["六百里钻头号山"] == "西牛贺洲"
@@ -623,4 +625,6 @@ def test_apply_alias_merge_xiyouji_keep_edges():
     assert merged["石板桥"] == "号山"        # 子节点归并
     assert merged["二层山门"] == "宝林寺"
     assert "敕建宝林寺" not in merged       # 摘壳
-    assert report["removed_alias_nodes"] == ["敕建宝林寺"]
+    assert "南膳部洲" not in merged         # 错字别名摘壳
+    assert merged["南赡部洲"] == "天下"
+    assert report["removed_alias_nodes"] == ["南膳部洲", "敕建宝林寺"]
