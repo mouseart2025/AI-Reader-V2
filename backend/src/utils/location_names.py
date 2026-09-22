@@ -94,6 +94,9 @@ LOCATION_ALIAS_MAP: dict[str, dict[str, str]] = {
                                    # 紫竹林票分摊;canonical 取 freq 高者(8 vs 1)
         "号山枯松涧": "枯松涧",    # 同一涧(前缀限定形);errata 两者同 parent 号山;
                                    # 火云洞票分摊
+        "南膳部洲": "南赡部洲",    # 错字变体:errata 判 B-字形错误"应为南赡部洲
+                                   # (原文用赡)";fixture 南赡部洲=golden root;
+                                   # 票仓 74 vs 21 canonical 占优
     },
     # 红楼(2026-09-22;石头城→都中 已由 SuffixNormalizer 归并,同例):
     "红楼": {
