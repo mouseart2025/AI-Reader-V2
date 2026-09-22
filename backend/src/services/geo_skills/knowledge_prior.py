@@ -56,6 +56,23 @@ _CLASSIFY_SCHEMA = {
 }
 
 
+def hardcoded_priors_for_title(novel_title: str) -> dict[str, str]:
+    """按小说标题取硬编码先验表(与 KnowledgePrior._get_hardcoded_priors
+    同一匹配约定);供 apply 层资信边注册等无快照场景复用。
+    无匹配返回空表。"""
+    if "西游" in novel_title:
+        return _XIYOUJI_PRIORS
+    if "红楼" in novel_title:
+        return _HONGLOUMENG_PRIORS
+    if "水浒" in novel_title:
+        return _SHUIHU_PRIORS
+    if "三国" in novel_title:
+        return _SANGUO_PRIORS
+    if "封神" in novel_title:
+        return _FENGSHEN_PRIORS
+    return {}
+
+
 class KnowledgePrior(GeoSkill):
     """Inject domain knowledge priors — hardcoded or via LLM.
 
