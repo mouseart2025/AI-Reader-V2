@@ -94,6 +94,8 @@ CONFIGS: dict[str, dict] = {
     # alias_off 为 A/B 关闭通道)
     "alias_on": {"geo_alias.enabled": True},
     "alias_off": {"geo_alias.enabled": False},
+    # 零票改挂禁止(edmonds.zero_vote_reassign 默认 forbid;allow=旧行为对照)
+    "zvr_allow": {"edmonds.zero_vote_reassign": "allow"},
 }
 
 
