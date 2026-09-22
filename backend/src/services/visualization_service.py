@@ -825,6 +825,103 @@ _map_cache: dict[str, tuple[float, dict]] = {}  # key → (timestamp, data)
 _MAP_CACHE_TTL = 1800  # 30 minutes
 
 
+def canonicalize_map_names(
+    loc_info: dict,
+    loc_chapters: dict,
+    loc_role: dict,
+    trajectories: dict,
+    constraint_map: dict,
+    alias_map: dict,
+) -> dict:
+    """map 展示层地名 canonical 化(map.alias_canonical;只改展示,不改 facts/ws)。
+
+    facts 原始名(水浒 京师/红楼 神京)归一到层级权威 canonical 名:
+    地点条目合并、章节/角色/轨迹/空间约束引用同步映射,别名自指约束
+    (映射后 s==t)剔除。保序遍历保确定性。返回归并报告。
+    """
+    report: dict = {"renamed": [], "merged_locations": [],
+                    "self_loop_constraints": []}
+    if not alias_map:
+        return report
+
+    role_priority = {"setting": 3, "boundary": 2, "referenced": 1}
+    for alias in sorted(alias_map):
+        canon = alias_map[alias]
+        if alias in loc_info:
+            if canon not in loc_info:
+                loc_info[canon] = loc_info[alias]
+            else:
+                if not loc_info[canon].get("parent") and loc_info[alias].get("parent"):
+                    loc_info[canon]["parent"] = loc_info[alias]["parent"]
+                report["merged_locations"].append(alias)
+            del loc_info[alias]
+            report["renamed"].append((alias, canon))
+        if alias in loc_chapters:
+            loc_chapters.setdefault(canon, set()).update(
+                loc_chapters.pop(alias))
+        if alias in loc_role:
+            new_role = loc_role.pop(alias)
+            cur = loc_role.get(canon)
+            if role_priority.get(new_role or "", 0) > role_priority.get(cur or "", 0):
+                loc_role[canon] = new_role
+        for entries in trajectories.values():
+            for entry in entries:
+                if entry.get("location") == alias:
+                    entry["location"] = canon
+
+    # 空间约束:端点/途经点统一映射;s==t 的自指约束剔除;键冲突取高置信
+    remapped: dict = {}
+    for (src, tgt, rel_type), c in constraint_map.items():
+        ns, nt = alias_map.get(src, src), alias_map.get(tgt, tgt)
+        if ns == nt:
+            report["self_loop_constraints"].append((src, tgt, rel_type))
+            continue
+        waypoints = c.get("waypoints")
+        c = {**c, "source": ns, "target": nt}
+        if waypoints:
+            c["waypoints"] = [alias_map.get(w, w) for w in waypoints]
+        key = (ns, nt, rel_type)
+        existing = remapped.get(key)
+        if existing is None or _CONFIDENCE_RANK.get(
+                c.get("confidence"), 1) > _CONFIDENCE_RANK.get(
+                existing.get("confidence"), 1):
+            remapped[key] = c
+    constraint_map.clear()
+    constraint_map.update(remapped)
+    return report
+
+
+def canonicalize_constraint_list(
+    spatial_constraints: list[dict],
+    alias_map: dict[str, str],
+) -> list[dict]:
+    """约束清单的 canonical 过一遍(enhance/注入之后):端点与途经点过
+    别名表、剔除映射后自指(s==t)、按键去重(先见优先,同键高置信优先)。
+    保序。alias_map 为空时原样返回。
+    """
+    if not alias_map:
+        return spatial_constraints
+    out: list[dict] = []
+    best: dict[tuple[str, str, str], int] = {}
+    for c in spatial_constraints:
+        ns = alias_map.get(c.get("source"), c.get("source"))
+        nt = alias_map.get(c.get("target"), c.get("target"))
+        if ns == nt:
+            continue
+        nc = dict(c, source=ns, target=nt)
+        if nc.get("waypoints"):
+            nc["waypoints"] = [alias_map.get(w, w) for w in nc["waypoints"]]
+        key = (ns, nt, nc.get("relation_type"))
+        rank = _CONFIDENCE_RANK.get(nc.get("confidence"), 1)
+        idx = best.get(key)
+        if idx is None:
+            best[key] = len(out)
+            out.append(nc)
+        elif rank > _CONFIDENCE_RANK.get(out[idx].get("confidence"), 1):
+            out[idx] = nc
+    return out
+
+
 async def invalidate_map_response_cache(novel_id: str) -> None:
     """丢弃某小说的内存地图响应缓存 + 持久化地理 artifacts(实体 override 写入后调用)。
 
@@ -944,6 +1041,30 @@ async def get_map_data(
                 if k[0] in removed_locations or k[1] in removed_locations
             ]:
                 del constraint_map[key]
+
+    # map 展示层地名 canonical 化(map.alias_canonical 默认开,表空零行为):
+    # facts 原始名(水浒 京师/北京大名府、红楼 神京)归一到层级权威
+    # canonical 名,使地图与 world-structure 层级树展示一致;
+    # 轨迹/空间约束引用同步映射,不产生 dangling。
+    _map_alias_map: dict[str, str] = {}
+    from src.services.geo_skills.evolve_params import evolve_param
+    if evolve_param("map.alias_canonical", True):
+        from src.db.novel_store import get_novel as _get_novel_meta
+        from src.utils.location_names import location_alias_map_for_title
+        _meta = await _get_novel_meta(novel_id)
+        _map_alias_map = location_alias_map_for_title(
+            (_meta or {}).get("title") or "")
+        if _map_alias_map:
+            _alias_report = canonicalize_map_names(
+                loc_info, loc_chapters, loc_role, trajectories,
+                constraint_map, _map_alias_map)
+            if _alias_report["renamed"]:
+                logger.info(
+                    "Map alias canonical: %d renamed, %d merged, %d self-loop dropped",
+                    len(_alias_report["renamed"]),
+                    len(_alias_report["merged_locations"]),
+                    len(_alias_report["self_loop_constraints"]),
+                )
 
     # Calculate hierarchy levels
     def get_level(name: str, visited: set[str] | None = None) -> int:
@@ -1228,6 +1349,12 @@ async def get_map_data(
         spatial_constraints, dict(trajectories), locations,
         completed_relations=_completed_rels,
     )
+    # completed_spatial_relations 是 ws 存量原始名(如 敕建宝林寺),
+    # enhance 后再过一遍 canonical,避免别名端点 dangling
+    # (别名节点已被归并/摘除,约束引用必须与展示节点一致)。
+    if _map_alias_map:
+        spatial_constraints = canonicalize_constraint_list(
+            spatial_constraints, _map_alias_map)
 
     # ── Layout computation with caching ──
     _ws_scale_for_hash = ws.spatial_scale if ws else None
