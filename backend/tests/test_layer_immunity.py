@@ -189,13 +189,30 @@ _LIVE_DB = Path.home() / ".ai-reader-v2" / "data.db"
 
 @pytest.mark.xfail(
     strict=False,
-    reason="baseline 注入使 rebuild 依赖当前 ws 态:红楼 省亲别墅 等边"
-           "大观园↔紫菱洲 逐轮交替(2026-09-22 归因机制③),立项未修",
+    reason="fresh rebuild 的 v0 从当前 ws 导入,Edmonds 以 ws parents 为 "
+           "base(~632 条保留)+ MWA 全局重组,两个 base 态互为映射且带漂移"
+           "(非严格周期 2);baseline 注入已被消融实验证明是减振稳定器而非"
+           "驱动(vote_builder.py:226-234);震荡边含 6 条金标节点边"
+           "(2026-09-22 证伪实验,详见测试 docstring)",
 )
 @pytest.mark.skipif(not _LIVE_DB.exists(), reason="需要真实库副本")
 @pytest.mark.asyncio
 async def test_rebuild_apply_idempotent_honglou(tmp_path, monkeypatch):
-    """同书连跑两轮 rebuild+apply,逐边 diff 应为 0(幂等回归)。"""
+    """同书连跑两轮 rebuild+apply,逐边 diff 应为 0(幂等回归)。
+
+    2026-09-22 证伪实验关键数据(scratch 副本,三轮 rebuild+apply):
+    - 三轮 diff:r1→r2=125 边,r2→r3=112,r1→r3=37(漂移交替,非周期 2);
+    - 票仓追踪:省亲别墅三轮票池恒为 {大观园: 4.50} 或 {大观园: 3.50}
+      (±baseline 1 票),紫菱洲全程 0 票,但结果 紫菱洲↔大观园 交替;
+    - 快照链定位:翻转发生在 v4 Edmonds——v0=大观园/票=大观园 4.5 全票,
+      v4 仍被改挂 0 票的 紫菱洲(疑似成环规避/orphan fill);
+    - baseline 消融:baseline_weight=0 两轮 diff=125,默认 w=1 diff=112
+      ——baseline 是减振稳定器,不是驱动(vote_builder.py:226-234 同旨);
+    - 金标区域亦未幸免:6 条金标节点边震荡(嘉荫堂/大明宫/省亲别墅/
+      翠烟桥/芦雪广/芦雪庵,多集中在大观园区域)——红楼 fixture PP 在
+      0.8511↔0.8958、chain 在 0.7447↔0.8085 之间的轮间漂移即此所致
+      (金标子集守卫见下方 test_..._gold_region,当前 xfail 待修复)。
+    """
     import shutil
 
     import aiosqlite
@@ -231,3 +248,66 @@ async def test_rebuild_apply_idempotent_honglou(tmp_path, monkeypatch):
     second = await cycle()
     diff = {k for k in set(first) | set(second) if first.get(k) != second.get(k)}
     assert not diff, f"两轮 rebuild+apply 非幂等,{len(diff)} 边震荡: {sorted(diff)[:10]}"
+
+
+@pytest.mark.xfail(
+    strict=False,
+    reason="金标区域同样震荡(2026-09-22 实测 6 条:嘉荫堂/大明宫/"
+           "省亲别墅/翠烟桥/芦雪广/芦雪庵,大观园区域为主)——机制同整表"
+           " xfail(Edmonds base 敏感 + MWA 全局重组),修复后此守卫应转绿",
+)
+@pytest.mark.skipif(not _LIVE_DB.exists(), reason="需要真实库副本")
+@pytest.mark.asyncio
+async def test_rebuild_apply_idempotent_honglou_gold_region(
+        tmp_path, monkeypatch):
+    """金标节点子集幂等守卫:两轮 rebuild+apply,fixture 金标节点的
+    parents 逐边 diff 必须 = 0。
+
+    2026-09-22 首测即红:6 条金标节点边震荡(嘉荫堂/大明宫/省亲别墅/
+    翠烟桥/芦雪广/芦雪庵),大观园区域为主。此前"震荡全在非金标区域"
+    的推断(由各轮 fixture 指标稳定得出)不成立——指标稳定只证明同输入
+    确定性,跨 ws 起点的边级漂移早以 fixture PP 0.8511↔0.8958 轮间
+    漂移的形式存在。此测试作为修复后的转绿守卫保留(xfail)。
+    """
+    import shutil
+
+    import aiosqlite
+
+    scratch = tmp_path / "data.db"
+    shutil.copy(_LIVE_DB, scratch)
+    monkeypatch.setenv("AI_READER_DATA_DIR", str(tmp_path))
+
+    import importlib
+
+    import src.infra.config as cfg
+    importlib.reload(cfg)
+    import src.db.sqlite_db as sdb
+    importlib.reload(sdb)
+    from src.services.geo_skills import orchestrator as orch_mod
+    importlib.reload(orch_mod)
+
+    nid = "c384901a-8b71-437a-af35-b5ec1c56c696"
+    fixture = json.loads(
+        (Path(__file__).parent / "fixtures"
+         / "golden_standard_dream_of_red_chamber.json").read_text(
+            encoding="utf-8"))
+    gold_names = {loc["name"] for loc in fixture["locations"]}
+
+    async def cycle() -> dict:
+        orch = orch_mod.build_default_orchestrator(nid, novel_title="红楼梦")
+        async for _ in orch.run(fresh=True):
+            pass
+        await orch.apply_to_world_structure()
+        async with aiosqlite.connect(scratch) as conn:
+            row = await conn.execute(
+                "SELECT structure_json FROM world_structures WHERE novel_id=?",
+                (nid,))
+            ws = json.loads((await row.fetchone())[0])
+        return ws.get("location_parents", {})
+
+    first = await cycle()
+    second = await cycle()
+    diff = {n for n in gold_names if first.get(n) != second.get(n)}
+    assert not diff, (
+        f"金标区域两轮非幂等,{len(diff)} 边震荡(严重性升级): "
+        f"{sorted(diff)[:10]}")
