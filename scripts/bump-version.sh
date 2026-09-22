@@ -26,9 +26,9 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
   echo "❌ 版本号格式错误: $VERSION"
-  echo "   要求格式: X.Y.Z (不带 v 前缀)"
+  echo "   要求格式: X.Y.Z 或 X.Y.Z-beta.N (不带 v 前缀)"
   exit 1
 fi
 
