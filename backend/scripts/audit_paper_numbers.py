@@ -1,9 +1,11 @@
 """Audit main.tex numbers against the underlying JSON ground truth.
 
 Every assertion in the paper that references a concrete number should be
-derivable from `paper/evaluation/v071/*.json` (or `baselines/*/`). This
-auditor parses main.tex, finds the claim, computes the expected value from
-source, and flags mismatches.
+derivable from `paper/evaluation/v071/*.json` (or `baselines/*/`) — frozen
+v0.71 provenance — or from `paper/version-refresh-trialrun-2026-09-23.json`
+(refreshed pure-start post-fix v0.78 runs). This auditor parses main.tex,
+finds the claim, computes the expected value from source, and flags
+mismatches.
 
 Usage:
     cd backend && uv run python scripts/audit_paper_numbers.py
@@ -23,6 +25,7 @@ PAPER_ROOT = Path("/Users/leonfeng/Baiduyun/AISoul/ai-reader-internal/paper")
 TEX_PATH = PAPER_ROOT / "latex" / "main.tex"
 EVAL_ROOT = PAPER_ROOT / "evaluation" / "v071"
 BASELINES = EVAL_ROOT / "baselines"
+TRIALRUN_PATH = PAPER_ROOT / "version-refresh-trialrun-2026-09-23.json"
 
 
 # =============================================================================
@@ -56,6 +59,11 @@ def fair_baseline() -> dict:
     return load_json(EVAL_ROOT / "ablation-voting-baseline-fair.json") or {}
 
 
+def trialrun() -> dict:
+    """v0.78 refresh source (pure-start post-fix runs), 2026-09-23."""
+    return load_json(TRIALRUN_PATH) or {}
+
+
 def cot_result(slug: str) -> dict:
     return load_json(BASELINES / "single_shot_cot" / f"{slug}.json") or {}
 
@@ -80,207 +88,269 @@ class Claim:
 def build_claims() -> list[Claim]:
     b = benchmarks()
     ab = ablation_by_stage()
-    fb = fair_baseline()
+    tr = trialrun()
 
-    # Per-novel Overall scores from Table 2
-    xy_overall = b.get("xiyouji", {}).get("gold_based", {}).get("overall")
-    hl_overall = b.get("honglou", {}).get("gold_based", {}).get("overall")
-    sh_overall = b.get("shuihu", {}).get("gold_based", {}).get("overall")
-    sg_overall = b.get("sanguo", {}).get("gold_based", {}).get("overall")
-    fs_overall = b.get("fengshen", {}).get("gold_based", {}).get("overall")
+    # ── v0.78 refresh source: pure-start post-fix runs (2026-09-23) ──
+    ps = tr.get("pure_start_postfix_run_pass1", {})
+    t5 = tr.get("pure_start_postfix_table5", {})
+    fc = tr.get("fair_confirm_postfix_pure_start", {})
+    fc_book = fc.get("per_book", {})
+    fc_macro = fc.get("macro", {})
 
-    # 5-novel average Overall
+    def ps_overall(slug: str) -> float | None:
+        return ps.get(slug, {}).get("naive_full", {}).get("overall")
+
+    def ps_errors(slug: str) -> int | None:
+        return ps.get(slug, {}).get("naive_full", {}).get("error_count")
+
+    def fc_field(slug: str, pipe: str) -> float | None:
+        v = fc_book.get(slug, {}).get(pipe)
+        return float(v) if v is not None else None
+
+    slugs = ("xiyouji", "honglou", "shuihu", "sanguo", "fengshen")
+
+    # Per-novel Overall scores (tab:main) — refreshed pure-start post-fix
+    xy_overall = ps_overall("xiyouji")
+    hl_overall = ps_overall("honglou")
+    sh_overall = ps_overall("shuihu")
+    sg_overall = ps_overall("sanguo")
+    fs_overall = ps_overall("fengshen")
     overalls = [v for v in (xy_overall, hl_overall, sh_overall, sg_overall, fs_overall) if v is not None]
     avg_overall = sum(overalls) / len(overalls) if overalls else None
 
-    # Total gold nodes
+    # Total gold nodes (frozen: LLM extractions unchanged by the refresh)
     total_gold = sum(
         b.get(s, {}).get("gold_based", {}).get("total_nodes", 0)
-        for s in ("xiyouji", "honglou", "shuihu", "sanguo", "fengshen")
+        for s in slugs
     )
+    total_errors = sum(v for v in (ps_errors(s) for s in slugs) if v is not None)
 
-    # Fair baseline averages
-    fb_full_avg = fb.get("_summary", {}).get("avg_full_overall")
-    fb_voting_avg = fb.get("_summary", {}).get("avg_voting_overall")
-    # Fallback: compute from per-novel
-    if fb_full_avg is None and fb:
-        full_vals = [
-            fb[s].get("fair_intersection", {}).get("full", {}).get("overall")
-            for s in fb if isinstance(fb.get(s), dict) and "fair_intersection" in fb.get(s, {})
-        ]
-        vot_vals = [
-            fb[s].get("fair_intersection", {}).get("voting", {}).get("overall")
-            for s in fb if isinstance(fb.get(s), dict) and "fair_intersection" in fb.get(s, {})
-        ]
-        full_vals = [v for v in full_vals if v is not None]
-        vot_vals = [v for v in vot_vals if v is not None]
-        if full_vals:
-            fb_full_avg = sum(full_vals) / len(full_vals)
-        if vot_vals:
-            fb_voting_avg = sum(vot_vals) / len(vot_vals)
+    # Fair baseline (tab:fair) — refreshed
+    fb_full_avg = fc_macro.get("full")
+    fb_voting_avg = fc_macro.get("voting")
 
-    # Structural: xiyouji Edmonds+Prior+Suffix (Full) max_ch
-    xy_full_mc = ab.get("xiyouji", {}).get("suffix", {}).get("max_ch")
+    # Frozen v0.71 structural intermediates (tab:ablation dagger rows)
     xy_raw_mc = ab.get("xiyouji", {}).get("import", {}).get("max_ch")
     xy_edmonds_mc = ab.get("xiyouji", {}).get("edmonds", {}).get("max_ch")
+    xy_prior_mc = ab.get("xiyouji", {}).get("prior", {}).get("max_ch")
 
-    # 5-novel avg full max_ch
-    full_mcs = [ab.get(s, {}).get("suffix", {}).get("max_ch") for s in ab]
+    # Refreshed structural headline (tab:ablation, pure-start post-fix)
+    xy_full_mc = t5.get("xiyouji", {}).get("full_max_ch")
+    xy_voting_mc = t5.get("xiyouji", {}).get("voting_merged")
+    full_mcs = [t5.get(s, {}).get("full_max_ch") for s in slugs]
     full_mcs = [v for v in full_mcs if v is not None]
     avg_full_mc = sum(full_mcs) / len(full_mcs) if full_mcs else None
+    voting_mcs = [t5.get(s, {}).get("voting_merged") for s in slugs]
+    voting_mcs = [v for v in voting_mcs if v is not None]
+    avg_voting_mc = sum(voting_mcs) / len(voting_mcs) if voting_mcs else None
+    depths = [t5.get(s, {}).get("depth") for s in slugs]
+    depths = [v for v in depths if v is not None]
+    avg_full_depth = sum(depths) / len(depths) if depths else None
 
-    # CoT baseline numbers
+    # CoT baseline numbers (frozen)
     xy_cot = cot_result("xiyouji")
     hl_cot = cot_result("honglou")
     xy_cot_mc = xy_cot.get("max_children")
     hl_cot_mc = hl_cot.get("max_children")
 
-    # Zero-shot baselines
+    # Zero-shot baselines (frozen)
     xy_zs = zero_shot_result("xiyouji")
     hl_zs = zero_shot_result("honglou")
     xy_zs_roots = xy_zs.get("root_count") if xy_zs else None
     hl_zs_roots = hl_zs.get("root_count") if hl_zs else None
 
-    # Fair-baseline individual rows (Table 3)
-    def fb_field(slug: str, pipe: str) -> float | None:
-        try:
-            return fb[slug]["fair_intersection"][pipe]["overall"]
-        except (KeyError, TypeError):
-            return None
-
     claims: list[Claim] = []
 
     # --- Abstract + Intro + Contributions ---
-    if avg_overall is not None:
+    if xy_voting_mc is not None and xy_full_mc is not None:
         claims.append(Claim(
-            name="Voting greedy max_ch (Journey) — abstract/intro/contributions",
-            tex_pattern=r"from 279 to 63",
-            expected="from 279 to 63",
-            note="should match Table 4 Voting max_ch = 279 and Full max_ch = 63",
+            name="Voting->Full max_ch (Journey) — abstract/intro/contributions",
+            tex_pattern=r"from 203 to 57",
+            expected="from 203 to 57",
+            note=f"tab:ablation pure-start post-fix: voting {xy_voting_mc}, full {xy_full_mc}",
         ))
     claims.append(Claim(
-        name="Total gold nodes (abstract + Table 1)",
+        name="Total gold nodes (abstract + tab:data)",
         tex_pattern=r"4\{,\}941",
         expected="4{,}941",
         note=f"sum of per-novel total_nodes across 5 benchmarks = {total_gold}",
     ))
     claims.append(Claim(
-        name="77% reduction phrase (abstract)",
-        tex_pattern=r"77\\% reduction",
-        expected="77%",
-        note="= 1 - 63/279 ≈ 77.4% → 77%",
+        name="72% reduction phrase (abstract)",
+        tex_pattern=r"72\\% reduction",
+        expected="72%",
+        note="= 1 - 57/203 ≈ 71.9% → 72%",
     ))
 
-    # --- Table 2 per-novel Overalls ---
+    # --- tab:main per-novel Overalls (refreshed) ---
     if xy_overall is not None:
         claims.append(Claim(
-            name="Journey to the West Overall (Table 2)",
+            name="Journey to the West Overall (tab:main)",
             tex_pattern=r"Journey to the West & \\textbf\{(\d+\.\d+)\}",
             expected=xy_overall,
-            tolerance=0.001,
+            tolerance=0.0005,
         ))
     if hl_overall is not None:
         claims.append(Claim(
-            name="Dream of the Red Chamber Overall (Table 2)",
+            name="Dream of the Red Chamber Overall (tab:main)",
             tex_pattern=r"Dream of the Red Chamber & \\textbf\{(\d+\.\d+)\}",
             expected=hl_overall,
-            tolerance=0.001,
+            tolerance=0.0005,
         ))
     if fs_overall is not None:
         claims.append(Claim(
-            name="Investiture of the Gods Overall (Table 2)",
+            name="Investiture of the Gods Overall (tab:main)",
             tex_pattern=r"Investiture of the Gods & \\textbf\{(\d+\.\d+)\}",
             expected=fs_overall,
-            tolerance=0.001,
+            tolerance=0.0005,
         ))
     if sh_overall is not None:
         claims.append(Claim(
-            name="Water Margin Overall (Table 2)",
+            name="Water Margin Overall (tab:main)",
             tex_pattern=r"Water Margin & (\d+\.\d+) &",
             expected=sh_overall,
-            tolerance=0.001,
+            tolerance=0.0005,
         ))
     if sg_overall is not None:
         claims.append(Claim(
-            name="Three Kingdoms Overall (Table 2)",
+            name="Three Kingdoms Overall (tab:main)",
             tex_pattern=r"Three Kingdoms & (\d+\.\d+) &",
             expected=sg_overall,
-            tolerance=0.001,
+            tolerance=0.0005,
         ))
     if avg_overall is not None:
         claims.append(Claim(
-            name="5-novel average Overall (Table 2)",
+            name="5-novel average Overall (tab:main)",
             tex_pattern=r"5-novel average\} & \\textbf\{(\d+\.\d+)\}",
             expected=avg_overall,
-            tolerance=0.001,
+            tolerance=0.0005,
         ))
 
-    # --- Table 3 Fair baseline --- (scoped to the exact 3-col row format)
-    if fb_field("xiyouji", "full") is not None:
+    # --- tab:main error counts (refreshed) ---
+    for slug, novel, denom in (
+        ("xiyouji", "Journey to the West", 1205),
+        ("honglou", "Dream of the Red Chamber", 1000),
+        ("fengshen", "Investiture of the Gods", 233),
+        ("shuihu", "Water Margin", 1383),
+        ("sanguo", "Three Kingdoms", 1120),
+    ):
+        e = ps_errors(slug)
+        if e is not None:
+            claims.append(Claim(
+                name=f"{novel} error count (tab:main)",
+                tex_pattern=rf"{novel} & .*?(\d+)/{denom} \\\\",
+                expected=e,
+                note="pure-start post-fix naive_full.error_count",
+            ))
+    if total_errors:
         claims.append(Claim(
-            name="Journey Full fair-baseline Overall (Table 3)",
-            tex_pattern=r"Journey to the West & \\textbf\{(\d+\.\d+)\} & 0\.9672",
-            expected=fb_field("xiyouji", "full"),
-            tolerance=0.0005,
+            name="Total error count (tab:main bottom row)",
+            tex_pattern=r"\\textbf\{(\d+)/4941\}",
+            expected=total_errors,
         ))
+
+    # --- tab:fair (refreshed pure-start post-fix) ---
+    fair_rows = (
+        ("xiyouji", r"Journey to the West & (\d\.\d+) & \\textbf\{0\.9707\}"),
+        ("honglou", r"Dream of the Red Chamber & \\textbf\{(\d\.\d+)\} & 0\.9705"),
+        ("shuihu", r"Water Margin & \\textbf\{(\d\.\d+)\} & 0\.8346"),
+        ("sanguo", r"Three Kingdoms & \\textbf\{(\d\.\d+)\} & 0\.8313"),
+        ("fengshen", r"Investiture of the Gods & \\textbf\{(\d\.\d+)\} & 0\.9237"),
+    )
+    for slug, pat in fair_rows:
+        v = fc_field(slug, "full")
+        if v is not None:
+            claims.append(Claim(
+                name=f"{slug} Full fair-baseline Overall (tab:fair)",
+                tex_pattern=pat,
+                expected=v,
+                tolerance=0.0005,
+            ))
     if fb_full_avg is not None:
         claims.append(Claim(
-            name="Average Full fair-baseline (Table 3 + abstract + contribution 3)",
-            tex_pattern=r"0\.9156",
+            name="Average Full fair-baseline (tab:fair + abstract + contribution 3)",
+            tex_pattern=r"0\.9101",
             expected=round(fb_full_avg, 4),
             tolerance=0.0005,
-            note="abstract and contributions both mention 0.9156",
+            note="abstract and contributions both mention 0.9101",
         ))
     if fb_voting_avg is not None:
         claims.append(Claim(
-            name="Average Voting fair-baseline (Table 3 + abstract)",
-            tex_pattern=r"0\.9111",
+            name="Average Voting fair-baseline (tab:fair + abstract)",
+            tex_pattern=r"0\.9062",
             expected=round(fb_voting_avg, 4),
             tolerance=0.0005,
         ))
 
-    # --- Table 4 Structural (Journey focus) ---
+    # --- tab:ablation structural (refreshed headline + frozen daggers) ---
     if xy_raw_mc is not None:
         claims.append(Claim(
-            name="Raw chapter LLM max_ch Journey (Table 4)",
-            tex_pattern=r"Raw chapter LLM & [\d.]+ & (\d+) & \\xmark",
+            name="Raw chapter LLM max_ch Journey (tab:ablation, frozen v0.71)",
+            tex_pattern=r"Raw chapter LLM & 2\.07\$\^\\dagger\$ & (\d+)\$\^\\dagger\$ & \\xmark",
             expected=xy_raw_mc,
+        ))
+    if xy_voting_mc is not None:
+        claims.append(Claim(
+            name="Voting greedy max_ch Journey (tab:ablation, refreshed)",
+            tex_pattern=r"Voting \(greedy\) & 4\.09\$\^\\dagger\$ & \\textbf\{(\d+)\}",
+            expected=xy_voting_mc,
         ))
     if xy_edmonds_mc is not None:
         claims.append(Claim(
-            name="Edmonds (no priors) max_ch Journey (Table 4)",
-            tex_pattern=r"Edmonds \(no priors\) & [\d.]+ & (\d+) & \\cmark",
+            name="Edmonds (no priors) max_ch Journey (tab:ablation, frozen v0.71)",
+            tex_pattern=r"Edmonds \(no priors\) & 2\.91\$\^\\dagger\$ & (\d+)\$\^\\dagger\$",
             expected=xy_edmonds_mc,
+        ))
+    if xy_prior_mc is not None:
+        claims.append(Claim(
+            name="Edmonds + Priors max_ch Journey (tab:ablation, frozen v0.71)",
+            tex_pattern=r"Edmonds \+ Priors & 2\.91\$\^\\dagger\$ & (\d+)\$\^\\dagger\$",
+            expected=xy_prior_mc,
         ))
     if xy_full_mc is not None:
         claims.append(Claim(
-            name="Full pipeline max_ch Journey (Table 4, abstract, intro, contributions, §3.3)",
+            name="Full pipeline max_ch Journey (tab:ablation, abstract, intro, §3.3)",
             tex_pattern=r"\\textbf\{Full \(\+ SuffixNormalizer\)\} & \\textbf\{[\d.]+\} & \\textbf\{(\d+)\}",
             expected=xy_full_mc,
         ))
+    if avg_voting_mc is not None:
+        claims.append(Claim(
+            name="5-novel avg Voting max_ch (tab:ablation bottom)",
+            tex_pattern=r"5-novel avg, Voting\} & \\textit\{--\} & \\textit\{(\d+)\}",
+            expected=round(avg_voting_mc),
+            note=f"mean voting_merged = {avg_voting_mc}",
+        ))
     if avg_full_mc is not None:
         claims.append(Claim(
-            name="5-novel avg Full max_ch (Table 4 bottom)",
+            name="5-novel avg Full max_ch (tab:ablation bottom)",
             tex_pattern=r"5-novel avg, Full\} & \\textit\{[\d.]+\} & \\textit\{(\d+)\}",
             expected=round(avg_full_mc),
+            note=f"mean full_max_ch = {avg_full_mc}",
+        ))
+    if avg_full_depth is not None:
+        claims.append(Claim(
+            name="5-novel avg Full depth (tab:ablation bottom)",
+            tex_pattern=r"5-novel avg, Full\} & \\textit\{([\d.]+)\}",
+            expected=avg_full_depth,
+            tolerance=0.005,
         ))
 
-    # --- Table 6 LLM baselines ---
+    # --- tab:llm-baselines (frozen) ---
     if xy_cot_mc is not None:
         claims.append(Claim(
-            name="LLM-CoT Journey max_ch (Table 6)",
+            name="LLM-CoT Journey max_ch (tab:llm-baselines)",
             tex_pattern=r"LLM-CoT one-shot & 74 &",
             expected=xy_cot_mc,
         ))
     if hl_cot_mc is not None:
         claims.append(Claim(
-            name="LLM-CoT Red Chamber max_ch (Table 6 + §3.5)",
+            name="LLM-CoT Red Chamber max_ch (tab:llm-baselines + §3.5)",
             tex_pattern=r"LLM-CoT one-shot & 143 &",
             expected=hl_cot_mc,
         ))
     if xy_zs_roots is not None:
         claims.append(Claim(
-            name="Zero-shot Journey root_count (Table 6 + §3.5)",
+            name="Zero-shot Journey root_count (tab:llm-baselines + §3.5)",
             tex_pattern=r"101 disjoint roots on \\textit\{Journey\}",
             expected=xy_zs_roots,
         ))
