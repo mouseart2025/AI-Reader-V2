@@ -294,6 +294,55 @@ async def run_voting_capture(novel_id: str, key: str, title: str) -> dict:
     }
 
 
+async def run_arm(novel_id: str, key: str, title: str, arm: str) -> dict:
+    """补测 tab:ablation 中间行(纯起点口径):voting / edmonds-no-prior /
+    edmonds-prior 短链,取末阶段快照的 HierarchyMetrics。"""
+    from src.db.sqlite_db import get_connection
+    from src.services.geo_skills.edmonds_resolver import EdmondsResolver
+    from src.services.geo_skills.knowledge_prior import KnowledgePrior
+    from src.services.geo_skills.orchestrator import GeoOrchestrator
+    from src.services.geo_skills.snapshot import HierarchyMetrics
+    from src.services.geo_skills.snapshot_store import SnapshotStore
+    from src.services.geo_skills.tier_classifier import TierClassifier
+    from src.services.geo_skills.vote_builder import VoteBuilder
+    from src.services.geo_skills.vote_resolver import VoteResolver
+
+    conn = await get_connection()
+    try:
+        await conn.execute(
+            "DELETE FROM hierarchy_snapshots WHERE novel_id=?", (novel_id,))
+        await conn.commit()
+    finally:
+        await conn.close()
+
+    orch = GeoOrchestrator(novel_id, novel_title=title)
+    orch.add_skill("tier", TierClassifier(novel_id))
+    orch.add_skill("votes", VoteBuilder(novel_id, novel_title=title))
+    if arm == "voting":
+        orch.add_skill("voting", VoteResolver())
+    elif arm == "edmonds_no_prior":
+        orch.add_skill("edmonds", EdmondsResolver())
+    elif arm == "edmonds_prior":
+        orch.add_skill("prior", KnowledgePrior(novel_title=title))
+        orch.add_skill("edmonds", EdmondsResolver())
+    else:
+        raise ValueError(arm)
+    async for _ in orch.run(fresh=True):
+        pass
+
+    store = SnapshotStore()
+    snap = await store.load_latest(novel_id)
+    assert snap is not None, f"no snapshot for {key}/{arm}"
+    mv = HierarchyMetrics.compute(snap)
+    return {
+        "depth": mv.avg_depth,
+        "max_ch": mv.max_children,
+        "max_ch_node": mv.max_children_node,
+        "roots": mv.root_count,
+        "nodes": mv.total_locations,
+    }
+
+
 def score_gold(key: str, nodes: set, tiers: dict, parents: dict,
                gold: dict, gold_raw: dict) -> dict:
     from src.services.hierarchy_validator import compute_metrics_from_gold
@@ -370,6 +419,9 @@ async def main() -> None:
     ap.add_argument("--refresh", action="store_true", help="recopy base DB into scratch")
     ap.add_argument("--pure-start", action="store_true",
                     help="clear ws/snapshots of the 5 paper novels after copy")
+    ap.add_argument("--arms", action="store_true",
+                    help="measure tab:ablation intermediate arms "
+                         "(voting / edmonds±prior) on the current scratch")
     args = ap.parse_args()
 
     out: dict = {"base_db": str(_REAL_DB), "scratch": str(_SCRATCH_DB)}
@@ -416,6 +468,18 @@ async def main() -> None:
             passes[1][key].pop("ws_parents", None)
         out["run_pass1"] = passes[0]
         out["determinism"] = det
+
+    if args.arms:
+        arms: dict = {}
+        for novel_id, key, title in NOVELS:
+            arms[key] = {}
+            for arm in ("voting", "edmonds_no_prior", "edmonds_prior"):
+                print(f"[vr]   arms {title} {arm} ...", file=sys.stderr, flush=True)
+                arms[key][arm] = await run_arm(novel_id, key, title, arm)
+            print(f"  {key}: "
+                  + " ".join(f"{a}={arms[key][a]['max_ch']}" for a in arms[key]),
+                  file=sys.stderr)
+        out["arms"] = arms
 
     OUT_JSON.write_text(json.dumps(out, ensure_ascii=False, indent=2),
                         encoding="utf-8")
