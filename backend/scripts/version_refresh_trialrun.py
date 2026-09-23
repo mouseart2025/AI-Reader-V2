@@ -50,10 +50,39 @@ _REAL_HOME = Path.home() / ".ai-reader-v2"
 if _SCRATCH_DIR.resolve() == _REAL_HOME.resolve():
     sys.exit("FATAL: VR_DATA_DIR must differ from the real data dir.")
 
-if "--refresh" in sys.argv or not _SCRATCH_DB.exists():
+_PURE_START = "--pure-start" in sys.argv
+_PURE_NOVEL_IDS = (
+    "3b2ef56c-1a55-466a-a7d1-34272446a198", "c384901a-8b71-437a-af35-b5ec1c56c696",
+    "4ac43c73-f67b-427c-8d6d-e766a1423977", "b1287ef6-c215-4bd2-842c-cb04aec5eb70",
+    "53013970-effd-4f50-aef7-728ca13de69a",
+)
+
+
+def _reset_scratch() -> None:
+    """复制基座到 scratch;--pure-start 时清空 5 本的 world_structures 与
+    hierarchy_snapshots(chapter_facts 等抽取输入不动)= 钉死的纯抽取起点。"""
+    import sqlite3 as _sq
+
     _SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
     print(f"[vr] copying frozen base DB → {_SCRATCH_DB} ...", flush=True)
     shutil.copy2(_REAL_DB, _SCRATCH_DB)
+    if _PURE_START:
+        conn = _sq.connect(str(_SCRATCH_DB))
+        ph = ",".join("?" * len(_PURE_NOVEL_IDS))
+        n_ws = conn.execute(
+            f"DELETE FROM world_structures WHERE novel_id IN ({ph})",
+            _PURE_NOVEL_IDS).rowcount
+        n_snap = conn.execute(
+            f"DELETE FROM hierarchy_snapshots WHERE novel_id IN ({ph})",
+            _PURE_NOVEL_IDS).rowcount
+        conn.commit()
+        conn.close()
+        print(f"[vr] pure-start: cleared {n_ws} ws rows, {n_snap} snapshots",
+              flush=True)
+
+
+if "--refresh" in sys.argv or _PURE_START or not _SCRATCH_DB.exists():
+    _reset_scratch()
 
 os.environ["AI_READER_DATA_DIR"] = str(_SCRATCH_DIR)
 
@@ -191,6 +220,13 @@ async def run_full_chain(novel_id: str, key: str, title: str) -> dict:
             }
     finally:
         await conn.close()
+
+    if _PURE_START:
+        # 纯起点:ws 行已清空,apply 需先补建默认骨架(单 overworld 层)
+        from src.db import world_structure_store as _wss
+        from src.models.world_structure import WorldStructure
+        if await _wss.load(novel_id) is None:
+            await _wss.save(novel_id, WorldStructure.create_default(novel_id))
 
     apply_res = await orch.apply_to_world_structure()
 
@@ -332,6 +368,8 @@ async def main() -> None:
     ap.add_argument("--step0", action="store_true")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--refresh", action="store_true", help="recopy base DB into scratch")
+    ap.add_argument("--pure-start", action="store_true",
+                    help="clear ws/snapshots of the 5 paper novels after copy")
     args = ap.parse_args()
 
     out: dict = {"base_db": str(_REAL_DB), "scratch": str(_SCRATCH_DB)}
@@ -349,8 +387,8 @@ async def main() -> None:
             # 每遍从统一基座重新复制:隔离 run-to-run 确定性
             # (apply 会改写 scratch ws,baseline 注入使下一遍起点漂移——
             # 机制③非幂等,见 version-refresh 报告;此处测的是同起点确定性)
-            print(f"[vr] recopy base DB for pass {pass_no} ...", file=sys.stderr)
-            shutil.copy2(_REAL_DB, _SCRATCH_DB)
+            print(f"[vr] reset scratch for pass {pass_no} ...", file=sys.stderr)
+            _reset_scratch()
             print(f"[vr] full run pass {pass_no} ...", file=sys.stderr)
             books = {}
             for novel_id, key, title in NOVELS:
