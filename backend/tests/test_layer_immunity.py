@@ -308,3 +308,46 @@ async def test_rebuild_apply_idempotent_honglou_gold_region(
     assert not diff, (
         f"金标区域两轮非幂等,{len(diff)} 边震荡(严重性升级): "
         f"{sorted(diff)[:10]}")
+
+
+def test_uber_root_fallback_parent_hub():
+    """纯起点兜底:tier=world 缺失且 天下 不入 tiers 时,从 parents 值集
+    识别枢纽 uber_root,Phase 0 收口 parent-only 散根,保持单根保证
+    (三国/封神 2026-09-23 纯起点实测 roots=5/4 → 1)。"""
+    ws = _ws(
+        parents={
+            "官渡": "天下", "赤壁": "天下",      # 天下:无 tier、不在 tiers 键
+            "某县": "武陵城",                      # 武陵城:parent-only 散根
+        },
+        # 真实失败形态:散根 tier=None 不入 tiers;tiers 键全部有 parent,
+        # tier=world 缺失 → 旧双兜底皆落空
+        tiers={"官渡": "site", "赤壁": "site", "某县": "site"},
+    )
+    GeoOrchestrator._inject_layer_roots(ws, "三国演义")
+    p = ws.location_parents
+    # uber_root 识别为 天下(子节点最多),散根被收口
+    # (Phase 0 挂 天下 后被图层分组改指 主世界,链终端仍是 天下)
+    assert p["武陵城"] in ("天下", "主世界")
+    # 全图单根:每个节点可沿父链到 天下
+    def reaches_root(n):
+        cur, seen = n, set()
+        while cur in p and cur not in seen:
+            seen.add(cur)
+            cur = p[cur]
+        return cur
+    all_nodes = set(p) | set(p.values())
+    roots = {n for n in all_nodes if n not in p}
+    assert roots == {"天下"}
+    for n in all_nodes - {"天下"}:
+        assert reaches_root(n) == "天下"
+
+
+def test_uber_root_tier_world_path_unchanged():
+    """回归:tier=world 存在时走原路径,不触发新兜底(行为不变)。"""
+    ws = _ws(
+        parents={"京畿": "天下"},
+        tiers={"天下": "world", "京畿": "region"},
+    )
+    GeoOrchestrator._inject_layer_roots(ws, "水浒传")
+    assert ws.location_parents["京畿"] == "天下"   # 佐证边保持(免疫)
+    assert "天下" not in ws.virtual_locations       # 水浒天下=真实节点

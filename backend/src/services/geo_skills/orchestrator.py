@@ -405,6 +405,24 @@ class GeoOrchestrator:
                     uber_root = name
                     break
         if not uber_root:
+            # 纯起点兜底(2026-09-23):空 ws 起点(新小说首建)下「天下」
+            # 可能既无 tier=world 标记也不入 tiers 键,上述两条均落空导致
+            # 提前返回、Phase 0 收口与图层分组整体不执行、单根保证失效
+            # (三国/封神实测 roots=5/4,残留 parent-only 散根)。改看
+            # parents 值集:作为父节点出现但自身无 parent 的枢纽即
+            # uber_root,取子节点最多者,并列按名排序保确定性。
+            child_count = Counter(p for p in parents.values() if p)
+            candidates = sorted(
+                {p for p in parents.values() if p} - set(parents.keys()),
+                key=lambda n: (-child_count[n], n),
+            )
+            if candidates:
+                uber_root = candidates[0]
+                logger.info(
+                    "uber_root fallback via parent-hub: %s (%d children)",
+                    uber_root, child_count[uber_root],
+                )
+        if not uber_root:
             return
         # 工程根虚拟化:水浒/三国/封神的「天下」是文本真实概念(真实节点),
         # 其余小说的 uber_root 只是工程容器(王贺 10.2,2026-09-19)
