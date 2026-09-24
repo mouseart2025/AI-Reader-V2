@@ -1308,7 +1308,9 @@ class FactValidator:
                 )
                 continue
             # Rule 2: alias too long — descriptive phrases, not names
-            if len(alias) > 6:
+            # 豁免(2026-09-24,翻译文学):含间隔号"·"的音译名(如斯捷潘·
+            # 阿尔卡季奇)长度天然 >6,不是描述性短语。
+            if len(alias) > 6 and "·" not in alias:
                 logger.debug(
                     "Alias too long (%d): '%s' for %s",
                     len(alias), alias, owner_name,

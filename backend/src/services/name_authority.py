@@ -849,7 +849,10 @@ def is_generic_person(name: str, genre: str | None = None) -> str | None:
 
     # P9 (v0.71.1): Descriptive long names (n >= 10) — 通常是 LLM 把描述当角色名
     # 例:"飞东洋游普世感恩行孝黄毛红嘴白鹦哥" (15字)
-    if len(name) >= 10:
+    # 豁免(2026-09-24,翻译文学):含间隔号"·"的长名是音译全名
+    # (斯捷潘·阿尔卡季奇·奥布隆斯基 15字、安娜·阿尔卡季耶夫娜 10字),
+    # 不是中文描述性短语——否则译本全名被系统性误杀,人物关系整章归零。
+    if len(name) >= 10 and "·" not in name:
         return f"descriptive long name ({len(name)} chars)"
 
     # ── Merged authoritative sets (v0.72 Phase 1, Story 1.1) ──
