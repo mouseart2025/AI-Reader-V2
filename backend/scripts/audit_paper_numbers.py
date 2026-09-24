@@ -10,22 +10,31 @@ mismatches.
 Usage:
     cd backend && uv run python scripts/audit_paper_numbers.py
 
+Path overrides (anonymous-mirror / CI use; defaults keep internal layout):
+    ARBOR_TEX_PATH=/path/main.tex \
+    ARBOR_EVAL_ROOT=/path/evaluation/v071 \
+    ARBOR_TRIALRUN_PATH=/path/version-refresh-trialrun-2026-09-23.json \
+    uv run python scripts/audit_paper_numbers.py
+
 Exit 0 if all checks pass, 1 otherwise.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-PAPER_ROOT = Path("/Users/leonfeng/Baiduyun/AISoul/ai-reader-internal/paper")
-TEX_PATH = PAPER_ROOT / "latex" / "main.tex"
-EVAL_ROOT = PAPER_ROOT / "evaluation" / "v071"
+_PAPER_ROOT = Path(os.environ.get(
+    "ARBOR_PAPER_ROOT", "/Users/leonfeng/Baiduyun/AISoul/ai-reader-internal/paper"))
+TEX_PATH = Path(os.environ.get("ARBOR_TEX_PATH", _PAPER_ROOT / "latex" / "main.tex"))
+EVAL_ROOT = Path(os.environ.get("ARBOR_EVAL_ROOT", _PAPER_ROOT / "evaluation" / "v071"))
 BASELINES = EVAL_ROOT / "baselines"
-TRIALRUN_PATH = PAPER_ROOT / "version-refresh-trialrun-2026-09-23.json"
+TRIALRUN_PATH = Path(os.environ.get(
+    "ARBOR_TRIALRUN_PATH", _PAPER_ROOT / "version-refresh-trialrun-2026-09-23.json"))
 
 
 # =============================================================================
