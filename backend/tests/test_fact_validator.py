@@ -526,3 +526,39 @@ class TestVehicleWordsCleanup:
         for name in ["马车", "轿子", "出租车", "飞船", "翠幄青紬车"]:
             assert name in _VEHICLE_WORDS
             assert _is_generic_location(name) == "vehicle/object"
+
+
+class TestTranslatedLiteratureNames:
+    """翻译文学音译名豁免(2026-09-24):含间隔号"·"的长名不是描述性短语。"""
+
+    def test_interpunct_long_person_names_survive(self):
+        from src.services.name_authority import is_generic_person
+        assert is_generic_person("斯捷潘·阿尔卡季奇·奥布隆斯基") is None
+        assert is_generic_person("安娜·阿尔卡季耶夫娜") is None
+        assert is_generic_person("达里娅·亚历山德罗夫娜") is None
+        assert is_generic_person("马特廖娜·菲利蒙诺夫娜") is None
+
+    def test_chinese_descriptive_long_names_still_dropped(self):
+        from src.services.name_authority import is_generic_person
+        assert is_generic_person("飞东洋游普世感恩行孝黄毛红嘴白鹦哥") is not None
+        assert is_generic_person("村东头第三家院子里住的老人") is not None
+
+    def test_interpunct_alias_survives_length_rule(self):
+        from src.extraction.fact_validator import FactValidator
+        from src.models.chapter_fact import ChapterFact
+        fact = ChapterFact.model_validate({
+            "chapter_id": 1, "novel_id": "t",
+            "characters": [
+                {"name": "斯捷潘·阿尔卡季奇·奥布隆斯基",
+                 "new_aliases": ["斯季瓦", "斯捷潘·阿尔卡季奇"]},
+                {"name": "多莉", "new_aliases": ["村东头第三家院子里住的老人"]},
+            ],
+            "relationships": [],
+            "locations": [],
+            "events": [],
+        })
+        out = FactValidator(genre="realistic").validate(fact)
+        aliases = {c.name: c.new_aliases for c in out.characters}
+        assert "斯季瓦" in aliases["斯捷潘·阿尔卡季奇·奥布隆斯基"]
+        assert "斯捷潘·阿尔卡季奇" in aliases["斯捷潘·阿尔卡季奇·奥布隆斯基"]
+        assert aliases["多莉"] == []  # 中文描述性别名仍被丢弃
