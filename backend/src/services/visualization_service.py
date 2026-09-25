@@ -37,7 +37,10 @@ from src.services.map_layout_service import (
     SPATIAL_SCALE_CANVAS,
     ConstraintSolver,
     _layout_regions,
+    _TERRAIN_VERSION,
     compute_chapter_hash,
+    terrain_path_for,
+    terrain_url_for,
     compute_layered_layout,
     generate_landmasses,
     generate_rivers,
@@ -1391,13 +1394,58 @@ async def get_map_data(
         logger.info("Invalidating stale overworld cache (geo_type=%s/%s but cached as %s)",
                      ws.geo_type, _effective_geo_type, cached_layer["layout_mode"])
         cached_layer = None
+
+    # Compute canvas_size for API response (per-layer scale if available).
+    # Resolved here rather than further down only because the terrain rebake
+    # below needs the layout's own space: `ws` is not mutated on this path
+    # (`geo_type` aside), so hoisting this changes nothing downstream.
+    _ws_scale = ws.spatial_scale if ws else None
+    if ws and layer_id and layer_id != "overworld" and ws.layer_spatial_scales.get(layer_id):
+        _effective_scale = ws.layer_spatial_scales[layer_id]
+    else:
+        _effective_scale = _ws_scale
+    _resp_cw, _resp_ch = SPATIAL_SCALE_CANVAS.get(
+        _effective_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+    ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
+
     satisfaction: dict | None = None  # populated only by constraint solver path
     if cached_layer is not None:
         layout_data = cached_layer["layout"]
         layout_mode = cached_layer["layout_mode"]
-        # Check if terrain.png exists on disk for non-geographic modes
-        terrain_png = Path(DATA_DIR) / "maps" / novel_id / "terrain.png"
-        terrain_url = f"/api/novels/{novel_id}/map/terrain" if (
+        # A baked PNG exists on disk for non-geographic modes. The path is the
+        # versioned one from `terrain_path_for` — the old unversioned check
+        # looked for `terrain.png`, which after a recipe bump is the artifact the
+        # previous recipe produced, so the map advertised a terrain URL that the
+        # route would have 404'd on.
+        terrain_png = terrain_path_for(novel_id)
+        if layout_mode != "geographic" and not terrain_png.is_file():
+            # The layout cache outlives the terrain it produced. A terrain
+            # recipe bump orphans the PNG under the old name while the cached
+            # layout is still perfectly good, so the honest thing is to rebake
+            # the ground from the cached layout instead of making the user pay
+            # for a full re-solve of something they already have. Terrain is a
+            # pure function of (locations, layout), both of which are in hand.
+            logger.info(
+                "Rebaking terrain for %s: cached layout present, no "
+                "terrain.v%s on disk", novel_id, _TERRAIN_VERSION,
+            )
+            try:
+                cached_coords = {
+                    item["name"]: (item["x"], item["y"])
+                    for item in layout_data
+                    if isinstance(item, dict) and "name" in item
+                }
+                if len(cached_coords) >= 3:
+                    await asyncio.to_thread(
+                        generate_terrain, locations, cached_coords, novel_id,
+                        canvas_width=_resp_cw, canvas_height=_resp_ch,
+                    )
+            except Exception:
+                logger.warning(
+                    "Terrain rebake from cached layout failed for %s",
+                    novel_id, exc_info=True,
+                )
+        terrain_url = terrain_url_for(novel_id) if (
             layout_mode != "geographic" and terrain_png.is_file()
         ) else None
         # Restore geo_coords for cached geographic layouts (coords are not in cache)
@@ -1608,15 +1656,22 @@ async def get_map_data(
                     }
                     if len(layer_coords) >= 3:
                         t_path = await asyncio.to_thread(
-                            generate_terrain, locations, layer_coords, novel_id
+                            generate_terrain, locations, layer_coords, novel_id,
+                            # The canvas the client lays this image over. Every
+                            # layer solves in `SPATIAL_SCALE_CANVAS[spatial_scale]`
+                            # (compute_layered_layout), so `_ws_cw/_ws_ch` is the
+                            # layout's own space and the influence points land on
+                            # the raster instead of off its edge.
+                            canvas_width=_ws_cw, canvas_height=_ws_ch,
                         )
-                        terrain_url = f"/api/novels/{novel_id}/map/terrain" if t_path else None
+                        terrain_url = terrain_url_for(novel_id) if t_path else None
             else:
                 # Global solve (backward compatible path)
                 layout_data, layout_mode, terrain_url, satisfaction = await _compute_or_load_layout(
                     novel_id, ch_hash, locations, spatial_constraints,
                     first_chapter_map,
                     location_region_bounds=location_region_bounds,
+                    canvas_width=_ws_cw, canvas_height=_ws_ch,
                 )
 
         # Geo was attempted (effective type realistic/mixed) but the final
@@ -1683,16 +1738,6 @@ async def get_map_data(
         location_conflicts = [c.to_dict() for c in raw_conflicts]
     except Exception:
         logger.warning("Failed to detect location conflicts for map", exc_info=True)
-
-    # Compute canvas_size for API response (per-layer scale if available)
-    _ws_scale = ws.spatial_scale if ws else None
-    if ws and layer_id and layer_id != "overworld" and ws.layer_spatial_scales.get(layer_id):
-        _effective_scale = ws.layer_spatial_scales[layer_id]
-    else:
-        _effective_scale = _ws_scale
-    _resp_cw, _resp_ch = SPATIAL_SCALE_CANVAS.get(
-        _effective_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
-    ) if ws else (CANVAS_WIDTH, CANVAS_HEIGHT)
 
     # Generate landmass contours FIRST (river generation needs land_mask)
     # Note: generate for overworld layer too (layer_id == "overworld" or None)
@@ -2134,10 +2179,18 @@ async def _compute_or_load_layout(
     spatial_constraints: list[dict],
     first_chapter: dict[str, int] | None = None,
     location_region_bounds: dict[str, tuple[float, float, float, float]] | None = None,
+    canvas_width: int = CANVAS_WIDTH,
+    canvas_height: int = CANVAS_HEIGHT,
 ) -> tuple[list[dict], str, str | None, dict | None]:
     """Load cached layout or compute a new one.
 
     Returns (layout_list, layout_mode, terrain_url, satisfaction_or_None).
+
+    `canvas_width` / `canvas_height` are the layout's own coordinate range —
+    `SPATIAL_SCALE_CANVAS[spatial_scale]`, the same value the response reports
+    as `canvas_size` and the client stretches the terrain image over. They are
+    passed on to `generate_terrain`, which needs them to map influence points
+    onto the raster.
     """
     # Try loading from cache
     conn = await get_connection()
@@ -2150,7 +2203,7 @@ async def _compute_or_load_layout(
         if row:
             layout_data = json.loads(row["layout_json"])
             terrain_path = row["terrain_path"]
-            terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
+            terrain_url = terrain_url_for(novel_id) if terrain_path else None
             cached_satisfaction = None
             if row["satisfaction_json"]:
                 with contextlib.suppress(json.JSONDecodeError, TypeError):
@@ -2178,10 +2231,11 @@ async def _compute_or_load_layout(
     terrain_path = None
     if len(layout_coords) >= 3:
         terrain_path = await asyncio.to_thread(
-            generate_terrain, locations, layout_coords, novel_id
+            generate_terrain, locations, layout_coords, novel_id,
+            canvas_width=canvas_width, canvas_height=canvas_height,
         )
 
-    terrain_url = f"/api/novels/{novel_id}/map/terrain" if terrain_path else None
+    terrain_url = terrain_url_for(novel_id) if terrain_path else None
 
     # Load quality baseline (from previous analysis) and compute diff
     satisfaction_json = json.dumps(satisfaction, ensure_ascii=False) if satisfaction else None

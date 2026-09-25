@@ -2957,6 +2957,107 @@ def _lloyd_relax(
     return np.clip(pts, [10, 10], [w - 10, h - 10])
 
 
+def _stable_seed(text: str) -> int:
+    """Deterministic 31-bit seed — `hash()` on a str is randomized per process.
+
+    PYTHONHASHSEED makes builtin `hash()` differ between runs, so
+    `hash(novel_id)` re-baked a different noise field on every backend restart:
+    the same novel came back with different terrain after a restart, and no
+    before/after bake could be compared. md5 is the same deterministic hashing
+    `compute_chapter_hash` already uses for the layout cache key.
+    """
+    return int(hashlib.md5(text.encode("utf-8")).hexdigest()[:8], 16) % (2**31)
+
+
+# Ground field calibration, in field units. The bounded field below spans about
+# 0.10-0.86 across the six novels measured, so a window of 0.20-0.70 puts its
+# mass across the whole 4x4 Whittaker lookup instead of the middle of it. Frozen
+# rather than taken from each novel's own percentiles so that two novels are
+# comparable and a per-tile renderer — which sees one screenful, not the canvas —
+# can reproduce it from the tile alone.
+_FIELD_WINDOW = (0.20, 0.70)
+
+
+def _bounded_influence(
+    ys_grid: np.ndarray,
+    xs_grid: np.ndarray,
+    terms: list[tuple[list[tuple[float, float]], float, float]],
+) -> np.ndarray:
+    """Location influence that cannot grow with the number of points.
+
+    `elev[mask] += 0.25 * (1 - d/r)`, run once per point in range, is an
+    accumulator rather than a field. On 西游记 the 127 mountain locations put a
+    mean of 60 — a maximum of 76 — of themselves inside one another's 1440-unit
+    radius, so a single cluster core collected 76 x 0.25 = 19.0 of elevation,
+    the pre-clip field reached 12.4, and `np.clip` discarded 36 % of the
+    elevation field and 52 % of the moisture field at the ceiling. A saturated
+    field is a flat field: the two whitest Whittaker cells covered 40.4 % of
+    that canvas, and the window under the camera at zoom k=10 had elevation
+    range [1.00, 1.00] — which is what a client-rendered ground tile turned out
+    to be, a pale wash, before this was found.
+
+    So each sign keeps its strongest contribution rather than summing them —
+    `max` over the positive terms, `min` over the negative — and the two are
+    added, which leaves a mountain beside a lake showing both. The local value
+    is then bounded by the strongest single point by construction, whatever the
+    point count.
+    """
+    pos = np.zeros_like(xs_grid)
+    neg = np.zeros_like(xs_grid)
+    for pts, radius, amp in terms:
+        if not pts:
+            continue
+        target = pos if amp > 0 else neg
+        for px, py in pts:
+            dist = np.sqrt((xs_grid - px) ** 2 + (ys_grid - py) ** 2)
+            contrib = np.where(dist < radius, amp * (1.0 - dist / radius), 0.0)
+            if amp > 0:
+                np.maximum(target, contrib, out=target)
+            else:
+                np.minimum(target, contrib, out=target)
+    return pos + neg
+
+
+def _spread_unit(field: np.ndarray) -> np.ndarray:
+    """Map `_FIELD_WINDOW` onto 0-1 for the Whittaker lookup.
+
+    Bounding the influence is not enough on its own. Measured across six novels,
+    the bounded-but-unspread field used only 9-12 of the 16 reachable Whittaker
+    cells, with entropy 2.4-2.7 bit and one cell taking 30-38 % of the canvas,
+    because its mass sits in the middle of the range. Applying the window:
+    16/16 cells on all six, entropy 3.7-3.9 bit, top cell 10.8-13.2 %.
+    """
+    lo, hi = _FIELD_WINDOW
+    return np.clip((field - lo) / (hi - lo), 0.0, 1.0)
+
+
+# Bump this when the terrain field recipe changes. `_LAYOUT_VERSION` covers the
+# layout JSON; the baked PNG is a separate artifact with a separate cache, and
+# it carries no version of its own — so a recipe change used to leave the old
+# PNG on disk being served as the current one. Measured, not hypothetical: the
+# field fix in this same change left `terrain.png` untouched at 293168 bytes
+# (sd 8.01) while the new recipe produced sd 20.88, and nothing in the request
+# path noticed. The filename and the URL both carry the version, so a recipe
+# bump invalidates the disk cache and every client's cached copy at once.
+_TERRAIN_VERSION = 2
+
+
+def terrain_path_for(novel_id: str) -> Path:
+    """Where a novel's baked terrain lives. The writer and all readers call this.
+
+    Keeping the path in one function is the point: when the writer and the route
+    hard-coded the same literal and the recipe changed, the route kept serving a
+    PNG the old recipe had produced, and the response was indistinguishable from
+    a correct one.
+    """
+    return DATA_DIR / "maps" / novel_id / f"terrain.v{_TERRAIN_VERSION}.png"
+
+
+def terrain_url_for(novel_id: str) -> str:
+    """The URL clients fetch the terrain from. Versioned for the same reason."""
+    return f"/api/novels/{novel_id}/map/terrain/v{_TERRAIN_VERSION}"
+
+
 def generate_terrain(
     locations: list[dict],
     layout: dict[str, tuple[float, float]],
@@ -2973,6 +3074,16 @@ def generate_terrain(
     water boosts moisture) so terrain naturally reflects the story geography.
 
     Final image is Gaussian-blurred for smooth, painterly transitions.
+
+    `canvas_width` / `canvas_height` must be the canvas the caller lays this
+    image over — the same numbers it reports to the client as `canvas_size`.
+    The image is stretched over that rectangle, so a mismatch between it and
+    the layout's own coordinate range shifts every influence point off the
+    raster: called with the 1600x900 defaults on an 8000x4500 layout, 0 of 803
+    locations landed inside, and the terrain came out as location-independent
+    noise that still looked like plausible ground. Both call sites in
+    visualisation_service now pass the layout's own canvas, and the guard below
+    reports it if that ever stops being true.
     """
     try:
         from opensimplex import OpenSimplex
@@ -3035,7 +3146,7 @@ def generate_terrain(
             forest_pts.append((px, py))
 
     # ── Noise generators ──
-    seed_base = hash(novel_id) % (2**31)
+    seed_base = _stable_seed(novel_id)
     elev_noise = OpenSimplex(seed=seed_base)
     moist_noise = OpenSimplex(seed=seed_base + 9973)
     detail_noise = OpenSimplex(seed=seed_base + 19937)
@@ -3062,23 +3173,24 @@ def generate_terrain(
         + _sparse_noise(elev_noise, 0.012, step=4) * 0.30   # medium detail
         + _sparse_noise(elev_noise, 0.035, step=8) * 0.20   # fine detail
     )
-    elev = elev * 0.5 + 0.38  # bias toward lowland (warm tones) by default
+    # An affine bias. It no longer sets an absolute level — `_spread_unit` maps
+    # the field's own window onto 0-1 and the clipping there is what gives this
+    # its meaning — but it does control how much of the field lands above or
+    # below `_FIELD_WINDOW`, so it shapes the result rather than shifting it.
+    elev = elev * 0.5 + 0.38
 
-    # Location influence on elevation
+    # ── Location influence on elevation, bounded, then spread ──
+    # The radii are the bake's calibration, unchanged: 0.18 / 0.22 / 0.15 / 0.14
+    # of the raster's long side, i.e. a fraction of the canvas rather than a
+    # fixed distance. Only the way overlapping points combine is different.
     influence_r = max(img_w, img_h) * 0.18
     ys_grid, xs_grid = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
 
-    for mx, my in mountain_pts:
-        dist = np.sqrt((xs_grid - mx) ** 2 + (ys_grid - my) ** 2)
-        mask = dist < influence_r
-        elev[mask] += 0.25 * (1.0 - dist[mask] / influence_r)
-
-    for wx, wy in water_pts:
-        dist = np.sqrt((xs_grid - wx) ** 2 + (ys_grid - wy) ** 2)
-        mask = dist < influence_r
-        elev[mask] -= 0.20 * (1.0 - dist[mask] / influence_r)
-
-    elev = np.clip(elev, 0.0, 1.0)
+    elev += _bounded_influence(ys_grid, xs_grid, [
+        (mountain_pts, influence_r, 0.25),
+        (water_pts, influence_r, -0.20),
+    ])
+    elev = _spread_unit(elev)
 
     # ── Continuous moisture field (multi-octave) ──
     moist = (
@@ -3086,27 +3198,48 @@ def generate_terrain(
         + _sparse_noise(moist_noise, 0.015, step=4) * 0.30
         + _sparse_noise(moist_noise, 0.04, step=8) * 0.20
     )
-    moist = moist * 0.5 + 0.30  # bias toward dry (warm parchment tones) by default
+    # An affine bias, in the same sense as the elevation one above.
+    moist = moist * 0.5 + 0.30
 
     water_r = max(img_w, img_h) * 0.22
-    for wx, wy in water_pts:
-        dist = np.sqrt((xs_grid - wx) ** 2 + (ys_grid - wy) ** 2)
-        mask = dist < water_r
-        moist[mask] += 0.35 * (1.0 - dist[mask] / water_r)
-
     forest_r = max(img_w, img_h) * 0.15
-    for fx, fy in forest_pts:
-        dist = np.sqrt((xs_grid - fx) ** 2 + (ys_grid - fy) ** 2)
-        mask = dist < forest_r
-        moist[mask] += 0.20 * (1.0 - dist[mask] / forest_r)
-
     mtn_r = max(img_w, img_h) * 0.14
-    for mx, my in mountain_pts:
-        dist = np.sqrt((xs_grid - mx) ** 2 + (ys_grid - my) ** 2)
-        mask = dist < mtn_r
-        moist[mask] -= 0.12 * (1.0 - dist[mask] / mtn_r)
+    moist += _bounded_influence(ys_grid, xs_grid, [
+        (water_pts, water_r, 0.35),
+        (forest_pts, forest_r, 0.20),
+        (mountain_pts, mtn_r, -0.12),
+    ])
+    moist = _spread_unit(moist)
 
-    moist = np.clip(moist, 0.0, 1.0)
+    # ── Guards ──
+    # Both defects this replaced were silent. The influence accumulator
+    # saturated, and on any canvas wider than the 1600x900 default every
+    # influence point landed outside the raster, leaving location-independent
+    # noise that still looked like plausible terrain. Neither raised and neither
+    # was visible in the output without a measuring tool, so both are now
+    # reported at the source rather than left to be rediscovered.
+    outside = sum(
+        1 for x, y in layout.values()
+        if not (0.0 <= x * scale_x < img_w
+                and 0.0 <= (canvas_height - y) * scale_y < img_h)
+    )
+    if outside:
+        logger.warning(
+            "terrain: %d/%d locations fall outside the %dx%d raster — the "
+            "canvas is probably not %dx%d (novel=%s). Pass the layout's own "
+            "canvas, or the field will be location-independent",
+            outside, len(layout), img_w, img_h,
+            canvas_width, canvas_height, novel_id,
+        )
+    dominant = np.bincount(
+        (elev * 255).astype(np.uint8).ravel(), minlength=256,
+    ).max() / elev.size
+    if dominant > 0.35:
+        logger.warning(
+            "terrain: elevation field is degenerate, %.0f %% of pixels share "
+            "one value (novel=%s) — check that the influence rule is bounded",
+            dominant * 100, novel_id,
+        )
 
     # ── Per-pixel Whittaker color lookup ──
     # Vectorized: scale to grid indices and bilinear interpolate
@@ -3155,7 +3288,7 @@ def generate_terrain(
     img = Image.fromarray(rgb, "RGB")
     maps_dir = DATA_DIR / "maps" / novel_id
     maps_dir.mkdir(parents=True, exist_ok=True)
-    out_path = maps_dir / "terrain.png"
+    out_path = terrain_path_for(novel_id)
     img.save(str(out_path), "PNG")
     logger.info("Terrain image saved: %s (%dx%d)", out_path, img_w, img_h)
     return str(out_path)
@@ -3387,7 +3520,7 @@ def generate_rivers(
         return []
 
     # Deterministic noise generators (offset from terrain seed)
-    base_seed = hash(novel_id) % (2**31)
+    base_seed = _stable_seed(novel_id)
     elev_noise = OpenSimplex(seed=base_seed + 42)
     wiggle_noise = OpenSimplex(seed=base_seed + 99)
 
