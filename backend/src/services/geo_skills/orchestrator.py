@@ -301,6 +301,32 @@ class GeoOrchestrator:
         agent = WorldStructureAgent(self.novel_id)
         agent.structure = ws
 
+        # ── Tier backfill (2026-09-25) ──
+        # ws.location_tiers was just replaced wholesale from the snapshot, and the
+        # snapshot's tiers come from the analysis pass. Measured across all five
+        # novels, tiers is SYSTEMATICALLY SMALLER than the named-location set:
+        #   封神 231 vs 609 parents · 水浒 1243 vs 1795 · 西游 578 vs 994
+        #   三国 1055 vs 1263 · 红楼 638 vs 834
+        # Every downstream step that iterates location_tiers therefore skips those
+        # locations — most importantly the layer re-detection immediately below,
+        # which is exactly why 9 西游记 locations kept a stale overworld layer
+        # (东洋海底 / 龙宫法界 / 阴司地府 / 幽冥地界 …) even though the keyword
+        # rules cover them.
+        # This backfill is ADDITIVE ONLY — existing tiers are never overwritten, so
+        # it cannot regress a previously classified location.
+        _named = set(ws.location_parents) | set(ws.location_parents.values())
+        _missing_tiers = sorted(n for n in _named if n and n not in ws.location_tiers)
+        if _missing_tiers:
+            _before = len(ws.location_tiers)
+            for _n in _missing_tiers:
+                _p = ws.location_parents.get(_n)
+                _lvl = 1 if (_p and _p in ws.location_layer_map) else 0
+                ws.location_tiers[_n] = agent._classify_tier(_n, "", _p, _lvl)
+            logger.info(
+                "Tier backfill during apply: +%d locations (%d -> %d)",
+                len(_missing_tiers), _before, len(ws.location_tiers),
+            )
+
         # Step 1: Reset all layers to overworld
         for loc_name in list(ws.location_layer_map.keys()):
             ws.location_layer_map[loc_name] = "overworld"
