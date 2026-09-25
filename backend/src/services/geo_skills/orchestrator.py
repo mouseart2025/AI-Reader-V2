@@ -372,6 +372,37 @@ class GeoOrchestrator:
 
         await world_structure_store.save(self.novel_id, ws)
 
+        # ── Keep the snapshot in step with what was actually applied (2026-09-25) ──
+        # Without this, apply writes a world_structure that the snapshot does not
+        # describe, and since apply ALSO reads tiers back from the snapshot
+        # (line ~278, wholesale) the next rebuild would overwrite the tier
+        # backfill with stale values — the fix would silently revert every run.
+        #
+        # Measured drift before this sync (ws vs latest snapshot):
+        #   西游记   ws_tiers 1102 vs snapshot  578   (introduced by the backfill)
+        #   诡秘之主  ws_tiers  853 vs snapshot    0   -> HierarchyMetrics
+        #                                              reported "0 locations"
+        #                                              for an 852-location novel
+        # Of the 32 stored novels, 19 were already consistent, 13 had no snapshot
+        # at all, and exactly these 2 had drifted — so syncing restores the
+        # invariant rather than inventing a new one.
+        # Recorded as a NEW version (tag="applied") so pipeline history is intact.
+        # HierarchySnapshot is a FROZEN dataclass — field assignment raises
+        # FrozenInstanceError (and did, on the first attempt: the exception landed
+        # after world_structure_store.save, so the data was fine but the apply
+        # event never reached the client). Rebuild via dataclasses.replace.
+        from dataclasses import replace as _dc_replace
+
+        snapshot = _dc_replace(
+            snapshot,
+            location_tiers=dict(ws.location_tiers),
+            location_parents=dict(ws.location_parents),
+            version=snapshot.version + 1,
+            source="applied",
+            timestamp=time.time(),
+        )
+        await self.store.save(self.novel_id, snapshot, tag="applied")
+
         # Invalidate map cache after hierarchy change
         from src.services.visualization_service import _map_cache
         keys_to_remove = [k for k in _map_cache if k.startswith(self.novel_id)]
