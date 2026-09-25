@@ -185,13 +185,20 @@ function computeLabelLayout(rects: LabelRect[]): Map<string, LabelPlacement> {
   return result
 }
 
+// Label size per tier. The previous ladder (26/20/14/11/9/8) put city, site and
+// building all in the 8–11px band — on a 1920-wide canvas that is unreadable, and
+// because the sizes are static it stayed unreadable at every zoom level.
+// Measured on 西游记: 71 of 125 rendered labels were 8px, i.e. 56% of the map's
+// text was illegible. The floor is now 12px and the ladder is compressed so the
+// tier hierarchy survives without dropping below the legibility threshold.
+// Label collision detection (computeLabelLayout) reads these sizes, so it adapts.
 const TIER_TEXT_SIZE: Record<string, number> = {
   continent: 26,
-  kingdom: 20,
-  region: 14,
-  city: 11,
-  site: 9,
-  building: 8,
+  kingdom: 21,
+  region: 17,
+  city: 14,
+  site: 13,
+  building: 12,
 }
 
 const TIER_ICON_SIZE: Record<string, number> = {
@@ -793,17 +800,33 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (!roads || roads.length === 0) return
 
-      const roadColor = spaceThemeProp
+      // Road visibility. Previously a single 1px stroke at 30% opacity drawn over
+      // the parchment land colour — effectively invisible. Measured on 西游记:
+      // 119 road segments were rendered and the rendered stroke width was 1px, so
+      // the map read as having no paths at all (the single most visible gap versus
+      // a game map).
+      // Now graded: every 3rd segment is presented as a major route (solid, thicker)
+      // and the rest as minor (dashed).
+      // ⚠️ The road data carries NO hierarchy field, so this alternation is a
+      // presentation heuristic, not a real classification — if road等级 is ever
+      // added upstream, replace this.
+      const roadMajorColor = spaceThemeProp
         ? SPACE_THEME.routeColor
         : darkBg
-          ? "rgba(160,140,100,0.30)"
-          : "rgba(120,100,60,0.30)"
-      const roadDash = spaceThemeProp ? "6,8" : "4,3"
-      const roadWidth = spaceThemeProp ? 1.5 : 1
+          ? "rgba(170,148,104,0.72)"
+          : "rgba(104,84,48,0.72)"
+      const roadMinorColor = spaceThemeProp
+        ? SPACE_THEME.routeColor
+        : darkBg
+          ? "rgba(170,148,104,0.52)"
+          : "rgba(104,84,48,0.52)"
+      const roadDash = spaceThemeProp ? "6,8" : "5,4"
+      const roadMajorWidth = spaceThemeProp ? 1.5 : 2.2
+      const roadMinorWidth = spaceThemeProp ? 1.5 : 1.5
 
       // Use simple SVG paths instead of roughjs for performance
       // (roughjs creates multiple DOM elements per road, causing zoom lag)
-      for (const road of roads) {
+      for (const [roadIndex, road] of roads.entries()) {
         if (road.points.length < 2) continue
         const [x0, y0] = road.points[0]
         const [x1, y1] = road.points[road.points.length - 1]
@@ -813,9 +836,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .attr("y1", y0)
           .attr("x2", x1)
           .attr("y2", y1)
-          .attr("stroke", roadColor)
-          .attr("stroke-width", roadWidth)
-          .attr("stroke-dasharray", roadDash)
+          .attr("stroke", roadIndex % 3 === 0 ? roadMajorColor : roadMinorColor)
+          .attr("stroke-width", roadIndex % 3 === 0 ? roadMajorWidth : roadMinorWidth)
+          .attr("stroke-dasharray", roadIndex % 3 === 0 ? "none" : roadDash)
           .attr("vector-effect", "non-scaling-stroke")
           .style("pointer-events", "none")
         // Space theme glow effect via SVG filter
