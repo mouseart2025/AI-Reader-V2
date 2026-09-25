@@ -314,7 +314,21 @@ class GeoOrchestrator:
         # rules cover them.
         # This backfill is ADDITIVE ONLY — existing tiers are never overwritten, so
         # it cannot regress a previously classified location.
-        _named = set(ws.location_parents) | set(ws.location_parents.values())
+        # Scope MUST include location_layer_map, not just the parent graph.
+        # Measured on 西游记: 87 locations exist ONLY in location_layer_map —
+        # neither a child nor a parent (龙宫法界 / 水府之西 / 龙宫（碧波潭）/
+        # 阴司地府 / 灵霄门外 …). Omitting them left exactly those locations
+        # without a tier, and since the layer re-detection below iterates
+        # location_tiers they were then skipped there as well.
+        # NOTE: _inject_layer_roots makes the same omission when building its
+        # candidate_nodes (set(tiers) | parent-values) — left untouched here
+        # because that set feeds Phase-0 orphan re-parenting, a wider blast
+        # radius; recorded as a known issue instead.
+        _named = (
+            set(ws.location_parents)
+            | set(ws.location_parents.values())
+            | set(ws.location_layer_map)
+        )
         _missing_tiers = sorted(n for n in _named if n and n not in ws.location_tiers)
         if _missing_tiers:
             _before = len(ws.location_tiers)
