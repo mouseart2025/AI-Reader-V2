@@ -62,15 +62,30 @@ _MACRO_GEO_SUFFIXES = ("洲", "域", "界", "国")
 
 _CELESTIAL_KEYWORDS = (
     "天庭", "天界", "三十三天", "大罗天",
-    "离恨天", "兜率宫", "凌霄殿", "蟠桃园", "瑶池",
-    "灵霄宝殿", "九天应元府",
+    "离恨天", "蟠桃园", "瑶池",
+    "九天应元府",
     # Note: "天宫" removed — causes false positive on "后天宫" (古建筑).
     # Note: "天门" removed — causes false positive on "天门峰" etc.
     # Specific full names:
     "南天门", "北天门", "东天门", "西天门",
+    # ── Daoist pantheon, PREFIX form (added 2026-09-25) ──
+    # The full-name entries above (兜率宫 / 灵霄宝殿 / 凌霄殿) missed the common
+    # variants, because "兜率宫" is not a substring of "兜率天宫", nor "灵霄殿" of
+    # "灵霄门外". Measured on 西游记: 10 unambiguous heavenly buildings were left
+    # on overworld and got parented to mortal places (五明宫→松柏林,
+    # 上清天/弥罗宫→西番哈咇国, 元始宫/玉京金阙→东洋海, 遣云宫→黑水河,
+    # 灵霄门外→落伽山, 兜率天宫→须弥山). Prefixes replace the full names above —
+    # they are exclusive to the Daoist heavens, so substring matching stays safe.
+    # Deliberately NOT added: 丹房 / 长廊 / 观星台 / 御马监 — generic, would
+    # false-positive on mortal scenes (御马监 is already caught by full-name rules).
+    "兜率", "灵霄", "凌霄", "上清", "弥罗",
+    "元始", "玉京", "五明", "太玄", "遣云",
 )
 # Celestial keywords that require exact name match (not substring)
-_CELESTIAL_EXACT = ("天宫",)
+# 太阳宫: 西游记's 太阳宫 is a Daoist palace (ch4, 大闹天宫 arc), but the name
+# alone matched _SCIFI_LAYER_RULES and landed in the sci-fi "solarsystem" layer.
+# Exact match keeps 太阳宫 (and only that name) in the heavens.
+_CELESTIAL_EXACT = ("天宫", "太阳宫")
 _UNDERWORLD_KEYWORDS = (
     "地府", "冥界", "幽冥", "阴司", "阴曹", "黄泉",
     "奈何桥", "阎罗殿", "森罗殿", "枉死城",
