@@ -1894,6 +1894,38 @@ async def get_map_data(
             if c.get("entity") not in removed_locations
         ]
 
+    # ── Layout geometry quality (2026-09-25) ──────────────────────────────
+    # Absolute parent-child distance caliber. `quality_metrics` below is the
+    # solver's constraint satisfaction — a different question on a different
+    # scale, so this gets its own field rather than being merged into it.
+    # See src/utils/layout_metrics.py for why the sibling-outlier ratio used by
+    # the containment baseline was rejected (it has a denominator effect).
+    layout_quality = None
+    try:
+        from src.utils.layout_metrics import compute_layout_metrics
+
+        _lq_source = locals().get("layer_layouts") or {}
+        if not _lq_source and layout_data:
+            _lq_source = {target_layer: layout_data}
+        _lq_coords: dict[str, tuple[float, float]] = {}
+        _lq_layers: dict[str, str] = {}
+        for _lid, _items in _lq_source.items():
+            for _item in _items or []:
+                _n = _item.get("name")
+                if _n is None or _item.get("x") is None:
+                    continue
+                _lq_coords[_n] = (_item["x"], _item["y"])
+                _lq_layers[_n] = _lid
+        layout_quality = compute_layout_metrics(
+            _lq_coords,
+            {loc["name"]: loc["parent"] for loc in locations if loc.get("parent")},
+            {loc["name"]: loc.get("tier", "") for loc in locations},
+            _lq_layers,
+            (float(_resp_cw), float(_resp_ch)),
+        )
+    except Exception:
+        logger.warning("Layout quality metrics failed", exc_info=True)
+
     result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
@@ -1901,6 +1933,7 @@ async def get_map_data(
         "layout": layout_data,
         "layout_mode": layout_mode,
         "quality_metrics": satisfaction,
+        "layout_quality": layout_quality,
         "terrain_url": terrain_url if not layer_id else None,
         "rivers": rivers,
         "roads": roads,
