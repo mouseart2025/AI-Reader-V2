@@ -60,6 +60,23 @@ SPATIAL_SCALE_CANVAS: dict[str, tuple[int, int]] = {
 # Dynamically adjusted in ConstraintSolver.__init__ via canvas_w * 0.015.
 MIN_SPACING = 30
 
+# Scatter radius per tier, as a fraction of the canvas short side. Finer tiers hug
+# their anchor tighter — the game-scatter "density mask" rule. Replaces the old
+# canvas-global jitter constant, which ignored scale entirely and let site/building
+# nodes drift thousands of pixels away from their parent.
+TIER_SCATTER_RADIUS: dict[str, float] = {
+    "continent": 0.030,
+    "kingdom": 0.028,
+    "region": 0.024,
+    "city": 0.018,
+    "site": 0.012,
+    "building": 0.008,
+}
+DEFAULT_SCATTER_RADIUS = 0.012
+
+# Floor so tiny canvases (room 800x450) still separate nodes visually.
+MIN_SCATTER_RADIUS = 4.0
+
 # Direction margin — how far A must exceed B in the expected axis
 DIRECTION_MARGIN = 50
 
@@ -1870,15 +1887,61 @@ class ConstraintSolver:
 
         return final_layout, final_mode, final_satisfaction
 
+    @staticmethod
+    def _stable_hash(text: str) -> float:
+        """Deterministic [0,1) hash — unlike builtin hash(), stable across processes.
+
+        Python randomizes str hashing per process (PYTHONHASHSEED), so the old
+        `hash(name)` fallback produced different coordinates on every restart,
+        breaking layout reproducibility. md5 matches the deterministic-hash usage
+        already present elsewhere in this module (layout cache key, terrain seed).
+        """
+        return int(hashlib.md5(text.encode("utf-8")).hexdigest()[:8], 16) / 0x100000000
+
+    def _resolve_anchor(self, name: str, layout: dict[str, tuple[float, float]]) -> str | None:
+        """Walk up the parent chain to the nearest ancestor already placed.
+
+        Game scatter tools always bind placement to a parent surface. Without an
+        anchor, a child falls through to an unconstrained fallback branch and can
+        land thousands of pixels away (measured max 5860px on 西游记; see
+        ai-reader-internal/docs/analysis/containment-violation-baseline-2026-09-20.md).
+        """
+        seen: set[str] = set()
+        cur = self._parent_map.get(name)
+        while cur and cur not in seen:
+            if cur in layout:
+                return cur
+            seen.add(cur)
+            cur = self._parent_map.get(cur)
+        return None
+
+    def _scatter_radius(self, tier: str) -> float:
+        """Scatter radius for a tier, proportional to the canvas short side.
+
+        Returns 0.0 when the tier is unknown so callers can fall back to their own
+        floor (keeps legacy behaviour for un-tiered data).
+        """
+        factor = TIER_SCATTER_RADIUS.get(tier)
+        if factor is None:
+            return 0.0
+        short = min(
+            self._canvas_max_x - self._canvas_min_x,
+            self._canvas_max_y - self._canvas_min_y,
+        )
+        return max(MIN_SCATTER_RADIUS, short * factor)
+
     def _place_remaining(self, layout: dict[str, tuple[float, float]]) -> None:
-        """Place locations not included in the solver using chapter-proximity heuristics.
+        """Place locations not included in the solver, anchored to their hierarchy.
 
         Strategy:
         1. User overrides take priority.
-        2. If parent is in layout: jitter around parent.
-        3. Otherwise: find solved locations from the same or nearby chapters
-           and place near their centroid with isotropic circular scatter.
-        4. Last resort: random position within canvas bounds using name hash.
+        2. Parent — or nearest placed ancestor — in layout: sunflower scatter
+           around it, radius driven by the child's own tier.
+        3. Otherwise: co-chapter centroid with a tight tier-scaled radius.
+        4. Last resort: deterministic scatter near the canvas centre.
+
+        Ordering note: locations are processed shallowest-first so a parent is
+        always placed before its children, which lets rule 2 catch most of them.
         """
         # Build chapter->solved_locations lookup for proximity placement
         chapter_locs: dict[int, list[str]] = {}
@@ -1887,14 +1950,19 @@ class ConstraintSolver:
             if ch > 0:
                 chapter_locs.setdefault(ch, []).append(name)
 
-        # Scale jitter radius with canvas size
         canvas_w = self._canvas_max_x - self._canvas_min_x
         canvas_h = self._canvas_max_y - self._canvas_min_y
+        # Legacy canvas-global jitter, kept only as a floor for un-tiered data
         base_jitter = max(30, min(canvas_w, canvas_h) * 0.04)
+        golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+
+        # Shallowest-first, name as tie-break: deterministic, and guarantees a
+        # parent is placed before its children
+        ordered = sorted(self._remaining, key=lambda l: (l.get("level", 0), l["name"]))
 
         orphan_idx = 0  # for jittering orphans that share positions
 
-        for loc in self._remaining:
+        for loc in ordered:
             name = loc["name"]
             if name in layout:
                 continue
@@ -1902,25 +1970,32 @@ class ConstraintSolver:
                 layout[name] = self.user_overrides[name]
                 continue
 
+            tier = loc.get("tier", "")
+            tier_r = self._scatter_radius(tier) or base_jitter
+
+            # Prefer the direct parent; else climb to the nearest placed ancestor
             parent = self._parent_map.get(name)
             if parent and parent in layout:
-                px, py = layout[parent]
-                children_here = self.children.get(parent, [])
+                anchor, hops = parent, 1
+            else:
+                anchor, hops = self._resolve_anchor(name, layout), 2
+
+            if anchor is not None:
+                ax, ay = layout[anchor]
+                children_here = self.children.get(anchor, [])
                 idx = children_here.index(name) if name in children_here else 0
                 n_children = max(len(children_here), 1)
-                # Sunflower seed distribution: golden angle + varying radius
-                # fills the circular area organically instead of a ring perimeter
-                golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+                # Sunflower seed distribution: golden angle + varying radius fills
+                # the circular area organically instead of a ring perimeter
                 frac = (idx + 0.5) / n_children  # 0..1
-                # Adaptive radius: scale with sqrt(n_children) for better spread
-                # v0.68: tighter spread to keep children near parent (was 0.3 max → 0.12)
-                adaptive_r = base_jitter * max(0.6, math.sqrt(n_children / 8))
-                max_r = min(canvas_w, canvas_h) * 0.12
-                adaptive_r = min(adaptive_r, max_r)
-                r = adaptive_r * (0.3 + 0.7 * math.sqrt(frac)) + 8 * loc.get("level", 0)
+                # Radius from the child's own tier; a grandchild spreads a bit wider
+                adaptive_r = tier_r * max(0.6, math.sqrt(n_children / 8)) * (1.0 + 0.5 * (hops - 1))
+                # Cap so a large sibling group still hugs the anchor
+                adaptive_r = min(adaptive_r, min(canvas_w, canvas_h) * 0.12)
+                r = adaptive_r * (0.3 + 0.7 * math.sqrt(frac))
                 angle = idx * golden_angle
-                x = max(self._canvas_min_x, min(self._canvas_max_x, px + r * math.cos(angle)))
-                y = max(self._canvas_min_y, min(self._canvas_max_y, py + r * math.sin(angle)))
+                x = max(self._canvas_min_x, min(self._canvas_max_x, ax + r * math.cos(angle)))
+                y = max(self._canvas_min_y, min(self._canvas_max_y, ay + r * math.sin(angle)))
                 layout[name] = (x, y)
                 continue
 
@@ -1930,22 +2005,20 @@ class ConstraintSolver:
 
             if centroid is not None:
                 cx, cy = centroid
-                # Isotropic circular scatter: golden angle + varying radius
-                jitter_angle = orphan_idx * 2.4  # golden angle ≈ 137.5°
-                jitter_r = base_jitter + base_jitter * 0.3 * (orphan_idx % 8)
+                # Tight tier-scaled scatter around the co-chapter centroid
+                jitter_angle = orphan_idx * 2.4
+                jitter_r = tier_r * (1.0 + 0.3 * (orphan_idx % 8))
                 x = cx + jitter_r * math.cos(jitter_angle)
                 y = cy + jitter_r * math.sin(jitter_angle)
             else:
-                # Last resort: hash-based position within canvas bounds
-                hv = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0
-                hv2 = (hash(name + "_y") & 0x7FFFFFFF) % 10000 / 10000.0
-                x = self._canvas_min_x + canvas_w * 0.1 + hv * canvas_w * 0.8
-                y = self._canvas_min_y + canvas_h * 0.1 + hv2 * canvas_h * 0.8
-                # Small golden-angle jitter to avoid exact overlap with other hash-placed
-                jitter_angle = orphan_idx * 2.4
-                jitter_r = base_jitter * 0.3
-                x += jitter_r * math.cos(jitter_angle)
-                y += jitter_r * math.sin(jitter_angle)
+                # Last resort: deterministic scatter near the canvas centre.
+                # Never canvas-wide random — that was the source of 5000+px drift.
+                h1 = self._stable_hash(name)
+                h2 = self._stable_hash(name + "_y")
+                spawn_r = min(canvas_w, canvas_h) * (0.02 + 0.06 * h2)
+                spawn_angle = h1 * 2 * math.pi
+                x = self._canvas_cx + spawn_r * math.cos(spawn_angle)
+                y = self._canvas_cy + spawn_r * math.sin(spawn_angle)
 
             layout[name] = (
                 max(self._canvas_min_x, min(self._canvas_max_x, x)),
@@ -2614,6 +2687,12 @@ class ConstraintSolver:
                 (si, ti, c["relation_type"], c.get("value", ""), weight, c.get("waypoints"))
             )
 
+        # Seeded RNG local to this routine. The repulsion loop below used the
+        # global np.random, which advanced shared state on every call: identical
+        # inputs produced different layouts each run (measured 53/690 placements,
+        # 7.7%, moving between two calls in the SAME process).
+        rng = np.random.RandomState(42)
+
         # Run 80 iterations of spring-force simulation
         velocities = np.zeros_like(positions)
         damping = 0.85
@@ -2694,7 +2773,7 @@ class ConstraintSolver:
                     dist = np.linalg.norm(diff)
                     if dist < 1e-6:
                         dist = 1e-6
-                        diff = np.random.randn(2) * 1e-6
+                        diff = rng.randn(2) * 1e-6
                     if dist < ideal_spacing:
                         repulsion = ((ideal_spacing - dist) / ideal_spacing) ** 2
                         force_mag = repulsion * ideal_spacing * 0.1
