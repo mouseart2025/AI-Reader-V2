@@ -520,6 +520,16 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               const inner = match[1]
                 .replace(/\sfill="#fff"/gi, "")
                 .replace(/\sfill="#000"/gi, "")
+                // Outline icons (`fill="none" stroke="#fff" stroke-width="2.5"`,
+                // town/water/desert/island/portal/sacred) draw the mark *with
+                // its stroke*, in pure white — 2.5 units of it. This is the
+                // half of the "63 white icons" the fill strip never touched,
+                // and stripping it would be wrong: with no stroke of its own
+                // the shape inherits the halo below, which is also light, so it
+                // would go from invisible to invisible. Recolour instead — the
+                // group sets `color`, and `currentColor` resolves against it.
+                .replace(/\sstroke="#fff"/gi, ' stroke="currentColor"')
+                .replace(/\sstroke="#000"/gi, ' stroke="currentColor"')
               defs.set(name, inner)
             }
           } catch {
@@ -1933,6 +1943,20 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
                 `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
               )
               .attr("fill", color)
+              // A light outline around the mark, in screen pixels. Measured on
+              // 西游记: the pale plate under each mark covers the inner 41 % of
+              // the icon's box — the art reaches iconSize/2, the plate is
+              // min(iconSize*0.32, 18) — so most of every mark lands on bare
+              // terrain. There the dark ink measures 2.4-3.1:1 against the
+              // ground depending on where it falls (background luminance under
+              // the icons runs 144-195), which is a coin toss. A halo fixes the
+              // silhouette without enlarging the plate, whose 18-unit cap is
+              // deliberate — a continent mark must not become a dinner plate.
+              .attr("stroke", darkBg ? "rgba(12,18,32,0.85)" : "rgba(250,245,233,0.92)")
+              .attr("stroke-width", 1)
+              .attr("vector-effect", "non-scaling-stroke")
+              .attr("paint-order", "stroke")
+              .style("color", color)  // `currentColor` above resolves here
               .attr("opacity", opacity)
             iconG.html(iconContent)
           }
