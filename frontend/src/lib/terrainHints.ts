@@ -187,12 +187,12 @@ const CATEGORY_SIZE: Record<TerrainCategory, number> = {
  * keeping the open ocean from being a stamped repeating pattern.
  */
 const CATEGORY_SIZE_SPREAD: Record<TerrainCategory, number> = {
-  mountain: 0.26,
-  forest: 0.18,
+  mountain: 0.15,
+  forest: 0.12,
   water: 0.45,
-  desert: 0.16,
-  cave: 0.14,
-  plains: 0.12,
+  desert: 0.11,
+  cave: 0.11,
+  plains: 0.10,
 }
 
 /**
@@ -557,11 +557,11 @@ const RELIEF_OCTAVES: ReadonlyArray<readonly [number, number]> = [
  * called 花果山 that is rendered flat.
  */
 const SEED_RELIEF: Record<TerrainCategory, number> = {
-  mountain: 1.0,
-  cave: 0.7,
-  forest: 0.42,
+  mountain: 0.6,
+  cave: 0.45,
+  forest: 0.30,
   plains: 0.05,
-  desert: -0.3,
+  desert: -0.28,
   water: -1.0,
 }
 
@@ -587,25 +587,50 @@ function reliefNode(gx: number, gy: number, salt: number): number {
 /**
  * Multi-octave value noise in 0..1, at the given world point.
  *
- * `minWl` is the level-of-detail cut, and the octaves are *faded* across it
- * rather than dropped at it. Dropping is the obvious implementation and it
- * pops: while the reader wheels through the threshold, one octave's worth of
- * amplitude (~7 % of the field) appears in a single frame, and on a smooth
- * field that is visible as the whole ground shivering and re-settling. Fading
- * costs one extra `smoothstep` and removes the artefact entirely.
+ * A **band**-pass, not a high-pass. Two fades, one at each end, and the
+ * symmetry is the whole point:
  *
- * The cut exists for two reasons, and the second is the important one. The
- * cheap one is cost. The real one is that an octave finer than the glyph pitch
- * does not read as terrain — neighbouring glyphs land on opposite sides of it,
- * so it *is* the uncorrelated size jitter this field is replacing, minus the
- * honesty. Fading it out means the visible detail always has a wavelength the
- * scatter can actually resolve.
+ *   * `minWl` cuts the *fine* end. An octave finer than the glyph pitch does
+ *     not read as terrain — neighbouring glyphs land on opposite sides of it,
+ *     so it *is* the uncorrelated size jitter this field is replacing, minus
+ *     the honesty.
+ *   * `span` (the diagonal of the visible rect, in canvas units) cuts the
+ *     *coarse* end, and this was missing for a long time. An octave much longer
+ *     than the window is a **constant offset** inside it — the same argument as
+ *     the fine end, run backwards — but because the octaves are summed and
+ *     normalised over all live weights, those invisible octaves still took
+ *     89 % of the normaliser. At k=10 the visible window is ~124 canvas units,
+ *     so of the 1400/520/190/66/24 ladder only 66 and 24 were in frame, worth
+ *     0.21 of a 2.0 normaliser: the field swung about +-10 % across the whole
+ *     screen while the per-glyph jitter swung +-26 %. The field was there and
+ *     the reader could not see it, and every global statistic in the suite
+ *     passed on that reading.
+ *
+ * Both ends fade rather than cut, and for the same reason. Dropping an octave
+ * at its threshold pops: one octave's worth of amplitude appears in a single
+ * frame while the reader wheels through, and on a smooth field that is visible
+ * as the whole ground shivering and re-settling. Fading costs one extra
+ * `smoothstep`, and it is what makes the coarse cut safe to have at all —
+ * with a fade, crossing the threshold is spread over several level-of-detail
+ * steps instead of landing on one.
+ *
+ * Normalising by the *live* weights is what turns the cut into a visibility
+ * fix rather than just a de-noising one: whatever band is in frame is
+ * stretched back to full amplitude, so the reader sees a field with the same
+ * contrast at every zoom instead of the same field through a narrower window.
  */
-function reliefNoise(x: number, y: number, minWl: number, salt: number): number {
+function reliefNoise(
+  x: number,
+  y: number,
+  minWl: number,
+  maxWl: number,
+  salt: number,
+): number {
   let v = 0
   let amp = 0
   for (const [wl, a] of RELIEF_OCTAVES) {
-    const f = smoothstep(clamp01((wl / minWl - 0.8) / 1.2))
+    const f = smoothstep(clamp01((wl / minWl - 0.8) / 1.2)) *
+      smoothstep(clamp01((maxWl / wl - 0.8) / 1.2))
     if (f <= 0) continue
     v += valueNoise2(x / wl, y / wl, salt) * a * f
     amp += a * f
@@ -652,30 +677,42 @@ function reliefSalt(locations: MapLocation[]): number {
 }
 
 /**
- * How far the relief field is allowed to move a glyph's size, density and
- * opacity, as multipliers at relief 0 and relief 1.
+ * How far the signed relief anomaly is allowed to move a glyph's size, density
+ * and opacity, as a *gain* on the anomaly rather than a pair of multipliers at
+ * relief 0 and relief 1.
  *
- * Density gets the widest range on purpose. Size and opacity are read one
- * glyph at a time; density is read as *clumping*, and clumping is what the eye
+ * Density gets the widest gain on purpose. Size and opacity are read one glyph
+ * at a time; density is read as *clumping*, and clumping is what the eye
  * actually uses to decide that a band of glyphs is a ridge rather than a
  * scatter — it is the same quantity the nearest-neighbour CV scores.
+ *
+ * `SIZE_GAIN` being close to 1 is not a coincidence: it makes the multiplier
+ * `1 + anomaly`, so an anomaly of +0.3 is a 1.3x glyph. See the note on the
+ * anomaly in the generator for why a gain replaced the old `[lo, hi]` form.
  */
-const RELIEF_SIZE = [0.74, 1.42] as const
-const RELIEF_DENSITY = [0.58, 1.55] as const
-const RELIEF_OPACITY = [0.84, 1.16] as const
+const RELIEF_SIZE_GAIN = 1.40
+const RELIEF_DENSITY_GAIN = 0.75
+const RELIEF_OPACITY_GAIN = 0.22
 
 /**
- * Relief threshold below which a mountain or forest becomes open ground, and
- * the relief above which open ground becomes a mountain.
+ * Anomaly below which a massif or a cave thins to open ground, and above which
+ * open ground climbs into a range, each with the half-width of the ramp that
+ * reaches full probability.
  *
  * Both are applied as a *probability*, not a cut. A hard threshold on a smooth
  * field draws its own contour line across the map, and a visible iso-line is a
  * worse artefact than the uniformity being fixed — the reader sees the
- * algorithm. Ramping the probability over a band of relief keeps the boundary
- * ragged, which is what a real treeline looks like.
+ * algorithm. Ramping the probability over a band keeps the boundary ragged,
+ * which is what a real treeline looks like.
+ *
+ * The spans are the old absolute relief distances (0.44 and 0.24), kept as-is
+ * so each ramp reaches the same probability at the same place on the map
+ * after the change from `relief in 0..1` to a signed anomaly.
  */
-const HOLLOW_BELOW = 0.44
-const RIDGE_ABOVE = 0.76
+const HOLLOW_ANOMALY = -0.06
+const HOLLOW_SPAN = 0.44
+const RIDGE_ANOMALY = 0.26
+const RIDGE_SPAN = 0.24
 
 // ── Main generator ────────────────────────────────
 
@@ -752,6 +789,13 @@ export function generateTerrainHints(
   // skipped, because a wavelength the glyph pitch cannot resolve is not
   // terrain, it is jitter. See `reliefNoise`.
   const minWl = cell * 1.5
+
+  // The other end of the same band. Octaves longer than the window are a
+  // constant inside it, so they must not be allowed to take the normaliser —
+  // see `reliefNoise`. The diagonal rather than either side, so the cut does
+  // not change when the reader pans to a corner and the window's aspect
+  // ratio changes which side is longer.
+  const viewSpan = Math.hypot(spanW, spanH)
 
   // ── Constant on-screen clearance around pins ────
   const minSep = PIN_CLEARANCE_PX / k
@@ -1058,20 +1102,36 @@ export function generateTerrainHints(
       }
 
       // ── Relief ───────────────────────────────────
+      // A **signed anomaly**, centred on zero and deliberately not clamped:
+      // where this ground stands relative to its own neighbourhood, in units
+      // where +1 is the tallest crest the field can express.
+      //
       // The authored half is the nearest seed's sign, weighted by how close
       // that seed is; the procedural half is the world-space noise. Splitting
       // it this way is what stops the field from contradicting the story: a
       // 山 has to be high ground even if the hash disagrees, and away from
       // any location the noise is free to make its own ranges.
       //
+      // Why it is not a clamped 0..1 *height* any more. It was, and the clamp
+      // is what hid the field. `relief = clamp01(0.5 + a + d)` saturates
+      // wherever the authored term is already positive — which is everywhere
+      // within a massif's reach, the exact place the reader zooms into — so
+      // the noise term had no room to move and the size multiplier went
+      // constant there. Raising the weights made it *worse*, not better:
+      // measured over the interior of 西游记's largest landmass, sd(field)
+      // fell from 1.09 px at weights (0.48, 0.32) to 0.78 px at (1.20, 0.80)
+      // while the fit view improved — the clamp ate the deep zoom first. An
+      // anomaly has no ceiling, so the response stays monotone and the
+      // multiplier `1 + gain * anomaly` stays symmetric about zero.
+      //
       // Water is exempt. Sea has no relief to describe — the waves are a
       // surface, not a height — and letting the field darken the middle of an
       // ocean would read as a shoal that is not in the data.
-      let relief = 0.5
+      let anomaly = 0
       if (cat !== "water") {
         const authored = best >= 0 ? SEED_RELIEF[scat[best]] * falloff : 0
-        const detail = (reliefNoise(px, py, minWl, rsalt) - 0.5) * 2
-        relief = clamp01(0.5 + 0.30 * authored + 0.20 * detail)
+        const detail = (reliefNoise(px, py, minWl, viewSpan, rsalt) - 0.5) * 2
+        anomaly = 0.55 * authored + 0.40 * detail
 
         // ── Category refinement ─────────────────────
         // The biome field says what a location *is*; the relief field says
@@ -1079,11 +1139,15 @@ export function generateTerrainHints(
         // has hollows — and open ground next to a range has spurs that climb
         // into it. Ramping the probability keeps both boundaries ragged, which
         // is what stops the relief from drawing contour lines across the map.
-        if (relief < HOLLOW_BELOW && (cat === "mountain" || cat === "cave")) {
-          const p = ((HOLLOW_BELOW - relief) / HOLLOW_BELOW) * 0.9
+        //
+        // Both ramps are capped, which the clamped form did not need: an
+        // anomaly is unbounded, so a deep hollow would otherwise ask for a
+        // probability above 1 and turn every cell into open ground.
+        if (anomaly < HOLLOW_ANOMALY && (cat === "mountain" || cat === "cave")) {
+          const p = Math.min(0.9, ((HOLLOW_ANOMALY - anomaly) / HOLLOW_SPAN) * 0.9)
           if (pseudoRandom(seed + 7) < p) cat = "plains"
-        } else if (relief > RIDGE_ABOVE && cat === "plains") {
-          const p = ((relief - RIDGE_ABOVE) / (1 - RIDGE_ABOVE)) * 0.85
+        } else if (anomaly > RIDGE_ANOMALY && cat === "plains") {
+          const p = Math.min(0.85, ((anomaly - RIDGE_ANOMALY) / RIDGE_SPAN) * 0.85)
           if (pseudoRandom(seed + 8) < p) cat = "mountain"
         }
       }
@@ -1093,7 +1157,7 @@ export function generateTerrainHints(
       // the reader pans.
       density *= PATCH_FLOOR + PATCH_RANGE * patchDensity(ix, iy)
       if (cat !== "water") {
-        density *= RELIEF_DENSITY[0] + (RELIEF_DENSITY[1] - RELIEF_DENSITY[0]) * relief
+        density *= 1 + RELIEF_DENSITY_GAIN * anomaly
       }
 
       if (pseudoRandom(seed + 2) > density) continue
@@ -1105,10 +1169,10 @@ export function generateTerrainHints(
       // uncorrelated ±25 % is indistinguishable from a printing defect.
       const relSize = cat === "water"
         ? 1
-        : RELIEF_SIZE[0] + (RELIEF_SIZE[1] - RELIEF_SIZE[0]) * relief
+        : 1 + RELIEF_SIZE_GAIN * anomaly
       const relOp = cat === "water"
         ? 1
-        : RELIEF_OPACITY[0] + (RELIEF_OPACITY[1] - RELIEF_OPACITY[0]) * relief
+        : 1 + RELIEF_OPACITY_GAIN * anomaly
       const size =
         CATEGORY_SIZE[cat] * relSize *
         (1 + (pseudoRandom(seed + 3) - 0.5) * CATEGORY_SIZE_SPREAD[cat])
