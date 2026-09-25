@@ -993,6 +993,29 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       for (const rb of regionBoundaries) {
         const [cx, cy] = rb.center
 
+        // ── Region terrain tint (visual L2, 2026-09-25) ──────────────────
+        // regionBoundaries was only ever used to draw the curved region NAME —
+        // its `polygon` and `color` were unused, and the #regions group was
+        // cleared then left empty. Result: the land rendered as one flat colour
+        // block, the single biggest "unfinished" tell versus a game map.
+        // Tinting each region with its own colour gives biome/zone shading
+        // WITHOUT touching the baked terrain.png — no re-bake, no backend
+        // change, no data migration.
+        // Kept translucent so terrain texture and roads beneath still read
+        // through; the hand-drawn filter keeps it in the parchment idiom.
+        if (rb.polygon && rb.polygon.length > 2) {
+          regionsG
+            .append("path")
+            .attr("d", polygonToPath(rb.polygon))
+            .attr("fill", rb.color)
+            .attr("fill-opacity", darkBg ? 0.22 : 0.20)
+            .attr("stroke", rb.color)
+            .attr("stroke-opacity", darkBg ? 0.45 : 0.38)
+            .attr("stroke-width", 1.4)
+            .attr("filter", "url(#hand-drawn)")
+            .style("pointer-events", "none")
+        }
+
         // 1. Compute horizontal span from polygon
         let minX = Infinity, maxX = -Infinity
         for (const [px] of rb.polygon) {
