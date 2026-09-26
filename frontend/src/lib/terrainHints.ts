@@ -96,8 +96,54 @@ const TERRAIN_MAP: Record<string, TerrainCategory> = {
  * the pitch *on land*. 16 px puts ~540 stamps on screen and takes areal cover
  * of the visible land from ~11 % to ~30 %, which is the band where the eye
  * stops seeing individual marks and starts seeing ground.
+ *
+ * ── Why it is 32 now, not 16 (v10) ────────────────────────────────────────
+ * The "areal cover" reasoning above picked the band where the eye stops
+ * separating marks. Rendered, it lands in a different band than intended,
+ * because cover is the wrong measurement for this question. A mark and a tile
+ * are the same ink; what separates them is the **ratio of the gap to the
+ * mark**, and at 16 the ratio was 0.8 — the mark is larger than the cell, so
+ * every neighbour overlaps its neighbours and no gap survives anywhere on
+ * land. Measured off the shipped v9 DOM at four zoom levels:
+ *
+ *   | zoom | nearest-neighbour median | mark median | ratio |
+ *   |------|--------------------------|-------------|-------|
+ *   | fit  | 14.2 px                  | 15.8 px     | 0.90  |
+ *   | z1   | 12.4 px                  | 16.6 px     | 0.75  |
+ *   | z2   | 15.7 px                  | 16.0 px     | 0.98  |
+ *   | z3   | 15.5 px                  | 11.9 px     | 1.30  |
+ *
+ * with p10 down at 8–10 px against a 16 px mark. Below 1.5 the eye reads a
+ * fill, and at the deep zoom the layer is roughly seven-eighths mountain, so
+ * the fill *was* the map. Doubling the pitch takes the median gap to ~31 px
+ * against an 18 px mark, a ratio of 1.75, which is the band where a symbol is
+ * a thing sitting on the ground.
+ *
+ * The cost is four times fewer marks and it is meant to be paid: areal cover
+ * drops to roughly 8 %. Ground is no longer this layer's job — the bake draws
+ * hillshaded landform and this layer only annotates it, which is the division
+ * v9 set up and did not finish.
+ *
+ * Verified after the change, same DOM, same four zooms — median gap against
+ * median mark:
+ *
+ *   | zoom | before | after | mark | p10 gap |
+ *   |------|--------|-------|------|---------|
+ *   | fit  |  0.90  | 2.27  | 13.9 |  14.1   |
+ *   | z1   |  0.75  | 1.65  | 15.7 |  15.1   |
+ *   | z2   |  0.98  | 2.02  | 14.5 |  17.3   |
+ *   | z3   |  1.30  | 2.52  | 11.1 |  17.0   |
+ *
+ * Every zoom clears the 1.5 threshold, and the p10 gap now exceeds the mark at
+ * all four, which is the sharper statement of the same claim: even the closest
+ * pair of neighbours on screen has daylight between them.
+ *
+ * The count is what paid for it. Land marks on the fit view went 251 -> 63. If
+ * that reads as too bald, the dial to move is this one and not `PLAINS_DENSITY`
+ * — 26 gives a ratio near 1.4, which is the top of the fill band, and buys
+ * most of the original texture back without ever overlapping.
  */
-const CELL_PX = 16
+const CELL_PX = 32
 
 /**
  * Hard cap on grid cells, hence on the cost of a rebuild. Note this caps
@@ -154,14 +200,23 @@ const BIOME_REACH: Record<TerrainCategory, number> = {
 /** Canvas size the reaches above are authored against. */
 const BIOME_REF_MIN_SIDE = 4500
 
-/** On-screen base size per biome. See CATEGORY_SIZE_SPREAD for the variation. */
+/**
+ * On-screen base size per biome. See CATEGORY_SIZE_SPREAD for the variation.
+ *
+ * Sizes came down ~10 % in v10 with the pivot to `CELL_PX` 32. They were set
+ * against a 16 px lattice, where a mark had to carry the ground by itself and
+ * bigger meant more ground; now that the gap is the thing doing the work, a
+ * mark only has to be legible, and at the old sizes the field still read
+ * slightly heavy on the fit view. The ratio that matters is the one in the
+ * `CELL_PX` note: 32 / 18 = 1.78.
+ */
 const CATEGORY_SIZE: Record<TerrainCategory, number> = {
-  mountain: 20,
-  forest: 15,
-  water: 22,
-  desert: 14,
-  cave: 13,
-  plains: 14,
+  mountain: 18,
+  forest: 14,
+  water: 20,
+  desert: 13,
+  cave: 12,
+  plains: 13,
 }
 
 /**
