@@ -782,7 +782,16 @@ export function generateTerrainHints(
   for (const item of layout) layoutMap.set(item.name, item)
 
   const colorPalette = darkBg ? COLORS_DARK : COLORS_LIGHT
-  const baseOpacity = darkBg ? 0.52 : 0.62
+  // Quietened from 0.52 / 0.62 when the terrain bake started carrying landform.
+  //
+  // The old value was set against a bake that was an invisible wash, so the
+  // glyphs had to be the ground all by themselves -- and the note above records
+  // what happened when they were not: flat paper. That is no longer the job.
+  // The bake now draws ridges, valleys and shading, so the glyphs are relief
+  // *accents* on top of ground that already exists, and at full strength they
+  // read as debris stamped over real terrain. The division is now explicit:
+  // the bake is the ground, this layer is the notation on it.
+  const baseOpacity = darkBg ? 0.44 : 0.52
   const k = zoom > 0 ? zoom : 1
 
   // Seed for the world-space relief field. See `reliefSalt`.
