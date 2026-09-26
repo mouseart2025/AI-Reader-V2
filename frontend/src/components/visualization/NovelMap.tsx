@@ -759,7 +759,17 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // Remove previous terrain image if any (keep hint symbols via class check)
       terrainG.selectAll("image.terrain-img").remove()
 
-      // Higher opacity on dark backgrounds where colors get washed out
+      // Higher opacity on dark backgrounds where colors get washed out.
+      //
+      // 0.40 is not a starting point to be raised: measured on 西游记, 0.40 to
+      // 1.00 moves land/sea dE*ab 14.49 -> 13.15 and chroma 10.00 -> 8.84, and
+      // the 4-8 px contrast barely moves, so a stronger wash costs separation
+      // and buys no visible texture. An earlier note recorded the trend the
+      // other way (dE 16.8 -> 20.6); it was measuring what the terrain
+      // *contributes*, not how separable land and sea are in the result.
+      // Unmeasured: the 0.55 dark-theme branch, which this sweep did not
+      // exercise. The bake carrying on the biome is land-clipped, so the ocean
+      // is untouched by this number either way.
       const terrainOpacity = darkBg ? 0.55 : 0.40
 
       // Insert terrain PNG as first child (below terrain hint symbols)
