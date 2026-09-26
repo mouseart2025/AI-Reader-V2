@@ -2978,9 +2978,19 @@ def _stable_seed(text: str) -> int:
 _FIELD_WINDOW = (0.20, 0.70)
 
 
+# The influence field is evaluated on a grid this many samples wide on the long
+# side and then upsampled. Every term's radius is a fraction of the raster's own
+# long side (0.12-0.22 of it), so the field has no structure finer than ~1/5 of
+# the raster — 512 samples resolve it with an order of magnitude to spare.
+# This is what makes the cost independent of the requested bake size: at 1024 the
+# full-resolution form was already 0.75 s, and at 4096 it would have been 16x
+# that (~12 s) purely to interpolate a field that is smooth by construction.
+_INFLUENCE_SAMPLES = 512
+
+
 def _bounded_influence(
-    ys_grid: np.ndarray,
-    xs_grid: np.ndarray,
+    img_w: int,
+    img_h: int,
     terms: list[tuple[list[tuple[float, float]], float, float]],
 ) -> np.ndarray:
     """Location influence that cannot grow with the number of points.
@@ -3002,6 +3012,17 @@ def _bounded_influence(
     is then bounded by the strongest single point by construction, whatever the
     point count.
     """
+    from scipy.ndimage import zoom
+
+    spacing = max(1, int(round(max(img_w, img_h) / _INFLUENCE_SAMPLES)))
+    gw = max(2, img_w // spacing + 1)
+    gh = max(2, img_h // spacing + 1)
+    # Raster coordinates of the coarse grid's own samples — the terms are stored
+    # in raster coordinates, so the grid has to be built in the same space.
+    ys_grid, xs_grid = np.mgrid[0:gh, 0:gw].astype(np.float64)
+    ys_grid *= spacing
+    xs_grid *= spacing
+
     pos = np.zeros_like(xs_grid)
     neg = np.zeros_like(xs_grid)
     for pts, radius, amp in terms:
@@ -3015,7 +3036,11 @@ def _bounded_influence(
                 np.maximum(target, contrib, out=target)
             else:
                 np.minimum(target, contrib, out=target)
-    return pos + neg
+    field = pos + neg
+    if spacing == 1:
+        return field[:img_h, :img_w]
+    up = zoom(field, (img_h / gh, img_w / gw), order=1)
+    return up[:img_h, :img_w]
 
 
 def _spread_unit(field: np.ndarray) -> np.ndarray:
@@ -3039,7 +3064,11 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # (sd 8.01) while the new recipe produced sd 20.88, and nothing in the request
 # path noticed. The filename and the URL both carry the version, so a recipe
 # bump invalidates the disk cache and every client's cached copy at once.
-_TERRAIN_VERSION = 2
+# v6: relief/texture/flat-noise strengths recalibrated against a composed A/B on
+# the real map. v5 reached v2's fine detail and lost the land/sea separation
+# while painting +-60 % relief over the labels — a regression that the bare
+# raster's own statistics scored as an improvement.
+_TERRAIN_VERSION = 6
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3058,11 +3087,135 @@ def terrain_url_for(novel_id: str) -> str:
     return f"/api/novels/{novel_id}/map/terrain/v{_TERRAIN_VERSION}"
 
 
+# Ceiling for the terrain bake, in pixels on its LONG side. The bake is stretched
+# over the whole canvas, so its resolution is the ceiling on every zoomed-in
+# detail the map can ever show. It used to be a flat 1024: on the 8000x4500
+# overworld canvas that is upsampled 7.8x, which is why the biome field read as
+# soft blobs at exactly the zoom the map exists to support (scaleExtent runs to
+# k=10, i.e. one canvas pixel per screen pixel).
+#
+# The old ceiling was a CPU ceiling, not a size one — the Python simplex loop
+# below cost 5.7 s at 1024 and grew with the square of the size, and a 4096 bake
+# was killed for memory long before it was tried. Both are gone now that the
+# field is vectorised, so the ceiling is set by what the image costs to ship:
+#
+#   size   bake s   PNG MB   upscale    MPx    (8000x4500 canvas)
+#    1024     0.89     0.53     7.81x    0.6
+#    2048     2.81     2.11     3.91x    2.4
+#    3072     6.83     4.77     2.60x    5.3
+#    4096    15.12     8.49     1.95x    9.4
+#    6144    32.60    19.12     1.30x   21.2   <- rejected: 19 MB and 21 MPx
+#
+# And having paid for all that, the resolution turned out not to be the binding
+# constraint. A rendered A/B of the same recipe at 1024 and 4096 -- same field,
+# only the raster differing, confirmed by cross-correlation 0.9996 on the two
+# downsampled to a common size -- measured a high-frequency gain of 1.00-1.07x
+# ACROSS THE WHOLE ZOOM RANGE, from fit to 2 canvas px per screen px. The reason
+# is the field's own spectrum: 99 % of its power sits above a wavelength of 320
+# canvas px while even a 1024 raster resolves 15.6. The bake was twenty times
+# oversampled and no amount of megapixels could show it.
+#
+# So this is a headroom ceiling, not a quality dial. 2048 leaves the raster's own
+# Nyquist at 3.9 canvas px, comfortably finer than the ~30 px floor the field
+# below can produce even with its octaves at full count, and it keeps the image
+# at 2 MB. Re-derive this number if the detail budget changes: the test is
+# `2 * canvas_long_side / size <= finest_wavelength / 2`.
+#
+# A later measurement narrowed the claim above rather than overturning it. It
+# holds at fit zoom, where one bake texel covers 0.58 screen px, and it stops
+# holding deep in the range: at 4.8x a texel covers 2.78 screen px and the bake
+# is genuinely soft. But raising the size does not cure that, because the layer
+# has almost nothing at those scales to resolve. Toggling the layer off and on
+# and taking the residual (no mask, so nothing can hide in the choice of window)
+# gives, in screen-px bands at fit / 2.2x / 4.8x:
+#
+#   band    4-8     8-16   16-32   32-64   64-200
+#   fit     2.08    2.59    3.24    4.01     5.29
+#   2.2x    1.72    2.13    2.58    3.32     6.73
+#   4.8x    1.36    1.55    1.94    2.48     5.45
+#
+# The layer is a broad tonal wash, strongest by a factor of two at 64-200 px, and
+# its fine end FALLS as it is zoomed — that is upsampling, exactly as predicted.
+# A bigger raster would push that knee out, not remove it, and would cost 8 MB and
+# 13 s for a wash. The thing that would put real detail at deep zoom is content in
+# the field at those scales, which is a different change from this one.
+_TERRAIN_MAX_SIZE = 2048
+
+# ── The field's detail budget ──
+# These, not the raster, decide how fine the terrain reads. The shipped values
+# were three octaves per field, stopping at 224 canvas px on the 8000 px
+# overworld — blobs a thirty-sixth of the map wide — which is why the result read
+# as soft however sharp the bake was. Octaves are added at half the wavelength
+# each, so the floor moves to ~30 canvas px and the raster still resolves it.
+# The class fields stay at three octaves: every octave in them becomes a biome
+# boundary, so more octaves means more, smaller patches, which is the opposite of
+# readable. The detail goes into `_ELEV_OCTAVES`, which only shades.
+_CLASS_OCTAVES = 3
+_MOIST_OCTAVES = 3         # 1560 -> 390 canvas px, coherent moisture bands
+_RELIEF_OCTAVES = 5        # 1952 -> 122 canvas px: slopes, not grain
+# The grain field starts at its own high base rather than running the full
+# fractal and being high-passed afterwards: _fbm always begins at the largest
+# scale, so a 7-octave texture would carry a +/-1 low-frequency component and
+# dim the map in patches. Starting at 244 canvas px keeps it to grain.
+_TEXTURE_BASE_WL = 0.0305  # 244 canvas px on the overworld
+_TEXTURE_OCTAVES = 4       # down to 30 canvas px
+_VARIATION_OCTAVES = 4     #  784 ->  98 canvas px
+
+# Strength of the relief shading as a fraction of the base colour. 0 disables it.
+#
+# 0.30 was the first attempt and it was a regression, shipped-in-measurement
+# visible only in a composed A/B: with the slope clipped at +-2 sigma, 0.30 is a
+# +-60 % modulation of the base colour. At 0.4 opacity on the map that is a
+# +-24 % swing laid over the region colours, place labels and roads — the reader
+# sees blotches, and reads them as dirt, not as landform. Isolating the terms one
+# at a time on the real map (relief+texture off = clean, relief on = dirty)
+# pinned the cause here and not on the flat noise terms, on the blur, or on the
+# raster size. 0.10 keeps a slope readable and stays under the +-18 RGB the
+# pre-existing colour variation already spent.
+_RELIEF_GAIN = 0.10
+# How much the finest detail perturbs the colour without being shaded. Kept
+# separate from the relief so grain cannot masquerade as landform. 0.03 with the
+# relief above is the measured point where texture is present and the labels are
+# untouched; 0.10 was not.
+_TEXTURE_AMPLITUDE = 0.03
+
+# The two flat noise terms that predate the octave budget, now named because they
+# are a large share of the terrain's visible contrast and were previously
+# unnamed literals inside the bake. `_fbm` returns a zero-mean unit-sd field
+# while `variation` here is a three-octave 0.5/0.3/0.2 sum, so the effective
+# swing of `_VARIATION_STRENGTH` is about 0.55 x the number: 30 was +-18 RGB at
+# 781 canvas px, i.e. 115 screen px at fit zoom, which is blotch scale rather
+# than texture scale and was a second, smaller contributor to the same dirt.
+# Their wavelengths are the old per-raster-pixel frequencies converted to
+# fractions of the long side (100/33/12.5 px of a 1024 raster = 0.098/0.033/
+# 0.012; 8.33 px = 0.0081) — that conversion is what keeps the field
+# resolution-independent, and it is correct.
+_VARIATION_STRENGTH = 6    # +-3 RGB at 781 -> 98 canvas px
+_PAPER_STRENGTH = 0        # grain read as noise on a map; kept as a dial
+
+# Final painterly blur, as a fraction of the long side. Was a flat sigma of 4
+# raster px, i.e. 0.0039 of the 1024 raster it was tuned on = 31 canvas px on the
+# overworld, which is wider than every octave added above and would have erased
+# them. 0.0008 is 6.4 canvas px: enough to keep the biome lookup's borders from
+# looking like a contour map, not enough to be the detail ceiling.
+_BLUR_FRAC = 0.0008
+
+
+def terrain_bake_size(canvas_width: int, canvas_height: int) -> int:
+    """Raster size for the terrain bake, measured on its long side.
+
+    Matches the canvas where that is affordable and is capped where it is not,
+    so the upsampling factor is 1.0 on the smaller overlay canvases (2400x1350)
+    and 2.0x on the 8000x4500 overworld instead of a flat 7.8x.
+    """
+    return int(min(_TERRAIN_MAX_SIZE, max(canvas_width, canvas_height)))
+
+
 def generate_terrain(
     locations: list[dict],
     layout: dict[str, tuple[float, float]],
     novel_id: str,
-    size: int = 1024,
+    size: int | None = None,
     canvas_width: int = CANVAS_WIDTH,
     canvas_height: int = CANVAS_HEIGHT,
 ) -> str | None:
@@ -3086,14 +3239,16 @@ def generate_terrain(
     reports it if that ever stops being true.
     """
     try:
-        from opensimplex import OpenSimplex
         from PIL import Image
     except ImportError:
-        logger.warning("Pillow or opensimplex not installed, skipping terrain generation")
+        logger.warning("Pillow not installed, skipping terrain generation")
         return None
 
     if len(layout) < 2:
         return None
+
+    if size is None:
+        size = terrain_bake_size(canvas_width, canvas_height)
 
     # ── Image dimensions (preserve canvas 16:9 aspect) ──
     aspect = canvas_width / max(canvas_height, 1)
@@ -3145,34 +3300,111 @@ def generate_terrain(
            any(k in type_icon for k in _FOREST_SUFFIXES):
             forest_pts.append((px, py))
 
-    # ── Noise generators ──
+    # ── Noise fields ──
+    #
+    # These used to be `OpenSimplex.noise2` calls in a Python double loop, one
+    # per sparse-grid sample. Profiled at 1024 px: 396_288 calls at 13.8 us each
+    # = 5.73 s of a 6.88 s bake — 83 % of it — and the call count grows with the
+    # square of the requested size, which is why a 4096 bake never completed.
+    # That was the whole reason the bake was pinned at a resolution 7.8x too
+    # small for the canvas.
+    #
+    # What a terrain field needs from noise is smoothness, isotropy and a known
+    # wavelength, not simplex's particular lattice. So it is drawn as white
+    # noise on a grid whose spacing is a quarter of the octave's wavelength and
+    # upsampled with a cubic kernel: same field character, vectorised, and
+    # seeded from the novel id so it still reproduces exactly. The grid is
+    # ~1/step of the raster on each side, so this costs a few milliseconds per
+    # octave at any output size instead of a few seconds.
     seed_base = _stable_seed(novel_id)
-    elev_noise = OpenSimplex(seed=seed_base)
-    moist_noise = OpenSimplex(seed=seed_base + 9973)
-    detail_noise = OpenSimplex(seed=seed_base + 19937)
-    paper_noise = OpenSimplex(seed=seed_base + 31337)
 
     # ── Sparse-sample + upsample helper ──
     from scipy.ndimage import gaussian_filter, zoom
 
-    def _sparse_noise(gen, freq: float, step: int = 4) -> np.ndarray:
-        """Sample noise at sparse grid, then bilinear upsample."""
-        rows_s = range(0, img_h, step)
-        cols_s = range(0, img_w, step)
-        sparse = np.zeros((len(list(rows_s)), len(list(cols_s))), dtype=np.float64)
-        for ri, row in enumerate(range(0, img_h, step)):
-            for ci, col in enumerate(range(0, img_w, step)):
-                sparse[ri, ci] = gen.noise2(col * freq, row * freq)
-        zy = img_h / max(sparse.shape[0], 1)
-        zx = img_w / max(sparse.shape[1], 1)
-        return zoom(sparse, (zy, zx), order=1)[:img_h, :img_w]
+    long_side = max(img_w, img_h)
 
-    # ── Continuous elevation field (multi-octave) ──
-    elev = (
-        _sparse_noise(elev_noise, 0.004, step=4) * 0.50     # large-scale terrain
-        + _sparse_noise(elev_noise, 0.012, step=4) * 0.30   # medium detail
-        + _sparse_noise(elev_noise, 0.035, step=8) * 0.20   # fine detail
-    )
+    def _sparse_noise(seed: int, wl_frac: float) -> np.ndarray:
+        """Smooth isotropic noise with wavelength `wl_frac` of the long side.
+
+        The wavelength is a FRACTION OF THE RASTER, deliberately, and not a count
+        of pixels. When it was a pixel count (1/freq, with freq in cycles per
+        raster pixel as simplex used to take it) the terrain's physical scale was
+        welded to the bake resolution: a 4096 bake laid down the same 250-pixel
+        blobs as a 1024 bake, which on a fixed-size canvas means every feature
+        came out 4x smaller. Raising the resolution therefore did not resolve the
+        same terrain more sharply, it drew *different* terrain — the biome field
+        collapsed into per-texel speckle, which an HF-energy metric happily
+        scored as a 3.6x sharpness win. Tying the wavelength to the long side
+        makes the field resolution-independent, so more pixels buy only sharpness.
+        The three elevation values reproduce the old 1024-pixel field exactly
+        (250/83/29 px of a 1024 raster = 0.244/0.081/0.028 of its long side).
+
+        The sample spacing is a quarter of the wavelength — derived from the
+        octave, not fixed. The old code sampled every fixed 4 px: that
+        oversampled the 0.004 octave (wavelength 250 px) sixtyfold while the
+        paper-grain octave at 0.12 was sampled at about its own Nyquist limit.
+        Four samples per wavelength is comfortably above Nyquist and cheap. The
+        grid is sized straight from the fraction rather than from a rounded
+        spacing, so two bakes of different size get the identical grid, hence
+        the identical random draw, hence the same field sampled finer.
+        """
+        wavelength = max(wl_frac, 1e-9) * long_side
+        gw = max(3, int(np.ceil(4.0 * img_w / wavelength)) + 1)
+        gh = max(3, int(np.ceil(4.0 * img_h / wavelength)) + 1)
+        grid = np.random.default_rng(seed).standard_normal((gh, gw))
+        up = zoom(grid, (img_h / gh, img_w / gw), order=3)[:img_h, :img_w]
+        # Cubic interpolation of a white-noise grid leaves a faint ripple on the
+        # grid lines. A sub-pixel blur removes it without touching the octave's
+        # scale, which is 4 samples across. This sigma is deliberately in raster
+        # pixels, unlike the wavelength and the final blur: the artefact it kills
+        # is a property of the interpolation kernel, not of the field.
+        up = gaussian_filter(up, 0.6)
+        sd = float(up.std())
+        return (up - up.mean()) / sd if sd > 1e-9 else up
+
+    def _fbm(seed: int, base_wl: float, octaves: int) -> np.ndarray:
+        """Fractal sum: each octave half the wavelength and half the weight.
+
+        The count is the field's detail budget and is the thing that decides how
+        fine the terrain reads — not the raster size. Measured on 西游记, the
+        shipped three-octave fields put 99 % of their spectral power above a
+        wavelength of 320 canvas pixels, i.e. the whole map was blobs a
+        twenty-fifth of its width across, while the raster resolved down to 15.6.
+        Three octaves are also the worst case for the look: with no small scales
+        to break them up, the Whittaker lookup paints large flat patches with
+        smooth borders, which is what "soft" means here. `lacunarity` is fixed at
+        2 so successive octaves overlap in scale and read as texture.
+        """
+        out = np.zeros((img_h, img_w), dtype=np.float64)
+        amp, wl, norm = 1.0, base_wl, 0.0
+        for i in range(octaves):
+            out += _sparse_noise(seed + i, wl) * amp
+            norm += amp
+            amp *= 0.5
+            wl *= 0.5
+        return out / norm
+
+    # ── Continuous elevation field ──
+    #
+    # Two fields off one seed, and the distinction matters more than the octave
+    # count:
+    #
+    #   elev   the CLASS field. It feeds the Whittaker lookup, so every octave in
+    #          it becomes a biome boundary. It stays coarse on purpose: feeding
+    #          the full fractal sum in here was tried, and because an fBm's
+    #          number of above-threshold excursions grows fast with octave count,
+    #          the snow class shattered into hundreds of separate caps — visible
+    #          in a rendered A/B as the map turning into confetti at fit zoom,
+    #          where the reader sees it most. Coherent regions are what make a
+    #          map readable, and they are bought by keeping this field smooth.
+    #   relief the DETAIL field: the same seed with the full octave budget. It
+    #          never changes a class. It only shades the result, which is where
+    #          fine texture belongs — as relief, not as more biomes.
+    #
+    # Base wavelength is a fraction of the long side, converted from the old
+    # cycles-per-pixel frequency against the 1024 raster it was tuned on:
+    # 1/0.004 = 250 px = 0.244 of 1024.
+    elev = _fbm(seed_base + 11, 0.244, _CLASS_OCTAVES)
     # An affine bias. It no longer sets an absolute level — `_spread_unit` maps
     # the field's own window onto 0-1 and the clipping there is what gives this
     # its meaning — but it does control how much of the field lands above or
@@ -3184,27 +3416,22 @@ def generate_terrain(
     # of the raster's long side, i.e. a fraction of the canvas rather than a
     # fixed distance. Only the way overlapping points combine is different.
     influence_r = max(img_w, img_h) * 0.18
-    ys_grid, xs_grid = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
 
-    elev += _bounded_influence(ys_grid, xs_grid, [
+    elev += _bounded_influence(img_w, img_h, [
         (mountain_pts, influence_r, 0.25),
         (water_pts, influence_r, -0.20),
     ])
     elev = _spread_unit(elev)
 
     # ── Continuous moisture field (multi-octave) ──
-    moist = (
-        _sparse_noise(moist_noise, 0.005, step=4) * 0.50
-        + _sparse_noise(moist_noise, 0.015, step=4) * 0.30
-        + _sparse_noise(moist_noise, 0.04, step=8) * 0.20
-    )
+    moist = _fbm(seed_base + 21, 0.195, _MOIST_OCTAVES)
     # An affine bias, in the same sense as the elevation one above.
     moist = moist * 0.5 + 0.30
 
     water_r = max(img_w, img_h) * 0.22
     forest_r = max(img_w, img_h) * 0.15
     mtn_r = max(img_w, img_h) * 0.14
-    moist += _bounded_influence(ys_grid, xs_grid, [
+    moist += _bounded_influence(img_w, img_h, [
         (water_pts, water_r, 0.35),
         (forest_pts, forest_r, 0.20),
         (mountain_pts, mtn_r, -0.12),
@@ -3266,23 +3493,55 @@ def generate_terrain(
         + c11 * ef3 * mf3
     )
 
+    # ── Relief shading from the detail field ──
+    # A slope-driven light from the upper left, the same convention every map
+    # and every hillshade uses. This is what makes the fine octaves read as
+    # landform instead of as speckle: they never move a biome boundary, they only
+    # darken what faces away from the light, so the terrain gains structure
+    # without the classes fragmenting. The slope is normalised against its own
+    # 95th percentile so the gain does not drift with the raster size or with how
+    # many octaves the detail budget happens to buy.
+    # Shaded on a band-limited height field, deliberately. Running the gradient
+    # over the full fractal sum shades the finest octave hardest — a gradient
+    # amplifies high frequencies — and the result reads as stucco rather than as
+    # landform. The finest octaves go in flat, as _TEXTURE_AMPLITUDE, where they
+    # add grain without pretending to be slopes.
+    if _RELIEF_GAIN > 0.0:
+        relief = _fbm(seed_base + 11, 0.244, _RELIEF_OCTAVES)
+        gy, gx = np.gradient(relief)
+        slope = gx + gy                 # signed slope along the light vector
+        slope_scale = float(np.percentile(np.abs(slope), 95.0))
+        shade = np.clip(slope / (slope_scale + 1e-12), -2.0, 2.0)
+        rgb = rgb * (1.0 + _RELIEF_GAIN * shade)[:, :, np.newaxis]
+
+    if _TEXTURE_AMPLITUDE > 0.0:
+        texture = _fbm(seed_base + 51, _TEXTURE_BASE_WL, _TEXTURE_OCTAVES)
+        rgb = rgb * (1.0 + _TEXTURE_AMPLITUDE * texture)[:, :, np.newaxis]
+
     # ── Color variation noise for visual depth ──
-    variation = (
-        _sparse_noise(detail_noise, 0.01, step=2) * 0.5
-        + _sparse_noise(detail_noise, 0.03, step=4) * 0.3
-        + _sparse_noise(detail_noise, 0.08, step=8) * 0.2
-    )
-    rgb = rgb + variation[:, :, np.newaxis] * 30  # ±15 color variation
+    # Each of these is skipped at 0 rather than multiplied by it: the dials are
+    # documented as disabling the term, and a disabled term should not cost a
+    # full fractal sum.
+    if _VARIATION_STRENGTH > 0.0:
+        variation = _fbm(seed_base + 31, 0.098, _VARIATION_OCTAVES)
+        rgb = rgb + variation[:, :, np.newaxis] * _VARIATION_STRENGTH
 
     # ── Paper grain texture ──
-    paper = _sparse_noise(paper_noise, 0.12, step=4)
-    rgb = rgb + paper[:, :, np.newaxis] * 12  # ±6 grain
+    if _PAPER_STRENGTH > 0.0:
+        paper = _sparse_noise(seed_base + 41, 0.0081)
+        rgb = rgb + paper[:, :, np.newaxis] * _PAPER_STRENGTH
 
     rgb = np.clip(rgb, 0, 255).astype(np.uint8)
 
     # ── Gaussian blur for smooth, painterly transitions ──
+    # Also a fraction of the long side, for the reason the noise wavelengths are:
+    # a fixed sigma of 4 px was 0.39 % of a 1024 raster but only 0.10 % of a 4096
+    # one, so raising the resolution silently traded the painterly wash for the
+    # speckle the field is made of. See _BLUR_FRAC.
+    blur_sigma = max(0.5, long_side * _BLUR_FRAC)
     for ch in range(3):
-        rgb[:, :, ch] = gaussian_filter(rgb[:, :, ch].astype(np.float64), sigma=4).astype(np.uint8)
+        rgb[:, :, ch] = gaussian_filter(
+            rgb[:, :, ch].astype(np.float64), sigma=blur_sigma).astype(np.uint8)
 
     # ── Save ──
     img = Image.fromarray(rgb, "RGB")
