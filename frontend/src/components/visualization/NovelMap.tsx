@@ -1104,10 +1104,17 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           }
         }
 
+        // Ocean fill, and the value it resolves to is the whole point. At the
+        // old 0.46 over parchment this came out about (187,201,209) -- a few
+        // levels below the land -- and with both sides of the coast sitting in
+        // one pale wash the map had no value structure: the continents read as
+        // stains rather than as places. 0.52 takes the open sea to about
+        // (173,190,203), so the coast separates by value and the water gains a
+        // depth of its own, while the pale shelf band still reads as shallow.
         oceanG
           .append("path")
           .attr("d", oceanPathD)
-          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(118,156,188,0.46)")
+          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(104,142,178,0.52)")
           .attr("fill-rule", "evenodd")
           .style("pointer-events", "none")
 
@@ -1173,9 +1180,19 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           // they replace. Dark theme lifts harder because its ocean is
           // `rgba(34,58,92,0.42)` over a near-black plate — there the band is
           // most of the contrast the coastal water has.
+          // A whisper, and the reason is measured rather than tastes. The band
+          // is a flat fill with a hard edge, so it is only invisible while the
+          // water around it is nearly the same value. Deepening the ocean (see
+          // the fill above) put ~14 levels between the two and the band came
+          // out as a distinct light ring around every landmass -- stickers with
+          // an outline, not land in water. Two ways out: give up the depth, or
+          // make the band faint enough that a hard edge has nothing to show.
+          // Depth is worth more than the band, so the band keeps only enough
+          // alpha to lift every channel above the water it replaces, which is
+          // the requirement; the soft read is left to the distance.
           const shelfFill = darkBg
-            ? "rgba(96,140,180,0.45)"
-            : "rgba(214,236,246,0.55)"
+            ? "rgba(96,140,180,0.26)"
+            : "rgba(206,230,242,0.22)"
           for (const shelfPts of shelves) {
             shelfG
               .append("path")
@@ -1247,7 +1264,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         oceanG
           .append("path")
           .attr("d", oceanPath)
-          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(118,156,188,0.46)")
+          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(104,142,178,0.52)")
           .attr("fill-rule", "evenodd")
           .style("pointer-events", "none")
 

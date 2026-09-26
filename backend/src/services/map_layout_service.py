@@ -3072,13 +3072,16 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # palette ramped over the same height instead of a Whittaker lookup over a
 # different field. See the _SHAPE comment for why no amount of dial-turning on
 # v6 could have got there.
+# v9: v8's plains kept too little relief, and a province at _PLAIN_FLOOR 0.22
+# rendered as a large featureless pale patch -- a hole in the map rather than a
+# plain. 0.34 keeps a texture there while the crests still clearly win.
 # v8: v7's value and scale. Structure was right and the picture still read as
 # heavy: the land came out a dark rust wash that labels had to fight, and the
 # ridges were fine enough to read as grain at fit zoom. Land is now held in the
 # light half of the range with the mass pushed into the lowlands, shading
 # modulates instead of dominating, and the octave falloff is shallower so macro
 # form wins at fit.
-_TERRAIN_VERSION = 8
+_TERRAIN_VERSION = 9
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3276,7 +3279,7 @@ _RELIEF_MASK_OCTAVES = 3
 # Amplitude multiplier where the mask is at its lowest. Not 0: a province with
 # no relief at all has no texture either, and a flat colour patch on a map this
 # size reads as a hole rather than as a plain.
-_PLAIN_FLOOR = 0.22
+_PLAIN_FLOOR = 0.34
 # Height is pushed toward the lowlands before the palette is applied, which is
 # what stops the mid-tones from filling with rock and snow. Set to 1.0 -- off --
 # because the ridged field already concentrates its mass low once the crest
