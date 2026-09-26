@@ -49,7 +49,17 @@ from src.services import map_layout_service as M
 DIALS = ("_RELIEF_GAIN", "_RIDGE_GAIN", "_TEXTURE_AMPLITUDE",
          "_VARIATION_STRENGTH", "_PAPER_STRENGTH", "_BLUR_FRAC",
          "_CLASS_OCTAVES", "_MOIST_OCTAVES", "_RELIEF_OCTAVES",
-         "_RIDGE_BASE_WL", "_RIDGE_OCTAVES")
+         "_RIDGE_BASE_WL", "_RIDGE_OCTAVES",
+         # v7 landform recipe. Listed because a dial the harness does not know
+         # about is a dial that cannot be isolated, and an un-isolatable dial is
+         # how the shipped value stops being a measurement and becomes a guess.
+         "_SHAPE", "_RIDGE_PERSISTENCE", "_RIDGE_WEIGHT_GAIN", "_RIDGE_MIX",
+         "_RIDGE_SCALES", "_RELIEF_MASK_WL", "_RELIEF_MASK_OCTAVES",
+         "_PLAIN_FLOOR", "_HEIGHT_GAMMA", "_HEIGHT_WINDOW",
+         "_HEIGHT_RAMP", "_HILLSHADE_AZ", "_HILLSHADE_EL", "_HILLSHADE_EXAG",
+         "_SHADE_FLOOR", "_SHADE_RANGE", "_MOISTURE_TILT", "_MOISTURE_LOW_TOP",
+         "_MOISTURE_TILT_RGB", "_TEXTURE_BASE_WL", "_TEXTURE_OCTAVES",
+         "_VARIATION_OCTAVES")
 
 
 @contextlib.contextmanager

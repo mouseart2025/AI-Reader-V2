@@ -3072,7 +3072,13 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # palette ramped over the same height instead of a Whittaker lookup over a
 # different field. See the _SHAPE comment for why no amount of dial-turning on
 # v6 could have got there.
-_TERRAIN_VERSION = 7
+# v8: v7's value and scale. Structure was right and the picture still read as
+# heavy: the land came out a dark rust wash that labels had to fight, and the
+# ridges were fine enough to read as grain at fit zoom. Land is now held in the
+# light half of the range with the mass pushed into the lowlands, shading
+# modulates instead of dominating, and the octave falloff is shallower so macro
+# form wins at fit.
+_TERRAIN_VERSION = 8
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3239,39 +3245,91 @@ _SHAPE = "ridged"
 # Octaves for the ridged field. Base wavelength stays at the class field's
 # 0.244 (1952 canvas px) so the ranges land where the regions are; seven octaves
 # reach 30 canvas px, which is the finest detail the reader can resolve at fit.
-_RIDGE_OCTAVES = 7
+_RIDGE_OCTAVES = 4
 _RIDGE_BASE_WL = 0.244
+# Three ridged fields at three base wavelengths, summed. One field at one
+# wavelength gives one cell size, and one cell size repeated across the canvas
+# reads as texture -- a canopy, or broccoli -- however good the individual cells
+# look. Real ground is hierarchical: a few massifs, ridges off them, hills off
+# those. Each entry is (base wavelength, octaves, amplitude), the wavelengths a
+# factor of ~2.8 apart so the three scales are distinguishable rather than
+# stacking into one band.
+_RIDGE_SCALES: tuple[tuple[float, int, float], ...] = (
+    (0.244, 4, 1.00),      # 1952 canvas px: where the ranges are
+    (0.085, 4, 0.42),      #  680 canvas px: ridges off them
+    (0.032, 3, 0.17),      #  256 canvas px: hills off those
+)
+# Amplitude falloff per octave within one scale.
+_RIDGE_PERSISTENCE = 0.5
+# How strongly a crest at one octave invites detail at the next. Above 1 the
+# detail crowds onto the ranges and the lowlands go completely smooth; too low
+# and every octave ignores the last, which is the filament topology described in
+# `_ridged`.
+_RIDGE_WEIGHT_GAIN = 1.4
+# How mountainous each region is, as a low-frequency mask. Without it every
+# region gets the same treatment and the map has no macro reading -- the reader
+# cannot tell a mountain province from a plain, which is precisely the thing a
+# world map is for. 0.10 of the raster is ~800 canvas px, so the provinces this
+# creates are a tenth of the map across.
+_RELIEF_MASK_WL = 0.10
+_RELIEF_MASK_OCTAVES = 3
+# Amplitude multiplier where the mask is at its lowest. Not 0: a province with
+# no relief at all has no texture either, and a flat colour patch on a map this
+# size reads as a hole rather than as a plain.
+_PLAIN_FLOOR = 0.22
+# Height is pushed toward the lowlands before the palette is applied, which is
+# what stops the mid-tones from filling with rock and snow. Set to 1.0 -- off --
+# because the ridged field already concentrates its mass low once the crest
+# weighting above is in place, and an earlier 1.8 on top of the unweighted field
+# collapsed the middle of the ramp and rendered as pale-veined green cells.
+_HEIGHT_GAMMA = 1.0
+
+# How much of the height is ridged crest versus broad fBm mass. See the branch
+# in generate_terrain: too high and the high ground is a web of filaments, too
+# low and there are no crests to shade.
+_RIDGE_MIX = 0.45
 
 # Lambert light: upper left, the convention every map and hillshade uses.
 _HILLSHADE_AZ = 315.0
 _HILLSHADE_EL = 45.0
 # Vertical exaggeration, applied after normalising the gradient against its own
 # p95 so the value does not drift with raster size or octave count.
-_HILLSHADE_EXAG = 2.2
-# Shading is a modulation of the ramp colour, not a replacement for it. The floor
-# is what a surface facing fully away from the light keeps; at 0.42 the shadowed
-# faces stay readable as ground instead of going to mud.
-_SHADE_FLOOR = 0.42
-_SHADE_RANGE = 0.90
+_HILLSHADE_EXAG = 1.5
+# Shading is a modulation of the ramp colour, not a replacement for it. Floor
+# and range together set how far the darkest slope falls below the ramp: 0.62
+# means even a fully away-facing face keeps 62 % of its colour, so relief reads
+# as form without turning the map into a dark relief model. At 0.42 it did, and
+# the mud that produced was the reason the first version of this read as heavy.
+_SHADE_FLOOR = 0.58
+_SHADE_RANGE = 0.62
 
-# Sand -> grass -> scree -> rock -> snow. Anchored at the low end on the map's
-# own parchment family so the terrain still belongs to the same picture; the
-# Whittaker grid's lowland cell is (215,200,160) and this starts next to it.
+# Sand -> grass -> scree -> rock -> snow, held in the light half of the range
+# and pushed warm on purpose.
+#
+# The land is where every label, road and icon goes, so it has to stay a light
+# field; the sea is the mid-tone wash that recedes. Warm because the map's own
+# parchment base and its region tints are warm, and a cool grey-green terrain
+# under them reads as dirt on the paper rather than as ground -- which is what
+# the first three attempts at this palette all came out looking like. Low end
+# anchored on the map's parchment family, whose lowland cell is (215,200,160);
+# this starts lighter than that so the lowlands can carry labels unaided.
 _HEIGHT_RAMP: tuple[tuple[float, tuple[int, int, int]], ...] = (
-    (0.00, (216, 204, 168)),
-    (0.20, (198, 196, 148)),
-    (0.38, (166, 178, 124)),
-    (0.55, (134, 152, 104)),
-    (0.70, (140, 132, 112)),
-    (0.84, (160, 156, 150)),
-    (1.00, (238, 240, 242)),
+    (0.00, (243, 234, 207)),
+    (0.22, (230, 218, 180)),
+    (0.42, (212, 205, 160)),
+    (0.62, (191, 188, 150)),
+    (0.78, (178, 172, 155)),
+    (0.90, (199, 195, 189)),
+    (0.97, (240, 241, 242)),
+    (1.00, (250, 251, 252)),
 )
 # How far moisture can swing the low ground from ochre to green, and the RGB
 # direction it swings in. Only the low ground: moisture is a lowland concept and
-# tinting the snow line green is how a map starts looking arbitrary.
-_MOISTURE_TILT = 0.85
+# tinting the snow line green is how a map starts looking arbitrary. Milder than
+# the first pass, which pushed lowland reds down far enough to read as bruise.
+_MOISTURE_TILT = 0.55
 _MOISTURE_LOW_TOP = 0.62
-_MOISTURE_TILT_RGB = np.array([-46.0, 20.0, -4.0])
+_MOISTURE_TILT_RGB = np.array([-28.0, 14.0, -4.0])
 # The height window used to spread the ridged field onto 0-1. Its own percentiles
 # rather than _FIELD_WINDOW: that window is calibrated to an fBm's mean and tails,
 # and applying it to a ridged sum clipped the field to 1.0 nearly everywhere,
@@ -3310,6 +3368,19 @@ def _ramp_lookup(height: np.ndarray, moist: np.ndarray) -> np.ndarray:
     low = np.clip(1.0 - height / _MOISTURE_LOW_TOP, 0.0, 1.0)
     tilt = (wet * low * _MOISTURE_TILT)[..., np.newaxis]
     return rgb + tilt * _MOISTURE_TILT_RGB
+
+
+def _own_unit(field: np.ndarray, window: tuple[float, float]) -> np.ndarray:
+    """Spread a field onto 0-1 using its own percentiles, not a shared window.
+
+    `_spread_unit` exists and does the same job, but through `_FIELD_WINDOW`,
+    which is calibrated to an fBm's mean and tails. A ridged sum has a different
+    mean and a long lower tail; running it through that window clipped it to 1.0
+    over almost the whole canvas, which renders as an all-white map.
+    """
+    lo = float(np.percentile(field, window[0]))
+    hi = float(np.percentile(field, window[1]))
+    return np.clip((field - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
 
 
 def terrain_bake_size(canvas_width: int, canvas_height: int) -> int:
@@ -3496,28 +3567,41 @@ def generate_terrain(
         return out / norm
 
     def _ridged(seed: int, base_wl: float, octaves: int) -> np.ndarray:
-        """Ridged multifractal: `1-|n|` turns smooth extrema into crest lines.
+        """Ridged multifractal: crests first, then detail weighted onto them.
 
-        This is the one structural thing the class field lacks. An fBm's extrema
-        are round blobs, so a gradient over one finds domes and shades them as
-        domes — rendered and looked at, that is a field of raised lumps, not a
-        mountain range. Ridged noise creases along its zero crossings instead,
-        and those creases are what a gradient draws as ridges with valleys
-        between them.
+        `1-|n|` on its own is not enough, and the way it fails is worth writing
+        down because it looks plausible in every statistic. `|n|` is small on
+        the zero set of a smooth random field, which is a NETWORK OF CURVES, so
+        `1-|n|` is large only along thin filaments and near zero everywhere
+        between them. Applying it at every octave therefore produces the
+        topology of terrain INVERTED: broad lowland with a web of thin high
+        ridges, where real ground is broad uplands cut by narrow valleys. On the
+        palette that puts the snow line along the filaments, and the picture
+        reads as veins under skin rather than as mountains. Seen, not inferred.
 
-        Each octave is divided by its own p99 of |n|, not by a shared maximum. A
+        The fix is the standard one -- squaring sharpens the crest, and a
+        `weight` carried from the previous octave means each finer octave only
+        contributes where the coarser one already put a ridge. Detail therefore
+        gathers on the crests and the lowlands stay smooth, which is both what
+        real terrain does and what makes a mountain range read as a range
+        instead of as texture.
+
+        Each octave is divided by its own p99 of |n|, not by a shared maximum: a
         shared maximum is set by one outlier cell, which compresses every other
-        octave and flattens the crests — the same defect as a saturated
-        accumulator, one level down.
+        octave and flattens the crests.
         """
         out = np.zeros((img_h, img_w), dtype=np.float64)
         amp, wl, norm = 1.0, base_wl, 0.0
+        weight = np.ones((img_h, img_w), dtype=np.float64)
         for i in range(octaves):
             n = _sparse_noise(seed + i, wl)
             scale = float(np.percentile(np.abs(n), 99.0)) or 1.0
-            out += (1.0 - np.clip(np.abs(n) / scale, 0.0, 1.0)) * amp
+            signal = (1.0 - np.clip(np.abs(n) / scale, 0.0, 1.0)) ** 2
+            signal = signal * weight
+            out += signal * amp
             norm += amp
-            amp *= 0.5
+            weight = np.clip(signal * _RIDGE_WEIGHT_GAIN, 0.0, 1.0)
+            amp *= _RIDGE_PERSISTENCE
             wl *= 0.5
         return out / norm
 
@@ -3612,14 +3696,46 @@ def generate_terrain(
         # applied here rather than to `elev`, because in this recipe the height
         # field is the only field: a mountain location has to raise the ground
         # the reader sees, not a parallel quantity that only picks a colour.
-        ridge = _ridged(seed_base + 11, _RIDGE_BASE_WL, _RIDGE_OCTAVES)
-        ridge += _bounded_influence(img_w, img_h, [
+        # A ridged field on its own has the wrong topology for mass, and mixing
+        # it into an fBm base is the standard fix.
+        #
+        # `1-|n|` is large along the zero set of a smooth field, which is a
+        # NETWORK OF CURVES, so a pure ridged sum puts its greatest heights on
+        # one-dimensional filaments. Snow lands on them, and because filaments
+        # are long, thin and branching the eye reads them as rivers in the
+        # valleys rather than as crests -- seen at length, not inferred. Terrain
+        # needs its high ground to have AREA.
+        #
+        # So the broad shape is an fBm, whose mass is genuinely two-dimensional,
+        # and the ridged sum is mixed into it to sharpen the crests and give
+        # them a drainage structure. _RIDGE_MIX is the split.
+        ridge = np.zeros((img_h, img_w), dtype=np.float64)
+        for i, (wl, octs, amp) in enumerate(_RIDGE_SCALES):
+            ridge += amp * _ridged(seed_base + 11 + 101 * i, wl, octs)
+        ridge = _own_unit(ridge, _HEIGHT_WINDOW)
+
+        base = _own_unit(_fbm(seed_base + 11, _RIDGE_BASE_WL, _RIDGE_OCTAVES),
+                         _HEIGHT_WINDOW)
+
+        # Which provinces are mountainous, as a separate low-frequency field, so
+        # the answer is a property of the map rather than of each cell. Applied
+        # to the ridges only: a plain keeps its broad shape and loses its crests,
+        # rather than going flat and reading as a hole.
+        mask = _fbm(seed_base + 61, _RELIEF_MASK_WL, _RELIEF_MASK_OCTAVES)
+        mask = _own_unit(mask, (10.0, 90.0))
+        ridge *= _PLAIN_FLOOR + (1.0 - _PLAIN_FLOOR) * mask
+
+        height = (1.0 - _RIDGE_MIX) * base + _RIDGE_MIX * ridge
+        height += _bounded_influence(img_w, img_h, [
             (mountain_pts, influence_r, 0.25),
             (water_pts, influence_r, -0.20),
         ])
-        h_lo = float(np.percentile(ridge, _HEIGHT_WINDOW[0]))
-        h_hi = float(np.percentile(ridge, _HEIGHT_WINDOW[1]))
-        height = np.clip((ridge - h_lo) / max(h_hi - h_lo, 1e-9), 0.0, 1.0)
+        h_lo = float(np.percentile(height, _HEIGHT_WINDOW[0]))
+        h_hi = float(np.percentile(height, _HEIGHT_WINDOW[1]))
+        height = np.clip((height - h_lo) / max(h_hi - h_lo, 1e-9), 0.0, 1.0)
+        # Bias the mass into the lowlands before colouring, so the map is mostly
+        # the light low ground a reader can put labels on. See _HEIGHT_GAMMA.
+        height = height ** _HEIGHT_GAMMA
         rgb = _ramp_lookup(height, moist) * (
             _SHADE_FLOOR + _SHADE_RANGE * _hillshade(height)
         )[:, :, np.newaxis]
