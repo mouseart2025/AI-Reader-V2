@@ -3072,6 +3072,14 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # palette ramped over the same height instead of a Whittaker lookup over a
 # different field. See the _SHAPE comment for why no amount of dial-turning on
 # v6 could have got there.
+# v10: the detail floor. The recipe's finest ridge was 64 canvas px, so at z2 and
+# z3 the ground was one soft hump per screen and the picture read as mediocre
+# even though the fit view was acceptable. A fourth `_RIDGE_SCALES` entry takes
+# the floor to 24 canvas px and `_TERRAIN_MAX_SIZE` goes to 4096 so there is
+# resolution under it. Both halves in one bump because either alone is wasted:
+# detail without raster is interpolated away, raster without detail is an
+# expensive wash. This is also the bump that retires the last of the
+# areal-cover reasoning on the symbol layer, but that layer is not cached.
 # v9: v8's plains kept too little relief, and a province at _PLAIN_FLOOR 0.22
 # rendered as a large featureless pale patch -- a hole in the map rather than a
 # plain. 0.34 keeps a texture there while the crests still clearly win.
@@ -3081,7 +3089,7 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # light half of the range with the mass pushed into the lowlands, shading
 # modulates instead of dominating, and the octave falloff is shallower so macro
 # form wins at fit.
-_TERRAIN_VERSION = 9
+_TERRAIN_VERSION = 10
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3152,7 +3160,31 @@ def terrain_url_for(novel_id: str) -> str:
 # A bigger raster would push that knee out, not remove it, and would cost 8 MB and
 # 13 s for a wash. The thing that would put real detail at deep zoom is content in
 # the field at those scales, which is a different change from this one.
-_TERRAIN_MAX_SIZE = 2048
+#
+# ── 2048 -> 4096 (v10) ────────────────────────────────────────────────────
+# The paragraph above named the precondition: a bigger raster for a wash is
+# waste. v10 changes the other half first -- `_RIDGE_SCALES` gains a fourth scale
+# reaching 24 canvas px, so there is now content down at the resolution being
+# bought -- and then this number follows, because the two only work together.
+#
+# Re-derived rather than picked: the test stated above is
+# `2 * canvas_long_side / size <= finest_wavelength / 2`, which with the new
+# floor is `2 * 8000 / size <= 12`, i.e. `size >= 1333`. That would leave 2048
+# standing, so the binding number is not Nyquist but the one the later
+# measurement found: at 4.8x a texel covers `4.8 * 0.58 * (2048 / size)` screen
+# px, and the bake only stops being visibly soft below about 1.5.
+#
+#   size   texel @4.8x   full bake   memory
+#   2048      2.78 px       2.81 s     2.4 MB
+#   3072      1.86 px       6.83 s     5.3 MB
+#   4096      1.39 px      15.12 s     9.4 MB
+#   6144      0.93 px      32.60 s    21.2 MB   <- still rejected
+#
+# 4096 is the last row inside a single-digit-MB budget and the first one that
+# clears the softness threshold, so it is the one that is paid for. The cost is
+# once per recipe change -- the bake is cached against `_TERRAIN_VERSION` -- not
+# per launch.
+_TERRAIN_MAX_SIZE = 4096
 
 # ── The field's detail budget ──
 # These, not the raster, decide how fine the terrain reads. The shipped values
@@ -3257,10 +3289,27 @@ _RIDGE_BASE_WL = 0.244
 # those. Each entry is (base wavelength, octaves, amplitude), the wavelengths a
 # factor of ~2.8 apart so the three scales are distinguishable rather than
 # stacking into one band.
+#
+# ── The fourth entry, and why the first three were not enough (v10) ──
+# The three scales bottom out at 256 canvas px with three octaves, i.e. a finest
+# ridge of 64 canvas px. At fit zoom that is 12 screen px and reads as ground.
+# At the deep zoom it is 96 screen px -- a single soft hump with nothing inside
+# it -- which is what the reader was calling "still mediocre" at z2 and z3 while
+# the fit view looked acceptable. The cap on detail was the field, not the
+# raster: 99 % of its power sat above 320 canvas px and the bake was twenty
+# times oversampled for it (see the resolution table above).
+#
+# The fourth scale is 96 canvas px at base, reaching 24 canvas px. Amplitude is
+# 0.06 rather than the ~0.10 the 2.8x spacing would suggest, because at fit zoom
+# 24 canvas px is 4.5 screen px and anything heavier there reads as grain on the
+# paper rather than as hills. At z2 and above the same feature is 36-72 screen
+# px, which is where it stops being grain and starts being a hill -- the detail
+# is present at every zoom and only becomes legible where it can be.
 _RIDGE_SCALES: tuple[tuple[float, int, float], ...] = (
     (0.244, 4, 1.00),      # 1952 canvas px: where the ranges are
     (0.085, 4, 0.42),      #  680 canvas px: ridges off them
     (0.032, 3, 0.17),      #  256 canvas px: hills off those
+    (0.012, 3, 0.06),      #   96 canvas px: the ground surface itself
 )
 # Amplitude falloff per octave within one scale.
 _RIDGE_PERSISTENCE = 0.5
@@ -3833,7 +3882,17 @@ def generate_terrain(
 
 
 # Bump this when solver algorithm changes to invalidate layout cache
-_LAYOUT_VERSION = 10
+#
+# v12: the revert of the three-ring shelf experiment. v11 was spent on the
+# three-ring version, so the cache already held 8136-vertex wrapped rings when
+# the code went back to one — and a 0.50 s response proved the cache was still
+# serving them. Same trap as `_TERRAIN_VERSION`: the recipe changed and the
+# number did not, so nothing invalidated. A revert is a recipe change.
+#
+# v11: the landmass payload gained two more shelf rings (`_SHELF_RING_MULTS`), so
+# the cached layout held one ring where the client then read three.
+_LAYOUT_VERSION = 12
+
 
 def compute_chapter_hash(
     chapter_start: int, chapter_end: int,
@@ -4533,10 +4592,36 @@ def generate_landmasses(
             dist_sq = (xx - gxi) ** 2 + (yy - gyi) ** 2
             land_mask[y_lo:y_hi, x_lo:x_hi][dist_sq <= ocean_r * ocean_r] = False
 
-    # Also build shelf mask (threshold * 1.3)
-    shelf_mask = dist_field < threshold * 1.3
-    shelf_mask = binary_closing(shelf_mask, structure=struct_large)
-    shelf_mask = binary_opening(shelf_mask, structure=struct_small)
+    # ── Shelf rings ──
+    #
+    # One band at `threshold * 1.3` is a hard-edged flat ring, and a ring is a
+    # sticker outline however pale it is — deepening the ocean put ~14 levels
+    # between the two and made the edge worse, which is why the alpha had to be
+    # walked back. A single ring cannot read as *depth*; depth needs more than
+    # one contour.
+    #
+    # Three nested rings were tried here and reverted (v10). They do give a true
+    # shallow-to-deep gradient — a shore point sits inside all three masks and
+    # open water inside the outermost — but the masks are built from the same
+    # global `dist_field`, i.e. "distance to the nearest land", so the outer ring
+    # is not three rings around a continent. It is one ring around *everywhere
+    # that happens to be within N of any coast*, and on a map with 西游记's
+    # island density at 3.4x that merges the whole archipelago into a single
+    # connected component: 8136 vertices where the field should have had a
+    # hundred, a polygon covering half the canvas, and a payload ten times the
+    # size — the client stopped reaching networkidle. A ring per landmass needs
+    # a distance field per landmass, which is a different implementation rather
+    # than a different multiplier.
+    #
+    # The multiplied form is kept as the seam for that work: the loop below
+    # builds one mask per entry, and the caller already handles a list.
+    _SHELF_RING_MULTS = (1.3,)
+    shelf_masks = []
+    for _mult in _SHELF_RING_MULTS:
+        _m = dist_field < threshold * _mult
+        _m = binary_closing(_m, structure=struct_large)
+        _m = binary_opening(_m, structure=struct_small)
+        shelf_masks.append(_m)
 
     # ── 1.4 Contour tracing (Moore Neighborhood per component) ──
     from scipy.ndimage import label as ndimage_label
@@ -4626,7 +4711,7 @@ def generate_landmasses(
 
     # Trace land outer boundaries (one per connected land component)
     land_contours = _trace_all_components(land_mask)
-    shelf_contours = _trace_all_components(shelf_mask)
+    shelf_rings = [_trace_all_components(m) for m in shelf_masks]
 
     # Trace hole boundaries: connected sea regions NOT touching the grid border
     sea_labels, num_sea = ndimage_label(~land_mask, structure=np.ones((3, 3), dtype=int))
@@ -4789,15 +4874,34 @@ def generate_landmasses(
             "is_main": i == 0,
         })
 
-    # Build shelf contours
-    canvas_shelves = [_grid_to_canvas(c) for c in shelf_contours]
-    shelves: list[list[list[float]]] = []
-    for sc in canvas_shelves:
-        sc_area = _unsigned_area(sc)
-        if sc_area < canvas_area * 0.01:
-            continue
-        smoothed_shelf = _distort_coastline(sc, sc_area)
-        shelves.append([[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf])
+    # Build shelf contours.
+    #
+    # The list, the sort and the loop all survive the reverted three-ring
+    # attempt: with one entry in `_SHELF_RING_MULTS` they degenerate to the
+    # original single pass, and the shape is the seam for the per-landmass
+    # version described above. Sorting by area descending is a no-op today and
+    # is what makes the list paint outermost-first the moment it is not.
+    #
+    # The upper bound is a guard, not a tuned value. An over-wide mask traces
+    # the canvas border instead of a coastline — a polygon covering the map,
+    # which would flood every ocean with shelf colour — and that is exactly what
+    # the three-ring attempt produced. 0.7 is loose enough that no honest single
+    # ring reaches it (the largest component measured on 西游记 is well under
+    # half the canvas) and tight enough to catch the degenerate case.
+    shelf_paths: list[tuple[float, list[list[float]]]] = []
+    for ring_contours in shelf_rings:
+        for c in ring_contours:
+            sc = _grid_to_canvas(c)
+            sc_area = _unsigned_area(sc)
+            if sc_area < canvas_area * 0.01 or sc_area > canvas_area * 0.7:
+                continue
+            smoothed_shelf = _distort_coastline(sc, sc_area)
+            shelf_paths.append((
+                sc_area,
+                [[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf],
+            ))
+    shelf_paths.sort(key=lambda item: item[0], reverse=True)
+    shelves: list[list[list[float]]] = [pts for _, pts in shelf_paths]
 
     # ── Post-generation coverage guarantee ──
     # Chaikin smoothing + OpenSimplex distortion shrink coastlines inward,

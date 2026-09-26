@@ -1190,6 +1190,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           // Depth is worth more than the band, so the band keeps only enough
           // alpha to lift every channel above the water it replaces, which is
           // the requirement; the soft read is left to the distance.
+          //
+          // This was briefly 0.11, on the theory that three nested rings stacked
+          // at one alpha would give the shallow-to-deep gradient for free. The
+          // rings are built from a *global* distance field, so the outer one
+          // wrapped the entire archipelago instead of each landmass, and the
+          // whole thing went back to one ring (see `_SHELF_RING_MULTS`). One
+          // ring, one alpha, so it is the measured 0.22 again.
           const shelfFill = darkBg
             ? "rgba(96,140,180,0.26)"
             : "rgba(206,230,242,0.22)"
