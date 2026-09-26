@@ -3068,7 +3068,11 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # the real map. v5 reached v2's fine detail and lost the land/sea separation
 # while painting +-60 % relief over the labels — a regression that the bare
 # raster's own statistics scored as an improvement.
-_TERRAIN_VERSION = 6
+# v7: the landform recipe. One ridged height field, Lambert-shaded, with the
+# palette ramped over the same height instead of a Whittaker lookup over a
+# different field. See the _SHAPE comment for why no amount of dial-turning on
+# v6 could have got there.
+_TERRAIN_VERSION = 7
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3199,6 +3203,113 @@ _PAPER_STRENGTH = 0        # grain read as noise on a map; kept as a dial
 # them. 0.0008 is 6.4 canvas px: enough to keep the biome lookup's borders from
 # looking like a contour map, not enough to be the detail ceiling.
 _BLUR_FRAC = 0.0008
+
+# ── Landform shape ────────────────────────────────────────────────────
+#
+# "biome" is everything above: the class field through the Whittaker table, plus
+# a slope nudge from a second, unrelated draw of the same seed. It is kept
+# because it is measurable and because a recipe change should be reversible, but
+# it does not draw landform:
+#
+#   Its colour comes from a BIOME table, which answers "what grows here", and it
+#   has no hillshade. The relief term is +-10 % of the base colour, and it is
+#   driven by a DIFFERENT field from the one that picks the colour, so nothing
+#   ties "this pixel is high" to "this pixel is coloured like high ground".
+#   Rendered at 2x the result is camouflage: three flat colours in amorphous
+#   blobs with a faint directional streak on top. Every dial that was turned
+#   against it -- relief gain, texture amplitude, blur, raster size -- moved a
+#   number without moving that read, because the field being tuned has no
+#   structure for a gradient to find.
+#
+# "ridged" draws one height field, shades it, and ramps the palette over that
+# same height:
+#
+#   A ridged sum (1-|n|) turns smooth extrema into connected crest lines, so the
+#   gradient has ridges to shade and valleys to leave dark. Lambert shading from
+#   the upper left then gives the slopes their lit and shadowed faces, and the
+#   palette runs sand -> grass -> scree -> rock -> snow with height, so elevation
+#   is legible as colour and as relief at once. Moisture tilts the low ground
+#   green instead of ochre.
+#
+# This is the standard game-map recipe, and the reason it is worth the rewrite is
+# that it is the only variant of eight that was tried and LOOKED at that reads as
+# terrain rather than as texture.
+_SHAPE = "ridged"
+
+# Octaves for the ridged field. Base wavelength stays at the class field's
+# 0.244 (1952 canvas px) so the ranges land where the regions are; seven octaves
+# reach 30 canvas px, which is the finest detail the reader can resolve at fit.
+_RIDGE_OCTAVES = 7
+_RIDGE_BASE_WL = 0.244
+
+# Lambert light: upper left, the convention every map and hillshade uses.
+_HILLSHADE_AZ = 315.0
+_HILLSHADE_EL = 45.0
+# Vertical exaggeration, applied after normalising the gradient against its own
+# p95 so the value does not drift with raster size or octave count.
+_HILLSHADE_EXAG = 2.2
+# Shading is a modulation of the ramp colour, not a replacement for it. The floor
+# is what a surface facing fully away from the light keeps; at 0.42 the shadowed
+# faces stay readable as ground instead of going to mud.
+_SHADE_FLOOR = 0.42
+_SHADE_RANGE = 0.90
+
+# Sand -> grass -> scree -> rock -> snow. Anchored at the low end on the map's
+# own parchment family so the terrain still belongs to the same picture; the
+# Whittaker grid's lowland cell is (215,200,160) and this starts next to it.
+_HEIGHT_RAMP: tuple[tuple[float, tuple[int, int, int]], ...] = (
+    (0.00, (216, 204, 168)),
+    (0.20, (198, 196, 148)),
+    (0.38, (166, 178, 124)),
+    (0.55, (134, 152, 104)),
+    (0.70, (140, 132, 112)),
+    (0.84, (160, 156, 150)),
+    (1.00, (238, 240, 242)),
+)
+# How far moisture can swing the low ground from ochre to green, and the RGB
+# direction it swings in. Only the low ground: moisture is a lowland concept and
+# tinting the snow line green is how a map starts looking arbitrary.
+_MOISTURE_TILT = 0.85
+_MOISTURE_LOW_TOP = 0.62
+_MOISTURE_TILT_RGB = np.array([-46.0, 20.0, -4.0])
+# The height window used to spread the ridged field onto 0-1. Its own percentiles
+# rather than _FIELD_WINDOW: that window is calibrated to an fBm's mean and tails,
+# and applying it to a ridged sum clipped the field to 1.0 nearly everywhere,
+# which renders as an all-white map.
+_HEIGHT_WINDOW = (1.0, 99.0)
+
+
+def _hillshade(height: np.ndarray) -> np.ndarray:
+    """Lambert shading of `height`, light from the upper left. Returns 0-1.
+
+    The gradient is normalised against its own p95 before the exaggeration is
+    applied, so `_HILLSHADE_EXAG` keeps its meaning when the raster size or the
+    octave count changes.
+    """
+    gy, gx = np.gradient(height)
+    s = float(np.percentile(np.hypot(gx, gy), 95.0)) or 1.0
+    dzdx = gx / s * _HILLSHADE_EXAG
+    dzdy = gy / s * _HILLSHADE_EXAG
+    nx, ny, nz = -dzdx, -dzdy, np.ones_like(dzdx)
+    n = np.sqrt(nx * nx + ny * ny + nz * nz)
+    az, el = np.radians(_HILLSHADE_AZ), np.radians(_HILLSHADE_EL)
+    lx, ly, lz = np.cos(az) * np.cos(el), np.sin(az) * np.cos(el), np.sin(el)
+    # Image y grows downward, so the light's y component is negated to keep the
+    # source above the picture rather than below it.
+    return np.clip((nx * lx + ny * (-ly) + nz * lz) / n, 0.0, 1.0)
+
+
+def _ramp_lookup(height: np.ndarray, moist: np.ndarray) -> np.ndarray:
+    """Palette as a function of height, tilted green where the ground is wet."""
+    stops = np.array([p for p, _ in _HEIGHT_RAMP], dtype=np.float64)
+    cols = np.array([c for _, c in _HEIGHT_RAMP], dtype=np.float64)
+    rgb = np.empty(height.shape + (3,), dtype=np.float64)
+    for ch in range(3):
+        rgb[..., ch] = np.interp(height, stops, cols[:, ch])
+    wet = np.clip((moist - 0.5) * 2.0, -1.0, 1.0)
+    low = np.clip(1.0 - height / _MOISTURE_LOW_TOP, 0.0, 1.0)
+    tilt = (wet * low * _MOISTURE_TILT)[..., np.newaxis]
+    return rgb + tilt * _MOISTURE_TILT_RGB
 
 
 def terrain_bake_size(canvas_width: int, canvas_height: int) -> int:
@@ -3384,6 +3495,32 @@ def generate_terrain(
             wl *= 0.5
         return out / norm
 
+    def _ridged(seed: int, base_wl: float, octaves: int) -> np.ndarray:
+        """Ridged multifractal: `1-|n|` turns smooth extrema into crest lines.
+
+        This is the one structural thing the class field lacks. An fBm's extrema
+        are round blobs, so a gradient over one finds domes and shades them as
+        domes — rendered and looked at, that is a field of raised lumps, not a
+        mountain range. Ridged noise creases along its zero crossings instead,
+        and those creases are what a gradient draws as ridges with valleys
+        between them.
+
+        Each octave is divided by its own p99 of |n|, not by a shared maximum. A
+        shared maximum is set by one outlier cell, which compresses every other
+        octave and flattens the crests — the same defect as a saturated
+        accumulator, one level down.
+        """
+        out = np.zeros((img_h, img_w), dtype=np.float64)
+        amp, wl, norm = 1.0, base_wl, 0.0
+        for i in range(octaves):
+            n = _sparse_noise(seed + i, wl)
+            scale = float(np.percentile(np.abs(n), 99.0)) or 1.0
+            out += (1.0 - np.clip(np.abs(n) / scale, 0.0, 1.0)) * amp
+            norm += amp
+            amp *= 0.5
+            wl *= 0.5
+        return out / norm
+
     # ── Continuous elevation field ──
     #
     # Two fields off one seed, and the distinction matters more than the octave
@@ -3468,51 +3605,71 @@ def generate_terrain(
             dominant * 100, novel_id,
         )
 
-    # ── Per-pixel Whittaker color lookup ──
-    # Vectorized: scale to grid indices and bilinear interpolate
-    e_idx = np.clip(elev * 4.0, 0.0, 4.0)
-    m_idx = np.clip(moist * 4.0, 0.0, 4.0)
-    ei = np.clip(np.floor(e_idx).astype(np.int32), 0, 3)
-    mi = np.clip(np.floor(m_idx).astype(np.int32), 0, 3)
-    ef = e_idx - ei.astype(np.float64)
-    mf = m_idx - mi.astype(np.float64)
+    if _SHAPE == "ridged":
+        # ── One field, shaded, with the palette ramped over it ──
+        #
+        # The influences are the ones the class field already uses, and they are
+        # applied here rather than to `elev`, because in this recipe the height
+        # field is the only field: a mountain location has to raise the ground
+        # the reader sees, not a parallel quantity that only picks a colour.
+        ridge = _ridged(seed_base + 11, _RIDGE_BASE_WL, _RIDGE_OCTAVES)
+        ridge += _bounded_influence(img_w, img_h, [
+            (mountain_pts, influence_r, 0.25),
+            (water_pts, influence_r, -0.20),
+        ])
+        h_lo = float(np.percentile(ridge, _HEIGHT_WINDOW[0]))
+        h_hi = float(np.percentile(ridge, _HEIGHT_WINDOW[1]))
+        height = np.clip((ridge - h_lo) / max(h_hi - h_lo, 1e-9), 0.0, 1.0)
+        rgb = _ramp_lookup(height, moist) * (
+            _SHADE_FLOOR + _SHADE_RANGE * _hillshade(height)
+        )[:, :, np.newaxis]
+    else:
+        # ── Per-pixel Whittaker color lookup ──
+        # Vectorized: scale to grid indices and bilinear interpolate
+        e_idx = np.clip(elev * 4.0, 0.0, 4.0)
+        m_idx = np.clip(moist * 4.0, 0.0, 4.0)
+        ei = np.clip(np.floor(e_idx).astype(np.int32), 0, 3)
+        mi = np.clip(np.floor(m_idx).astype(np.int32), 0, 3)
+        ef = e_idx - ei.astype(np.float64)
+        mf = m_idx - mi.astype(np.float64)
 
-    # Build grid lookup array
-    grid_arr = np.array(_WHITTAKER_GRID, dtype=np.float64)  # (5, 5, 3)
-    c00 = grid_arr[ei, mi]          # (H, W, 3)
-    c01 = grid_arr[ei, mi + 1]
-    c10 = grid_arr[ei + 1, mi]
-    c11 = grid_arr[ei + 1, mi + 1]
+        # Build grid lookup array
+        grid_arr = np.array(_WHITTAKER_GRID, dtype=np.float64)  # (5, 5, 3)
+        c00 = grid_arr[ei, mi]          # (H, W, 3)
+        c01 = grid_arr[ei, mi + 1]
+        c10 = grid_arr[ei + 1, mi]
+        c11 = grid_arr[ei + 1, mi + 1]
 
-    ef3 = ef[:, :, np.newaxis]
-    mf3 = mf[:, :, np.newaxis]
-    rgb = (
-        c00 * (1 - ef3) * (1 - mf3)
-        + c01 * (1 - ef3) * mf3
-        + c10 * ef3 * (1 - mf3)
-        + c11 * ef3 * mf3
-    )
+        ef3 = ef[:, :, np.newaxis]
+        mf3 = mf[:, :, np.newaxis]
+        rgb = (
+            c00 * (1 - ef3) * (1 - mf3)
+            + c01 * (1 - ef3) * mf3
+            + c10 * ef3 * (1 - mf3)
+            + c11 * ef3 * mf3
+        )
 
-    # ── Relief shading from the detail field ──
-    # A slope-driven light from the upper left, the same convention every map
-    # and every hillshade uses. This is what makes the fine octaves read as
-    # landform instead of as speckle: they never move a biome boundary, they only
-    # darken what faces away from the light, so the terrain gains structure
-    # without the classes fragmenting. The slope is normalised against its own
-    # 95th percentile so the gain does not drift with the raster size or with how
-    # many octaves the detail budget happens to buy.
-    # Shaded on a band-limited height field, deliberately. Running the gradient
-    # over the full fractal sum shades the finest octave hardest — a gradient
-    # amplifies high frequencies — and the result reads as stucco rather than as
-    # landform. The finest octaves go in flat, as _TEXTURE_AMPLITUDE, where they
-    # add grain without pretending to be slopes.
-    if _RELIEF_GAIN > 0.0:
-        relief = _fbm(seed_base + 11, 0.244, _RELIEF_OCTAVES)
-        gy, gx = np.gradient(relief)
-        slope = gx + gy                 # signed slope along the light vector
-        slope_scale = float(np.percentile(np.abs(slope), 95.0))
-        shade = np.clip(slope / (slope_scale + 1e-12), -2.0, 2.0)
-        rgb = rgb * (1.0 + _RELIEF_GAIN * shade)[:, :, np.newaxis]
+        # ── Relief shading from the detail field ──
+        # A slope-driven light from the upper left, the same convention every map
+        # and every hillshade uses. This is what makes the fine octaves read as
+        # landform instead of as speckle: they never move a biome boundary, they
+        # only darken what faces away from the light, so the terrain gains
+        # structure without the classes fragmenting. The slope is normalised
+        # against its own 95th percentile so the gain does not drift with the
+        # raster size or with how many octaves the detail budget happens to buy.
+        # Shaded on a band-limited height field, deliberately. Running the
+        # gradient over the full fractal sum shades the finest octave hardest — a
+        # gradient amplifies high frequencies — and the result reads as stucco
+        # rather than as landform. The finest octaves go in flat, as
+        # _TEXTURE_AMPLITUDE, where they add grain without pretending to be
+        # slopes.
+        if _RELIEF_GAIN > 0.0:
+            relief = _fbm(seed_base + 11, 0.244, _RELIEF_OCTAVES)
+            gy, gx = np.gradient(relief)
+            slope = gx + gy             # signed slope along the light vector
+            slope_scale = float(np.percentile(np.abs(slope), 95.0))
+            shade = np.clip(slope / (slope_scale + 1e-12), -2.0, 2.0)
+            rgb = rgb * (1.0 + _RELIEF_GAIN * shade)[:, :, np.newaxis]
 
     if _TEXTURE_AMPLITUDE > 0.0:
         texture = _fbm(seed_base + 51, _TEXTURE_BASE_WL, _TEXTURE_OCTAVES)

@@ -759,18 +759,24 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // Remove previous terrain image if any (keep hint symbols via class check)
       terrainG.selectAll("image.terrain-img").remove()
 
-      // Higher opacity on dark backgrounds where colors get washed out.
+      // Opacity depends on whether the bake has structure to carry, not on the
+      // bake alone. Measured on 西游记 over 0.40 -> 1.00:
       //
-      // 0.40 is not a starting point to be raised: measured on 西游记, 0.40 to
-      // 1.00 moves land/sea dE*ab 14.49 -> 13.15 and chroma 10.00 -> 8.84, and
-      // the 4-8 px contrast barely moves, so a stronger wash costs separation
-      // and buys no visible texture. An earlier note recorded the trend the
-      // other way (dE 16.8 -> 20.6); it was measuring what the terrain
-      // *contributes*, not how separable land and sea are in the result.
-      // Unmeasured: the 0.55 dark-theme branch, which this sweep did not
-      // exercise. The bake carrying on the biome is land-clipped, so the ocean
-      // is untouched by this number either way.
-      const terrainOpacity = darkBg ? 0.55 : 0.40
+      //   v6 bake: land/sea dE*ab 14.49 -> 13.15, chroma 10.00 -> 8.84. A
+      //     stronger wash costs separation and buys nothing.
+      //   v7 bake: dE*ab 16.81 -> 23.19, chroma 11.10 -> 11.65, and the 4-8 px
+      //     contrast rises 7.49 -> 8.53. Every step is a gain.
+      //
+      // The difference is not the number, it is what is being amplified. v6's
+      // colour came from a biome table over a smooth blob field, so turning it
+      // up turned up noise. v7 is one ridged height field with the palette
+      // ramped over it, so turning it up turns up landform. 0.85 keeps some
+      // parchment showing through; 1.00 is measurably better and visibly
+      // heavier, and the choice between them is art direction, not accuracy.
+      //
+      // Unmeasured: the dark-theme branch. 0.70 extrapolates the old light/dark
+      // ratio onto a bake whose own contrast already increased.
+      const terrainOpacity = darkBg ? 0.70 : 0.85
 
       // Insert terrain PNG as first child (below terrain hint symbols)
       terrainG
