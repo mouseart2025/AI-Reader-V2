@@ -1940,7 +1940,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               .attr("class", "loc-icon")
               .attr(
                 "transform",
-                `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
+                // The 48 divisor is not a typo: these SVGs are 24-unit viewBoxes,
+                // so scale(iconSize/48) renders the 24-unit box iconSize/2 wide,
+                // and every mark's local centre sits at local (12,12) — which
+                // that scale lands at `x - iconSize/4` unless the translate
+                // pre-compensates by exactly that. It did not, so every mark
+                // rode up and to the left of its anchor by a quarter of its own
+                // size (measured on 西游记, 63/63 pairs: -14 px at continent,
+                // -11 at kingdom, -9 at region, -7 at city, -5.5 at site,
+                // -4 at building). Shifting by iconSize/4 re-centres the box
+                // without touching the size calibration the plate radius is
+                // built on — widening the divisor to 24 would double every mark.
+                `translate(${item.x - iconSize / 4}, ${item.y - iconSize / 4}) scale(${iconSize / 48})`,
               )
               .attr("fill", color)
               // A light outline around the mark, in screen pixels. Measured on
@@ -2119,7 +2130,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             if (!iconG.empty() && iconDefs.has(iconName)) {
               iconG.attr(
                 "transform",
-                `translate(${canvasX - iconSize / 2}, ${canvasY - iconSize / 2}) scale(${iconSize / 48})`,
+                // Must match the render path's anchor, or a dragged mark jumps
+                // back by a quarter of its size the moment the drag ends — the
+                // drag transform writes this attribute and nothing re-reads it.
+                `translate(${canvasX - iconSize / 4}, ${canvasY - iconSize / 4}) scale(${iconSize / 48})`,
               )
             }
 
