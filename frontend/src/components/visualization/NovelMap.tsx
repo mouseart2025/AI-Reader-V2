@@ -1024,24 +1024,36 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       // Use simple SVG paths instead of roughjs for performance
       // (roughjs creates multiple DOM elements per road, causing zoom lag)
-      for (const [roadIndex, road] of roads.entries()) {
-        if (road.points.length < 2) continue
-        const [x0, y0] = road.points[0]
-        const [x1, y1] = road.points[road.points.length - 1]
-        const line = roadsG
-          .append("line")
-          .attr("x1", x0)
-          .attr("y1", y0)
-          .attr("x2", x1)
-          .attr("y2", y1)
-          .attr("stroke", roadIndex % 3 === 0 ? roadMajorColor : roadMinorColor)
-          .attr("stroke-width", roadIndex % 3 === 0 ? roadMajorWidth : roadMinorWidth)
-          .attr("stroke-dasharray", roadIndex % 3 === 0 ? "none" : roadDash)
+      // ⚠️ Rendered-road gate. The road data currently carries ONLY the two
+      // endpoints of each edge — i.e. they are location co-occurrence chords
+      // (two places that appear in the same chapter), NOT travel paths. Drawing
+      // each edge as a segment produced 120+ (near-)straight lines criss-crossing
+      // the map — a "strange straight line" web that has no business on a map and
+      // that a curve merely disguises (measured: a 14 %-of-chord bow still leaves
+      // 95/123 edges at straightness > 0.97). So we only draw roads that actually
+      // carry real intermediate waypoints. With today's 2-point data this renders
+      // nothing; the layer re-enables itself automatically if/when the upstream
+      // ever emits genuine road geometry.
+      const drawableRoads = roads.filter((r) => r.points.length > 2)
+      if (drawableRoads.length === 0) return
+
+      for (const [roadIndex, road] of drawableRoads.entries()) {
+        const isMajor = roadIndex % 3 === 0
+        const d = road.points
+          .map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`))
+          .join(" ")
+        const path = roadsG
+          .append("path")
+          .attr("d", d)
+          .attr("fill", "none")
+          .attr("stroke", isMajor ? roadMajorColor : roadMinorColor)
+          .attr("stroke-width", isMajor ? roadMajorWidth : roadMinorWidth)
+          .attr("stroke-dasharray", isMajor ? "none" : roadDash)
           .attr("vector-effect", "non-scaling-stroke")
           .style("pointer-events", "none")
         // Space theme glow effect via SVG filter
         if (spaceThemeProp) {
-          line.style("filter", "drop-shadow(0 0 4px rgba(100, 181, 246, 0.5))")
+          path.style("filter", "drop-shadow(0 0 4px rgba(100, 181, 246, 0.5))")
         }
       }
     }, [mapReady, roads, darkBg, spaceThemeProp])
@@ -1091,9 +1103,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           for (const hole of lm.holes) d += " " + toPathD(hole)
           cp.append("path").attr("d", d).attr("clip-rule", "evenodd")
         }
-        // Only the two *tint* layers. #terrain is the scattered ground cover,
-        // which paints waves out at sea on purpose.
-        for (const id of ["#regions", "#terrain-biome"]) {
+        // Tint/wash layers that must never paint over the sea. #terrain is the
+        // scattered ground cover, which paints waves out at sea on purpose.
+        // #territories is included (2026-09-27): its convex-hull outlines ran
+        // straight across the ocean — measured, one hull spanned 4385×1648 and
+        // 32 % of its boundary sat over open water.
+        for (const id of ["#regions", "#terrain-biome", "#territories"]) {
           svg.select(id).attr("clip-path", "url(#land-clip)")
         }
 
@@ -1277,11 +1292,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
       } else {
         // ── Fallback: convex hull coastline (backward compat) ──
-        // No landmass set means no mask. Leaving a stale clip-path on #regions
-        // or #terrain would hide both layers completely, and a stale
-        // #sea-mask would erase the shelf.
+        // No landmass set means no mask. Leaving a stale clip-path on #regions,
+        // #terrain or #territories would hide those layers completely, and a
+        // stale #sea-mask would erase the shelf.
         defs.select("#land-clip").selectAll("*").remove()
-        for (const id of ["#regions", "#terrain-biome"]) {
+        for (const id of ["#regions", "#terrain-biome", "#territories"]) {
           svg.select(id).attr("clip-path", null)
         }
         defs.select("#sea-mask").selectAll("*").remove()
@@ -1352,18 +1367,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("d", polygonToPath(rb.polygon))
             .attr("fill", rb.color)
             .attr("fill-opacity", darkBg ? 0.2 : 0.17)
-            // One ink for every division line. Stroking each boundary in its
-            // own fill colour at 50 % lit the map up with neon pink/orange
-            // chrome; the fills already carry region identity, so the borders
-            // just need to be legible as ink on paper.
-            .attr("stroke", darkBg ? "rgba(210,196,170,0.5)" : "rgba(120,96,66,0.62)")
-            .attr("stroke-opacity", 1)
-            .attr("stroke-width", 1.6)
-            // Non-scaling: a 1.6 canvas-unit stroke renders at ~0.3 px on
-            // screen at the fit zoom, so the region divisions — the map's
-            // primary structural read — smeared into the fill instead of
-            // outlining it.
-            .attr("vector-effect", "non-scaling-stroke")
+            // No outline (2026-09-27). The 1.6 px brown stroke turned the 30
+            // region polygons into a straight-edged web across the land — the
+            // "strange brown triangles" a reader sees. Region identity rides on
+            // the fills alone now; the tint layer stays, it just draws no ink.
+            .attr("stroke", "none")
             .attr("filter", "url(#hand-drawn)")
             .style("pointer-events", "none")
         }
@@ -1465,11 +1473,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const li = clamp(terr.level)
         const pathData = polygonToPath(terr.polygon)
 
-        // One ink for every boundary. The fills already carry faction
-        // identity, so stroking each hull in its own colour (which is what the
-        // dark branch used to do) only adds neon pink/orange chrome on the
-        // dark layers — the same call already made for #regions.
-        const strokeColor = darkBg ? "rgba(226,214,190,0.42)" : "#8b7355"
+        // No outline (2026-09-27). A convex-hull outline is a polygon with
+        // straight edges, so stroking it threw long brown chords across the
+        // map — and, unclipped, straight out over the sea. The fill wash
+        // carries faction identity on its own; #territories is clipped to land
+        // now (see the land-clip block) and draws no boundary ink.
+        const strokeColor = "none"
         const fillColor = darkBg ? terr.color : "#c4a97d"
 
         if (rc) {
