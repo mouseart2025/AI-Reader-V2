@@ -1,15 +1,44 @@
 /**
- * Terrain semantic texture layer — generates decorative symbols
- * (mountain ridges, waves, tree clusters, dot patterns, stalactites)
- * around terrain-type locations. Inspired by hand-painted game maps:
- * large, dense, zone-filling terrain textures on parchment.
+ * Ground-cover texture layer — decorative terrain symbols (mountain ridges,
+ * waves, tree clusters, grass tufts, stalactites) scattered across the land.
+ *
+ * This is the Wonderdraft / Inkarnate idiom: a map reads as *terrain* because
+ * its ground is built from thousands of small stamps, not because a polygon is
+ * coloured in. Two things make that work, and both were wrong before:
+ *
+ *  1. **Symbols belong to the ground, not to the labels.** Placement used to be
+ *     a disc of radius `TIER_CONFIG[tier].radius` around each location whose
+ *     icon happened to be mountain/water/forest/… So the texture clung to those
+ *     pins and every stretch of open land stayed flat colour. Zooming in — the
+ *     exact gesture that is supposed to reveal detail — landed on empty paper.
+ *     Placement is now a biome field: a jittered grid over the canvas, each
+ *     cell painted by the nearest terrain seed with a falloff, so a massif or a
+ *     forest grows as an *area* and the gaps between get grass.
+ *
+ *  2. **Density is a screen-space quantity.** The grid pitch is fixed in screen
+ *     pixels and the caller passes the visible canvas rect, so the number of
+ *     symbols on screen (and therefore the DOM budget) is constant while the
+ *     *canvas* pitch tightens as you zoom. Zooming in genuinely reveals new
+ *     ground instead of magnifying the same stamps.
+ *
+ *  3. **Ground cover is masked to land.** The grid has to cover the viewport,
+ *     but a mountain ridge inked on top of open sea reads as a rendering bug.
+ *     Cells whose centre falls outside every coastline are skipped, so the
+ *     cover follows the shoreline instead of the rectangle.
  */
 
-import type { MapLayoutItem, MapLocation } from "@/api/types"
+import type { Landmass, MapLayoutItem, MapLocation } from "@/api/types"
 
 // ── Public types ──────────────────────────────────
 
-export type TerrainCategory = "mountain" | "water" | "forest" | "desert" | "cave"
+export type TerrainCategory =
+  | "mountain"
+  | "water"
+  | "forest"
+  | "desert"
+  | "cave"
+  /** No terrain seed nearby — open ground. */
+  | "plains"
 
 export interface TerrainSymbolDef {
   id: string
@@ -22,10 +51,18 @@ export interface TerrainHint {
   symbolId: string
   x: number
   y: number
-  size: number          // actual render pixel size (tier-dependent)
-  rotation: number      // degrees, ±15
+  size: number          // on-screen render size, in px
+  rotation: number      // degrees, ±14
   opacity: number
   color: string
+}
+
+/** The canvas-space rectangle the viewport currently shows. */
+export interface TerrainViewRect {
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export interface TerrainHintResult {
@@ -44,54 +81,281 @@ const TERRAIN_MAP: Record<string, TerrainCategory> = {
   cave: "cave",
 }
 
-// ── Per-tier budget & sizing ─────────────────────
+// ── Placement budget ─────────────────────────────
 
-const TIER_CONFIG: Record<string, { count: number; radius: number; baseSize: number }> = {
-  continent: { count: 22, radius: 160, baseSize: 38 },
-  kingdom:   { count: 16, radius: 120, baseSize: 32 },
-  region:    { count: 12, radius: 85,  baseSize: 26 },
-  city:      { count: 8,  radius: 55,  baseSize: 20 },
-  site:      { count: 5,  radius: 38,  baseSize: 16 },
-  building:  { count: 3,  radius: 24,  baseSize: 12 },
+/**
+ * Target on-screen pitch between ground symbols, in CSS px.
+ *
+ * This number *is* the ground-cover density, and it is the single most visible
+ * dial in this file.
+ *
+ * It is not a whole-canvas density, which is why 32 looked dense enough and was
+ * not: on 西游记 the land is only 27 % of the canvas, so a landmask drops a 32 px
+ * lattice to ~120 stamps on a 1680×1000 screen — one per 140×110 px, the same
+ * sparse wash that motivated the rewrite. The pitch quoted here is therefore
+ * the pitch *on land*. 16 px puts ~540 stamps on screen and takes areal cover
+ * of the visible land from ~11 % to ~30 %, which is the band where the eye
+ * stops seeing individual marks and starts seeing ground.
+ *
+ * ── Why it is 32 now, not 16 (v10) ────────────────────────────────────────
+ * The "areal cover" reasoning above picked the band where the eye stops
+ * separating marks. Rendered, it lands in a different band than intended,
+ * because cover is the wrong measurement for this question. A mark and a tile
+ * are the same ink; what separates them is the **ratio of the gap to the
+ * mark**, and at 16 the ratio was 0.8 — the mark is larger than the cell, so
+ * every neighbour overlaps its neighbours and no gap survives anywhere on
+ * land. Measured off the shipped v9 DOM at four zoom levels:
+ *
+ *   | zoom | nearest-neighbour median | mark median | ratio |
+ *   |------|--------------------------|-------------|-------|
+ *   | fit  | 14.2 px                  | 15.8 px     | 0.90  |
+ *   | z1   | 12.4 px                  | 16.6 px     | 0.75  |
+ *   | z2   | 15.7 px                  | 16.0 px     | 0.98  |
+ *   | z3   | 15.5 px                  | 11.9 px     | 1.30  |
+ *
+ * with p10 down at 8–10 px against a 16 px mark. Below 1.5 the eye reads a
+ * fill, and at the deep zoom the layer is roughly seven-eighths mountain, so
+ * the fill *was* the map. Doubling the pitch takes the median gap to ~31 px
+ * against an 18 px mark, a ratio of 1.75, which is the band where a symbol is
+ * a thing sitting on the ground.
+ *
+ * The cost is four times fewer marks and it is meant to be paid: areal cover
+ * drops to roughly 8 %. Ground is no longer this layer's job — the bake draws
+ * hillshaded landform and this layer only annotates it, which is the division
+ * v9 set up and did not finish.
+ *
+ * Verified after the change, same DOM, same four zooms — median gap against
+ * median mark:
+ *
+ *   | zoom | before | after | mark | p10 gap |
+ *   |------|--------|-------|------|---------|
+ *   | fit  |  0.90  | 2.27  | 13.9 |  14.1   |
+ *   | z1   |  0.75  | 1.65  | 15.7 |  15.1   |
+ *   | z2   |  0.98  | 2.02  | 14.5 |  17.3   |
+ *   | z3   |  1.30  | 2.52  | 11.1 |  17.0   |
+ *
+ * Every zoom clears the 1.5 threshold, and the p10 gap now exceeds the mark at
+ * all four, which is the sharper statement of the same claim: even the closest
+ * pair of neighbours on screen has daylight between them.
+ *
+ * The count is what paid for it. Land marks on the fit view went 251 -> 63. If
+ * that reads as too bald, the dial to move is this one and not `PLAINS_DENSITY`
+ * — 26 gives a ratio near 1.4, which is the top of the fill band, and buys
+ * most of the original texture back without ever overlapping.
+ */
+const CELL_PX = 32
+
+/**
+ * Hard cap on grid cells, hence on the cost of a rebuild. Note this caps
+ * *candidate* cells, not symbols: most fall outside the coastline and are
+ * discarded, so the node count actually rendered stays a few hundred.
+ */
+const MAX_CELLS = 7000
+
+/**
+ * Cap on *rendered symbols*, not on cells.
+ *
+ * The two are not proportional, which is why the cell cap above is not enough.
+ * A cell is a fixed number of screen pixels, so the candidate grid is ~105×62
+ * at every zoom level; what changes as the reader zooms is how much of that
+ * window is *land*. On the fit view 西游记's land is 27 % of the canvas, so of
+ * ~6 500 cells only ~1 760 are eligible and the layer renders ~1 000 nodes.
+ * Zoom into an interior and every cell is eligible — the same window costs
+ * ~3 800 nodes, and dragging there went from a p95 of 59 ms to 178 ms. The
+ * layer was never expensive to *compute*; it was expensive to *rasterise*.
+ *
+ * Thinning is a per-cell Bernoulli test rather than every n-th survivor, for
+ * two reasons: a fixed stride would re-create in the surviving set exactly the
+ * lattice the row stagger exists to remove, and it would do so only at some
+ * zoom levels, which is worse — a regular grid that appears and disappears.
+ */
+const NODE_BUDGET = 1400
+
+/**
+ * How far a terrain seed paints, in **canvas units** — a property of the world,
+ * not of the screen.
+ *
+ * These were cell counts, and a cell is `CELL_PX / k`, so a massif's reach was
+ * 3 × 16 = 48 screen pixels no matter how far the reader zoomed in. The ground
+ * layer was therefore scale-invariant: zooming onto land did not reveal a
+ * mountain range, it just showed the same 48 px patch of mountains against an
+ * ever-widening field of identical grass. Measured over the main landmass of
+ * 西游记, everything above k ≈ 2.7 came back as 100 % `plains` — 1 800 grass
+ * tufts and not one ridge. Making the reach a world distance is what lets the
+ * reader zoom *into* a biome instead of only past it.
+ *
+ * Scaled by `worldScale` below so a smaller canvas keeps the same proportions.
+ * A lone 山 label yields a small massif; a run of them yields a range.
+ * `plains` is never a seed — it is the fallback.
+ */
+const BIOME_REACH: Record<TerrainCategory, number> = {
+  mountain: 430,
+  forest: 470,
+  water: 330,
+  desert: 580,
+  cave: 230,
+  plains: 0,
 }
 
-const MAX_HINTS = 900
+/** Canvas size the reaches above are authored against. */
+const BIOME_REF_MIN_SIDE = 4500
 
-// ── Symbol definitions (3 variants per category) ──
+/**
+ * On-screen base size per biome. See CATEGORY_SIZE_SPREAD for the variation.
+ *
+ * Sizes came down ~10 % in v10 with the pivot to `CELL_PX` 32. They were set
+ * against a 16 px lattice, where a mark had to carry the ground by itself and
+ * bigger meant more ground; now that the gap is the thing doing the work, a
+ * mark only has to be legible, and at the old sizes the field still read
+ * slightly heavy on the fit view. The ratio that matters is the one in the
+ * `CELL_PX` note: 32 / 18 = 1.78.
+ */
+const CATEGORY_SIZE: Record<TerrainCategory, number> = {
+  mountain: 18,
+  forest: 14,
+  water: 20,
+  desert: 13,
+  cave: 12,
+  plains: 13,
+}
+
+/**
+ * Relative size variation per biome — the half-width of the size range, as a
+ * fraction of `CATEGORY_SIZE`.
+ *
+ * These used to be much wider (mountain 0.75, forest 0.5), because a range is
+ * *made* of peaks of different heights and ±12 % triangles are a printed
+ * pattern. That reasoning was right about the symptom and wrong about the
+ * cure: the variation was uncorrelated, and uncorrelated variation is noise —
+ * it made the field look like a defect rather than a range, which is what the
+ * reader was seeing at deep zoom.
+ *
+ * `RELIEF_SIZE` and friends now supply the size variation, *correlated* in
+ * space, so what is left here is only the per-mark irregularity that keeps a
+ * crest from being a single machined shape. Measured on nearest-neighbour
+ * pairs, the correlated share has to be the larger one or the field is
+ * invisible: at a jitter of ±37 % the relief scored r=0.20 and at ±22 % the
+ * same field scores r=0.43.
+ *
+ * Water keeps a wide range on purpose — it is exempt from the relief field,
+ * because a wave is a surface and not a height, so this is the only thing
+ * keeping the open ocean from being a stamped repeating pattern.
+ */
+const CATEGORY_SIZE_SPREAD: Record<TerrainCategory, number> = {
+  mountain: 0.15,
+  forest: 0.12,
+  water: 0.45,
+  desert: 0.11,
+  cave: 0.11,
+  plains: 0.10,
+}
+
+/**
+ * Chance an open-ground cell carries grass at all.
+ *
+ * Open ground is most of most maps, so this is the dial that decides whether
+ * land reads as *ground* or as flat paper — and at 0.42, with hairline symbols
+ * at ~0.35 effective opacity, it read as flat paper: the fit view showed whole
+ * landmasses as an empty wash with a decorative crack through them.
+ */
+const PLAINS_DENSITY = 0.55
+
+/**
+ * Wave density out in the open ocean, away from any water seed.
+ *
+ * Without it, the sea between two rivers is not water but *nothing*: the
+ * landmask suppresses the land symbols and the falloff suppresses the waves,
+ * so zooming in on open water lands the reader on a blank rectangle. A map
+ * where the ocean is the only textured thing is the wrong way round — this is
+ * what makes the shoreline read as a shoreline too.
+ *
+ * Kept low on purpose. This is half of the ground layer's node budget at fit
+ * zoom, and node count is what decides the frame time — see `CATEGORY_SIZE`.
+ * 0.16 with the larger wave marks below covers the sea at ~16 %, which is
+ * enough for the eye to read moving water without the ocean competing with the
+ * land for attention.
+ */
+const OCEAN_DENSITY = 0.16
+
+/** Constant on-screen clearance kept around every location pin, in CSS px. */
+const PIN_CLEARANCE_PX = 16
+
+/**
+ * Size of one patch of the ground-cover density field, in cells.
+ *
+ * A uniform grid with a constant per-cell chance reads as wallpaper: every
+ * cell is statistically identical, so the eye locks onto the lattice. Fading a
+ * low-frequency noise field into the per-cell probability gives cover genuine
+ * thickets and genuine bald ground. 5 cells ≈ 160 px at the default pitch,
+ * which is roughly the size of a readable "patch" at fit zoom.
+ */
+const PATCH_PERIOD = 5
+
+/**
+ * Density multiplier at the driest and the lushest part of a patch.
+ *
+ * 0.45 → 1.20 rather than 0.62 → 1.17: a patch has to be able to go nearly
+ * bare for the thickets to register as thickets. The point of the field is
+ * contrast between patches, and a 1.9:1 ratio spread over a 160 px blob is
+ * barely visible once the eye averages it.
+ */
+const PATCH_FLOOR = 0.45
+const PATCH_RANGE = 0.75
+
+// ── Symbol definitions (2–3 variants per biome) ──
 
 const SYMBOL_DEFS: TerrainSymbolDef[] = [
   // ── Mountain ──────────────────────────────────
-  // V0: single sharp peak
+  // Three layers per peak: body, shadowed flank, outline.
+  //
+  // The shadow and the outline are black at low opacity, *not* a second entry
+  // from the palette, and that is deliberate. The palette flips between the
+  // light and dark themes, so a hard-coded dark tone would be correct in one
+  // and inverted in the other; black-at-0.16 over whatever colour the `<use>`
+  // inherits is a relative shade, and relative is what a shaded face is.
+  //
+  // Why it matters: at deep zoom the mountain category is roughly 70 % of all
+  // ground marks, so the peak glyph *is* the texture the reader sees when they
+  // zoom in. A solid equilateral triangle at ±12 % scale is a printed pattern;
+  // a peaked silhouette with a lit face and an edge is a drawn mountain.
   {
     id: "terrain-mountain-0",
     viewBox: "0 0 14 14",
-    pathData: '<path d="M 0,14 L 7,0 L 14,14 Z"/>',
+    pathData:
+      '<path d="M 0,14 L 7,0 L 14,14 Z"/>' +
+      '<path d="M 0,14 L 7,0 L 7,14 Z" fill="#000" fill-opacity="0.16"/>' +
+      '<path d="M 0,14 L 7,0 L 14,14 Z" fill="none" stroke="#000"' +
+      ' stroke-opacity="0.24" stroke-width="0.7" stroke-linejoin="round"/>',
   },
-  // V1: wide shorter peak
   {
     id: "terrain-mountain-1",
     viewBox: "0 0 16 12",
-    pathData: '<path d="M 0,12 L 8,0 L 16,12 Z"/>',
+    pathData:
+      '<path d="M 0,12 L 8,0 L 16,12 Z"/>' +
+      '<path d="M 0,12 L 8,0 L 8,12 Z" fill="#000" fill-opacity="0.16"/>' +
+      '<path d="M 0,12 L 8,0 L 16,12 Z" fill="none" stroke="#000"' +
+      ' stroke-opacity="0.24" stroke-width="0.7" stroke-linejoin="round"/>',
   },
-  // V2: mountain ridge — 3 overlapping peaks (signature)
+  // Ridge — 3 overlapping peaks (signature)
   {
     id: "terrain-mountain-2",
     viewBox: "0 0 24 14",
     pathData:
-      '<path d="M 0,14 L 5,3 L 10,14 Z" opacity="0.7"/>' +
+      '<path d="M 0,14 L 5,3 L 10,14 Z" opacity="0.72"/>' +
       '<path d="M 4,14 L 12,0 L 20,14 Z"/>' +
-      '<path d="M 14,14 L 19,5 L 24,14 Z" opacity="0.6"/>',
+      '<path d="M 4,14 L 12,0 L 12,14 Z" fill="#000" fill-opacity="0.16"/>' +
+      '<path d="M 14,14 L 19,5 L 24,14 Z" opacity="0.85"/>' +
+      '<path d="M 4,14 L 12,0 L 20,14 Z" fill="none" stroke="#000"' +
+      ' stroke-opacity="0.24" stroke-width="0.7" stroke-linejoin="round"/>',
   },
 
   // ── Water ─────────────────────────────────────
-  // V0: single wave
   {
     id: "terrain-water-0",
     viewBox: "0 0 16 10",
     pathData: '<path d="M 0,5 Q 4,0 8,5 Q 12,10 16,5"/>',
     strokeOnly: true,
   },
-  // V1: double wave (parallel)
   {
     id: "terrain-water-1",
     viewBox: "0 0 16 12",
@@ -100,7 +364,6 @@ const SYMBOL_DEFS: TerrainSymbolDef[] = [
       '<path d="M 0,9 Q 4,5 8,9 Q 12,13 16,9"/>',
     strokeOnly: true,
   },
-  // V2: triple wave (denser water feel)
   {
     id: "terrain-water-2",
     viewBox: "0 0 18 14",
@@ -112,13 +375,11 @@ const SYMBOL_DEFS: TerrainSymbolDef[] = [
   },
 
   // ── Forest ────────────────────────────────────
-  // V0: conifer tree
   {
     id: "terrain-forest-0",
     viewBox: "0 0 12 16",
     pathData: '<path d="M 6,0 L 11,7 L 8.5,7 L 8.5,14 L 3.5,14 L 3.5,7 L 1,7 Z"/>',
   },
-  // V1: round-canopy tree
   {
     id: "terrain-forest-1",
     viewBox: "0 0 12 16",
@@ -126,7 +387,7 @@ const SYMBOL_DEFS: TerrainSymbolDef[] = [
       '<circle cx="6" cy="5" r="5"/>' +
       '<rect x="4.5" y="10" width="3" height="6"/>',
   },
-  // V2: tree cluster — 3 trees (signature dense forest)
+  // Stand of 3 trees (signature dense forest)
   {
     id: "terrain-forest-2",
     viewBox: "0 0 22 18",
@@ -137,7 +398,6 @@ const SYMBOL_DEFS: TerrainSymbolDef[] = [
   },
 
   // ── Desert ────────────────────────────────────
-  // V0: 5-dot cluster
   {
     id: "terrain-desert-0",
     viewBox: "0 0 14 14",
@@ -148,7 +408,6 @@ const SYMBOL_DEFS: TerrainSymbolDef[] = [
       '<circle cx="2.5" cy="11" r="1.2"/>' +
       '<circle cx="11" cy="11" r="1.4"/>',
   },
-  // V1: 7-dot spread
   {
     id: "terrain-desert-1",
     viewBox: "0 0 16 14",
@@ -161,19 +420,63 @@ const SYMBOL_DEFS: TerrainSymbolDef[] = [
       '<circle cx="3" cy="12" r="1.1"/>' +
       '<circle cx="12" cy="12" r="1.3"/>',
   },
+  // Dune — two long wind arcs
+  {
+    id: "terrain-desert-2",
+    viewBox: "0 0 20 12",
+    pathData:
+      '<path d="M 0,8 Q 5,2 10,8 Q 15,14 20,8"/>' +
+      '<path d="M 2,4 Q 6,0 10,4" opacity="0.7"/>',
+    strokeOnly: true,
+  },
 
   // ── Cave ──────────────────────────────────────
-  // V0: inverted triangle (stalactite)
   {
     id: "terrain-cave-0",
     viewBox: "0 0 14 12",
     pathData: '<path d="M 0,0 L 7,12 L 14,0 Z"/>',
   },
-  // V1: wider stalactite
   {
     id: "terrain-cave-1",
     viewBox: "0 0 16 10",
     pathData: '<path d="M 0,0 L 8,10 L 16,0 Z"/>',
+  },
+
+  // ── Plains (open ground) ──────────────────────
+  // Grass tuft — 3 blades
+  {
+    id: "terrain-plains-0",
+    viewBox: "0 0 14 13",
+    pathData:
+      '<path d="M 3,12 Q 2,7 4.5,2"/>' +
+      '<path d="M 7,12 Q 7,6 7,1"/>' +
+      '<path d="M 11,12 Q 12,7 9.5,2"/>',
+    strokeOnly: true,
+  },
+  // Scrub — two low arcs
+  {
+    id: "terrain-plains-1",
+    viewBox: "0 0 14 12",
+    pathData:
+      '<path d="M 0,10 Q 3.5,5 7,10 Q 10.5,5 14,10"/>' +
+      '<path d="M 3,7 Q 5.5,4 8,7" opacity="0.75"/>',
+    strokeOnly: true,
+  },
+  // Mottle — scattered pebbles, and the only *filled* plains mark.
+  //
+  // Open ground built only from hairline strokes has no body: a 1.1 px arc at
+  // 0.35 effective opacity is not texture, it is nothing, which is how whole
+  // landmasses came out as empty paper. A filled mark also survives being
+  // scaled down, where a stroke thins away.
+  {
+    id: "terrain-plains-2",
+    viewBox: "0 0 14 14",
+    pathData:
+      '<circle cx="3.5" cy="4" r="1.1"/>' +
+      '<circle cx="9.5" cy="2.8" r="0.85"/>' +
+      '<circle cx="6.5" cy="8" r="1.25"/>' +
+      '<circle cx="11.6" cy="10.2" r="0.8"/>' +
+      '<circle cx="2.4" cy="10.6" r="0.9"/>',
   },
 ]
 
@@ -182,8 +485,9 @@ const CATEGORY_SYMBOLS: Record<TerrainCategory, string[]> = {
   mountain: ["terrain-mountain-0", "terrain-mountain-1", "terrain-mountain-2"],
   water:    ["terrain-water-0", "terrain-water-1", "terrain-water-2"],
   forest:   ["terrain-forest-0", "terrain-forest-1", "terrain-forest-2"],
-  desert:   ["terrain-desert-0", "terrain-desert-1"],
+  desert:   ["terrain-desert-0", "terrain-desert-1", "terrain-desert-2"],
   cave:     ["terrain-cave-0", "terrain-cave-1"],
+  plains:   ["terrain-plains-0", "terrain-plains-1", "terrain-plains-2"],
 }
 
 // ── Color palettes ────────────────────────────────
@@ -194,6 +498,7 @@ const COLORS_LIGHT: Record<TerrainCategory, string> = {
   forest:   "#6b8b5c",
   desert:   "#b09870",
   cave:     "#8b7355",
+  plains:   "#8f8560",
 }
 
 const COLORS_DARK: Record<TerrainCategory, string> = {
@@ -202,6 +507,7 @@ const COLORS_DARK: Record<TerrainCategory, string> = {
   forest:   "#8fad7e",
   desert:   "#c4b48a",
   cave:     "#a08e6e",
+  plains:   "#a99b78",
 }
 
 // ── Deterministic pseudo-random ───────────────────
@@ -219,6 +525,303 @@ function pseudoRandom(seed: number): number {
   return x - Math.floor(x)
 }
 
+// ── Low-frequency density field ───────────────────
+
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v
+}
+
+function patchNode(gx: number, gy: number): number {
+  return pseudoRandom(hashString(`patch:${gx}:${gy}`))
+}
+
+/**
+ * Value noise sampled on a lattice of PATCH_PERIOD cells.
+ *
+ * Chosen over a sum of sinusoids on purpose: sinusoids impose a direction and a
+ * wavelength, so two of them in x/y produce visible diagonal banding — a
+ * different wallpaper, not the absence of one. Hashed lattice nodes with a
+ * smoothstep blend have no preferred orientation.
+ */
+function patchDensity(ix: number, iy: number): number {
+  const gx = ix / PATCH_PERIOD
+  const gy = iy / PATCH_PERIOD
+  const x0 = Math.floor(gx)
+  const y0 = Math.floor(gy)
+  const fx = smoothstep(gx - x0)
+  const fy = smoothstep(gy - y0)
+  const v00 = patchNode(x0, y0)
+  const v10 = patchNode(x0 + 1, y0)
+  const v01 = patchNode(x0, y0 + 1)
+  const v11 = patchNode(x0 + 1, y0 + 1)
+  const top = v00 + (v10 - v00) * fx
+  const bottom = v01 + (v11 - v01) * fx
+  return top + (bottom - top) * fy
+}
+
+// ── World-space relief field ──────────────────────
+
+/**
+ * Octave wavelengths in **canvas units**, coarse to fine, with their weights.
+ *
+ * Why this exists at all. Everything above is a *screen*-space mechanism: the
+ * candidate grid is pitched at `CELL_PX` on screen, so a cell is `CELL_PX / k`
+ * canvas units and the candidate count is ~105×62 at every zoom level. What
+ * changes when the reader zooms in is only the biome that happens to be under
+ * the window — and within one biome seed's reach the category is constant and
+ * the falloff only scales density. So the deep-zoom view was a field of
+ * identically-sized glyphs at roughly constant spacing: 953 mountains, 360
+ * caves, 85 forests, all the same size, all the same distance apart. That is
+ * the "wallpaper" reading, and no amount of per-glyph random size fixes it,
+ * because uncorrelated random size *is* noise.
+ *
+ * Hand-drawn and game maps convey relief with a correlated field: glyphs grow
+ * toward a crest, thin out in a hollow, and the crest continues across the
+ * page. So the field has to live in canvas units — a *world* property, like
+ * `BIOME_REACH` — and that is the whole point of this constant: wavelengths
+ * are fixed in the world, so zooming in reveals finer octaves instead of
+ * showing the same blob bigger.
+ *
+ * The fineness stops at 24 units deliberately. At k=10 (the deepest the
+ * reader can go) that is a 240 px feature with a cell of 1.6 units — enough
+ * cells across one ridge to draw it. A second pair of finer octaves would be
+ * cheaper to add than to justify: below ~1.5 cells the field stops being
+ * correlated between neighbouring glyphs and turns back into the noise it is
+ * meant to replace.
+ */
+const RELIEF_OCTAVES: ReadonlyArray<readonly [number, number]> = [
+  [1400, 1.0],
+  [520, 0.52],
+  [190, 0.27],
+  [66, 0.14],
+  [24, 0.07],
+]
+
+/**
+ * How much a biome seed lifts or drops the relief around it, before the
+ * noise detail is added.
+ *
+ * This is the *authored* half of the field, and it is what keeps the relief
+ * agreeing with the story: a 山 raises the ground near it, a 河 lowers it, and
+ * between locations the noise takes over. Without it, the coarse octaves would
+ * put a mountain range wherever the hash felt like it, next to a location
+ * called 花果山 that is rendered flat.
+ */
+const SEED_RELIEF: Record<TerrainCategory, number> = {
+  mountain: 0.6,
+  cave: 0.45,
+  forest: 0.30,
+  plains: 0.05,
+  desert: -0.28,
+  water: -1.0,
+}
+
+/**
+ * Integer hash for lattice nodes.
+ *
+ * `hashString('relief:1:2')` would do, but this runs 4 times per octave per
+ * candidate cell — 20 per cell, ~130k per rebuild at fit zoom — and building a
+ * template literal 130k times per frame is a garbage-collection bill the
+ * scatter cannot afford. `Math.imul` keeps the multiply 32-bit and exact.
+ */
+function hash2i(x: number, y: number, salt: number): number {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^
+    Math.imul(salt, 2246822519)
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296
+}
+
+function reliefNode(gx: number, gy: number, salt: number): number {
+  return hash2i(gx, gy, salt)
+}
+
+/**
+ * Multi-octave value noise in 0..1, at the given world point.
+ *
+ * A **band**-pass, not a high-pass. Two fades, one at each end, and the
+ * symmetry is the whole point:
+ *
+ *   * `minWl` cuts the *fine* end. An octave finer than the glyph pitch does
+ *     not read as terrain — neighbouring glyphs land on opposite sides of it,
+ *     so it *is* the uncorrelated size jitter this field is replacing, minus
+ *     the honesty.
+ *   * `span` (the diagonal of the visible rect, in canvas units) cuts the
+ *     *coarse* end, and this was missing for a long time. An octave much longer
+ *     than the window is a **constant offset** inside it — the same argument as
+ *     the fine end, run backwards — but because the octaves are summed and
+ *     normalised over all live weights, those invisible octaves still took
+ *     89 % of the normaliser. At k=10 the visible window is ~124 canvas units,
+ *     so of the 1400/520/190/66/24 ladder only 66 and 24 were in frame, worth
+ *     0.21 of a 2.0 normaliser: the field swung about +-10 % across the whole
+ *     screen while the per-glyph jitter swung +-26 %. The field was there and
+ *     the reader could not see it, and every global statistic in the suite
+ *     passed on that reading.
+ *
+ * Both ends fade rather than cut, and for the same reason. Dropping an octave
+ * at its threshold pops: one octave's worth of amplitude appears in a single
+ * frame while the reader wheels through, and on a smooth field that is visible
+ * as the whole ground shivering and re-settling. Fading costs one extra
+ * `smoothstep`, and it is what makes the coarse cut safe to have at all —
+ * with a fade, crossing the threshold is spread over several level-of-detail
+ * steps instead of landing on one.
+ *
+ * Normalising by the *live* weights is what turns the cut into a visibility
+ * fix rather than just a de-noising one: whatever band is in frame is
+ * stretched back to full amplitude, so the reader sees a field with the same
+ * contrast at every zoom instead of the same field through a narrower window.
+ */
+function reliefNoise(
+  x: number,
+  y: number,
+  minWl: number,
+  maxWl: number,
+  salt: number,
+): number {
+  let v = 0
+  let amp = 0
+  for (const [wl, a] of RELIEF_OCTAVES) {
+    const f = smoothstep(clamp01((wl / minWl - 0.8) / 1.2)) *
+      smoothstep(clamp01((maxWl / wl - 0.8) / 1.2))
+    if (f <= 0) continue
+    v += valueNoise2(x / wl, y / wl, salt) * a * f
+    amp += a * f
+  }
+  return amp > 0 ? v / amp : 0.5
+}
+
+function valueNoise2(gx: number, gy: number, salt: number): number {
+  const x0 = Math.floor(gx)
+  const y0 = Math.floor(gy)
+  const fx = smoothstep(gx - x0)
+  const fy = smoothstep(gy - y0)
+  const v00 = reliefNode(x0, y0, salt)
+  const v10 = reliefNode(x0 + 1, y0, salt)
+  const v01 = reliefNode(x0, y0 + 1, salt)
+  const v11 = reliefNode(x0 + 1, y0 + 1, salt)
+  const top = v00 + (v10 - v00) * fx
+  const bottom = v01 + (v11 - v01) * fx
+  return top + (bottom - top) * fy
+}
+
+/**
+ * Wavelength of the lattice warp, in cells, and how far it displaces a point
+ * as a fraction of a cell.
+ *
+ * Jitter does not remove a lattice, it blurs one. Every glyph in a row shares
+ * that row's offset, so two glyphs side by side stay each other's nearest
+ * neighbour however hard they are jittered — measured at the deep zoom, the
+ * nearest-neighbour direction was 19 % more likely to be horizontal than
+ * uniform, chi-square p = 0.0024 over 1 375 glyphs. That is the last of the
+ * "wallpaper" reading and jitter alone never touches it.
+ *
+ * Warping the lattice by a smooth field a few cells across bends the rows out
+ * of straight lines, which is the part jitter cannot do. Four cells keeps the
+ * field smooth enough that the ground does not visibly swirl — at half a cell
+ * of displacement the rows are no longer recoverable from direction, and at
+ * much shorter a wavelength the warp becomes its own visible pattern, which is
+ * a worse artefact than the one being fixed.
+ *
+ * Both are measured in *cells*, which makes the warp a constant size on screen
+ * at every zoom: a cell is `CELL_PX / k` canvas units, so the wavelength is
+ * `4 * CELL_PX` pixels on screen however far the reader has zoomed in. Written
+ * in canvas units instead it would grow without bound as `k` falls, and the
+ * ground would visibly drift as the reader zoomed out.
+ */
+const WARP_WL = 4
+const WARP_STRENGTH = 0.5
+
+/**
+ * Displacement of the sampling lattice at a point, in canvas units.
+ *
+ * Applied to the *emitted* position only, and deliberately not to anything the
+ * glyph is decided from: the cell still asks the land mask, the biome seeds and
+ * the relief field where it stands, so the field the reader pans across does not
+ * itself wobble.
+ *
+ * "Only the drawing moves" is not on its own a safety argument, which is worth
+ * stating because it was written here as one and it is false. The drawn point is
+ * the one the reader sees, so displacing it across the shoreline puts a ridge in
+ * the sea — and the land mask is a hard promise, with a test that counts exactly
+ * that (`verify_ground2`, `landSymbol` on the ocean fill: 0 everywhere before the
+ * warp, 14 at fit zoom and 4 at zoom 1 with it). The emission site re-tests the
+ * warped point against the mask and falls back to the unwarped point when the
+ * two disagree, which is what keeps the promise; see the comment there.
+ */
+function latticeWarp(x: number, y: number, cell: number): [number, number] {
+  const s = cell * WARP_WL
+  const amp = cell * WARP_STRENGTH
+  return [
+    (valueNoise2(x / s, y / s, 9173) - 0.5) * 2 * amp,
+    (valueNoise2(x / s, y / s, 9174) - 0.5) * 2 * amp,
+  ]
+}
+
+/**
+ * Per-novel salt for the relief field.
+ *
+ * Without it every map in the library would have *the same* hills in the same
+ * places, because the noise is a function of canvas coordinates and nothing
+ * else — the two novels whose layouts differ only in where the locations sit
+ * would share an identical undulation. Deriving the salt from the location set
+ * keeps the field stable for a given novel across sessions and different for
+ * every novel, without threading a novel id through the call chain.
+ *
+ * Memoised on the array identity: the caller passes a stable array, and
+ * re-sorting ~800 names on every pan rebuild would cost more than the field.
+ */
+const reliefSaltCache = new WeakMap<object, number>()
+
+function reliefSalt(locations: MapLocation[]): number {
+  const hit = reliefSaltCache.get(locations)
+  if (hit !== undefined) return hit
+  const names = locations.map((l) => l.name).sort()
+  const salt = Math.floor(hashString(names.join("|")) % 2147483647)
+  reliefSaltCache.set(locations, salt)
+  return salt
+}
+
+/**
+ * How far the signed relief anomaly is allowed to move a glyph's size, density
+ * and opacity, as a *gain* on the anomaly rather than a pair of multipliers at
+ * relief 0 and relief 1.
+ *
+ * Density gets the widest gain on purpose. Size and opacity are read one glyph
+ * at a time; density is read as *clumping*, and clumping is what the eye
+ * actually uses to decide that a band of glyphs is a ridge rather than a
+ * scatter — it is the same quantity the nearest-neighbour CV scores.
+ *
+ * `SIZE_GAIN` being close to 1 is not a coincidence: it makes the multiplier
+ * `1 + anomaly`, so an anomaly of +0.3 is a 1.3x glyph. See the note on the
+ * anomaly in the generator for why a gain replaced the old `[lo, hi]` form.
+ */
+const RELIEF_SIZE_GAIN = 1.40
+const RELIEF_DENSITY_GAIN = 0.75
+const RELIEF_OPACITY_GAIN = 0.22
+
+/**
+ * Anomaly below which a massif or a cave thins to open ground, and above which
+ * open ground climbs into a range, each with the half-width of the ramp that
+ * reaches full probability.
+ *
+ * Both are applied as a *probability*, not a cut. A hard threshold on a smooth
+ * field draws its own contour line across the map, and a visible iso-line is a
+ * worse artefact than the uniformity being fixed — the reader sees the
+ * algorithm. Ramping the probability over a band keeps the boundary ragged,
+ * which is what a real treeline looks like.
+ *
+ * The spans are the old absolute relief distances (0.44 and 0.24), kept as-is
+ * so each ramp reaches the same probability at the same place on the map
+ * after the change from `relief in 0..1` to a signed anomaly.
+ */
+const HOLLOW_ANOMALY = -0.06
+const HOLLOW_SPAN = 0.44
+const RIDGE_ANOMALY = 0.26
+const RIDGE_SPAN = 0.24
+
 // ── Main generator ────────────────────────────────
 
 export function generateTerrainHints(
@@ -226,133 +829,574 @@ export function generateTerrainHints(
   layout: MapLayoutItem[],
   canvasSize: { width: number; height: number },
   darkBg: boolean,
+  zoom = 1,
+  view: TerrainViewRect | null = null,
+  land: Landmass[] | null = null,
 ): TerrainHintResult {
   const layoutMap = new Map<string, MapLayoutItem>()
   for (const item of layout) layoutMap.set(item.name, item)
 
-  const baseOpacity = darkBg ? 0.28 : 0.35
   const colorPalette = darkBg ? COLORS_DARK : COLORS_LIGHT
-  const pad = 20
+  // Quietened from 0.52 / 0.62 when the terrain bake started carrying landform.
+  //
+  // The old value was set against a bake that was an invisible wash, so the
+  // glyphs had to be the ground all by themselves -- and the note above records
+  // what happened when they were not: flat paper. That is no longer the job.
+  // The bake now draws ridges, valleys and shading, so the glyphs are relief
+  // *accents* on top of ground that already exists, and at full strength they
+  // read as debris stamped over real terrain. The division is now explicit:
+  // the bake is the ground, this layer is the notation on it.
+  const baseOpacity = darkBg ? 0.44 : 0.52
+  const k = zoom > 0 ? zoom : 1
 
-  // Step 1: filter to terrain locations with layout positions
-  interface TerrainLoc {
-    name: string
-    x: number
-    y: number
-    category: TerrainCategory
-    tier: string
-  }
+  // Seed for the world-space relief field. See `reliefSalt`.
+  const rsalt = reliefSalt(locations)
 
-  const terrainLocs: TerrainLoc[] = []
+  // ── Biome seeds ─────────────────────────────────
+  // Every terrain-typed place paints its surroundings. Deliberately *not*
+  // filtered by the mention-count slider: ground cover is scenery, and a
+  // decoration that appears and disappears as the reader drags a filter reads
+  // as a glitch. `allLocations`/`allLayout` are passed for this reason.
+  interface Seed { x: number; y: number; cat: TerrainCategory }
+  const seeds: Seed[] = []
   for (const loc of locations) {
     const cat = TERRAIN_MAP[loc.icon ?? ""]
     if (!cat) continue
     const item = layoutMap.get(loc.name)
     if (!item || item.is_portal) continue
-    terrainLocs.push({
-      name: loc.name,
-      x: item.x,
-      y: item.y,
-      category: cat,
-      tier: loc.tier ?? "city",
-    })
+    seeds.push({ x: item.x, y: item.y, cat })
   }
-
-  if (terrainLocs.length === 0) {
+  if (seeds.length === 0) {
     return { symbolDefs: [], hints: [] }
   }
 
-  // Step 2: compute budgets
-  let totalBudget = 0
-  const budgets: number[] = []
-  for (const tl of terrainLocs) {
-    const cfg = TIER_CONFIG[tl.tier] ?? TIER_CONFIG.city
-    budgets.push(cfg.count)
-    totalBudget += cfg.count
+  // ── Grid extent ─────────────────────────────────
+  const fullW = canvasSize.width
+  const fullH = canvasSize.height
+
+  // ── World scale ─────────────────────────────────
+  // `BIOME_REACH` is authored against a 4500-unit short side. Dividing by that
+  // reference turns it from an absolute pixel count into a fraction of the map,
+  // so a 2000×1200 canvas gets reaches 4× smaller rather than painting a
+  // continent's worth of mountains onto a thumbnail.
+  const worldScale = Math.min(fullW, fullH) / BIOME_REF_MIN_SIDE
+
+  const rect = view ?? { x: 0, y: 0, w: fullW, h: fullH }
+  const x0 = Math.max(0, Math.min(fullW, rect.x))
+  const y0 = Math.max(0, Math.min(fullH, rect.y))
+  const x1 = Math.max(0, Math.min(fullW, rect.x + rect.w))
+  const y1 = Math.max(0, Math.min(fullH, rect.y + rect.h))
+  const spanW = x1 - x0
+  const spanH = y1 - y0
+  if (spanW <= 0 || spanH <= 0) {
+    return { symbolDefs: [], hints: [] }
   }
 
-  if (totalBudget > MAX_HINTS) {
-    const ratio = MAX_HINTS / totalBudget
-    for (let i = 0; i < budgets.length; i++) {
-      budgets[i] = Math.max(1, Math.round(budgets[i] * ratio))
+  // Grid pitch: CELL_PX on screen, so `CELL_PX / k` in canvas units. Widened
+  // only if the visible area would blow the node budget (a very wide viewport
+  // at a very low zoom).
+  let cell = CELL_PX / k
+  const cols = Math.ceil(spanW / cell)
+  const rows = Math.ceil(spanH / cell)
+  if (cols * rows > MAX_CELLS) {
+    cell *= Math.sqrt((cols * rows) / MAX_CELLS)
+  }
+
+  // Level-of-detail cut for the relief field: octaves finer than this are
+  // skipped, because a wavelength the glyph pitch cannot resolve is not
+  // terrain, it is jitter. See `reliefNoise`.
+  const minWl = cell * 1.5
+
+  // The other end of the same band. Octaves longer than the window are a
+  // constant inside it, so they must not be allowed to take the normaliser —
+  // see `reliefNoise`. The diagonal rather than either side, so the cut does
+  // not change when the reader pans to a corner and the window's aspect
+  // ratio changes which side is longer.
+  const viewSpan = Math.hypot(spanW, spanH)
+
+  // ── Constant on-screen clearance around pins ────
+  const minSep = PIN_CLEARANCE_PX / k
+  const minSep2 = minSep * minSep
+  const pins: { x: number; y: number }[] = []
+  for (const item of layout) {
+    if (!item.is_portal) pins.push({ x: item.x, y: item.y })
+  }
+
+  // ── Landmask ────────────────────────────────────
+  // Coastlines live in the same canvas coordinate space as the layout (the
+  // ocean fill in NovelMap strokes them straight onto canvasW×canvasH), so a
+  // point-in-polygon test against them is the whole land test: inside any
+  // coastline and outside that landmass's holes, which are inner seas.
+  interface Ring {
+    pts: [number, number][]
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+  }
+  /** A ring, plus the y-band index `ringContains` walks it by. */
+  interface IndexedRing extends Ring {
+    isHole: boolean
+    /** Row index -> edge indices into `pts`. Sparse; only non-empty rows. */
+    buckets: Map<number, number[]>
+  }
+
+  /**
+   * Tallest edge of a ring, measured as a rise in y.
+   *
+   * Screens the row height against the data. Only y matters here: the index
+   * has no columns, so an edge that is long and flat costs nothing while one
+   * that climbs across the canvas would land in every row it passes.
+   */
+  const maxEdgeRise = (pts: [number, number][]): number => {
+    let m = 0
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const d = Math.abs(pts[i][1] - pts[j][1])
+      if (d > m) m = d
+    }
+    return m
+  }
+
+  const toRing = (pts: [number, number][]): Ring => {
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    for (const p of pts) {
+      if (p[0] < minX) minX = p[0]
+      if (p[0] > maxX) maxX = p[0]
+      if (p[1] < minY) minY = p[1]
+      if (p[1] > maxY) maxY = p[1]
+    }
+    return { pts, minX, minY, maxX, maxY }
+  }
+  const ringList: IndexedRing[] = []
+  let tallest = 0
+  for (const lm of land ?? []) {
+    const outline = toRing(lm.coastline)
+    if (outline.pts.length >= 3) {
+      tallest = Math.max(tallest, maxEdgeRise(outline.pts))
+      ringList.push({ ...outline, isHole: false, buckets: new Map() })
+    }
+    for (const h of lm.holes ?? []) {
+      const r = toRing(h)
+      if (r.pts.length < 3) continue
+      tallest = Math.max(tallest, maxEdgeRise(r.pts))
+      ringList.push({ ...r, isHole: true, buckets: new Map() })
     }
   }
 
-  // Location centers for collision avoidance
-  const centers: { x: number; y: number }[] = []
-  for (const item of layout) {
-    if (!item.is_portal) centers.push({ x: item.x, y: item.y })
+  // ── Y-band index for the landmask ───────────────
+  // `ringContains` is a ray cast over every vertex of a ring, and a rebuild
+  // asks it once per candidate cell — 427 ms of self time over one drag, two
+  // thirds of the layer's JavaScript. The ring bboxes skipped in `isOnLand`
+  // cut it down but not enough: a cell in the middle of a continent is nowhere
+  // near a coastline and still walked every vertex.
+  //
+  // The index is over **rows only, never columns**, and the reason is worth
+  // keeping: the first attempt bucketed edges into 2-D boxes, on the argument
+  // that an edge which can flip the parity for (px,py) must have (px,py) in
+  // its bounding box. That argument is false, and measurably so — it reported
+  // 14 569 land points where the scan reported 615 279 over the same grid.
+  //
+  // The crossing the test counts is at (x_cross, py) with x_cross < px, so the
+  // edge's bbox contains a point far to the *left* of the query, not the query
+  // itself. A column bucket therefore misses every edge that ends its run in
+  // the query's column and crosses the ray from outside it. With this
+  // primitive there is no valid x-prune at all: the parity needs every edge of
+  // the row, which is why the index is one-dimensional.
+  //
+  // Edges with no vertical extent are dropped outright — `yi > py !== yj > py`
+  // is false whenever `yi === yj`, so a horizontal edge can never contribute.
+  // Row height is a quarter of the tallest edge's rise, so an edge lands in at
+  // most four rows and the build stays O(vertices). Empty rows cost one Map
+  // miss and allocate nothing.
+  const rowH = Math.max(tallest / 4, 1)
+  const rowCount = Math.max(1, Math.ceil(fullH / rowH))
+
+  const indexRing = (r: IndexedRing) => {
+    const pts = r.pts
+    const n = pts.length
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const ay = pts[j][1]
+      const by = pts[i][1]
+      if (ay === by) continue
+      let y0 = Math.floor(Math.min(ay, by) / rowH)
+      let y1 = Math.floor(Math.max(ay, by) / rowH)
+      if (y0 < 0) y0 = 0
+      if (y1 > rowCount - 1) y1 = rowCount - 1
+      for (let yy = y0; yy <= y1; yy++) {
+        const list = r.buckets.get(yy)
+        if (list) list.push(i)
+        else r.buckets.set(yy, [i])
+      }
+    }
+  }
+  for (const r of ringList) indexRing(r)
+
+  const ringContains = (r: IndexedRing, px: number, py: number): boolean => {
+    const by = Math.floor(py / rowH)
+    if (by < 0 || by >= rowCount) return false
+    const list = r.buckets.get(by)
+    if (!list) return false
+    const pts = r.pts
+    const n = pts.length
+    let inside = false
+    for (let q = 0; q < list.length; q++) {
+      const i = list[q]
+      const j = i === 0 ? n - 1 : i - 1
+      const xi = pts[i][0]
+      const yi = pts[i][1]
+      const xj = pts[j][0]
+      const yj = pts[j][1]
+      if (
+        yi > py !== yj > py &&
+        px < ((xj - xi) * (py - yi)) / (yj - yi) + xi
+      ) {
+        inside = !inside
+      }
+    }
+    return inside
   }
 
-  // Step 3–6: generate hints
+  // A hole suppresses only its own outline, which is why this is a scan over
+  // every ring rather than a single parity count: two landmasses may overlap
+  // on the canvas, and one shared even-odd total would cancel them out.
+  const isOnLand = (px: number, py: number): boolean => {
+    for (const r of ringList) {
+      if (
+        px < r.minX ||
+        px > r.maxX ||
+        py < r.minY ||
+        py > r.maxY
+      ) {
+        continue
+      }
+      if (r.isHole) {
+        if (ringContains(r, px, py)) continue
+      } else if (ringContains(r, px, py)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  // Guard against a landmask that is present but meaningless — a coastline set
+  // in a different coordinate space would delete the entire layer.
+  //
+  // Deliberately sampled over the *whole canvas*, not over the current view.
+  // Sampling the view makes the guard indistinguishable from "the reader has
+  // zoomed into open water": the sample comes back 100 % sea, the guard
+  // declares the mask broken, and it switches off — which is exactly when the
+  // mask is needed most. Land cover is a property of the map, so the test has
+  // to be too.
+  let useLandmask = ringList.length > 0
+  if (useLandmask) {
+    const stride = Math.max(48, fullW / 24)
+    let seen = 0
+    let hit = 0
+    for (let wy = stride * 0.5; wy < fullH; wy += stride) {
+      for (let wx = stride * 0.5; wx < fullW; wx += stride) {
+        seen++
+        if (isOnLand(wx, wy)) hit++
+      }
+    }
+    if (seen > 0 && hit / seen < 0.1) useLandmask = false
+  }
+
+  // ── Scatter ─────────────────────────────────────
+  // Flat arrays keep the nearest-seed search cheap: a rebuild walks
+  // cells × seeds (≈ 600 × 200 here), which is a couple of milliseconds.
+  const sx = new Float64Array(seeds.length)
+  const sy = new Float64Array(seeds.length)
+  const scat = new Array<TerrainCategory>(seeds.length)
+  for (let i = 0; i < seeds.length; i++) {
+    sx[i] = seeds[i].x
+    sy[i] = seeds[i].y
+    scat[i] = seeds[i].cat
+  }
+
   const hints: TerrainHint[] = []
-  const usedCategories = new Set<TerrainCategory>()
+  // Parallel to `hints`, needed because the node budget below can remove a
+  // category's last members, and the emitted `<defs>` must match what is
+  // actually on screen — a `<use>` pointing at a missing symbol renders nothing.
+  const cats: TerrainCategory[] = []
 
-  for (let li = 0; li < terrainLocs.length; li++) {
-    const tl = terrainLocs[li]
-    const count = budgets[li]
-    const cfg = TIER_CONFIG[tl.tier] ?? TIER_CONFIG.city
-    const spreadRadius = cfg.radius
-    const symbols = CATEGORY_SYMBOLS[tl.category]
-    const color = colorPalette[tl.category]
-    const baseSeed = hashString(tl.name)
+  // Water seeds in their own list so an ocean cell can ask "is any sea within
+  // reach?" without rescanning every seed. Only ~50 of 800 here.
+  const waterIdx: number[] = []
+  for (let i = 0; i < scat.length; i++) {
+    if (scat[i] === "water") waterIdx.push(i)
+  }
+  const waterReach = BIOME_REACH.water * worldScale
+  const nearestWaterFalloff = (px: number, py: number): number => {
+    if (waterIdx.length === 0) return -1
+    let bd2 = Infinity
+    for (const i of waterIdx) {
+      const dx = px - sx[i]
+      const dy = py - sy[i]
+      const d2 = dx * dx + dy * dy
+      if (d2 < bd2) bd2 = d2
+    }
+    if (bd2 >= waterReach * waterReach) return -1
+    return 1 - Math.sqrt(bd2) / waterReach
+  }
 
-    usedCategories.add(tl.category)
+  const ix0 = Math.floor(x0 / cell)
+  const ix1 = Math.ceil(x1 / cell)
+  const iy0 = Math.floor(y0 / cell)
+  const iy1 = Math.ceil(y1 / cell)
 
-    for (let i = 0; i < count; i++) {
-      const seed = baseSeed + i * 7919
+  for (let iy = iy0; iy < iy1; iy++) {
+    for (let ix = ix0; ix < ix1; ix++) {
+      // Seeded by the *absolute* grid index, so the ground is identical after
+      // any pan or zoom round-trip instead of re-rolling.
+      const seed = hashString(`${ix}:${iy}`)
 
-      const angle = pseudoRandom(seed) * Math.PI * 2
-      const r = spreadRadius * (0.3 + 0.7 * Math.sqrt(pseudoRandom(seed + 1)))
-      const x = tl.x + Math.cos(angle) * r
-      const y = tl.y + Math.sin(angle) * r
+      // Row stagger first. Jittering each cell on its own is not enough to
+      // break a lattice: every point stays offset by the same fraction of its
+      // own cell, so the columns still line up. Shifting whole rows by a
+      // different fraction destroys the alignment outright.
+      const rowShift = (pseudoRandom(hashString(`row:${iy}`)) - 0.5) * cell * 0.9
+      const jx = (pseudoRandom(seed) - 0.5) * cell * 0.85
+      const jy = (pseudoRandom(seed + 1) - 0.5) * cell * 0.85
+      const px = (ix + 0.5) * cell + rowShift + jx
+      const py = (iy + 0.5) * cell + jy
 
-      // Canvas boundary clipping
-      if (x < pad || x > canvasSize.width - pad || y < pad || y > canvasSize.height - pad) {
+      // Displacement of this point by the lattice warp, in canvas units. Only
+      // the *drawing* moves; every decision below still reads the unwarped
+      // `px, py`. The displacement is bounded by `cell * WARP_STRENGTH`, so
+      // testing the warped point after the unwarped one preserves the old
+      // guarantee exactly — no emitted glyph is allowed outside the frame.
+      //
+      // `latticeWarp` returns the *offset*, so it has to be added. Calling the
+      // destructured pair `wx, wy` and pushing it straight through reads fine
+      // and is silently wrong — at `WARP_STRENGTH = 0` the offset is exactly
+      // zero and the whole layer collapses onto the origin, with every size,
+      // rotation and opacity still correct, so the only thing that gives it
+      // away is that the glyph positions are all identical.
+      const [warpX, warpY] = latticeWarp(px, py, cell)
+      let wx = px + warpX
+      let wy = py + warpY
+      if (
+        px < 0 || px > fullW || py < 0 || py > fullH ||
+        wx < 0 || wx > fullW || wy < 0 || wy > fullH
+      ) {
         continue
       }
 
-      // Collision: skip if too close to any location center
-      let tooClose = false
-      for (const c of centers) {
-        const dx = x - c.x
-        const dy = y - c.y
-        if (dx * dx + dy * dy < 18 * 18) {
-          tooClose = true
+      // Hoisted for two reasons. The surface test below asks it of the cell and
+      // the emission asks it again of the cell's *drawn* point, and it is the
+      // most expensive single test in the loop — a point-in-polygon per ring
+      // with a bounding-box reject.
+      const onLandHere = !useLandmask || isOnLand(px, py)
+
+      let blocked = false
+      for (const p of pins) {
+        const dx = px - p.x
+        const dy = py - p.y
+        if (dx * dx + dy * dy < minSep2) {
+          blocked = true
           break
         }
       }
-      if (tooClose) continue
+      if (blocked) continue
 
-      // Size: tier-dependent base with random variation (0.5 – 1.0)
-      const sizeScale = 0.5 + 0.5 * pseudoRandom(seed + 2)
-      const size = cfg.baseSize * sizeScale
+      // Nearest biome seed + linear falloff. The falloff is what keeps a
+      // single 山 from carpeting the quadrant and what carves the transition
+      // from massif to grassland.
+      let best = -1
+      let bestD2 = Infinity
+      for (let i = 0; i < sx.length; i++) {
+        const dx = px - sx[i]
+        const dy = py - sy[i]
+        const d2 = dx * dx + dy * dy
+        if (d2 < bestD2) {
+          bestD2 = d2
+          best = i
+        }
+      }
 
-      const rotation = (pseudoRandom(seed + 3) - 0.5) * 30
-      const opacity = baseOpacity * (0.6 + 0.4 * pseudoRandom(seed + 4))
+      let cat: TerrainCategory = "plains"
+      let density = PLAINS_DENSITY
+      let falloff = 0
+      if (best >= 0) {
+        const reach = BIOME_REACH[scat[best]] * worldScale
+        if (reach > 0) {
+          const dist = Math.sqrt(bestD2)
+          const t = 1 - dist / reach
+          if (t > 0) {
+            cat = scat[best]
+            falloff = Math.min(1, t)
+            density = 0.45 + 0.55 * falloff
+          }
+        }
+      }
 
-      // Variant: mix single + cluster symbols. Cluster variants (index 2)
-      // appear ~30% of the time for mountain/forest/water for density feel.
+      // ── Surface test ─────────────────────────────
+      // Two kinds of ground, not one. On land the biome field above decides
+      // what grows there; on sea the answer is always waves. Everything in the
+      // ocean is water, whether or not a river seed is nearby — the seed only
+      // decides whether the waves are thick (near shore) or thin (mid sea).
+      if (!onLandHere && cat !== "water") {
+        cat = "water"
+        const wt = nearestWaterFalloff(px, py)
+        density = wt > 0 ? 0.45 + 0.55 * Math.min(1, wt) : OCEAN_DENSITY
+      }
+
+      // ── Relief ───────────────────────────────────
+      // A **signed anomaly**, centred on zero and deliberately not clamped:
+      // where this ground stands relative to its own neighbourhood, in units
+      // where +1 is the tallest crest the field can express.
+      //
+      // The authored half is the nearest seed's sign, weighted by how close
+      // that seed is; the procedural half is the world-space noise. Splitting
+      // it this way is what stops the field from contradicting the story: a
+      // 山 has to be high ground even if the hash disagrees, and away from
+      // any location the noise is free to make its own ranges.
+      //
+      // Why it is not a clamped 0..1 *height* any more. It was, and the clamp
+      // is what hid the field. `relief = clamp01(0.5 + a + d)` saturates
+      // wherever the authored term is already positive — which is everywhere
+      // within a massif's reach, the exact place the reader zooms into — so
+      // the noise term had no room to move and the size multiplier went
+      // constant there. Raising the weights made it *worse*, not better:
+      // measured over the interior of 西游记's largest landmass, sd(field)
+      // fell from 1.09 px at weights (0.48, 0.32) to 0.78 px at (1.20, 0.80)
+      // while the fit view improved — the clamp ate the deep zoom first. An
+      // anomaly has no ceiling, so the response stays monotone and the
+      // multiplier `1 + gain * anomaly` stays symmetric about zero.
+      //
+      // Water is exempt. Sea has no relief to describe — the waves are a
+      // surface, not a height — and letting the field darken the middle of an
+      // ocean would read as a shoal that is not in the data.
+      let anomaly = 0
+      if (cat !== "water") {
+        const authored = best >= 0 ? SEED_RELIEF[scat[best]] * falloff : 0
+        const detail = (reliefNoise(px, py, minWl, viewSpan, rsalt) - 0.5) * 2
+        anomaly = 0.55 * authored + 0.40 * detail
+
+        // ── Category refinement ─────────────────────
+        // The biome field says what a location *is*; the relief field says
+        // where its ground actually stands. A massif is not a plateau — it
+        // has hollows — and open ground next to a range has spurs that climb
+        // into it. Ramping the probability keeps both boundaries ragged, which
+        // is what stops the relief from drawing contour lines across the map.
+        //
+        // Both ramps are capped, which the clamped form did not need: an
+        // anomaly is unbounded, so a deep hollow would otherwise ask for a
+        // probability above 1 and turn every cell into open ground.
+        if (anomaly < HOLLOW_ANOMALY && (cat === "mountain" || cat === "cave")) {
+          const p = Math.min(0.9, ((HOLLOW_ANOMALY - anomaly) / HOLLOW_SPAN) * 0.9)
+          if (pseudoRandom(seed + 7) < p) cat = "plains"
+        } else if (anomaly > RIDGE_ANOMALY && cat === "plains") {
+          const p = Math.min(0.85, ((anomaly - RIDGE_ANOMALY) / RIDGE_SPAN) * 0.85)
+          if (pseudoRandom(seed + 8) < p) cat = "mountain"
+        }
+      }
+
+      // Patch field. Indexed in *grid* space, not canvas space, so a patch
+      // stays anchored to its cells and does not slide across the map while
+      // the reader pans.
+      density *= PATCH_FLOOR + PATCH_RANGE * patchDensity(ix, iy)
+      if (cat !== "water") {
+        density *= 1 + RELIEF_DENSITY_GAIN * anomaly
+      }
+
+      if (pseudoRandom(seed + 2) > density) continue
+
+      // Size and opacity follow the same field, so a ridge crest carries
+      // larger, darker marks than the hollows beside it — the gradient the eye
+      // reads as relief. Only the spread of *neighbouring* sizes matters here,
+      // which is why it is driven by the field and not by `pseudoRandom`: an
+      // uncorrelated ±25 % is indistinguishable from a printing defect.
+      const relSize = cat === "water"
+        ? 1
+        : 1 + RELIEF_SIZE_GAIN * anomaly
+      const relOp = cat === "water"
+        ? 1
+        : 1 + RELIEF_OPACITY_GAIN * anomaly
+      const size =
+        CATEGORY_SIZE[cat] * relSize *
+        (1 + (pseudoRandom(seed + 3) - 0.5) * CATEGORY_SIZE_SPREAD[cat])
+      const rotation = (pseudoRandom(seed + 4) - 0.5) * 28
+      // Open ground stays quieter than a massif or a forest — but only a
+      // little. At 0.72 the two effects compounded (low density × low opacity)
+      // into ground that was not there.
+      const opFactor = cat === "plains" ? 0.95 : 1
+      const opacity =
+        baseOpacity * opFactor * relOp * (0.6 + 0.4 * pseudoRandom(seed + 5))
+
+      const symbols = CATEGORY_SYMBOLS[cat]
       let symbolIdx: number
-      if (symbols.length >= 3 && pseudoRandom(seed + 5) < 0.35) {
-        symbolIdx = 2  // cluster variant
+      if (symbols.length >= 3 && pseudoRandom(seed + 6) < 0.32) {
+        symbolIdx = 2 // cluster / ridge / dune variant
       } else {
-        symbolIdx = (baseSeed + i) % Math.min(symbols.length, 2)
+        symbolIdx = (seed + ix + iy) % Math.min(symbols.length, 2)
+      }
+
+      // ── Keep the mask promise at the drawn point ──
+      //
+      // The warp is a displacement of up to half a cell, so it can carry a cell
+      // whose centre is just inland out over the shore — and the drawn point is
+      // the one the reader sees. `verify_ground2` tests exactly this and reports
+      // it as `landSymbol` on the ocean fill: 0 at every zoom before the warp,
+      // 14 at fit zoom and 4 at zoom 1 with the warp on and no fallback, every
+      // one of them a ridge inked on top of the sea.
+      //
+      // A smaller warp is not the answer. The ocean fill `#coastline-ocean` is
+      // built from these same rings, so a glyph inside the mask is a glyph
+      // inside the drawn ocean, and a displacement that crosses the ring is
+      // wrong by exactly as much as it crossed. The fallback is therefore the
+      // unwarped point: the cell keeps its glyph and gives up only its jitter.
+      //
+      // Both directions, because the `landSymbol` count only looks at land
+      // symbols on water. A centre at sea whose warped point is inland would
+      // otherwise be drawn as a wave on the beach, which is just as visible and
+      // would not be counted.
+      //
+      // Placed after the density roll on purpose. Roughly half the cells are
+      // discarded there, and those cells never need the answer — measuring the
+      // extra point-in-polygon per *candidate* rather than per *emitted* glyph
+      // took the deep-zoom drag p95 from 63 ms to 74 ms against a 16.7 ms
+      // frame budget, for a check that half of them throw away.
+      if (useLandmask && onLandHere !== isOnLand(wx, wy)) {
+        wx = px
+        wy = py
       }
 
       hints.push({
         symbolId: symbols[symbolIdx],
-        x,
-        y,
+        x: wx,
+        y: wy,
         size,
         rotation,
         opacity,
-        color,
+        color: colorPalette[cat],
       })
+      cats.push(cat)
     }
   }
 
-  // Only include defs for used categories
+  // ── Node budget ────────────────────────────────
+  // See the NODE_BUDGET comment above the constant: it only bites when the
+  // whole viewport is land, which is the deep-zoom case, and it is the
+  // difference between a 59 ms and a 178 ms drag.
+  const usedCategories = new Set<TerrainCategory>()
+  if (hints.length > NODE_BUDGET) {
+    const keep = NODE_BUDGET / hints.length
+    let w = 0
+    for (let r = 0; r < hints.length; r++) {
+      if (pseudoRandom(hashString(`thin:${hints[r].x}:${hints[r].y}`)) >= keep) continue
+      hints[w] = hints[r]
+      cats[w] = cats[r]
+      w++
+    }
+    hints.length = w
+    cats.length = w
+  }
+  for (const c of cats) usedCategories.add(c)
+
   const symbolDefs = SYMBOL_DEFS.filter((sd) => {
     for (const cat of usedCategories) {
       if (CATEGORY_SYMBOLS[cat].includes(sd.id)) return true

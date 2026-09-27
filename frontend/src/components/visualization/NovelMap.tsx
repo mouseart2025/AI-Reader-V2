@@ -26,7 +26,7 @@ import rough from "roughjs"
 import type { RoughSVG } from "roughjs/bin/svg"
 import { generateHullTerritories } from "@/lib/hullTerritoryGenerator"
 import { SPACE_THEME, getSpaceNodeColor, getSpaceGlowRadius, generateStarfield } from "@/lib/mapRenderer/spaceTheme"
-import { generateTerrainHints } from "@/lib/terrainHints"
+import { generateTerrainHints, type TerrainHint } from "@/lib/terrainHints"
 import type { Point } from "@/lib/edgeDistortion"
 import {
   convexHull,
@@ -40,13 +40,19 @@ import {
 const DEFAULT_CANVAS = { width: 1600, height: 900 }
 
 // ── Tier zoom mapping (D3 scale thresholds) ────────
+// Lowered ~4×. The previous thresholds assumed the viewport would be zoomed
+// well past the fit zoom, but `fitToLocations` pins k ≈ 0.19 on 西游记, so a
+// city needed k ≥ 1.2 and never appeared — the overview showed a dozen marks
+// while the mention-count filter had already narrowed the map to 64 places.
+// Now the whole continent→city band is visible at fit zoom, and site /
+// building still fade in only once you zoom (the intended macro→detail ramp).
 const TIER_MIN_SCALE: Record<string, number> = {
-  continent: 0.3,
-  kingdom: 0.5,
-  region: 0.8,
-  city: 1.2,
-  site: 2.0,
-  building: 3.0,
+  continent: 0.05,
+  kingdom: 0.07,
+  region: 0.1,
+  city: 0.14,
+  site: 0.35,
+  building: 0.8,
 }
 
 // ── Tier priority weights (higher = more important) ──
@@ -185,22 +191,35 @@ function computeLabelLayout(rects: LabelRect[]): Map<string, LabelPlacement> {
   return result
 }
 
+// Label size per tier. The previous ladder (26/20/14/11/9/8) put city, site and
+// building all in the 8–11px band — on a 1920-wide canvas that is unreadable, and
+// because the sizes are static it stayed unreadable at every zoom level.
+// Measured on 西游记: 71 of 125 rendered labels were 8px, i.e. 56% of the map's
+// text was illegible. The floor is now 12px and the ladder is compressed so the
+// tier hierarchy survives without dropping below the legibility threshold.
+// Label collision detection (computeLabelLayout) reads these sizes, so it adapts.
 const TIER_TEXT_SIZE: Record<string, number> = {
   continent: 26,
-  kingdom: 20,
-  region: 14,
-  city: 11,
-  site: 9,
-  building: 8,
+  kingdom: 21,
+  region: 17,
+  city: 14,
+  site: 13,
+  building: 12,
 }
 
+// Icon frame size. The rendered mark is *half* of these numbers: the icon
+// files declare a 24-unit viewBox and the group is scaled by size / 48.
+// Raised ~1.5× so the marks stay above the terrain symbols in the visual
+// hierarchy — a city icon used to draw at 9 px while the tree symbols around
+// it drew at 15 px, which inverted the reading order (decoration louder than
+// place).
 const TIER_ICON_SIZE: Record<string, number> = {
-  continent: 40,
-  kingdom: 30,
-  region: 24,
-  city: 18,
-  site: 14,
-  building: 10,
+  continent: 56,
+  kingdom: 44,
+  region: 36,
+  city: 28,
+  site: 22,
+  building: 16,
 }
 
 const TIER_DOT_RADIUS: Record<string, number> = {
@@ -238,6 +257,25 @@ function getVisibleTiers(scale: number, scaleDivisor = 1): string {
   return visible.map((t) => TIER_LABELS[t] ?? t).join("/")
 }
 
+/**
+ * Terrain ground-cover LOD key.
+ *
+ * The ground grid is authored in *screen* pixels (see `CELL_PX`), so a zoom
+ * step changes the canvas pitch of the grid, and a pan changes which cells fall
+ * inside the viewport. Both therefore invalidate the scatter. Rebuilding on
+ * every wheel tick would thrash a few hundred DOM nodes, so the transform is
+ * quantised to half-octave zoom steps and ~96 px pan steps: a gesture triggers
+ * a handful of rebuilds, and between them the cheap counter-scale effect keeps
+ * the symbols at a constant on-screen size.
+ */
+function terrainLodKey(t: d3Zoom.ZoomTransform): string {
+  const z = Math.round(Math.log2(Math.max(t.k, 1e-6)) * 2)
+  return `${z}:${Math.round(t.x / 96)}:${Math.round(t.y / 96)}`
+}
+
+/** SVG namespace, used when the ground layer builds nodes by hand. */
+const SVG_NS = "http://www.w3.org/2000/svg"
+
 // ── Type colors ─────────────────────────────────
 const CELESTIAL_KW = [
   "天宫", "天庭", "天门", "天界", "三十三天", "大罗天", "离恨天",
@@ -248,20 +286,25 @@ const UNDERWORLD_KW = [
   "奈何桥", "阎罗殿", "森罗殿", "枉死城",
 ]
 
-function locationColor(type: string, name?: string): string {
+function locationColor(type: string, name?: string, darkBg = false): string {
   if (name) {
-    if (CELESTIAL_KW.some((kw) => name.includes(kw))) return "#f59e0b"
-    if (UNDERWORLD_KW.some((kw) => name.includes(kw))) return "#7c3aed"
+    if (CELESTIAL_KW.some((kw) => name.includes(kw))) return darkBg ? "#fbbf24" : "#b5761a"
+    if (UNDERWORLD_KW.some((kw) => name.includes(kw))) return darkBg ? "#a78bfa" : "#5b3f7a"
   }
   const t = type.toLowerCase()
-  if (t.includes("国") || t.includes("域") || t.includes("界")) return "#3b82f6"
+  // Two ramps. On parchment (`darkBg === false`) the icons are inks — dark,
+  // desaturated, printed on paper. On the dark layer backgrounds (sky /
+  // underground / sea) they are luminous tints of the same hues. The previous
+  // saturated Tailwind values (#3b82f6, #10b981, …) read as foreign UI chrome
+  // in both, because a map's palette is its own.
+  if (t.includes("国") || t.includes("域") || t.includes("界")) return darkBg ? "#7cc4f0" : "#2f5d7c"
   if (t.includes("城") || t.includes("镇") || t.includes("都") || t.includes("村"))
-    return "#10b981"
+    return darkBg ? "#6fe0b0" : "#3f6b3a"
   if (t.includes("山") || t.includes("洞") || t.includes("谷") || t.includes("林"))
-    return "#84cc16"
-  if (t.includes("宗") || t.includes("派") || t.includes("门")) return "#8b5cf6"
-  if (t.includes("海") || t.includes("河") || t.includes("湖")) return "#06b6d4"
-  return "#6b7280"
+    return darkBg ? "#c3e07a" : "#5c6e2e"
+  if (t.includes("宗") || t.includes("派") || t.includes("门")) return darkBg ? "#c4a7f5" : "#5b3f7a"
+  if (t.includes("海") || t.includes("河") || t.includes("湖")) return darkBg ? "#5fd6e8" : "#2a6478"
+  return darkBg ? "#cbbfa8" : "#5a4a38"
 }
 
 // ── Layer background colors ─────────────────────────
@@ -318,6 +361,8 @@ export interface NovelMapProps {
   roads?: { from: string; to: string; points: number[][] }[]
   landmasses?: Landmass[]
   shelves?: [number, number][][]
+  /** Depth band per shelf contour, parallel to `shelves`. 0 = nearest the shore. */
+  shelfDepth?: number[]
   trajectoryPoints?: TrajectoryPoint[]
   allTrajectoryPoints?: TrajectoryPoint[]  // full trajectory (for background dashed path)
   currentLocation?: string | null
@@ -373,6 +418,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       roads,
       landmasses,
       shelves,
+      shelfDepth,
       terrainUrl,
       trajectoryPoints,
       allTrajectoryPoints,
@@ -402,6 +448,12 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     const [mapReady, setMapReady] = useState(false)
     const [popup, setPopup] = useState<PopupState | null>(null)
     const [iconDefs, setIconDefs] = useState<Map<string, string>>(new Map())
+    // Quantised viewport descriptor for the ground-cover LOD — see terrainLodKey.
+    const [lodKey, setLodKey] = useState("0:0:0")
+    // Latest scattered ground hints. Held in a ref rather than in state so the
+    // per-tick counter-scale effect can read the current array without making
+    // the rebuild effect depend on the zoom.
+    const hintsRef = useRef<TerrainHint[]>([])
 
     // Stable refs for callbacks
     const onClickRef = useRef(onLocationClick)
@@ -444,11 +496,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       [locations, layout, canvasW, canvasH, landmasses],
     )
 
-    // Terrain texture hints (use full data for stable decorations)
-    const terrainHints = useMemo(
-      () => generateTerrainHints(allLocations ?? locations, allLayout ?? layout, { width: canvasW, height: canvasH }, darkBg),
-      [allLocations, locations, allLayout, layout, canvasW, canvasH, darkBg],
-    )
+    // Terrain ground cover is generated inside its own effect rather than in a
+    // memo: it has to know the live viewport rect (SVG size × inverse zoom
+    // transform), which only the mounted DOM can answer.
 
     // ── Load SVG icons ──────────────────────────────
     useEffect(() => {
@@ -464,7 +514,26 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             // Extract inner SVG content
             const match = text.match(/<svg[^>]*>([\s\S]*)<\/svg>/i)
             if (match) {
-              defs.set(name, match[1])
+              // The shipped icon files hard-code `fill="#fff"` (and a black
+              // detail layer) on their shapes. An inline presentation
+              // attribute outranks an inherited one, so the renderer's
+              // `.attr("fill", color)` never applied and every icon drew pure
+              // white — invisible against the light parchment land. Strip the
+              // placeholders so the palette drives the colour.
+              const inner = match[1]
+                .replace(/\sfill="#fff"/gi, "")
+                .replace(/\sfill="#000"/gi, "")
+                // Outline icons (`fill="none" stroke="#fff" stroke-width="2.5"`,
+                // town/water/desert/island/portal/sacred) draw the mark *with
+                // its stroke*, in pure white — 2.5 units of it. This is the
+                // half of the "63 white icons" the fill strip never touched,
+                // and stripping it would be wrong: with no stroke of its own
+                // the shape inherits the halo below, which is also light, so it
+                // would go from invisible to invisible. Recolour instead — the
+                // group sets `color`, and `currentColor` resolves against it.
+                .replace(/\sstroke="#fff"/gi, ' stroke="currentColor"')
+                .replace(/\sstroke="#000"/gi, ' stroke="currentColor"')
+              defs.set(name, inner)
             }
           } catch {
             // graceful fallback
@@ -605,19 +674,34 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         renderLayerAtmosphere(viewport, defs, effectiveLayer, canvasW, canvasH)
       }
 
-      // Terrain image placeholder
-      viewport.append("g").attr("id", "terrain")
       viewport.append("g").attr("id", "coastline-ocean")
       viewport.append("g").attr("id", "shelf")
       viewport.append("g").attr("id", "coastline")
-      viewport.append("g").attr("id", "rivers")
-      viewport.append("g").attr("id", "roads")
 
       // Layer groups (Z-order)
+      //
+      // Two separate ground groups, and the split matters. `#terrain-biome` is
+      // the baked Whittaker PNG: a whole-canvas noise wash with no land/sea
+      // information in it, so it has to be land-clipped. `#terrain` is the
+      // scattered ground cover, which deliberately *does* include sea waves and
+      // therefore must not be clipped. They used to share one group, and
+      // clipping that group deleted every wave in the ocean.
+      viewport.append("g").attr("id", "terrain-biome")
       viewport.append("g").attr("id", "regions")
+      // Ground cover belongs ABOVE the washes. It used to be appended first —
+      // before the ocean fill, before #regions — so the region tint (17 % flat
+      // fill + a displacement filter) painted straight over the grass and
+      // ridges and the whole texture layer read as a faint mottle.
+      viewport.append("g").attr("id", "terrain")
       viewport.append("g").attr("id", "region-labels")
       viewport.append("g").attr("id", "territories")
       viewport.append("g").attr("id", "territory-labels")
+      // Rivers and roads are drawn ABOVE the region tints. Appended before
+      // #regions they sat underneath a translucent fill plus the hand-drawn
+      // displacement filter, and the ~2 px road strokes washed out — the map
+      // read as bare land with no paths on it at all.
+      viewport.append("g").attr("id", "rivers")
+      viewport.append("g").attr("id", "roads")
       viewport.append("g").attr("id", "trajectory")
       viewport.append("g").attr("id", "overview-dots")
 
@@ -637,6 +721,9 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           viewport.attr("transform", event.transform.toString())
           transformRef.current = event.transform
           setCurrentScale(event.transform.k)
+          // React bails out when the key is unchanged, so a pure pan does not
+          // re-render until it has actually moved the ground grid.
+          setLodKey(terrainLodKey(event.transform))
         })
 
       svg.call(zoom)
@@ -671,12 +758,28 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     useEffect(() => {
       if (!svgRef.current || !mapReady || !terrainUrl || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
-      const terrainG = svg.select("#terrain")
+      const terrainG = svg.select("#terrain-biome")
       // Remove previous terrain image if any (keep hint symbols via class check)
       terrainG.selectAll("image.terrain-img").remove()
 
-      // Higher opacity on dark backgrounds where colors get washed out
-      const terrainOpacity = darkBg ? 0.55 : 0.40
+      // Opacity depends on whether the bake has structure to carry, not on the
+      // bake alone. Measured on 西游记 over 0.40 -> 1.00:
+      //
+      //   v6 bake: land/sea dE*ab 14.49 -> 13.15, chroma 10.00 -> 8.84. A
+      //     stronger wash costs separation and buys nothing.
+      //   v7 bake: dE*ab 16.81 -> 23.19, chroma 11.10 -> 11.65, and the 4-8 px
+      //     contrast rises 7.49 -> 8.53. Every step is a gain.
+      //
+      // The difference is not the number, it is what is being amplified. v6's
+      // colour came from a biome table over a smooth blob field, so turning it
+      // up turned up noise. v7 is one ridged height field with the palette
+      // ramped over it, so turning it up turns up landform. 0.85 keeps some
+      // parchment showing through; 1.00 is measurably better and visibly
+      // heavier, and the choice between them is art direction, not accuracy.
+      //
+      // Unmeasured: the dark-theme branch. 0.70 extrapolates the old light/dark
+      // ratio onto a bake whose own contrast already increased.
+      const terrainOpacity = darkBg ? 0.70 : 0.85
 
       // Insert terrain PNG as first child (below terrain hint symbols)
       terrainG
@@ -692,14 +795,54 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .style("pointer-events", "none")
     }, [mapReady, terrainUrl, canvasW, canvasH, darkBg])
 
-    // ── Render terrain texture hints ─────────────────
+    // ── Scatter terrain ground cover ─────────────────
+    // Runs on the quantised LOD key, not on every zoom tick. The grid lives in
+    // *canvas* space — a cell is `CELL_PX / k` wide, so it measures CELL_PX on
+    // screen at any zoom — which means a pan does not re-lay the pattern, it
+    // only slides the window of cells in view. The LOD key quantises that
+    // window to ~96 px steps, and 96 px of pan is exactly six cells at the
+    // default pitch, so consecutive keys share most of their cells. Between
+    // steps the counter-scale effect below keeps sizes constant.
+    //
+    // There is deliberately no rAF coalescing here. It was added on the theory
+    // that a brisk drag lands several changed keys inside one frame and each
+    // one rebuilt the whole scatter. `count_rebuilds.py` then measured a
+    // 12-step drag at 7 rebuilds with the coalescing and 7 without: React
+    // commits once per frame whatever the input rate, so there was never a
+    // burst to coalesce, and the scheduling bought nothing.
     useEffect(() => {
       if (!svgRef.current || !mapReady || spaceThemeProp) return
-      const svg = d3Selection.select(svgRef.current)
+      const svgEl = svgRef.current
+      const svg = d3Selection.select(svgEl)
       const terrainG = svg.select("#terrain")
+
       terrainG.selectAll("use").remove()
 
-      const { symbolDefs, hints } = terrainHints
+      const t = transformRef.current
+      // `transformRef` always holds the live transform (identity before the
+      // first gesture), so the rebuild never needs `currentScale` — which is
+      // deliberate: depending on it would rebuild the whole scatter on every
+      // wheel tick.
+      const kz = t.k || 1
+      const vbW = svgEl.clientWidth || svgEl.getBoundingClientRect().width || 0
+      const vbH = svgEl.clientHeight || svgEl.getBoundingClientRect().height || 0
+      // Canvas rect currently on screen = the viewport rect pushed back through
+      // translate(tx,ty) scale(k).
+      const viewRect =
+        vbW > 0 && vbH > 0
+          ? { x: -t.x / kz, y: -t.y / kz, w: vbW / kz, h: vbH / kz }
+          : null
+
+      const { symbolDefs, hints } = generateTerrainHints(
+        allLocations ?? locations,
+        allLayout ?? layout,
+        { width: canvasW, height: canvasH },
+        darkBg,
+        kz,
+        viewRect,
+        landmasses,
+      )
+      hintsRef.current = hints
       if (hints.length === 0) return
 
       // Add symbol definitions to <defs>
@@ -715,34 +858,88 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         sym.html(def.pathData)
       }
 
-      // Render <use> elements into #terrain group
+      // Render <use> elements into #terrain group.
+      //
+      // Built off-document in a single DocumentFragment and inserted once.
+      // Appending ~1 100 nodes one at a time invalidates layout on the whole
+      // SVG subtree on every insertion, which measured 47 ms at p95 during a
+      // drag; the fragment version lands the whole batch in one go.
+      const inv = 1 / kz
+      const symById = new Map(symbolDefs.map((d) => [d.id, d]))
+      const frag = document.createDocumentFragment()
       for (const hint of hints) {
-        const def = symbolDefs.find((d) => d.id === hint.symbolId)
+        const def = symById.get(hint.symbolId)
         const sz = hint.size
-        const useEl = terrainG
-          .append("use")
-          .attr("href", `#${hint.symbolId}`)
-          .attr("x", hint.x - sz / 2)
-          .attr("y", hint.y - sz / 2)
-          .attr("width", sz)
-          .attr("height", sz)
-          .attr("opacity", hint.opacity)
-          .attr(
-            "transform",
-            `rotate(${hint.rotation}, ${hint.x}, ${hint.y})`,
-          )
-          .style("pointer-events", "none")
+        // Placed and counter-scaled in one go, so a freshly built batch is
+        // already the right on-screen size even before the next zoom tick.
+        const useEl = document.createElementNS(SVG_NS, "use")
+        useEl.setAttribute("href", `#${hint.symbolId}`)
+        useEl.setAttribute("x", "0")
+        useEl.setAttribute("y", "0")
+        useEl.setAttribute("width", String(sz))
+        useEl.setAttribute("height", String(sz))
+        useEl.setAttribute("opacity", String(hint.opacity))
+        useEl.setAttribute(
+          "transform",
+          `translate(${hint.x},${hint.y}) scale(${inv})` +
+            ` rotate(${hint.rotation}) translate(${-sz / 2},${-sz / 2})`,
+        )
+        useEl.style.pointerEvents = "none"
 
         if (def?.strokeOnly) {
-          useEl
-            .attr("fill", "none")
-            .attr("stroke", hint.color)
-            .attr("stroke-width", 1.2 + sz / 20)
+          useEl.setAttribute("fill", "none")
+          useEl.setAttribute("stroke", hint.color)
+          // Interpreted on screen because the group is counter-scaled.
+          useEl.setAttribute("stroke-width", "1.1")
         } else {
-          useEl.attr("fill", hint.color)
+          useEl.setAttribute("fill", hint.color)
         }
+        frag.appendChild(useEl)
       }
-    }, [mapReady, terrainHints])
+      const terrainNode = terrainG.node() as Element | null
+      if (terrainNode) terrainNode.appendChild(frag)
+    }, [
+      mapReady,
+      lodKey,
+      allLocations,
+      locations,
+      allLayout,
+      layout,
+      canvasW,
+      canvasH,
+      darkBg,
+      landmasses,
+      spaceThemeProp,
+    ])
+
+    // ── Counter-scale ground symbols on zoom ─────────────
+    // `hint.size` is authored in *screen* pixels, but without compensation it
+    // gets multiplied by the zoom factor: at the fit zoom (k ≈ 0.19) every
+    // symbol collapses to 1.5–4.9 px and the ground reads as empty paper.
+    // Holding each symbol at a constant screen size is what turns a flat wash
+    // into textured ground.
+    // Separate from the scatter effect so a zoom gesture only rewrites one
+    // attribute per node instead of rebuilding the batch.
+    useEffect(() => {
+      if (!svgRef.current || !mapReady || spaceThemeProp) return
+      const hints = hintsRef.current
+      if (hints.length === 0) return
+      const inv = 1 / (currentScale || 1)
+      d3Selection
+        .select(svgRef.current)
+        .select("#terrain")
+        .selectAll<SVGUseElement, unknown>("use")
+        .attr("transform", (_d, i) => {
+          // DOM order matches `hints` order (appended in the same loop).
+          const h = hints[i]
+          if (!h) return null
+          const sz = h.size
+          return (
+            `translate(${h.x},${h.y}) scale(${inv})` +
+            ` rotate(${h.rotation}) translate(${-sz / 2},${-sz / 2})`
+          )
+        })
+    }, [mapReady, currentScale, spaceThemeProp])
 
     // ── Render rivers (rough.js hand-drawn) ──────────────
     useEffect(() => {
@@ -756,8 +953,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       if (!rc) return
 
       const riverColor = darkBg
-        ? "rgba(126,184,216,0.65)"
-        : "rgba(80,120,155,0.65)"
+        ? "rgba(126,184,216,0.75)"
+        : "rgba(74,118,156,0.78)"
 
       for (const river of rivers) {
         if (river.points.length < 2) continue
@@ -776,10 +973,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           bowing: 2.0,
           seed: 42,
           stroke: riverColor,
-          strokeWidth: river.width * 1.5,
+          // Interpreted as screen pixels — see the non-scaling pass below.
+          strokeWidth: Math.max(2, river.width * 1.5),
           fill: "none",
         })
         node.style.pointerEvents = "none"
+        // rough.js emits a <g> wrapping several <path>s, so the attribute has
+        // to go on the children. Without it the stroke is measured in canvas
+        // units and collapses to ~0.5 px at the default fit zoom (k ≈ 0.19) —
+        // the rivers, i.e. the drainage skeleton of the map, simply vanish.
+        node
+          .querySelectorAll("path")
+          .forEach((p) => p.setAttribute("vector-effect", "non-scaling-stroke"))
         ;(riversG.node() as Element).appendChild(node)
       }
     }, [mapReady, rivers, darkBg])
@@ -793,34 +998,62 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       if (!roads || roads.length === 0) return
 
-      const roadColor = spaceThemeProp
+      // Road visibility. Previously a single 1px stroke at 30% opacity drawn over
+      // the parchment land colour — effectively invisible. Measured on 西游记:
+      // 119 road segments were rendered and the rendered stroke width was 1px, so
+      // the map read as having no paths at all (the single most visible gap versus
+      // a game map).
+      // Now graded: every 3rd segment is presented as a major route (solid, thicker)
+      // and the rest as minor (dashed).
+      // ⚠️ The road data carries NO hierarchy field, so this alternation is a
+      // presentation heuristic, not a real classification — if road等级 is ever
+      // added upstream, replace this.
+      const roadMajorColor = spaceThemeProp
         ? SPACE_THEME.routeColor
         : darkBg
-          ? "rgba(160,140,100,0.30)"
-          : "rgba(120,100,60,0.30)"
-      const roadDash = spaceThemeProp ? "6,8" : "4,3"
-      const roadWidth = spaceThemeProp ? 1.5 : 1
+          ? "rgba(170,148,104,0.72)"
+          : "rgba(104,84,48,0.72)"
+      const roadMinorColor = spaceThemeProp
+        ? SPACE_THEME.routeColor
+        : darkBg
+          ? "rgba(170,148,104,0.52)"
+          : "rgba(104,84,48,0.52)"
+      const roadDash = spaceThemeProp ? "6,8" : "5,4"
+      const roadMajorWidth = spaceThemeProp ? 1.5 : 2.2
+      const roadMinorWidth = spaceThemeProp ? 1.5 : 1.5
 
       // Use simple SVG paths instead of roughjs for performance
       // (roughjs creates multiple DOM elements per road, causing zoom lag)
-      for (const road of roads) {
-        if (road.points.length < 2) continue
-        const [x0, y0] = road.points[0]
-        const [x1, y1] = road.points[road.points.length - 1]
-        const line = roadsG
-          .append("line")
-          .attr("x1", x0)
-          .attr("y1", y0)
-          .attr("x2", x1)
-          .attr("y2", y1)
-          .attr("stroke", roadColor)
-          .attr("stroke-width", roadWidth)
-          .attr("stroke-dasharray", roadDash)
+      // ⚠️ Rendered-road gate. The road data currently carries ONLY the two
+      // endpoints of each edge — i.e. they are location co-occurrence chords
+      // (two places that appear in the same chapter), NOT travel paths. Drawing
+      // each edge as a segment produced 120+ (near-)straight lines criss-crossing
+      // the map — a "strange straight line" web that has no business on a map and
+      // that a curve merely disguises (measured: a 14 %-of-chord bow still leaves
+      // 95/123 edges at straightness > 0.97). So we only draw roads that actually
+      // carry real intermediate waypoints. With today's 2-point data this renders
+      // nothing; the layer re-enables itself automatically if/when the upstream
+      // ever emits genuine road geometry.
+      const drawableRoads = roads.filter((r) => r.points.length > 2)
+      if (drawableRoads.length === 0) return
+
+      for (const [roadIndex, road] of drawableRoads.entries()) {
+        const isMajor = roadIndex % 3 === 0
+        const d = road.points
+          .map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`))
+          .join(" ")
+        const path = roadsG
+          .append("path")
+          .attr("d", d)
+          .attr("fill", "none")
+          .attr("stroke", isMajor ? roadMajorColor : roadMinorColor)
+          .attr("stroke-width", isMajor ? roadMajorWidth : roadMinorWidth)
+          .attr("stroke-dasharray", isMajor ? "none" : roadDash)
           .attr("vector-effect", "non-scaling-stroke")
           .style("pointer-events", "none")
         // Space theme glow effect via SVG filter
         if (spaceThemeProp) {
-          line.style("filter", "drop-shadow(0 0 4px rgba(100, 181, 246, 0.5))")
+          path.style("filter", "drop-shadow(0 0 4px rgba(100, 181, 246, 0.5))")
         }
       }
     }, [mapReady, roads, darkBg, spaceThemeProp])
@@ -829,6 +1062,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     useEffect(() => {
       if (!svgRef.current || !mapReady || !roughCanvasRef.current || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
+      const defs = svg.select("defs")
       const oceanG = svg.select("#coastline-ocean")
       const shelfG = svg.select("#shelf")
       const coastG = svg.select("#coastline")
@@ -847,6 +1081,37 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           return ordered.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]},${p[1]}`).join(" ") + " Z"
         }
 
+        // ── Land clip ────────────────────────────────
+        // Everything that is a *tint* rather than a shape needs the coastline
+        // turned into a mask, or it washes over the sea: the region fills drew
+        // a stained-glass partition across open water, and the terrain PNG is
+        // a whole-canvas biome noise with no land/sea information in it at all,
+        // so it greened the ocean too.
+        //
+        // One <path> per landmass rather than one path for all of them, because
+        // `clip-rule` is a property of the path: within a single path, evenodd
+        // would cancel any two landmasses that happen to overlap. Holes are
+        // inner seas, and they are counted out by the same evenodd rule.
+        const clipPath = defs.select<SVGClipPathElement>("#land-clip")
+        clipPath.selectAll("*").remove()
+        const cp = clipPath.empty()
+          ? defs.append("clipPath").attr("id", "land-clip")
+          : clipPath
+        cp.attr("clipPathUnits", "userSpaceOnUse")
+        for (const lm of landmasses) {
+          let d = toPathD(lm.coastline)
+          for (const hole of lm.holes) d += " " + toPathD(hole)
+          cp.append("path").attr("d", d).attr("clip-rule", "evenodd")
+        }
+        // Tint/wash layers that must never paint over the sea. #terrain is the
+        // scattered ground cover, which paints waves out at sea on purpose.
+        // #territories is included (2026-09-27): its convex-hull outlines ran
+        // straight across the ocean — measured, one hull spanned 4385×1648 and
+        // 32 % of its boundary sat over open water.
+        for (const id of ["#regions", "#terrain-biome", "#territories"]) {
+          svg.select(id).attr("clip-path", "url(#land-clip)")
+        }
+
         // Build ocean fill path (canvas rect + all coastlines as holes, evenodd)
         let oceanPathD = `M 0 0 L ${canvasW} 0 L ${canvasW} ${canvasH} L 0 ${canvasH} Z`
         for (const lm of landmasses) {
@@ -857,28 +1122,135 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           }
         }
 
+        // Ocean fill, and the value it resolves to is the whole point. At the
+        // old 0.46 over parchment this came out about (187,201,209) -- a few
+        // levels below the land -- and with both sides of the coast sitting in
+        // one pale wash the map had no value structure: the continents read as
+        // stains rather than as places. 0.52 takes the open sea to about
+        // (173,190,203), so the coast separates by value and the water gains a
+        // depth of its own, while the pale shelf band still reads as shallow.
         oceanG
           .append("path")
           .attr("d", oceanPathD)
-          .attr("fill", darkBg ? "rgba(30,50,80,0.35)" : "rgba(140,170,195,0.30)")
+          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(104,142,178,0.52)")
           .attr("fill-rule", "evenodd")
           .style("pointer-events", "none")
 
-        // Render shelf contours (dashed, subtle)
+        // ── Shallow-water shelf ───────────────────────
+        // The shelf is the sea one band out from the coast (the backend traces
+        // it at `dist_field < threshold * 1.3`, i.e. an expanded coastline
+        // island), and lightening the water as it approaches land is the
+        // single cheapest "this is a chart" signal there is — every game map
+        // and every hand-drawn one does it. It was here already, but drawn as
+        // a 0.12-alpha dashed hairline with `fill: none`, which is to say not
+        // drawn at all.
+        //
+        // A *mask*, not a clip, and the distinction is the whole trick: the
+        // shelf polygon covers the island as well as the water around it, so
+        // the thing that has to be removed is the land. Interior holes are
+        // inner seas and stay white in the mask, so they get shallow water too
+        // — which is right, they are water.
+        const seaMask = defs.select<SVGMaskElement>("#sea-mask")
+        seaMask.selectAll("*").remove()
+        const sm = seaMask.empty()
+          ? defs.append("mask").attr("id", "sea-mask")
+          : seaMask
+        // The mask *region* is pinned to the canvas rect, not left to the
+        // default -10%/120% box. Those defaults are percentages, and a
+        // percentage has to resolve against some viewport — which here is the
+        // 1680×1000 screen, not the 8000×4500 canvas the contents are written
+        // in. The result is a mask that happens to cover the top-left corner
+        // of the world and erases the shelf everywhere else.
+        sm.attr("maskUnits", "userSpaceOnUse")
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", canvasW)
+          .attr("height", canvasH)
+        sm.append("rect")
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", canvasW)
+          .attr("height", canvasH)
+          .attr("fill", "#fff")
+        for (const lm of landmasses) {
+          let d = toPathD(lm.coastline)
+          for (const hole of lm.holes) d += " " + toPathD(hole)
+          sm.append("path")
+            .attr("d", d)
+            .attr("fill", "#000")
+            .attr("fill-rule", "evenodd")
+        }
+        shelfG.attr("mask", "url(#sea-mask)")
+
         if (shelves) {
-          for (const shelfPts of shelves) {
-            // Only render shelf for larger areas
-            const shelfPathD = toPathD(shelfPts as [number, number][])
-            const shelfNode = rc.path(shelfPathD, {
-              roughness: 2.0,
-              bowing: 0.5,
-              seed: 42,
-              stroke: darkBg ? "rgba(80,110,140,0.12)" : "rgba(107,91,62,0.12)",
-              strokeWidth: 0.5,
-              fill: "none",
-            })
-            shelfNode.style.pointerEvents = "none"
-            ;(shelfG.node() as Element).appendChild(shelfNode)
+          // ── Which way is "shallow"? ─────────────────
+          // Paler and slightly cyan, not bluer. The trap is that the shelf is
+          // painted *over* the ocean, so the colour to compare against is the
+          // ocean's composited result, not its fill: `rgba(118,156,188,0.46)`
+          // over the parchment resolves to about (187,201,209) — a pale grey
+          // blue — and a shelf fill at R=150 drops that by 15 while lifting B
+          // by 3. The band came out *deeper* blue than the water it was
+          // supposed to be shallowing, which is the one thing a depth cue must
+          // not do. It was measurable and it was backwards: the A/B luminance
+          // delta was -0.24, i.e. neither lighter nor darker, just bluer.
+          //
+          // So both fills are chosen to lift every channel above the water
+          // they replace. Dark theme lifts harder because its ocean is
+          // `rgba(34,58,92,0.42)` over a near-black plate — there the band is
+          // most of the contrast the coastal water has.
+          // A whisper, and the reason is measured rather than tastes. The band
+          // is a flat fill with a hard edge, so it is only invisible while the
+          // water around it is nearly the same value. Deepening the ocean (see
+          // the fill above) put ~14 levels between the two and the band came
+          // out as a distinct light ring around every landmass -- stickers with
+          // an outline, not land in water. Two ways out: give up the depth, or
+          // make the band faint enough that a hard edge has nothing to show.
+          // Depth is worth more than the band, so the band keeps only enough
+          // alpha to lift every channel above the water it replaces, which is
+          // the requirement; the soft read is left to the distance.
+          //
+          // This was briefly 0.11, on the theory that three nested rings stacked
+          // at one alpha would give the shallow-to-deep gradient for free. The
+          // rings are built from a *global* distance field, so the outer one
+          // wrapped the entire archipelago instead of each landmass, and the
+          // whole thing went back to one ring (see `_SHELF_RING_MULTS`). One
+          // ring, one alpha, so it is the measured 0.22 again.
+          // ── Depth by band ─────────────────────────────
+          // `shelf_depth` runs 0 at the shore to 1 at the furthest the recipe
+          // looks; the backend emits one band per entry of `_SHELF_RING_MULTS`,
+          // and with the shipped pair that is {0, 1}. Both ends are anchors on
+          // the measured fills above rather than points on a ramp: the shallow
+          // end is the same colour v9 and v10 settled on, and the deep end is
+          // the one that makes the water read as a surface with a floor under
+          // it instead of as one flat sheet.
+          //
+          // The shelves arrive sorted by area descending, i.e. outermost first,
+          // and each band's polygon contains the bands inside it — so the last
+          // path painted here is the innermost, and the shallow fill wins on top
+          // of the deep one it is nested in. If that sort ever changes, the
+          // whole banding reverses and the map turns inside out.
+          const shelfShallow = darkBg
+            ? { r: 96, g: 140, b: 180, a: 0.26 }
+            : { r: 206, g: 230, b: 242, a: 0.22 }
+          const shelfDeep = darkBg
+            ? { r: 10, g: 26, b: 48, a: 0.34 }
+            : { r: 78, g: 124, b: 168, a: 0.26 }
+          const depths = shelfDepth ?? []
+          for (let si = 0; si < shelves.length; si++) {
+            const d = depths[si]
+            const t = d === undefined || Number.isNaN(d) ? 0 : Math.min(1, Math.max(0, d))
+            const mix = (a: number, b: number) => a + (b - a) * t
+            shelfG
+              .append("path")
+              .attr("d", toPathD(shelves[si] as [number, number][]))
+              .attr(
+                "fill",
+                `rgba(${Math.round(mix(shelfShallow.r, shelfDeep.r))},` +
+                  `${Math.round(mix(shelfShallow.g, shelfDeep.g))},` +
+                  `${Math.round(mix(shelfShallow.b, shelfDeep.b))},` +
+                  `${mix(shelfShallow.a, shelfDeep.a).toFixed(3)})`,
+              )
+              .style("pointer-events", "none")
           }
         }
 
@@ -889,8 +1261,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             roughness: 1.5,
             bowing: 1.0,
             seed: 42,
-            stroke: darkBg ? "rgba(100,130,160,0.4)" : "#6B5B3E",
-            strokeWidth: 1.2,
+            stroke: darkBg ? "rgba(110,142,172,0.55)" : "#5d4c33",
+            strokeWidth: 1.9,
             fill: "none",
           })
           coastNode.style.pointerEvents = "none"
@@ -907,8 +1279,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               roughness: 1.5,
               bowing: 1.0,
               seed: 43,
-              stroke: darkBg ? "rgba(80,110,140,0.35)" : "rgba(107,91,62,0.6)",
-              strokeWidth: 1,
+              stroke: darkBg ? "rgba(90,120,150,0.45)" : "rgba(93,76,51,0.75)",
+              strokeWidth: 1.4,
               fill: "none",
             })
             holeNode.style.pointerEvents = "none"
@@ -920,6 +1292,15 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
       } else {
         // ── Fallback: convex hull coastline (backward compat) ──
+        // No landmass set means no mask. Leaving a stale clip-path on #regions,
+        // #terrain or #territories would hide those layers completely, and a
+        // stale #sea-mask would erase the shelf.
+        defs.select("#land-clip").selectAll("*").remove()
+        for (const id of ["#regions", "#terrain-biome", "#territories"]) {
+          svg.select(id).attr("clip-path", null)
+        }
+        defs.select("#sea-mask").selectAll("*").remove()
+        svg.select("#shelf").attr("mask", null)
         const stableLayout = allLayout ?? layout
         const allPoints: CoastPoint[] = stableLayout
           .filter((item) => !item.is_portal)
@@ -935,7 +1316,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         oceanG
           .append("path")
           .attr("d", oceanPath)
-          .attr("fill", darkBg ? "rgba(30,50,80,0.35)" : "rgba(140,170,195,0.30)")
+          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(104,142,178,0.52)")
           .attr("fill-rule", "evenodd")
           .style("pointer-events", "none")
 
@@ -950,7 +1331,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         coastNode.style.pointerEvents = "none"
         ;(coastG.node() as Element).appendChild(coastNode)
       }
-    }, [mapReady, landmasses, shelves, allLayout, layout, canvasW, canvasH, darkBg])
+    }, [mapReady, landmasses, shelves, shelfDepth, allLayout, layout, canvasW, canvasH, darkBg])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
@@ -969,6 +1350,31 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       for (const rb of regionBoundaries) {
         const [cx, cy] = rb.center
+
+        // ── Region terrain tint (visual L2, 2026-09-25) ──────────────────
+        // regionBoundaries was only ever used to draw the curved region NAME —
+        // its `polygon` and `color` were unused, and the #regions group was
+        // cleared then left empty. Result: the land rendered as one flat colour
+        // block, the single biggest "unfinished" tell versus a game map.
+        // Tinting each region with its own colour gives biome/zone shading
+        // WITHOUT touching the baked terrain.png — no re-bake, no backend
+        // change, no data migration.
+        // Kept translucent so terrain texture and roads beneath still read
+        // through; the hand-drawn filter keeps it in the parchment idiom.
+        if (rb.polygon && rb.polygon.length > 2) {
+          regionsG
+            .append("path")
+            .attr("d", polygonToPath(rb.polygon))
+            .attr("fill", rb.color)
+            .attr("fill-opacity", darkBg ? 0.2 : 0.17)
+            // No outline (2026-09-27). The 1.6 px brown stroke turned the 30
+            // region polygons into a straight-edged web across the land — the
+            // "strange brown triangles" a reader sees. Region identity rides on
+            // the fills alone now; the tint layer stays, it just draws no ink.
+            .attr("stroke", "none")
+            .attr("filter", "url(#hand-drawn)")
+            .style("pointer-events", "none")
+        }
 
         // 1. Compute horizontal span from polygon
         let minX = Infinity, maxX = -Infinity
@@ -1043,11 +1449,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const rc = roughCanvasRef.current
       const isDense = territories.length > 15
 
-      // Per-level rendering parameters
-      const STROKE_WIDTH = [3.0, 2.2, 1.5, 1.0]
+      // Per-level rendering parameters.
+      // `STROKE_WIDTH` is authored in *screen* pixels — see the
+      // non-scaling-stroke pass on each rough node below. Read as canvas units
+      // it is a different width at every zoom: 3.0 draws at 0.57 px on the
+      // 西游记 overview (k ≈ 0.19, i.e. a hairline that disappears) and at
+      // 6 px once auto-fit lands on a sparse layer (天界/冥界 hold 17 places
+      // apiece, so k sits well past 1 — the same 3.0 became fat marker
+      // chrome). Non-scaling makes one number mean one width.
+      const STROKE_WIDTH = [2.2, 1.8, 1.3, 1.0]
       const FILL_OP = darkBg
-        ? [0.22, 0.15, 0.10, 0.06]
-        : [0.15, 0.10, 0.07, 0.04]
+        ? [0.20, 0.15, 0.11, 0.08]
+        : [0.14, 0.11, 0.08, 0.06]
       const LABEL_SIZE = [16, 13, 11, 10]
       const LABEL_OP = isDense
         ? [0.20, 0.12, 0.08, 0.06]
@@ -1056,52 +1469,67 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       const clamp = (level: number) => Math.min(level, 3)
 
-      const canvasArea = canvasW * canvasH
-
       for (const terr of territories) {
         const li = clamp(terr.level)
         const pathData = polygonToPath(terr.polygon)
 
-        const strokeColor = darkBg ? terr.color : "#8b7355"
+        // No outline (2026-09-27). A convex-hull outline is a polygon with
+        // straight edges, so stroking it threw long brown chords across the
+        // map — and, unclipped, straight out over the sea. The fill wash
+        // carries faction identity on its own; #territories is clipped to land
+        // now (see the land-clip block) and draws no boundary ink.
+        const strokeColor = "none"
         const fillColor = darkBg ? terr.color : "#c4a97d"
 
-        // Detect large territories: hachure fill on big hulls creates
-        // long diagonal lines that dominate the map. Stroke-only for those.
-        let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity
-        for (const [px, py] of terr.polygon) {
-          if (px < bMinX) bMinX = px
-          if (px > bMaxX) bMaxX = px
-          if (py < bMinY) bMinY = py
-          if (py > bMaxY) bMaxY = py
-        }
-        const isLarge = (bMaxX - bMinX) * (bMaxY - bMinY) > canvasArea * 0.15
-
         if (rc) {
-          // Rough.js hand-drawn territory
+          // Rough.js hand-drawn territory: flat wash + ink outline, the way a
+          // printed atlas carries a province — the tint names the faction, the
+          // line names the boundary.
+          //
+          // This used to be `fillStyle: "hachure"`, which paints the hull with
+          // parallel rules spaced `hachureGap` **canvas** units apart. That is
+          // zoom-dependent by construction: at the 西游记 fit zoom (k ≈ 0.19) a
+          // gap of 6–12 canvas units is 1–2 px on screen, the rules fuse, and
+          // the territory reads as an even wash — which is why the bug hid for
+          // so long. Zoom in, or open a layer whose handful of places pushes
+          // auto-fit past k = 1 (天界 17 places, 冥界 17), and the same gap
+          // opens into a ruled grid: the territories arrive as wireframe quads
+          // drawn over the art, lines running past the hull into open sea.
+          // A solid fill deletes the whole artefact class at every zoom.
           const node = rc.path(pathData, {
             roughness: 1.2,
             bowing: 1.0,
             seed: hashString(terr.name) % 100,
             stroke: strokeColor,
             strokeWidth: STROKE_WIDTH[li],
-            fill: isLarge ? "none" : fillColor,
-            fillStyle: "hachure",
-            fillWeight: 0.6,
-            hachureAngle: -41 + li * 30,
-            hachureGap: isLarge ? 14 : 6 + li * 2,
+            fill: fillColor,
+            fillStyle: "solid",
           })
-          node.style.opacity = String(isLarge ? FILL_OP[li] * 2 : FILL_OP[li] * 3)
+          node.querySelectorAll("path").forEach((p) => {
+            // Same treatment rivers needed: rough.js hands back a <g> of
+            // <path>s, so the attribute goes on the children.
+            p.setAttribute("vector-effect", "non-scaling-stroke")
+            const f = p.getAttribute("fill")
+            if (f && f !== "none") {
+              // rough.js 4.6.6 has no `fillOpacity` option; the solid-fill path
+              // is the one child that carries a fill, so opacity goes here —
+              // on the fill alone, leaving the boundary at full strength
+              // instead of fading the whole node the way `style.opacity` did.
+              p.setAttribute("fill-opacity", String(FILL_OP[li]))
+            }
+          })
           ;(terrG.node() as Element).appendChild(node)
         } else {
           // Fallback: plain path (no rough.js)
           terrG
             .append("path")
             .attr("d", pathData)
-            .attr("fill", isLarge ? "none" : fillColor)
+            .attr("fill", fillColor)
             .attr("fill-opacity", FILL_OP[li])
             .attr("stroke", strokeColor)
             .attr("stroke-width", STROKE_WIDTH[li])
             .attr("stroke-linejoin", "round")
+            .attr("vector-effect", "non-scaling-stroke")
         }
 
         // Label at centroid — curved arc for level 0-1, flat for deeper levels
@@ -1406,7 +1834,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         const isCurrent = currentLocation === item.name
         const locRole = loc?.role
 
-        const typeColor = locationColor(loc?.type ?? "", item.name)
+        const typeColor = locationColor(loc?.type ?? "", item.name, darkBg)
         let color: string
         let opacity: number
 
@@ -1481,13 +1909,13 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           color = "#f59e0b"
           opacity = 1
         } else if (isActive) {
-          color = locationColor(loc?.type ?? "", item.name)
+          color = locationColor(loc?.type ?? "", item.name, darkBg)
           opacity = 1
         } else if (isRevealed) {
           color = "#9ca3af"
           opacity = 0.35
         } else {
-          color = locationColor(loc?.type ?? "", item.name)
+          color = locationColor(loc?.type ?? "", item.name, darkBg)
           opacity = 0.2
         }
 
@@ -1567,6 +1995,23 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("stroke", "rgba(255,255,255,0.3)")
             .attr("stroke-width", 0.5)
         } else {
+          // A pale plate under the mark, the way a printed map sets a city
+          // stamp on a disc. It keeps the icon readable over dark ocean, pale
+          // desert and busy forest alike without tinting the art itself.
+          // Capped so continent-level marks don't get a dinner-plate.
+          locG
+            .append("circle")
+            .attr("class", "loc-plate")
+            .attr("cx", item.x)
+            .attr("cy", item.y)
+            .attr("r", Math.min(iconSize * 0.32, 18))
+            .attr("fill", darkBg ? "rgba(17,24,39,0.5)" : "rgba(250,245,233,0.62)")
+            .attr("stroke", darkBg ? "rgba(226,214,190,0.4)" : "rgba(120,96,66,0.45)")
+            .attr("stroke-width", 1)
+            .attr("vector-effect", "non-scaling-stroke")
+            .attr("opacity", opacity)
+            .style("pointer-events", "none")
+
           const iconContent = iconDefs.get(iconName)
           if (iconContent) {
             const iconG = locG
@@ -1574,9 +2019,34 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
               .attr("class", "loc-icon")
               .attr(
                 "transform",
-                `translate(${item.x - iconSize / 2}, ${item.y - iconSize / 2}) scale(${iconSize / 48})`,
+                // The 48 divisor is not a typo: these SVGs are 24-unit viewBoxes,
+                // so scale(iconSize/48) renders the 24-unit box iconSize/2 wide,
+                // and every mark's local centre sits at local (12,12) — which
+                // that scale lands at `x - iconSize/4` unless the translate
+                // pre-compensates by exactly that. It did not, so every mark
+                // rode up and to the left of its anchor by a quarter of its own
+                // size (measured on 西游记, 63/63 pairs: -14 px at continent,
+                // -11 at kingdom, -9 at region, -7 at city, -5.5 at site,
+                // -4 at building). Shifting by iconSize/4 re-centres the box
+                // without touching the size calibration the plate radius is
+                // built on — widening the divisor to 24 would double every mark.
+                `translate(${item.x - iconSize / 4}, ${item.y - iconSize / 4}) scale(${iconSize / 48})`,
               )
               .attr("fill", color)
+              // A light outline around the mark, in screen pixels. Measured on
+              // 西游记: the pale plate under each mark covers the inner 41 % of
+              // the icon's box — the art reaches iconSize/2, the plate is
+              // min(iconSize*0.32, 18) — so most of every mark lands on bare
+              // terrain. There the dark ink measures 2.4-3.1:1 against the
+              // ground depending on where it falls (background luminance under
+              // the icons runs 144-195), which is a coin toss. A halo fixes the
+              // silhouette without enlarging the plate, whose 18-unit cap is
+              // deliberate — a continent mark must not become a dinner plate.
+              .attr("stroke", darkBg ? "rgba(12,18,32,0.85)" : "rgba(250,245,233,0.92)")
+              .attr("stroke-width", 1)
+              .attr("vector-effect", "non-scaling-stroke")
+              .attr("paint-order", "stroke")
+              .style("color", color)  // `currentColor` above resolves here
               .attr("opacity", opacity)
             iconG.html(iconContent)
           }
@@ -1739,7 +2209,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             if (!iconG.empty() && iconDefs.has(iconName)) {
               iconG.attr(
                 "transform",
-                `translate(${canvasX - iconSize / 2}, ${canvasY - iconSize / 2}) scale(${iconSize / 48})`,
+                // Must match the render path's anchor, or a dragged mark jumps
+                // back by a quarter of its size the moment the drag ends — the
+                // drag transform writes this attribute and nothing re-reads it.
+                `translate(${canvasX - iconSize / 4}, ${canvasY - iconSize / 4}) scale(${iconSize / 48})`,
               )
             }
 

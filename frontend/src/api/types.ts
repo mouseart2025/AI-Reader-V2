@@ -753,6 +753,8 @@ export interface MapData {
   roads?: { from: string; to: string; points: number[][] }[]
   landmasses?: Landmass[]
   shelves?: [number, number][][]
+  /** Depth band per shelf contour, parallel to `shelves`. 0 = nearest the shore. */
+  shelf_depth?: number[]
   analyzed_range: [number, number]
   region_boundaries?: RegionBoundary[]
   portals?: PortalInfo[]
