@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.utils.layout_metrics import (  # noqa: E402
+from src.utils.layout_metrics import (
     compute_layout_metrics,
     format_layout_metrics,
 )

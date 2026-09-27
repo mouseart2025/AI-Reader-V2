@@ -88,7 +88,6 @@ async def update_location_override(
 
 def _serve_terrain(novel_id: str):
     """Shared body. Path and URL both come from one place (see `_TERRAIN_VERSION`)."""
-    from src.infra.config import DATA_DIR
     terrain_path = terrain_path_for(novel_id)
     if not terrain_path.exists():
         raise HTTPException(status_code=404, detail="地形图尚未生成")

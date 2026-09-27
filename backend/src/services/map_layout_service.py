@@ -21,6 +21,7 @@ import hashlib
 import logging
 import math
 import re
+from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
@@ -1958,7 +1959,7 @@ class ConstraintSolver:
 
         # Shallowest-first, name as tie-break: deterministic, and guarantees a
         # parent is placed before its children
-        ordered = sorted(self._remaining, key=lambda l: (l.get("level", 0), l["name"]))
+        ordered = sorted(self._remaining, key=lambda loc: (loc.get("level", 0), loc["name"]))
 
         orphan_idx = 0  # for jittering orphans that share positions
 
@@ -3014,7 +3015,7 @@ def _bounded_influence(
     """
     from scipy.ndimage import zoom
 
-    spacing = max(1, int(round(max(img_w, img_h) / _INFLUENCE_SAMPLES)))
+    spacing = max(1, round(max(img_w, img_h) / _INFLUENCE_SAMPLES))
     gw = max(2, img_w // spacing + 1)
     gh = max(2, img_h // spacing + 1)
     # Raster coordinates of the coarse grid's own samples — the terms are stored
@@ -3413,7 +3414,7 @@ def _ramp_lookup(height: np.ndarray, moist: np.ndarray) -> np.ndarray:
     """Palette as a function of height, tilted green where the ground is wet."""
     stops = np.array([p for p, _ in _HEIGHT_RAMP], dtype=np.float64)
     cols = np.array([c for _, c in _HEIGHT_RAMP], dtype=np.float64)
-    rgb = np.empty(height.shape + (3,), dtype=np.float64)
+    rgb = np.empty((*height.shape, 3), dtype=np.float64)
     for ch in range(3):
         rgb[..., ch] = np.interp(height, stops, cols[:, ch])
     wet = np.clip((moist - 0.5) * 2.0, -1.0, 1.0)
