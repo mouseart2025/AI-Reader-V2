@@ -1,13 +1,28 @@
 """Shared test fixtures for backend tests."""
 
+import asyncio
+import os
+import tempfile
 from unittest.mock import patch
 
 import aiosqlite
+import pytest
 import pytest_asyncio
 
-# Import schema from production code + apply all migrations inline.
-# Tests get a fresh DB each time, so we merge base schema + migrations
-# into a single script to avoid drift.
+# ── Point every test at a throwaway data dir ──
+# This must run BEFORE the first import of src.infra.config, which resolves
+# AI_READER_DATA_DIR at module load. Without it, any test that reaches the real
+# get_connection() reads the DEVELOPER's own ~/.ai-reader-v2/data.db — that file
+# exists here with the full schema, but does not exist on a fresh CI runner,
+# where those tests fail with "unable to open database file". main has been red
+# that way since 2026-09-23 (8 failures across test_entity_visibility,
+# test_map_geo_artifacts, test_map_geo_coords_cache and test_map_geo_failed).
+# setdefault, not assignment, so an explicitly exported value still wins.
+os.environ.setdefault(
+    "AI_READER_DATA_DIR", tempfile.mkdtemp(prefix="ai-reader-test-data-")
+)
+
+# Imported only AFTER the env var above — the order here is load-bearing.
 from src.db.sqlite_db import _SCHEMA_SQL as _BASE_SCHEMA
 
 # Migrations that are applied via ALTER TABLE in init_db() but not in base schema.
@@ -43,6 +58,20 @@ ALTER TABLE map_geo_artifacts ADD COLUMN geo_coords_json TEXT;
 """
 
 _TEST_SCHEMA = _BASE_SCHEMA
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _app_database() -> None:
+    """Create the app DB (its dir + the full schema) once, before any test runs.
+
+    A few tests drive code paths that open the REAL database instead of the
+    in-memory fixture — they patch get_connection in export_service and
+    sample_data_service, but not in novel_store. Those paths only ever passed
+    because the developer's own DB happened to already exist.
+    """
+    from src.db.sqlite_db import init_db
+
+    asyncio.run(init_db())
 
 
 @pytest_asyncio.fixture
