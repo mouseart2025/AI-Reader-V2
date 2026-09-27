@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS map_geo_artifacts (
     rivers_json     TEXT NOT NULL,
     roads_json      TEXT NOT NULL,
     geo_coords_json TEXT,
+    shelf_depth_json TEXT,
     created_at      TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (novel_id, layer_id, chapter_hash)
 );
@@ -390,6 +391,13 @@ async def init_db() -> None:
         try:
             await conn.execute(
                 "ALTER TABLE map_geo_artifacts ADD COLUMN geo_coords_json TEXT"
+            )
+        except Exception:
+            pass  # Column already exists
+        # Migration: add shelf_depth_json to map_geo_artifacts (v11 depth bands)
+        try:
+            await conn.execute(
+                "ALTER TABLE map_geo_artifacts ADD COLUMN shelf_depth_json TEXT"
             )
         except Exception:
             pass  # Column already exists

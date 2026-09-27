@@ -3896,7 +3896,16 @@ def generate_terrain(
 # depth band. Same species of bug as v11 -- the shelf *geometry* changed, so the
 # cache key has to move with it or the first request after a restart is served a
 # single flat ring and looks like the fix did nothing.
-_LAYOUT_VERSION = 13
+#
+# v13: two-band depth shipped in `generate_landmasses` (shelves + shelf_depth),
+# but the `map_geo_artifacts` cache persisted only `shelves` and dropped
+# `shelf_depth` on every cached read -- so the depth bands never reached the
+# client. The fix persists `shelf_depth_json` in that cache.
+#
+# v14: bump so the stale v13 geo-artifacts row (shelves WITHOUT shelf_depth) is
+# not reused. The ch_hash already folds this version, so both `map_layouts` and
+# `map_geo_artifacts` keys move together.
+_LAYOUT_VERSION = 14
 
 
 def compute_chapter_hash(
