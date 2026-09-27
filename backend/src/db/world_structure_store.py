@@ -226,6 +226,7 @@ async def save_geo_artifacts(
     rivers_json: str,
     roads_json: str,
     geo_coords_json: str | None = None,
+    shelf_depth_json: str | None = None,
 ) -> None:
     """Insert or update persisted map geo artifacts (landmass/shelves/rivers/roads)."""
     conn = await get_connection()
@@ -234,18 +235,19 @@ async def save_geo_artifacts(
             """
             INSERT INTO map_geo_artifacts
                 (novel_id, layer_id, chapter_hash,
-                 landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json, shelf_depth_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(novel_id, layer_id, chapter_hash) DO UPDATE SET
                 landmasses_json = excluded.landmasses_json,
                 shelves_json = excluded.shelves_json,
                 rivers_json = excluded.rivers_json,
                 roads_json = excluded.roads_json,
                 geo_coords_json = excluded.geo_coords_json,
+                shelf_depth_json = excluded.shelf_depth_json,
                 created_at = datetime('now')
             """,
             (novel_id, layer_id, chapter_hash,
-             landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json),
+             landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json, shelf_depth_json),
         )
         await conn.commit()
     finally:
@@ -290,7 +292,7 @@ async def load_geo_artifacts(
     try:
         cursor = await conn.execute(
             """
-            SELECT landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json
+            SELECT landmasses_json, shelves_json, rivers_json, roads_json, geo_coords_json, shelf_depth_json
             FROM map_geo_artifacts
             WHERE novel_id = ? AND layer_id = ? AND chapter_hash = ?
             """,
@@ -308,6 +310,11 @@ async def load_geo_artifacts(
                 json.loads(row["geo_coords_json"])
                 if row["geo_coords_json"] is not None
                 else None
+            ),
+            "shelf_depth": (
+                json.loads(row["shelf_depth_json"])
+                if row["shelf_depth_json"] is not None
+                else []
             ),
         }
     finally:

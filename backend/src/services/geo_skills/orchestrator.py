@@ -301,6 +301,46 @@ class GeoOrchestrator:
         agent = WorldStructureAgent(self.novel_id)
         agent.structure = ws
 
+        # ── Tier backfill (2026-09-25) ──
+        # ws.location_tiers was just replaced wholesale from the snapshot, and the
+        # snapshot's tiers come from the analysis pass. Measured across all five
+        # novels, tiers is SYSTEMATICALLY SMALLER than the named-location set:
+        #   封神 231 vs 609 parents · 水浒 1243 vs 1795 · 西游 578 vs 994
+        #   三国 1055 vs 1263 · 红楼 638 vs 834
+        # Every downstream step that iterates location_tiers therefore skips those
+        # locations — most importantly the layer re-detection immediately below,
+        # which is exactly why 9 西游记 locations kept a stale overworld layer
+        # (东洋海底 / 龙宫法界 / 阴司地府 / 幽冥地界 …) even though the keyword
+        # rules cover them.
+        # This backfill is ADDITIVE ONLY — existing tiers are never overwritten, so
+        # it cannot regress a previously classified location.
+        # Scope MUST include location_layer_map, not just the parent graph.
+        # Measured on 西游记: 87 locations exist ONLY in location_layer_map —
+        # neither a child nor a parent (龙宫法界 / 水府之西 / 龙宫（碧波潭）/
+        # 阴司地府 / 灵霄门外 …). Omitting them left exactly those locations
+        # without a tier, and since the layer re-detection below iterates
+        # location_tiers they were then skipped there as well.
+        # NOTE: _inject_layer_roots makes the same omission when building its
+        # candidate_nodes (set(tiers) | parent-values) — left untouched here
+        # because that set feeds Phase-0 orphan re-parenting, a wider blast
+        # radius; recorded as a known issue instead.
+        _named = (
+            set(ws.location_parents)
+            | set(ws.location_parents.values())
+            | set(ws.location_layer_map)
+        )
+        _missing_tiers = sorted(n for n in _named if n and n not in ws.location_tiers)
+        if _missing_tiers:
+            _before = len(ws.location_tiers)
+            for _n in _missing_tiers:
+                _p = ws.location_parents.get(_n)
+                _lvl = 1 if (_p and _p in ws.location_layer_map) else 0
+                ws.location_tiers[_n] = agent._classify_tier(_n, "", _p, _lvl)
+            logger.info(
+                "Tier backfill during apply: +%d locations (%d -> %d)",
+                len(_missing_tiers), _before, len(ws.location_tiers),
+            )
+
         # Step 1: Reset all layers to overworld
         for loc_name in list(ws.location_layer_map.keys()):
             ws.location_layer_map[loc_name] = "overworld"
@@ -331,6 +371,37 @@ class GeoOrchestrator:
         self._inject_layer_roots(ws, self.novel_title)
 
         await world_structure_store.save(self.novel_id, ws)
+
+        # ── Keep the snapshot in step with what was actually applied (2026-09-25) ──
+        # Without this, apply writes a world_structure that the snapshot does not
+        # describe, and since apply ALSO reads tiers back from the snapshot
+        # (line ~278, wholesale) the next rebuild would overwrite the tier
+        # backfill with stale values — the fix would silently revert every run.
+        #
+        # Measured drift before this sync (ws vs latest snapshot):
+        #   西游记   ws_tiers 1102 vs snapshot  578   (introduced by the backfill)
+        #   诡秘之主  ws_tiers  853 vs snapshot    0   -> HierarchyMetrics
+        #                                              reported "0 locations"
+        #                                              for an 852-location novel
+        # Of the 32 stored novels, 19 were already consistent, 13 had no snapshot
+        # at all, and exactly these 2 had drifted — so syncing restores the
+        # invariant rather than inventing a new one.
+        # Recorded as a NEW version (tag="applied") so pipeline history is intact.
+        # HierarchySnapshot is a FROZEN dataclass — field assignment raises
+        # FrozenInstanceError (and did, on the first attempt: the exception landed
+        # after world_structure_store.save, so the data was fine but the apply
+        # event never reached the client). Rebuild via dataclasses.replace.
+        from dataclasses import replace as _dc_replace
+
+        snapshot = _dc_replace(
+            snapshot,
+            location_tiers=dict(ws.location_tiers),
+            location_parents=dict(ws.location_parents),
+            version=snapshot.version + 1,
+            source="applied",
+            timestamp=time.time(),
+        )
+        await self.store.save(self.novel_id, snapshot, tag="applied")
 
         # Invalidate map cache after hierarchy change
         from src.services.visualization_service import _map_cache

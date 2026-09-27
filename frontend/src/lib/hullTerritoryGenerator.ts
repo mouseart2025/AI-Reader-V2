@@ -96,6 +96,10 @@ export function generateHullTerritories(
     const padding = basePadding * scale
 
     let hull = convexHull(points)
+    // Distinct extreme points BEFORE the expansions below — the shape a territory
+    // is really built from. A hull of ≤3 such points is a triangle, a segment or
+    // a single dot, never a region.
+    const inputVerts = hull.length
 
     // Degenerate cases
     if (hull.length === 0) continue
@@ -106,6 +110,19 @@ export function generateHullTerritories(
     } else {
       hull = expandConvexHull(hull, padding)
     }
+
+    // ── Reject degenerate hulls — slabs, not territories ──
+    // The point-count guard above only catches hulls that wrap MOST locations.
+    // It misses the opposite failure: a parent whose few positioned descendants
+    // sit far apart. 西游记「东土大唐」has 3 positioned descendants → its hull is
+    // a TRIANGLE covering ~22% of the canvas; a sibling case has 2 distant
+    // descendants → a long capsule spanning ~20%. Both are straight-edged washes
+    // that invent borders the story never drew, and both read to a reader as a
+    // "strange shape" unrelated to any geography. Judge the INPUT shape and the
+    // extent, not the expanded vertex list.
+    const bbox = polygonBounds(hull)
+    const areaFrac = (bbox.w * bbox.h) / (canvasSize.width * canvasSize.height)
+    if (inputVerts <= 3 && areaFrac > 0.1) continue
 
     // Skip territories whose hull edges cross ocean (children on different landmasses)
     if (landmasses && landmasses.length > 0 && hullCrossesOcean(hull, landmasses)) {
@@ -205,6 +222,18 @@ function convexHull(points: Point[]): Point[] {
 
 function cross(o: Point, a: Point, b: Point): number {
   return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+}
+
+/** Axis-aligned bounds of a polygon (used to judge hull extent vs canvas). */
+function polygonBounds(poly: Point[]): { x: number; y: number; w: number; h: number } {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const [x, y] of poly) {
+    if (x < minX) minX = x
+    if (y < minY) minY = y
+    if (x > maxX) maxX = x
+    if (y > maxY) maxY = y
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
 // ── Polygon Expansion — Bisector Offset ──

@@ -21,6 +21,7 @@ import hashlib
 import logging
 import math
 import re
+from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
@@ -59,6 +60,23 @@ SPATIAL_SCALE_CANVAS: dict[str, tuple[int, int]] = {
 # Base minimum spacing between any two locations (pixels).
 # Dynamically adjusted in ConstraintSolver.__init__ via canvas_w * 0.015.
 MIN_SPACING = 30
+
+# Scatter radius per tier, as a fraction of the canvas short side. Finer tiers hug
+# their anchor tighter — the game-scatter "density mask" rule. Replaces the old
+# canvas-global jitter constant, which ignored scale entirely and let site/building
+# nodes drift thousands of pixels away from their parent.
+TIER_SCATTER_RADIUS: dict[str, float] = {
+    "continent": 0.030,
+    "kingdom": 0.028,
+    "region": 0.024,
+    "city": 0.018,
+    "site": 0.012,
+    "building": 0.008,
+}
+DEFAULT_SCATTER_RADIUS = 0.012
+
+# Floor so tiny canvases (room 800x450) still separate nodes visually.
+MIN_SCATTER_RADIUS = 4.0
 
 # Direction margin — how far A must exceed B in the expected axis
 DIRECTION_MARGIN = 50
@@ -1870,15 +1888,61 @@ class ConstraintSolver:
 
         return final_layout, final_mode, final_satisfaction
 
+    @staticmethod
+    def _stable_hash(text: str) -> float:
+        """Deterministic [0,1) hash — unlike builtin hash(), stable across processes.
+
+        Python randomizes str hashing per process (PYTHONHASHSEED), so the old
+        `hash(name)` fallback produced different coordinates on every restart,
+        breaking layout reproducibility. md5 matches the deterministic-hash usage
+        already present elsewhere in this module (layout cache key, terrain seed).
+        """
+        return int(hashlib.md5(text.encode("utf-8")).hexdigest()[:8], 16) / 0x100000000
+
+    def _resolve_anchor(self, name: str, layout: dict[str, tuple[float, float]]) -> str | None:
+        """Walk up the parent chain to the nearest ancestor already placed.
+
+        Game scatter tools always bind placement to a parent surface. Without an
+        anchor, a child falls through to an unconstrained fallback branch and can
+        land thousands of pixels away (measured max 5860px on 西游记; see
+        ai-reader-internal/docs/analysis/containment-violation-baseline-2026-09-20.md).
+        """
+        seen: set[str] = set()
+        cur = self._parent_map.get(name)
+        while cur and cur not in seen:
+            if cur in layout:
+                return cur
+            seen.add(cur)
+            cur = self._parent_map.get(cur)
+        return None
+
+    def _scatter_radius(self, tier: str) -> float:
+        """Scatter radius for a tier, proportional to the canvas short side.
+
+        Returns 0.0 when the tier is unknown so callers can fall back to their own
+        floor (keeps legacy behaviour for un-tiered data).
+        """
+        factor = TIER_SCATTER_RADIUS.get(tier)
+        if factor is None:
+            return 0.0
+        short = min(
+            self._canvas_max_x - self._canvas_min_x,
+            self._canvas_max_y - self._canvas_min_y,
+        )
+        return max(MIN_SCATTER_RADIUS, short * factor)
+
     def _place_remaining(self, layout: dict[str, tuple[float, float]]) -> None:
-        """Place locations not included in the solver using chapter-proximity heuristics.
+        """Place locations not included in the solver, anchored to their hierarchy.
 
         Strategy:
         1. User overrides take priority.
-        2. If parent is in layout: jitter around parent.
-        3. Otherwise: find solved locations from the same or nearby chapters
-           and place near their centroid with isotropic circular scatter.
-        4. Last resort: random position within canvas bounds using name hash.
+        2. Parent — or nearest placed ancestor — in layout: sunflower scatter
+           around it, radius driven by the child's own tier.
+        3. Otherwise: co-chapter centroid with a tight tier-scaled radius.
+        4. Last resort: deterministic scatter near the canvas centre.
+
+        Ordering note: locations are processed shallowest-first so a parent is
+        always placed before its children, which lets rule 2 catch most of them.
         """
         # Build chapter->solved_locations lookup for proximity placement
         chapter_locs: dict[int, list[str]] = {}
@@ -1887,14 +1951,19 @@ class ConstraintSolver:
             if ch > 0:
                 chapter_locs.setdefault(ch, []).append(name)
 
-        # Scale jitter radius with canvas size
         canvas_w = self._canvas_max_x - self._canvas_min_x
         canvas_h = self._canvas_max_y - self._canvas_min_y
+        # Legacy canvas-global jitter, kept only as a floor for un-tiered data
         base_jitter = max(30, min(canvas_w, canvas_h) * 0.04)
+        golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+
+        # Shallowest-first, name as tie-break: deterministic, and guarantees a
+        # parent is placed before its children
+        ordered = sorted(self._remaining, key=lambda loc: (loc.get("level", 0), loc["name"]))
 
         orphan_idx = 0  # for jittering orphans that share positions
 
-        for loc in self._remaining:
+        for loc in ordered:
             name = loc["name"]
             if name in layout:
                 continue
@@ -1902,25 +1971,32 @@ class ConstraintSolver:
                 layout[name] = self.user_overrides[name]
                 continue
 
+            tier = loc.get("tier", "")
+            tier_r = self._scatter_radius(tier) or base_jitter
+
+            # Prefer the direct parent; else climb to the nearest placed ancestor
             parent = self._parent_map.get(name)
             if parent and parent in layout:
-                px, py = layout[parent]
-                children_here = self.children.get(parent, [])
+                anchor, hops = parent, 1
+            else:
+                anchor, hops = self._resolve_anchor(name, layout), 2
+
+            if anchor is not None:
+                ax, ay = layout[anchor]
+                children_here = self.children.get(anchor, [])
                 idx = children_here.index(name) if name in children_here else 0
                 n_children = max(len(children_here), 1)
-                # Sunflower seed distribution: golden angle + varying radius
-                # fills the circular area organically instead of a ring perimeter
-                golden_angle = math.pi * (3 - math.sqrt(5))  # ≈ 137.5°
+                # Sunflower seed distribution: golden angle + varying radius fills
+                # the circular area organically instead of a ring perimeter
                 frac = (idx + 0.5) / n_children  # 0..1
-                # Adaptive radius: scale with sqrt(n_children) for better spread
-                # v0.68: tighter spread to keep children near parent (was 0.3 max → 0.12)
-                adaptive_r = base_jitter * max(0.6, math.sqrt(n_children / 8))
-                max_r = min(canvas_w, canvas_h) * 0.12
-                adaptive_r = min(adaptive_r, max_r)
-                r = adaptive_r * (0.3 + 0.7 * math.sqrt(frac)) + 8 * loc.get("level", 0)
+                # Radius from the child's own tier; a grandchild spreads a bit wider
+                adaptive_r = tier_r * max(0.6, math.sqrt(n_children / 8)) * (1.0 + 0.5 * (hops - 1))
+                # Cap so a large sibling group still hugs the anchor
+                adaptive_r = min(adaptive_r, min(canvas_w, canvas_h) * 0.12)
+                r = adaptive_r * (0.3 + 0.7 * math.sqrt(frac))
                 angle = idx * golden_angle
-                x = max(self._canvas_min_x, min(self._canvas_max_x, px + r * math.cos(angle)))
-                y = max(self._canvas_min_y, min(self._canvas_max_y, py + r * math.sin(angle)))
+                x = max(self._canvas_min_x, min(self._canvas_max_x, ax + r * math.cos(angle)))
+                y = max(self._canvas_min_y, min(self._canvas_max_y, ay + r * math.sin(angle)))
                 layout[name] = (x, y)
                 continue
 
@@ -1930,22 +2006,20 @@ class ConstraintSolver:
 
             if centroid is not None:
                 cx, cy = centroid
-                # Isotropic circular scatter: golden angle + varying radius
-                jitter_angle = orphan_idx * 2.4  # golden angle ≈ 137.5°
-                jitter_r = base_jitter + base_jitter * 0.3 * (orphan_idx % 8)
+                # Tight tier-scaled scatter around the co-chapter centroid
+                jitter_angle = orphan_idx * 2.4
+                jitter_r = tier_r * (1.0 + 0.3 * (orphan_idx % 8))
                 x = cx + jitter_r * math.cos(jitter_angle)
                 y = cy + jitter_r * math.sin(jitter_angle)
             else:
-                # Last resort: hash-based position within canvas bounds
-                hv = (hash(name) & 0x7FFFFFFF) % 10000 / 10000.0
-                hv2 = (hash(name + "_y") & 0x7FFFFFFF) % 10000 / 10000.0
-                x = self._canvas_min_x + canvas_w * 0.1 + hv * canvas_w * 0.8
-                y = self._canvas_min_y + canvas_h * 0.1 + hv2 * canvas_h * 0.8
-                # Small golden-angle jitter to avoid exact overlap with other hash-placed
-                jitter_angle = orphan_idx * 2.4
-                jitter_r = base_jitter * 0.3
-                x += jitter_r * math.cos(jitter_angle)
-                y += jitter_r * math.sin(jitter_angle)
+                # Last resort: deterministic scatter near the canvas centre.
+                # Never canvas-wide random — that was the source of 5000+px drift.
+                h1 = self._stable_hash(name)
+                h2 = self._stable_hash(name + "_y")
+                spawn_r = min(canvas_w, canvas_h) * (0.02 + 0.06 * h2)
+                spawn_angle = h1 * 2 * math.pi
+                x = self._canvas_cx + spawn_r * math.cos(spawn_angle)
+                y = self._canvas_cy + spawn_r * math.sin(spawn_angle)
 
             layout[name] = (
                 max(self._canvas_min_x, min(self._canvas_max_x, x)),
@@ -2614,6 +2688,12 @@ class ConstraintSolver:
                 (si, ti, c["relation_type"], c.get("value", ""), weight, c.get("waypoints"))
             )
 
+        # Seeded RNG local to this routine. The repulsion loop below used the
+        # global np.random, which advanced shared state on every call: identical
+        # inputs produced different layouts each run (measured 53/690 placements,
+        # 7.7%, moving between two calls in the SAME process).
+        rng = np.random.RandomState(42)
+
         # Run 80 iterations of spring-force simulation
         velocities = np.zeros_like(positions)
         damping = 0.85
@@ -2694,7 +2774,7 @@ class ConstraintSolver:
                     dist = np.linalg.norm(diff)
                     if dist < 1e-6:
                         dist = 1e-6
-                        diff = np.random.randn(2) * 1e-6
+                        diff = rng.randn(2) * 1e-6
                     if dist < ideal_spacing:
                         repulsion = ((ideal_spacing - dist) / ideal_spacing) ** 2
                         force_mag = repulsion * ideal_spacing * 0.1
@@ -2878,11 +2958,499 @@ def _lloyd_relax(
     return np.clip(pts, [10, 10], [w - 10, h - 10])
 
 
+def _stable_seed(text: str) -> int:
+    """Deterministic 31-bit seed — `hash()` on a str is randomized per process.
+
+    PYTHONHASHSEED makes builtin `hash()` differ between runs, so
+    `hash(novel_id)` re-baked a different noise field on every backend restart:
+    the same novel came back with different terrain after a restart, and no
+    before/after bake could be compared. md5 is the same deterministic hashing
+    `compute_chapter_hash` already uses for the layout cache key.
+    """
+    return int(hashlib.md5(text.encode("utf-8")).hexdigest()[:8], 16) % (2**31)
+
+
+# Ground field calibration, in field units. The bounded field below spans about
+# 0.10-0.86 across the six novels measured, so a window of 0.20-0.70 puts its
+# mass across the whole 4x4 Whittaker lookup instead of the middle of it. Frozen
+# rather than taken from each novel's own percentiles so that two novels are
+# comparable and a per-tile renderer — which sees one screenful, not the canvas —
+# can reproduce it from the tile alone.
+_FIELD_WINDOW = (0.20, 0.70)
+
+
+# The influence field is evaluated on a grid this many samples wide on the long
+# side and then upsampled. Every term's radius is a fraction of the raster's own
+# long side (0.12-0.22 of it), so the field has no structure finer than ~1/5 of
+# the raster — 512 samples resolve it with an order of magnitude to spare.
+# This is what makes the cost independent of the requested bake size: at 1024 the
+# full-resolution form was already 0.75 s, and at 4096 it would have been 16x
+# that (~12 s) purely to interpolate a field that is smooth by construction.
+_INFLUENCE_SAMPLES = 512
+
+
+def _bounded_influence(
+    img_w: int,
+    img_h: int,
+    terms: list[tuple[list[tuple[float, float]], float, float]],
+) -> np.ndarray:
+    """Location influence that cannot grow with the number of points.
+
+    `elev[mask] += 0.25 * (1 - d/r)`, run once per point in range, is an
+    accumulator rather than a field. On 西游记 the 127 mountain locations put a
+    mean of 60 — a maximum of 76 — of themselves inside one another's 1440-unit
+    radius, so a single cluster core collected 76 x 0.25 = 19.0 of elevation,
+    the pre-clip field reached 12.4, and `np.clip` discarded 36 % of the
+    elevation field and 52 % of the moisture field at the ceiling. A saturated
+    field is a flat field: the two whitest Whittaker cells covered 40.4 % of
+    that canvas, and the window under the camera at zoom k=10 had elevation
+    range [1.00, 1.00] — which is what a client-rendered ground tile turned out
+    to be, a pale wash, before this was found.
+
+    So each sign keeps its strongest contribution rather than summing them —
+    `max` over the positive terms, `min` over the negative — and the two are
+    added, which leaves a mountain beside a lake showing both. The local value
+    is then bounded by the strongest single point by construction, whatever the
+    point count.
+    """
+    from scipy.ndimage import zoom
+
+    spacing = max(1, round(max(img_w, img_h) / _INFLUENCE_SAMPLES))
+    gw = max(2, img_w // spacing + 1)
+    gh = max(2, img_h // spacing + 1)
+    # Raster coordinates of the coarse grid's own samples — the terms are stored
+    # in raster coordinates, so the grid has to be built in the same space.
+    ys_grid, xs_grid = np.mgrid[0:gh, 0:gw].astype(np.float64)
+    ys_grid *= spacing
+    xs_grid *= spacing
+
+    pos = np.zeros_like(xs_grid)
+    neg = np.zeros_like(xs_grid)
+    for pts, radius, amp in terms:
+        if not pts:
+            continue
+        target = pos if amp > 0 else neg
+        for px, py in pts:
+            dist = np.sqrt((xs_grid - px) ** 2 + (ys_grid - py) ** 2)
+            contrib = np.where(dist < radius, amp * (1.0 - dist / radius), 0.0)
+            if amp > 0:
+                np.maximum(target, contrib, out=target)
+            else:
+                np.minimum(target, contrib, out=target)
+    field = pos + neg
+    if spacing == 1:
+        return field[:img_h, :img_w]
+    up = zoom(field, (img_h / gh, img_w / gw), order=1)
+    return up[:img_h, :img_w]
+
+
+def _spread_unit(field: np.ndarray) -> np.ndarray:
+    """Map `_FIELD_WINDOW` onto 0-1 for the Whittaker lookup.
+
+    Bounding the influence is not enough on its own. Measured across six novels,
+    the bounded-but-unspread field used only 9-12 of the 16 reachable Whittaker
+    cells, with entropy 2.4-2.7 bit and one cell taking 30-38 % of the canvas,
+    because its mass sits in the middle of the range. Applying the window:
+    16/16 cells on all six, entropy 3.7-3.9 bit, top cell 10.8-13.2 %.
+    """
+    lo, hi = _FIELD_WINDOW
+    return np.clip((field - lo) / (hi - lo), 0.0, 1.0)
+
+
+# Bump this when the terrain field recipe changes. `_LAYOUT_VERSION` covers the
+# layout JSON; the baked PNG is a separate artifact with a separate cache, and
+# it carries no version of its own — so a recipe change used to leave the old
+# PNG on disk being served as the current one. Measured, not hypothetical: the
+# field fix in this same change left `terrain.png` untouched at 293168 bytes
+# (sd 8.01) while the new recipe produced sd 20.88, and nothing in the request
+# path noticed. The filename and the URL both carry the version, so a recipe
+# bump invalidates the disk cache and every client's cached copy at once.
+# v6: relief/texture/flat-noise strengths recalibrated against a composed A/B on
+# the real map. v5 reached v2's fine detail and lost the land/sea separation
+# while painting +-60 % relief over the labels — a regression that the bare
+# raster's own statistics scored as an improvement.
+# v7: the landform recipe. One ridged height field, Lambert-shaded, with the
+# palette ramped over the same height instead of a Whittaker lookup over a
+# different field. See the _SHAPE comment for why no amount of dial-turning on
+# v6 could have got there.
+# v10: the detail floor. The recipe's finest ridge was 64 canvas px, so at z2 and
+# z3 the ground was one soft hump per screen and the picture read as mediocre
+# even though the fit view was acceptable. A fourth `_RIDGE_SCALES` entry takes
+# the floor to 24 canvas px and `_TERRAIN_MAX_SIZE` goes to 4096 so there is
+# resolution under it. Both halves in one bump because either alone is wasted:
+# detail without raster is interpolated away, raster without detail is an
+# expensive wash. This is also the bump that retires the last of the
+# areal-cover reasoning on the symbol layer, but that layer is not cached.
+# v9: v8's plains kept too little relief, and a province at _PLAIN_FLOOR 0.22
+# rendered as a large featureless pale patch -- a hole in the map rather than a
+# plain. 0.34 keeps a texture there while the crests still clearly win.
+# v8: v7's value and scale. Structure was right and the picture still read as
+# heavy: the land came out a dark rust wash that labels had to fight, and the
+# ridges were fine enough to read as grain at fit zoom. Land is now held in the
+# light half of the range with the mass pushed into the lowlands, shading
+# modulates instead of dominating, and the octave falloff is shallower so macro
+# form wins at fit.
+_TERRAIN_VERSION = 10
+
+
+def terrain_path_for(novel_id: str) -> Path:
+    """Where a novel's baked terrain lives. The writer and all readers call this.
+
+    Keeping the path in one function is the point: when the writer and the route
+    hard-coded the same literal and the recipe changed, the route kept serving a
+    PNG the old recipe had produced, and the response was indistinguishable from
+    a correct one.
+    """
+    return DATA_DIR / "maps" / novel_id / f"terrain.v{_TERRAIN_VERSION}.png"
+
+
+def terrain_url_for(novel_id: str) -> str:
+    """The URL clients fetch the terrain from. Versioned for the same reason."""
+    return f"/api/novels/{novel_id}/map/terrain/v{_TERRAIN_VERSION}"
+
+
+# Ceiling for the terrain bake, in pixels on its LONG side. The bake is stretched
+# over the whole canvas, so its resolution is the ceiling on every zoomed-in
+# detail the map can ever show. It used to be a flat 1024: on the 8000x4500
+# overworld canvas that is upsampled 7.8x, which is why the biome field read as
+# soft blobs at exactly the zoom the map exists to support (scaleExtent runs to
+# k=10, i.e. one canvas pixel per screen pixel).
+#
+# The old ceiling was a CPU ceiling, not a size one — the Python simplex loop
+# below cost 5.7 s at 1024 and grew with the square of the size, and a 4096 bake
+# was killed for memory long before it was tried. Both are gone now that the
+# field is vectorised, so the ceiling is set by what the image costs to ship:
+#
+#   size   bake s   PNG MB   upscale    MPx    (8000x4500 canvas)
+#    1024     0.89     0.53     7.81x    0.6
+#    2048     2.81     2.11     3.91x    2.4
+#    3072     6.83     4.77     2.60x    5.3
+#    4096    15.12     8.49     1.95x    9.4
+#    6144    32.60    19.12     1.30x   21.2   <- rejected: 19 MB and 21 MPx
+#
+# And having paid for all that, the resolution turned out not to be the binding
+# constraint. A rendered A/B of the same recipe at 1024 and 4096 -- same field,
+# only the raster differing, confirmed by cross-correlation 0.9996 on the two
+# downsampled to a common size -- measured a high-frequency gain of 1.00-1.07x
+# ACROSS THE WHOLE ZOOM RANGE, from fit to 2 canvas px per screen px. The reason
+# is the field's own spectrum: 99 % of its power sits above a wavelength of 320
+# canvas px while even a 1024 raster resolves 15.6. The bake was twenty times
+# oversampled and no amount of megapixels could show it.
+#
+# So this is a headroom ceiling, not a quality dial. 2048 leaves the raster's own
+# Nyquist at 3.9 canvas px, comfortably finer than the ~30 px floor the field
+# below can produce even with its octaves at full count, and it keeps the image
+# at 2 MB. Re-derive this number if the detail budget changes: the test is
+# `2 * canvas_long_side / size <= finest_wavelength / 2`.
+#
+# A later measurement narrowed the claim above rather than overturning it. It
+# holds at fit zoom, where one bake texel covers 0.58 screen px, and it stops
+# holding deep in the range: at 4.8x a texel covers 2.78 screen px and the bake
+# is genuinely soft. But raising the size does not cure that, because the layer
+# has almost nothing at those scales to resolve. Toggling the layer off and on
+# and taking the residual (no mask, so nothing can hide in the choice of window)
+# gives, in screen-px bands at fit / 2.2x / 4.8x:
+#
+#   band    4-8     8-16   16-32   32-64   64-200
+#   fit     2.08    2.59    3.24    4.01     5.29
+#   2.2x    1.72    2.13    2.58    3.32     6.73
+#   4.8x    1.36    1.55    1.94    2.48     5.45
+#
+# The layer is a broad tonal wash, strongest by a factor of two at 64-200 px, and
+# its fine end FALLS as it is zoomed — that is upsampling, exactly as predicted.
+# A bigger raster would push that knee out, not remove it, and would cost 8 MB and
+# 13 s for a wash. The thing that would put real detail at deep zoom is content in
+# the field at those scales, which is a different change from this one.
+#
+# ── 2048 -> 4096 (v10) ────────────────────────────────────────────────────
+# The paragraph above named the precondition: a bigger raster for a wash is
+# waste. v10 changes the other half first -- `_RIDGE_SCALES` gains a fourth scale
+# reaching 24 canvas px, so there is now content down at the resolution being
+# bought -- and then this number follows, because the two only work together.
+#
+# Re-derived rather than picked: the test stated above is
+# `2 * canvas_long_side / size <= finest_wavelength / 2`, which with the new
+# floor is `2 * 8000 / size <= 12`, i.e. `size >= 1333`. That would leave 2048
+# standing, so the binding number is not Nyquist but the one the later
+# measurement found: at 4.8x a texel covers `4.8 * 0.58 * (2048 / size)` screen
+# px, and the bake only stops being visibly soft below about 1.5.
+#
+#   size   texel @4.8x   full bake   memory
+#   2048      2.78 px       2.81 s     2.4 MB
+#   3072      1.86 px       6.83 s     5.3 MB
+#   4096      1.39 px      15.12 s     9.4 MB
+#   6144      0.93 px      32.60 s    21.2 MB   <- still rejected
+#
+# 4096 is the last row inside a single-digit-MB budget and the first one that
+# clears the softness threshold, so it is the one that is paid for. The cost is
+# once per recipe change -- the bake is cached against `_TERRAIN_VERSION` -- not
+# per launch.
+_TERRAIN_MAX_SIZE = 4096
+
+# ── The field's detail budget ──
+# These, not the raster, decide how fine the terrain reads. The shipped values
+# were three octaves per field, stopping at 224 canvas px on the 8000 px
+# overworld — blobs a thirty-sixth of the map wide — which is why the result read
+# as soft however sharp the bake was. Octaves are added at half the wavelength
+# each, so the floor moves to ~30 canvas px and the raster still resolves it.
+# The class fields stay at three octaves: every octave in them becomes a biome
+# boundary, so more octaves means more, smaller patches, which is the opposite of
+# readable. The detail goes into `_ELEV_OCTAVES`, which only shades.
+_CLASS_OCTAVES = 3
+_MOIST_OCTAVES = 3         # 1560 -> 390 canvas px, coherent moisture bands
+_RELIEF_OCTAVES = 5        # 1952 -> 122 canvas px: slopes, not grain
+# The grain field starts at its own high base rather than running the full
+# fractal and being high-passed afterwards: _fbm always begins at the largest
+# scale, so a 7-octave texture would carry a +/-1 low-frequency component and
+# dim the map in patches. Starting at 244 canvas px keeps it to grain.
+_TEXTURE_BASE_WL = 0.0305  # 244 canvas px on the overworld
+_TEXTURE_OCTAVES = 4       # down to 30 canvas px
+_VARIATION_OCTAVES = 4     #  784 ->  98 canvas px
+
+# Strength of the relief shading as a fraction of the base colour. 0 disables it.
+#
+# 0.30 was the first attempt and it was a regression, shipped-in-measurement
+# visible only in a composed A/B: with the slope clipped at +-2 sigma, 0.30 is a
+# +-60 % modulation of the base colour. At 0.4 opacity on the map that is a
+# +-24 % swing laid over the region colours, place labels and roads — the reader
+# sees blotches, and reads them as dirt, not as landform. Isolating the terms one
+# at a time on the real map (relief+texture off = clean, relief on = dirty)
+# pinned the cause here and not on the flat noise terms, on the blur, or on the
+# raster size. 0.10 keeps a slope readable and stays under the +-18 RGB the
+# pre-existing colour variation already spent.
+_RELIEF_GAIN = 0.10
+# How much the finest detail perturbs the colour without being shaded. Kept
+# separate from the relief so grain cannot masquerade as landform. 0.03 with the
+# relief above is the measured point where texture is present and the labels are
+# untouched; 0.10 was not.
+_TEXTURE_AMPLITUDE = 0.03
+
+# The two flat noise terms that predate the octave budget, now named because they
+# are a large share of the terrain's visible contrast and were previously
+# unnamed literals inside the bake. `_fbm` returns a zero-mean unit-sd field
+# while `variation` here is a three-octave 0.5/0.3/0.2 sum, so the effective
+# swing of `_VARIATION_STRENGTH` is about 0.55 x the number: 30 was +-18 RGB at
+# 781 canvas px, i.e. 115 screen px at fit zoom, which is blotch scale rather
+# than texture scale and was a second, smaller contributor to the same dirt.
+# Their wavelengths are the old per-raster-pixel frequencies converted to
+# fractions of the long side (100/33/12.5 px of a 1024 raster = 0.098/0.033/
+# 0.012; 8.33 px = 0.0081) — that conversion is what keeps the field
+# resolution-independent, and it is correct.
+_VARIATION_STRENGTH = 6    # +-3 RGB at 781 -> 98 canvas px
+_PAPER_STRENGTH = 0        # grain read as noise on a map; kept as a dial
+
+# Final painterly blur, as a fraction of the long side. Was a flat sigma of 4
+# raster px, i.e. 0.0039 of the 1024 raster it was tuned on = 31 canvas px on the
+# overworld, which is wider than every octave added above and would have erased
+# them. 0.0008 is 6.4 canvas px: enough to keep the biome lookup's borders from
+# looking like a contour map, not enough to be the detail ceiling.
+_BLUR_FRAC = 0.0008
+
+# ── Landform shape ────────────────────────────────────────────────────
+#
+# "biome" is everything above: the class field through the Whittaker table, plus
+# a slope nudge from a second, unrelated draw of the same seed. It is kept
+# because it is measurable and because a recipe change should be reversible, but
+# it does not draw landform:
+#
+#   Its colour comes from a BIOME table, which answers "what grows here", and it
+#   has no hillshade. The relief term is +-10 % of the base colour, and it is
+#   driven by a DIFFERENT field from the one that picks the colour, so nothing
+#   ties "this pixel is high" to "this pixel is coloured like high ground".
+#   Rendered at 2x the result is camouflage: three flat colours in amorphous
+#   blobs with a faint directional streak on top. Every dial that was turned
+#   against it -- relief gain, texture amplitude, blur, raster size -- moved a
+#   number without moving that read, because the field being tuned has no
+#   structure for a gradient to find.
+#
+# "ridged" draws one height field, shades it, and ramps the palette over that
+# same height:
+#
+#   A ridged sum (1-|n|) turns smooth extrema into connected crest lines, so the
+#   gradient has ridges to shade and valleys to leave dark. Lambert shading from
+#   the upper left then gives the slopes their lit and shadowed faces, and the
+#   palette runs sand -> grass -> scree -> rock -> snow with height, so elevation
+#   is legible as colour and as relief at once. Moisture tilts the low ground
+#   green instead of ochre.
+#
+# This is the standard game-map recipe, and the reason it is worth the rewrite is
+# that it is the only variant of eight that was tried and LOOKED at that reads as
+# terrain rather than as texture.
+_SHAPE = "ridged"
+
+# Octaves for the ridged field. Base wavelength stays at the class field's
+# 0.244 (1952 canvas px) so the ranges land where the regions are; seven octaves
+# reach 30 canvas px, which is the finest detail the reader can resolve at fit.
+_RIDGE_OCTAVES = 4
+_RIDGE_BASE_WL = 0.244
+# Three ridged fields at three base wavelengths, summed. One field at one
+# wavelength gives one cell size, and one cell size repeated across the canvas
+# reads as texture -- a canopy, or broccoli -- however good the individual cells
+# look. Real ground is hierarchical: a few massifs, ridges off them, hills off
+# those. Each entry is (base wavelength, octaves, amplitude), the wavelengths a
+# factor of ~2.8 apart so the three scales are distinguishable rather than
+# stacking into one band.
+#
+# ── The fourth entry, and why the first three were not enough (v10) ──
+# The three scales bottom out at 256 canvas px with three octaves, i.e. a finest
+# ridge of 64 canvas px. At fit zoom that is 12 screen px and reads as ground.
+# At the deep zoom it is 96 screen px -- a single soft hump with nothing inside
+# it -- which is what the reader was calling "still mediocre" at z2 and z3 while
+# the fit view looked acceptable. The cap on detail was the field, not the
+# raster: 99 % of its power sat above 320 canvas px and the bake was twenty
+# times oversampled for it (see the resolution table above).
+#
+# The fourth scale is 96 canvas px at base, reaching 24 canvas px. Amplitude is
+# 0.06 rather than the ~0.10 the 2.8x spacing would suggest, because at fit zoom
+# 24 canvas px is 4.5 screen px and anything heavier there reads as grain on the
+# paper rather than as hills. At z2 and above the same feature is 36-72 screen
+# px, which is where it stops being grain and starts being a hill -- the detail
+# is present at every zoom and only becomes legible where it can be.
+_RIDGE_SCALES: tuple[tuple[float, int, float], ...] = (
+    (0.244, 4, 1.00),      # 1952 canvas px: where the ranges are
+    (0.085, 4, 0.42),      #  680 canvas px: ridges off them
+    (0.032, 3, 0.17),      #  256 canvas px: hills off those
+    (0.012, 3, 0.06),      #   96 canvas px: the ground surface itself
+)
+# Amplitude falloff per octave within one scale.
+_RIDGE_PERSISTENCE = 0.5
+# How strongly a crest at one octave invites detail at the next. Above 1 the
+# detail crowds onto the ranges and the lowlands go completely smooth; too low
+# and every octave ignores the last, which is the filament topology described in
+# `_ridged`.
+_RIDGE_WEIGHT_GAIN = 1.4
+# How mountainous each region is, as a low-frequency mask. Without it every
+# region gets the same treatment and the map has no macro reading -- the reader
+# cannot tell a mountain province from a plain, which is precisely the thing a
+# world map is for. 0.10 of the raster is ~800 canvas px, so the provinces this
+# creates are a tenth of the map across.
+_RELIEF_MASK_WL = 0.10
+_RELIEF_MASK_OCTAVES = 3
+# Amplitude multiplier where the mask is at its lowest. Not 0: a province with
+# no relief at all has no texture either, and a flat colour patch on a map this
+# size reads as a hole rather than as a plain.
+_PLAIN_FLOOR = 0.34
+# Height is pushed toward the lowlands before the palette is applied, which is
+# what stops the mid-tones from filling with rock and snow. Set to 1.0 -- off --
+# because the ridged field already concentrates its mass low once the crest
+# weighting above is in place, and an earlier 1.8 on top of the unweighted field
+# collapsed the middle of the ramp and rendered as pale-veined green cells.
+_HEIGHT_GAMMA = 1.0
+
+# How much of the height is ridged crest versus broad fBm mass. See the branch
+# in generate_terrain: too high and the high ground is a web of filaments, too
+# low and there are no crests to shade.
+_RIDGE_MIX = 0.45
+
+# Lambert light: upper left, the convention every map and hillshade uses.
+_HILLSHADE_AZ = 315.0
+_HILLSHADE_EL = 45.0
+# Vertical exaggeration, applied after normalising the gradient against its own
+# p95 so the value does not drift with raster size or octave count.
+_HILLSHADE_EXAG = 1.5
+# Shading is a modulation of the ramp colour, not a replacement for it. Floor
+# and range together set how far the darkest slope falls below the ramp: 0.62
+# means even a fully away-facing face keeps 62 % of its colour, so relief reads
+# as form without turning the map into a dark relief model. At 0.42 it did, and
+# the mud that produced was the reason the first version of this read as heavy.
+_SHADE_FLOOR = 0.58
+_SHADE_RANGE = 0.62
+
+# Sand -> grass -> scree -> rock -> snow, held in the light half of the range
+# and pushed warm on purpose.
+#
+# The land is where every label, road and icon goes, so it has to stay a light
+# field; the sea is the mid-tone wash that recedes. Warm because the map's own
+# parchment base and its region tints are warm, and a cool grey-green terrain
+# under them reads as dirt on the paper rather than as ground -- which is what
+# the first three attempts at this palette all came out looking like. Low end
+# anchored on the map's parchment family, whose lowland cell is (215,200,160);
+# this starts lighter than that so the lowlands can carry labels unaided.
+_HEIGHT_RAMP: tuple[tuple[float, tuple[int, int, int]], ...] = (
+    (0.00, (243, 234, 207)),
+    (0.22, (230, 218, 180)),
+    (0.42, (212, 205, 160)),
+    (0.62, (191, 188, 150)),
+    (0.78, (178, 172, 155)),
+    (0.90, (199, 195, 189)),
+    (0.97, (240, 241, 242)),
+    (1.00, (250, 251, 252)),
+)
+# How far moisture can swing the low ground from ochre to green, and the RGB
+# direction it swings in. Only the low ground: moisture is a lowland concept and
+# tinting the snow line green is how a map starts looking arbitrary. Milder than
+# the first pass, which pushed lowland reds down far enough to read as bruise.
+_MOISTURE_TILT = 0.55
+_MOISTURE_LOW_TOP = 0.62
+_MOISTURE_TILT_RGB = np.array([-28.0, 14.0, -4.0])
+# The height window used to spread the ridged field onto 0-1. Its own percentiles
+# rather than _FIELD_WINDOW: that window is calibrated to an fBm's mean and tails,
+# and applying it to a ridged sum clipped the field to 1.0 nearly everywhere,
+# which renders as an all-white map.
+_HEIGHT_WINDOW = (1.0, 99.0)
+
+
+def _hillshade(height: np.ndarray) -> np.ndarray:
+    """Lambert shading of `height`, light from the upper left. Returns 0-1.
+
+    The gradient is normalised against its own p95 before the exaggeration is
+    applied, so `_HILLSHADE_EXAG` keeps its meaning when the raster size or the
+    octave count changes.
+    """
+    gy, gx = np.gradient(height)
+    s = float(np.percentile(np.hypot(gx, gy), 95.0)) or 1.0
+    dzdx = gx / s * _HILLSHADE_EXAG
+    dzdy = gy / s * _HILLSHADE_EXAG
+    nx, ny, nz = -dzdx, -dzdy, np.ones_like(dzdx)
+    n = np.sqrt(nx * nx + ny * ny + nz * nz)
+    az, el = np.radians(_HILLSHADE_AZ), np.radians(_HILLSHADE_EL)
+    lx, ly, lz = np.cos(az) * np.cos(el), np.sin(az) * np.cos(el), np.sin(el)
+    # Image y grows downward, so the light's y component is negated to keep the
+    # source above the picture rather than below it.
+    return np.clip((nx * lx + ny * (-ly) + nz * lz) / n, 0.0, 1.0)
+
+
+def _ramp_lookup(height: np.ndarray, moist: np.ndarray) -> np.ndarray:
+    """Palette as a function of height, tilted green where the ground is wet."""
+    stops = np.array([p for p, _ in _HEIGHT_RAMP], dtype=np.float64)
+    cols = np.array([c for _, c in _HEIGHT_RAMP], dtype=np.float64)
+    rgb = np.empty((*height.shape, 3), dtype=np.float64)
+    for ch in range(3):
+        rgb[..., ch] = np.interp(height, stops, cols[:, ch])
+    wet = np.clip((moist - 0.5) * 2.0, -1.0, 1.0)
+    low = np.clip(1.0 - height / _MOISTURE_LOW_TOP, 0.0, 1.0)
+    tilt = (wet * low * _MOISTURE_TILT)[..., np.newaxis]
+    return rgb + tilt * _MOISTURE_TILT_RGB
+
+
+def _own_unit(field: np.ndarray, window: tuple[float, float]) -> np.ndarray:
+    """Spread a field onto 0-1 using its own percentiles, not a shared window.
+
+    `_spread_unit` exists and does the same job, but through `_FIELD_WINDOW`,
+    which is calibrated to an fBm's mean and tails. A ridged sum has a different
+    mean and a long lower tail; running it through that window clipped it to 1.0
+    over almost the whole canvas, which renders as an all-white map.
+    """
+    lo = float(np.percentile(field, window[0]))
+    hi = float(np.percentile(field, window[1]))
+    return np.clip((field - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
+
+
+def terrain_bake_size(canvas_width: int, canvas_height: int) -> int:
+    """Raster size for the terrain bake, measured on its long side.
+
+    Matches the canvas where that is affordable and is capped where it is not,
+    so the upsampling factor is 1.0 on the smaller overlay canvases (2400x1350)
+    and 2.0x on the 8000x4500 overworld instead of a flat 7.8x.
+    """
+    return int(min(_TERRAIN_MAX_SIZE, max(canvas_width, canvas_height)))
+
+
 def generate_terrain(
     locations: list[dict],
     layout: dict[str, tuple[float, float]],
     novel_id: str,
-    size: int = 1024,
+    size: int | None = None,
     canvas_width: int = CANVAS_WIDTH,
     canvas_height: int = CANVAS_HEIGHT,
 ) -> str | None:
@@ -2894,16 +3462,28 @@ def generate_terrain(
     water boosts moisture) so terrain naturally reflects the story geography.
 
     Final image is Gaussian-blurred for smooth, painterly transitions.
+
+    `canvas_width` / `canvas_height` must be the canvas the caller lays this
+    image over — the same numbers it reports to the client as `canvas_size`.
+    The image is stretched over that rectangle, so a mismatch between it and
+    the layout's own coordinate range shifts every influence point off the
+    raster: called with the 1600x900 defaults on an 8000x4500 layout, 0 of 803
+    locations landed inside, and the terrain came out as location-independent
+    noise that still looked like plausible ground. Both call sites in
+    visualisation_service now pass the layout's own canvas, and the guard below
+    reports it if that ever stops being true.
     """
     try:
-        from opensimplex import OpenSimplex
         from PIL import Image
     except ImportError:
-        logger.warning("Pillow or opensimplex not installed, skipping terrain generation")
+        logger.warning("Pillow not installed, skipping terrain generation")
         return None
 
     if len(layout) < 2:
         return None
+
+    if size is None:
+        size = terrain_bake_size(canvas_width, canvas_height)
 
     # ── Image dimensions (preserve canvas 16:9 aspect) ──
     aspect = canvas_width / max(canvas_height, 1)
@@ -2955,128 +3535,345 @@ def generate_terrain(
            any(k in type_icon for k in _FOREST_SUFFIXES):
             forest_pts.append((px, py))
 
-    # ── Noise generators ──
-    seed_base = hash(novel_id) % (2**31)
-    elev_noise = OpenSimplex(seed=seed_base)
-    moist_noise = OpenSimplex(seed=seed_base + 9973)
-    detail_noise = OpenSimplex(seed=seed_base + 19937)
-    paper_noise = OpenSimplex(seed=seed_base + 31337)
+    # ── Noise fields ──
+    #
+    # These used to be `OpenSimplex.noise2` calls in a Python double loop, one
+    # per sparse-grid sample. Profiled at 1024 px: 396_288 calls at 13.8 us each
+    # = 5.73 s of a 6.88 s bake — 83 % of it — and the call count grows with the
+    # square of the requested size, which is why a 4096 bake never completed.
+    # That was the whole reason the bake was pinned at a resolution 7.8x too
+    # small for the canvas.
+    #
+    # What a terrain field needs from noise is smoothness, isotropy and a known
+    # wavelength, not simplex's particular lattice. So it is drawn as white
+    # noise on a grid whose spacing is a quarter of the octave's wavelength and
+    # upsampled with a cubic kernel: same field character, vectorised, and
+    # seeded from the novel id so it still reproduces exactly. The grid is
+    # ~1/step of the raster on each side, so this costs a few milliseconds per
+    # octave at any output size instead of a few seconds.
+    seed_base = _stable_seed(novel_id)
 
     # ── Sparse-sample + upsample helper ──
     from scipy.ndimage import gaussian_filter, zoom
 
-    def _sparse_noise(gen, freq: float, step: int = 4) -> np.ndarray:
-        """Sample noise at sparse grid, then bilinear upsample."""
-        rows_s = range(0, img_h, step)
-        cols_s = range(0, img_w, step)
-        sparse = np.zeros((len(list(rows_s)), len(list(cols_s))), dtype=np.float64)
-        for ri, row in enumerate(range(0, img_h, step)):
-            for ci, col in enumerate(range(0, img_w, step)):
-                sparse[ri, ci] = gen.noise2(col * freq, row * freq)
-        zy = img_h / max(sparse.shape[0], 1)
-        zx = img_w / max(sparse.shape[1], 1)
-        return zoom(sparse, (zy, zx), order=1)[:img_h, :img_w]
+    long_side = max(img_w, img_h)
 
-    # ── Continuous elevation field (multi-octave) ──
-    elev = (
-        _sparse_noise(elev_noise, 0.004, step=4) * 0.50     # large-scale terrain
-        + _sparse_noise(elev_noise, 0.012, step=4) * 0.30   # medium detail
-        + _sparse_noise(elev_noise, 0.035, step=8) * 0.20   # fine detail
-    )
-    elev = elev * 0.5 + 0.38  # bias toward lowland (warm tones) by default
+    def _sparse_noise(seed: int, wl_frac: float) -> np.ndarray:
+        """Smooth isotropic noise with wavelength `wl_frac` of the long side.
 
-    # Location influence on elevation
+        The wavelength is a FRACTION OF THE RASTER, deliberately, and not a count
+        of pixels. When it was a pixel count (1/freq, with freq in cycles per
+        raster pixel as simplex used to take it) the terrain's physical scale was
+        welded to the bake resolution: a 4096 bake laid down the same 250-pixel
+        blobs as a 1024 bake, which on a fixed-size canvas means every feature
+        came out 4x smaller. Raising the resolution therefore did not resolve the
+        same terrain more sharply, it drew *different* terrain — the biome field
+        collapsed into per-texel speckle, which an HF-energy metric happily
+        scored as a 3.6x sharpness win. Tying the wavelength to the long side
+        makes the field resolution-independent, so more pixels buy only sharpness.
+        The three elevation values reproduce the old 1024-pixel field exactly
+        (250/83/29 px of a 1024 raster = 0.244/0.081/0.028 of its long side).
+
+        The sample spacing is a quarter of the wavelength — derived from the
+        octave, not fixed. The old code sampled every fixed 4 px: that
+        oversampled the 0.004 octave (wavelength 250 px) sixtyfold while the
+        paper-grain octave at 0.12 was sampled at about its own Nyquist limit.
+        Four samples per wavelength is comfortably above Nyquist and cheap. The
+        grid is sized straight from the fraction rather than from a rounded
+        spacing, so two bakes of different size get the identical grid, hence
+        the identical random draw, hence the same field sampled finer.
+        """
+        wavelength = max(wl_frac, 1e-9) * long_side
+        gw = max(3, int(np.ceil(4.0 * img_w / wavelength)) + 1)
+        gh = max(3, int(np.ceil(4.0 * img_h / wavelength)) + 1)
+        grid = np.random.default_rng(seed).standard_normal((gh, gw))
+        up = zoom(grid, (img_h / gh, img_w / gw), order=3)[:img_h, :img_w]
+        # Cubic interpolation of a white-noise grid leaves a faint ripple on the
+        # grid lines. A sub-pixel blur removes it without touching the octave's
+        # scale, which is 4 samples across. This sigma is deliberately in raster
+        # pixels, unlike the wavelength and the final blur: the artefact it kills
+        # is a property of the interpolation kernel, not of the field.
+        up = gaussian_filter(up, 0.6)
+        sd = float(up.std())
+        return (up - up.mean()) / sd if sd > 1e-9 else up
+
+    def _fbm(seed: int, base_wl: float, octaves: int) -> np.ndarray:
+        """Fractal sum: each octave half the wavelength and half the weight.
+
+        The count is the field's detail budget and is the thing that decides how
+        fine the terrain reads — not the raster size. Measured on 西游记, the
+        shipped three-octave fields put 99 % of their spectral power above a
+        wavelength of 320 canvas pixels, i.e. the whole map was blobs a
+        twenty-fifth of its width across, while the raster resolved down to 15.6.
+        Three octaves are also the worst case for the look: with no small scales
+        to break them up, the Whittaker lookup paints large flat patches with
+        smooth borders, which is what "soft" means here. `lacunarity` is fixed at
+        2 so successive octaves overlap in scale and read as texture.
+        """
+        out = np.zeros((img_h, img_w), dtype=np.float64)
+        amp, wl, norm = 1.0, base_wl, 0.0
+        for i in range(octaves):
+            out += _sparse_noise(seed + i, wl) * amp
+            norm += amp
+            amp *= 0.5
+            wl *= 0.5
+        return out / norm
+
+    def _ridged(seed: int, base_wl: float, octaves: int) -> np.ndarray:
+        """Ridged multifractal: crests first, then detail weighted onto them.
+
+        `1-|n|` on its own is not enough, and the way it fails is worth writing
+        down because it looks plausible in every statistic. `|n|` is small on
+        the zero set of a smooth random field, which is a NETWORK OF CURVES, so
+        `1-|n|` is large only along thin filaments and near zero everywhere
+        between them. Applying it at every octave therefore produces the
+        topology of terrain INVERTED: broad lowland with a web of thin high
+        ridges, where real ground is broad uplands cut by narrow valleys. On the
+        palette that puts the snow line along the filaments, and the picture
+        reads as veins under skin rather than as mountains. Seen, not inferred.
+
+        The fix is the standard one -- squaring sharpens the crest, and a
+        `weight` carried from the previous octave means each finer octave only
+        contributes where the coarser one already put a ridge. Detail therefore
+        gathers on the crests and the lowlands stay smooth, which is both what
+        real terrain does and what makes a mountain range read as a range
+        instead of as texture.
+
+        Each octave is divided by its own p99 of |n|, not by a shared maximum: a
+        shared maximum is set by one outlier cell, which compresses every other
+        octave and flattens the crests.
+        """
+        out = np.zeros((img_h, img_w), dtype=np.float64)
+        amp, wl, norm = 1.0, base_wl, 0.0
+        weight = np.ones((img_h, img_w), dtype=np.float64)
+        for i in range(octaves):
+            n = _sparse_noise(seed + i, wl)
+            scale = float(np.percentile(np.abs(n), 99.0)) or 1.0
+            signal = (1.0 - np.clip(np.abs(n) / scale, 0.0, 1.0)) ** 2
+            signal = signal * weight
+            out += signal * amp
+            norm += amp
+            weight = np.clip(signal * _RIDGE_WEIGHT_GAIN, 0.0, 1.0)
+            amp *= _RIDGE_PERSISTENCE
+            wl *= 0.5
+        return out / norm
+
+    # ── Continuous elevation field ──
+    #
+    # Two fields off one seed, and the distinction matters more than the octave
+    # count:
+    #
+    #   elev   the CLASS field. It feeds the Whittaker lookup, so every octave in
+    #          it becomes a biome boundary. It stays coarse on purpose: feeding
+    #          the full fractal sum in here was tried, and because an fBm's
+    #          number of above-threshold excursions grows fast with octave count,
+    #          the snow class shattered into hundreds of separate caps — visible
+    #          in a rendered A/B as the map turning into confetti at fit zoom,
+    #          where the reader sees it most. Coherent regions are what make a
+    #          map readable, and they are bought by keeping this field smooth.
+    #   relief the DETAIL field: the same seed with the full octave budget. It
+    #          never changes a class. It only shades the result, which is where
+    #          fine texture belongs — as relief, not as more biomes.
+    #
+    # Base wavelength is a fraction of the long side, converted from the old
+    # cycles-per-pixel frequency against the 1024 raster it was tuned on:
+    # 1/0.004 = 250 px = 0.244 of 1024.
+    elev = _fbm(seed_base + 11, 0.244, _CLASS_OCTAVES)
+    # An affine bias. It no longer sets an absolute level — `_spread_unit` maps
+    # the field's own window onto 0-1 and the clipping there is what gives this
+    # its meaning — but it does control how much of the field lands above or
+    # below `_FIELD_WINDOW`, so it shapes the result rather than shifting it.
+    elev = elev * 0.5 + 0.38
+
+    # ── Location influence on elevation, bounded, then spread ──
+    # The radii are the bake's calibration, unchanged: 0.18 / 0.22 / 0.15 / 0.14
+    # of the raster's long side, i.e. a fraction of the canvas rather than a
+    # fixed distance. Only the way overlapping points combine is different.
     influence_r = max(img_w, img_h) * 0.18
-    ys_grid, xs_grid = np.mgrid[0:img_h, 0:img_w].astype(np.float64)
 
-    for mx, my in mountain_pts:
-        dist = np.sqrt((xs_grid - mx) ** 2 + (ys_grid - my) ** 2)
-        mask = dist < influence_r
-        elev[mask] += 0.25 * (1.0 - dist[mask] / influence_r)
-
-    for wx, wy in water_pts:
-        dist = np.sqrt((xs_grid - wx) ** 2 + (ys_grid - wy) ** 2)
-        mask = dist < influence_r
-        elev[mask] -= 0.20 * (1.0 - dist[mask] / influence_r)
-
-    elev = np.clip(elev, 0.0, 1.0)
+    elev += _bounded_influence(img_w, img_h, [
+        (mountain_pts, influence_r, 0.25),
+        (water_pts, influence_r, -0.20),
+    ])
+    elev = _spread_unit(elev)
 
     # ── Continuous moisture field (multi-octave) ──
-    moist = (
-        _sparse_noise(moist_noise, 0.005, step=4) * 0.50
-        + _sparse_noise(moist_noise, 0.015, step=4) * 0.30
-        + _sparse_noise(moist_noise, 0.04, step=8) * 0.20
-    )
-    moist = moist * 0.5 + 0.30  # bias toward dry (warm parchment tones) by default
+    moist = _fbm(seed_base + 21, 0.195, _MOIST_OCTAVES)
+    # An affine bias, in the same sense as the elevation one above.
+    moist = moist * 0.5 + 0.30
 
     water_r = max(img_w, img_h) * 0.22
-    for wx, wy in water_pts:
-        dist = np.sqrt((xs_grid - wx) ** 2 + (ys_grid - wy) ** 2)
-        mask = dist < water_r
-        moist[mask] += 0.35 * (1.0 - dist[mask] / water_r)
-
     forest_r = max(img_w, img_h) * 0.15
-    for fx, fy in forest_pts:
-        dist = np.sqrt((xs_grid - fx) ** 2 + (ys_grid - fy) ** 2)
-        mask = dist < forest_r
-        moist[mask] += 0.20 * (1.0 - dist[mask] / forest_r)
-
     mtn_r = max(img_w, img_h) * 0.14
-    for mx, my in mountain_pts:
-        dist = np.sqrt((xs_grid - mx) ** 2 + (ys_grid - my) ** 2)
-        mask = dist < mtn_r
-        moist[mask] -= 0.12 * (1.0 - dist[mask] / mtn_r)
+    moist += _bounded_influence(img_w, img_h, [
+        (water_pts, water_r, 0.35),
+        (forest_pts, forest_r, 0.20),
+        (mountain_pts, mtn_r, -0.12),
+    ])
+    moist = _spread_unit(moist)
 
-    moist = np.clip(moist, 0.0, 1.0)
-
-    # ── Per-pixel Whittaker color lookup ──
-    # Vectorized: scale to grid indices and bilinear interpolate
-    e_idx = np.clip(elev * 4.0, 0.0, 4.0)
-    m_idx = np.clip(moist * 4.0, 0.0, 4.0)
-    ei = np.clip(np.floor(e_idx).astype(np.int32), 0, 3)
-    mi = np.clip(np.floor(m_idx).astype(np.int32), 0, 3)
-    ef = e_idx - ei.astype(np.float64)
-    mf = m_idx - mi.astype(np.float64)
-
-    # Build grid lookup array
-    grid_arr = np.array(_WHITTAKER_GRID, dtype=np.float64)  # (5, 5, 3)
-    c00 = grid_arr[ei, mi]          # (H, W, 3)
-    c01 = grid_arr[ei, mi + 1]
-    c10 = grid_arr[ei + 1, mi]
-    c11 = grid_arr[ei + 1, mi + 1]
-
-    ef3 = ef[:, :, np.newaxis]
-    mf3 = mf[:, :, np.newaxis]
-    rgb = (
-        c00 * (1 - ef3) * (1 - mf3)
-        + c01 * (1 - ef3) * mf3
-        + c10 * ef3 * (1 - mf3)
-        + c11 * ef3 * mf3
+    # ── Guards ──
+    # Both defects this replaced were silent. The influence accumulator
+    # saturated, and on any canvas wider than the 1600x900 default every
+    # influence point landed outside the raster, leaving location-independent
+    # noise that still looked like plausible terrain. Neither raised and neither
+    # was visible in the output without a measuring tool, so both are now
+    # reported at the source rather than left to be rediscovered.
+    outside = sum(
+        1 for x, y in layout.values()
+        if not (0.0 <= x * scale_x < img_w
+                and 0.0 <= (canvas_height - y) * scale_y < img_h)
     )
+    if outside:
+        logger.warning(
+            "terrain: %d/%d locations fall outside the %dx%d raster — the "
+            "canvas is probably not %dx%d (novel=%s). Pass the layout's own "
+            "canvas, or the field will be location-independent",
+            outside, len(layout), img_w, img_h,
+            canvas_width, canvas_height, novel_id,
+        )
+    dominant = np.bincount(
+        (elev * 255).astype(np.uint8).ravel(), minlength=256,
+    ).max() / elev.size
+    if dominant > 0.35:
+        logger.warning(
+            "terrain: elevation field is degenerate, %.0f %% of pixels share "
+            "one value (novel=%s) — check that the influence rule is bounded",
+            dominant * 100, novel_id,
+        )
+
+    if _SHAPE == "ridged":
+        # ── One field, shaded, with the palette ramped over it ──
+        #
+        # The influences are the ones the class field already uses, and they are
+        # applied here rather than to `elev`, because in this recipe the height
+        # field is the only field: a mountain location has to raise the ground
+        # the reader sees, not a parallel quantity that only picks a colour.
+        # A ridged field on its own has the wrong topology for mass, and mixing
+        # it into an fBm base is the standard fix.
+        #
+        # `1-|n|` is large along the zero set of a smooth field, which is a
+        # NETWORK OF CURVES, so a pure ridged sum puts its greatest heights on
+        # one-dimensional filaments. Snow lands on them, and because filaments
+        # are long, thin and branching the eye reads them as rivers in the
+        # valleys rather than as crests -- seen at length, not inferred. Terrain
+        # needs its high ground to have AREA.
+        #
+        # So the broad shape is an fBm, whose mass is genuinely two-dimensional,
+        # and the ridged sum is mixed into it to sharpen the crests and give
+        # them a drainage structure. _RIDGE_MIX is the split.
+        ridge = np.zeros((img_h, img_w), dtype=np.float64)
+        for i, (wl, octs, amp) in enumerate(_RIDGE_SCALES):
+            ridge += amp * _ridged(seed_base + 11 + 101 * i, wl, octs)
+        ridge = _own_unit(ridge, _HEIGHT_WINDOW)
+
+        base = _own_unit(_fbm(seed_base + 11, _RIDGE_BASE_WL, _RIDGE_OCTAVES),
+                         _HEIGHT_WINDOW)
+
+        # Which provinces are mountainous, as a separate low-frequency field, so
+        # the answer is a property of the map rather than of each cell. Applied
+        # to the ridges only: a plain keeps its broad shape and loses its crests,
+        # rather than going flat and reading as a hole.
+        mask = _fbm(seed_base + 61, _RELIEF_MASK_WL, _RELIEF_MASK_OCTAVES)
+        mask = _own_unit(mask, (10.0, 90.0))
+        ridge *= _PLAIN_FLOOR + (1.0 - _PLAIN_FLOOR) * mask
+
+        height = (1.0 - _RIDGE_MIX) * base + _RIDGE_MIX * ridge
+        height += _bounded_influence(img_w, img_h, [
+            (mountain_pts, influence_r, 0.25),
+            (water_pts, influence_r, -0.20),
+        ])
+        h_lo = float(np.percentile(height, _HEIGHT_WINDOW[0]))
+        h_hi = float(np.percentile(height, _HEIGHT_WINDOW[1]))
+        height = np.clip((height - h_lo) / max(h_hi - h_lo, 1e-9), 0.0, 1.0)
+        # Bias the mass into the lowlands before colouring, so the map is mostly
+        # the light low ground a reader can put labels on. See _HEIGHT_GAMMA.
+        height = height ** _HEIGHT_GAMMA
+        rgb = _ramp_lookup(height, moist) * (
+            _SHADE_FLOOR + _SHADE_RANGE * _hillshade(height)
+        )[:, :, np.newaxis]
+    else:
+        # ── Per-pixel Whittaker color lookup ──
+        # Vectorized: scale to grid indices and bilinear interpolate
+        e_idx = np.clip(elev * 4.0, 0.0, 4.0)
+        m_idx = np.clip(moist * 4.0, 0.0, 4.0)
+        ei = np.clip(np.floor(e_idx).astype(np.int32), 0, 3)
+        mi = np.clip(np.floor(m_idx).astype(np.int32), 0, 3)
+        ef = e_idx - ei.astype(np.float64)
+        mf = m_idx - mi.astype(np.float64)
+
+        # Build grid lookup array
+        grid_arr = np.array(_WHITTAKER_GRID, dtype=np.float64)  # (5, 5, 3)
+        c00 = grid_arr[ei, mi]          # (H, W, 3)
+        c01 = grid_arr[ei, mi + 1]
+        c10 = grid_arr[ei + 1, mi]
+        c11 = grid_arr[ei + 1, mi + 1]
+
+        ef3 = ef[:, :, np.newaxis]
+        mf3 = mf[:, :, np.newaxis]
+        rgb = (
+            c00 * (1 - ef3) * (1 - mf3)
+            + c01 * (1 - ef3) * mf3
+            + c10 * ef3 * (1 - mf3)
+            + c11 * ef3 * mf3
+        )
+
+        # ── Relief shading from the detail field ──
+        # A slope-driven light from the upper left, the same convention every map
+        # and every hillshade uses. This is what makes the fine octaves read as
+        # landform instead of as speckle: they never move a biome boundary, they
+        # only darken what faces away from the light, so the terrain gains
+        # structure without the classes fragmenting. The slope is normalised
+        # against its own 95th percentile so the gain does not drift with the
+        # raster size or with how many octaves the detail budget happens to buy.
+        # Shaded on a band-limited height field, deliberately. Running the
+        # gradient over the full fractal sum shades the finest octave hardest — a
+        # gradient amplifies high frequencies — and the result reads as stucco
+        # rather than as landform. The finest octaves go in flat, as
+        # _TEXTURE_AMPLITUDE, where they add grain without pretending to be
+        # slopes.
+        if _RELIEF_GAIN > 0.0:
+            relief = _fbm(seed_base + 11, 0.244, _RELIEF_OCTAVES)
+            gy, gx = np.gradient(relief)
+            slope = gx + gy             # signed slope along the light vector
+            slope_scale = float(np.percentile(np.abs(slope), 95.0))
+            shade = np.clip(slope / (slope_scale + 1e-12), -2.0, 2.0)
+            rgb = rgb * (1.0 + _RELIEF_GAIN * shade)[:, :, np.newaxis]
+
+    if _TEXTURE_AMPLITUDE > 0.0:
+        texture = _fbm(seed_base + 51, _TEXTURE_BASE_WL, _TEXTURE_OCTAVES)
+        rgb = rgb * (1.0 + _TEXTURE_AMPLITUDE * texture)[:, :, np.newaxis]
 
     # ── Color variation noise for visual depth ──
-    variation = (
-        _sparse_noise(detail_noise, 0.01, step=2) * 0.5
-        + _sparse_noise(detail_noise, 0.03, step=4) * 0.3
-        + _sparse_noise(detail_noise, 0.08, step=8) * 0.2
-    )
-    rgb = rgb + variation[:, :, np.newaxis] * 30  # ±15 color variation
+    # Each of these is skipped at 0 rather than multiplied by it: the dials are
+    # documented as disabling the term, and a disabled term should not cost a
+    # full fractal sum.
+    if _VARIATION_STRENGTH > 0.0:
+        variation = _fbm(seed_base + 31, 0.098, _VARIATION_OCTAVES)
+        rgb = rgb + variation[:, :, np.newaxis] * _VARIATION_STRENGTH
 
     # ── Paper grain texture ──
-    paper = _sparse_noise(paper_noise, 0.12, step=4)
-    rgb = rgb + paper[:, :, np.newaxis] * 12  # ±6 grain
+    if _PAPER_STRENGTH > 0.0:
+        paper = _sparse_noise(seed_base + 41, 0.0081)
+        rgb = rgb + paper[:, :, np.newaxis] * _PAPER_STRENGTH
 
     rgb = np.clip(rgb, 0, 255).astype(np.uint8)
 
     # ── Gaussian blur for smooth, painterly transitions ──
+    # Also a fraction of the long side, for the reason the noise wavelengths are:
+    # a fixed sigma of 4 px was 0.39 % of a 1024 raster but only 0.10 % of a 4096
+    # one, so raising the resolution silently traded the painterly wash for the
+    # speckle the field is made of. See _BLUR_FRAC.
+    blur_sigma = max(0.5, long_side * _BLUR_FRAC)
     for ch in range(3):
-        rgb[:, :, ch] = gaussian_filter(rgb[:, :, ch].astype(np.float64), sigma=4).astype(np.uint8)
+        rgb[:, :, ch] = gaussian_filter(
+            rgb[:, :, ch].astype(np.float64), sigma=blur_sigma).astype(np.uint8)
 
     # ── Save ──
     img = Image.fromarray(rgb, "RGB")
     maps_dir = DATA_DIR / "maps" / novel_id
     maps_dir.mkdir(parents=True, exist_ok=True)
-    out_path = maps_dir / "terrain.png"
+    out_path = terrain_path_for(novel_id)
     img.save(str(out_path), "PNG")
     logger.info("Terrain image saved: %s (%dx%d)", out_path, img_w, img_h)
     return str(out_path)
@@ -3086,7 +3883,31 @@ def generate_terrain(
 
 
 # Bump this when solver algorithm changes to invalidate layout cache
-_LAYOUT_VERSION = 10
+#
+# v12: the revert of the three-ring shelf experiment. v11 was spent on the
+# three-ring version, so the cache already held 8136-vertex wrapped rings when
+# the code went back to one — and a 0.50 s response proved the cache was still
+# serving them. Same trap as `_TERRAIN_VERSION`: the recipe changed and the
+# number did not, so nothing invalidated. A revert is a recipe change.
+#
+# v11: the landmass payload gained two more shelf rings (`_SHELF_RING_MULTS`), so
+# the cached layout held one ring where the client then read three.
+#
+# v12: `_SHELF_RING_MULTS` went from one entry to two and each contour carries a
+# depth band. Same species of bug as v11 -- the shelf *geometry* changed, so the
+# cache key has to move with it or the first request after a restart is served a
+# single flat ring and looks like the fix did nothing.
+#
+# v13: two-band depth shipped in `generate_landmasses` (shelves + shelf_depth),
+# but the `map_geo_artifacts` cache persisted only `shelves` and dropped
+# `shelf_depth` on every cached read -- so the depth bands never reached the
+# client. The fix persists `shelf_depth_json` in that cache.
+#
+# v14: bump so the stale v13 geo-artifacts row (shelves WITHOUT shelf_depth) is
+# not reused. The ch_hash already folds this version, so both `map_layouts` and
+# `map_geo_artifacts` keys move together.
+_LAYOUT_VERSION = 14
+
 
 def compute_chapter_hash(
     chapter_start: int, chapter_end: int,
@@ -3308,7 +4129,7 @@ def generate_rivers(
         return []
 
     # Deterministic noise generators (offset from terrain seed)
-    base_seed = hash(novel_id) % (2**31)
+    base_seed = _stable_seed(novel_id)
     elev_noise = OpenSimplex(seed=base_seed + 42)
     wiggle_noise = OpenSimplex(seed=base_seed + 99)
 
@@ -3786,10 +4607,46 @@ def generate_landmasses(
             dist_sq = (xx - gxi) ** 2 + (yy - gyi) ** 2
             land_mask[y_lo:y_hi, x_lo:x_hi][dist_sq <= ocean_r * ocean_r] = False
 
-    # Also build shelf mask (threshold * 1.3)
-    shelf_mask = dist_field < threshold * 1.3
-    shelf_mask = binary_closing(shelf_mask, structure=struct_large)
-    shelf_mask = binary_opening(shelf_mask, structure=struct_small)
+    # ── Shelf rings ──
+    #
+    # One band at `threshold * 1.3` is a hard-edged flat ring, and a ring is a
+    # sticker outline however pale it is — deepening the ocean put ~14 levels
+    # between the two and made the edge worse, which is why the alpha had to be
+    # walked back. A single ring cannot read as *depth*; depth needs more than
+    # one contour.
+    #
+    # Three nested rings were tried here and reverted (v10). They do give a true
+    # shallow-to-deep gradient — a shore point sits inside all three masks and
+    # open water inside the outermost — but the masks are built from the same
+    # global `dist_field`, i.e. "distance to the nearest land", so the outer ring
+    # is not three rings around a continent. It is one ring around *everywhere
+    # that happens to be within N of any coast*, and on a map with 西游记's
+    # island density at 3.4x that merges the whole archipelago into a single
+    # connected component: 8136 vertices where the field should have had a
+    # hundred, a polygon covering half the canvas, and a payload ten times the
+    # size — the client stopped reaching networkidle. A ring per landmass needs
+    # a distance field per landmass, which is a different implementation rather
+    # than a different multiplier.
+    #
+    # The multiplied form is kept as the seam for that work: the loop below
+    # builds one mask per entry, and the caller already handles a list.
+    # v11: two bands, not one. Measured on 西游记, the sea carries 6% of the
+    # land's structure density and 62% of its water tiles are completely flat
+    # (flatness_probe). There is no bathymetry to blame it on -- dialling the
+    # client's ocean fill to zero makes the sea *flatter*, 0.882 -> 0.507, which
+    # says the baked terrain under the water is empty and the flat wash is the
+    # only thing there is. So depth has to be drawn, and the cheapest honest
+    # thing that draws it is the one thing the shelf mask already has: how far
+    # the water is from the nearest land. Two bands is the point of diminishing
+    # return and three is where the archipelago stops being separate (see the
+    # reverted attempt below).
+    _SHELF_RING_MULTS = (1.3, 2.0)
+    shelf_masks = []
+    for _mult in _SHELF_RING_MULTS:
+        _m = dist_field < threshold * _mult
+        _m = binary_closing(_m, structure=struct_large)
+        _m = binary_opening(_m, structure=struct_small)
+        shelf_masks.append(_m)
 
     # ── 1.4 Contour tracing (Moore Neighborhood per component) ──
     from scipy.ndimage import label as ndimage_label
@@ -3879,7 +4736,7 @@ def generate_landmasses(
 
     # Trace land outer boundaries (one per connected land component)
     land_contours = _trace_all_components(land_mask)
-    shelf_contours = _trace_all_components(shelf_mask)
+    shelf_rings = [_trace_all_components(m) for m in shelf_masks]
 
     # Trace hole boundaries: connected sea regions NOT touching the grid border
     sea_labels, num_sea = ndimage_label(~land_mask, structure=np.ones((3, 3), dtype=int))
@@ -4042,15 +4899,50 @@ def generate_landmasses(
             "is_main": i == 0,
         })
 
-    # Build shelf contours
-    canvas_shelves = [_grid_to_canvas(c) for c in shelf_contours]
-    shelves: list[list[list[float]]] = []
-    for sc in canvas_shelves:
-        sc_area = _unsigned_area(sc)
-        if sc_area < canvas_area * 0.01:
-            continue
-        smoothed_shelf = _distort_coastline(sc, sc_area)
-        shelves.append([[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf])
+    # Build shelf contours.
+    #
+    # The list, the sort and the loop all survive the reverted three-ring
+    # attempt: with one entry in `_SHELF_RING_MULTS` they degenerate to the
+    # original single pass, and the shape is the seam for the per-landmass
+    # version described above. Sorting by area descending is a no-op today and
+    # is what makes the list paint outermost-first the moment it is not.
+    #
+    # The upper bound is a guard, not a tuned value. An over-wide mask traces
+    # the canvas border instead of a coastline — a polygon covering the map,
+    # which would flood every ocean with shelf colour — and that is exactly what
+    # the three-ring attempt produced. 0.7 is loose enough that no honest single
+    # ring reaches it (the largest component measured on 西游记 is well under
+    # half the canvas) and tight enough to catch the degenerate case.
+    # (area, depth, points) triples, so the depth travels with its contour
+    # through the sort. Sorting the depths separately would be wrong: the two
+    # bands do not contribute the same number of contours, so the multiset of
+    # depths is not the sequence the areas produce, and after a value sort they
+    # would be paired with the wrong polygons.
+    shelf_paths: list[tuple[float, float, list[list[float]]]] = []
+    # Which band each contour belongs to, 0 = nearest the shore. With one entry
+    # in `_SHELF_RING_MULTS` every value is 0 and the client falls back to its
+    # single fill, so a persisted artifact from before this change is not a
+    # shape error.
+    _n_rings = max(1, len(_SHELF_RING_MULTS))
+    for _ring_idx, ring_contours in enumerate(shelf_rings):
+        _depth = 0.0 if _n_rings < 2 else _ring_idx / (_n_rings - 1)
+        for c in ring_contours:
+            sc = _grid_to_canvas(c)
+            sc_area = _unsigned_area(sc)
+            if sc_area < canvas_area * 0.01 or sc_area > canvas_area * 0.7:
+                continue
+            smoothed_shelf = _distort_coastline(sc, sc_area)
+            shelf_paths.append((
+                sc_area,
+                round(_depth, 3),
+                [[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf],
+            ))
+    shelf_paths.sort(key=lambda item: item[0], reverse=True)
+    shelves: list[list[list[float]]] = [pts for _, _, pts in shelf_paths]
+    # Area descending is also outermost-first, and a band's polygon contains the
+    # bands inside it, so painting in this order lets the shallow inner band land
+    # on top of the deep outer one instead of being buried by it.
+    shelf_depth: list[float] = [d for _, d, _ in shelf_paths]
 
     # ── Post-generation coverage guarantee ──
     # Chaikin smoothing + OpenSimplex distortion shrink coastlines inward,
@@ -4122,6 +5014,10 @@ def generate_landmasses(
     return {
         "landmasses": landmasses,
         "shelves": shelves,
+        # Depth band per contour, 0 = nearest the shore. Parallel to `shelves`
+        # in the same order; absent on artifacts persisted before v11, where the
+        # client falls back to a single fill.
+        "shelf_depth": shelf_depth,
         "_land_mask": land_mask,       # internal: numpy bool grid (not serialized)
         "_cell_size": cell_size,       # internal: grid cell size in canvas px
     }
