@@ -11,12 +11,10 @@ import contextlib
 import json
 import logging
 from collections import Counter, defaultdict
-from pathlib import Path
 
 from src.db import world_structure_store
 from src.db.sqlite_db import get_connection
 from src.extraction.fact_validator import _LOCATION_NAME_NORMALIZE
-from src.infra.config import DATA_DIR
 from src.models.chapter_fact import ChapterFact, classify_spatial_relation
 from src.models.world_structure import LayerType
 from src.services.alias_resolver import build_alias_map
@@ -32,15 +30,13 @@ from src.services.geo_resolver import (
     place_unresolved_geo_coords,
 )
 from src.services.map_layout_service import (
+    _TERRAIN_VERSION,
     CANVAS_HEIGHT,
     CANVAS_WIDTH,
     SPATIAL_SCALE_CANVAS,
     ConstraintSolver,
     _layout_regions,
-    _TERRAIN_VERSION,
     compute_chapter_hash,
-    terrain_path_for,
-    terrain_url_for,
     compute_layered_layout,
     generate_landmasses,
     generate_rivers,
@@ -49,6 +45,8 @@ from src.services.map_layout_service import (
     generate_voronoi_boundaries,
     layout_to_list,
     place_unresolved_near_neighbors,
+    terrain_path_for,
+    terrain_url_for,
 )
 from src.services.relation_utils import normalize_relation_type
 from src.services.world_structure_agent import WorldStructureAgent
@@ -1345,6 +1343,21 @@ async def get_map_data(
                         location_region_bounds[loc_name] = region_layout[region_name]["bounds"]
     except Exception:
         logger.warning("Failed to load WorldStructure for region layout", exc_info=True)
+
+    # ── Canvas the layout + terrain bake below must agree on ──
+    # Every layer is solved in SPATIAL_SCALE_CANVAS[spatial_scale]
+    # (compute_layered_layout), and the terrain raster has to be baked in that
+    # same space or its influence points land off the edge of the image. This
+    # was assigned only *inside* the `active_regions` branch above, so a world
+    # structure with no regions left it unbound and the layout call below raised
+    # UnboundLocalError, killing the whole /map request for that novel
+    # (regression introduced with the ccee9c3ad terrain-canvas change).
+    if ws is not None:
+        _ws_cw, _ws_ch = SPATIAL_SCALE_CANVAS.get(
+            ws.spatial_scale or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
+        )
+    else:
+        _ws_cw, _ws_ch = CANVAS_WIDTH, CANVAS_HEIGHT
 
     # ── Phase A: Constraint enhancement (no LLM, real-time) ──
     _completed_rels = ws.completed_spatial_relations if ws else None
