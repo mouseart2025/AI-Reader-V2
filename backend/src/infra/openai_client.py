@@ -258,6 +258,34 @@ class OpenAICompatibleClient:
                         json=payload,
                         headers=self._headers(),
                     )
+                    # ── response_format fallback (issue #84) ──────────────
+                    # Newer llama.cpp / LM Studio only accept
+                    # response_format.type ∈ {json_schema, text} and reject the
+                    # legacy {"type": "json_object"} with a 400:
+                    #   "'response_format.type' must be 'json_schema' or 'text'".
+                    # Rather than probe endpoint capabilities, drop the field and
+                    # retry once. The prompt already demands JSON and the parsing
+                    # chain below (_extract_json / _repair_truncated_json /
+                    # _strip_thinking) handles a plain-text reply, so this only
+                    # downgrades the *enforcement*, not the contract. Providers
+                    # that accept json_object (and every cloud endpoint) never
+                    # reach this branch.
+                    if (
+                        resp.status_code == 400
+                        and "response_format" in payload
+                        and "response_format" in resp.text
+                    ):
+                        logger.warning(
+                            "Endpoint rejected response_format=json_object "
+                            "(%s); retrying once without it.",
+                            resp.text[:120],
+                        )
+                        payload.pop("response_format", None)
+                        resp = await client.post(
+                            f"{self.base_url}/chat/completions",
+                            json=payload,
+                            headers=self._headers(),
+                        )
                     resp.raise_for_status()
             except httpx.TimeoutException as exc:
                 raise LLMTimeoutError(
