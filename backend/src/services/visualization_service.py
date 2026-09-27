@@ -935,6 +935,46 @@ async def invalidate_map_response_cache(novel_id: str) -> None:
         _map_cache.pop(key, None)
     await world_structure_store.delete_geo_artifacts(novel_id)
 
+
+# Layer types that are SEPARATE WORLDS rather than places on Earth. `pocket` is
+# deliberately excluded: pockets are interiors (洞府/府邸) that sit inside the real
+# world, and every instance_* layer is one.
+_REALM_LAYER_TYPES = frozenset({"sky", "underground", "underwater", "sea", "spirit"})
+
+
+def _realm_layer_location_count(ws) -> tuple[int, int]:
+    """(locations mapped into a non-earth realm layer, total mapped locations)."""
+    realm_ids = {
+        lyr.layer_id
+        for lyr in (ws.layers or [])
+        if str(getattr(lyr.layer_type, "value", lyr.layer_type)) in _REALM_LAYER_TYPES
+    }
+    mapped = ws.location_layer_map or {}
+    total = len(mapped)
+    return sum(1 for lid in mapped.values() if lid in realm_ids), total
+
+
+def _prefers_fantasy_layers(ws) -> bool:
+    """True when a world should be drawn as a LAYERED fantasy map, not on a
+    real-world basemap.
+
+    A real basemap has nowhere to put 天界/冥界, so those locations simply vanish
+    from the map. 封神演义 is the case that forced this: 64 % of its names are real
+    ancient toponyms (朝歌/西岐/昆仑/冀州), so the geo detector reads it as
+    realistic/mixed — yet its celestial + underwater layers hold 10 mapped
+    locations, and those were invisible on the Leaflet map.
+
+    Keyed on the MAPPED LOCATION COUNT, not on a layer merely being declared:
+    水浒传 declares a 天界 (sky) layer holding 0 locations, and 红楼梦 maps 2
+    (0.3 %). Thresholds are >= 5 locations AND >= 1 % of the mapped ones, which
+    封神 clears (10, 2.1 %) and 红楼 does not (2, 0.3 %) — so only 封神 flips.
+    """
+    if ws is None:
+        return False
+    n, total = _realm_layer_location_count(ws)
+    return n >= 5 and n / max(total, 1) >= 0.01
+
+
 async def get_map_data(
     novel_id: str, chapter_start: int, chapter_end: int,
     layer_id: str | None = None,
@@ -1408,6 +1448,23 @@ async def get_map_data(
                      ws.geo_type, _effective_geo_type, cached_layer["layout_mode"])
         cached_layer = None
 
+    # The mirror case: the cache IS geographic but the world has real realm
+    # layers, so it has to become layered. Without this the cached geographic
+    # layout would be served forever and the realms would stay invisible — the
+    # cache short-circuits the choice that the geo block below would make.
+    if (
+        cached_layer is not None
+        and target_layer == "overworld"
+        and cached_layer["layout_mode"] == "geographic"
+        and _prefers_fantasy_layers(ws)
+    ):
+        logger.info(
+            "Invalidating geographic overworld cache for %s: world has "
+            "substantial non-earth realm layers, which a real-world basemap "
+            "cannot show", novel_id,
+        )
+        cached_layer = None
+
     # Compute canvas_size for API response (per-layer scale if available).
     # Resolved here rather than further down only because the terrain rebake
     # below needs the layout's own space: `ws` is not mutated on this path
@@ -1517,7 +1574,11 @@ async def get_map_data(
         # ── Geographic layout: real-world coordinates via GeoNames ──
         # Only attempt for overworld layer (sub-layers are fictional internal spaces)
         geo_resolved = False
-        if ws and target_layer == "overworld":
+        # A world with substantial non-earth realms is drawn layered instead: its
+        # 天界/冥界 locations have no coordinate on a real basemap and would simply
+        # be dropped. Skipping geo here leaves geo_resolved False, and the block
+        # below then builds the layered layout.
+        if ws and target_layer == "overworld" and not _prefers_fantasy_layers(ws):
             try:
                 all_names = [loc["name"] for loc in locations]
                 major_names = [
