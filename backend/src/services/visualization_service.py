@@ -1770,6 +1770,7 @@ async def get_map_data(
         landmass_result = {
             "landmasses": _geo_artifacts["landmasses"],
             "shelves": _geo_artifacts["shelves"],
+            "shelf_depth": _geo_artifacts.get("shelf_depth", []),
         }
         rivers = _geo_artifacts["rivers"]
         roads = _geo_artifacts["roads"]
@@ -1851,6 +1852,7 @@ async def get_map_data(
                     json.dumps(landmass_result.get("shelves", []), ensure_ascii=False),
                     json.dumps(rivers, ensure_ascii=False),
                     json.dumps(roads, ensure_ascii=False),
+                    json.dumps(landmass_result.get("shelf_depth", []), ensure_ascii=False),
                 )
             except Exception:
                 logger.warning("Failed to persist map geo artifacts", exc_info=True)
