@@ -361,6 +361,8 @@ export interface NovelMapProps {
   roads?: { from: string; to: string; points: number[][] }[]
   landmasses?: Landmass[]
   shelves?: [number, number][][]
+  /** Depth band per shelf contour, parallel to `shelves`. 0 = nearest the shore. */
+  shelfDepth?: number[]
   trajectoryPoints?: TrajectoryPoint[]
   allTrajectoryPoints?: TrajectoryPoint[]  // full trajectory (for background dashed path)
   currentLocation?: string | null
@@ -416,6 +418,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       roads,
       landmasses,
       shelves,
+      shelfDepth,
       terrainUrl,
       trajectoryPoints,
       allTrajectoryPoints,
@@ -1197,14 +1200,41 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           // wrapped the entire archipelago instead of each landmass, and the
           // whole thing went back to one ring (see `_SHELF_RING_MULTS`). One
           // ring, one alpha, so it is the measured 0.22 again.
-          const shelfFill = darkBg
-            ? "rgba(96,140,180,0.26)"
-            : "rgba(206,230,242,0.22)"
-          for (const shelfPts of shelves) {
+          // ── Depth by band ─────────────────────────────
+          // `shelf_depth` runs 0 at the shore to 1 at the furthest the recipe
+          // looks; the backend emits one band per entry of `_SHELF_RING_MULTS`,
+          // and with the shipped pair that is {0, 1}. Both ends are anchors on
+          // the measured fills above rather than points on a ramp: the shallow
+          // end is the same colour v9 and v10 settled on, and the deep end is
+          // the one that makes the water read as a surface with a floor under
+          // it instead of as one flat sheet.
+          //
+          // The shelves arrive sorted by area descending, i.e. outermost first,
+          // and each band's polygon contains the bands inside it — so the last
+          // path painted here is the innermost, and the shallow fill wins on top
+          // of the deep one it is nested in. If that sort ever changes, the
+          // whole banding reverses and the map turns inside out.
+          const shelfShallow = darkBg
+            ? { r: 96, g: 140, b: 180, a: 0.26 }
+            : { r: 206, g: 230, b: 242, a: 0.22 }
+          const shelfDeep = darkBg
+            ? { r: 10, g: 26, b: 48, a: 0.34 }
+            : { r: 78, g: 124, b: 168, a: 0.26 }
+          const depths = shelfDepth ?? []
+          for (let si = 0; si < shelves.length; si++) {
+            const d = depths[si]
+            const t = d === undefined || Number.isNaN(d) ? 0 : Math.min(1, Math.max(0, d))
+            const mix = (a: number, b: number) => a + (b - a) * t
             shelfG
               .append("path")
-              .attr("d", toPathD(shelfPts as [number, number][]))
-              .attr("fill", shelfFill)
+              .attr("d", toPathD(shelves[si] as [number, number][]))
+              .attr(
+                "fill",
+                `rgba(${Math.round(mix(shelfShallow.r, shelfDeep.r))},` +
+                  `${Math.round(mix(shelfShallow.g, shelfDeep.g))},` +
+                  `${Math.round(mix(shelfShallow.b, shelfDeep.b))},` +
+                  `${mix(shelfShallow.a, shelfDeep.a).toFixed(3)})`,
+              )
               .style("pointer-events", "none")
           }
         }
@@ -1286,7 +1316,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         coastNode.style.pointerEvents = "none"
         ;(coastG.node() as Element).appendChild(coastNode)
       }
-    }, [mapReady, landmasses, shelves, allLayout, layout, canvasW, canvasH, darkBg])
+    }, [mapReady, landmasses, shelves, shelfDepth, allLayout, layout, canvasW, canvasH, darkBg])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {

@@ -3891,7 +3891,12 @@ def generate_terrain(
 #
 # v11: the landmass payload gained two more shelf rings (`_SHELF_RING_MULTS`), so
 # the cached layout held one ring where the client then read three.
-_LAYOUT_VERSION = 12
+#
+# v12: `_SHELF_RING_MULTS` went from one entry to two and each contour carries a
+# depth band. Same species of bug as v11 -- the shelf *geometry* changed, so the
+# cache key has to move with it or the first request after a restart is served a
+# single flat ring and looks like the fix did nothing.
+_LAYOUT_VERSION = 13
 
 
 def compute_chapter_hash(
@@ -4615,7 +4620,17 @@ def generate_landmasses(
     #
     # The multiplied form is kept as the seam for that work: the loop below
     # builds one mask per entry, and the caller already handles a list.
-    _SHELF_RING_MULTS = (1.3,)
+    # v11: two bands, not one. Measured on 西游记, the sea carries 6% of the
+    # land's structure density and 62% of its water tiles are completely flat
+    # (flatness_probe). There is no bathymetry to blame it on -- dialling the
+    # client's ocean fill to zero makes the sea *flatter*, 0.882 -> 0.507, which
+    # says the baked terrain under the water is empty and the flat wash is the
+    # only thing there is. So depth has to be drawn, and the cheapest honest
+    # thing that draws it is the one thing the shelf mask already has: how far
+    # the water is from the nearest land. Two bands is the point of diminishing
+    # return and three is where the archipelago stops being separate (see the
+    # reverted attempt below).
+    _SHELF_RING_MULTS = (1.3, 2.0)
     shelf_masks = []
     for _mult in _SHELF_RING_MULTS:
         _m = dist_field < threshold * _mult
@@ -4888,8 +4903,19 @@ def generate_landmasses(
     # the three-ring attempt produced. 0.7 is loose enough that no honest single
     # ring reaches it (the largest component measured on 西游记 is well under
     # half the canvas) and tight enough to catch the degenerate case.
-    shelf_paths: list[tuple[float, list[list[float]]]] = []
-    for ring_contours in shelf_rings:
+    # (area, depth, points) triples, so the depth travels with its contour
+    # through the sort. Sorting the depths separately would be wrong: the two
+    # bands do not contribute the same number of contours, so the multiset of
+    # depths is not the sequence the areas produce, and after a value sort they
+    # would be paired with the wrong polygons.
+    shelf_paths: list[tuple[float, float, list[list[float]]]] = []
+    # Which band each contour belongs to, 0 = nearest the shore. With one entry
+    # in `_SHELF_RING_MULTS` every value is 0 and the client falls back to its
+    # single fill, so a persisted artifact from before this change is not a
+    # shape error.
+    _n_rings = max(1, len(_SHELF_RING_MULTS))
+    for _ring_idx, ring_contours in enumerate(shelf_rings):
+        _depth = 0.0 if _n_rings < 2 else _ring_idx / (_n_rings - 1)
         for c in ring_contours:
             sc = _grid_to_canvas(c)
             sc_area = _unsigned_area(sc)
@@ -4898,10 +4924,15 @@ def generate_landmasses(
             smoothed_shelf = _distort_coastline(sc, sc_area)
             shelf_paths.append((
                 sc_area,
+                round(_depth, 3),
                 [[round(p[0], 1), round(p[1], 1)] for p in smoothed_shelf],
             ))
     shelf_paths.sort(key=lambda item: item[0], reverse=True)
-    shelves: list[list[list[float]]] = [pts for _, pts in shelf_paths]
+    shelves: list[list[list[float]]] = [pts for _, _, pts in shelf_paths]
+    # Area descending is also outermost-first, and a band's polygon contains the
+    # bands inside it, so painting in this order lets the shallow inner band land
+    # on top of the deep outer one instead of being buried by it.
+    shelf_depth: list[float] = [d for _, d, _ in shelf_paths]
 
     # ── Post-generation coverage guarantee ──
     # Chaikin smoothing + OpenSimplex distortion shrink coastlines inward,
@@ -4973,6 +5004,10 @@ def generate_landmasses(
     return {
         "landmasses": landmasses,
         "shelves": shelves,
+        # Depth band per contour, 0 = nearest the shore. Parallel to `shelves`
+        # in the same order; absent on artifacts persisted before v11, where the
+        # client falls back to a single fill.
+        "shelf_depth": shelf_depth,
         "_land_mask": land_mask,       # internal: numpy bool grid (not serialized)
         "_cell_size": cell_size,       # internal: grid cell size in canvas px
     }

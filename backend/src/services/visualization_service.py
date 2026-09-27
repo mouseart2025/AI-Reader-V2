@@ -1984,6 +1984,10 @@ async def get_map_data(
         "roads": roads,
         "landmasses": landmass_result.get("landmasses", []),
         "shelves": landmass_result.get("shelves", []),
+        # Depth band per shelf contour, 0 = nearest the shore. Short or empty on
+        # artifacts written before the two-band shelf landed; the client treats
+        # that as "no depth data, use one fill".
+        "shelf_depth": landmass_result.get("shelf_depth", []),
         "region_boundaries": region_boundaries,
         "portals": portals_response,
         "revealed_location_names": revealed_names,
