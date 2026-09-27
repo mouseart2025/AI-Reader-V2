@@ -19,8 +19,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import src.services.map_layout_service as mls      # noqa: E402
-from src.infra.config import DATA_DIR               # noqa: E402
+import src.services.map_layout_service as mls
+from src.infra.config import DATA_DIR
 
 NOVEL = "2f19030d-66e2-4ab5-9593-2d67f07af006"
 BENCH = "_terrain_bench"
@@ -75,7 +75,7 @@ def main() -> None:
                 used[a, b] = int(((ei == a) & (mi == b)).sum())
         total = used.sum()
         print("\nwhich palette cells the field actually visits "
-              f"(row = elevation, col = moisture), % of land pixels:")
+              "(row = elevation, col = moisture), % of land pixels:")
         for a in range(4):
             row = "  ".join(f"{used[a, b]/total*100:5.1f}" for b in range(4))
             print(f"  e{a}  {row}")

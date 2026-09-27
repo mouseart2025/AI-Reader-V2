@@ -16,8 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.infra.config import DATA_DIR            # noqa: E402
-from src.services.map_layout_service import generate_terrain  # noqa: E402
+from src.infra.config import DATA_DIR
+from src.services.map_layout_service import generate_terrain
 
 NOVEL = "2f19030d-66e2-4ab5-9593-2d67f07af006"
 BENCH = "_terrain_bench"
