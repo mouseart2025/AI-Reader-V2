@@ -956,6 +956,7 @@ export default function MapPage() {
                 roads={mapData?.roads}
                 landmasses={mapData?.landmasses}
                 shelves={mapData?.shelves}
+                shelfDepth={mapData?.shelf_depth}
                 visibleLocationNames={visibleLocationNames}
                 revealedLocationNames={revealedLocationNames}
                 regionBoundaries={regionBoundaries}

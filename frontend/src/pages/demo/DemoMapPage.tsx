@@ -658,6 +658,7 @@ export default function DemoMapPage() {
               roads={mapData?.roads}
               landmasses={mapData?.landmasses}
               shelves={mapData?.shelves}
+              shelfDepth={mapData?.shelf_depth}
               visibleLocationNames={visibleLocationNames}
               revealedLocationNames={revealedLocationNames}
               regionBoundaries={regionBoundaries}
