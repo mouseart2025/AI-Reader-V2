@@ -1123,16 +1123,21 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         }
 
         // Ocean fill, and the value it resolves to is the whole point. At the
-        // old 0.46 over parchment this came out about (187,201,209) -- a few
-        // levels below the land -- and with both sides of the coast sitting in
-        // one pale wash the map had no value structure: the continents read as
-        // stains rather than as places. 0.52 takes the open sea to about
-        // (173,190,203), so the coast separates by value and the water gains a
-        // depth of its own, while the pale shelf band still reads as shallow.
+        // old 0.46 over parchment this came out about (187,201,209), then 0.52
+        // took the open sea to (173,190,203), which still left the coast a
+        // whisper: measured with `scripts/probe_map_visual.py` on a 1600x1000
+        // capture of 西游记, land and sea sat 19.2 levels apart at 1.19:1
+        // contrast, and the comments' own complaint -- "the continents read as
+        // stains rather than as places" -- is exactly what that number means.
+        //
+        // 0.68 takes the open sea to roughly (128,152,178). Land stays 109 L, so
+        // the separation roughly doubles and the water gains a body of its own,
+        // while the pale shelf band still reads as shallow water. Value before
+        // saturation: on a parchment map the sea is a *tone*, not a colour.
         oceanG
           .append("path")
           .attr("d", oceanPathD)
-          .attr("fill", darkBg ? "rgba(34,58,92,0.42)" : "rgba(104,142,178,0.52)")
+          .attr("fill", darkBg ? "rgba(24,44,74,0.55)" : "rgba(88,120,160,0.68)")
           .attr("fill-rule", "evenodd")
           .style("pointer-events", "none")
 
