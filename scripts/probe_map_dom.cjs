@@ -65,8 +65,16 @@ function findChromium() {
 
 (async () => {
   const { chromium } = loadPlaywright();
-  const url = process.argv[2] || DEFAULT_URL;
-  const shot = process.argv[3] || "/tmp/map_pw.png";
+  const args = process.argv.slice(2);
+  const hides = [];
+  let url = DEFAULT_URL;
+  let shot = "/tmp/map_pw.png";
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--hide") hides.push(args[++i]);
+    else if (a === "--shot") shot = args[++i];
+    else if (!a.startsWith("--")) url = a;
+  }
 
   const browser = await chromium.launch({
     executablePath: findChromium(),
@@ -232,6 +240,18 @@ function findChromium() {
     console.log(`landmask -> /tmp/map_mask.json  ${mask.cols}x${mask.rows} @${mask.step}px`);
   } else {
     console.log("landmask: UNAVAILABLE (#coastline-ocean path 未找到)");
+  }
+
+  // ── 图层隔离 ─────────────────────────────────────────────
+  // "这个视觉问题是谁画的" 不能靠猜：逐个把可疑图层 `display:none` 再拍。
+  // 这一条是被反复坑出来的 —— 我两次把区域弧线标签当成地点标签下结论。
+  for (const sel of hides) {
+    const n = await page.evaluate((s) => {
+      const els = document.querySelectorAll(s);
+      els.forEach((e) => (e.style.display = "none"));
+      return els.length;
+    }, sel);
+    console.log(`hide ${sel} -> ${n} 个元素`);
   }
 
   await page.screenshot({ path: shot });
