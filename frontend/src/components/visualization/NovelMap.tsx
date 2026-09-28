@@ -2121,19 +2121,35 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("stroke", "rgba(255,255,255,0.3)")
             .attr("stroke-width", 0.5)
         } else {
-          // A pale plate under the mark, the way a printed map sets a city
-          // stamp on a disc. It keeps the icon readable over dark ocean, pale
-          // desert and busy forest alike without tinting the art itself.
-          // Capped so continent-level marks don't get a dinner-plate.
+          // 浅色包边（casing），不是盘。
+          //
+          // 原来这里是 `r = min(iconSize*0.32, 18)` —— 一个按 **iconSize（图标盒）**
+          // 定尺寸的实心盘。但盒不是图形：这些 icon 是 24 单位的 viewBox 按
+          // `iconSize/2` 画出来的，实绘图形只占盒的 2/3 左右。用屏幕实绘宽度量，
+          // 六个层级上盤/字形 = **1.70**（per-mark 中位，1.52–1.93）——
+          // 也就是说读者一眼看到的是那圈盘，不是里面的字形。
+          //
+          // 代价不只是难看。底板是**不透明近白圆面 + 0.45 描边环**，在西游记 fit
+          // 缩放上量到：47 个画出来的标签里 **21 个被底板压住**，7 个压掉一半以上，
+          // **天竺国 / 祭赛国 / 平顶山 / 瑶池 四个被压掉 100%** —— 完全读不出来，
+          // 而它们一个都不在碰撞系统判为 hidden 的那 44 个里。把 `.loc-plate`
+          // 整体 `display:none` 再看，这四个名字全部重新出现。
+          // 密集区里相邻标记的盘还会互相连片，读成一屏气泡。
+          //
+          // 所以：包边只需要**包住字形**，不需要盖住盒。尺寸从实绘范围推
+          // （art ≈ 0.33·iconSize ⇒ 半宽 ≈ 0.165·iconSize），加一点余量；
+          // 填充降到近乎一层雾，让它只在深色底（海面、海岸线）上起作用；
+          // 描边环去掉，因为正是那个环最先把"盘"这个形状读出来。
+          // 深色主题不降填充分量，那里的问题是压不住而不是太抢。
           locG
             .append("circle")
             .attr("class", "loc-plate")
             .attr("cx", item.x)
             .attr("cy", item.y)
-            .attr("r", Math.min(iconSize * 0.32, 18))
-            .attr("fill", darkBg ? "rgba(17,24,39,0.5)" : "rgba(250,245,233,0.62)")
-            .attr("stroke", darkBg ? "rgba(226,214,190,0.4)" : "rgba(120,96,66,0.45)")
-            .attr("stroke-width", 1)
+            .attr("r", Math.min(iconSize * 0.17 + 1, 12))
+            .attr("fill", darkBg ? "rgba(17,24,39,0.34)" : "rgba(250,245,233,0.30)")
+            .attr("stroke", "none")
+            .attr("stroke-width", 0)
             .attr("vector-effect", "non-scaling-stroke")
             .attr("opacity", opacity)
             .style("pointer-events", "none")
@@ -2159,17 +2175,36 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
                 `translate(${item.x - iconSize / 4}, ${item.y - iconSize / 4}) scale(${iconSize / 48})`,
               )
               .attr("fill", color)
-              // A light outline around the mark, in screen pixels. Measured on
-              // 西游记: the pale plate under each mark covers the inner 41 % of
-              // the icon's box — the art reaches iconSize/2, the plate is
-              // min(iconSize*0.32, 18) — so most of every mark lands on bare
-              // terrain. There the dark ink measures 2.4-3.1:1 against the
-              // ground depending on where it falls (background luminance under
-              // the icons runs 144-195), which is a coin toss. A halo fixes the
-              // silhouette without enlarging the plate, whose 18-unit cap is
-              // deliberate — a continent mark must not become a dinner plate.
+              // 字形自己的包边（casing）—— 这是标记"读得出来"的唯一依靠。
+              //
+              // 底板被改成只包住字形的薄雾之后，标记在上面就只剩自己的墨了。
+              // 实测（西游记 fit）：把 `.loc-plate` 缩到 r≤12 / fill 0.30 之后
+              // 被压住的标签从 21 降到 16，但陆地上的标记同时变轻，一丛绿树
+              // 已经读成地皮纹理而不是"地点"。所以重量要由**字形自己**出。
+              //
+              // ⚠️ 这里用**加粗的亮色描边**，不是 `drop-shadow`。先试的正是
+              // drop-shadow（贴 alpha 轮廓、不动内部边，看起来更对），
+              // 但它有房费，而且是量出来的：
+              //
+              //   配对 A/B（同会话、同机位、交替开关，6 轮；探针 `casing_cost.py`）
+              //     fit  丢帧 >20ms  有包边 37/527 =  7.0%   无包边 5/522 = 1.0%
+              //         丢帧 >33ms  有包边 19/527 =  3.6%   无包边 2/522 = 0.4%
+              //     deep 丢帧 >20ms  有包边 77/552 = 13.9%   无包边 80/541 = 14.8%
+              //   六轮逐轮 fit 是 5,5,5,7,10,5 vs 1,1,0,1,2,0 —— 完全不重叠，不是噪声。
+              //   p50 两处都是 16.7ms（满 60fps），代价全在尖峰上。
+              //   deep 上看起来"没代价"，是因为 deep 本来就掉 14% 帧（既有性能债），
+              //   代价被淹没了 —— 不是没有，是看不见。
+              //
+              // 结论：91 个 filter 在**默认缩放**上把快速拖动的丢帧抬了 7 倍，
+              // 去换"压在深色底上的少数标记更好读"，不划算。描边是同一件事的
+              // 便宜实现：这些 icon 是简单几何（三角树冠+树干、波浪线），
+              // 逐路径描边外扩出的联合轮廓本身就是一层包边，
+              // 代价只是一点 paint 而不是一整趟 filter pass。
+              //
+              // 残余代价：多条子路径的 icon 内部边会一起加粗，所以字形比
+              // drop-shadow 版略糊；压在海面/海岸线上的标记因此稍弱。
               .attr("stroke", darkBg ? "rgba(12,18,32,0.85)" : "rgba(250,245,233,0.92)")
-              .attr("stroke-width", 1)
+              .attr("stroke-width", 1.5)
               .attr("vector-effect", "non-scaling-stroke")
               .attr("paint-order", "stroke")
               .style("color", color)  // `currentColor` above resolves here

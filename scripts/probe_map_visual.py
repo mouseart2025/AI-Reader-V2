@@ -292,6 +292,99 @@ def gap_ratio(mask: dict, symbols: dict) -> dict:
     }
 
 
+def hierarchy_stats(mask: dict, symbols: dict, marks: dict) -> dict:
+    """图形层级：读者能不能一眼把"地点标记"和"地面纹理"分开。
+
+    V3 那条待办里有两句话，但只有一句是可算的：
+
+      1. "浅色底板比它里面的字形更主导" —— 用 `plate_diameter / icon_width` 直接驳回或确认。
+      2. "地面符号与地点标记**同尺寸同重量**，两种语言打架" —— 这句至今没数。
+         判据就是**两个尺寸分布的重叠**：同尺寸必然落在同一个尺寸带里。
+
+    重叠用两个口径，因为"重叠"可以被糊弄：
+
+    - `sep`：每个 tier 的标记中位尺寸 ÷ 陆地地面符号中位尺寸。>3 才算读者能一眼分级。
+    - `marks_in_ground_band`：**标记**里有多少个的尺寸落进地面符号的 [p10,p90] 带。
+
+    第二条第一版写反了：我拿**最小 tier**（building，5.7–6.0px）的尺寸带去撞地面符号，
+    而那个带整个落在地面分布**下方**，于是得到 `0 / 110 = 0.0%` —— 一个漂亮的无用答案。
+    分母也选错了：问"两种语言撞不撞车"，被数的不该是地面符号，而是**标记** ——
+    读者的困惑发生在"这是地物还是纹理"的判读上，标记是少数派、是那个本该跳出来的东西。
+    现在改成数标记，并且用**地面墨迹自己的分布**当靶子，而不是拿某个 tier 去当靶子。
+
+    密度一并报，因为"重量"不只是单个符号的大小：一整屏都是同尺寸的符号，
+    即使每个都比标记小，图面也会读成"一层纹理上撒了些东西"而不是"地物在地面上"。
+
+    统计功效：陆地符号几百个、标记 91 个，中位数是稳的。`marks_in_ground_band` 的分母
+    是标记数（91），所以分辨率到 1% 是有意义的 —— 但它**不**回答"读者是不是真的会混淆"，
+    只回答"两种语言有没有共用一个尺寸带"。
+    """
+    import numpy as np
+
+    step = mask["step"]
+    x0, y0 = int(mask["x"]), int(mask["y"])
+    rows, cols = len(mask["sea"]), len(mask["sea"][0])
+
+    def on_land(sx: int, sy: int) -> bool:
+        i = (sx - x0) // step
+        j = (sy - y0) // step
+        return 0 <= j < rows and 0 <= i < cols and mask["sea"][j][i] != "1"
+
+    ground = [float(it[3]) for it in symbols["items"]
+              if len(it) > 3 and it[3] and on_land(it[1], it[2])]
+    if len(ground) < 20:
+        return {"error": f"陆地地面符号只有 {len(ground)} 个，算不了尺寸分布"}
+    G = np.array(ground)
+
+    by_tier: dict[str, list[float]] = {}
+    plate_ratio: dict[str, list[float]] = {}
+    all_marks: list[float] = []
+    for m in marks["items"]:
+        iw, ih = m["icon"]
+        if iw <= 0:
+            continue
+        all_marks.append(max(iw, ih))
+        by_tier.setdefault(m["tier"], []).append(max(iw, ih))
+        pw, ph = m.get("plate", [0, 0])
+        if pw > 0 and iw > 0:
+            plate_ratio.setdefault(m["tier"], []).append(pw / iw)
+
+    g_med = float(np.median(G))
+    g_band = [float(np.percentile(G, 10)), float(np.percentile(G, 90))]
+    out: dict = {
+        "ground_on_land": len(G),
+        "ground_p10": round(g_band[0], 1),
+        "ground_median": round(g_med, 1),
+        "ground_p90": round(g_band[1], 1),
+        "tiers": {},
+    }
+
+    for t in sorted(by_tier, key=lambda k: -float(np.median(by_tier[k]))):
+        v = np.array(by_tier[t])
+        out["tiers"][t] = {
+            "n": len(v),
+            "icon_median": round(float(np.median(v)), 1),
+            "icon_min": round(float(v.min()), 1),
+            "icon_max": round(float(v.max()), 1),
+            "sep_vs_ground": round(float(np.median(v)) / max(g_med, 1e-6), 2),
+            "plate_over_icon": (round(float(np.median(plate_ratio[t])), 3)
+                                if plate_ratio.get(t) else None),
+        }
+
+    # 被数的是标记，不是地面符号；靶子是地面自己的墨迹分布。
+    M = np.array(all_marks)
+    in_band = (M >= g_band[0]) & (M <= g_band[1])
+    out["marks_total"] = len(M)
+    out["marks_in_ground_band"] = int(in_band.sum())
+    out["marks_in_ground_band_share"] = round(float(in_band.mean()), 4)
+    out["marks_below_ground_p10"] = int((M < g_band[0]).sum())
+    out["marks_above_ground_p90"] = int((M > g_band[1]).sum())
+    if plate_ratio:
+        all_pr = [r for v in plate_ratio.values() for r in v]
+        out["plate_over_icon_median"] = round(float(np.median(all_pr)), 3)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("shot")
@@ -309,6 +402,10 @@ def main() -> None:
     ap.add_argument("--symbols", metavar="JSON", nargs="?", const="/tmp/map_symbols.json",
                     default=None,
                     help="地面符号分布（probe_map_dom.cjs 产出）：密度/地域纯度/连片度")
+    ap.add_argument("--hierarchy", metavar="MARKS_JSON", nargs="?",
+                    const="/tmp/map_marks.json", default=None,
+                    help="图形层级：标记 vs 地面符号的尺寸分带（需 --mask），"
+                         "MARKS_JSON 由 probe_map_dom.cjs 产出")
     args = ap.parse_args()
 
     im = Image.open(args.shot).convert("RGB")
@@ -344,6 +441,43 @@ def main() -> None:
     print(f"  ΔL(海陆亮度差) = {delta:.1f} 级"
           f"   {'✅ ≥20 分离清楚' if delta >= 20 else '⚠️ <20 陆海偏糊' if delta >= 10 else '❌ <10 糊成一片'}")
     print(f"  陆海亮度对比度 = {contrast(land['avg'], sea['avg']):.2f}:1")
+
+    if args.hierarchy:
+        if not (args.mask and Path(args.mask).exists()):
+            print("\n⚠️ --hierarchy 需要 --mask（只看陆地：海上的东西不是地物）")
+        elif not Path(args.hierarchy).exists():
+            print(f"\n⚠️ 找不到 {args.hierarchy}（先用 probe_map_dom.cjs 采集）")
+        else:
+            hs = hierarchy_stats(json.loads(Path(args.mask).read_text()),
+                                 json.loads(Path(args.symbols or "/tmp/map_symbols.json").read_text()),
+                                 json.loads(Path(args.hierarchy).read_text()))
+            print("\n[图形层级] 地点标记 vs 地面符号（都在真实屏幕像素下，同一把尺子）")
+            if "error" in hs:
+                print(f"  {hs['error']}")
+            else:
+                print(f"  陆地地面符号 {hs['ground_on_land']} 个"
+                      f"   尺寸 p10/中位/p90 = {hs['ground_p10']} / {hs['ground_median']}"
+                      f" / {hs['ground_p90']} px")
+                print(f"\n  {'tier':<12}{'n':>5}{'标记中位':>10}{'最小':>8}{'最大':>8}"
+                      f"{'÷地面中位':>11}{'底板/字形':>11}")
+                for t, v in hs["tiers"].items():
+                    pr = v["plate_over_icon"]
+                    print(f"  {t:<12}{v['n']:>5}{v['icon_median']:>10}{v['icon_min']:>8}"
+                          f"{v['icon_max']:>8}{v['sep_vs_ground']:>11}"
+                          f"{(f'{pr:.2f}' if pr is not None else 'n/a'):>11}")
+                print(f"\n  地面符号的尺寸带 p10–p90 = {hs['ground_p10']}–{hs['ground_p90']} px"
+                      f"（中位 {hs['ground_median']}）")
+                print(f"  落进这一带的地点标记 {hs['marks_in_ground_band']} / "
+                      f"{hs['marks_total']} = {hs['marks_in_ground_band_share'] * 100:.0f}%"
+                      f"   （比它还小的 {hs['marks_below_ground_p10']} 个，"
+                      f"比它大的 {hs['marks_above_ground_p90']} 个）")
+                if "plate_over_icon_median" in hs:
+                    print(f"  底板直径 ÷ 字形实绘宽度（全体中位）= "
+                          f"{hs['plate_over_icon_median']:.2f}")
+                print("  读法：sep_vs_ground 是「标记比地面符号大几倍」—— ≥3 读者能一眼分级；"
+                      "≈1 就是两种语言同尺寸。marks_in_ground_band 是**标记**落进底部纹理"
+                      "尺寸带的比例 —— 这一批就是读者分不出「地物 vs 纹理」的那一批。"
+                      "底板/字形 >1 说明底盘比字形宽，那一眼看到的是底板不是图形。")
 
     for spec in args.label_box:
         x, y, w, h = (int(v) for v in spec.split(","))
