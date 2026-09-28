@@ -3464,17 +3464,34 @@ _MOISTURE_TILT_RGB = np.array([-28.0, 14.0, -4.0])
 _HEIGHT_WINDOW = (1.0, 99.0)
 
 
-def _hillshade(height: np.ndarray, slope_p95: float | None = None) -> np.ndarray:
+def _hillshade(
+    height: np.ndarray,
+    slope_p95: float | None = None,
+    px_scale: float = 1.0,
+) -> np.ndarray:
     """Lambert shading of `height`, light from the upper left. Returns 0-1.
 
     The gradient is normalised against its own p95 before the exaggeration is
     applied, so `_HILLSHADE_EXAG` keeps its meaning when the raster size or the
-    octave count changes. That p95 is nevertheless a property of the raster it was
-    taken over, so `slope_p95` lets the canonical bake's value be pinned and
-    reused: without it an LOD tile shades its ground at a different gain from the
-    bake it is supposed to continue, and the join reads as a seam.
+    octave count changes.
+
+    `px_scale` is PIXELS PER CANVAS UNIT, and it is not optional in spirit: a
+    per-pixel difference is a different slope at every raster density, so a tile
+    rendered at half the bake's density carries a gradient about twice as large
+    per step, and dividing that by the bake's p95 shades it at roughly twice the
+    strength. MULTIPLYING by `px_scale` converts the per-step difference into a
+    slope PER CANVAS UNIT — the one scale the bake and every tile share — and
+    `slope_p95` must be pinned in those same units. Multiplying the numerator and
+    the pinned denominator by the same factor leaves their ratio unchanged, so on
+    the whole canvas this is a no-op.
+
+    (Getting this backwards was measured, not theorised: dividing instead took a
+    half-density tile from mean |dRGB| 16 to 26 against the bake.)
     """
     gy, gx = np.gradient(height)
+    if px_scale != 1.0:
+        gx = gx * px_scale
+        gy = gy * px_scale
     if slope_p95 is None:
         slope_p95 = float(np.percentile(np.hypot(gx, gy), 95.0))
     s = slope_p95 or 1.0
@@ -3804,18 +3821,26 @@ def generate_terrain(
         octave and flattens the crests.
         """
         out = np.zeros((img_h, img_w), dtype=np.float64)
-        amp, wl, norm = 1.0, base_wl, 0.0
+        amp, norm = 1.0, 0.0
         weight = np.ones((img_h, img_w), dtype=np.float64)
         for i in range(octaves):
-            n = _sparse_noise(seed + i, wl)
-            scale = float(np.percentile(np.abs(n), 99.0)) or 1.0
+            wl_i = base_wl * (0.5 ** i)
+            n = _sparse_noise(seed + i, wl_i)
+            # PINNED, and this one cost the most to find: the p99 is a property of
+            # the raster it is taken over, so a tile measuring its own would
+            # sharpen or flatten its crests relative to the bake it continues.
+            # It stays PER OCTAVE on purpose (a shared maximum is set by a single
+            # outlier cell and flattens every other octave) — it is only pinned to
+            # the canonical bake's value.
+            scale = _pin(f"ridge_p99_{seed}_{i}", lambda wl_i=wl_i, i=i: float(
+                np.percentile(np.abs(_sparse_noise(seed + i, wl_i)), 99.0),
+            )) or 1.0
             signal = (1.0 - np.clip(np.abs(n) / scale, 0.0, 1.0)) ** 2
             signal = signal * weight
             out += signal * amp
             norm += amp
             weight = np.clip(signal * _RIDGE_WEIGHT_GAIN, 0.0, 1.0)
             amp *= _RIDGE_PERSISTENCE
-            wl *= 0.5
         return out / norm
 
     # ── Continuous elevation field ──
@@ -3954,7 +3979,7 @@ def generate_terrain(
         height += _bounded_influence(img_w, img_h, [
             (mountain_pts, influence_r, 0.25),
             (water_pts, influence_r, -0.20),
-        ])
+        ], spacing=infl_spacing, origin=infl_origin)
         h_lo, h_hi = _pin("height", lambda: [
             float(np.percentile(height, _HEIGHT_WINDOW[0])),
             float(np.percentile(height, _HEIGHT_WINDOW[1])),
@@ -3965,9 +3990,13 @@ def generate_terrain(
         height = height ** _HEIGHT_GAMMA
         shade = _hillshade(
             height,
+            # Pinned in CANVAS units, matching the px_scale passed below: the
+            # whole expression is a ratio, so on the whole canvas this scales the
+            # numerator and the denominator together and changes nothing.
             _pin("hillshade_p95", lambda: float(
                 np.percentile(np.hypot(*np.gradient(height)), 95.0),
-            )),
+            ) * scale_x),
+            px_scale=scale_x,
         )
         rgb = _ramp_lookup(height, moist) * (
             _SHADE_FLOOR + _SHADE_RANGE * shade
