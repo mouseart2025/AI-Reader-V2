@@ -3091,7 +3091,7 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # light half of the range with the mass pushed into the lowlands, shading
 # modulates instead of dominating, and the octave falloff is shallower so macro
 # form wins at fit.
-_TERRAIN_VERSION = 10
+_TERRAIN_VERSION = 15
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3323,9 +3323,34 @@ _RIDGE_WEIGHT_GAIN = 1.4
 # How mountainous each region is, as a low-frequency mask. Without it every
 # region gets the same treatment and the map has no macro reading -- the reader
 # cannot tell a mountain province from a plain, which is precisely the thing a
-# world map is for. 0.10 of the raster is ~800 canvas px, so the provinces this
-# creates are a tenth of the map across.
-_RELIEF_MASK_WL = 0.10
+# world map is for.
+#
+# The wavelength is the thing, and 0.10 was the wrong one. 0.10 of the raster is
+# ~800 canvas px, which at fit zoom is **~144 screen px** — under a tenth of the
+# frame — so the provinces were finer than the continents they sit inside and
+# averaged out into one texture before the reader could see them. Four separate
+# attempts were then spent trying to make those too-small provinces more
+# different (opacity, a height bias, a moisture bias, a second ramp), and all
+# four failed; in hindsight they were all trying to fix the wrong axis.
+#
+# Measured at the raster (`scripts/probe_bake_variants.py`), between-block std
+# divided by within-block std — >1 means two provinces differ more than one
+# province's own texture does:
+#
+#                   blk128 lum / sat / warm     blk256 lum / sat / warm
+#   0.10 (was)      0.636  1.064  0.960         0.366  0.567  0.535
+#   0.20            0.684  1.162  1.056         0.384  0.636  0.617
+#   0.30 (shipped)  0.720  1.149  1.075         0.420  0.666  0.672
+#
+# 0.20 improves all six; 0.30 improves five of six and is the better of the two
+# at the coarse block size, where "a continent reads as one thing" actually
+# lives. They are close, and the criterion keeps rising as the field gets
+# coarser — so **the criterion cannot pick between them; the eye did.**
+#
+# On the composite: land/sea separation rose (dL 51.0 -> 54.2, contrast
+# 1.67 -> 1.71), the structure metric rose (coarse/fine 0.451 -> 0.518), and
+# label legibility is untouched (optical loss still 0.0% median).
+_RELIEF_MASK_WL = 0.30
 _RELIEF_MASK_OCTAVES = 3
 # Amplitude multiplier where the mask is at its lowest. Not 0: a province with
 # no relief at all has no texture either, and a flat colour patch on a map this
