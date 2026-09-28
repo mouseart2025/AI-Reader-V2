@@ -201,6 +201,15 @@ function findChromium() {
 
   console.log(JSON.stringify(report, null, 1));
 
+  // 视口变换：屏幕↔画布 的映射。任何"把屏幕上的符号位置与画布坐标的量对起来"
+  // 的分析都需要它，而 `#viewport` 是它的权威来源（`__probe` 里试过找第一个 svg，
+  // 那是 UI 图标）。没有它就只能靠猜缩放倍数 —— 我猜错过一次（0.11 vs 实际 0.18）。
+  const vp = await page.evaluate(() => {
+    const g = document.querySelector("#viewport");
+    return g ? g.getAttribute("transform") : null;
+  });
+  console.log("viewportTransform: " + vp);
+
   // ── 真实陆地掩膜 ──────────────────────────────────────────────
   // 按颜色冷暖分陆海在这张图上**不成立**：陆地自己的羊皮纸污渍带有冷色斑块，
   // 会被判成海（实测因此把 ΔL 算成 17.3「陆海偏糊」）。改用真正的地形来源 ——
