@@ -405,6 +405,17 @@ function findChromium() {
       `${marks.labelsOverlapped} 个（其中压掉一半以上的 ${marks.labelOverlapHalf} 个，` +
       `最严重 ${(marks.labelOverlapWorst * 100).toFixed(0)}%）`
   );
+  // ⚠️ 这是**几何**口径（面积相交），它回答的是"框有没有被盖住"，
+  // **不回答"盖住之后还读不读得出来"**。两者在底板被改淡之后会分岔：
+  // 深色墨底下垫一层 alpha 0.30 的浅雾会**抬高**对比度，不是抹掉它。
+  // 实测（2026-09-28，底板改完）：几何口径报 16/47 被压、2 个 100%，
+  // 而光学口径（`probe_map_visual.py --label-ink`）报对比度损失中位 0.0%、p90 0.0%，
+  // 连那两个"压满 100%"的损失都是 0.0%。我据此差点做了一次不必要的 z 序重构。
+  // ⇒ 这个数只用来**定位嫌疑**，定案要用 `--label-ink`。
+  console.log(
+    "  ⚠️ 几何口径：只说明框被盖住，不等于读不出来。" +
+      "定案用 probe_map_visual.py --label-ink（同一框两态比墨迹对比度）"
+  );
   if (marks.labelOverlapTop.length) {
     console.log("  最严重的几个: " +
       marks.labelOverlapTop.map((p) => `${p.text}(${p.tier} ${(p.frac * 100).toFixed(0)}%)`).join(" "));
