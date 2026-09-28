@@ -1248,10 +1248,22 @@ export function generateTerrainHints(
       }
 
       let cat: TerrainCategory = "plains"
-      // Base density still follows distance to a seed, which spans 2.2x and so
-      // outranks the terrain term's 1.45x. Flattening it was tried and did not
-      // move the terrain correlation (r went -0.097 -> -0.098), so it is left as
-      // it shipped rather than changed on a theory that did not hold.
+      // Base density is deliberately FLAT across materials.
+      //
+      // It used to be `0.45 + 0.55 * falloff`, i.e. distance to the nearest seed,
+      // which spans 2.2x and so outranks the terrain term's 1.45x. Proximity was
+      // deciding how MANY marks a cell got while terrain merely modulated the
+      // count. The material a cell belongs to is still decided by proximity; the
+      // count no longer is.
+      //
+      // ⚠️ The first judgement of this change is withdrawn. It was rejected with
+      // "r moved -0.097 to -0.098, no effect" — but that came from a probe whose
+      // x-axis was local variation in the COMPOSITED frame, which carries
+      // parchment noise and therefore attenuates any real correlation toward
+      // zero. Re-measured against the same anomaly this layer actually consumes
+      // (see backend/scripts/probe_symbol_terrain_coupling.py), the change is
+      // worth +0.010 -> +0.172 at 64 px blocks with the rugged-to-flat ratio
+      // going 1.00x -> 1.38x. Wrong instrument, wrong verdict.
       let density = BASE_DENSITY
       let falloff = 0
       if (best >= 0) {
@@ -1262,7 +1274,6 @@ export function generateTerrainHints(
           if (t > 0) {
             cat = scat[best]
             falloff = Math.min(1, t)
-            density = 0.45 + 0.55 * falloff
           }
         }
       }
