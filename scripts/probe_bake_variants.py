@@ -24,6 +24,28 @@ reason `_frameclock.py` is shared in the audit repo.
 Land is taken from the raster itself (the sea is blue, the land is warm), not
 from a DOM mask: a DOM mask belongs to a screen rectangle, and the raster is
 4096 px across its own canvas. Different question, different mask.
+
+⚠️ **THE NUMBERS HAVE A NOISE FLOOR, AND IT IS NOT SMALL.** Measured on
+2026-09-29 by baking the SAME recipe (v16) twice and comparing the two files:
+
+    land mean |dRGB| 7.17    p90 17.0    identical pixels  0.7 %
+    blk178 ratios   0.557 / 1.019 / 0.904   vs   0.571 / 0.969 / 0.945
+
+The cause is upstream: the terrain bake takes the *layout* as input, and the
+layout is not deterministic (see `determinism_probe.py` in the audit repo, and
+`make_before.py`'s note that both sides jitter ~7.7 % per run). So a recipe
+change has to move a ratio by clearly more than **±5 %** before the number means
+anything, and two bakes can never be compared by re-running the app between
+them.
+
+The rule that follows: **compare variants baked from the same layout**, i.e.
+bake them back to back without clearing caches in between, and treat anything
+inside ±0.03 / ±0.05 / ±0.04 (luminance / saturation / warm-cool at blk178) as
+"no difference" rather than as a result.
+
+The headline this tool originally produced — saturation 0.775 at `_RELIEF_MASK_WL`
+0.10 against 0.969 at 0.30+blend, +25 % — is comfortably outside that band. The
+finer ordering between 0.20 and 0.30, and the blend's smaller deltas, are not.
 """
 
 import argparse
