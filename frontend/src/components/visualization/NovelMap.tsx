@@ -1122,22 +1122,29 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           }
         }
 
-        // Ocean fill, and the value it resolves to is the whole point. At the
-        // old 0.46 over parchment this came out about (187,201,209), then 0.52
-        // took the open sea to (173,190,203), which still left the coast a
-        // whisper: measured with `scripts/probe_map_visual.py` on a 1600x1000
-        // capture of 西游记, land and sea sat 19.2 levels apart at 1.19:1
-        // contrast, and the comments' own complaint -- "the continents read as
-        // stains rather than as places" -- is exactly what that number means.
+        // Ocean fill. This is the map's single most important value decision:
+        // with the sea too close to the land in tone, the continents read as
+        // stains rather than as places -- which is what a comment here had
+        // already complained about in words.
         //
-        // 0.68 takes the open sea to roughly (128,152,178). Land stays 109 L, so
-        // the separation roughly doubles and the water gains a body of its own,
-        // while the pale shelf band still reads as shallow water. Value before
-        // saturation: on a parchment map the sea is a *tone*, not a colour.
+        // Measured with `scripts/probe_map_dom.cjs` + `probe_map_visual.py`, on a
+        // 1600x1000 capture of 西游记 taken AFTER the render settles, using the
+        // renderer's own land mask (`#coastline-ocean.isPointInFill`) rather than
+        // a colour guess:
+        //
+        //   0.52  -> land/sea delta-L 13.7 at 1.13:1   (the "stains" complaint)
+        //   0.68  -> still too close
+        //   0.85  -> see the constant below; target is delta-L >= 28
+        //
+        // ⚠️ Measure only on a settled render. An earlier pass screenshotted with
+        // `chrome --screenshot` before the fit/labels landed and reported 40.6 --
+        // a number produced by the renderer not having drawn its shelf and region
+        // bands yet. The probe that drives playwright waits for `.location-item`
+        // and settles, so it cannot make that mistake.
         oceanG
           .append("path")
           .attr("d", oceanPathD)
-          .attr("fill", darkBg ? "rgba(24,44,74,0.55)" : "rgba(88,120,160,0.68)")
+          .attr("fill", darkBg ? "rgba(20,38,66,0.62)" : "rgba(74,108,150,0.85)")
           .attr("fill-rule", "evenodd")
           .style("pointer-events", "none")
 
