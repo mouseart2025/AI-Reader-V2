@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections import Counter
 from pathlib import Path
@@ -44,6 +45,39 @@ def contrast(fg, bg) -> float:
     a, b = _lum(fg), _lum(bg)
     hi, lo = max(a, b), min(a, b)
     return (hi + 0.05) / (lo + 0.05)
+
+
+def split_land_sea_by_mask(im: Image.Image, mask: dict):
+    """用 DOM 给出的真实陆地掩膜统计陆海 —— **这是唯一可信的分割方式**。
+
+    按颜色冷暖分（R-B 符号）在这张图上不成立：陆地自己的羊皮纸污渍带冷色斑块，
+    会被算成海。实测那样得到的 ΔL=17.3「陆海偏糊」，而掩膜一算发现是
+    **量具把陆地的冷色块算进了海**。掩膜来自 `#coastline-ocean` 的
+    `isPointInFill`（见 `probe_map_dom.cjs`），是渲染器自己的答案。
+    """
+    px = im.load()
+    step = mask["step"]
+    land = [0, 0, 0, 0]
+    sea = [0, 0, 0, 0]
+    for j, row in enumerate(mask["sea"]):
+        for i, ch in enumerate(row):
+            x = int(mask["x"] + i * step + step / 2)
+            y = int(mask["y"] + j * step + step / 2)
+            if x >= im.size[0] or y >= im.size[1]:
+                continue
+            r, g, b = px[x, y][:3]
+            bucket = sea if ch == "1" else land
+            bucket[0] += r
+            bucket[1] += g
+            bucket[2] += b
+            bucket[3] += 1
+    out = {}
+    for name, b in (("land", land), ("sea", sea)):
+        n = max(b[3], 1)
+        avg = (b[0] / n, b[1] / n, b[2] / n)
+        out[name] = {"share": b[3] / max(land[3] + sea[3], 1), "avg": avg,
+                     "lumY": round(_lum(avg) * 255, 1)}
+    return out
 
 
 def split_land_sea(im: Image.Image, roi=None):
@@ -92,7 +126,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("shot")
     ap.add_argument("--roi", metavar="X0,Y0,X1,Y1",
-                    help="只统计地图视口（必给，否则页面 chrome 会污染统计）")
+                    help="只统计地图视口（用颜色分割时必给，否则页面 chrome 会污染统计）")
+    ap.add_argument("--mask", metavar="JSON", default="/tmp/map_mask.json",
+                    help="DOM 真实陆地掩膜（probe_map_dom.cjs 产出）；给了就用它分割，最可信")
     ap.add_argument("--label-box", action="append", default=[],
                     metavar="X,Y,W,H", help="标签取样框，可给多次")
     ap.add_argument("--crop", metavar="X,Y,W,H",
@@ -112,10 +148,17 @@ def main() -> None:
         print(f"裁切放大 6x -> {out}  ({w}x{h} @ {x},{y})")
 
     roi = tuple(int(v) for v in args.roi.split(",")) if args.roi else None
-    if roi is None:
-        print("⚠️ 未给 --roi：统计会被页面 chrome 污染，结论不可用")
-
-    ls = split_land_sea(im, roi)
+    ls = None
+    if args.mask and Path(args.mask).exists():
+        mask = json.loads(Path(args.mask).read_text())
+        ls = split_land_sea_by_mask(im, mask)
+        print(f"\n[分割方式] DOM 陆地掩膜 {args.mask}（{mask['cols']}x{mask['rows']} @{mask['step']}px）"
+              f"  ✅ 渲染器自己的答案")
+    else:
+        if roi is None:
+            print("⚠️ 既无 --mask 又无 --roi：统计会被页面 chrome 污染，结论不可用")
+        ls = split_land_sea(im, roi)
+        print("\n[分割方式] 按颜色冷暖猜（R-B 符号）—— 陆地冷色斑块会被误判成海，仅作粗看")
     land, sea = ls["land"], ls["sea"]
     print("\n[价值结构]")
     print(f"  陆 占比 {land['share'] * 100:5.1f}%  均色 rgb({land['avg'][0]:.0f},"
