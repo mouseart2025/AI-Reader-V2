@@ -254,6 +254,35 @@ function findChromium() {
     console.log(`hide ${sel} -> ${n} 个元素`);
   }
 
+  // ── 地面符号分布 ──────────────────────────────────────────────
+  // "读得出地貌"不是靠底下的洗层亮度，而是靠**符号分布**：看到一片山脊符号
+  // 才知道这里是山。所以要把 `#terrain` 里每个 <use> 的类别与屏幕位置拿出来，
+  // 交给 Python 侧算"地域纯度 / 连片度 / 密度"。
+  // 类别直接从符号 id 反解（约定 `terrain-<category>-<n>`，见 CATEGORY_SYMBOLS）。
+  const symbols = await page.evaluate(() => {
+    const out = [];
+    const byCat = {};
+    for (const u of document.querySelectorAll("#terrain use")) {
+      const href = u.getAttribute("href") || u.getAttribute("xlink:href") || "";
+      const m = /terrain-([a-z]+)-\d+/.exec(href);
+      const cat = m ? m[1] : "unknown";
+      const r = u.getBoundingClientRect();
+      byCat[cat] = (byCat[cat] || 0) + 1;
+      out.push([
+        cat,
+        Math.round(r.x + r.width / 2),
+        Math.round(r.y + r.height / 2),
+        +Math.max(r.width, r.height).toFixed(1),   // 渲染后的符号尺寸
+      ]);
+    }
+    return { total: out.length, byCat, items: out };
+  });
+  fs.writeFileSync("/tmp/map_symbols.json", JSON.stringify(symbols));
+  console.log(
+    `ground symbols -> /tmp/map_symbols.json  共 ${symbols.total} 个  ` +
+      JSON.stringify(symbols.byCat)
+  );
+
   await page.screenshot({ path: shot });
   console.log("shot -> " + shot);
   if (errors.length) console.log("CONSOLE/REQ ERRORS:\n  " + errors.slice(0, 8).join("\n  "));
