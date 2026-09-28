@@ -183,6 +183,115 @@ def structure_stats(im: Image.Image, mask: dict) -> dict:
     return out
 
 
+def symbol_stats(mask: dict, symbols: dict, block: int = 128) -> dict:
+    """地面符号的**密度 / 地域分化 / 连片度** —— "读得出地貌"的可算判据。
+
+    为什么不是看亮度：读者判断"这里是山、那边是林"，靠的是**符号的分布**，
+    不是底下的洗层。所以这些量必须在符号层面算。
+
+    - **密度**：陆地内符号数 ÷ 陆地面积 ×1000。太稀 ⇒ 陆地只能读成一张洗过的纸。
+    - **地域纯度**：把陆地切成 block×block 的块，每块取占优类别；纯度高 ⇒ 块与块
+      明显不同（"这片是山地、那片是平原"）；接近 1/类别数 ⇒ 到处都一样，是撒盐。
+    - **连片度**：相邻块占优类别相同的比例。高 ⇒ 成片（山成脉、林成片）。
+    """
+    step = mask["step"]
+    x0, y0 = int(mask["x"]), int(mask["y"])
+    rows, cols = len(mask["sea"]), len(mask["sea"][0])
+
+    def is_land(i: int, j: int) -> bool:
+        return 0 <= j < rows and 0 <= i < cols and mask["sea"][j][i] != "1"
+
+    # 每块一个 Counter
+    blocks: dict[tuple[int, int], dict[str, int]] = {}
+    land_cells = 0
+    for j in range(rows):
+        for i in range(cols):
+            if is_land(i, j):
+                land_cells += 1
+    for item in symbols["items"]:
+        cat, sx, sy = item[0], item[1], item[2]
+        i = (sx - x0) // step
+        j = (sy - y0) // step
+        if not is_land(i, j):
+            continue  # 海上的浪不属于陆地地貌
+        key = (int(i * step) // block, int(j * step) // block)
+        blocks.setdefault(key, {})
+        blocks[key][cat] = blocks[key].get(cat, 0) + 1
+
+    land_area_1000 = land_cells * step * step / 1000.0
+    on_land = sum(sum(c.values()) for c in blocks.values())
+
+    # 只统计"块内至少有 3 个符号"的块 —— 少于 3 个时"占优"是噪声，不是地域
+    solid = {k: v for k, v in blocks.items() if sum(v.values()) >= 3}
+    purity = 0.0
+    if solid:
+        purity = sum(max(v.values()) / sum(v.values()) for v in solid.values()) / len(solid)
+    same = tot_nb = 0
+    for (bx, by), v in solid.items():
+        dom = max(v, key=v.get)
+        for nb in ((bx + 1, by), (bx, by + 1)):
+            w = solid.get(nb)
+            if w:
+                tot_nb += 1
+                if max(w, key=w.get) == dom:
+                    same += 1
+    cat_tot: dict[str, int] = {}
+    for v in blocks.values():
+        for k, n in v.items():
+            cat_tot[k] = cat_tot.get(k, 0) + n
+    return {
+        "symbols_total": symbols["total"],
+        "symbols_on_land": on_land,
+        "by_category_on_land": dict(sorted(cat_tot.items(), key=lambda kv: -kv[1])),
+        "density_per_1000px2": round(on_land / max(land_area_1000, 1e-6), 3),
+        "blocks_with_3plus": len(solid),
+        "regional_purity": round(purity, 3),
+        "contiguity": round(same / tot_nb, 3) if tot_nb else None,
+    }
+
+
+def gap_ratio(mask: dict, symbols: dict) -> dict:
+    """复刻该图层**自己的验收口径**：最近邻中位间距 ÷ 符号中位尺寸。
+
+    `terrainHints.ts` 头部的注释里就是这么判的：比值 <1.5 读者看到的是"一片填充"，
+    >1.5 才是"地上的符号"。作者用这套度量决定把 `CELL_PX` 从 16 加倍到 32。
+    这里复刻它的意义是：**我的改动由该层自己的标准判分，而不是我的口味**；
+    并且它顺带校准我的量具 —— 在 CELL_PX=32 时应复现作者报的 fit 视口 ≈2.27。
+    """
+    import numpy as np
+
+    step = mask["step"]
+    x0, y0 = int(mask["x"]), int(mask["y"])
+    rows, cols = len(mask["sea"]), len(mask["sea"][0])
+
+    pts = []
+    for item in symbols["items"]:
+        cat, sx, sy = item[0], item[1], item[2]
+        size = item[3] if len(item) > 3 else 0.0
+        i = (sx - x0) // step
+        j = (sy - y0) // step
+        if not (0 <= j < rows and 0 <= i < cols) or mask["sea"][j][i] == "1":
+            continue
+        pts.append((float(sx), float(sy), float(size)))
+    if len(pts) < 8:
+        return {"error": f"陆地符号只有 {len(pts)} 个，算不了间距"}
+
+    P = np.array([[p[0], p[1]] for p in pts])
+    S = np.array([p[2] for p in pts])
+    # 最近邻距离（样本量几百，直接算全对距离矩阵）
+    d = np.sqrt(((P[:, None, :] - P[None, :, :]) ** 2).sum(-1))
+    np.fill_diagonal(d, np.inf)
+    nn = d.min(axis=1)
+    return {
+        "land_symbols": len(pts),
+        "gap_median": round(float(np.median(nn)), 1),
+        "gap_p10": round(float(np.percentile(nn, 10)), 1),
+        "mark_median": round(float(np.median(S)), 1),
+        "ratio_median": round(float(np.median(nn) / max(np.median(S), 1e-6)), 2),
+        "ratio_p10": round(float(np.percentile(nn, 10) / max(np.median(S), 1e-6)), 2),
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("shot")
@@ -197,6 +306,9 @@ def main() -> None:
     ap.add_argument("--top-colors", type=int, default=0)
     ap.add_argument("--structure", action="store_true",
                     help="陆地是否有地域结构（需 --mask；含白噪声/脊线场两个自校准对照）")
+    ap.add_argument("--symbols", metavar="JSON", nargs="?", const="/tmp/map_symbols.json",
+                    default=None,
+                    help="地面符号分布（probe_map_dom.cjs 产出）：密度/地域纯度/连片度")
     args = ap.parse_args()
 
     im = Image.open(args.shot).convert("RGB")
@@ -258,6 +370,39 @@ def main() -> None:
                           f"方向一致性 {v['coherence']:>5}")
                 print(f"  陆地格点 {st['land_cells']}")
                 print("  读法：coarse/fine 越接近 0 越像只有细噪声；方向一致性接近白噪声 ⇒ 无地貌走向。")
+
+    if args.symbols:
+        if not (args.mask and Path(args.mask).exists()):
+            print("\n⚠️ --symbols 需要 --mask（密度必须按陆地面积算）")
+        elif not Path(args.symbols).exists():
+            print(f"\n⚠️ 找不到 {args.symbols}（先用 probe_map_dom.cjs 采集）")
+        else:
+            sym = json.loads(Path(args.symbols).read_text())
+            ss = symbol_stats(json.loads(Path(args.mask).read_text()), sym)
+            print("\n[地面符号] 只在陆地内统计（海上的浪不计入地貌）")
+            print(f"  符号总数 {ss['symbols_total']}，其中陆地 {ss['symbols_on_land']}"
+                  f"   （渲染器自报预算 NODE_BUDGET=1400 ⇒ 用了 "
+                  f"{ss['symbols_on_land'] / 1400 * 100:.0f}%）")
+            print(f"  密度 {ss['density_per_1000px2']} 个/千像素"
+                  f"   （≈ 每 {1 / max(ss['density_per_1000px2'], 1e-9) * 1000 ** 0.5:.0f}×"
+                  f"{1 / max(ss['density_per_1000px2'], 1e-9) * 1000 ** 0.5:.0f} 像素一个）")
+            print(f"  陆地类别分布 {ss['by_category_on_land']}")
+            print(f"  有效块(≥3 符号) {ss['blocks_with_3plus']} 个"
+                  f"   地域纯度 {ss['regional_purity']}"
+                  f"   连片度 {ss['contiguity']}")
+            print("  读法：纯度接近 1/类别数 ⇒ 到处一个样（撒盐）；"
+                  "接近 1 且连片度高 ⇒ 成片的地域（山成脉、林成片）。")
+
+            g = gap_ratio(json.loads(Path(args.mask).read_text()), sym)
+            print("\n[间距比] 该图层自己的验收口径（terrainHints.ts 头部注释）")
+            if "error" in g:
+                print(f"  {g['error']}")
+            else:
+                print(f"  陆地符号 {g['land_symbols']}   最近邻中位间距 {g['gap_median']}px"
+                      f"（p10 {g['gap_p10']}px）   符号中位尺寸 {g['mark_median']}px")
+                print(f"  比值 中位 {g['ratio_median']}   p10 {g['ratio_p10']}"
+                      f"    （<1.5 读成一片填充；≥1.5 才是'地上的符号'）")
+                print(f"  作者在 CELL_PX=32 时报 fit 视口 ≈2.27 —— 复现得上就说明量具可信。")
 
     if args.top_colors:
         q = im.convert("RGB")
