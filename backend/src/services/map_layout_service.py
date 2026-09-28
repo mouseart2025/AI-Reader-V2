@@ -3091,7 +3091,7 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # light half of the range with the mass pushed into the lowlands, shading
 # modulates instead of dominating, and the octave falloff is shallower so macro
 # form wins at fit.
-_TERRAIN_VERSION = 15
+_TERRAIN_VERSION = 16
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3335,20 +3335,26 @@ _RIDGE_WEIGHT_GAIN = 1.4
 #
 # Measured at the raster (`scripts/probe_bake_variants.py`), between-block std
 # divided by within-block std — >1 means two provinces differ more than one
-# province's own texture does:
+# province's own texture does. ⚠️ The block size is in RASTER px, and the raster
+# is 4096 across a canvas that fit zoom draws at ~1439 screen px: **1 screen px
+# = 1.39 raster px**, so 128 screen px is block 178 here. Comparing a raster
+# block against a screen block of the same number is comparing two scales, and
+# it produces two criteria that disagree in sign.
 #
-#                   blk128 lum / sat / warm     blk256 lum / sat / warm
-#   0.10 (was)      0.636  1.064  0.960         0.366  0.567  0.535
-#   0.20            0.684  1.162  1.056         0.384  0.636  0.617
-#   0.30 (shipped)  0.720  1.149  1.075         0.420  0.666  0.672
+#                 blk178 (~128 screen)      blk356 (~256 screen)
+#   0.10 (was)    0.489  0.775  0.720        0.284  0.413  0.387
+#   0.30 (v15)    0.554  0.884  0.861        0.305  0.484  0.478
+#   0.30 + blend  0.571  0.969  0.945        0.310  0.463  0.538   <- shipped
 #
-# 0.20 improves all six; 0.30 improves five of six and is the better of the two
-# at the coarse block size, where "a continent reads as one thing" actually
-# lives. They are close, and the criterion keeps rising as the field gets
-# coarser — so **the criterion cannot pick between them; the eye did.**
+# Comfortably monotone at the scale the reader actually has: each step raises
+# luminance, saturation and warm-cool together. (At blk128/256, i.e. 45/92
+# screen px, the same ordering holds; those are the finer scales, well inside a
+# province.) The criterion keeps rising as the field coarsens, so it cannot pick
+# a wavelength — 0.30 was chosen on the eye, on the full map and at 2x on two
+# continents.
 #
-# On the composite: land/sea separation rose (dL 51.0 -> 54.2, contrast
-# 1.67 -> 1.71), the structure metric rose (coarse/fine 0.451 -> 0.518), and
+# On the composite: land/sea separation held (dL 51.0 -> 53.5, contrast
+# 1.67 -> 1.70), the structure metric rose (coarse/fine 0.451 -> 0.527), and
 # label legibility is untouched (optical loss still 0.0% median).
 _RELIEF_MASK_WL = 0.30
 _RELIEF_MASK_OCTAVES = 3
@@ -3450,6 +3456,33 @@ _HEIGHT_RAMP: tuple[tuple[float, tuple[int, int, int]], ...] = (
     (0.97, (240, 241, 242)),
     (1.00, (250, 251, 252)),
 )
+# A second ramp for the wet provinces: same value ladder stop by stop (within a
+# few luminance), hue shifted to green. The value match is the point — a first
+# cut that was merely "greener" came out ~19 luminance darker at mid height and
+# dropped land/sea separation from 51.0 to 43.5.
+#
+# This was built once before and reverted. Then it was blended by a province
+# field at `_RELIEF_MASK_WL` 0.10, i.e. ~144 screen px, and it measured WORSE
+# than the recipe it replaced (saturation ratio 0.916 against 1.064): it was
+# spending its whole effect inside a province, where the reader never saw it.
+# With the provincial field now at 0.30 (~432 screen px) the blend finally has
+# a scale to act on, so it is worth one more look — with the criterion, not on
+# the strength of that argument.
+_HEIGHT_RAMP_ALT: tuple[tuple[float, tuple[int, int, int]], ...] = (
+    (0.00, (232, 238, 216)),
+    (0.22, (214, 226, 190)),
+    (0.42, (188, 212, 158)),
+    (0.62, (158, 196, 140)),
+    (0.78, (140, 178, 146)),
+    (0.90, (188, 192, 186)),
+    (0.97, (240, 241, 242)),
+    (1.00, (250, 251, 252)),
+)
+# How far, and how decisively. `_PROVINCE_COMMIT` smoothsteps the blend weight
+# so a province is arid or wet rather than lukewarm: the raw field concentrates
+# near 0.5 and left most of the map halfway between the two ramps.
+_PROVINCE_BLEND = 1.0
+_PROVINCE_COMMIT = True
 # A second ramp for the wet provinces. Same snow line, same overall value
 # ladder — deliberately — so the two can be blended without one province
 # reading as a hole or a spill. What differs is HUE through the whole low and
@@ -3502,13 +3535,32 @@ def _hillshade(height: np.ndarray) -> np.ndarray:
     return np.clip((nx * lx + ny * (-ly) + nz * lz) / n, 0.0, 1.0)
 
 
-def _ramp_lookup(height: np.ndarray, moist: np.ndarray) -> np.ndarray:
-    """Palette as a function of height, tilted green where the ground is wet."""
-    stops = np.array([p for p, _ in _HEIGHT_RAMP], dtype=np.float64)
-    cols = np.array([c for _, c in _HEIGHT_RAMP], dtype=np.float64)
-    rgb = np.empty((*height.shape, 3), dtype=np.float64)
-    for ch in range(3):
-        rgb[..., ch] = np.interp(height, stops, cols[:, ch])
+def _ramp_lookup(
+    height: np.ndarray,
+    moist: np.ndarray,
+    province: np.ndarray | None = None,
+) -> np.ndarray:
+    """Palette as a function of height, tilted green where the ground is wet.
+
+    `province` (0-1, low-frequency) blends toward `_HEIGHT_RAMP_ALT`, so the
+    same height means a different colour in a different province.
+    """
+
+    def _interp(ramp):
+        stops = np.array([p for p, _ in ramp], dtype=np.float64)
+        cols = np.array([c for _, c in ramp], dtype=np.float64)
+        out = np.empty((*height.shape, 3), dtype=np.float64)
+        for ch in range(3):
+            out[..., ch] = np.interp(height, stops, cols[:, ch])
+        return out
+
+    rgb = _interp(_HEIGHT_RAMP)
+    if province is not None and _PROVINCE_BLEND > 0.0:
+        w = np.clip(province, 0.0, 1.0)
+        if _PROVINCE_COMMIT:
+            w = w * w * (3.0 - 2.0 * w)
+        w = w * _PROVINCE_BLEND
+        rgb = rgb * (1.0 - w)[..., np.newaxis] + _interp(_HEIGHT_RAMP_ALT) * w[..., np.newaxis]
     wet = np.clip((moist - 0.5) * 2.0, -1.0, 1.0)
     low = np.clip(1.0 - height / _MOISTURE_LOW_TOP, 0.0, 1.0)
     tilt = (wet * low * _MOISTURE_TILT)[..., np.newaxis]
@@ -3855,6 +3907,13 @@ def generate_terrain(
         mask = _own_unit(mask, (10.0, 90.0))
         ridge *= _PLAIN_FLOOR + (1.0 - _PLAIN_FLOOR) * mask
 
+        # Which provinces are WET, as its own field — deliberately not `mask`,
+        # which answers "which provinces are mountainous"; reusing it would make
+        # every green province a mountainous one. One octave, so a province is
+        # one thing over a whole province rather than carrying detail inside
+        # itself.
+        province = _own_unit(_fbm(seed_base + 71, _RELIEF_MASK_WL, 1), (10.0, 90.0))
+
         height = (1.0 - _RIDGE_MIX) * base + _RIDGE_MIX * ridge
         height += _bounded_influence(img_w, img_h, [
             (mountain_pts, influence_r, 0.25),
@@ -3866,7 +3925,7 @@ def generate_terrain(
         # Bias the mass into the lowlands before colouring, so the map is mostly
         # the light low ground a reader can put labels on. See _HEIGHT_GAMMA.
         height = height ** _HEIGHT_GAMMA
-        rgb = _ramp_lookup(height, moist) * (
+        rgb = _ramp_lookup(height, moist, province) * (
             _SHADE_FLOOR + _SHADE_RANGE * _hillshade(height)
         )[:, :, np.newaxis]
     else:
