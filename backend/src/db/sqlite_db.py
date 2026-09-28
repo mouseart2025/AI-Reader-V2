@@ -138,6 +138,21 @@ CREATE TABLE IF NOT EXISTS map_layout_meta (
     updated_at      TEXT DEFAULT (datetime('now'))
 );
 
+-- 从地点描述派生的视觉属性（地貌性格 / 地标类型）。
+-- 派生数据，所以**不在** chapter_facts 里：那两张表不可变，这里是可整体重算的加工品。
+-- raw_json 保留模型原话（未校验），使枚举校验的损失可量。
+CREATE TABLE IF NOT EXISTS location_visuals (
+    novel_id       TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    location_name  TEXT NOT NULL,
+    terrain        TEXT,
+    landmark       TEXT,
+    evidence       TEXT NOT NULL DEFAULT '',
+    raw_json       TEXT NOT NULL DEFAULT '',
+    llm_model      TEXT NOT NULL DEFAULT '',
+    extracted_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (novel_id, location_name)
+);
+
 CREATE TABLE IF NOT EXISTS world_structure_overrides (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     novel_id      TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
