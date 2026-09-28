@@ -832,6 +832,23 @@ export function generateTerrainHints(
   zoom = 1,
   view: TerrainViewRect | null = null,
   land: Landmass[] | null = null,
+  // ── Relief that the reader can actually see ──────
+  //
+  // Optional because tests and callers without a terrain image must still work.
+  // When present it *replaces* `reliefNoise` as the detail half of the anomaly,
+  // and that replacement is the whole point: `reliefNoise` is this module's own
+  // field, so density was following one noise field while the reader looked at
+  // another, and two independent fields have no correlation to show. Measured on
+  // 西游记's rendered frame, per-block symbol count against per-block terrain
+  // amplitude came out at r = -0.145 / -0.111 / -0.066 for 64 / 48 / 32 px blocks
+  // — i.e. flat, and slightly backwards. Cartography asks for a strong positive
+  // correlation: the hachure rule is dense where it is steep and blank where it
+  // is flat, and GB/T 20257.1-2017 calls the same idea 相应式, density following
+  // the ground. Two constants were tried first and moved r to -0.106 / -0.075,
+  // which is why this is a wiring change and not a tuning one.
+  //
+  // Takes and returns canvas coordinates and a signed anomaly in about [-1, 1].
+  reliefSampler: ((cx: number, cy: number) => number) | null = null,
 ): TerrainHintResult {
   const layoutMap = new Map<string, MapLayoutItem>()
   for (const item of layout) layoutMap.set(item.name, item)
@@ -1273,8 +1290,14 @@ export function generateTerrainHints(
       let anomaly = 0
       if (cat !== "water") {
         const authored = best >= 0 ? SEED_RELIEF[scat[best]] * falloff : 0
-        const detail = (reliefNoise(px, py, minWl, viewSpan, rsalt) - 0.5) * 2
-        anomaly = 0.55 * authored + 0.40 * detail
+        // The sign still comes from the seed, so the field cannot contradict the
+        // story — a 山 has to be high ground even if the terrain disagrees. The
+        // magnitude now comes from the terrain the reader sees, when we have it.
+        const detail = reliefSampler
+          ? reliefSampler(px, py)
+          : (reliefNoise(px, py, minWl, viewSpan, rsalt) - 0.5) * 2
+        anomaly = (reliefSampler ? 0.40 : 0.55) * authored +
+          (reliefSampler ? 0.60 : 0.40) * detail
 
         // ── Category refinement ─────────────────────
         // The biome field says what a location *is*; the relief field says
