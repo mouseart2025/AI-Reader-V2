@@ -686,8 +686,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // scattered ground cover, which deliberately *does* include sea waves and
       // therefore must not be clipped. They used to share one group, and
       // clipping that group deleted every wave in the ocean.
-      viewport.append("g").attr("id", "terrain-biome")
+      //
+      // `#regions` sits BELOW both, and that is a fix rather than a preference.
+      // The note below records the first half of the same bug: the region tint
+      // was painting over the ground cover and the layer read as a faint mottle.
+      // It was fixed for `#terrain` and left in place for `#terrain-biome`, which
+      // is the layer that actually carries the landform. Measured on 西游记 over
+      // the land interior, taking the tint out from on top of the bake raises the
+      // land's luminance spread by about 7 %, and the bake is the only thing on
+      // this map that draws relief. A political tint belongs under the ground,
+      // the way a country colour sits under the terrain on any paper map.
       viewport.append("g").attr("id", "regions")
+      viewport.append("g").attr("id", "terrain-biome")
       // Ground cover belongs ABOVE the washes. It used to be appended first —
       // before the ocean fill, before #regions — so the region tint (17 % flat
       // fill + a displacement filter) painted straight over the grass and
