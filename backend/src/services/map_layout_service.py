@@ -18,6 +18,7 @@ Key features:
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import math
 import re
@@ -2993,6 +2994,9 @@ def _bounded_influence(
     img_w: int,
     img_h: int,
     terms: list[tuple[list[tuple[float, float]], float, float]],
+    *,
+    spacing: int | None = None,
+    origin: tuple[float, float] = (0.0, 0.0),
 ) -> np.ndarray:
     """Location influence that cannot grow with the number of points.
 
@@ -3013,16 +3017,32 @@ def _bounded_influence(
     is then bounded by the strongest single point by construction, whatever the
     point count.
     """
-    from scipy.ndimage import zoom
+    from scipy.ndimage import map_coordinates, zoom
 
-    spacing = max(1, round(max(img_w, img_h) / _INFLUENCE_SAMPLES))
-    gw = max(2, img_w // spacing + 1)
-    gh = max(2, img_h // spacing + 1)
+    whole_canvas = origin == (0.0, 0.0)
+    if spacing is None:
+        # The whole-canvas default: `max(img_w, img_h)` IS the canvas long side
+        # there, so this is already canvas-anchored.
+        spacing = max(1, round(max(img_w, img_h) / _INFLUENCE_SAMPLES))
+    ox, oy = origin
+    # A CANVAS-ANCHORED coarse grid: index k sits at canvas position k*spacing,
+    # expressed in this raster's coordinates. Anchoring to the canvas rather than
+    # to the raster is what keeps an LOD tile on the bake's field — sized from the
+    # tile's own raster, the grid comes out twice as dense in canvas terms and the
+    # ground lands a few levels off (measured: mean |dRGB| 16 against the bake,
+    # against 0.0 when the window IS the canvas).
+    gi_x0 = int(np.floor(ox / spacing))
+    gi_y0 = int(np.floor(oy / spacing))
+    gw = max(2, int(np.ceil((ox + img_w) / spacing)) - gi_x0 + 1)
+    gh = max(2, int(np.ceil((oy + img_h) / spacing)) - gi_y0 + 1)
     # Raster coordinates of the coarse grid's own samples — the terms are stored
     # in raster coordinates, so the grid has to be built in the same space.
-    ys_grid, xs_grid = np.mgrid[0:gh, 0:gw].astype(np.float64)
-    ys_grid *= spacing
+    xs_grid, ys_grid = np.meshgrid(
+        np.arange(gi_x0, gi_x0 + gw, dtype=np.float64),
+        np.arange(gi_y0, gi_y0 + gh, dtype=np.float64),
+    )
     xs_grid *= spacing
+    ys_grid *= spacing
 
     pos = np.zeros_like(xs_grid)
     neg = np.zeros_like(xs_grid)
@@ -3038,10 +3058,18 @@ def _bounded_influence(
             else:
                 np.minimum(target, contrib, out=target)
     field = pos + neg
-    if spacing == 1:
-        return field[:img_h, :img_w]
-    up = zoom(field, (img_h / gh, img_w / gw), order=1)
-    return up[:img_h, :img_w]
+    if whole_canvas:
+        if spacing == 1:
+            return field[:img_h, :img_w]
+        up = zoom(field, (img_h / gh, img_w / gw), order=1)
+        return up[:img_h, :img_w]
+    # A tile samples the canvas-anchored grid at its own pixels. `zoom` cannot be
+    # used here: it resamples the whole grid, and the window needs only a part of
+    # it — and the grid deliberately extends past the window.
+    gxs = np.arange(img_w, dtype=np.float64) / spacing - gi_x0
+    gys = np.arange(img_h, dtype=np.float64) / spacing - gi_y0
+    gy2, gx2 = np.meshgrid(gys, gxs, indexing="ij")
+    return map_coordinates(field, [gy2, gx2], order=1, mode="nearest")
 
 
 def _spread_unit(field: np.ndarray) -> np.ndarray:
@@ -3102,6 +3130,52 @@ def terrain_path_for(novel_id: str) -> Path:
     a correct one.
     """
     return DATA_DIR / "maps" / novel_id / f"terrain.v{_TERRAIN_VERSION}.png"
+
+
+def terrain_stats_path_for(novel_id: str) -> Path:
+    """The canonical bake's normalisation constants, next to its PNG.
+
+    The ridged recipe spreads several fields against their own percentiles, and
+    those are a property of the raster they were taken over. An LOD tile has to
+    reuse the bake's values or its ground will not match it, so the bake writes
+    them here. Versioned with the PNG: a recipe change moves both.
+    """
+    return DATA_DIR / "maps" / novel_id / f"terrain.v{_TERRAIN_VERSION}.stats.json"
+
+
+def render_terrain_tile(
+    locations: list[dict],
+    layout: dict[str, tuple[float, float]],
+    novel_id: str,
+    window: tuple[float, float, float, float],
+    px: int,
+    canvas_width: int,
+    canvas_height: int,
+    out_path: str | Path,
+) -> str | None:
+    """Render one LOD tile: the `window` rectangle of the canvas at `px` on its
+    long side, sampled from the SAME fields as the canonical bake.
+
+    Refuses (returns None) when that bake's statistics are missing, rather than
+    producing a plausible-looking image. A tile whose ground is subtly the wrong
+    colour does not read as missing detail, it reads as a seam — which is worse
+    than no tile at all.
+    """
+    try:
+        stats = json.loads(
+            Path(terrain_stats_path_for(novel_id)).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        logger.info(
+            "terrain tile: no canonical stats for %s — refusing to render a tile "
+            "that could not be made to match the bake", novel_id,
+        )
+        return None
+    return generate_terrain(
+        locations, layout, novel_id, size=px,
+        canvas_width=canvas_width, canvas_height=canvas_height,
+        window=window, stats=stats, out_path=out_path,
+    )
 
 
 def terrain_url_for(novel_id: str) -> str:
@@ -3390,15 +3464,20 @@ _MOISTURE_TILT_RGB = np.array([-28.0, 14.0, -4.0])
 _HEIGHT_WINDOW = (1.0, 99.0)
 
 
-def _hillshade(height: np.ndarray) -> np.ndarray:
+def _hillshade(height: np.ndarray, slope_p95: float | None = None) -> np.ndarray:
     """Lambert shading of `height`, light from the upper left. Returns 0-1.
 
     The gradient is normalised against its own p95 before the exaggeration is
     applied, so `_HILLSHADE_EXAG` keeps its meaning when the raster size or the
-    octave count changes.
+    octave count changes. That p95 is nevertheless a property of the raster it was
+    taken over, so `slope_p95` lets the canonical bake's value be pinned and
+    reused: without it an LOD tile shades its ground at a different gain from the
+    bake it is supposed to continue, and the join reads as a seam.
     """
     gy, gx = np.gradient(height)
-    s = float(np.percentile(np.hypot(gx, gy), 95.0)) or 1.0
+    if slope_p95 is None:
+        slope_p95 = float(np.percentile(np.hypot(gx, gy), 95.0))
+    s = slope_p95 or 1.0
     dzdx = gx / s * _HILLSHADE_EXAG
     dzdy = gy / s * _HILLSHADE_EXAG
     nx, ny, nz = -dzdx, -dzdy, np.ones_like(dzdx)
@@ -3423,16 +3502,28 @@ def _ramp_lookup(height: np.ndarray, moist: np.ndarray) -> np.ndarray:
     return rgb + tilt * _MOISTURE_TILT_RGB
 
 
-def _own_unit(field: np.ndarray, window: tuple[float, float]) -> np.ndarray:
+def _own_unit(
+    field: np.ndarray,
+    window: tuple[float, float],
+    override: list[float] | None = None,
+) -> np.ndarray:
     """Spread a field onto 0-1 using its own percentiles, not a shared window.
+
+    `override` pins those percentiles to the values the CANONICAL bake measured.
+    They are a property of the raster they are taken over, so an LOD tile that
+    measured its own would normalise its ground differently from the bake it
+    refines — which is exactly what a seam looks like.
 
     `_spread_unit` exists and does the same job, but through `_FIELD_WINDOW`,
     which is calibrated to an fBm's mean and tails. A ridged sum has a different
     mean and a long lower tail; running it through that window clipped it to 1.0
     over almost the whole canvas, which renders as an all-white map.
     """
-    lo = float(np.percentile(field, window[0]))
-    hi = float(np.percentile(field, window[1]))
+    if override is None:
+        lo = float(np.percentile(field, window[0]))
+        hi = float(np.percentile(field, window[1]))
+    else:
+        lo, hi = override
     return np.clip((field - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
 
 
@@ -3453,6 +3544,9 @@ def generate_terrain(
     size: int | None = None,
     canvas_width: int = CANVAS_WIDTH,
     canvas_height: int = CANVAS_HEIGHT,
+    window: tuple[float, float, float, float] | None = None,
+    stats: dict | None = None,
+    out_path: str | Path | None = None,
 ) -> str | None:
     """Generate a terrain PNG using continuous simplex noise fields.
 
@@ -3482,20 +3576,64 @@ def generate_terrain(
     if len(layout) < 2:
         return None
 
+    # ── Output window ──
+    # `window` = (x0, y0, x1, y1) in canvas coordinates (x right, y down — the
+    # space the image is laid over). None means the whole canvas, and then every
+    # value below reduces to what it was, so the shipped bake does not move.
+    canvas_long = max(canvas_width, canvas_height)
+    if window is None:
+        wx0, wy0 = 0.0, 0.0
+        ww, wh = float(canvas_width), float(canvas_height)
+    else:
+        wx0, wy0, wx1, wy1 = window
+        ww, wh = max(wx1 - wx0, 1e-9), max(wy1 - wy0, 1e-9)
+
     if size is None:
         size = terrain_bake_size(canvas_width, canvas_height)
 
-    # ── Image dimensions (preserve canvas 16:9 aspect) ──
-    aspect = canvas_width / max(canvas_height, 1)
+    # ── Image dimensions — the WINDOW's aspect, not the canvas's ──
+    # A tile can be asked for any rectangle (a 16:9 viewport, a tall column beside
+    # a panel), so the aspect has to come from what is actually being drawn. Over
+    # the whole canvas this is the canvas aspect, i.e. the numbers it always was.
+    aspect = ww / max(wh, 1e-9)
     if aspect >= 1:
         img_w = size
         img_h = max(1, int(size / aspect))
     else:
         img_h = size
         img_w = max(1, int(size * aspect))
+    scale_x = img_w / ww
+    scale_y = img_h / wh
+    # Canvas coordinate of each output pixel, using the SAME endpoint-inclusive
+    # convention scipy.ndimage.zoom applies in the whole-canvas case: output pixel
+    # j maps to grid coordinate j * (gw-1)/(img_w-1), i.e. to canvas
+    # j * canvas_w/(img_w-1). An LOD tile has to land on exactly the ground the
+    # bake drew, and getting this off by one denominator is worth ~1 px of drift at
+    # the far edge — visible as a seam.
+    tile_cx = None if window is None else wx0 + np.arange(img_w) * (ww / max(img_w - 1, 1))
+    tile_cy = None if window is None else wy0 + np.arange(img_h) * (wh / max(img_h - 1, 1))
 
-    scale_x = img_w / canvas_width
-    scale_y = img_h / canvas_height
+    # ── Canonical-bake statistics ──
+    # The ridged recipe normalises several fields against their OWN percentiles.
+    # Those depend on the raster they are taken over, so an LOD tile measuring its
+    # own would colour its ground differently from the bake it refines, and the
+    # join would read as a seam. The canonical bake (stats is None) therefore
+    # RECORDS each value and every later render reuses it.
+    _recorded: dict[str, object] = {}
+
+    def _pin(key: str, compute):
+        if stats is not None:
+            return stats[key]
+        value = compute()
+        _recorded[key] = value
+        return value
+
+    def _unit(field: np.ndarray, window: tuple[float, float], key: str) -> np.ndarray:
+        override = _pin(key, lambda: [
+            float(np.percentile(field, window[0])),
+            float(np.percentile(field, window[1])),
+        ])
+        return _own_unit(field, window, override)
 
     # ── Classify location influence points ──
     # v0.67.1: Use name SUFFIX matching (endswith) instead of substring (in)
@@ -3516,8 +3654,8 @@ def generate_terrain(
         if name not in layout:
             continue
         x, y = layout[name]
-        px = x * scale_x
-        py = (canvas_height - y) * scale_y
+        px = (x - wx0) * scale_x
+        py = (canvas_height - y - wy0) * scale_y
         loc_type = loc.get("type", "")
         icon = loc.get("icon", "")
         type_icon = loc_type + icon
@@ -3554,9 +3692,7 @@ def generate_terrain(
     seed_base = _stable_seed(novel_id)
 
     # ── Sparse-sample + upsample helper ──
-    from scipy.ndimage import gaussian_filter, zoom
-
-    long_side = max(img_w, img_h)
+    from scipy.ndimage import gaussian_filter, map_coordinates, zoom
 
     def _sparse_noise(seed: int, wl_frac: float) -> np.ndarray:
         """Smooth isotropic noise with wavelength `wl_frac` of the long side.
@@ -3583,11 +3719,35 @@ def generate_terrain(
         spacing, so two bakes of different size get the identical grid, hence
         the identical random draw, hence the same field sampled finer.
         """
-        wavelength = max(wl_frac, 1e-9) * long_side
-        gw = max(3, int(np.ceil(4.0 * img_w / wavelength)) + 1)
-        gh = max(3, int(np.ceil(4.0 * img_h / wavelength)) + 1)
+        # Wavelength in CANVAS units, and a grid drawn over the canvas, so the very
+        # same field can be re-sampled over a sub-rectangle. On a 16:9 canvas this
+        # is the identical grid to the old raster-space form — `wl_frac *
+        # max(img_w, img_h)` works out to the same cell count — hence the same
+        # random draw, hence the same field. The whole-canvas path below is kept
+        # exactly as it was so that stays bit for bit true.
+        wavelength = max(wl_frac, 1e-9) * canvas_long
+        gw = max(3, int(np.ceil(4.0 * canvas_width / wavelength)) + 1)
+        gh = max(3, int(np.ceil(4.0 * canvas_height / wavelength)) + 1)
         grid = np.random.default_rng(seed).standard_normal((gh, gw))
-        up = zoom(grid, (img_h / gh, img_w / gw), order=3)[:img_h, :img_w]
+        if tile_cx is None:
+            up = zoom(grid, (img_h / gh, img_w / gw), order=3)[:img_h, :img_w]
+        else:
+            # The grid's OWN spacing, not wavelength/4: `gw`/`gh` are rounded up, so
+            # the cells do not sit exactly wavelength/4 apart (18 cells across the
+            # canvas implies 470.6 units, not 488). Spreading (gw-1) cells uniformly
+            # over the canvas is what `zoom` does for the whole-canvas case, and
+            # matching it is what keeps a tile on the same field. Using wavelength/4
+            # instead stretched the tile's ground by ~4 % and it came out as
+            # different terrain — measured, mean |dRGB| 27 against the bake.
+            gx = tile_cx * (gw - 1) / canvas_width
+            gy = tile_cy * (gh - 1) / canvas_height
+            gy2, gx2 = np.meshgrid(gy, gx, indexing="ij")
+            # mode must match zoom's default ("constant"): the cubic spline filter
+            # is IIR, so the boundary condition reaches into the interior, and on a
+            # grid this small it colours the whole field. Measured, switching from
+            # "nearest" to "constant" took the mean |dRGB| against the bake from
+            # 1.8 to ~0 on an identical window.
+            up = map_coordinates(grid, [gy2, gx2], order=3, mode="constant")
         # Cubic interpolation of a white-noise grid leaves a faint ripple on the
         # grid lines. A sub-pixel blur removes it without touching the octave's
         # scale, which is 4 samples across. This sigma is deliberately in raster
@@ -3689,12 +3849,22 @@ def generate_terrain(
     # The radii are the bake's calibration, unchanged: 0.18 / 0.22 / 0.15 / 0.14
     # of the raster's long side, i.e. a fraction of the canvas rather than a
     # fixed distance. Only the way overlapping points combine is different.
-    influence_r = max(img_w, img_h) * 0.18
+    # Radii are a fraction of the CANVAS long side. `max(img_w, img_h) * k` only
+    # equals that while the raster covers the whole canvas, which stops being true
+    # for a tile; scale_x converts canvas units into this raster's pixels.
+    influence_r = canvas_long * 0.18 * scale_x
+    # `_bounded_influence` samples the terms on a coarse grid, and that grid has to
+    # be anchored to the CANVAS: sized from the raster instead, a window gets a
+    # grid of a different density and therefore a systematically different field.
+    # For the whole canvas `canvas_long * scale_x` IS the raster long side, so the
+    # spacing is unchanged and the origin is a no-op.
+    infl_spacing = max(1, round(canvas_long / _INFLUENCE_SAMPLES * scale_x))
+    infl_origin = (-wx0 * scale_x, -wy0 * scale_y)
 
     elev += _bounded_influence(img_w, img_h, [
         (mountain_pts, influence_r, 0.25),
         (water_pts, influence_r, -0.20),
-    ])
+    ], spacing=infl_spacing, origin=infl_origin)
     elev = _spread_unit(elev)
 
     # ── Continuous moisture field (multi-octave) ──
@@ -3702,14 +3872,14 @@ def generate_terrain(
     # An affine bias, in the same sense as the elevation one above.
     moist = moist * 0.5 + 0.30
 
-    water_r = max(img_w, img_h) * 0.22
-    forest_r = max(img_w, img_h) * 0.15
-    mtn_r = max(img_w, img_h) * 0.14
+    water_r = canvas_long * 0.22 * scale_x
+    forest_r = canvas_long * 0.15 * scale_x
+    mtn_r = canvas_long * 0.14 * scale_x
     moist += _bounded_influence(img_w, img_h, [
         (water_pts, water_r, 0.35),
         (forest_pts, forest_r, 0.20),
         (mountain_pts, mtn_r, -0.12),
-    ])
+    ], spacing=infl_spacing, origin=infl_origin)
     moist = _spread_unit(moist)
 
     # ── Guards ──
@@ -3721,10 +3891,12 @@ def generate_terrain(
     # reported at the source rather than left to be rediscovered.
     outside = sum(
         1 for x, y in layout.values()
-        if not (0.0 <= x * scale_x < img_w
-                and 0.0 <= (canvas_height - y) * scale_y < img_h)
+        if not (0.0 <= (x - wx0) * scale_x < img_w
+                and 0.0 <= (canvas_height - y - wy0) * scale_y < img_h)
     )
-    if outside:
+    # Only meaningful for the canonical bake: most locations are legitimately
+    # outside an LOD tile's window, so the warning would be pure noise there.
+    if outside and window is None:
         logger.warning(
             "terrain: %d/%d locations fall outside the %dx%d raster — the "
             "canvas is probably not %dx%d (novel=%s). Pass the layout's own "
@@ -3765,17 +3937,17 @@ def generate_terrain(
         ridge = np.zeros((img_h, img_w), dtype=np.float64)
         for i, (wl, octs, amp) in enumerate(_RIDGE_SCALES):
             ridge += amp * _ridged(seed_base + 11 + 101 * i, wl, octs)
-        ridge = _own_unit(ridge, _HEIGHT_WINDOW)
+        ridge = _unit(ridge, _HEIGHT_WINDOW, "ridge")
 
-        base = _own_unit(_fbm(seed_base + 11, _RIDGE_BASE_WL, _RIDGE_OCTAVES),
-                         _HEIGHT_WINDOW)
+        base = _unit(_fbm(seed_base + 11, _RIDGE_BASE_WL, _RIDGE_OCTAVES),
+                     _HEIGHT_WINDOW, "base")
 
         # Which provinces are mountainous, as a separate low-frequency field, so
         # the answer is a property of the map rather than of each cell. Applied
         # to the ridges only: a plain keeps its broad shape and loses its crests,
         # rather than going flat and reading as a hole.
         mask = _fbm(seed_base + 61, _RELIEF_MASK_WL, _RELIEF_MASK_OCTAVES)
-        mask = _own_unit(mask, (10.0, 90.0))
+        mask = _unit(mask, (10.0, 90.0), "mask")
         ridge *= _PLAIN_FLOOR + (1.0 - _PLAIN_FLOOR) * mask
 
         height = (1.0 - _RIDGE_MIX) * base + _RIDGE_MIX * ridge
@@ -3783,14 +3955,22 @@ def generate_terrain(
             (mountain_pts, influence_r, 0.25),
             (water_pts, influence_r, -0.20),
         ])
-        h_lo = float(np.percentile(height, _HEIGHT_WINDOW[0]))
-        h_hi = float(np.percentile(height, _HEIGHT_WINDOW[1]))
+        h_lo, h_hi = _pin("height", lambda: [
+            float(np.percentile(height, _HEIGHT_WINDOW[0])),
+            float(np.percentile(height, _HEIGHT_WINDOW[1])),
+        ])
         height = np.clip((height - h_lo) / max(h_hi - h_lo, 1e-9), 0.0, 1.0)
         # Bias the mass into the lowlands before colouring, so the map is mostly
         # the light low ground a reader can put labels on. See _HEIGHT_GAMMA.
         height = height ** _HEIGHT_GAMMA
+        shade = _hillshade(
+            height,
+            _pin("hillshade_p95", lambda: float(
+                np.percentile(np.hypot(*np.gradient(height)), 95.0),
+            )),
+        )
         rgb = _ramp_lookup(height, moist) * (
-            _SHADE_FLOOR + _SHADE_RANGE * _hillshade(height)
+            _SHADE_FLOOR + _SHADE_RANGE * shade
         )[:, :, np.newaxis]
     else:
         # ── Per-pixel Whittaker color lookup ──
@@ -3836,7 +4016,9 @@ def generate_terrain(
             relief = _fbm(seed_base + 11, 0.244, _RELIEF_OCTAVES)
             gy, gx = np.gradient(relief)
             slope = gx + gy             # signed slope along the light vector
-            slope_scale = float(np.percentile(np.abs(slope), 95.0))
+            slope_scale = _pin(
+                "slope_scale", lambda: float(np.percentile(np.abs(slope), 95.0)),
+            )
             shade = np.clip(slope / (slope_scale + 1e-12), -2.0, 2.0)
             rgb = rgb * (1.0 + _RELIEF_GAIN * shade)[:, :, np.newaxis]
 
@@ -3864,17 +4046,34 @@ def generate_terrain(
     # a fixed sigma of 4 px was 0.39 % of a 1024 raster but only 0.10 % of a 4096
     # one, so raising the resolution silently traded the painterly wash for the
     # speckle the field is made of. See _BLUR_FRAC.
-    blur_sigma = max(0.5, long_side * _BLUR_FRAC)
+    # Same reasoning as the influence radii: a fraction of the CANVAS long side,
+    # converted into this raster's pixels.
+    blur_sigma = max(0.5, canvas_long * _BLUR_FRAC * scale_x)
     for ch in range(3):
         rgb[:, :, ch] = gaussian_filter(
             rgb[:, :, ch].astype(np.float64), sigma=blur_sigma).astype(np.uint8)
 
     # ── Save ──
     img = Image.fromarray(rgb, "RGB")
-    maps_dir = DATA_DIR / "maps" / novel_id
-    maps_dir.mkdir(parents=True, exist_ok=True)
-    out_path = terrain_path_for(novel_id)
+    if out_path is None:
+        maps_dir = DATA_DIR / "maps" / novel_id
+        maps_dir.mkdir(parents=True, exist_ok=True)
+        out_path = Path(terrain_path_for(novel_id))
+    else:
+        out_path = Path(out_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(str(out_path), "PNG")
+    if stats is None:
+        # The canonical bake also records the constants every later render needs in
+        # order to colour its ground identically (see _pin). A failure here is not
+        # worth aborting a bake over: tiles then simply decline to render.
+        try:
+            Path(terrain_stats_path_for(novel_id)).write_text(
+                json.dumps(_recorded, ensure_ascii=False, sort_keys=True),
+                encoding="utf-8",
+            )
+        except OSError:
+            logger.warning("Could not persist terrain stats", exc_info=True)
     logger.info("Terrain image saved: %s (%dx%d)", out_path, img_w, img_h)
     return str(out_path)
 
