@@ -4049,7 +4049,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 15
+_LAYOUT_VERSION = 16
 
 
 def compute_chapter_hash(
@@ -4581,6 +4581,16 @@ def generate_landmasses(
     from scipy.ndimage import binary_closing, binary_opening
     from scipy.spatial import KDTree
 
+    # Deterministic per-novel seed, hoisted to the top on purpose. It used to be
+    # computed a thousand lines down, next to the coastline distortion, and the
+    # shelf wobble needs it *before* that point — the first cut added there
+    # raised `UnboundLocalError`, which the caller swallows into "Failed to
+    # generate landmasses" and an empty landmass list behind an HTTP 200.
+    # Two independent `md5` calls in one function would also be a trap: they can
+    # drift apart, and then the wobble stops belonging to the same world as the
+    # coast it is wobbling.
+    _seed = _stable_seed(novel_id)
+
     # Build coord + tier lookup from layout_data
     coords: dict[str, tuple[float, float]] = {}
     tiers: dict[str, str] = {}
@@ -4784,9 +4794,55 @@ def generate_landmasses(
     # return and three is where the archipelago stops being separate (see the
     # reverted attempt below).
     _SHELF_RING_MULTS = (1.3, 2.0)
+
+    # ── Shelf width wobble ──────────────────────────────────────────────
+    # The band width was uniform *by construction*: land is
+    # `dist_field < threshold` and the shelf is the same field scaled by a
+    # constant, so every stretch of coast got the same width. On the picture
+    # that reads as a die-cut sticker around every island — the most clip-art
+    # element on the map — and it is exactly the defect the land just had: a
+    # constant where a large-scale field belongs.
+    #
+    # So the multiplier wobbles along the coast. Two invariants are preserved
+    # deliberately, and both are why the numbers below are what they are:
+    #
+    #   * **nesting.** Inner 1.3 * 1.45 = 1.885 <= outer 2.0, so each band still
+    #     contains the band inside it. The client paints them in area order and
+    #     relies on that containment; if it broke, the banding reverses and the
+    #     map "turns inside out" (see the note on `shelves` in NovelMap.tsx).
+    #   * **the outer ring only shrinks** (`min(1, wobble)`). 2.0 is the value
+    #     the archipelago-merge measurement was taken at, so the outer envelope
+    #     never exceeds what has been measured safe.
+    #
+    # Amplitude is bounded by the first invariant, not by taste. The field is
+    # sampled on a coarse lattice and upsampled: it is large-scale by design, so
+    # 24 samples per wavelength is plenty, and the full-grid version costs 3.3 s
+    # for a field that has no detail to resolve.
+    _SHELF_WOBBLE_WL = 0.35    # of the canvas long side
+    _SHELF_WOBBLE_AMP = 0.45   # +/- 45 % of the band
+    _wob_wl = max(canvas_width, canvas_height) * _SHELF_WOBBLE_WL
+    _wob_step_cells = max(1, int(round(_wob_wl / 8.0 / 24.0)))
+    _wob_x = np.arange(0, grid_w + _wob_step_cells, _wob_step_cells) * 8.0
+    _wob_y = np.arange(0, grid_h + _wob_step_cells, _wob_step_cells) * 8.0
+    _wob_n = OpenSimplex(seed=_seed + 313)
+    _wob_coarse = _wob_n.noise2array(_wob_x / _wob_wl, _wob_y / _wob_wl)
+    _wob_coarse = np.clip((_wob_coarse + 1.0) * 0.5, 0.0, 1.0)   # 0..1
+    from scipy.ndimage import zoom as _nd_zoom
+
+    _wob = _nd_zoom(
+        _wob_coarse,
+        (grid_h / max(_wob_coarse.shape[0] - 1, 1), grid_w / max(_wob_coarse.shape[1] - 1, 1)),
+        order=1,
+    )[:grid_h, :grid_w]
+    if _wob.shape != (grid_h, grid_w):
+        _wob = np.pad(_wob, ((0, max(0, grid_h - _wob.shape[0])),
+                             (0, max(0, grid_w - _wob.shape[1]))), mode="edge")[:grid_h, :grid_w]
+    _shelf_wobble = 1.0 - _SHELF_WOBBLE_AMP + 2.0 * _SHELF_WOBBLE_AMP * _wob  # 1-a .. 1+a
+
     shelf_masks = []
-    for _mult in _SHELF_RING_MULTS:
-        _m = dist_field < threshold * _mult
+    for _ring_i, _mult in enumerate(_SHELF_RING_MULTS):
+        _w = _shelf_wobble if _ring_i < len(_SHELF_RING_MULTS) - 1 else np.minimum(1.0, _shelf_wobble)
+        _m = dist_field < threshold * _mult * _w
         _m = binary_closing(_m, structure=struct_large)
         _m = binary_opening(_m, structure=struct_small)
         shelf_masks.append(_m)
@@ -4953,7 +5009,7 @@ def generate_landmasses(
                 break
 
     # ── 1.6 Chaikin smoothing + dual-frequency OpenSimplex distortion ──
-    base_seed = int(hashlib.md5(novel_id.encode()).hexdigest()[:8], 16) % (2**31)
+    base_seed = _seed          # hoisted to the top of this function
     noise_gen = OpenSimplex(seed=base_seed + 200)
 
     def _chaikin_smooth(poly: list[tuple[float, float]], rounds: int) -> list[tuple[float, float]]:
