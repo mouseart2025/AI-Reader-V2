@@ -454,6 +454,14 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     // per-tick counter-scale effect can read the current array without making
     // the rebuild effect depend on the zoom.
     const hintsRef = useRef<TerrainHint[]>([])
+    // Signed relief sampled from the baked terrain image the reader is looking
+    // at, in canvas coordinates. Ground cover reads it so its density follows the
+    // ground instead of this module's own private noise field. See the note on
+    // `reliefSampler` in terrainHints.ts for the measurement that forced this.
+    const reliefSamplerRef = useRef<((cx: number, cy: number) => number) | null>(null)
+    // Bumped when the sampler is built, so the scatter rebuilds once with real
+    // terrain instead of keeping whatever it laid down before the PNG decoded.
+    const [reliefSamplerReady, setReliefSamplerReady] = useState(0)
 
     // Stable refs for callbacks
     const onClickRef = useRef(onLocationClick)
@@ -803,6 +811,84 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("opacity", terrainOpacity)
         .attr("preserveAspectRatio", "none")
         .style("pointer-events", "none")
+
+      // ── Relief sampler, built from the very image just mounted ──────
+      // Reading the same PNG the reader sees is the point: it makes the ground
+      // cover and the terrain share one truth instead of two independent noise
+      // fields. Downsampled to a few hundred px across because the sampler is
+      // asked for a value per candidate cell, and the lattice is coarse anyway.
+      if (!terrainUrl) return
+      let cancelled = false
+      const probe = new Image()
+      probe.crossOrigin = "anonymous"
+      probe.onload = () => {
+        if (cancelled) return
+        const W = 384
+        const H = Math.max(1, Math.round((W * canvasH) / canvasW))
+        const cv = document.createElement("canvas")
+        cv.width = W
+        cv.height = H
+        const ctx = cv.getContext("2d", { willReadFrequently: true })
+        if (!ctx) return
+        ctx.drawImage(probe, 0, 0, W, H)
+        const px = ctx.getImageData(0, 0, W, H).data
+        const lum = new Float32Array(W * H)
+        for (let i = 0; i < W * H; i++) {
+          lum[i] = 0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]
+        }
+        // Separable box blur for the local mean, so the anomaly is "how does this
+        // ground stand against its own neighbourhood" rather than raw brightness
+        // (raw brightness would make the snow line drive density).
+        const R = 6
+        const tmp = new Float32Array(W * H)
+        const mean = new Float32Array(W * H)
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            let s = 0
+            let n = 0
+            for (let d = -R; d <= R; d++) {
+              const xx = x + d
+              if (xx < 0 || xx >= W) continue
+              s += lum[y * W + xx]
+              n++
+            }
+            tmp[y * W + x] = s / n
+          }
+        }
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            let s = 0
+            let n = 0
+            for (let d = -R; d <= R; d++) {
+              const yy = y + d
+              if (yy < 0 || yy >= H) continue
+              s += tmp[yy * W + x]
+              n++
+            }
+            mean[y * W + x] = s / n
+          }
+        }
+        const dev = new Float32Array(W * H)
+        for (let i = 0; i < W * H; i++) dev[i] = lum[i] - mean[i]
+        // Normalise by the field's own p95 so the anomaly is scale-free.
+        const sorted = Float32Array.from(dev).sort()
+        const p95 = Math.max(1e-6, sorted[Math.floor(sorted.length * 0.95)])
+        reliefSamplerRef.current = (cx: number, cy: number) => {
+          const x = Math.min(W - 1, Math.max(0, Math.round((cx / canvasW) * W)))
+          const y = Math.min(H - 1, Math.max(0, Math.round((cy / canvasH) * H)))
+          return Math.max(-1, Math.min(1, dev[y * W + x] / p95))
+        }
+        setReliefSamplerReady((n) => n + 1)
+      }
+      probe.onerror = () => {
+        // No sampler is a working configuration: the scatter falls back to its
+        // own noise field, which is what it did before this existed.
+        reliefSamplerRef.current = null
+      }
+      probe.src = terrainUrl
+      return () => {
+        cancelled = true
+      }
     }, [mapReady, terrainUrl, canvasW, canvasH, darkBg])
 
     // ── Scatter terrain ground cover ─────────────────
@@ -851,6 +937,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         kz,
         viewRect,
         landmasses,
+        reliefSamplerRef.current,
       )
       hintsRef.current = hints
       if (hints.length === 0) return
@@ -911,6 +998,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     }, [
       mapReady,
       lodKey,
+      // Rebuild once when the terrain sampler becomes available: before the PNG
+      // decodes the scatter falls back to its own noise field, and without this
+      // the first layout would survive for the whole session.
+      reliefSamplerReady,
       allLocations,
       locations,
       allLayout,

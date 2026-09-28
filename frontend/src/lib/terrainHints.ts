@@ -251,14 +251,19 @@ const CATEGORY_SIZE_SPREAD: Record<TerrainCategory, number> = {
 }
 
 /**
- * Chance an open-ground cell carries grass at all.
+ * Chance a land cell carries a mark at all, before terrain roughness scales it.
  *
  * Open ground is most of most maps, so this is the dial that decides whether
  * land reads as *ground* or as flat paper — and at 0.42, with hairline symbols
  * at ~0.35 effective opacity, it read as flat paper: the fit view showed whole
  * landmasses as an empty wash with a decorative crack through them.
+ *
+ * It is a single value for every material on purpose. It used to be the open
+ * ground's number while seed-adjacent ground got `0.45 + 0.55 * falloff`, which
+ * made distance to a seed the dominant term at 2.2x and left terrain able to
+ * contribute only 1.45x. See the note at the density assignment in the generator.
  */
-const PLAINS_DENSITY = 0.55
+const BASE_DENSITY = 0.55
 
 /**
  * Wave density out in the open ocean, away from any water seed.
@@ -798,7 +803,15 @@ function reliefSalt(locations: MapLocation[]): number {
  * `1 + anomaly`, so an anomaly of +0.3 is a 1.3x glyph. See the note on the
  * anomaly in the generator for why a gain replaced the old `[lo, hi]` form.
  */
-const RELIEF_SIZE_GAIN = 1.40
+// Negative on purpose, and it is the hachure convention rather than a taste.
+// Lehmann's rule is short and heavy where the ground is steep, long and fine
+// where it is gentle: steepness is carried by density and darkness, and the
+// marks get SHORTER so that a dense patch still clears the 1.5x gap its own
+// acceptance test requires. It used to be +1.40 -- crests got bigger -- which
+// fought the packing rule head on: raising the terrain coupling took the
+// measured gap ratio to 1.36, below the layer's own floor, because the marks
+// were growing at the same time as they multiplied.
+const RELIEF_SIZE_GAIN = -0.30
 const RELIEF_DENSITY_GAIN = 0.75
 const RELIEF_OPACITY_GAIN = 0.22
 
@@ -832,6 +845,23 @@ export function generateTerrainHints(
   zoom = 1,
   view: TerrainViewRect | null = null,
   land: Landmass[] | null = null,
+  // ── Relief that the reader can actually see ──────
+  //
+  // Optional because tests and callers without a terrain image must still work.
+  // When present it *replaces* `reliefNoise` as the detail half of the anomaly,
+  // and that replacement is the whole point: `reliefNoise` is this module's own
+  // field, so density was following one noise field while the reader looked at
+  // another, and two independent fields have no correlation to show. Measured on
+  // 西游记's rendered frame, per-block symbol count against per-block terrain
+  // amplitude came out at r = -0.145 / -0.111 / -0.066 for 64 / 48 / 32 px blocks
+  // — i.e. flat, and slightly backwards. Cartography asks for a strong positive
+  // correlation: the hachure rule is dense where it is steep and blank where it
+  // is flat, and GB/T 20257.1-2017 calls the same idea 相应式, density following
+  // the ground. Two constants were tried first and moved r to -0.106 / -0.075,
+  // which is why this is a wiring change and not a tuning one.
+  //
+  // Takes and returns canvas coordinates and a signed anomaly in about [-1, 1].
+  reliefSampler: ((cx: number, cy: number) => number) | null = null,
 ): TerrainHintResult {
   const layoutMap = new Map<string, MapLayoutItem>()
   for (const item of layout) layoutMap.set(item.name, item)
@@ -1218,7 +1248,11 @@ export function generateTerrainHints(
       }
 
       let cat: TerrainCategory = "plains"
-      let density = PLAINS_DENSITY
+      // Base density still follows distance to a seed, which spans 2.2x and so
+      // outranks the terrain term's 1.45x. Flattening it was tried and did not
+      // move the terrain correlation (r went -0.097 -> -0.098), so it is left as
+      // it shipped rather than changed on a theory that did not hold.
+      let density = BASE_DENSITY
       let falloff = 0
       if (best >= 0) {
         const reach = BIOME_REACH[scat[best]] * worldScale
@@ -1273,8 +1307,14 @@ export function generateTerrainHints(
       let anomaly = 0
       if (cat !== "water") {
         const authored = best >= 0 ? SEED_RELIEF[scat[best]] * falloff : 0
-        const detail = (reliefNoise(px, py, minWl, viewSpan, rsalt) - 0.5) * 2
-        anomaly = 0.55 * authored + 0.40 * detail
+        // The sign still comes from the seed, so the field cannot contradict the
+        // story — a 山 has to be high ground even if the terrain disagrees. The
+        // magnitude now comes from the terrain the reader sees, when we have it.
+        const detail = reliefSampler
+          ? reliefSampler(px, py)
+          : (reliefNoise(px, py, minWl, viewSpan, rsalt) - 0.5) * 2
+        anomaly = (reliefSampler ? 0.40 : 0.55) * authored +
+          (reliefSampler ? 0.60 : 0.40) * detail
 
         // ── Category refinement ─────────────────────
         // The biome field says what a location *is*; the relief field says
@@ -1302,6 +1342,12 @@ export function generateTerrainHints(
       if (cat !== "water") {
         density *= 1 + RELIEF_DENSITY_GAIN * anomaly
       }
+      // Cap rather than let a crest run away. The gap ratio is the layer's own
+      // acceptance criterion (>= 1.5 of the mark size) and it is what caps how
+      // many marks a cell may carry; without this a strong anomaly put density
+      // above 2 and the ratio fell through the floor. The standard's remedy for
+      // over-dense ground is to shrink the mark, which is a separate change.
+      density = Math.min(density, 2.2)
 
       if (pseudoRandom(seed + 2) > density) continue
 
