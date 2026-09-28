@@ -1926,7 +1926,16 @@ async def get_map_data(
                     json.dumps(landmass_result.get("shelves", []), ensure_ascii=False),
                     json.dumps(rivers, ensure_ascii=False),
                     json.dumps(roads, ensure_ascii=False),
-                    json.dumps(landmass_result.get("shelf_depth", []), ensure_ascii=False),
+                    # Keyword args, not positional: `geo_coords_json` was inserted
+                    # ahead of `shelf_depth_json` in the store's signature and this
+                    # call was not updated, so the depth array was written into the
+                    # *geo coords* column while `shelf_depth_json` stayed NULL.
+                    # The reader then returned [], and the client painted all five
+                    # shelf bands in the shallow colour — a huge pale halo around
+                    # every landmass. Silently, because the insert still succeeded.
+                    shelf_depth_json=json.dumps(
+                        landmass_result.get("shelf_depth", []), ensure_ascii=False
+                    ),
                 )
             except Exception:
                 logger.warning("Failed to persist map geo artifacts", exc_info=True)
