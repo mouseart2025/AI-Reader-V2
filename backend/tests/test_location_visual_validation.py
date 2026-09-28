@@ -8,7 +8,6 @@ fabricated value that gets through becomes a real terrain influence point.
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 
 import pytest
 
@@ -161,17 +160,26 @@ def test_influence_classes_keeps_the_suffix_rule_that_fixed_false_positives():
 
 # The classifier was extracted out of `generate_terrain` into `location_influence`
 # so that the audit script shares ONE implementation. That refactor had to be
-# behaviour-preserving, and the only honest way to show it is the bake's own bytes.
+# behaviour-preserving, and the only honest way to show it is the bake's own pixels.
+#
+# ⚠️ Hash the PIXELS, not the file bytes. A first version hashed the PNG bytes and
+# failed on CI while passing locally: PNG bytes also encode the compression step,
+# and macOS and the CI runner do not ship the same zlib. The encoder is not part
+# of the recipe, so anchoring on it was anchoring the wrong layer. (Same-host
+# before/after comparison was still valid — equal bytes imply equal pixels.)
 #
 # ⚠️ Changing the terrain RECIPE on purpose means updating this constant AND
 # bumping `_TERRAIN_VERSION` — otherwise the cache keeps serving the old product
 # (that trap is documented in the project notes).
-_PARITY_SHA256 = "71ec494d1d0af57100965f9f9410f0baf8268aef104debbac51dc097b6ca8669"
+_PARITY_PIXEL_SHA256 = "3993ad74c90a34c2a1fbbfb6b1fcff324acec9ad9d4e230a0c106d582148b7f8"
 
 
 def _bake(novel="_terrain_parity") -> bytes:
     # The novel id seeds the noise fields, so the anchor below is only valid for
     # this exact id — it is the one the pre-refactor bake was measured with.
+    import numpy as np
+    from PIL import Image
+
     from src.services.map_layout_service import generate_terrain
 
     locs = [
@@ -192,14 +200,15 @@ def _bake(novel="_terrain_parity") -> bytes:
     path = generate_terrain(
         locs, layout, novel, size=256, canvas_width=2560, canvas_height=1440
     )
-    return Path(path).read_bytes()
+    with Image.open(path) as im:
+        return np.asarray(im.convert("RGB")).tobytes()
 
 
 def test_terrain_bake_matches_the_parity_anchor():
     got = hashlib.sha256(_bake()).hexdigest()
-    assert got == _PARITY_SHA256, (
-        "terrain bake changed. If that was intentional, bump _TERRAIN_VERSION and "
-        "update _PARITY_SHA256; if it was not, the influence classifier drifted."
+    assert got == _PARITY_PIXEL_SHA256, (
+        "terrain bake pixels changed. If that was intentional, bump _TERRAIN_VERSION "
+        "and update _PARITY_PIXEL_SHA256; if it was not, the influence classifier drifted."
     )
 
 
