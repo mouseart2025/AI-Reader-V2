@@ -225,10 +225,21 @@ async def save_geo_artifacts(
     shelves_json: str,
     rivers_json: str,
     roads_json: str,
+    *,
     geo_coords_json: str | None = None,
     shelf_depth_json: str | None = None,
 ) -> None:
-    """Insert or update persisted map geo artifacts (landmass/shelves/rivers/roads)."""
+    """Insert or update persisted map geo artifacts (landmass/shelves/rivers/roads).
+
+    ⚠️ The two trailing columns are **keyword-only on purpose**. They were plain
+    positional parameters, and when `geo_coords_json` was inserted *before*
+    `shelf_depth_json` the single call site was not updated — so `shelf_depth`
+    landed in the `geo_coords_json` column and `shelf_depth_json` stayed NULL.
+    Nothing raised: the write succeeded, the reader got `[]`, and the frontend
+    painted every depth band in the shallow colour, which is what turned the
+    shelf into a huge pale halo around the archipelago.
+    Keywords make that class of mismatch a TypeError instead of silent corruption.
+    """
     conn = await get_connection()
     try:
         await conn.execute(

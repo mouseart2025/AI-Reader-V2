@@ -3892,7 +3892,14 @@ def generate_terrain(
 # v14: bump so the stale v13 geo-artifacts row (shelves WITHOUT shelf_depth) is
 # not reused. The ch_hash already folds this version, so both `map_layouts` and
 # `map_geo_artifacts` keys move together.
-_LAYOUT_VERSION = 14
+#
+# v15: v13/v14 did not actually deliver the depth bands. The store's signature
+# had gained `geo_coords_json` *before* `shelf_depth_json` and the single call
+# site still passed positionally, so every row written since holds the depth
+# array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
+# passes keywords and the two trailing params are keyword-only, but every row
+# cached so far is corrupt, so the bump is what forces a rewrite.
+_LAYOUT_VERSION = 15
 
 
 def compute_chapter_hash(
