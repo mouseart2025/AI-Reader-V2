@@ -122,6 +122,67 @@ def darkest_in(im: Image.Image, box):
     return avg, px[len(px) // 2]                 # (墨色, 该框的中位色=近似背景)
 
 
+def structure_stats(im: Image.Image, mask: dict) -> dict:
+    """陆地是否有**地域结构**，而不是均质噪声。
+
+    为什么要在**掩膜网格上**算而不是逐像素：单像素梯度在这张图上几乎全是
+    纸纹与符号噪声；读者的"这块地是山、那块是林"发生在几十像素的尺度上。
+    网格间距本来就是 8px，正好把细噪声滤掉、留下大形。
+
+    两个判据 + 两个合成对照（自校准，避免拿没有基准的数下结论）：
+
+    - **coarse/fine**：粗尺度能量 ÷ 细尺度能量。有大地形时两者同阶；糊成一片的
+      噪声里细尺度压倒一切，比值趋近 0。
+    - **方向一致性 coherence**：(λ1-λ2)/(λ1+λ2) 的陆地均值。成列的山脉有主方向，
+      随机噪声的各向异性为零。
+    - 对照：白噪声（下界）与一维脊线场（上界）。
+    """
+    import numpy as np
+    from scipy.ndimage import uniform_filter
+
+    grid = np.asarray(im.convert("L"), dtype=np.float32)
+    step = mask["step"]
+    x0, y0 = int(mask["x"]), int(mask["y"])
+    rows, cols = len(mask["sea"]), len(mask["sea"][0])
+    G = np.zeros((rows, cols), dtype=np.float32)
+    land = np.zeros((rows, cols), dtype=bool)
+    for j in range(rows):
+        for i in range(cols):
+            x = min(im.size[0] - 1, x0 + int(i * step + step / 2))
+            y = min(im.size[1] - 1, y0 + int(j * step + step / 2))
+            G[j, i] = grid[y, x]
+            land[j, i] = mask["sea"][j][i] != "1"
+
+    def metrics(arr, region):
+        coarse = uniform_filter(arr, 9)
+        fine = arr - coarse
+        c = float(coarse[region].std())
+        f = float(fine[region].std())
+        gy, gx = np.gradient(arr)
+        Jxx = uniform_filter(gx * gx, 5)[region]
+        Jyy = uniform_filter(gy * gy, 5)[region]
+        Jxy = uniform_filter(gx * gy, 5)[region]
+        tr = Jxx + Jyy
+        ok = tr > 1e-6
+        coh = np.sqrt((Jxx[ok] - Jyy[ok]) ** 2 + 4 * Jxy[ok] ** 2) / tr[ok]
+        return {"coarse_fine": round(c / max(f, 1e-6), 3),
+                "coherence": round(float(coh.mean()) if coh.size else 0.0, 3)}
+
+    n = land.sum()
+    if n < 50:
+        return {"error": "陆地格点太少，掩膜可能不对"}
+    out = {"land_cells": int(n), "land": metrics(G, land)}
+
+    # ── 合成对照（同一套代码跑，量具自校准）──
+    rng = np.random.default_rng(0)
+    noise = rng.normal(0, 30, G.shape).astype(np.float32)
+    yy, xx = np.mgrid[0 : G.shape[0], 0 : G.shape[1]]
+    ridges = (np.sin(xx / 4.0) * 40 + rng.normal(0, 4, G.shape)).astype(np.float32)
+    out["control_white_noise"] = metrics(noise, land)
+    out["control_ridge_field"] = metrics(ridges, land)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("shot")
@@ -134,6 +195,8 @@ def main() -> None:
     ap.add_argument("--crop", metavar="X,Y,W,H",
                     help="把该区域放大 6 倍另存，用来人眼复核取样框是否框到字")
     ap.add_argument("--top-colors", type=int, default=0)
+    ap.add_argument("--structure", action="store_true",
+                    help="陆地是否有地域结构（需 --mask；含白噪声/脊线场两个自校准对照）")
     args = ap.parse_args()
 
     im = Image.open(args.shot).convert("RGB")
@@ -178,6 +241,23 @@ def main() -> None:
               f"  背景 rgb({bg[0]},{bg[1]},{bg[2]})")
         print(f"  对比度 {ratio:.2f}:1"
               f"   {'✅ AA' if ratio >= 4.5 else '⚠️ 偏弱' if ratio >= 3 else '❌ 读不出'}")
+
+    if args.structure:
+        if not (args.mask and Path(args.mask).exists()):
+            print("\n⚠️ --structure 需要 --mask（地域结构必须在真实陆地掩膜内统计）")
+        else:
+            st = structure_stats(im, json.loads(Path(args.mask).read_text()))
+            print("\n[地域结构] 在陆地掩膜内统计")
+            if "error" in st:
+                print(f"  {st['error']}")
+            else:
+                for label, key in (("本次渲染", "land"), ("对照·白噪声", "control_white_noise"),
+                                   ("对照·脊线场", "control_ridge_field")):
+                    v = st[key]
+                    print(f"  {label:12} coarse/fine {v['coarse_fine']:>6}   "
+                          f"方向一致性 {v['coherence']:>5}")
+                print(f"  陆地格点 {st['land_cells']}")
+                print("  读法：coarse/fine 越接近 0 越像只有细噪声；方向一致性接近白噪声 ⇒ 无地貌走向。")
 
     if args.top_colors:
         q = im.convert("RGB")
