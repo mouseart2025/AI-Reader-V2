@@ -91,10 +91,26 @@ function findChromium() {
   page.on("requestfailed", (r) => errors.push("REQ FAIL " + r.url().slice(0, 120)));
 
   await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+  // ── 语义就绪判据 ──────────────────────────────────────────────
+  // 不是"网络空闲"，也不是固定 sleep：等页面自己说它算完了。
+  /// 这个判据抄自仓里既有的 `ai-reader-internal/scripts/map-visual-audit/probe_visual.py`
+  // 与 `shoot_zoom.py`（两个都带同一个 READY 串）。我今晚先写了 `.location-item` +
+  // 固定 2200ms 的版本，比这个糙 —— 固定 sleep 在慢机器上会截到半成品，而那个正是
+  // 我今晚栽过的坑（`chrome --screenshot` 拍出的"未渲染完成的地图"，据此得出了一整套
+  // 错误结论）。**别再造第二套，直接沿用既有判据。**
   await page
-    .waitForSelector(".location-item", { timeout: 30000 })
+    .waitForFunction(
+      () =>
+        !!document.querySelector("#viewport") &&
+        !document.body.innerText.includes("计算地理坐标") &&
+        !document.body.innerText.includes("求解空间布局") &&
+        !document.body.innerText.includes("优化布局中") &&
+        !document.body.innerText.includes("请稍候"),
+      { timeout: 60000 }
+    )
     .catch(() => {});
-  await page.waitForTimeout(2500); // 让反缩放 effect 与标签碰撞求解跑完
+  await page.waitForSelector(".location-item", { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(1200); // 之后只留一个短的稳定窗，不再靠它兜底
 
   const report = await page.evaluate(() => {
     const items = Array.from(document.querySelectorAll(".location-item"));
