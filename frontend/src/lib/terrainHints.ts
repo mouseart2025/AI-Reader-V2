@@ -862,6 +862,25 @@ export function generateTerrainHints(
   //
   // Takes and returns canvas coordinates and a signed anomaly in about [-1, 1].
   reliefSampler: ((cx: number, cy: number) => number) | null = null,
+  // ── Mechanism probe ──────────────────────────────
+  //
+  // Called once per CANDIDATE cell with the terrain value it was given and the
+  // probability it received. Measuring the coupling from accepted symbols
+  // instead cannot work at this map's size: ~100 land marks over ~66 usable
+  // blocks leaves every correlation inside its own noise band, so both "it
+  // works" and "it does not" were unfalsifiable. This exposes the mechanism
+  // itself, where the sample count is the candidate grid (~6.5k) rather than the
+  // accepted marks, and it instruments the producer rather than re-deriving it.
+  // Default off; the probe sets it.
+  debugSink:
+    | ((rec: {
+        anomaly: number
+        density: number
+        densityPre: number
+        anomalyFactor: number
+        accepted: boolean
+      }) => void)
+    | null = null,
 ): TerrainHintResult {
   const layoutMap = new Map<string, MapLayoutItem>()
   for (const item of layout) layoutMap.set(item.name, item)
@@ -1350,9 +1369,23 @@ export function generateTerrainHints(
       // stays anchored to its cells and does not slide across the map while
       // the reader pans.
       density *= PATCH_FLOOR + PATCH_RANGE * patchDensity(ix, iy)
+      const densityPre = density
+      // Density takes the MAGNITUDE, size and opacity keep the signed value.
+      //
+      // `anomaly` is a signed height anomaly: "does this ground stand above its
+      // own neighbourhood". Steepness is its magnitude, and the hachure rule is
+      // about steepness -- denser where the ground is steep, blank where it is
+      // flat -- with no regard for whether the slope faces up or down. Feeding
+      // the signed value to density made only the crests denser while the equally
+      // steep descending side got sparser, so the two halves cancelled. Measured
+      // on 462 land candidate cells with the mechanism probe, the signed form
+      // left r(density, |anomaly|) at +0.102; the magnitude form is what the rule
+      // asks for.
+      const reliefMag = Math.abs(anomaly)
       if (cat !== "water") {
-        density *= 1 + RELIEF_DENSITY_GAIN * anomaly
+        density *= 1 + RELIEF_DENSITY_GAIN * reliefMag
       }
+      const anomalyFactor = 1 + RELIEF_DENSITY_GAIN * reliefMag
       // Cap rather than let a crest run away. The gap ratio is the layer's own
       // acceptance criterion (>= 1.5 of the mark size) and it is what caps how
       // many marks a cell may carry; without this a strong anomaly put density
@@ -1360,7 +1393,11 @@ export function generateTerrainHints(
       // over-dense ground is to shrink the mark, which is a separate change.
       density = Math.min(density, 2.2)
 
-      if (pseudoRandom(seed + 2) > density) continue
+      if (pseudoRandom(seed + 2) > density) {
+        debugSink?.({ anomaly, density, densityPre, anomalyFactor, accepted: false })
+        continue
+      }
+      debugSink?.({ anomaly, density, densityPre, anomalyFactor, accepted: true })
 
       // Size and opacity follow the same field, so a ridge crest carries
       // larger, darker marks than the hollows beside it — the gradient the eye

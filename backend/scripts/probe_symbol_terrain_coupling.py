@@ -112,7 +112,7 @@ def main() -> None:
         return float(anom[iy, ix])
 
     print(f"\n{'块':>5}{'有效块':>7}{'低起伏':>9}{'高起伏':>9}{'高/低':>8}{'r':>9}")
-    for b, thr in ((8, 0.6), (6, 0.5), (4, 0.4)):
+    for b, thr in ((20, 0.7), (16, 0.7), (12, 0.65), (8, 0.6), (6, 0.5), (4, 0.4)):
         bh, bw = rows // b, cols // b
         px_block = b * step
         cnt, amp = [], []
