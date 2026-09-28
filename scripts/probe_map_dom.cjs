@@ -69,11 +69,20 @@ function findChromium() {
   const hides = [];
   let url = DEFAULT_URL;
   let shot = "/tmp/map_pw.png";
+  let urlSeen = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--hide") hides.push(args[++i]);
     else if (a === "--shot") shot = args[++i];
-    else if (!a.startsWith("--")) url = a;
+    // 位置参数按文档头部的顺序来：第一个是 URL，第二个是输出图。
+    // 原实现把**任何**不以 `--` 开头的位置参数都写进 `url`，
+    // 于是文档里写的 `[URL] [SHOT.png]` 实际会把输出路径当 URL 打开
+    // （实测报 `Cannot navigate to invalid URL: /tmp/v3_before.png`）。
+    // 文档与行为必须一致，改行为以合文档，而不是改文档以合 bug。
+    else if (!a.startsWith("--")) {
+      if (urlSeen) shot = a;
+      else { url = a; urlSeen = true; }
+    }
   }
 
   const browser = await chromium.launch({
@@ -307,6 +316,99 @@ function findChromium() {
     `ground symbols -> /tmp/map_symbols.json  共 ${symbols.total} 个  ` +
       JSON.stringify(symbols.byCat)
   );
+
+  // ── 地点标记的屏幕几何 ────────────────────────────────────────
+  // V3 那条待办说的是"底板比字形更主导，且地面符号与地点标记同尺寸同重量"。
+  // 前一句在代码里有据可查（`r = min(iconSize*0.32, 18)`，字形伸到 `iconSize/2`），
+  // 后一句**至今没有任何数**。要判"读者分不分得出两种语言"，可算的是
+  // **两者的屏幕尺寸分布重叠多少** —— 同尺寸同重量必然落在同一个尺寸带里。
+  // 所以这里把标记侧也取出来：tier、字形盒、底盘直径、标签字号，
+  // 全部走 getBoundingClientRect（屏幕像素），与地面符号同一把尺子。
+  const marks = await page.evaluate(() => {
+    const rbox = (el) => el.getBoundingClientRect();
+    const box = (el) => {
+      const r = rbox(el);
+      return [Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10];
+    };
+    const out = [];
+    for (const g of document.querySelectorAll("#viewport g[class^='tier-'] > g")) {
+      const host = g.closest("g[id^='locations-']");
+      const tier = host ? host.id.replace("locations-", "") : "?";
+      const icon = g.querySelector(".loc-icon");
+      const plate = g.querySelector(".loc-plate");
+      const label = g.querySelector(".loc-label");
+      if (!icon) continue;
+      const [iw, ih] = box(icon);
+      const [pw, ph] = plate ? box(plate) : [0, 0];
+      const cs = label ? getComputedStyle(label) : null;
+      const lr = label ? rbox(label) : null;
+      out.push({
+        tier,
+        icon: [iw, ih],
+        plate: [pw, ph],
+        plateRect: plate && pw > 0
+          ? [rbox(plate).x, rbox(plate).y, pw, ph].map((v) => Math.round(v * 10) / 10)
+          : null,
+        plateR: plate ? +plate.getAttribute("r") : 0,
+        labelPx: cs ? parseFloat(cs.fontSize) : 0,
+        labelBox: label ? box(label) : [0, 0],
+        labelRect: lr && lr.width > 0
+          ? [lr.x, lr.y, lr.width, lr.height].map((v) => Math.round(v * 10) / 10)
+          : null,
+        labelText: label ? label.textContent.trim().slice(0, 12) : "",
+        opacity: +(icon.getAttribute("opacity") ?? 1),
+        iconSize: icon.getAttribute("transform") || "",
+      });
+    }
+    const byTier = {};
+    for (const m of out) byTier[m.tier] = (byTier[m.tier] || 0) + 1;
+
+    // ── 标签被底板压住多少 ────────────────────────────────────────
+    // "hidden" 口径只数 display:none / 宽度 0，而真正的毛病是**画了但被压住** ——
+    // 并排图上 `祭赛国`/`天竺国`/`平顶山` 三个标签在带底板时完全读不出来，
+    // 去掉底板才露出来，它们在此之前一个都没被记为 hidden。
+    // 所以这里算几何遮挡：每个标签的屏幕盒与所有底板盒的重叠面积 ÷ 标签面积。
+    const plates = out.filter((m) => m.plateRect).map((m) => m.plateRect);
+    const labels = out.filter((m) => m.labelRect);
+    let worst = 0;
+    const perLabel = [];
+    for (const m of labels) {
+      const [lx, ly, lw, lh] = m.labelRect;
+      const area = Math.max(lw * lh, 1e-6);
+      let covered = 0;
+      for (const [px, py, pw2, ph2] of plates) {
+        const ox = Math.max(0, Math.min(lx + lw, px + pw2) - Math.max(lx, px));
+        const oy = Math.max(0, Math.min(ly + lh, py + ph2) - Math.max(ly, py));
+        covered += ox * oy;
+      }
+      const frac = Math.min(covered / area, 1);
+      if (frac > worst) worst = frac;
+      if (frac > 0.05) perLabel.push({ text: m.labelText, tier: m.tier, frac: +frac.toFixed(2) });
+    }
+    perLabel.sort((a, b) => b.frac - a.frac);
+    return {
+      total: out.length, byTier, items: out,
+      labelsMeasured: labels.length,
+      labelsOverlapped: perLabel.length,
+      labelOverlapWorst: +worst.toFixed(2),
+      labelOverlapHalf: perLabel.filter((p) => p.frac >= 0.5).length,
+      labelOverlapTop: perLabel.slice(0, 12),
+    };
+  });
+  fs.writeFileSync("/tmp/map_marks.json", JSON.stringify(marks));
+  console.log(
+    `location marks -> /tmp/map_marks.json  共 ${marks.total} 个  ` +
+      JSON.stringify(marks.byTier)
+  );
+  console.log(
+    `label occlusion: 量到 ${marks.labelsMeasured} 个标签，被底板压住 ` +
+      `${marks.labelsOverlapped} 个（其中压掉一半以上的 ${marks.labelOverlapHalf} 个，` +
+      `最严重 ${(marks.labelOverlapWorst * 100).toFixed(0)}%）`
+  );
+  if (marks.labelOverlapTop.length) {
+    console.log("  最严重的几个: " +
+      marks.labelOverlapTop.map((p) => `${p.text}(${p.tier} ${(p.frac * 100).toFixed(0)}%)`).join(" "));
+  }
 
   await page.screenshot({ path: shot });
   console.log("shot -> " + shot);
