@@ -3331,6 +3331,39 @@ _RELIEF_MASK_OCTAVES = 3
 # no relief at all has no texture either, and a flat colour patch on a map this
 # size reads as a hole rather than as a plain.
 _PLAIN_FLOOR = 0.34
+# NOTE (2026-09-28): a provincial MEAN shift was tried here, twice, and both
+# variants were reverted on their own pre-registered criterion. Recorded because
+# the failure is structural, not a matter of tuning the constant.
+#
+# The map is statistically homogeneous over land. Measured at fit zoom on
+# 西游记, 128 px blocks, between-block std divided by within-block std — 1.0
+# would mean two provinces differ as much as one province's own texture does:
+#
+#     v10 baseline   luminance 0.179   saturation 0.303   warm-cool 0.522
+#     height bias    luminance 0.223   saturation 0.163   warm-cool 0.389
+#     moisture bias  luminance 0.251   saturation 0.181   warm-cool 0.416
+#
+# (the provincial field is `_RELIEF_MASK_WL`; it was only ever used for ridge
+# AMPLITUDE, so a province varies in roughness while keeping the same mean)
+#
+# The luminance ratio rises every time and the other two channels never recover
+# to baseline, because **both differentiation mechanisms are bounded and
+# saturate**:
+#
+#   - Height runs into a 1-D ramp whose ends are its least saturated stops
+#     (light sand at 0.00, snow at 0.97-1.00), so moving provinces toward
+#     either end trades chroma for value.
+#   - Moisture only ever reaches the colour through
+#     `clip((moist - 0.5) * 2, -1, 1) * clip(1 - height / 0.62, 0, 1)` — hard
+#     saturation, and low ground only. A bias pushes more area into saturation
+#     and therefore *compresses* the differences between provinces.
+#
+# So no re-parameterisation of these two will produce region-scale colour. The
+# change has to be structural: make colour a function of something that varies
+# per province — e.g. a low-frequency field choosing among several ramps, or a
+# per-province hue rotation — rather than of two bounded scalars.
+# Measure any attempt with `probe_map_visual.py --region-variety`, and require
+# all three ratios to rise, not just luminance.
 # Height is pushed toward the lowlands before the palette is applied, which is
 # what stops the mid-tones from filling with rock and snow. Set to 1.0 -- off --
 # because the ridged field already concentrates its mass low once the crest

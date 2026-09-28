@@ -385,6 +385,215 @@ def hierarchy_stats(mask: dict, symbols: dict, marks: dict) -> dict:
     return out
 
 
+def label_ink_stats(im_on: Image.Image, im_off: Image.Image, marks: dict) -> dict:
+    """标签被压住之后**还读不读得出来** —— 光学口径，不是几何口径。
+
+    为什么必须有这一条：`probe_map_dom.cjs` 报的遮挡是**几何**的（标签盒 ∩ 底板盒的面积），
+    而底板改完之后只剩 alpha 0.30 的一层雾。**深色文字底下垫一层 30% 白雾会抬高对比度、
+    不是抹掉它** —— 所以几何口径在改动之后会**高估**残余问题。
+    （这一条是被自己的改动逼出来的：几何计数降不下来的两个标签，
+    在图上看其实已经恢复可读了。）
+
+    判法：同一个标签的屏幕盒，在两态图里各取
+      ink = 框内亮度 p5（最暗的墨）   bg = 框内亮度 p95（最亮的底/白描边）
+      contrast = (bg+5)/(ink+5)
+    底板若真的压在字上，它会把**墨也一起提亮** ⇒ ink 上移 ⇒ contrast 掉。
+    两态对比即得"这块底板对这条标签造成了多少可读性损失"。
+
+    用同一份 `labelRect`（取自 ON 态）量两张图 —— 标签位置由碰撞求解器给，
+    两态下可能不同，所以**必须**用同一组框，否则量到的是"标签挪了位置"而不是"被压住"。
+    这也是这条判据的边界：它只回答"同一位置上的墨有没有被冲淡"，不回答"标签挪到哪更好"。
+    """
+    import numpy as np
+
+    def lum(im):
+        a = np.asarray(im.convert("RGB"), dtype=np.float64)
+        return 0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]
+
+    Lon, Loff = lum(im_on), lum(im_off)
+    H, W = Lon.shape
+
+    rows = []
+    for m in marks["items"]:
+        r = m.get("labelRect")
+        if not r or not m.get("labelText"):
+            continue
+        x, y, w, h = (int(round(v)) for v in r)
+        x0, y0 = max(0, x), max(0, y)
+        x1, y1 = min(W, x + w), min(H, y + h)
+        if x1 - x0 < 6 or y1 - y0 < 6:
+            continue
+
+        def stat(L):
+            crop = L[y0:y1, x0:x1].ravel()
+            ink = float(np.percentile(crop, 5))
+            bg = float(np.percentile(crop, 95))
+            return ink, bg, (bg + 5.0) / (ink + 5.0)
+
+        i_on, b_on, c_on = stat(Lon)
+        i_off, b_off, c_off = stat(Loff)
+        rows.append({
+            "text": m["labelText"], "tier": m["tier"],
+            "contrast_on": round(c_on, 2), "contrast_off": round(c_off, 2),
+            "ink_on": round(i_on, 1), "ink_off": round(i_off, 1),
+            "loss": round(1 - c_on / max(c_off, 1e-6), 3),
+        })
+
+    if not rows:
+        return {"error": "没有可量的标签框（marks JSON 里没有 labelRect）"}
+    losses = np.array([r["loss"] for r in rows])
+    rows.sort(key=lambda r: -r["loss"])
+    return {
+        "labels_measured": len(rows),
+        "loss_median": round(float(np.median(losses)), 4),
+        "loss_p90": round(float(np.percentile(losses, 90)), 4),
+        "labels_losing_over_10pct": int((losses > 0.10).sum()),
+        "labels_losing_over_25pct": int((losses > 0.25).sum()),
+        "labels_ink_darker_when_plate_on": int(sum(1 for r in rows if r["ink_on"] > r["ink_off"])),
+        "worst": rows[:10],
+        "best": rows[-3:],
+    }
+
+
+def layer_contribution(im_on: Image.Image, im_off: Image.Image, mask: dict) -> dict:
+    """某一层**到底给画面贡献了多少** —— 关掉它、在掩膜内逐像素差。
+
+    这是这条线上一直缺的那一类判据。`--symbols` / `--hierarchy` 量的是**符号放得对不对**，
+    `gap_ratio` 量的是**间距比**，机制探针量的是**密度跟随哪个场** ——
+    没有一个回答"这一层在屏幕上还剩多少墨"。实测：地面符号层在 fit 缩放下
+    陆地平均 |ΔL| 只有 **0.75 级**、高频能量 **−0.4%**，
+    而它上面已经调过三支 PR 的密度与坡度耦合。
+
+    两个量，缺一不可：
+
+    - `meanAbs`：平均 |ΔL|（0–255）。这是"平均多少墨"，但对**细而稀疏**的东西会偏小 ——
+      几十个 15px 的淡符号摊到 31 万像素上，均值天然被稀释。
+    - `hf`：高频能量 std（图减自身的盒模糊）。这是"**纹理**还剩多少"，
+      与面积无关，才是眼睛读作"有质地"的那个量。
+
+    只报 meanAbs 会得出"这层没用"；只报 hf 会看不出"变淡了"。**两个一起报**，
+    并且要用 `--hide <selector>` 拍对照图 —— 关掉的方式与 `probe_map_dom.cjs` 同一套，
+    不另写一份判定。
+    """
+    import numpy as np
+
+    def lum(im):
+        a = np.asarray(im.convert("RGB"), dtype=np.float64)
+        return 0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]
+
+    Lon, Loff = lum(im_on), lum(im_off)
+    H = min(Lon.shape[0], Loff.shape[0])
+    W = min(Lon.shape[1], Loff.shape[1])
+    Lon, Loff = Lon[:H, :W], Loff[:H, :W]
+
+    step, x0, y0 = mask["step"], int(mask["x"]), int(mask["y"])
+    sea = mask["sea"]
+    land_m = np.zeros((H, W), bool)
+    sea_m = np.zeros((H, W), bool)
+    for j, row in enumerate(sea):
+        for i, ch in enumerate(row):
+            y, x = y0 + j * step, x0 + i * step
+            if 0 <= y < H and 0 <= x < W:
+                (sea_m if ch == "1" else land_m)[y:y + step, x:x + step] = True
+
+    def box(L, k=5):
+        p = np.pad(L, k // 2, mode="edge")
+        c = np.cumsum(np.cumsum(p, 0), 1)
+        S = c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]
+        return S[:L.shape[0], :L.shape[1]] / (k * k)
+
+    def hf(L, m):
+        blur = box(box(L))
+        r = L[:blur.shape[0], :blur.shape[1]] - blur
+        return float(r[m[:r.shape[0], :r.shape[1]]].std())
+
+    d = np.abs(Lon - Loff)
+    out = {}
+    for name, m in (("land", land_m), ("sea", sea_m)):
+        if not m.any():
+            continue
+        v = d[m]
+        out[name] = {
+            "px": int(v.size),
+            "mean_abs": round(float(v.mean()), 3),
+            "p90": round(float(np.percentile(v, 90)), 2),
+            "p99": round(float(np.percentile(v, 99)), 2),
+            "share_gt2": round(float((v > 2).mean()), 4),
+            "hf_on": round(hf(Lon, m), 3),
+            "hf_off": round(hf(Loff, m), 3),
+        }
+        o = out[name]
+        o["hf_delta_pct"] = round((o["hf_on"] / max(o["hf_off"], 1e-9) - 1) * 100, 2)
+    return out
+
+
+def region_variety(im: Image.Image, mask: dict, block: int = 128) -> dict:
+    """陆地在**区域尺度**上分化了没有 —— 「读得出地理」的可算形式。
+
+    为什么要这一条：`--structure` 量的是**局部**有没有走向，`--contrib` 量的是**某层**的墨量，
+    两个都回答不了"这四块大陆是不是同一块地"。实测（2026-09-28）三块大陆的均色
+    只差约 15 级明度，而各大陆内部的纹理幅度是 36–50 级 —— 也就是说
+    **区域之间的差异小于区域内部纹理的 1/3**，图在统计上是**均质**的。
+
+    判据 = **块间 std ÷ 块内 std**（块内取各块 std 的均值）：
+
+    - **比值 < 1** ⇒ 任意两地的差别比任一块地内部的纹路还小 ⇒ 读者读到的是
+      "同一种质地铺满全图"，不是"山地 / 平原 / 林"。
+    - **比值 > 1** ⇒ 区域之间真的不同（块与块能分辨），这才叫有地理。
+
+    三个通道分开报，因为它们背后是三个不同的旋钮：**明度**（高度分布的均值）、
+    **彩度**（调色板的饱和度跨度）、**冷暖**（色相方向）。一个烘焙配方可能只动其中一个 ——
+    实测 `_RELIEF_MASK` 只动**幅度**（块内 std），不动**均值**，所以明度比值 0.179：
+    省份之间"粗糙程度"不同，但都不是"另一种颜色"。
+
+    口径与边界：块只取**几乎全陆地**（陆地占比 >0.7）的，否则块均值被海面拉走；
+    块边取整会造成边缘浪费，所以只报块数。块大小 128px 是"区域"的量级 ——
+    **换块大小会换出不同的比值**，结论只在同一块大小下可比。
+    """
+    import numpy as np
+
+    a = np.asarray(im.convert("RGB"), dtype=np.float64)
+    H, W = a.shape[:2]
+    step, x0, y0 = mask["step"], int(mask["x"]), int(mask["y"])
+    land = np.zeros((H, W), bool)
+    for j, row in enumerate(mask["sea"]):
+        for i, ch in enumerate(row):
+            y, x = y0 + j * step, x0 + i * step
+            if 0 <= y < H and 0 <= x < W:
+                land[y:y + step, x:x + step] = ch != "1"
+
+    mx, mn = a.max(-1), a.min(-1)
+    chans = {
+        "sat": (mx - mn) / np.maximum(mx, 1e-6),
+        "warm": (a[..., 0] - a[..., 2]) / 255.0,
+        "lum": (0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]) / 255.0,
+    }
+
+    out: dict = {"block": block, "blocks": 0, "channels": {}}
+    for name, f in chans.items():
+        means, stds = [], []
+        for by in range(0, H - block + 1, block):
+            for bx in range(0, W - block + 1, block):
+                m = land[by:by + block, bx:bx + block]
+                if m.mean() > 0.7:
+                    v = f[by:by + block, bx:bx + block][m]
+                    means.append(float(v.mean()))
+                    stds.append(float(v.std()))
+        if len(means) < 12:
+            out["channels"][name] = {"error": f"全陆地块只有 {len(means)} 个"}
+            continue
+        between = float(np.std(means))
+        within = float(np.mean(stds))
+        out["channels"][name] = {
+            "blocks": len(means),
+            "between": round(between, 4),
+            "within": round(within, 4),
+            "ratio": round(between / max(within, 1e-9), 3),
+        }
+        out["blocks"] = max(out["blocks"], len(means))
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("shot")
@@ -406,6 +615,19 @@ def main() -> None:
                     const="/tmp/map_marks.json", default=None,
                     help="图形层级：标记 vs 地面符号的尺寸分带（需 --mask），"
                          "MARKS_JSON 由 probe_map_dom.cjs 产出")
+    ap.add_argument("--label-ink", metavar="PLATE_OFF_SHOT",
+                    help="标签可读性的光学口径：本图（底板在）对比 PLATE_OFF_SHOT"
+                         "（`.loc-plate` 全关），逐标签比同一位置的墨迹对比度。"
+                         "几何遮挡会高估残余问题，这条是它的校正。")
+    ap.add_argument("--marks", metavar="JSON", default="/tmp/map_marks.json",
+                    help="标记几何（probe_map_dom.cjs 产出），--label-ink 与 --hierarchy 共用")
+    ap.add_argument("--contrib", metavar="LAYER_OFF_SHOT",
+                    help="某层贡献了多少画面：本图（层在）对比 LAYER_OFF_SHOT"
+                         "（用 probe_map_dom.cjs --hide <sel> 拍），掩膜内报平均 |ΔL| 与高频能量")
+    ap.add_argument("--region-variety", action="store_true",
+                    help="陆地在区域尺度上分化了没有（块间 std ÷ 块内 std；<1 即全图同一种质地）")
+    ap.add_argument("--block", type=int, default=128,
+                    help="--region-variety 的块大小（px）；比值只在同一块大小下可比")
     args = ap.parse_args()
 
     im = Image.open(args.shot).convert("RGB")
@@ -478,6 +700,74 @@ def main() -> None:
                       "≈1 就是两种语言同尺寸。marks_in_ground_band 是**标记**落进底部纹理"
                       "尺寸带的比例 —— 这一批就是读者分不出「地物 vs 纹理」的那一批。"
                       "底板/字形 >1 说明底盘比字形宽，那一眼看到的是底板不是图形。")
+
+    if args.label_ink:
+        if not Path(args.label_ink).exists():
+            print(f"\n⚠️ 找不到对照图 {args.label_ink}（用 probe_map_dom.cjs --hide '.loc-plate' 拍一张）")
+        elif not Path(args.marks).exists():
+            print(f"\n⚠️ 找不到 {args.marks}（先用 probe_map_dom.cjs 采集，且要在**底板开**的那一次）")
+        else:
+            mk = json.loads(Path(args.marks).read_text())
+            li = label_ink_stats(im, Image.open(args.label_ink).convert("RGB"), mk)
+            print("\n[标签可读性·光学口径] 底板在 vs 底板全关，同一组标签框")
+            if "error" in li:
+                print(f"  {li['error']}")
+            else:
+                print(f"  量到 {li['labels_measured']} 个标签   对比度损失 中位 "
+                      f"{li['loss_median'] * 100:.1f}%   p90 {li['loss_p90'] * 100:.1f}%")
+                print(f"  损失 >10% 的 {li['labels_losing_over_10pct']} 个；"
+                      f">25% 的 {li['labels_losing_over_25pct']} 个")
+                print(f"  底板反而让墨更深（对比度变好）的 {li['labels_ink_darker_when_plate_on']} 个")
+                print(f"\n  {'标签':<10}{'tier':<11}{'底板在':>8}{'底板关':>8}{'损失':>8}")
+                for r in li["worst"]:
+                    print(f"  {r['text']:<10}{r['tier']:<11}{r['contrast_on']:>8}"
+                          f"{r['contrast_off']:>8}{r['loss'] * 100:>7.1f}%")
+                print("  读法：几何遮挡计数（probe_map_dom.cjs）只回答「框有没有被盖住」；"
+                      "这一条回答「盖住之后还读不读得出来」。"
+                      "深色墨底下垫一层浅雾会**抬高**对比度，所以几何口径在改造之后会高估残余问题。")
+
+    if args.contrib:
+        if not Path(args.contrib).exists():
+            print(f"\n⚠️ 找不到对照图 {args.contrib}（用 probe_map_dom.cjs --hide <sel> 拍一张）")
+        elif not (args.mask and Path(args.mask).exists()):
+            print("\n⚠️ --contrib 需要 --mask（贡献必须按陆地/海面分开算）")
+        else:
+            co = layer_contribution(im, Image.open(args.contrib).convert("RGB"),
+                                    json.loads(Path(args.mask).read_text()))
+            print("\n[图层贡献] 关掉该层前后，在渲染器自己的掩膜内逐像素差")
+            if not co:
+                print("  掩膜内没有像素")
+            for name, label in (("land", "陆地"), ("sea", "海上")):
+                o = co.get(name)
+                if not o:
+                    continue
+                print(f"  {label} 像素 {o['px']}")
+                print(f"    平均 |ΔL| {o['mean_abs']} 级   p90 {o['p90']}   p99 {o['p99']}"
+                      f"   变化 >2 级的占比 {o['share_gt2'] * 100:.2f}%")
+                print(f"    高频能量 std  {o['hf_off']} → {o['hf_on']}"
+                      f"   （{o['hf_delta_pct']:+.2f}%）")
+            print("  读法：平均 |ΔL| 对**细而稀疏**的东西会偏小（几十个 15px 淡符号摊到几十万像素上）；"
+                  "高频能量才是眼睛读作「有质地」的那个量。两个一起看："
+                  "均值小而高频也为零 ⇒ 这层没上屏；均值小但高频明显 ⇒ 只够看成细纹理。")
+
+    if args.region_variety:
+        if not (args.mask and Path(args.mask).exists()):
+            print("\n⚠️ --region-variety 需要 --mask（块统计必须在陆地里做，否则被海面拉走）")
+        else:
+            rv = region_variety(im, json.loads(Path(args.mask).read_text()), args.block)
+            print(f"\n[区域分化] 陆地块 {args.block}px，块间 std ÷ 块内 std（>1 才叫有地理）")
+            for name, zh, why in (("lum", "明度", "高度分布的均值在各区域是否不同"),
+                                  ("sat", "彩度", "调色板的饱和度跨度"),
+                                  ("warm", "冷暖", "色相方向")):
+                c = rv["channels"].get(name, {})
+                if "error" in c:
+                    print(f"  {zh}  {c['error']}")
+                else:
+                    verdict = "✅ 区域可分辨" if c["ratio"] > 1 else "❌ 全图同一种质地"
+                    print(f"  {zh}  块数 {c['blocks']:3}   块间 {c['between']:.4f}"
+                          f"   块内 {c['within']:.4f}   比值 {c['ratio']:.3f}   {verdict}")
+            print("  读法：比值 <1 ⇒ 任意两地的差别比任一块地内部的纹路还小。"
+                  f"换 --block 会换出不同比值，{args.block} 的结论只与同块大小可比。")
 
     for spec in args.label_box:
         x, y, w, h = (int(v) for v in spec.split(","))
