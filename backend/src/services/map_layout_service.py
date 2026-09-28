@@ -3021,8 +3021,9 @@ def _bounded_influence(
 
     whole_canvas = origin == (0.0, 0.0)
     if spacing is None:
-        # The whole-canvas default: `max(img_w, img_h)` IS the canvas long side
-        # there, so this is already canvas-anchored.
+        # Legacy default, for a caller that has not been ported: raster-rounded,
+        # which is exactly the quantisation `generate_terrain` now avoids. Every
+        # call site there passes `spacing` explicitly.
         spacing = max(1, round(max(img_w, img_h) / _INFLUENCE_SAMPLES))
     ox, oy = origin
     # A CANVAS-ANCHORED coarse grid: index k sits at canvas position k*spacing,
@@ -3118,7 +3119,23 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # light half of the range with the mass pushed into the lowlands, shading
 # modulates instead of dominating, and the octave falloff is shallower so macro
 # form wins at fit.
-_TERRAIN_VERSION = 10
+# v11: the influence grid became canvas-exact. Its spacing was
+# `round(raster_long / 512)` — quantised to whole raster pixels — so the bake and a
+# sub-rectangle tile of the same field sampled grids whose CANVAS spacing differed
+# (80.08 vs 78.13 units on an 8000 canvas) and the ground came out a few levels
+# apart wherever the two met. It is now `canvas_long / 512` in canvas units: the
+# same grid for every raster. On the overworld that works out to exactly the 8 px
+# the rounding already produced, so that PNG is byte-identical; the smaller overlay
+# canvases (2400x1350) do change, which is what this bump is for.
+_TERRAIN_VERSION = 11
+
+# Debug hook for the LOD-tile investigation (2026-09-28). Set `_DEBUG_CAPTURE`
+# and read `_DEBUG_FIELDS[(window, size, name)]` to diff the intermediate fields
+# between the canonical bake and a tile, instead of inferring the difference from
+# the final image. Off in production, and it exists only until the tile alignment
+# is settled.
+_DEBUG_CAPTURE = False
+_DEBUG_FIELDS: dict = {}
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -3621,14 +3638,16 @@ def generate_terrain(
         img_w = max(1, int(size * aspect))
     scale_x = img_w / ww
     scale_y = img_h / wh
-    # Canvas coordinate of each output pixel, using the SAME endpoint-inclusive
-    # convention scipy.ndimage.zoom applies in the whole-canvas case: output pixel
-    # j maps to grid coordinate j * (gw-1)/(img_w-1), i.e. to canvas
-    # j * canvas_w/(img_w-1). An LOD tile has to land on exactly the ground the
-    # bake drew, and getting this off by one denominator is worth ~1 px of drift at
-    # the far edge — visible as a seam.
-    tile_cx = None if window is None else wx0 + np.arange(img_w) * (ww / max(img_w - 1, 1))
-    tile_cy = None if window is None else wy0 + np.arange(img_h) * (wh / max(img_h - 1, 1))
+    # Canvas coordinate of each output pixel CENTRE, and the convention matters
+    # more than it looks. scipy.ndimage.zoom (the whole-canvas path) pins the grid's
+    # ENDPOINTS to the raster's endpoints, so the same physical point lands on a
+    # different grid coordinate at every raster size — the field is drawn at a
+    # slightly different place and a tile disagrees with the bake over the same
+    # ground. Measured with the debug hook: `base` differed by 4.3 % of its range,
+    # which is what the whole residual turned out to be. Centres are continuous in
+    # the raster size, so bake and tile sample the identical position.
+    tile_cx = None if window is None else wx0 + (np.arange(img_w) + 0.5) * (ww / img_w)
+    tile_cy = None if window is None else wy0 + (np.arange(img_h) + 0.5) * (wh / img_h)
 
     # ── Canonical-bake statistics ──
     # The ridged recipe normalises several fields against their OWN percentiles.
@@ -3883,7 +3902,16 @@ def generate_terrain(
     # grid of a different density and therefore a systematically different field.
     # For the whole canvas `canvas_long * scale_x` IS the raster long side, so the
     # spacing is unchanged and the origin is a no-op.
-    infl_spacing = max(1, round(canvas_long / _INFLUENCE_SAMPLES * scale_x))
+    # CANVAS-EXACT, and deliberately NOT rounded. `round()` quantises the grid to
+    # whole raster pixels, so a bake and a tile at a different density land on
+    # grids whose canvas spacing differs (80.08 vs 78.13 canvas units at 512
+    # samples on an 8000 canvas) and the influence field — hence the ground colour
+    # — comes out a few levels apart at every density, which is a seam. In canvas
+    # units this is canvas_long/512 whatever the raster is, so every render samples
+    # the SAME grid. On the canonical 4096 bake it evaluates to exactly 8 px, i.e.
+    # what the rounding produced there, so the shipped overworld PNG does not move;
+    # bakes at other sizes do change, and now agree with the canonical one.
+    infl_spacing = canvas_long / _INFLUENCE_SAMPLES * scale_x
     infl_origin = (-wx0 * scale_x, -wy0 * scale_y)
 
     elev += _bounded_influence(img_w, img_h, [
@@ -3988,6 +4016,11 @@ def generate_terrain(
         # Bias the mass into the lowlands before colouring, so the map is mostly
         # the light low ground a reader can put labels on. See _HEIGHT_GAMMA.
         height = height ** _HEIGHT_GAMMA
+        if _DEBUG_CAPTURE:
+            _DEBUG_FIELDS[(window, size, "height")] = height.copy()
+            _DEBUG_FIELDS[(window, size, "moist")] = moist.copy()
+            _DEBUG_FIELDS[(window, size, "base")] = base.copy()
+            _DEBUG_FIELDS[(window, size, "ridge")] = ridge.copy()
         shade = _hillshade(
             height,
             # Pinned in CANVAS units, matching the px_scale passed below: the
