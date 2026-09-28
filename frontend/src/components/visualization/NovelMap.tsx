@@ -938,6 +938,19 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         viewRect,
         landmasses,
         reliefSamplerRef.current,
+        // Mechanism probe, off unless a probe turns it on. See the note on
+        // `debugSink` in terrainHints: accepted-symbol statistics cannot resolve
+        // this coupling at ~100 land marks per map.
+        (window as unknown as { __terrainDebug?: unknown[] }).__terrainDebug
+          ? (rec: {
+                anomaly: number
+                density: number
+                densityPre: number
+                anomalyFactor: number
+                accepted: boolean
+              }) =>
+              (window as unknown as { __terrainDebug: unknown[] }).__terrainDebug.push(rec)
+          : null,
       )
       hintsRef.current = hints
       if (hints.length === 0) return
