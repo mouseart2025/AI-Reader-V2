@@ -3358,12 +3358,27 @@ _PLAIN_FLOOR = 0.34
 #     saturation, and low ground only. A bias pushes more area into saturation
 #     and therefore *compresses* the differences between provinces.
 #
-# So no re-parameterisation of these two will produce region-scale colour. The
-# change has to be structural: make colour a function of something that varies
-# per province — e.g. a low-frequency field choosing among several ramps, or a
-# per-province hue rotation — rather than of two bounded scalars.
-# Measure any attempt with `probe_map_visual.py --region-variety`, and require
-# all three ratios to rise, not just luminance.
+# The structural fix — a second ramp blended per province — was then built and
+# ALSO failed, and the way it failed is the part worth keeping:
+#
+#   a two-ramp province blend (v11, v12, v13) measured WORSE than the recipe it
+#   replaced on exactly the channel it was built to move. Compared at the RAS
+#   level, same metric, same mask rule, same scale, no browser:
+#
+#     v10 (current)   blk128 lum 0.636  SAT 1.064  WARM 0.960
+#     v11             blk128 lum 0.685  sat 0.863  warm 0.881
+#     v12             blk128 lum 0.697  sat 0.870  warm 0.819
+#     v13             blk128 lum 0.662  sat 0.916  warm 0.806
+#
+# Note v10's saturation ratio is already ABOVE 1.0 at that scale: the current
+# map does differentiate regions in chroma, and the number that said otherwise
+# (0.303) came from browser screenshots whose completeness was never verified —
+# one of them was missing every label and mark, which removes ink and moves the
+# ratio. That is the real lesson: **measure this at the raster, where there is
+# no render timing to get wrong.** Compare variants with
+# `region_variety()` from `scripts/probe_map_visual.py` applied to the baked
+# PNGs directly, and verify a screenshot is complete (91 marks / 47 labels)
+# before quoting any number taken from one.
 # Height is pushed toward the lowlands before the palette is applied, which is
 # what stops the mid-tones from filling with rock and snow. Set to 1.0 -- off --
 # because the ridged field already concentrates its mass low once the crest
@@ -3410,6 +3425,24 @@ _HEIGHT_RAMP: tuple[tuple[float, tuple[int, int, int]], ...] = (
     (0.97, (240, 241, 242)),
     (1.00, (250, 251, 252)),
 )
+# A second ramp for the wet provinces. Same snow line, same overall value
+# ladder — deliberately — so the two can be blended without one province
+# reading as a hole or a spill. What differs is HUE through the whole low and
+# mid range: ochre/straw on the arid ramp, green-grey on this one.
+#
+# Why this exists, and why it is a second ramp rather than another scalar:
+# the map measured as statistically homogeneous at region scale — between-block
+# std divided by within-block std came out 0.180 (luminance), 0.302
+# (saturation), 0.522 (warm-cool) — and every attempt to fix that with a
+# bounded scalar failed. Height cannot carry it (a ramp's two ends are its
+# least saturated stops, so moving provinces along it trades chroma for value)
+# and moisture cannot either (it only reaches colour through
+# `clip((moist-0.5)*2, -1, 1) * clip(1 - height/0.62, 0, 1)`, hard saturation
+# on low ground only, so a bias pushes area INTO saturation and compresses the
+# very difference it was meant to create).
+#
+# Blending between two ramps is not bounded in that way: it changes which
+# colour a height means, per province.
 # How far moisture can swing the low ground from ochre to green, and the RGB
 # direction it swings in. Only the low ground: moisture is a lowland concept and
 # tinting the snow line green is how a map starts looking arbitrary. Milder than
