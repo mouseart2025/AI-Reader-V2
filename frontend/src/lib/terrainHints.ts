@@ -185,14 +185,54 @@ const CELL_PX = 32
  *     fill (0.107) because the repeat approaches the glyph's own scale.
  *   - Fill is the risky dial. Swept at pitch 24 over four independent 420x260
  *     regions of the same render, peak by fill 1.60 / 2.00 / 2.40 / 2.80:
- *     **0.059-0.077 / 0.069-0.173 / 0.061-0.221 / 0.056-0.189**. Only 1.60 is
- *     clean everywhere.
+ *     **0.059-0.077 / 0.069-0.173 / 0.061-0.221 / 0.056-0.189**. Only 1.60 looked
+ *     clean everywhere, so 1.60 was shipped.
  *
- * Hence: **set fill by the worst region, not the average** — periodicity appears
- * locally, so a fill that is clean on the mean is not clean on the map. 1.60 is
- * the largest fill that stayed clean across all four regions, and one pitch step
- * (32 → 24, i.e. 1.8x the marks) is what the evidence supports. A third rung was
- * tested and dropped rather than kept for looks.
+ * ## And then the ruler turned out to be wrong, and the fill went up after all
+ *
+ * The sweep above used **raw** peaks measured on small crops and compared them
+ * against a floor calibrated on a LARGER one. Both halves of that are wrong:
+ * the floor depends on the crop size (0.099 at 420x260, 0.207 at 260x130) because
+ * a small window holds only a few periods, and chrome contamination had poisoned
+ * some of the regions outright (a 12 px chip bar gave HF std 30 and peak 0.94).
+ * With the repaired criterion — floor computed on the SAME rect, three
+ * contamination guards, and the metric's own noise measured over eight seeds —
+ * on a verified-clean 710x480 crop:
+ *
+ *   | fill | HF (small crop, 3 clean regions) | peak (large crop) | peak ÷ floor |
+ *   |------|----------------------------------|-------------------|--------------|
+ *   | 1.60 |              1.801               |      0.0560       |     0.90     |
+ *   | 1.70 |              1.911               |      0.0527       |     0.85     |
+ *   | 1.80 |              2.022               |      0.0499       |     0.80     |
+ *   | 1.90 |              2.135               |      0.0572       |     0.92     |
+ *   | 2.00 |              2.244               |      0.0763       |     1.23     |
+ *   | old  |              3.483               |      0.1302       |     2.09     |
+ *
+ * So fill is **1.8**: HF rises monotonically with fill and 1.8 is +12 % over 1.6
+ * on three independent clean regions (≈8 sd apart, so it is real), while its
+ * periodicity is *below* the random-placement floor's own mean (0.0591 over eight
+ * seeds) — i.e. there is no evidence of a lattice at 1.8 at all. 2.0 is where the
+ * ratio climbs again (1.23) and the old size-gain sits at 2.09, more periodic
+ * than the structurally-matched control's entire range (0.0602-0.0978).
+ *
+ * The rule that produced the change, and it is not "pick the loudest": when two
+ * values are **indistinguishable on the constraint axis** (1.6 and 1.8 differ by
+ * 0.0061, under one standard deviation of 0.0075) and one of them **dominates on
+ * the objective axis**, take the dominating one. An earlier pass at exactly this
+ * pair concluded "do not churn" — that call was made on the inflated small-crop
+ * ruler, and it was the ruler that was wrong, not the caution.
+ *
+ * Line weight is swept too and rejected: it is invisible to both criteria, which
+ * makes it the last way to buy ink once a category's alpha saturates (water sits
+ * at 0.52 * 1.9 = ~0.99), but at pitch 24 / fill 1.8 it is not free — HF goes
+ * 2.02 -> 2.23 -> 2.41 as weight goes 1.1 -> 1.8 -> 2.4 while the peak goes
+ * 0.050 -> 0.090 -> 0.124. 1.1 kept.
+ *
+ * The old rule still stands and still governs this kind of dial — **set fill by
+ * the worst region, not the average**, because periodicity appears locally — but
+ * it only means anything once every region in the sample has been *verified*
+ * clean. Applying it to a sample that included chrome and small windows is what
+ * produced the wrong verdict above; the rule was right and the sample was not.
  *
  * `fill` is the mark's size as a fraction of the pitch, so size and pitch cannot
  * be tuned apart — which is the mistake the tables above record. It does not keep
@@ -202,7 +242,7 @@ const CELL_PX = 32
  */
 const GROUND_LOD: ReadonlyArray<readonly [minK: number, pitchPx: number, fill: number]> = [
   [0, CELL_PX, 1.0], // L0 = fit. The sizes this layer was tuned with, gain removed.
-  [2.4, 24, 1.6], // L1 = closer than any fit zoom. 1.8x the marks, none of them tangled.
+  [2.4, 24, 1.8], // L1 = closer than any fit zoom. 1.8x the marks, none of them tangled.
 ]
 
 /** Mark size written as a fraction of the pitch, so size and pitch cannot drift apart. */
