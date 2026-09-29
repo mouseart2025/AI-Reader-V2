@@ -4122,7 +4122,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 21
+_LAYOUT_VERSION = 22
 
 
 def compute_chapter_hash(
@@ -5151,7 +5151,13 @@ def generate_landmasses(
                 and _comp_cells[_cid] * _cell_area < absorb_threshold
             ]
             if _drop:
-                land_mask = ~np.isin(_lab, _drop)
+                # `land_mask & ~np.isin(...)`, NOT `~np.isin(...)`: the label array is
+                # 0 wherever there was never any land, and `~isin` would turn every
+                # one of those cells True. That is not a subtle bug — it inverts the
+                # mask to almost solid: the first version of this line did exactly
+                # that, and the shelf computed from it covered 97 % of the grid and
+                # traced as a single 544 000-cell blob.
+                land_mask = land_mask & ~np.isin(_lab, _drop)
                 land_mask = binary_opening(land_mask, structure=struct_small)
                 logger.warning(
                     "landmask: dropped %d components the contour pass absorbed "
