@@ -4122,7 +4122,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 25
+_LAYOUT_VERSION = 26
 
 
 def compute_chapter_hash(
@@ -4702,7 +4702,85 @@ def _points_in_polygon(
 _COAST_RMD_BASE_STEP = 60.0   # canvas units between RMD seeds; sets the coarsest new detail
 _COAST_RMD_LEVELS = 3         # subdivisions; final edge = BASE_STEP / 2**LEVELS
 _COAST_RMD_H = 0.75           # Hurst exponent; D = 2 - H, so this targets 1.25
-_COAST_RMD_SIGMA = 0.50       # amp0 as a fraction of the (clamped) base step
+_COAST_RMD_SIGMA = 0.55       # amp0 as a fraction of the (clamped) base step; see below
+
+# ── Roughness follows the terrain, it is not spread evenly ────────────────────
+#
+# A user report, and ordinary geomorphology: a coast is crenulated where mountains
+# meet the sea and smooth where plains or cities do. The uniform version made the
+# whole map read as torn. Measured with `scripts/probe_coast_roughness_profile.py`
+# — sinuosity (arc / chord over a 300-unit window, a standard geomorphology measure)
+# split by distance to the nearest rugged vs smooth location:
+#
+# Split by whichever kind of place is NEARER (no radius — the parameter-free form;
+# a radius was tried first and needed retuning per map). Columns are the two
+# geometries the constant is judged on: this novel, and the CI fixture, which is a
+# different shape and reads rougher at the same amplitude.
+#
+#   | config            | novel: rugged / smooth / diff | fixture: rugged / smooth / diff |
+#   |-------------------|-------------------------------|---------------------------------|
+#   | uniform           |  2.924 / 2.979 / **-0.056**   |  2.568 / 2.619 / **-0.052**     |
+#   | w 0.02, sigma 0.45|  1.159 / 1.072 / **+0.086**   |  1.272 / 1.059 /   +0.213       |
+#   | w 0.02, sigma 0.55|  1.208 / 1.073 /   +0.135     |  1.355 / 1.059 /   +0.296       |
+#   | w 0.02, sigma 0.70|  1.295 / 1.076 /   +0.219     |  1.484 / 1.060 /   +0.424       |
+#
+# (The fixture column is measured with the id the CI test uses, so the numbers here
+# are the ones that test actually produces. The coast is seeded from the novel id,
+# so a different id moves these in the third decimal — which is why the table names
+# the id rather than saying "the fixture".)
+#
+# Reference bands: ~1.00-1.03 straight, 1.05-1.15 headland/bay, >1.20 strongly
+# crenulated. So the uniform version was about double a strongly crenulated coast
+# AND had no relationship to the terrain; the shipped one puts mountain coasts at
+# 1.21 (strongly crenulated) and plains coasts at 1.07 (gentle bays).
+#
+# 0.55 rather than 0.70 because the two geometries must both pass: at 0.70 the
+# fixture reads 1.484, past 'strongly crenulated' (1.45), and the CI test fails it.
+# And 0.45 fails this novel's separation (+0.086 < 0.12). The band has to hold
+# across geometries, so the constant is set by the worst of the two, not by the one
+# being looked at.
+#
+# ⚠️ Amplitude alone does not set the result: the same sigma reads higher on a
+# smoother base ring, because the subdivision has less base geometry to hide in.
+# That is why one number cannot be tuned on one map.
+#
+# ⚠️ sigma RISES to 0.55 (from the uniform 0.50) even though the coasts got
+# smoother: the modulation cuts the average, so the peak has to rise to keep the
+# mountain coasts where they belong. Picking the peak first and then reading the
+# average is the mistake this table exists to prevent.
+#
+# ⚠️ And the whole-coast fractal-dimension figure is no longer the criterion. It
+# falls from 1.204 to ~1.01 precisely because most of this coast is plains-facing,
+# which is correct rather than a defect: the published band [1.15, 1.35] describes
+# one homogeneous rocky coastline, not a coast that is deliberately half smooth.
+# The measured criterion is the class split, and `test_map_geometry_contracts.py`
+# asserts it there. (A per-class D was tried and abandoned: after modulation the
+# rugged arcs are only 1 800-2 400 units long, and a box count over epsilon
+# 28-186 on an open arc that short is endpoint-dominated — it returned D < 1.0 for
+# smooth arcs, which is not a thing a curve can do.)
+_COAST_RELIEF_LEN = 700.0     # canvas units: how far a mountain's influence reaches the coast
+_COAST_RELIEF_W_MIN = 0.02    # weight where no relief is near: nearly smooth by default
+
+
+def _classify_coast_location(loc: dict) -> str:
+    """Rugged / smooth / other, from the location's own icon and type.
+
+    Deliberately *not* shared with the audit probe, which classifies independently
+    from `icon`/`name`/`type`: the probe measures the relationship between the coast
+    and the terrain data, so if it used this exact function it would be measuring the
+    generator's own opinion back at itself.
+    """
+    icon = (loc.get("icon") or "").strip()
+    if icon in {"mountain", "cave", "forest", "desert"}:
+        return "rugged"
+    if icon in {"water", "city", "plains", "palace"}:
+        return "smooth"
+    hay = (loc.get("name") or "") + (loc.get("type") or "")
+    if any(c in hay for c in ("山", "洞", "林", "岭", "谷", "峰", "坡", "崖")):
+        return "rugged"
+    if any(c in hay for c in ("水", "河", "湖", "海", "城", "国", "州", "村", "镇", "府", "宫", "寺")):
+        return "smooth"
+    return "other"
 
 
 def _resample_ring(poly: list, step: float) -> list[tuple[float, float]]:
@@ -4738,7 +4816,12 @@ def _resample_ring(poly: list, step: float) -> list[tuple[float, float]]:
 
 
 def _rmd_ring(
-    ring: list[tuple[float, float]], levels: int, amp0: float, h: float, rng
+    ring: list[tuple[float, float]],
+    levels: int,
+    amp0: float,
+    h: float,
+    rng,
+    weights: list[float] | None = None,
 ) -> list[tuple[float, float]]:
     """Midpoint displacement on a closed ring: σ_k = amp0 * 2^(-kH).
 
@@ -4746,11 +4829,20 @@ def _rmd_ring(
     the current edge length" — the latter compounds the decay to 2^(-k(H+1)),
     silently adding one to the exponent, which pushes D *below* 1 instead of
     above it. (Cost me a prototype round.)
+
+    `weights`, when given, is a per-point multiplier in [0, 1] carried alongside the
+    geometry: the sigma actually used at a midpoint is `sigma * mean(w_i, w_j)`.
+    That is what makes roughness follow the terrain instead of being spread evenly —
+    see `_coast_relief_weight`. Averaging (rather than interpolating by position)
+    keeps the weight exactly aligned with the points through every subdivision, so
+    it cannot drift out of phase with the curve it is modulating.
     """
     cur = list(ring)
+    wcur = list(weights) if weights is not None else None
     for k in range(levels):
         sigma = amp0 * (0.5 ** (k * h))
         nxt: list[tuple[float, float]] = []
+        wnxt: list[float] = []
         n = len(cur)
         for i in range(n):
             ax, ay = cur[i]
@@ -4758,15 +4850,65 @@ def _rmd_ring(
             mx, my = (ax + bx) * 0.5, (ay + by) * 0.5
             tx, ty = bx - ax, by - ay
             tl = math.hypot(tx, ty)
+            wmid = 0.5 * (wcur[i] + wcur[(i + 1) % n]) if wcur is not None else 1.0
             if tl < 1e-9:
                 nxt.append((ax, ay))
+                wnxt.append(wcur[i] if wcur is not None else 1.0)
                 nxt.append((mx, my))
+                wnxt.append(wmid)
                 continue
-            d = rng.normal(0.0, sigma)
+            d = rng.normal(0.0, sigma * wmid)
             nxt.append((ax, ay))
+            wnxt.append(wcur[i] if wcur is not None else 1.0)
             nxt.append((mx - ty / tl * d, my + tx / tl * d))
+            wnxt.append(wmid)
         cur = nxt
+        wcur = wnxt if wcur is not None else None
     return cur
+
+
+def _coast_relief_weight(
+    pts: list[tuple[float, float]],
+    rugged: list[tuple[float, float]],
+    smooth: list[tuple[float, float]],
+    length: float,
+    w_min: float,
+) -> list[float]:
+    """Per-point roughness weight in [w_min, 1] from the terrain near each point.
+
+    The model is the user's, and it is ordinary geomorphology: a coast is crenulated
+    where mountains meet the sea and smooth where plains or cities do. Measured on
+    the uniform version (`scripts/probe_coast_roughness_profile.py`), sinuosity was
+    2.319 next to rugged locations and 2.334 next to smooth ones — a difference of
+    -0.015, i.e. no relationship at all.
+
+    `rugged` and `smooth` are placement coordinates (canvas units) classified from the
+    location's icon and type. The weight is a Gaussian kernel max over each set, so
+    it is driven by the *nearest* relevant place rather than by the local count — a
+    count would make a cluster of villages as influential as a mountain range.
+
+    Default is `w_min`, i.e. smooth: most of a coast is not at a mountain front, and
+    erring smooth is what keeps the map from reading as torn.
+    """
+    if not rugged and not smooth:
+        return [1.0] * len(pts)
+    P = np.asarray(pts, dtype=float)
+    L2 = max(length, 1.0) ** 2
+
+    def kernel_max(anchors: list[tuple[float, float]]) -> np.ndarray:
+        if not anchors:
+            return np.zeros(len(pts))
+        A = np.asarray(anchors, dtype=float)
+        # Chunked so the (points x anchors) temporary stays small on a big map.
+        best = np.zeros(len(pts))
+        for s in range(0, len(P), 2048):
+            e = min(s + 2048, len(P))
+            d2 = ((P[s:e, None, :] - A[None, :, :]) ** 2).sum(-1)
+            best[s:e] = np.exp(-d2 / L2).max(axis=1)
+        return best
+
+    w = w_min + (1.0 - w_min) * np.clip(kernel_max(rugged) - kernel_max(smooth), 0.0, 1.0)
+    return [float(v) for v in w]
 
 
 def generate_landmasses(
@@ -5325,6 +5467,21 @@ def generate_landmasses(
     base_seed = _seed          # hoisted to the top of this function
     noise_gen = OpenSimplex(seed=base_seed + 200)
 
+    # Terrain anchors for the coastline roughness: which places are rugged, and
+    # which are smooth. Computed once for the whole map, not per ring.
+    _pos_by_name = {d.get("name"): (d.get("x"), d.get("y")) for d in layout_data}
+    _rugged_pts: list[tuple[float, float]] = []
+    _smooth_pts: list[tuple[float, float]] = []
+    for _loc in locations:
+        _xy = _pos_by_name.get(_loc.get("name"))
+        if _xy is None or _xy[0] is None:
+            continue
+        _k = _classify_coast_location(_loc)
+        if _k == "rugged":
+            _rugged_pts.append((float(_xy[0]), float(_xy[1])))
+        elif _k == "smooth":
+            _smooth_pts.append((float(_xy[0]), float(_xy[1])))
+
     def _distort_coastline(
         poly: list[tuple[float, float]],
         area: float,
@@ -5384,7 +5541,11 @@ def generate_landmasses(
             + int(abs(poly[0][0]) * 7 + abs(poly[0][1]) * 13 + abs(area)) % 1_000_003
         )
         rng = np.random.default_rng(seed)
-        out = _rmd_ring(ring, _COAST_RMD_LEVELS, amp0, _COAST_RMD_H, rng)
+        # Roughness weight per point, from the terrain behind that stretch of coast.
+        _w = _coast_relief_weight(
+            ring, _rugged_pts, _smooth_pts, _COAST_RELIEF_LEN, _COAST_RELIEF_W_MIN
+        )
+        out = _rmd_ring(ring, _COAST_RMD_LEVELS, amp0, _COAST_RMD_H, rng, weights=_w)
         return [(round(x, 1), round(y, 1)) for x, y in out]
 
     # Build landmass objects
