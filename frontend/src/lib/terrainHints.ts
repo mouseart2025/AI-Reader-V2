@@ -220,6 +220,31 @@ const CATEGORY_SIZE: Record<TerrainCategory, number> = {
 }
 
 /**
+ * Per-category opacity gain on top of `baseOpacity`, and the `water` entry is
+ * the point of it existing.
+ *
+ * On land the glyph layer sits on a baked raster that already carries the
+ * ground, so a loud layer merely competes with it — that is why `baseOpacity`
+ * is 0.52, and why raising it was measured and rejected (2x moved the land's
+ * high-frequency contribution only 0.42 % -> 2.16 % and made the structure
+ * metric slightly worse).
+ *
+ * The sea is not like that. It is a flat vector fill with nothing under it, so
+ * this layer is the ONLY texture the open ocean can ever have. Measured at fit,
+ * the whole layer moves the sea by mean |dL| 0.058 with a high-frequency change
+ * of -0.02 % — i.e. none, on 80 % of the frame.
+ *
+ * So water is allowed to be much louder than land. `plains` keeps its 0.95:
+ * open ground stays quieter than a massif or a forest, but only a little — at
+ * 0.72 the two effects compounded (low density x low opacity) into ground that
+ * was not there.
+ */
+const CATEGORY_OPACITY: Partial<Record<TerrainCategory, number>> = {
+  plains: 0.95,
+  water: 1.9,
+}
+
+/**
  * Relative size variation per biome — the half-width of the size range, as a
  * fraction of `CATEGORY_SIZE`.
  *
@@ -274,13 +299,24 @@ const BASE_DENSITY = 0.55
  * where the ocean is the only textured thing is the wrong way round — this is
  * what makes the shoreline read as a shoreline too.
  *
- * Kept low on purpose. This is half of the ground layer's node budget at fit
- * zoom, and node count is what decides the frame time — see `CATEGORY_SIZE`.
- * 0.16 with the larger wave marks below covers the sea at ~16 %, which is
- * enough for the eye to read moving water without the ocean competing with the
- * land for attention.
+ * ⚠️ **Raised 0.16 -> 0.30, because the old value had gone stale.** It was
+ * calibrated on the 16 px lattice ("covers the sea at ~16 %"), and `CELL_PX`
+ * was later doubled to 32 — which quartered the waves along with the land
+ * marks, and the constant was never re-tuned with it. Measured at fit on
+ * 西游记 at 0.16: 129 water marks over 811 328 sea pixels, an acceptance of
+ * 11.5 %, and the whole ground layer moved the sea by mean |dL| **0.058** with
+ * a high-frequency change of **-0.02 %**. The stated intent — "enough for the
+ * eye to read moving water" — was not being achieved at all.
+ *
+ * The sea is also the one place this layer has no competition. On land it sits
+ * on a baked raster that already carries the ground, so it is kept quiet on
+ * purpose; the open ocean is a flat vector fill with nothing under it, and this
+ * is the only texture it can ever have. 80 % of the frame is sea.
+ *
+ * Node budget is not the constraint at fit zoom: 232 marks render there today
+ * against a budget of 1400, and the sea contributes ~1120 candidate cells.
  */
-const OCEAN_DENSITY = 0.16
+const OCEAN_DENSITY = 0.45
 
 /** Constant on-screen clearance kept around every location pin, in CSS px. */
 const PIN_CLEARANCE_PX = 16
@@ -499,7 +535,14 @@ const CATEGORY_SYMBOLS: Record<TerrainCategory, string[]> = {
 
 const COLORS_LIGHT: Record<TerrainCategory, string> = {
   mountain: "#8b7355",
-  water:    "#6b8fa3",
+  // Deeper than the sea it sits on, deliberately. The previous value was
+  // `#6b8fa3` = rgb(107,143,163), whose luminance is 136.8 — against the
+  // composite sea's rgb(115,140,167) at 136.6. **A difference of 0.2 levels:
+  // the waves were being drawn in the same value as the water**, which is why
+  // neither raising their count (129 -> 215) nor their opacity (x1.9) moved the
+  // sea's high-frequency energy past +0.05 %. Contrast is not a quantity you can
+  // add elsewhere.
+  water:    "#4e6f93",
   forest:   "#6b8b5c",
   desert:   "#b09870",
   cave:     "#8b7355",
@@ -1414,10 +1457,7 @@ export function generateTerrainHints(
         CATEGORY_SIZE[cat] * relSize *
         (1 + (pseudoRandom(seed + 3) - 0.5) * CATEGORY_SIZE_SPREAD[cat])
       const rotation = (pseudoRandom(seed + 4) - 0.5) * 28
-      // Open ground stays quieter than a massif or a forest — but only a
-      // little. At 0.72 the two effects compounded (low density × low opacity)
-      // into ground that was not there.
-      const opFactor = cat === "plains" ? 0.95 : 1
+      const opFactor = CATEGORY_OPACITY[cat] ?? 1
       const opacity =
         baseOpacity * opFactor * relOp * (0.6 + 0.4 * pseudoRandom(seed + 5))
 
