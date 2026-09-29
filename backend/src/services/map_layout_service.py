@@ -4122,7 +4122,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 22
+_LAYOUT_VERSION = 24
 
 
 def compute_chapter_hash(
@@ -4634,6 +4634,139 @@ def _points_in_polygon(
             )
             inside[start:start + chunk] = np.count_nonzero(crosses, axis=1) % 2 == 1
     return inside
+
+
+# ── Coastline roughness (midpoint displacement) ───────────────────────────────
+#
+# WHY THIS EXISTS: the coastline used to be Chaikin-smoothed and then displaced
+# along its normals by a two-frequency OpenSimplex field. Measured on the drawn
+# geometry (`scripts/probe_coastline_morphology.py`, box-counting fractal
+# dimension over ε 28-186 canvas units, a range in which the same ruler
+# reproduces Koch L4's analytic 1.2619 to within 0.010) that coastline scored
+# **D = 1.0625**, against the published band for real coastlines of 1.15-1.35 —
+# and the ruler's own smooth control, a regular polygon, scores 1.0358. So the
+# coast was as smooth as a drawn polygon at the scales the eye reads.
+#
+# Worse, the local slope was flat at 1.02-1.08 across **ε = 3 to 400**, two and a
+# half decades: no scale carried extra structure.
+#
+# That is not a tuning failure, it is structural. A smooth displacement field is
+# a diffeomorphism, and a diffeomorphism maps a smooth curve to a smooth curve —
+# so **no number of added octaves can raise D above 1**. The two-frequency field
+# only warped the shape; it never roughened the polyline. (It does still earn its
+# keep: its λ≈333 amplitude is where the headlands and bays come from, so the
+# large-scale term stays.)
+#
+# Roughness has to live in the polyline: every subdivision must introduce new
+# vertices at non-negligible angles. That is midpoint displacement, whose SD
+# decays as amp0 * 2^(-kH), and for an fBm-like curve **D = 2 - H**. D ≈ 1.25
+# therefore means **H = 0.75**.
+#
+# Measured offline before touching this file (`scripts/proto_coastline_rmd.py`,
+# which runs the same ruler over the real geometry):
+#
+#   | base step | levels | final edge |   D    | vertices |
+#   |-----------|--------|------------|--------|----------|
+#   | (current) |   —    |  ~2.8      | 1.0625 |   32 976 |
+#   |    48     |   3    |    6.0     | 1.2247 |   24 120 |
+#   |    64     |   3    |    8.0     | 1.2635 |   18 096 |
+#   |    48     |   4    |    3.0     | 1.2396 |   48 240 |
+#
+# Note that the current geometry is over-sampled at ~2.8 units while carrying no
+# structure, so rung 3 is **both rougher and cheaper** than what it replaces.
+#
+# Resampling to the base step also replaces Chaikin: interpolating by arclength
+# across the 8-unit marching-squares staircase cuts its corners, which is what
+# the smoothing was for.
+# Measured with the real inputs and this implementation, patching only the module
+# constant (so the rig is the production code path, not a re-derivation):
+#
+#   | sigma | D (ring) | R2    | D (drawn) |
+#   |-------|----------|-------|-----------|
+#   | 0.30  |  1.1158  | 0.9999|  1.1485   |
+#   | 0.40  |  1.1667  | 0.9999|     —     |
+#   | 0.50  |  1.2160  | 1.0000|     —     |
+#   | 0.55  |  1.2375  | 0.9999|     —     |
+#   | 0.65  |  1.2708  | 1.0000|     —     |
+#
+# The drawn geometry reads ~+0.03 above the ring at the same sigma (rough.js adds
+# its wobble at ~1.4 units, below the measurement range but not below the eye).
+# So 0.50 targets ~1.25 drawn, which is the centre of the published band and
+# Mandelbrot's own figure for Britain. Vertex count does not depend on sigma.
+#
+# ⚠️ An earlier offline attempt to pick this number used a prototype that resampled
+# the PREVIOUS geometry, which still carried the retired lambda~50 displacement.
+# Sampling a 50-unit wave at a 60-unit step aliases spurious roughness into it, so
+# that rig read 1.2532 where production read 1.1485 — it was measuring its own
+# alias. Hence the rule: tune against the production code path, not a reproduction.
+_COAST_RMD_BASE_STEP = 60.0   # canvas units between RMD seeds; sets the coarsest new detail
+_COAST_RMD_LEVELS = 3         # subdivisions; final edge = BASE_STEP / 2**LEVELS
+_COAST_RMD_H = 0.75           # Hurst exponent; D = 2 - H, so this targets 1.25
+_COAST_RMD_SIGMA = 0.50       # amp0 as a fraction of the (clamped) base step
+
+
+def _resample_ring(poly: list, step: float) -> list[tuple[float, float]]:
+    """Resample a closed ring to (near-)uniform arclength spacing."""
+    n = len(poly)
+    if n < 3:
+        return [(float(p[0]), float(p[1])) for p in poly]
+    seg = [
+        math.hypot(poly[(i + 1) % n][0] - poly[i][0], poly[(i + 1) % n][1] - poly[i][1])
+        for i in range(n)
+    ]
+    total = sum(seg)
+    if total <= 0:
+        return [(float(p[0]), float(p[1])) for p in poly]
+    count = max(8, round(total / step))
+
+    out: list[tuple[float, float]] = []
+    i = 0
+    acc = 0.0
+    for k in range(count):
+        want = total * k / count
+        while acc + seg[i] < want and i < n - 1:
+            acc += seg[i]
+            i += 1
+        if seg[i] < 1e-9:
+            out.append((float(poly[i][0]), float(poly[i][1])))
+            continue
+        t = (want - acc) / seg[i]
+        ax, ay = poly[i]
+        bx, by = poly[(i + 1) % n]
+        out.append((ax + (bx - ax) * t, ay + (by - ay) * t))
+    return out
+
+
+def _rmd_ring(
+    ring: list[tuple[float, float]], levels: int, amp0: float, h: float, rng
+) -> list[tuple[float, float]]:
+    """Midpoint displacement on a closed ring: σ_k = amp0 * 2^(-kH).
+
+    ⚠️ The amplitude must be **absolute and decay as 2^(-kH)**, not "a fraction of
+    the current edge length" — the latter compounds the decay to 2^(-k(H+1)),
+    silently adding one to the exponent, which pushes D *below* 1 instead of
+    above it. (Cost me a prototype round.)
+    """
+    cur = list(ring)
+    for k in range(levels):
+        sigma = amp0 * (0.5 ** (k * h))
+        nxt: list[tuple[float, float]] = []
+        n = len(cur)
+        for i in range(n):
+            ax, ay = cur[i]
+            bx, by = cur[(i + 1) % n]
+            mx, my = (ax + bx) * 0.5, (ay + by) * 0.5
+            tx, ty = bx - ax, by - ay
+            tl = math.hypot(tx, ty)
+            if tl < 1e-9:
+                nxt.append((ax, ay))
+                nxt.append((mx, my))
+                continue
+            d = rng.normal(0.0, sigma)
+            nxt.append((ax, ay))
+            nxt.append((mx - ty / tl * d, my + tx / tl * d))
+        cur = nxt
+    return cur
 
 
 def generate_landmasses(
@@ -5182,74 +5315,77 @@ def generate_landmasses(
                 hole_map[oi].append(hole_contour)
                 break
 
-    # ── 1.6 Chaikin smoothing + dual-frequency OpenSimplex distortion ──
+    # ── 1.6 Large-scale warp + midpoint-displacement roughness ──
+    #
+    # `_chaikin_smooth` lived here and is gone, not because smoothing was wrong
+    # but because `_resample_ring` does its job: interpolating by arclength across
+    # the 8-unit marching-squares staircase cuts the staircase's corners, which is
+    # exactly what Chaikin was for. Keeping both would have been two smoothing
+    # passes fighting the roughness stage that follows.
     base_seed = _seed          # hoisted to the top of this function
     noise_gen = OpenSimplex(seed=base_seed + 200)
-
-    def _chaikin_smooth(poly: list[tuple[float, float]], rounds: int) -> list[tuple[float, float]]:
-        """Chaikin corner-cutting subdivision."""
-        pts = list(poly)
-        for _ in range(rounds):
-            new_pts: list[tuple[float, float]] = []
-            n_ = len(pts)
-            for i in range(n_):
-                p0 = pts[i]
-                p1 = pts[(i + 1) % n_]
-                new_pts.append((0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]))
-                new_pts.append((0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]))
-            pts = new_pts
-        return pts
 
     def _distort_coastline(
         poly: list[tuple[float, float]],
         area: float,
         is_hole: bool = False,
     ) -> list[tuple[float, float]]:
-        """Apply Chaikin smoothing + dual-frequency OpenSimplex distortion."""
+        """Large-scale warp, then multi-scale roughness.
+
+        Two stages, and the split is the point (see the block comment above):
+
+        1. the LOW-frequency displacement, kept from the original: this is what
+           makes headlands and bays. It is a smooth warp, so on its own it leaves
+           D at 1 regardless of how many octaves it has;
+        2. resample to `_COAST_RMD_BASE_STEP` (this also replaces Chaikin — it
+           interpolates across the 8-unit staircase and cuts its corners), then
+           midpoint displacement, which is what actually puts structure at every
+           scale and is the only part that moves D.
+        """
         n_ = len(poly)
         if n_ < 4:
             return poly
 
-        # Adaptive Chaikin rounds
-        rounds = 2 if n_ > 20 else (1 if n_ > 10 else 0)
-        smoothed = _chaikin_smooth(poly, rounds) if rounds > 0 else list(poly)
-
-        # Amplitude scaling: small islands get less distortion
+        # ── 1. large-scale warp (unchanged role: headlands and bays) ──
         area_scale = max(0.3, math.sqrt(abs(area) / canvas_area))
         large_amp = min(canvas_width, canvas_height) * 0.025 * area_scale
-        small_amp = min(canvas_width, canvas_height) * 0.008 * area_scale
 
-        # Distort along normals
-        n_pts = len(smoothed)
-        result: list[tuple[float, float]] = []
+        n_pts = len(poly)
+        warped: list[tuple[float, float]] = []
         for i in range(n_pts):
-            px, py = smoothed[i]
-            # Compute normal direction from neighbors
-            prev = smoothed[(i - 1) % n_pts]
-            nxt = smoothed[(i + 1) % n_pts]
-            tx = nxt[0] - prev[0]
-            ty = nxt[1] - prev[1]
+            px, py = poly[i]
+            prev = poly[(i - 1) % n_pts]
+            nxt_p = poly[(i + 1) % n_pts]
+            tx = nxt_p[0] - prev[0]
+            ty = nxt_p[1] - prev[1]
             t_len = math.sqrt(tx * tx + ty * ty)
             if t_len < 1e-6:
-                result.append((px, py))
+                warped.append((px, py))
                 continue
-            # Normal (perpendicular to tangent)
-            nx_dir = -ty / t_len
-            ny_dir = tx / t_len
-
-            # Dual-frequency noise
-            low_noise = noise_gen.noise2(px * 0.003, py * 0.003) * large_amp
-            high_noise = noise_gen.noise2(px * 0.02, py * 0.02) * small_amp
-            offset = low_noise + high_noise
+            offset = noise_gen.noise2(px * 0.003, py * 0.003) * large_amp
             if is_hole:
-                offset *= -1  # Inward for holes
+                offset *= -1  # inward for holes
+            warped.append((px - ty / t_len * offset, py + tx / t_len * offset))
 
-            result.append((
-                round(px + offset * nx_dir, 1),
-                round(py + offset * ny_dir, 1),
-            ))
-
-        return result
+        # ── 2. resample, then midpoint displacement ──
+        ring = _resample_ring(warped, _COAST_RMD_BASE_STEP)
+        perim = 0.0
+        for i in range(len(ring)):
+            ax, ay = ring[i]
+            bx, by = ring[(i + 1) % len(ring)]
+            perim += math.hypot(bx - ax, by - ay)
+        # Amplitude tracks the ring's own size, clamped to the base step, so a
+        # 40-unit islet is not torn apart by the amplitude a continent gets.
+        amp0 = _COAST_RMD_SIGMA * min(_COAST_RMD_BASE_STEP, max(perim / 8.0, _COAST_RMD_BASE_STEP / 8.0))
+        # Seeded from the ring's own vertices, so the same input always gives the
+        # same coast and two different islands never share a noise realisation.
+        seed = (
+            int(base_seed) + 907
+            + int(abs(poly[0][0]) * 7 + abs(poly[0][1]) * 13 + abs(area)) % 1_000_003
+        )
+        rng = np.random.default_rng(seed)
+        out = _rmd_ring(ring, _COAST_RMD_LEVELS, amp0, _COAST_RMD_H, rng)
+        return [(round(x, 1), round(y, 1)) for x, y in out]
 
     # Build landmass objects
     landmasses: list[dict] = []
