@@ -4122,7 +4122,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 20
+_LAYOUT_VERSION = 21
 
 
 def compute_chapter_hash(
@@ -5111,6 +5111,55 @@ def generate_landmasses(
                 kept.append((contour, area, loc_count))
         # Keep at least the main landmass
         filtered_outers = kept if kept else filtered_outers[:1]
+
+        # ── The mask has to be pruned with the same rule, or it disagrees with
+        #    the coastlines the client is given. ──
+        #
+        # `filtered_outers` is what becomes `landmasses` and every coastline the
+        # reader sees. `land_mask` drives the terrain bake (clipped to it) and,
+        # since this commit, the shelf's distance field. Nothing pruned it, so
+        # every component the absorb rule just dropped kept painting: measured
+        # on 西游记, `#terrain-biome` draws pale cream at four or five points in
+        # open water (rgb 218,208,186 against the sea's 95,123,155) as far as
+        # 1018 canvas units from any coast, and the shelf rings each one. That
+        # is what the reader sees as grey discs in the middle of the ocean.
+        #
+        # Same two-part rule as above so the two agree by construction: a
+        # component survives if it holds two or more locations, or if its area
+        # clears the absorb threshold. Counting locations per mask component
+        # rather than per contour is the only difference, and it is the safer
+        # direction — a mask component that merges several contours still counts
+        # all of their locations.
+        from scipy.ndimage import label as _nd_label
+
+        _lab, _n_comp = _nd_label(land_mask, structure=np.ones((3, 3), dtype=int))
+        if _n_comp > 1:
+            _loc_per_comp: dict[int, int] = {}
+            for _lx, _ly in coords.values():
+                _gi = int(_lx / cell_size)
+                _gj = int(_ly / cell_size)
+                if 0 <= _gi < grid_w and 0 <= _gj < grid_h:
+                    _cid = int(_lab[_gj, _gi])
+                    if _cid:
+                        _loc_per_comp[_cid] = _loc_per_comp.get(_cid, 0) + 1
+            _comp_cells = np.bincount(_lab.ravel(), minlength=_n_comp + 1)
+            _cell_area = float(cell_size * cell_size)
+            _drop = [
+                _cid
+                for _cid in range(1, _n_comp + 1)
+                if _loc_per_comp.get(_cid, 0) < 2
+                and _comp_cells[_cid] * _cell_area < absorb_threshold
+            ]
+            if _drop:
+                land_mask = ~np.isin(_lab, _drop)
+                land_mask = binary_opening(land_mask, structure=struct_small)
+                logger.warning(
+                    "landmask: dropped %d components the contour pass absorbed "
+                    "(%.1f%% of the mask) so the bake and the shelf stop painting "
+                    "land no coastline describes",
+                    len(_drop),
+                    100.0 * _comp_cells[_drop].sum() / max(_comp_cells[1:].sum(), 1),
+                )
 
     # Associate holes with their containing outer ring
     hole_map: dict[int, list[list[tuple[float, float]]]] = {i: [] for i in range(len(filtered_outers))}
