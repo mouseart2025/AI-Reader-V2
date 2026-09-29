@@ -4122,7 +4122,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 24
+_LAYOUT_VERSION = 25
 
 
 def compute_chapter_hash(
@@ -4784,7 +4784,7 @@ def generate_landmasses(
     contour coordinate arrays).
     """
     from opensimplex import OpenSimplex
-    from scipy.ndimage import binary_closing, binary_opening
+    from scipy.ndimage import binary_closing, binary_fill_holes, binary_opening
     from scipy.spatial import KDTree
 
     # Deterministic per-novel seed, hoisted to the top on purpose. It used to be
@@ -5079,19 +5079,14 @@ def generate_landmasses(
     #     absent where it should not.
     from scipy.ndimage import distance_transform_edt as _edt
 
-    _dist_to_land_cells = _edt(~land_mask, sampling=(1.0, 1.0))
+    # `_dist_to_land_cells` and the shelf masks used to be built here, from
+    # `land_mask` as it stands at this point. Both moved below the prune: see the
+    # block where `shelf_rings` is assigned. The wobble field and the ladder
+    # constants are still defined here because the width modulation belongs with
+    # the rest of the shelf's geometry notes; the masks themselves do not.
     # 8 cells is 64 canvas units, ~11 screen px at fit: the width the inner ring
     # already had, so the close-up that was already right does not change.
     _SHELF_BASE_CELLS = 8.0
-
-    shelf_masks = []
-    for _ring_i, _mult in enumerate(_SHELF_RING_MULTS):
-        _w = _shelf_wobble if _ring_i < len(_SHELF_RING_MULTS) - 1 else np.minimum(1.0, _shelf_wobble)
-        _width = _SHELF_BASE_CELLS * _mult * _w
-        _m = _dist_to_land_cells < _width
-        _m = binary_closing(_m, structure=struct_large)
-        _m = binary_opening(_m, structure=struct_small)
-        shelf_masks.append(_m)
 
     # (A dilation bound on the shelf masks was tried here first and is no longer
     # needed: measuring from the land mask makes an open-water patch impossible
@@ -5187,7 +5182,12 @@ def generate_landmasses(
 
     # Trace land outer boundaries (one per connected land component)
     land_contours = _trace_all_components(land_mask)
-    shelf_rings = [_trace_all_components(m) for m in shelf_masks]
+    # NOTE: the shelf is NOT traced here. It is derived further down, after the
+    # land mask has been pruned AND the coastlines have been displaced — see the
+    # block above `shelf_rings`' first use. Tracing it from this mask was the bug:
+    # this mask still contains the components the prune is about to drop, and this
+    # geometry is the *undisplaced* contour, so the band was anchored to shapes
+    # that the drawn map does not contain.
 
     # Trace hole boundaries: connected sea regions NOT touching the grid border
     sea_labels, num_sea = ndimage_label(~land_mask, structure=np.ones((3, 3), dtype=int))
@@ -5407,6 +5407,59 @@ def generate_landmasses(
             "location_count": loc_count,
             "is_main": i == 0,
         })
+
+    # ── Shelf rings, derived from the FINAL coastlines ────────────────────────
+    #
+    # Both of the shelf's defects came from where this was computed, not from how.
+    # It used to be traced from `land_mask` at a point where that mask was 1) still
+    # carrying the components the prune later drops, and 2) still the *undisplaced*
+    # contour, while the drawn coastline is displaced (large-scale warp plus, now,
+    # midpoint displacement of amplitude ~30 canvas units). So the band was
+    # anchored to shapes the drawing does not contain. Two symptoms, measured with
+    # `scripts/probe_shelf_anchor.py`:
+    #
+    #   * two of six rings sat ~1120 canvas units from ANY coastline — the pale
+    #     discs in open water. They were the shelf of a mask component that the
+    #     prune removes from `landmasses`, i.e. shelf for an island never drawn.
+    #   * the inner rings put 0.7-6.5 % of their sample points *inside* the drawn
+    #     land (0.0 % before the displacement was added), because the coast bulges
+    #     outward past a band whose inner edge never moved.
+    #
+    # The fix is to make the two measure from one source by construction: rasterise
+    # the final coastline rings back into the grid, take the distance from THAT,
+    # and trace the bands from the result. The mask is filled from the outline
+    # (`binary_fill_holes`) rather than scan-filled, so no rasteriser dependency is
+    # introduced and the geometry stays the one that is drawn.
+    _shelf_outline = np.zeros_like(land_mask)
+    for _lm in landmasses:
+        _rp = _lm["coastline"]
+        if len(_rp) < 3:
+            continue
+        _arr = np.asarray(_rp, dtype=float)
+        # Canvas -> grid: cell centres are `i * 8 + 4`, so `i = round(x / 8 - 0.5)`.
+        _gxi = np.clip(np.round(_arr[:, 0] / cell_size - 0.5).astype(int), 0, grid_w - 1)
+        _gyi = np.clip(np.round(_arr[:, 1] / cell_size - 0.5).astype(int), 0, grid_h - 1)
+        # Walk the edges at half-cell spacing so no cell on the outline is skipped.
+        for _k in range(len(_gxi)):
+            _n = _k + 1 if _k + 1 < len(_gxi) else 0
+            _steps = max(2, int(np.hypot(_gxi[_n] - _gxi[_k], _gyi[_n] - _gyi[_k])) * 2 + 1)
+            _t = np.linspace(0.0, 1.0, _steps)
+            _sx = np.round(_gxi[_k] + (_gxi[_n] - _gxi[_k]) * _t).astype(int)
+            _sy = np.round(_gyi[_k] + (_gyi[_n] - _gyi[_k]) * _t).astype(int)
+            _shelf_outline[np.clip(_sy, 0, grid_h - 1), np.clip(_sx, 0, grid_w - 1)] = True
+    _shelf_land = binary_fill_holes(_shelf_outline)
+    _dist_to_land_cells = _edt(~_shelf_land, sampling=(1.0, 1.0))
+
+    shelf_masks = []
+    for _ring_i, _mult in enumerate(_SHELF_RING_MULTS):
+        _w = _shelf_wobble if _ring_i < len(_SHELF_RING_MULTS) - 1 else np.minimum(1.0, _shelf_wobble)
+        _width = _SHELF_BASE_CELLS * _mult * _w
+        _m = _dist_to_land_cells < _width
+        _m = binary_closing(_m, structure=struct_large)
+        _m = binary_opening(_m, structure=struct_small)
+        shelf_masks.append(_m)
+
+    shelf_rings = [_trace_all_components(m) for m in shelf_masks]
 
     # Build shelf contours.
     #
