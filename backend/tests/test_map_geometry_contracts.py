@@ -12,13 +12,23 @@ first. That is the same rule the audit probe follows.
 
 What each test is anchored to:
 
-* `test_coastline_is_as_rough_as_a_real_coast` — the published band for real
-  coastlines, 1.15-1.35 (Mandelbrot's Britain ≈ 1.25). The ruler reproduces Koch
-  L4's analytic log4/log3 = 1.2619 to within 0.010 over the epsilon range used
-  here, so the band is being checked against a ruler that has been calibrated on
-  a curve with a known answer. Before the midpoint-displacement change this
-  coastline scored 1.0625 — barely above a regular polygon's 1.0358 — so the test
-  fails loudly on the old shape.
+* `test_coastline_roughness_follows_the_terrain` — a coast is crenulated where
+  mountains meet the sea and smooth where plains do. That is ordinary geomorphology
+  and it is what a user reported missing. Measured as **sinuosity** (arc / chord over
+  a 300-unit window) split by distance to the nearest rugged vs smooth location,
+  because that is the criterion that still has resolution at this map's feature
+  scale. Reference bands: ~1.00-1.03 straight, 1.05-1.15 headland/bay,
+  >1.20 strongly crenulated.
+
+  ⚠️ This replaces an assertion that the **whole-coast** fractal dimension sits in the
+  published real-coastline band [1.15, 1.35]. That assertion encoded a uniformity
+  assumption: it can only be satisfied by making every stretch equally rough, which
+  is the very defect it was meant to prevent. The literature band describes one
+  homogeneous rocky coastline; a coast that is deliberately half plains-facing
+  legitimately reads lower. A per-class fractal dimension was tried and abandoned —
+  after modulation the rugged arcs are only ~2 000 units against a 186-unit box
+  ceiling, and the fit is endpoint-dominated (it returned D < 1.0 for smooth arcs,
+  which no curve can do).
 
 * `test_shelf_is_anchored_to_the_drawn_coastline` — the band must sit on the coast
   the map actually draws, not on the pre-prune, pre-displacement mask. The defect
@@ -28,6 +38,7 @@ What each test is anchored to:
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -37,51 +48,51 @@ import pytest
 # The ruler lives in `scripts/`; the repo root is two levels up from `backend/tests`.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
+from probe_coast_roughness_profile import classify, sinuosity_along
 from probe_coastline_morphology import boxcount
 from probe_shelf_anchor import anchor_stats
+from scipy.spatial import cKDTree
 
 from src.services.map_layout_service import generate_landmasses
 
-# The range the ruler was calibrated in. Koch L4 reads 1.2524 here (true 1.2619);
-# a regular polygon reads 1.0358.
+# Only used by the degeneracy guard now; the real criterion is the sinuosity split.
 CALIBRATED_SIZES = [28.0, 41.0, 60.0, 88.0, 128.0, 186.0]
 REAL_COAST_BAND = (1.15, 1.35)
+SIN_WINDOW = 300.0
+SIN_STEP = 40.0
+RUGGED_SINUOSITY = (1.15, 1.45)   # crenulated, but not past strongly crenulated
+SMOOTH_SINUOSITY_MAX = 1.08       # "plains coast" reads as gentle bays at most
+MIN_SEPARATION = 0.12
 
 
 def _fixture_novel():
-    """Deterministic input with landmasses large enough to be measured.
+    """Deterministic input whose coast runs past an alternating sequence of places.
 
-    Not the real novel: CI has no database, and the contract is a property of the
-    generator, not of one book. Several locations are spread far enough apart to
-    produce a continent-scale ring, because the shelf and roughness amplitudes are
-    clamped by ring size — a tiny island is a different regime and would not
-    exercise the path under test.
+    Not the real novel: CI has no database. But the shape matters for what is being
+    tested. A first attempt spread 12 places over a regular grid, and the resulting
+    coast was nearest to whichever **corner** happened to be closest — so the
+    rugged/smooth split along the coast was arbitrary and the test read **backwards**
+    (rugged 1.108 vs smooth 1.320). The real map interleaves rugged and smooth places
+    along the coast, and a fixture must reproduce that or it is testing the fixture.
+
+    So: 16 places on a circle, alternating mountain and city. The landmass forms a
+    disc, its coast runs around the ring, and each stretch of coast is nearest to a
+    known kind of place in turn. That is the structure the contract is about.
     """
-    locs = [
-        {"name": n, "type": t, "icon": i}
-        for n, t, i in [
-            ("花果山", "山", "mountain"),
-            ("水帘洞", "洞府", "cave"),
-            ("流沙河", "河流", "water"),
-            ("黑松林", "树林", "forest"),
-            ("南海普陀山", "山", "mountain"),
-            ("傲来国", "城市", "city"),
-            ("乌鸡国", "区域", "city"),
-            ("女儿国", "区域", "city"),
-            ("车迟国", "城市", "city"),
-            ("祭赛国", "城市", "city"),
-            ("通天河", "河流", "water"),
-            ("五行山", "山", "mountain"),
-        ]
-    ]
-    layout = [
-        {
-            "name": loc["name"],
-            "x": 800.0 + 1400.0 * (i % 4),
-            "y": 700.0 + 1300.0 * (i // 4),
-        }
-        for i, loc in enumerate(locs)
-    ]
+    locs, layout = [], []
+    for i in range(16):
+        angle = 2.0 * math.pi * i / 16.0
+        rugged = i % 2 == 0
+        locs.append({
+            "name": f"{'峰' if rugged else '城'}{i}",
+            "type": "山" if rugged else "城市",
+            "icon": "mountain" if rugged else "city",
+        })
+        layout.append({
+            "name": locs[-1]["name"],
+            "x": 4000.0 + 1600.0 * math.cos(angle),
+            "y": 2400.0 + 1600.0 * math.sin(angle),
+        })
     return locs, layout
 
 
@@ -101,21 +112,63 @@ def _ring_points(rings) -> np.ndarray:
     return np.concatenate(pts, 0)
 
 
-def test_coastline_is_as_rough_as_a_real_coast(landmasses_and_shelves):
+def test_coastline_roughness_follows_the_terrain(landmasses_and_shelves):
     lms, _ = landmasses_and_shelves
-    rings = [lm["coastline"] for lm in lms] + [h for lm in lms for h in lm.get("holes", [])]
-    pts = _ring_points(rings)
-    assert len(pts) > 1000, f"fixture produced only {len(pts)} coastline points"
-
-    r = boxcount(pts, CALIBRATED_SIZES)
-    lo, hi = REAL_COAST_BAND
-    assert lo <= r["D"] <= hi, (
-        f"coastline fractal dimension {r['D']:.4f} is outside the real-coastline band "
-        f"[{lo}, {hi}] (R2 {r['r2']:.4f}). Too low means the coast is smooth like a "
-        "polygon — a smooth displacement field cannot fix that, only subdivision that "
-        "introduces new vertices; too high means it is fragmenting into static."
+    locs, layout = _fixture_novel()
+    pos = {d["name"]: (d["x"], d["y"]) for d in layout}
+    rugged = np.array(
+        [pos[loc["name"]] for loc in locs if loc["name"] in pos and classify(loc) == "rugged"]
     )
-    assert r["r2"] > 0.99, f"the log-log fit is not a line (R2 {r['r2']:.4f}), so D is not meaningful"
+    smooth = np.array(
+        [pos[loc["name"]] for loc in locs if loc["name"] in pos and classify(loc) == "smooth"]
+    )
+    assert len(rugged) >= 3 and len(smooth) >= 3, (
+        f"fixture must contain both kinds of place, got {len(rugged)} rugged / "
+        f"{len(smooth)} smooth"
+    )
+
+    rings = [np.asarray(lm["coastline"], dtype=float) for lm in lms]
+    prof = np.concatenate([sinuosity_along(r, SIN_WINDOW, SIN_STEP) for r in rings], 0)
+    assert len(prof) > 50, f"only {len(prof)} sinuosity windows; fixture too small to judge"
+
+    # Split by whichever kind of place is NEARER. Parameter-free on purpose: a
+    # distance radius was the first version and it needed a different value on the
+    # fixture than on the novel, which is a sign the parameter was doing the work.
+    tr, ts = cKDTree(rugged), cKDTree(smooth)
+    d_r, _ = tr.query(prof[:, :2])
+    d_s, _ = ts.query(prof[:, :2])
+    sin = prof[:, 2]
+    near_r, near_s = sin[d_r < d_s], sin[d_s <= d_r]
+    assert len(near_r) >= 50 and len(near_s) >= 50, (
+        f"too few windows on either side ({len(near_r)} / {len(near_s)}); "
+        "the fixture does not put both kinds of place along the coast"
+    )
+    m_r, m_s = float(np.median(near_r)), float(np.median(near_s))
+
+    lo, hi = RUGGED_SINUOSITY
+    assert lo <= m_r <= hi, (
+        f"coast next to rugged places has sinuosity {m_r:.3f}, outside [{lo}, {hi}]. "
+        "Below the band the mountains meet a smooth coast; above it the crenulation "
+        "is past 'strongly crenulated' and the map reads as torn."
+    )
+    assert m_s <= SMOOTH_SINUOSITY_MAX, (
+        f"coast next to smooth places has sinuosity {m_s:.3f} > {SMOOTH_SINUOSITY_MAX}. "
+        "A plains-facing coast should read as gentle bays, not as a mountain front."
+    )
+    assert m_r - m_s >= MIN_SEPARATION, (
+        f"rugged {m_r:.3f} vs smooth {m_s:.3f} differ by {m_r - m_s:.3f} < {MIN_SEPARATION}. "
+        "The roughness is being applied evenly, independent of the terrain — the exact "
+        "defect this test exists for."
+    )
+
+    # Degeneracy guard only. The whole-coast dimension is NOT the criterion any more:
+    # it falls when most of a coast is plains-facing, which is correct.
+    D = boxcount(_ring_points([lm["coastline"] for lm in lms]), CALIBRATED_SIZES)["D"]
+    d_lo, d_hi = REAL_COAST_BAND
+    assert d_hi + 0.10 >= D, (
+        f"whole-coast fractal dimension {D:.4f} is far above the published band "
+        f"({d_lo}-{d_hi}) — the coast is fragmenting into noise."
+    )
 
 
 def test_shelf_is_anchored_to_the_drawn_coastline(landmasses_and_shelves):

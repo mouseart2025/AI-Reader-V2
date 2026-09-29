@@ -55,9 +55,15 @@ D_SIZES = [28.0, 41.0, 60.0, 88.0, 128.0, 186.0]
 ROWS: list[dict] = []
 
 
-def record(name: str, value, ok: bool | None, threshold: str, source: str, note: str = ""):
+def record(name: str, value, ok: bool | None, threshold: str, source: str,
+           note: str = "", near: bool = False):
+    """`near` 是显式的「贴近阈值」标记。
+
+    ⚠️ 第一版是**嗅探 note 里有没有 ⚠️ 字符** —— 于是任何带 ⚠️ 解释文字的检查
+    （例如那条"不再是主判据"的护栏）都会被误报成边际。**别用显示文本当数据。**
+    """
     ROWS.append({"name": name, "value": value, "ok": ok, "threshold": threshold,
-                 "source": source, "note": note})
+                 "source": source, "note": note, "near": near})
 
 
 def main() -> None:
@@ -69,6 +75,7 @@ def main() -> None:
     ap.add_argument("--symbols", default="/tmp/map_symbols.json")
     ap.add_argument("--marks", default="/tmp/map_marks.json")
     ap.add_argument("--coast", default="/tmp/coastlines.json")
+    ap.add_argument("--map", default="/tmp/map.json", help="/api/novels/<id>/map 的产物")
     args = ap.parse_args()
 
     need = lambda p: Path(p).exists()  # noqa: E731
@@ -139,20 +146,54 @@ def main() -> None:
     else:
         record("标签对比度损失 中位", "n/a", None, "≤ 2%", "缺 --plates-off 图")
 
-    # ── 6. 海岸线分形维数 ───────────────────────────────────────
-    if need(args.coast):
-        data = json.loads(Path(args.coast).read_text())
-        sh = data["groups"].get("coastline") or []
-        pts = [sample_cubics(parse_path(s["d"])[0], 8) for s in sh if parse_path(s["d"])[0]]
-        if pts:
-            r = boxcount(np.concatenate(pts, 0), D_SIZES)
-            d = r["D"]
-            marginal = 1.15 <= d <= 1.35 and (d < 1.19 or d > 1.31)
-            record("海岸线分形维数 D", round(d, 4), 1.15 <= d <= 1.35, "∈ [1.15, 1.35]",
-                   "**文献口径**：真实海岸线（Mandelbrot 量英国 ≈1.25）",
-                   ("⚠️ 贴近边界" if marginal else "") + f" R²={r['r2']:.4f}")
+    # ── 6. 海岸线粗糙度是否跟随地貌 ─────────────────────────────
+    #
+    # ⚠️ 这一条曾经是"整条海岸线的分形维数 ∈ [1.15,1.35]（文献口径）"。那个判据**是错的**：
+    # 它假定整条海岸线同质，于是只有"把每一段都弄成一样粗"才能满足它 —— 而那正是用户报的缺陷
+    # （平原岸也满是锯齿，整幅图像被撕碎的补丁）。文献带描述的是**一条同质的岩石岸**。
+    # 正确形式是**按地貌分类**：崎岖岸像岩石岸、平缓岸像平原岸、两者要有分离。
+    # 用**弯曲度**（弧长÷弦长）而不是分形维数，因为调制之后崎岖弧只有 ~2000 单位，
+    # 对 ε≤186 的盒计数来说太短，斜率被端点效应主导（会给平缓弧算出 D<1，曲线不可能这样）。
+    if need(args.coast) and need(args.map):
+        from probe_coast_roughness_profile import classify, sinuosity_along
+        from scipy.spatial import cKDTree
+
+        mp = json.loads(Path(args.map).read_text())
+        pos = {d["name"]: (d.get("x"), d.get("y")) for d in mp.get("layout", [])}
+        rug, smo = [], []
+        for loc in mp.get("locations", []):
+            xy = pos.get(loc.get("name"))
+            if not xy or xy[0] is None:
+                continue
+            k = classify(loc)
+            (rug if k == "rugged" else smo if k == "smooth" else []).append(xy)
+        rings = [np.asarray(lm["coastline"], dtype=float) for lm in mp.get("landmasses", [])]
+        if len(rug) >= 3 and len(smo) >= 3 and rings:
+            prof = np.concatenate([sinuosity_along(r, 300.0, 40.0) for r in rings], 0)
+            tr, ts = cKDTree(np.asarray(rug)), cKDTree(np.asarray(smo))
+            d_r, _ = tr.query(prof[:, :2])
+            d_s, _ = ts.query(prof[:, :2])
+            sin = prof[:, 2]
+            m_r = float(np.median(sin[d_r < d_s]))
+            m_s = float(np.median(sin[d_s <= d_r]))
+            record("海岸线弯曲度·最近崎岖", round(m_r, 3), 1.15 <= m_r <= 1.45,
+                   "∈ [1.15, 1.45]", "**地貌学口径**：1.05–1.15 岬湾岸 / >1.20 强锯齿",
+                   f"{int((d_r < d_s).sum())} 个窗口",
+                   near=(m_r < 1.15 + 0.2 * 0.30))
+            record("海岸线弯曲度·最近平缓", round(m_s, 3), m_s <= 1.08, "≤ 1.08",
+                   "**地貌学口径**：平直岸 1.00–1.03", f"{int((d_s <= d_r).sum())} 个窗口",
+                   near=(m_s > 0.9 * 1.08))
+            record("海岸线弯曲度·分离", round(m_r - m_s, 3), (m_r - m_s) >= 0.12, "≥ 0.12",
+                   "我的判断（分离=0 即与地貌无关，缺陷时 −0.056）")
+
+            # 退化护栏：整条海岸线的 D 仍不该越过"碎成噪声"。**它不再是主判据。**
+            pts = [np.vstack([r, r[:1]]) for r in rings if len(r) >= 3]
+            D = boxcount(np.concatenate(pts, 0), D_SIZES)["D"]
+            record("海岸线 D（退化护栏）", round(D, 4), D <= 1.45, "≤ 1.45",
+                   "我的判断（上限取文献带上沿 +0.1）",
+                   "⚠️ 不再是主判据：异质海岸的全域 D 自然会低，那是正确的")
     else:
-        record("海岸线分形维数 D", "n/a", None, "∈ [1.15, 1.35]", "缺 --coast")
+        record("海岸线弯曲度·最近崎岖", "n/a", None, "∈ [1.15, 1.45]", "缺 --coast 或 --map")
 
     # ── 7. 浅滩与海岸线同源 ─────────────────────────────────────
     if need(args.coast):
@@ -188,7 +229,7 @@ def main() -> None:
             print(f"{'':<26}{'':>14}{'':>16}{'':>6}   └ {r['note']}")
     print("-" * 108)
     print(f"PASS {n_pass}   FAIL {n_fail}   SKIP {n_skip}")
-    marginal = [r["name"] for r in ROWS if r["ok"] and "⚠️" in (r["note"] or "")]
+    marginal = [r["name"] for r in ROWS if r["ok"] and r["near"]]
     if marginal:
         print(f"⚠️ 边际（距阈值 20% 内，别当作很安全）：{', '.join(marginal)}")
     if n_fail:
