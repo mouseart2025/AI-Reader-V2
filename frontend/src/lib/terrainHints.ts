@@ -146,9 +146,81 @@ const TERRAIN_MAP: Record<string, TerrainCategory> = {
 const CELL_PX = 32
 
 /**
+ * LOD ladder for the ground layer: screen pitch, and the mark's size as a
+ * fraction of it.
+ *
+ * ⚠️ The acceptance table above was measured **before** `groundZoomGain`
+ * existed, and that gain invalidated it without anyone re-measuring.
+ * `scripts/probe_ground_lod.cjs` measures the criterion directly on the live
+ * DOM (nearest-neighbour centre distance ÷ mean mark box). Same ruler, one
+ * session, k = 1.32 / 2.58 / 5.01 / 9.75:
+ *
+ *   | zoom  | ratio p50 | marks whose nearest neighbour overlaps |
+ *   |-------|-----------|----------------------------------------|
+ *   | 1.32  |   1.137   | 40.2 %                                 |
+ *   | 2.58  |   0.828   | 71.8 %                                 |
+ *   | 5.01  |   0.610   | 94.2 %                                 |
+ *   | 9.75  |   0.502   | 99.1 %                                 |
+ *
+ * The table above claims 1.75 at every zoom; the live layer measured 0.502 at
+ * deep zoom, i.e. **three times past the floor**, with essentially every mark
+ * overlapping its neighbour. Reason: the pitch is a screen constant, so the gain
+ * moved fill without ever moving the grain — at k≈10 a stamp spanned two cells.
+ *
+ * ## Why one step and not three
+ *
+ * The first attempt at this ladder was 32 → 24 → 20 px with fill rising to 1.30,
+ * on the theory that a tileset gets finer as the camera comes closer. Measuring
+ * it killed the third rung:
+ *
+ *   - `scripts/probe_texture_lattice.py` scores the field's 2-D autocorrelation
+ *     for off-origin peaks — a lattice is periodic, a texture is not. Calibrated
+ *     against a synthetic ladder (perfect lattice 0.985 at the pitch; white
+ *     noise 0.020; **jittered + 28 %-thinned lattice, which is what this layer
+ *     structurally is, 0.159**; random blobs 0.099).
+ *   - Legacy scored **0.133 with anisotropy 17** — at the periodic control's
+ *     level, and optically it is a tangle of ropes, not water.
+ *   - A lattice-freeness band is therefore peak ≤ ~0.09, and within it a finer
+ *     pitch is *worse*, not better: at pitch 20 the period re-emerges at moderate
+ *     fill (0.107) because the repeat approaches the glyph's own scale.
+ *   - Fill is the risky dial. Swept at pitch 24 over four independent 420x260
+ *     regions of the same render, peak by fill 1.60 / 2.00 / 2.40 / 2.80:
+ *     **0.059-0.077 / 0.069-0.173 / 0.061-0.221 / 0.056-0.189**. Only 1.60 is
+ *     clean everywhere.
+ *
+ * Hence: **set fill by the worst region, not the average** — periodicity appears
+ * locally, so a fill that is clean on the mean is not clean on the map. 1.60 is
+ * the largest fill that stayed clean across all four regions, and one pitch step
+ * (32 → 24, i.e. 1.8x the marks) is what the evidence supports. A third rung was
+ * tested and dropped rather than kept for looks.
+ *
+ * `fill` is the mark's size as a fraction of the pitch, so size and pitch cannot
+ * be tuned apart — which is the mistake the tables above record. It does not keep
+ * rising with zoom, because a screen-pitched notation is meant to hold still
+ * while the reader zooms: what changes between rungs is the pitch, and the marks
+ * change with it.
+ */
+const GROUND_LOD: ReadonlyArray<readonly [minK: number, pitchPx: number, fill: number]> = [
+  [0, CELL_PX, 1.0], // L0 = fit. The sizes this layer was tuned with, gain removed.
+  [2.4, 24, 1.6], // L1 = closer than any fit zoom. 1.8x the marks, none of them tangled.
+]
+
+/** Mark size written as a fraction of the pitch, so size and pitch cannot drift apart. */
+const markSizeAtPitch = (cat: TerrainCategory, pitchPx: number, fill: number): number =>
+  (CATEGORY_SIZE[cat] / CELL_PX) * pitchPx * fill
+
+/**
  * Hard cap on grid cells, hence on the cost of a rebuild. Note this caps
  * *candidate* cells, not symbols: most fall outside the coastline and are
  * discarded, so the node count actually rendered stays a few hundred.
+ *
+ * Re-checked against the LOD ladder: the finest rung is a 24 px pitch, which at
+ * a 1600x1000 viewport is 67 x 42 = 2 814 candidates — inside the cap with room
+ * to spare, so the ladder never trips the widen-below. The cap does bound how
+ * fine a rung could ever be added: a 16 px pitch would be 100 x 62 = 6 200, and a
+ * 2560-wide window at 16 px would reach 9 216 and get widened back to ~20 px.
+ * That is the intended behaviour and not a failure, but it is also why "just go
+ * finer" runs out at about pitch 20 rather than at pitch 8.
  */
 const MAX_CELLS = 7000
 
@@ -941,34 +1013,55 @@ export function generateTerrainHints(
   const baseOpacity = darkBg ? 0.44 : 0.52
   const k = zoom > 0 ? zoom : 1
 
-  // Ground glyphs grow once the reader is past fit zoom. Above 1 only, so the
-  // fit view is untouched — everything tuned for it stays exactly as measured.
+  // ── LOD rung for this zoom ──────────────────────
   //
-  // Why: at k≈10 the baked raster is magnified ~19x and reads as a featureless
-  // wash, and three separate attempts to put fine detail into the BAKE all
-  // failed and are recorded on the backend (`_RIDGE_SCALES`, and the fine
-  // brightness channel). The reason is structural: a raster has a fixed
-  // resolution, so "more detail when zoomed" cannot come from it. This layer
-  // can, because it is screen-pitched — its marks are drawn at the current
-  // scale by construction.
+  // Raster resolution is fixed, so "more detail when zoomed" can never come
+  // from the bake — three separate attempts to put it there all failed and are
+  // recorded on the backend (`_RIDGE_SCALES`, the fine brightness channel). It
+  // has to come from this layer, because this layer is screen-pitched: its marks
+  // are drawn at the current scale by construction.
   //
-  // Size and not count on purpose: `NODE_BUDGET` caps the count and node count
-  // is what decides the frame time, so growing the marks costs nothing. At
-  // k=8 a 2.2x mark covers ~5x the ground, which is the difference between
-  // "triangles on a wash" and ground that reads.
+  // The first attempt at that was a continuous size gain over a constant pitch,
+  // and it traded the lattice for a mat — the measurement is on `GROUND_LOD`.
+  // The ladder replaces it: the pitch steps down and the mark is sized *off the
+  // pitch*, so the field gets finer as it gets fuller instead of the marks
+  // swallowing each other.
   //
-  // The gap-ratio acceptance criterion (>=1.5, or the field reads as fill) is
-  // deliberately allowed to fall below that here: at fit, where it was
-  // calibrated, nothing changes, and at deep zoom "reads as texture" is the
-  // goal rather than the failure.
-  // `__noGroundZoomGain` is a measurement seam, not a feature: it lets a probe
-  // flip this off at runtime so the cost can be taken as a paired A/B in one
-  // session, which two separate runs cannot do (load, JIT and paint warm-up
-  // differ, and that difference gets charged to the change). Same precedent as
+  // `__groundLod` is a measurement seam, not a feature. Three forms:
+  //   number          — force that rung regardless of zoom
+  //   { pitchPx, fill } — an arbitrary rung, for sweeping the two dials
+  //   "legacy"        — the old `1 + 0.63*log2(k)` gain on a fixed 32 px pitch
+  // The arbitrary form exists because the two dials have to be swept *together*
+  // to find the largest fill that still leaves no lattice in the 2-D
+  // autocorrelation (`scripts/probe_texture_lattice.py`), and you cannot sweep a
+  // pair through a three-entry table.
+  //
+  // All forms exist so a probe can take the comparison as a **paired A/B inside
+  // one session** — two separate runs differ by load, JIT and paint warm-up, and
+  // that difference gets charged to the change. Same precedent as
   // `window.__terrainDebug`.
-  const groundZoomGain = (globalThis as { __noGroundZoomGain?: boolean }).__noGroundZoomGain
-    ? 1
-    : 1 + 0.63 * Math.max(0, Math.log2(k))
+  const lodSeam = (
+    globalThis as { __groundLod?: number | "legacy" | { pitchPx: number; fill: number } }
+  ).__groundLod
+  const legacyMode = lodSeam === "legacy"
+  let lodIdx = 0
+  if (typeof lodSeam === "number") {
+    lodIdx = Math.max(0, Math.min(GROUND_LOD.length - 1, Math.round(lodSeam)))
+  } else if (!legacyMode && !(lodSeam && typeof lodSeam === "object")) {
+    for (let i = GROUND_LOD.length - 1; i >= 0; i--) {
+      if (k >= GROUND_LOD[i][0]) {
+        lodIdx = i
+        break
+      }
+    }
+  }
+  // Pitch and fill in one place, so size and pitch can never be tuned apart —
+  // which is the mistake the table on `GROUND_LOD` records.
+  const override = lodSeam && typeof lodSeam === "object" ? lodSeam : null
+  const cellPitchPx = legacyMode ? CELL_PX : (override?.pitchPx ?? GROUND_LOD[lodIdx][1])
+  const cellFill = legacyMode
+    ? 1 + 0.63 * Math.max(0, Math.log2(k))
+    : (override?.fill ?? GROUND_LOD[lodIdx][2])
 
   // Seed for the world-space relief field. See `reliefSalt`.
   const rsalt = reliefSalt(locations)
@@ -1013,10 +1106,10 @@ export function generateTerrainHints(
     return { symbolDefs: [], hints: [] }
   }
 
-  // Grid pitch: CELL_PX on screen, so `CELL_PX / k` in canvas units. Widened
-  // only if the visible area would blow the node budget (a very wide viewport
-  // at a very low zoom).
-  let cell = CELL_PX / k
+  // Grid pitch: the ladder's rung on screen, so `cellPitchPx / k` in canvas
+  // units. Widened only if the visible area would blow the cell cap (a very wide
+  // viewport at a very low zoom).
+  let cell = cellPitchPx / k
   const cols = Math.ceil(spanW / cell)
   const rows = Math.ceil(spanH / cell)
   if (cols * rows > MAX_CELLS) {
@@ -1482,8 +1575,10 @@ export function generateTerrainHints(
       const relOp = cat === "water"
         ? 1
         : 1 + RELIEF_OPACITY_GAIN * anomaly
+      // Sized off the *pitch* rather than off a zoom gain, so the mark can never
+      // grow past the rung it sits on. See `GROUND_LOD`.
       const size =
-        CATEGORY_SIZE[cat] * relSize * groundZoomGain *
+        markSizeAtPitch(cat, cellPitchPx, cellFill) * relSize *
         (1 + (pseudoRandom(seed + 3) - 0.5) * CATEGORY_SIZE_SPREAD[cat])
       const rotation = (pseudoRandom(seed + 4) - 0.5) * 28
       const opFactor = CATEGORY_OPACITY[cat] ?? 1
