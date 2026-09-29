@@ -941,6 +941,35 @@ export function generateTerrainHints(
   const baseOpacity = darkBg ? 0.44 : 0.52
   const k = zoom > 0 ? zoom : 1
 
+  // Ground glyphs grow once the reader is past fit zoom. Above 1 only, so the
+  // fit view is untouched — everything tuned for it stays exactly as measured.
+  //
+  // Why: at k≈10 the baked raster is magnified ~19x and reads as a featureless
+  // wash, and three separate attempts to put fine detail into the BAKE all
+  // failed and are recorded on the backend (`_RIDGE_SCALES`, and the fine
+  // brightness channel). The reason is structural: a raster has a fixed
+  // resolution, so "more detail when zoomed" cannot come from it. This layer
+  // can, because it is screen-pitched — its marks are drawn at the current
+  // scale by construction.
+  //
+  // Size and not count on purpose: `NODE_BUDGET` caps the count and node count
+  // is what decides the frame time, so growing the marks costs nothing. At
+  // k=8 a 2.2x mark covers ~5x the ground, which is the difference between
+  // "triangles on a wash" and ground that reads.
+  //
+  // The gap-ratio acceptance criterion (>=1.5, or the field reads as fill) is
+  // deliberately allowed to fall below that here: at fit, where it was
+  // calibrated, nothing changes, and at deep zoom "reads as texture" is the
+  // goal rather than the failure.
+  // `__noGroundZoomGain` is a measurement seam, not a feature: it lets a probe
+  // flip this off at runtime so the cost can be taken as a paired A/B in one
+  // session, which two separate runs cannot do (load, JIT and paint warm-up
+  // differ, and that difference gets charged to the change). Same precedent as
+  // `window.__terrainDebug`.
+  const groundZoomGain = (globalThis as { __noGroundZoomGain?: boolean }).__noGroundZoomGain
+    ? 1
+    : 1 + 0.63 * Math.max(0, Math.log2(k))
+
   // Seed for the world-space relief field. See `reliefSalt`.
   const rsalt = reliefSalt(locations)
 
@@ -1454,7 +1483,7 @@ export function generateTerrainHints(
         ? 1
         : 1 + RELIEF_OPACITY_GAIN * anomaly
       const size =
-        CATEGORY_SIZE[cat] * relSize *
+        CATEGORY_SIZE[cat] * relSize * groundZoomGain *
         (1 + (pseudoRandom(seed + 3) - 0.5) * CATEGORY_SIZE_SPREAD[cat])
       const rotation = (pseudoRandom(seed + 4) - 0.5) * 28
       const opFactor = CATEGORY_OPACITY[cat] ?? 1
