@@ -3313,6 +3313,39 @@ _RIDGE_SCALES: tuple[tuple[float, int, float], ...] = (
     (0.032, 3, 0.17),      #  256 canvas px: hills off those
     (0.012, 3, 0.06),      #   96 canvas px: the ground surface itself
 )
+# ── A fifth scale was tried twice and reverted. Do NOT re-add it without
+#    changing how the shading is normalised. ──
+#
+# The deep-zoom ground is the worst view in the product: at k=9.75 the reader
+# gets a green-to-grey gradient with scattered triangles and no landform in the
+# frame. The reasoning that suggests a finer scale is sound — the bake is 4096
+# across an 8000-unit canvas (1.95 canvas units per texel), so the raster can
+# carry detail down to ~2 canvas px while the *field* stops at 24, i.e. 234
+# screen px at that zoom. A 28 canvas px entry with a 7 px finest octave should
+# fill exactly that gap.
+#
+# It does not, for two measured reasons:
+#
+#   1. **Amplitude 0.022 did nothing at all.** The ridge sum is normalised
+#      through `_own_unit(ridge, _HEIGHT_WINDOW)`, and 0.022 against a total of
+#      1.00 + 0.42 + 0.17 + 0.06 is 1.3 % of the sum, which the percentile
+#      normalisation then compresses further. The bake moved by mean |dRGB|
+#      **1.42** over land, against a same-recipe bake-to-bake noise floor of
+#      **7.17** — five times smaller than the noise.
+#
+#   2. **Amplitude 0.22 moved it, in the wrong direction.** `_hillshade`
+#      normalises the gradient against its own p95, so a large fine octave takes
+#      over that budget: `s` rises, every shading value is scaled down, and the
+#      map's visible texture is what comes from shading. Measured on the bake,
+#      high-frequency energy FELL at every scale (hf k=3: 4.02 -> 1.98, k=5:
+#      4.01 -> 1.97, k=9: 4.53 -> 2.31), while at deep zoom the luminance
+#      spread halved (14.48 -> 7.95) — a flatter ground, not a more detailed one.
+#
+# So the fine scale is not the lever: the shading has one gradient budget and
+# detail finer than it can carry simply steals it. A real fix has to shade each
+# scale against its own normaliser, or add a fine-scale channel that never
+# enters `_hillshade`. Both are changes to the recipe's structure, not to this
+# table.
 # Amplitude falloff per octave within one scale.
 _RIDGE_PERSISTENCE = 0.5
 # How strongly a crest at one octave invites detail at the next. Above 1 the
