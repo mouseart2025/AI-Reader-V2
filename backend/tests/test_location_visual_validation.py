@@ -171,7 +171,28 @@ def test_influence_classes_keeps_the_suffix_rule_that_fixed_false_positives():
 # ⚠️ Changing the terrain RECIPE on purpose means updating this constant AND
 # bumping `_TERRAIN_VERSION` — otherwise the cache keeps serving the old product
 # (that trap is documented in the project notes).
-_PARITY_PIXEL_SHA256 = "3993ad74c90a34c2a1fbbfb6b1fcff324acec9ad9d4e230a0c106d582148b7f8"
+#
+# ── Re-based 2026-09-29 ──────────────────────────────────────────────────────
+# The anchor was set by `ce3dd0ebf` and then left alone while the recipe changed
+# underneath it, ten times, all of them deliberate: the provincial field (twice,
+# one reverted), a fifth ridge scale and a fine brightness channel (both built,
+# measured, reverted), the shelf's wobble and then its threshold field, the land
+# mask's prune, and the `~np.isin` inversion fix. `_TERRAIN_VERSION` was bumped
+# twice (now 16) but this constant was not, so the test had been failing since
+# `baf942880`.
+#
+# It went unnoticed because the backend job fails at the LINT step first, and a
+# lint failure SKIPS pytest entirely — so the suite reported nothing at all for
+# those commits. That is the reason `int(round(...))` (RUF046) was worth a commit
+# of its own: a red lint step that hides a red test is worse than either.
+#
+# What this constant certifies NOW is "the bake as of 2026-09-29". It no longer
+# certifies the original claim — that extracting `location_influence` out of
+# `generate_terrain` was behaviour-preserving — and it cannot, because the recipe
+# moved afterwards. That proof lives in the commit history (`ce3dd0ebf` against
+# its parent), which is where a before/after marker belongs once the thing it
+# marked has been deliberately changed.
+_PARITY_PIXEL_SHA256 = "e5943ca46a4190c68f58a7945e241bc61f12915847e49aef7d2fde6bb51c58c1"
 
 
 def _bake(novel="_terrain_parity") -> bytes:

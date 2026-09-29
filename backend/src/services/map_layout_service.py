@@ -4894,7 +4894,12 @@ def generate_landmasses(
     _SHELF_WOBBLE_WL = 0.35    # of the canvas long side
     _SHELF_WOBBLE_AMP = 0.45   # +/- 45 % of the band
     _wob_wl = max(canvas_width, canvas_height) * _SHELF_WOBBLE_WL
-    _wob_step_cells = max(1, int(round(_wob_wl / 8.0 / 24.0)))
+    # `round` already returns an int when called without `ndigits` (RUF046), so the
+    # `int(...)` that used to wrap it was redundant — and it was not free: it made
+    # `ruff check` fail, which failed the backend job at the LINT step, which meant
+    # pytest never ran at all on that commit. A lint error that silently skips the
+    # test suite is worth more than the keystroke it saves.
+    _wob_step_cells = max(1, round(_wob_wl / 8.0 / 24.0))
     _wob_x = np.arange(0, grid_w + _wob_step_cells, _wob_step_cells) * 8.0
     _wob_y = np.arange(0, grid_h + _wob_step_cells, _wob_step_cells) * 8.0
     _wob_n = OpenSimplex(seed=_seed + 313)
