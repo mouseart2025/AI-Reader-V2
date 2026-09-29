@@ -203,6 +203,7 @@ const f3 = (x) => (x === null || x === undefined ? "  n/a" : x.toFixed(3).padSta
   let out = "/tmp/ground_lod.json"
   let shotDir = null
   let overrides = []
+  let strokes = []
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === "--url") url = args[++i]
@@ -212,7 +213,14 @@ const f3 = (x) => (x === null || x === undefined ? "  n/a" : x.toFixed(3).padSta
       anchor = { x, y }
     } else if (a === "--out") out = args[++i]
     else if (a === "--shots") shotDir = args[++i]
-    else if (a === "--overrides") {
+    else if (a === "--strokes") {
+      // `1.1,1.4,1.8` —— 线宽（stroke-width）。与几何判据正交，见 NovelMap.tsx 的 seam 注释。
+      strokes = args[++i].split(",").map(Number)
+      if (strokes.some((v) => !Number.isFinite(v) || v <= 0)) {
+        console.error(`--strokes 项无法解析：${args[i]}`)
+        process.exit(2)
+      }
+    } else if (a === "--overrides") {
       // `p20f1.30,p24f1.60` —— 直接扫 (间距, 填充) 两个旋钮。取代"自动/legacy"两组。
       overrides = args[++i].split(",").map((s) => {
         const m = /^p(\d+(?:\.\d+)?)f(\d+(?:\.\d+)?)$/.exec(s.trim())
@@ -277,9 +285,24 @@ const f3 = (x) => (x === null || x === undefined ? "  n/a" : x.toFixed(3).padSta
     }
     await page.waitForTimeout(2200) // 让这一帧画完再量
 
-    const conditions = overrides.length
-      ? overrides.map((o) => ({ mode: `p${o.pitchPx}f${o.fill}`, override: o }))
-      : [{ mode: "legacy" }, { mode: "auto" }]
+    const conditions = []
+    const strokeList = strokes.length ? strokes : [null]
+    if (overrides.length) {
+      // 叉乘：每个 (间距, 填充) × 每个线宽
+      for (const o of overrides)
+        for (const s of strokeList)
+          conditions.push({
+            mode: `p${o.pitchPx}f${o.fill}`,
+            override: o,
+            stroke: s,
+            label: `p${o.pitchPx}f${o.fill}${s ? `w${s}` : ""}`,
+          })
+    } else {
+      for (const s of strokeList) {
+        conditions.push({ mode: "legacy", stroke: s, label: s ? `legacyw${s}` : "legacy" })
+        conditions.push({ mode: "auto", stroke: s, label: s ? `autow${s}` : "auto" })
+      }
+    }
     for (const cond of conditions) {
       // ⚠️ 只翻标志**不会重建图层** —— 重建挂在 `terrainLodKey` 上
       // （`NovelMap.tsx:271`：`round(log2 k * 2) : round(tx/96) : round(ty/96)`）。
@@ -291,6 +314,10 @@ const f3 = (x) => (x === null || x === undefined ? "  n/a" : x.toFixed(3).padSta
         if (c.mode === "legacy") globalThis.__groundLod = "legacy"
         else if (c.mode === "auto") delete globalThis.__groundLod
         else globalThis.__groundLod = { pitchPx: c.override.pitchPx, fill: c.override.fill }
+        // 线宽：与几何判据正交（不动记号、自相关也看不见它），所以必须与
+        // (间距, 填充) 一起扫，才能知道"墨量"能不能在不引入印花的前提下买到。
+        if (c.stroke === null || c.stroke === undefined) delete globalThis.__groundStroke
+        else globalThis.__groundStroke = c.stroke
       }, cond)
       await page.waitForTimeout(200)
       await page.mouse.move(anchor.x, anchor.y)
@@ -327,7 +354,7 @@ const f3 = (x) => (x === null || x === undefined ? "  n/a" : x.toFixed(3).padSta
         ...s,
       })
       console.log(
-        `k=${raw.scale.toFixed(2).padStart(5)}  ${cond.mode.padEnd(10)} L${lod === "legacy" ? "-" : lod}` +
+        `k=${raw.scale.toFixed(2).padStart(5)}  ${cond.label.padEnd(12)} L${lod === "legacy" ? "-" : lod}` +
           `  记号 ${String(s.n).padStart(4)}` +
           `  间距/尺寸 p05 ${f3(s.ratio_p05)} p50 ${f3(s.ratio_p50)} p95 ${f3(s.ratio_p95)}` +
           `  <1.0 ${((s.overlap_lt_1 || 0) * 100).toFixed(1)}%` +
@@ -337,12 +364,13 @@ const f3 = (x) => (x === null || x === undefined ? "  n/a" : x.toFixed(3).padSta
       if (shotDir) {
         fs.mkdirSync(shotDir, { recursive: true })
         await page.screenshot({
-          path: path.join(shotDir, `k${raw.scale.toFixed(2)}_${cond.mode}.png`),
+          path: path.join(shotDir, `k${raw.scale.toFixed(2)}_${cond.label}.png`),
         })
       }
     }
     await page.evaluate(() => {
       delete globalThis.__groundLod
+      delete globalThis.__groundStroke
     })
   }
 

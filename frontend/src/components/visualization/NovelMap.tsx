@@ -976,6 +976,24 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // drag; the fragment version lands the whole batch in one go.
       const inv = 1 / kz
       const symById = new Map(symbolDefs.map((d) => [d.id, d]))
+      // Hoisted out of the loop on purpose: it is a global-property read, and this
+      // loop runs once per mark (~750 on a deep-zoom ocean). Reading it per mark
+      // was the first version; there is no reason to pay it 750 times.
+      //
+      // Line WEIGHT is the one ink dial that is invisible to both of the ground
+      // layer's criteria: it does not move a mark (so the nearest-neighbour
+      // geometry is untouched) and it is a single multiplier (so the normalised
+      // autocorrelation cannot see it either). That makes it the last place ink
+      // can be bought once a category's alpha has saturated — which is exactly
+      // where `water` sits, at 0.52 * 1.9 = ~0.99.
+      //
+      // `__groundStroke` is a measurement seam, not a feature: a probe sets it to
+      // sweep line weight against both criteria at once. Measured at pitch 24 /
+      // fill 1.6, it is NOT free — HF rises 1.83 -> 2.03 -> 2.22 -> 2.40 while the
+      // periodicity peak rises 0.059 -> 0.066 -> 0.090 -> 0.124, so thicker
+      // strokes re-expose the lattice. 1.1 is kept. Same precedent as
+      // `__groundLod` and `window.__terrainDebug`.
+      const strokeW = (globalThis as { __groundStroke?: number }).__groundStroke ?? 1.1
       const frag = document.createDocumentFragment()
       for (const hint of hints) {
         const def = symById.get(hint.symbolId)
@@ -1000,7 +1018,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           useEl.setAttribute("fill", "none")
           useEl.setAttribute("stroke", hint.color)
           // Interpreted on screen because the group is counter-scaled.
-          useEl.setAttribute("stroke-width", "1.1")
+          useEl.setAttribute("stroke-width", String(strokeW))
         } else {
           useEl.setAttribute("fill", hint.color)
         }
