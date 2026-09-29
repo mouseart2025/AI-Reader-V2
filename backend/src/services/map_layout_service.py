@@ -3226,6 +3226,46 @@ _RELIEF_GAIN = 0.10
 # untouched; 0.10 was not.
 _TEXTURE_AMPLITUDE = 0.03
 
+# ── A dedicated fine brightness channel was tried here and reverted (v17-v19).
+#    Do NOT re-add it. ──
+#
+# The reasoning: the deep-zoom ground is the worst view in the product (at
+# k=9.75 the ridge field's finest 24 canvas px is 234 screen px wide, so the
+# reader gets a wash), and `_TEXTURE_AMPLITUDE` above is already a brightness
+# channel that never enters `_hillshade` — simply too coarse and too weak. So: a
+# dedicated term at 13 canvas px base, 2 octaves, finest 6.5 px.
+#
+# Measured, in three steps:
+#
+#   amplitude 0.05   land mean |dRGB| **1.07**  — five times under the 7.17
+#                    same-recipe bake-to-bake noise floor. No change at all.
+#   amplitude 0.50   **12.03** — so the channel is real and LINEAR in amplitude
+#                    (10x amplitude, 11x effect). It is not being swallowed.
+#   amplitude 0.35   **8.06**, i.e. just above the noise floor — and here the
+#                    costs and the benefits separate cleanly:
+#
+#                      bake hf, every scale      4.02/4.01/4.53/7.57
+#                                          ->    4.33/4.34/5.19/8.86   UP
+#                      deep-zoom hf(5)           0.65 -> 0.69           UP
+#                      deep-zoom luminance std  12.56 -> 15.20          UP
+#                      land/sea dL               53.5 -> 48.1          DOWN 10%
+#                      land/sea contrast         1.70 -> 1.63           DOWN
+#
+# and the picture at k=9.75 is still a featureless green wash in both. The
+# numbers rise, the gain is invisible, and the price is real — `dL` is this
+# map's V1 acceptance criterion and it is not for sale at that rate.
+#
+# The mechanism: the field's effective deviation is far below the unit sd the
+# docstring claims, so a visible modulation needs an amplitude near 1.0, at
+# which the multiplicative form clips and drags the land's mean around. Additive
+# would hold the mean but the visible gain was already zero at 0.35.
+#
+# Three routes to a finer bake are now measured and closed: a finer
+# `_RIDGE_SCALES` entry (see that table), and this channel, at both ends of its
+# amplitude. **Deep zoom is a frontend problem, not a bake problem**: what is
+# needed is ground texture that is resolution-independent — the screen-pitched
+# glyph layer, or a procedural overlay drawn at the current scale.
+
 # The two flat noise terms that predate the octave budget, now named because they
 # are a large share of the terrain's visible contrast and were previously
 # unnamed literals inside the bake. `_fbm` returns a zero-mean unit-sd field
