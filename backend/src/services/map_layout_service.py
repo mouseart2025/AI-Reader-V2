@@ -4122,7 +4122,7 @@ def generate_terrain(
 # array in `geo_coords_json` and NULL in `shelf_depth_json`. The call site now
 # passes keywords and the two trailing params are keyword-only, but every row
 # cached so far is corrupt, so the bump is what forces a rewrite.
-_LAYOUT_VERSION = 16
+_LAYOUT_VERSION = 20
 
 
 def compute_chapter_hash(
@@ -4912,13 +4912,54 @@ def generate_landmasses(
                              (0, max(0, grid_w - _wob.shape[1]))), mode="edge")[:grid_h, :grid_w]
     _shelf_wobble = 1.0 - _SHELF_WOBBLE_AMP + 2.0 * _SHELF_WOBBLE_AMP * _wob  # 1-a .. 1+a
 
+    # ── The shelf is a rim measured from LAND, not from location points ──
+    #
+    # The masks used to be `dist_field < threshold * mult`, i.e. thresholds on
+    # the field that runs to the nearest LOCATION POINT. Two things follow, and
+    # both were measured on screen:
+    #
+    #   * 西游记 names places in the sea (西洋大海, 南海). A sea location is a
+    #     point, so the threshold draws a patch around it in open water — the
+    #     reader sees pale blobs in the middle of the ocean, 442 to 1018 canvas
+    #     units from any coast (80 to 183 screen px at fit).
+    #   * the mapping from field value to geometric distance depends on the
+    #     local density of location points, so the band's WIDTH is uncontrolled.
+    #     Measured along the contours: the inner ring's outline sits a median of
+    #     63 canvas units from the coast (p90 125) — a proper rim — while the
+    #     outer ring's runs a median of 214 and a p90 of **1014**. That is the
+    #     ballooning, and it is why one ring covered 42 % of the canvas.
+    #
+    # `_SHELF_RING_MULTS` is kept as the shape of the ladder (how the bands step
+    # outward) but it now multiplies a width in LAND-distance, so the band has a
+    # geometric width by construction. Two consequences worth stating:
+    #
+    #   * a patch in open water is now impossible — not filtered out, impossible,
+    #     because everything is measured from the land mask;
+    #   * the band's width is the same everywhere, which is what the wobble is
+    #     for. Without the wobble this would have traded a defect for a
+    #     mechanical look; with it, the shelf is wide where it should be and
+    #     absent where it should not.
+    from scipy.ndimage import distance_transform_edt as _edt
+
+    _dist_to_land_cells = _edt(~land_mask, sampling=(1.0, 1.0))
+    # 8 cells is 64 canvas units, ~11 screen px at fit: the width the inner ring
+    # already had, so the close-up that was already right does not change.
+    _SHELF_BASE_CELLS = 8.0
+
     shelf_masks = []
     for _ring_i, _mult in enumerate(_SHELF_RING_MULTS):
         _w = _shelf_wobble if _ring_i < len(_SHELF_RING_MULTS) - 1 else np.minimum(1.0, _shelf_wobble)
-        _m = dist_field < threshold * _mult * _w
+        _width = _SHELF_BASE_CELLS * _mult * _w
+        _m = _dist_to_land_cells < _width
         _m = binary_closing(_m, structure=struct_large)
         _m = binary_opening(_m, structure=struct_small)
         shelf_masks.append(_m)
+
+    # (A dilation bound on the shelf masks was tried here first and is no longer
+    # needed: measuring from the land mask makes an open-water patch impossible
+    # rather than filtered. It also did not work — the patches are 8-connected
+    # to the rims through thin necks, and the bound that would have caught them
+    # was wider than the distance they sat at, so the output did not change.)
 
     # ── 1.4 Contour tracing (Moore Neighborhood per component) ──
     from scipy.ndimage import label as ndimage_label
