@@ -73,6 +73,62 @@ class LLMParseError(LLMError):
     """Raised when JSON parsing of LLM response fails."""
 
 
+class LLMContextOverflowError(LLMError):
+    """Prompt exceeds the model's available context window (Ollama 400).
+
+    Carries the token counts reported by Ollama when available so callers
+    can shrink the input proportionally instead of guessing.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        prompt_tokens: int | None = None,
+        ctx_size: int | None = None,
+    ):
+        super().__init__(message)
+        self.prompt_tokens = prompt_tokens
+        self.ctx_size = ctx_size
+
+
+def _parse_context_overflow(status_code: int, body: str) -> LLMContextOverflowError | None:
+    """Recognize Ollama's exceed_context_size_error and return a typed error.
+
+    Ollama responds with HTTP 400 and a body like:
+    {"error":"{\"error\":{\"code\":400,\"message\":\"request (16466 tokens)
+    exceeds the available context size (16384 tokens), try increasing it\",
+    \"type\":\"exceed_context_size_error\",\"n_prompt_tokens\":16466,
+    \"n_ctx\":16384}}"}
+    """
+    if status_code != 400:
+        return None
+    if (
+        "exceed_context_size_error" not in body
+        and "exceeds the available context size" not in body
+    ):
+        return None
+    prompt_tokens = ctx_size = None
+    m = re.search(r'"n_prompt_tokens"\s*:\s*(\d+)', body)
+    if m:
+        prompt_tokens = int(m.group(1))
+    m = re.search(r'"n_ctx"\s*:\s*(\d+)', body)
+    if m:
+        ctx_size = int(m.group(1))
+    if prompt_tokens is None:
+        m = re.search(r"request \((\d+) tokens\)", body)
+        if m:
+            prompt_tokens = int(m.group(1))
+    if ctx_size is None:
+        m = re.search(r"available context size \((\d+) tokens\)", body)
+        if m:
+            ctx_size = int(m.group(1))
+    return LLMContextOverflowError(
+        f"Ollama context overflow: {body[:300]}",
+        prompt_tokens=prompt_tokens,
+        ctx_size=ctx_size,
+    )
+
+
 def _strip_thinking(text: str) -> str:
     """Strip <think>...</think> blocks, including unclosed ones (truncated responses)."""
     # First strip closed <think>...</think> blocks
@@ -225,6 +281,11 @@ class LLMClient:
                     f"Ollama request timed out after {timeout}s"
                 ) from exc
             except httpx.HTTPStatusError as exc:
+                overflow = _parse_context_overflow(
+                    exc.response.status_code, exc.response.text,
+                )
+                if overflow is not None:
+                    raise overflow from exc
                 raise LLMError(
                     f"Ollama HTTP error {exc.response.status_code}: {exc.response.text[:300]}"
                 ) from exc
