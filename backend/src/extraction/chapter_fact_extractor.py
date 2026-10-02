@@ -5,12 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
-from src.infra.llm_client import LLMError, LlmUsage, get_llm_client
+from src.infra.llm_client import (
+    LLMContextOverflowError,
+    LLMError,
+    LlmUsage,
+    get_llm_client,
+)
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import (
     ChapterFact,
@@ -91,6 +97,84 @@ class ExtractionMeta:
 
 class ExtractionError(Exception):
     """Raised when chapter fact extraction fails after retries."""
+
+
+# 缩短重试的正文下限:低于这个长度再砍就没有分析价值了
+_SHRINK_MIN_LEN = 500
+# prompt 超窗时最多缩短重试轮数
+_MAX_SHRINK_ROUNDS = 3
+# 超窗降级分段的上限:超过这个段数说明模型窗口相对正文实在太小,
+# 继续细分调用成本不可控,退化为缩短重试
+_MAX_OVERFLOW_SEGMENTS = 4
+
+
+def _shrink_for_context(text: str, err: LLMContextOverflowError) -> str:
+    """按比例缩短章节正文,让 prompt 重新 fit 进模型上下文窗口。
+
+    err 带有 Ollama 报告的 n_prompt_tokens / n_ctx 时按二者之比缩短
+    (留 15% 余量覆盖输出 token 与字符↔token 估算误差);缺失时对半砍。
+    token 与字符按线性近似,偏保守时下一轮会继续收敛。
+    """
+    if err.prompt_tokens and err.ctx_size and err.prompt_tokens > 0:
+        ratio = err.ctx_size / err.prompt_tokens * 0.85
+        new_len = int(len(text) * min(ratio, 0.9))
+    else:
+        new_len = len(text) // 2
+    return text[:max(new_len, 0)]
+
+
+def _split_even_segments(text: str, n_parts: int) -> list[str]:
+    """把正文按段落边界尽量均分成 n_parts 段(超窗降级分段用)。
+
+    与 _split_chapter_text 的固定阈值切分不同,这里段数由溢出量决定,
+    切点选最接近均分位置的换行,保证全文都被覆盖(不丢内容)。
+    """
+    if n_parts <= 1 or not text:
+        return [text]
+    ideal = len(text) / n_parts
+    breaks = [i for i, ch in enumerate(text) if ch == "\n" and i > 0]
+    segments: list[str] = []
+    start = 0
+    for part in range(1, n_parts):
+        target = ideal * part
+        candidates = [b for b in breaks if b > start]
+        cut = min(candidates, key=lambda b: abs(b - target), default=None)
+        if cut is None:
+            cut = int(target)
+        segments.append(text[start:cut])
+        start = cut
+    segments.append(text[start:])
+    non_empty = [s for s in segments if s.strip()]
+    return non_empty or [text]
+
+
+def _overflow_segment_count(
+    err: LLMContextOverflowError,
+    full_prompt_chars: int,
+    overhead_chars: int,
+) -> int | None:
+    """估算超窗章节需要均分成几段才能全部放下;不可行时返回 None。
+
+    用一次"空正文 probe prompt"的字符数估算固定开销
+    (system 之外的模板/示例/上下文摘要),再按 Ollama 报告的
+    n_prompt_tokens / n_ctx 推算每段可用的正文 token 预算,
+    每段留 20% 余量。开销本身已吃掉 80% 窗口或所需段数超过
+    _MAX_OVERFLOW_SEGMENTS 时分段无解,返回 None 让调用方退化。
+    """
+    if not (err.prompt_tokens and err.ctx_size and err.prompt_tokens > 0):
+        return 2
+    if full_prompt_chars <= overhead_chars:
+        return 2
+    chars_per_token = full_prompt_chars / err.prompt_tokens
+    overhead_tokens = overhead_chars / chars_per_token
+    avail_tokens = err.ctx_size * 0.8 - overhead_tokens
+    if avail_tokens <= 0:
+        return None
+    chapter_tokens = max(err.prompt_tokens - overhead_tokens, 1)
+    n = math.ceil(chapter_tokens / avail_tokens)
+    if n > _MAX_OVERFLOW_SEGMENTS:
+        return None
+    return max(2, n)
 
 
 def _split_chapter_text(text: str) -> list[str]:
@@ -1033,6 +1117,59 @@ class ChapterFactExtractor:
 
         return fact, usage, meta
 
+    async def _call_with_overflow_shrink(
+        self,
+        system: str,
+        build_prompt,
+        novel_id: str,
+        chapter_id: int,
+        text: str,
+        example_text: str,
+        segment_hint: str = "",
+        schema: dict | None = None,
+        meta: ExtractionMeta | None = None,
+        first_error: LLMContextOverflowError | None = None,
+    ) -> tuple[ChapterFact, LlmUsage]:
+        """调 _call_and_parse;遇上下文窗口溢出按比例缩短正文重试。
+
+        最后手段:只有分段降级不可行(固定开销过大 / 所需段数超限)或
+        单个分段仍超窗时才走到这里,用丢弃尾部内容换章节不整章失败。
+        按 Ollama 报告的 token 数逐轮缩短正文(≤ _MAX_SHRINK_ROUNDS
+        轮);first_error 携带已发生的溢出时先缩短再发请求,避免一次
+        必然失败的调用。仍超窗时抛出最后一次 LLMContextOverflowError。
+        """
+        current = text
+        last_err = first_error
+        pending_err = first_error
+        for _ in range(_MAX_SHRINK_ROUNDS + 1):
+            if pending_err is not None:
+                shorter = _shrink_for_context(current, pending_err)
+                if len(shorter) >= len(current) or len(shorter) < _SHRINK_MIN_LEN:
+                    pending_err = None
+                    break
+                logger.warning(
+                    "Chapter %d prompt exceeds context window (%s tokens > %s); "
+                    "shrinking text %d -> %d chars and retrying",
+                    chapter_id, pending_err.prompt_tokens, pending_err.ctx_size,
+                    len(current), len(shorter),
+                )
+                pending_err = None
+                current = shorter
+                if meta is not None:
+                    meta.is_truncated = True
+                    meta.truncated_len = len(shorter)
+            prompt = build_prompt(
+                chapter_id, current, example_text, segment_hint=segment_hint,
+            )
+            try:
+                return await self._call_and_parse(
+                    system, prompt, novel_id, chapter_id, schema=schema, meta=meta,
+                )
+            except LLMContextOverflowError as err:
+                last_err = err
+                pending_err = err
+        raise last_err  # type: ignore[misc]
+
     async def _extract_single(
         self,
         system: str,
@@ -1058,6 +1195,49 @@ class ChapterFactExtractor:
             return await self._call_and_parse(
                 system, user_prompt, novel_id, chapter_id, schema=schema, meta=meta,
             )
+        except LLMContextOverflowError as overflow_err:
+            # 上下文窗口溢出(本地小模型常见病,如 qwen3:4b @ num_ctx=16384)。
+            # 首选降级:按段落边界把章节均分成能放下的若干段,逐段抽取再合并
+            # —— 全文都被分析,不丢内容;只有分段无解时才退化为缩短正文。
+            overhead_chars = len(build_prompt(chapter_id, "", example_text))
+            n_parts = _overflow_segment_count(
+                overflow_err, len(user_prompt), overhead_chars,
+            )
+            segments = (
+                _split_even_segments(chapter_text, n_parts)
+                if n_parts is not None else []
+            )
+            if len(segments) > 1:
+                logger.warning(
+                    "Chapter %d prompt exceeds context window (%s tokens > %s); "
+                    "splitting chapter into %d segments to keep full coverage",
+                    chapter_id, overflow_err.prompt_tokens,
+                    overflow_err.ctx_size, len(segments),
+                )
+                if meta is not None:
+                    meta.segment_count = len(segments)
+                return await self._extract_segmented(
+                    system, novel_id, chapter_id, segments,
+                    prompt_builder=build_prompt, schema=schema, meta=meta,
+                )
+            logger.warning(
+                "Chapter %d prompt exceeds context window and cannot be "
+                "segmented (overhead too large); falling back to shrinking",
+                chapter_id,
+            )
+            try:
+                return await self._call_with_overflow_shrink(
+                    system, build_prompt, novel_id, chapter_id, chapter_text,
+                    example_text, schema=schema, meta=meta,
+                    first_error=overflow_err,
+                )
+            except LLMContextOverflowError as last_err:
+                raise ExtractionError(
+                    f"Extraction failed for chapter {chapter_id}: prompt exceeds "
+                    f"the context window even after shrinking "
+                    f"({last_err.prompt_tokens} tokens > {last_err.ctx_size}); "
+                    f"请缩短章节或在 Ollama 中调大 num_ctx"
+                ) from last_err
         except (LLMError, ExtractionError, Exception) as first_err:
             logger.warning(
                 "First extraction attempt failed for chapter %d: %s",
@@ -1103,14 +1283,12 @@ class ChapterFactExtractor:
                 "Chapter %d segment %d/%d: %d chars",
                 chapter_id, idx + 1, len(segments), len(seg_text),
             )
-            user_prompt = build_prompt(
-                chapter_id, seg_text, example_text, segment_hint=seg_label,
-            )
 
-            # Each segment gets its own retry
+            # Each segment gets its own retry; context overflow shrinks the segment
             try:
-                fact, seg_usage = await self._call_and_parse(
-                    system, user_prompt, novel_id, chapter_id, schema=schema, meta=meta,
+                fact, seg_usage = await self._call_with_overflow_shrink(
+                    system, build_prompt, novel_id, chapter_id, seg_text,
+                    example_text, segment_hint=seg_label, schema=schema, meta=meta,
                 )
                 segment_facts.append(fact)
                 total_usage.prompt_tokens += seg_usage.prompt_tokens
