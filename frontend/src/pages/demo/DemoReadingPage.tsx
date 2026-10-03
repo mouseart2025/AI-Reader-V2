@@ -97,7 +97,7 @@ export default function DemoReadingPage() {
   const settingsRef = useRef<HTMLDivElement>(null)
 
   const currentChapter = chapters.find((c) => c.chapter_num === currentChapterNum)
-  const scenes: Scene[] = chapterContent?.scenes ?? []
+  const scenes: Scene[] = useMemo(() => chapterContent?.scenes ?? [], [chapterContent])
 
   // Filter scenes by character and tone
   const filteredScenes = useMemo(() => {
@@ -141,7 +141,7 @@ export default function DemoReadingPage() {
     if (urlNum !== currentChapterNum) {
       setCurrentChapterNum(urlNum)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 只响应 URL 变化（前进/后退）同步章节，避免与"章节变化写回 URL"的 effect 形成循环
   }, [searchParams])
 
   // Load chapter content
@@ -166,7 +166,7 @@ export default function DemoReadingPage() {
       })
 
     return () => { cancelled = true }
-  }, [slug, currentChapterNum])
+  }, [slug, currentChapterNum, loadChapterContent])
 
   // Scroll active chapter into view in sidebar
   useEffect(() => {
@@ -199,7 +199,7 @@ export default function DemoReadingPage() {
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 键盘监听只在章节边界重建，goToPrev/goToNext 取最新闭包即可，避免每次渲染重绑全局监听
   }, [currentChapterNum, chapters.length])
 
   // Close settings on click outside

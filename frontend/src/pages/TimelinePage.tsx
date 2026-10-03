@@ -70,6 +70,9 @@ function importanceSize(importance: string, isMajor?: boolean): number {
 // FilterType imported from timelineStore (without "all" — "all" is UI-only toggle)
 const DEFAULT_HIDDEN: FilterType[] = ["角色登场", "物品交接"]
 
+const ALL_CONTENT_TYPES: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
+const SMART_DEFAULTS = new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
+
 export default function TimelinePage() {
   const { novelId } = useParams<{ novelId: string }>()
   const navigate = useNavigate()
@@ -95,9 +98,6 @@ export default function TimelinePage() {
   const [showSwimlanes, setShowSwimlanes] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<string[]>([])
   const [collapsedChapters, setCollapsedChapters] = useState<Set<number>>(new Set())
-
-  const ALL_CONTENT_TYPES: FilterType[] = ["战斗", "成长", "社交", "旅行", "角色登场", "物品交接", "组织变动", "关系变化", "其他"]
-  const SMART_DEFAULTS = new Set<FilterType>(["战斗", "成长", "社交", "旅行", "组织变动", "关系变化", "其他"])
 
   const toggleTypeFilter = useCallback((type: string) => {
     const prev = useTimelineStore.getState().filterTypes
@@ -156,7 +156,7 @@ export default function TimelinePage() {
       })
 
     return () => { cancelled = true }
-  }, [novelId, chapterStart, chapterEnd, setAnalyzedRange])
+  }, [novelId, chapterStart, chapterEnd, setAnalyzedRange, setMinSwimlaneEvents])
 
   // Filtered events
   const filteredEvents = useMemo(() => {
@@ -235,19 +235,18 @@ export default function TimelinePage() {
 
   // Restore scroll position on mount, save on unmount
   useEffect(() => {
-    if (savedScrollTop > 0 && timelineContainerRef.current) {
+    const el = timelineContainerRef.current
+    if (savedScrollTop > 0 && el) {
       requestAnimationFrame(() => {
-        if (timelineContainerRef.current) {
-          timelineContainerRef.current.scrollTop = savedScrollTop
-        }
+        el.scrollTop = savedScrollTop
       })
     }
     return () => {
-      if (timelineContainerRef.current) {
-        setScrollTop(timelineContainerRef.current.scrollTop)
+      if (el) {
+        setScrollTop(el.scrollTop)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时恢复滚动、卸载时保存，刻意只在 mount 运行一次
   }, [])
 
   // Filtered swimlane persons (above min threshold)

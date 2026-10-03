@@ -314,7 +314,7 @@ export function UploadDialog({
     if (open && initialFile && stage === "select") {
       handleFileSelect(initialFile)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在打开对话框且收到拖拽文件时触发一次选择流程，handleFileSelect 取最新闭包即可
   }, [open, initialFile])
 
   // Handle external import preview (from BookshelfPage)
@@ -324,7 +324,7 @@ export function UploadDialog({
       setDataImportFile(externalImportFile)
       setStage("import-preview")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在打开且外部导入预览就绪时进入预览页，刻意不随 stage 等内部状态重复触发
   }, [open, externalImportPreview, externalImportFile])
 
   // Fetch raw text when expanding
@@ -353,7 +353,7 @@ export function UploadDialog({
     if (stage === "preview" && preview?.diagnosis && EXPAND_TAGS.has(preview.diagnosis.tag)) {
       handleExpand()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随诊断 tag 变化触发一次自动展开，handleExpand 取最新闭包即可
   }, [stage, preview?.diagnosis?.tag])
 
   const handleFileSelect = async (file: File) => {

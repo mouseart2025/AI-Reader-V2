@@ -155,9 +155,9 @@ export default function DemoMapPage() {
     setStoreFocusLoc(name, "map")
   }, [setStoreFocusLoc])
 
-  const locations = mapData?.locations ?? []
-  const trajectories = mapData?.trajectories ?? {}
-  const layout = mapData?.layout ?? []
+  const locations = useMemo(() => mapData?.locations ?? [], [mapData])
+  const trajectories = useMemo(() => mapData?.trajectories ?? {}, [mapData])
+  const layout = useMemo(() => mapData?.layout ?? [], [mapData])
   const layoutMode = mapData?.layout_mode ?? "hierarchy"
   const terrainUrl = mapData?.terrain_url ?? null
   const regionBoundaries = mapData?.region_boundaries
