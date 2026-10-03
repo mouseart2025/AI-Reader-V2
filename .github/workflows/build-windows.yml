@@ -3,122 +3,12 @@ name: Build Windows
 on:
   workflow_dispatch:
 
-env:
-  RUST_BACKTRACE: 1
-
 jobs:
+  # Shared pipeline: .github/workflows/build-desktop.yml
   build-windows:
-    runs-on: windows-latest
-    env:
-      UV_PYTHON: "3.11"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      # ── Python 3.11 MUST be set up BEFORE uv to ensure PyInstaller bundles 3.11 ──
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Cache Rust
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            frontend/src-tauri/target
-          key: rust-x86_64-pc-windows-msvc-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
-
-      # ── Ensure Tauri resource dirs exist ────
-      - name: Create resource placeholder
-        shell: bash
-        run: mkdir -p frontend/src-tauri/resources/novels && touch frontend/src-tauri/resources/novels/.gitkeep
-
-      # ── Frontend ────────────────────────────
-      - name: Install frontend deps
-        run: cd frontend && npm ci
-
-      # ── Backend sidecar ─────────────────────
-      - name: Install backend deps + PyInstaller
-        run: |
-          cd backend
-          uv sync
-          uv pip install pyinstaller
-
-      - name: Verify Python 3.11 in venv
-        shell: pwsh
-        run: |
-          cd backend
-          $ver = uv run python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-          Write-Host "Venv Python version: $ver"
-          if ($ver -ne "3.11") { Write-Error "Expected Python 3.11, got $ver"; exit 1 }
-
-      - name: Remove non-3.11 Python from PATH
-        shell: pwsh
-        run: |
-          # PyInstaller scans PATH for python3XX.dll — remove any Python != 3.11
-          $newPath = ($env:PATH -split ';' | Where-Object {
-            $_ -notmatch 'Python\\3\.(1[2-9]|[2-9][0-9])' -and $_ -notmatch 'Python3(1[2-9]|[2-9][0-9])'
-          }) -join ';'
-          echo "PATH=$newPath" >> $env:GITHUB_ENV
-
-      - name: Remove heavy packages before PyInstaller
-        run: |
-          cd backend
-          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
-
-      - name: Build sidecar
-        shell: pwsh
-        run: .\scripts\build-sidecar.ps1
-
-      # ── Sign sidecar (EV cert via signtool) ─
-      - name: Sign sidecar binary
-        if: env.WINDOWS_CERTIFICATE != ''
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        shell: pwsh
-        run: |
-          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
-          $certPath = "$env:RUNNER_TEMP\certificate.pfx"
-          [IO.File]::WriteAllBytes($certPath, $certBytes)
-          $binary = "frontend\src-tauri\binaries\ai-reader-sidecar-x86_64-pc-windows-msvc.exe"
-          & signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
-            /fd sha256 /tr http://timestamp.digicert.com /td sha256 $binary
-          Remove-Item $certPath
-
-      # ── Tauri build ─────────────────────────
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
-
-      - name: Build Tauri app
-        working-directory: frontend/src-tauri
-        run: cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis
-
-      # ── Upload artifact ─────────────────────
-      - name: Upload NSIS installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-reader-v2-x86_64-pc-windows-msvc
-          path: |
-            frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-          retention-days: 30
+    uses: ./.github/workflows/build-desktop.yml
+    with:
+      runner: windows-latest
+      target: x86_64-pc-windows-msvc
+      upload: artifact
+    secrets: inherit
