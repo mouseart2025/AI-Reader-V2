@@ -3,125 +3,13 @@ name: Build macOS
 on:
   workflow_dispatch:
 
-env:
-  RUST_BACKTRACE: 1
-
 jobs:
+  # Note: x64 Intel builds dropped — macos-13 deprecated, PyInstaller can't cross-compile
+  # Shared pipeline: .github/workflows/build-desktop.yml
   build-macos:
-    # Note: x64 Intel builds dropped — macos-13 deprecated, PyInstaller can't cross-compile
-    runs-on: macos-14
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Setup Python (uv)
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-
-      - name: Cache Rust
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            frontend/src-tauri/target
-          key: rust-aarch64-apple-darwin-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
-
-      # ── Ensure Tauri resource dirs exist ────
-      - name: Create resource placeholder
-        run: mkdir -p frontend/src-tauri/resources/novels && touch frontend/src-tauri/resources/novels/.gitkeep
-
-      # ── Frontend build ──────────────────────
-      - name: Install frontend deps
-        run: cd frontend && npm ci
-
-      # ── Backend sidecar build ───────────────
-      # Force uv-managed Python to avoid Python.org framework builds
-      # that carry Team ID signatures conflicting with PyInstaller ad-hoc signing
-      - name: Install backend deps + PyInstaller
-        env:
-          UV_PYTHON: "3.11"
-          UV_PYTHON_PREFERENCE: only-managed
-        run: |
-          cd backend
-          uv sync
-          uv pip install pyinstaller
-
-      - name: Remove heavy packages before PyInstaller
-        env:
-          UV_PYTHON: "3.11"
-          UV_PYTHON_PREFERENCE: only-managed
-        run: |
-          cd backend
-          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
-
-      - name: Build sidecar
-        env:
-          UV_PYTHON: "3.11"
-          UV_PYTHON_PREFERENCE: only-managed
-        run: ./scripts/build-sidecar.sh --target aarch64-apple-darwin
-
-      # ── Sign sidecar ────────────────────────
-      - name: Import signing certificate
-        if: env.APPLE_CERTIFICATE != ''
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          security create-keychain -p "" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "" "$KEYCHAIN_PATH"
-          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-          rm certificate.p12
-
-      - name: Sign sidecar binary
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: ./scripts/sign-macos.sh
-
-      # ── Tauri build ─────────────────────────
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
-
-      - name: Build Tauri app
-        working-directory: frontend/src-tauri
-        run: cargo tauri build --target aarch64-apple-darwin
-
-      # Tauri's linker-signed adhoc signature is malformed — re-sign and rebuild DMG
-      - name: Re-sign app and rebuild DMG
-        run: |
-          APP_PATH="frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AI Reader.app"
-          DMG_DIR="frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg"
-          codesign --force --deep --sign - "$APP_PATH"
-          codesign --verify --deep --strict "$APP_PATH"
-          rm -f "$DMG_DIR"/*.dmg
-          VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
-          hdiutil create -volname "AI Reader" -srcfolder "$APP_PATH" \
-            -ov -format UDZO "$DMG_DIR/AI.Reader_${VERSION}_aarch64.dmg"
-
-      # ── Upload artifact ─────────────────────
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: ai-reader-v2-aarch64-apple-darwin
-          path: |
-            frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
-          retention-days: 30
+    uses: ./.github/workflows/build-desktop.yml
+    with:
+      runner: macos-14
+      target: aarch64-apple-darwin
+      upload: artifact
+    secrets: inherit

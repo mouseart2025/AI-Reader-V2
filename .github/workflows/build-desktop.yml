@@ -1,0 +1,304 @@
+name: Build Desktop
+
+# Reusable workflow: shared desktop build pipeline for macOS + Windows.
+# Callers: release.yml (upload=release), build-macos.yml / build-windows.yml
+# (upload=artifact). Behavior differences between callers are limited to the
+# upload step; everything else is identical.
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: GitHub-hosted runner label (e.g. macos-14, windows-latest)
+        required: true
+        type: string
+      target:
+        description: Rust target triple (e.g. aarch64-apple-darwin, x86_64-pc-windows-msvc)
+        required: true
+        type: string
+      upload:
+        description: "'release' = upload bundles to the GitHub Release of the triggering tag; 'artifact' = upload as workflow artifact"
+        required: true
+        type: string
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Version consistency gate ───────────────
+      - name: Verify version consistency
+        shell: bash
+        run: |
+          V1=$(node -p "
+            const fs = require('fs');
+            const m = fs.readFileSync('backend/pyproject.toml','utf8').match(/^version\s*=\s*\"(.+?)\"/m);
+            m ? m[1] : 'NOT_FOUND';
+          ")
+          V2=$(node -p "require('./frontend/package.json').version")
+          V3=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
+          V4=$(node -p "
+            const fs = require('fs');
+            const text = fs.readFileSync('frontend/src-tauri/Cargo.toml','utf8');
+            const pkg = text.split(/^\[/m).find(s => s.startsWith('package]'));
+            const m = pkg && pkg.match(/^version\s*=\s*\"(.+?)\"/m);
+            m ? m[1] : 'NOT_FOUND';
+          ")
+          echo "pyproject.toml: $V1 | package.json: $V2 | tauri.conf.json: $V3 | Cargo.toml: $V4"
+          if [ "$V1" != "$V2" ] || [ "$V1" != "$V3" ] || [ "$V1" != "$V4" ]; then
+            echo "::error::Version mismatch detected! Run scripts/bump-version.sh to sync."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Pin Python 3.11 on Windows to avoid PyInstaller bundling wrong DLLs
+      # NOTE: macOS must NOT use setup-python — Python.org framework builds carry
+      # a Team ID signature that conflicts with ad-hoc signed PyInstaller sidecar.
+      # macOS relies on UV_PYTHON=3.11 which downloads uv-managed Python (no Team ID).
+      - name: Setup Python 3.11 (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Python (uv)
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ inputs.target }}
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            frontend/src-tauri/target
+          key: rust-${{ inputs.target }}-${{ hashFiles('frontend/src-tauri/Cargo.lock') }}
+
+      # ── Ensure Tauri resource dirs exist ────
+      - name: Create resource placeholder
+        shell: bash
+        run: mkdir -p frontend/src-tauri/resources/novels && touch frontend/src-tauri/resources/novels/.gitkeep
+
+      # ── Frontend ────────────────────────────
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      # Pin uv to Python 3.11 so venv isn't recreated with 3.13
+      # macOS: force uv-managed (python-build-standalone) Python to avoid
+      # Python.org framework builds that carry Team ID signatures, which
+      # conflict with PyInstaller's ad-hoc codesigning.
+      - name: Pin UV_PYTHON
+        shell: bash
+        run: |
+          echo "UV_PYTHON=3.11" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
+          fi
+
+      # ── Verify Python version before installing deps (fail-fast) ──
+      - name: Verify Python version (pre-sync)
+        shell: bash
+        run: |
+          # Use UV_PYTHON constraint to find the correct interpreter
+          PYVER=$(uv python find "$UV_PYTHON" 2>/dev/null || echo "")
+          echo "uv will use Python: ${PYVER:-not found (uv will download)}"
+          if [ -z "$PYVER" ]; then
+            echo "::notice::No local Python $UV_PYTHON found — uv will auto-download it during sync"
+          elif [[ "$PYVER" != *"3.11"* ]]; then
+            echo "::error::Expected Python 3.11 but uv found $PYVER. Check UV_PYTHON and setup-python."
+            exit 1
+          fi
+
+      # ── Backend sidecar ─────────────────────
+      - name: Install backend deps + PyInstaller
+        run: |
+          cd backend
+          uv sync
+          uv pip install pyinstaller
+
+      - name: Verify Python 3.11 in venv (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd backend
+          $ver = uv run python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+          Write-Host "Venv Python version: $ver"
+          if ($ver -ne "3.11") { Write-Error "Expected Python 3.11, got $ver"; exit 1 }
+
+      - name: Remove non-3.11 Python from PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # PyInstaller scans PATH for python3XX.dll — remove any Python != 3.11
+          $newPath = ($env:PATH -split ';' | Where-Object {
+            $_ -notmatch 'Python\\3\.(1[2-9]|[2-9][0-9])' -and $_ -notmatch 'Python3(1[2-9]|[2-9][0-9])'
+          }) -join ';'
+          echo "PATH=$newPath" >> $env:GITHUB_ENV
+
+      - name: Remove heavy packages before PyInstaller
+        shell: bash
+        run: |
+          cd backend
+          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
+
+      - name: Build sidecar (macOS)
+        if: runner.os == 'macOS'
+        run: ./scripts/build-sidecar.sh --target ${{ inputs.target }}
+
+      # build-sidecar.ps1 hardcodes x86_64-pc-windows-msvc (the --target arg is
+      # accepted but ignored); only Windows x64 is supported.
+      - name: Build sidecar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/build-sidecar.ps1 --target ${{ inputs.target }}
+
+      # Verify sidecar was built with Python 3.11 (not 3.13)
+      - name: Verify sidecar Python version (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $binary = "frontend\src-tauri\binaries\ai-reader-sidecar-x86_64-pc-windows-msvc.exe"
+          $bytes = [System.IO.File]::ReadAllBytes($binary)
+          $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+          if ($text -match "python311\.dll") {
+            Write-Host "✅ Sidecar contains python311.dll reference"
+          } elseif ($text -match "python3(\d+)\.dll") {
+            Write-Error "❌ Sidecar contains python3$($Matches[1]).dll — expected python311.dll"
+            exit 1
+          } else {
+            Write-Warning "⚠️ Could not detect Python DLL reference in sidecar binary"
+          }
+
+      # ── macOS: import cert + sign sidecar ───
+      - name: Import macOS signing certificate
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          rm certificate.p12
+
+      - name: Sign sidecar (macOS)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: ./scripts/sign-macos.sh
+
+      # ── Windows: sign sidecar ───────────────
+      - name: Sign sidecar (Windows)
+        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = "$env:RUNNER_TEMP\certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          $binary = "frontend\src-tauri\binaries\ai-reader-sidecar-x86_64-pc-windows-msvc.exe"
+          & signtool sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+            /fd sha256 /tr http://timestamp.digicert.com /td sha256 $binary
+          Remove-Item $certPath
+
+      # ── Tauri build ───────────────────────
+      # tauri-action uses the @tauri-apps/cli devDependency installed by npm ci
+      # (prebuilt binary) and caches it — no per-run cargo install of tauri-cli.
+      - name: Build Tauri app (macOS)
+        if: runner.os == 'macOS'
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: frontend
+          args: --target ${{ inputs.target }}
+
+      - name: Build Tauri app (Windows)
+        if: runner.os == 'Windows'
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: frontend
+          args: --target ${{ inputs.target }} --bundles nsis
+
+      # Tauri's linker-signed adhoc signature is malformed (claims sealed
+      # resources but has none). Re-sign the .app and rebuild DMG.
+      - name: Re-sign app and rebuild DMG (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP_DIR="frontend/src-tauri/target/${{ inputs.target }}/release/bundle/macos"
+          DMG_DIR="frontend/src-tauri/target/${{ inputs.target }}/release/bundle/dmg"
+          APP_PATH="$APP_DIR/AI Reader.app"
+
+          echo ">> Re-signing app bundle..."
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign --verify --deep --strict "$APP_PATH"
+          echo "✅ App signature verified"
+
+          echo ">> Rebuilding DMG..."
+          rm -f "$DMG_DIR"/*.dmg
+          VERSION=$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")
+          DMG_NAME="AI.Reader_${VERSION}_aarch64.dmg"
+          hdiutil create -volname "AI Reader" -srcfolder "$APP_PATH" \
+            -ov -format UDZO "$DMG_DIR/$DMG_NAME"
+          echo "✅ DMG rebuilt: $DMG_NAME"
+
+      # ── Upload: GitHub Release (tag builds via release.yml) ──
+      - name: Upload DMG to release
+        if: inputs.upload == 'release' && runner.os == 'macOS'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls -la "frontend/src-tauri/target/${{ inputs.target }}/release/bundle/dmg/" || true
+          find frontend/src-tauri/target/${{ inputs.target }}/release/bundle/dmg -name "*.dmg" -exec gh release upload "$GITHUB_REF_NAME" {} --clobber \;
+
+      - name: Upload NSIS to release
+        if: inputs.upload == 'release' && runner.os == 'Windows'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          ls -la "frontend/src-tauri/target/${{ inputs.target }}/release/bundle/nsis/" || true
+          find "frontend/src-tauri/target/${{ inputs.target }}/release/bundle/nsis" -name "*.exe" -exec gh release upload "$GITHUB_REF_NAME" {} --clobber \;
+
+      # ── Upload: workflow artifact (workflow_dispatch builds) ──
+      - name: Upload DMG artifact
+        if: inputs.upload == 'artifact' && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-reader-v2-${{ inputs.target }}
+          path: |
+            frontend/src-tauri/target/${{ inputs.target }}/release/bundle/dmg/*.dmg
+          retention-days: 30
+
+      - name: Upload NSIS artifact
+        if: inputs.upload == 'artifact' && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-reader-v2-${{ inputs.target }}
+          path: |
+            frontend/src-tauri/target/${{ inputs.target }}/release/bundle/nsis/*.exe
+          retention-days: 30
