@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   fetchChapterContent,
   fetchChapterEntities,
@@ -47,6 +48,12 @@ import {
 import { useTourStore, TOUR_STEPS, TOTAL_TOUR_STEPS } from "@/stores/tourStore"
 import { recordTabVisit } from "@/lib/tabTracking"
 import { novelPath } from "@/lib/novelPaths"
+import {
+  estimateParagraphHeight,
+  findParagraphIndex,
+  FONT_SIZE_PX,
+  LINE_HEIGHT_FACTOR,
+} from "@/lib/paragraphWindow"
 
 // ── Entity type colors for filter chips ──────────
 const ENTITY_TYPE_LABELS: { type: string; label: string; color: string }[] = [
@@ -422,6 +429,30 @@ function ReadingTourBubble({ isSample, hasContent }: { isSample: boolean; hasCon
   )
 }
 
+// ── Text needle flash helper ─────────────────────
+// 在容器内找到包含 needle（前 20 字符）的文本节点，滚动到它并短暂高亮。
+// 返回是否命中；虚拟化渲染下目标段落未挂载时返回 false，由调用方跳转后重试。
+
+function flashTextNeedle(container: HTMLElement, needle: string): boolean {
+  const walker = document.createTreeWalker(
+    container, NodeFilter.SHOW_TEXT, null,
+  )
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    const idx = (node.textContent || "").indexOf(needle.slice(0, 20))
+    if (idx >= 0 && node.parentElement) {
+      node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" })
+      // Brief highlight effect
+      const el = node.parentElement
+      el.style.transition = "background-color 0.3s"
+      el.style.backgroundColor = "rgba(234, 179, 8, 0.3)"
+      setTimeout(() => { el.style.backgroundColor = "" }, 3000)
+      return true
+    }
+  }
+  return false
+}
+
 // ── Main ReadingPage ─────────────────────────────
 
 export default function ReadingPage() {
@@ -696,13 +727,81 @@ export default function ReadingPage() {
     return result
   }, [currentChapter])
 
+  const paragraphTexts = useMemo(() => paragraphs.map((p) => p.text), [paragraphs])
+
+  // 场景模式段落虚拟化（issue #79）：长章节数百个段落全量渲染导致卡顿，
+  // 只渲染视口附近的段落（estimateSize 预估 + measureElement 实测修正）。
+  const sceneModeActive = scenePanelOpen && scenes.length > 0
+
+  const estimateParagraphSize = useCallback(
+    (i: number) => {
+      const fontSizePx = FONT_SIZE_PX[fontSize]
+      return estimateParagraphHeight(cpLen(paragraphs[i]?.text ?? ""), {
+        fontSizePx,
+        lineHeightFactor: LINE_HEIGHT_FACTOR[lineHeight],
+        // 内容区约 690px 宽（max-w-3xl 去掉 px-8 与场景边框缩进）
+        charsPerLine: 690 / fontSizePx,
+        gapPx: 8,
+      })
+    },
+    [paragraphs, fontSize, lineHeight],
+  )
+
+  const sceneListRef = useRef<HTMLDivElement>(null)
+  // 虚拟列表在滚动容器内的起始偏移（标题/字数/概览卡等占位），作 scrollMargin 校正
+  const [sceneListOffset, setSceneListOffset] = useState(0)
+
+  const paraVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: paragraphs.length,
+    getScrollElement: () => contentRef.current,
+    estimateSize: estimateParagraphSize,
+    overscan: 8,
+    scrollMargin: sceneListOffset,
+  })
+
+  // 字号/行距/章节变化后清空尺寸缓存，按新参数重新预估
+  useEffect(() => {
+    paraVirtualizer.measure()
+  }, [paraVirtualizer, fontSize, lineHeight, currentChapter])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 刻意每次渲染后重新测量：概览卡折叠/导读气泡消失等布局变化不经过本组件依赖，值不变时 React 自动跳过重渲染
+  useLayoutEffect(() => {
+    if (!sceneModeActive) return
+    const el = sceneListRef.current
+    const scroller = contentRef.current
+    if (!el || !scroller) return
+    const offset = Math.round(
+      el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop,
+    )
+    setSceneListOffset((prev) => (prev === offset ? prev : offset))
+  })
+
   // Scroll to scene paragraph
-  const scrollToScene = useCallback((scene: Scene, index: number) => {
-    setActiveSceneIndex(index)
-    if (!scene.paragraph_range || !contentRef.current) return
-    const paraEl = contentRef.current.querySelector(`[data-para="${scene.paragraph_range[0]}"]`)
-    if (paraEl) paraEl.scrollIntoView({ behavior: "smooth", block: "start" })
-  }, [])
+  const scrollToScene = useCallback(
+    (scene: Scene, index: number) => {
+      setActiveSceneIndex(index)
+      if (!scene.paragraph_range || !contentRef.current) return
+      const target = scene.paragraph_range[0]
+      const paraEl = contentRef.current.querySelector(`[data-para="${target}"]`)
+      if (paraEl) {
+        paraEl.scrollIntoView({ behavior: "smooth", block: "start" })
+        return
+      }
+      // 虚拟化下目标段落可能尚未渲染：先跳到预估位置触发渲染，再逐帧重试精确对齐
+      paraVirtualizer.scrollToIndex(target, { align: "start" })
+      let attempts = 0
+      const align = () => {
+        const el = contentRef.current?.querySelector(`[data-para="${target}"]`)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" })
+          return
+        }
+        if (++attempts < 6) requestAnimationFrame(align)
+      }
+      requestAnimationFrame(align)
+    },
+    [paraVirtualizer],
+  )
 
   // Save reading position on chapter change and periodically
   const savePosition = useCallback(() => {
@@ -724,28 +823,28 @@ export default function ReadingPage() {
   }, [savePosition])
 
   // Scroll to the first text node containing the needle and flash it
-  const scrollToText = useCallback((needle: string) => {
-    requestAnimationFrame(() => {
-      if (!contentRef.current) return
-      // Find the text node containing the needle
-      const walker = document.createTreeWalker(
-        contentRef.current, NodeFilter.SHOW_TEXT, null,
-      )
-      let node: Node | null
-      while ((node = walker.nextNode())) {
-        const idx = (node.textContent || "").indexOf(needle.slice(0, 20))
-        if (idx >= 0 && node.parentElement) {
-          node.parentElement.scrollIntoView({ behavior: "smooth", block: "center" })
-          // Brief highlight effect
-          const el = node.parentElement
-          el.style.transition = "background-color 0.3s"
-          el.style.backgroundColor = "rgba(234, 179, 8, 0.3)"
-          setTimeout(() => { el.style.backgroundColor = "" }, 3000)
-          break
+  const scrollToText = useCallback(
+    (needle: string) => {
+      requestAnimationFrame(() => {
+        const container = contentRef.current
+        if (!container) return
+        if (flashTextNeedle(container, needle)) return
+        // 场景模式虚拟化下，目标文本可能在未渲染的段落中：先按段落索引跳转渲染，再重试定位
+        if (!sceneModeActive) return
+        const idx = findParagraphIndex(paragraphTexts, needle)
+        if (idx < 0) return
+        paraVirtualizer.scrollToIndex(idx, { align: "center" })
+        let attempts = 0
+        const retry = () => {
+          if (!contentRef.current) return
+          if (flashTextNeedle(contentRef.current, needle)) return
+          if (++attempts < 6) requestAnimationFrame(retry)
         }
-      }
-    })
-  }, [])
+        requestAnimationFrame(retry)
+      })
+    },
+    [sceneModeActive, paragraphTexts, paraVirtualizer],
+  )
 
   // Navigate to a chapter
   const goToChapter = useCallback(
@@ -816,7 +915,7 @@ export default function ReadingPage() {
         setLoading(false)
       }
     },
-    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, chapters.length, scrollToText],
+    [novelId, savePosition, setCurrentChapter, setCurrentChapterNum, setEntities, chapters.length, scrollToText],
   )
 
   // Handle ?chapter=N&highlight=text query parameters
@@ -1271,31 +1370,52 @@ export default function ReadingPage() {
                   </p>
                 )}
                 {scenePanelOpen && scenes.length > 0 ? (
-                  /* Paragraph-level rendering with scene border markers */
+                  /* Paragraph-level rendering with scene border markers (virtualized) */
                   <div className={cn(FONT_SIZE_MAP[fontSize], LINE_HEIGHT_MAP[lineHeight])}>
                     {scenesLoading ? (
                       <p className="text-sm text-muted-foreground">加载场景...</p>
                     ) : (
-                      paragraphs.map((p, i) => {
-                        const sceneIdx = paraSceneMap.get(i)
-                        const isActive = sceneIdx === activeSceneIndex
-                        const borderColor = sceneIdx != null
-                          ? SCENE_BORDER_COLORS[sceneIdx % SCENE_BORDER_COLORS.length]
-                          : ""
-                        return (
-                          <p
-                            key={i}
-                            data-para={i}
-                            className={cn(
-                              "mb-2 transition-colors",
-                              sceneIdx != null && `border-l-3 pl-3 ${borderColor}`,
-                              isActive && "bg-accent/30 rounded-r",
-                            )}
-                          >
-                            {renderText(p.text, p.offset)}
-                          </p>
-                        )
-                      })
+                      <div
+                        ref={sceneListRef}
+                        style={{ height: `${paraVirtualizer.getTotalSize()}px`, position: "relative" }}
+                      >
+                        {paraVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const i = virtualRow.index
+                          const p = paragraphs[i]
+                          if (!p) return null
+                          const sceneIdx = paraSceneMap.get(i)
+                          const isActive = sceneIdx === activeSceneIndex
+                          const borderColor = sceneIdx != null
+                            ? SCENE_BORDER_COLORS[sceneIdx % SCENE_BORDER_COLORS.length]
+                            : ""
+                          return (
+                            <div
+                              key={virtualRow.key}
+                              data-index={i}
+                              ref={paraVirtualizer.measureElement}
+                              className="pb-2"
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                transform: `translateY(${virtualRow.start - sceneListOffset}px)`,
+                              }}
+                            >
+                              <p
+                                data-para={i}
+                                className={cn(
+                                  "transition-colors",
+                                  sceneIdx != null && `border-l-3 pl-3 ${borderColor}`,
+                                  isActive && "bg-accent/30 rounded-r",
+                                )}
+                              >
+                                {renderText(p.text, p.offset)}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
                     )}
                   </div>
                 ) : (
