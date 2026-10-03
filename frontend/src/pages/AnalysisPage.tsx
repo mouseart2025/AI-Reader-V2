@@ -259,21 +259,10 @@ export default function AnalysisPage() {
 
     async function load() {
       try {
-        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming, failed_chapters: latestFailed, retry_progress: latestRetry }, envCheck] = await Promise.all([
+        const [n, { task: latestTask, stats: latestStats, quality: latestQuality, timing: latestTiming, failed_chapters: latestFailed, retry_progress: latestRetry }] = await Promise.all([
           fetchNovel(novelId!),
           getLatestAnalysisTask(novelId!),
-          checkEnvironment().catch(() => null),
         ])
-        if (!cancelled && envCheck) {
-          // Check LLM availability: Ollama mode needs running+model, cloud mode needs api_available
-          if (envCheck.llm_provider === "ollama") {
-            setLlmAvailable(envCheck.ollama_running === true && envCheck.model_available === true)
-          } else {
-            setLlmAvailable(envCheck.api_available !== false)
-          }
-          // Force-refresh LLM info store with latest data
-          useLlmInfoStore.getState().fetch(true)
-        }
         if (cancelled) return
         setNovel(n)
         setRangeEnd(n.total_chapters)
@@ -344,7 +333,24 @@ export default function AnalysisPage() {
       }
     }
 
+    // LLM 环境探测(Ollama 5s + OpenAI 15s 串行,最坏 ~20s)独立于首屏
+    // 加载链,不阻塞 setLoading(false);llmAvailable 的 null 态即加载中。
+    async function loadEnv() {
+      const envCheck = await checkEnvironment().catch(() => null)
+      if (!cancelled && envCheck) {
+        // Check LLM availability: Ollama mode needs running+model, cloud mode needs api_available
+        if (envCheck.llm_provider === "ollama") {
+          setLlmAvailable(envCheck.ollama_running === true && envCheck.model_available === true)
+        } else {
+          setLlmAvailable(envCheck.api_available !== false)
+        }
+        // Force-refresh LLM info store with latest data
+        useLlmInfoStore.getState().fetch(true)
+      }
+    }
+
     load()
+    loadEnv()
     return () => {
       cancelled = true
       disconnectWs()

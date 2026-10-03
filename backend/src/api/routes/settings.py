@@ -245,8 +245,9 @@ async def health_check():
     """Check LLM connectivity — always returns both Ollama and cloud status."""
     from src.infra import config
 
-    ollama_result = await _check_ollama()
-    openai_result = await _check_openai()
+    ollama_result, openai_result = await asyncio.gather(
+        _check_ollama(), _check_openai()
+    )
     # Merge: ollama fields as base, overlay cloud fields, set active provider
     merged = {**ollama_result, **openai_result}
     merged["llm_provider"] = config.LLM_PROVIDER
