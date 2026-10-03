@@ -924,6 +924,7 @@ async def run_model_benchmark():
         _build_extraction_schema,
         _load_examples,
         _load_system_prompt,
+        _schema_text,
     )
     from src.infra import config as _cfg
     from src.infra.anthropic_client import AnthropicClient
@@ -950,7 +951,7 @@ async def run_model_benchmark():
     # Cloud: embed schema in system prompt (same as _call_and_parse)
     schema = _build_extraction_schema()
     if is_cloud:
-        schema_text = json.dumps(schema, ensure_ascii=False, indent=2)
+        schema_text = _schema_text(schema)
         system += (
             f"\n\n## 输出 JSON Schema\n"
             f"你必须严格按照以下 JSON Schema 输出，不要输出多余字段或文本：\n"

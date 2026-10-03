@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import math
@@ -335,6 +336,14 @@ _RECALL_SYSTEM_PROMPT = (
 def _build_recall_schema() -> dict:
     """查漏调用的输出 schema:ChapterFact 全形,但允许空列表(无遗漏是常态),
     并隐藏内部字段(subtype_vote/source),LLM 只产出人物/关系/事件内容。"""
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    return _cached_recall_schema(bool(EVIDENCE_GROUNDING_ENABLED))
+
+
+@functools.cache
+def _cached_recall_schema(evidence_grounding: bool) -> dict:
+    """惰性缓存的查漏 schema(issue #78):schema 只随证据锚定开关变化,
+    构建结果在进程内是不变单例,消除每章每调的重复 model_json_schema。"""
     schema = ChapterFact.model_json_schema()
     defs = schema.get("$defs", {})
     if "RelationshipFact" in defs:
@@ -344,14 +353,30 @@ def _build_recall_schema() -> dict:
             defs[model].get("properties", {}).pop("source", None)
     # 与首遍 schema 口径一致 (FR-3.1):证据锚定开启时去掉 evidence 默认值,
     # 让 LLM 把 evidence 当作必产字段。
-    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
-    if EVIDENCE_GROUNDING_ENABLED:
+    if evidence_grounding:
         for model in ("RelationshipFact", "EventFact"):
             if model in defs:
                 props = defs[model].get("properties", {})
                 if "evidence" in props:
                     props["evidence"].pop("default", None)
     return schema
+
+
+# 不变 schema 的序列化文本缓存(issue #78):键为 schema 对象身份
+# (schema 均来自 _build_*_schema() 的缓存单例,构建后不再修改,
+# 已确认全部下游(llm_client/openai_client/anthropic_client)只读不改),
+# 消除每章每调对 ~10KB schema 的重复 json.dumps。
+_schema_text_cache: dict[int, tuple[dict, str]] = {}
+
+
+def _schema_text(schema: dict) -> str:
+    """返回 schema 的 JSON 序列化文本,同一 schema 对象只序列化一次。"""
+    cached = _schema_text_cache.get(id(schema))
+    if cached is not None and cached[0] is schema:
+        return cached[1]
+    text = json.dumps(schema, ensure_ascii=False, indent=2)
+    _schema_text_cache[id(schema)] = (schema, text)
+    return text
 
 
 def _build_recall_user_prompt(
@@ -429,6 +454,13 @@ def _build_source_pass_schema() -> dict:
     """独立二审的输出 schema:与主抽取同构(字段集一致,diff 前提),
     但不加 minItems 非空约束 —— 二审宁可报告不确定也不猜测,空列表是合法输出。
     内部字段(subtype_vote/source)对 LLM 隐藏,由管线打点。"""
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    return _cached_source_pass_schema(bool(EVIDENCE_GROUNDING_ENABLED))
+
+
+@functools.cache
+def _cached_source_pass_schema(evidence_grounding: bool) -> dict:
+    """惰性缓存的二审 schema(issue #78):与查漏 schema 同理的进程内单例。"""
     schema = ChapterFact.model_json_schema()
     defs = schema.get("$defs", {})
     if "RelationshipFact" in defs:
@@ -437,8 +469,7 @@ def _build_source_pass_schema() -> dict:
         if model in defs:
             defs[model].get("properties", {}).pop("source", None)
     # 与主抽取 schema 口径一致 (FR-3.1):证据锚定开启时去掉 evidence 默认值
-    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
-    if EVIDENCE_GROUNDING_ENABLED:
+    if evidence_grounding:
         for model in ("RelationshipFact", "EventFact"):
             if model in defs:
                 props = defs[model].get("properties", {})
@@ -709,6 +740,13 @@ def _load_source_pass_system_prompt() -> str:
 
 def _build_extraction_schema() -> dict:
     """Build a customized JSON schema with stricter constraints for better LLM output."""
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    return _cached_extraction_schema(bool(EVIDENCE_GROUNDING_ENABLED))
+
+
+@functools.cache
+def _cached_extraction_schema(evidence_grounding: bool) -> dict:
+    """惰性缓存的主抽取 schema(issue #78):进程内不变单例。"""
     schema = ChapterFact.model_json_schema()
 
     # Remove $defs reference layer if present — flatten for simpler LLM consumption
@@ -739,8 +777,7 @@ def _build_extraction_schema() -> dict:
     # Patch evidence fields (FR-3.1): remove the "" default so the LLM treats
     # evidence as expected output rather than optional-with-default. Only when
     # the grounding switch is on — off keeps the v0.73 schema byte-identical.
-    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
-    if EVIDENCE_GROUNDING_ENABLED:
+    if evidence_grounding:
         for model in ("RelationshipFact", "EventFact"):
             if model in defs:
                 props = defs[model].get("properties", {})
@@ -995,7 +1032,7 @@ class ChapterFactExtractor:
             system = _RECALL_SYSTEM_PROMPT
             recall_schema = _build_recall_schema()
             if self._is_cloud:
-                schema_text = json.dumps(recall_schema, ensure_ascii=False, indent=2)
+                schema_text = _schema_text(recall_schema)
                 system += (
                     f"\n\n## 输出 JSON Schema\n"
                     f"你必须严格按照以下 JSON Schema 输出,不要输出多余字段或文本:\n"
@@ -1464,7 +1501,7 @@ class ChapterFactExtractor:
         active_schema = schema if schema is not None else self._schema
         effective_system = system
         if self._is_cloud:
-            schema_text = json.dumps(active_schema, ensure_ascii=False, indent=2)
+            schema_text = _schema_text(active_schema)
             effective_system += (
                 f"\n\n## 输出 JSON Schema\n"
                 f"你必须严格按照以下 JSON Schema 输出，不要输出多余字段或文本：\n"
