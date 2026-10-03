@@ -95,6 +95,19 @@ async def memory_db():
     await conn.close()
 
 
+class _NonClosingConnection:
+    """Proxy that prevents code under test from closing the shared conn."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    async def close(self):
+        pass  # no-op
+
+
 @pytest_asyncio.fixture
 async def mock_get_connection(memory_db):
     """Patch get_connection to return a shared in-memory DB.
@@ -102,18 +115,6 @@ async def mock_get_connection(memory_db):
     We wrap the real connection so close() is a no-op during tests
     (the fixture manages the lifecycle).
     """
-
-    class _NonClosingConnection:
-        """Proxy that prevents export_service from closing the shared conn."""
-
-        def __init__(self, conn):
-            self._conn = conn
-
-        def __getattr__(self, name):
-            return getattr(self._conn, name)
-
-        async def close(self):
-            pass  # no-op
 
     async def _factory():
         return _NonClosingConnection(memory_db)
@@ -127,3 +128,60 @@ async def mock_get_connection(memory_db):
          patch.object(_export_mod, "_build_precomputed", _noop_precompute), \
          patch("src.services.sample_data_service.get_connection", _factory):
         yield memory_db
+
+
+# Modules that bind `get_connection` at import time (`from src.db.sqlite_db
+# import get_connection`) — each holds its own reference, so the api_client
+# fixture patches every one of them. Patching src.db.sqlite_db itself covers
+# the late (function-level) imports in routes/services.
+_CONNECTION_MODULES = (
+    "src.db.sqlite_db",
+    "src.db.analysis_pass_store",
+    "src.db.analysis_task_store",
+    "src.db.annotation_store",
+    "src.db.chapter_fact_store",
+    "src.db.chapter_store",
+    "src.db.conversation_store",
+    "src.db.entity_dictionary_store",
+    "src.db.entity_override_store",
+    "src.db.location_visual_store",
+    "src.db.novel_store",
+    "src.db.usage_event_store",
+    "src.db.world_structure_override_store",
+    "src.db.world_structure_store",
+    "src.services.alias_resolver",
+    "src.services.backup_service",
+    "src.services.export_service",
+    "src.services.visualization_service",
+)
+
+
+@pytest_asyncio.fixture
+async def api_client(memory_db, monkeypatch):
+    """httpx.AsyncClient over the real FastAPI app, backed by memory_db.
+
+    For route-level tests: every DB call lands in the in-memory fixture DB,
+    no lifespan (no real init_db / sample import), no real LLM or filesystem
+    access. Yields (client, memory_db) so tests can seed rows directly.
+    """
+    import httpx
+
+    import src.services.export_service as _export_mod
+    from src.api.main import app
+
+    async def _factory():
+        return _NonClosingConnection(memory_db)
+
+    for dotted in _CONNECTION_MODULES:
+        monkeypatch.setattr(f"{dotted}.get_connection", _factory)
+
+    async def _noop_precompute(_novel_id):
+        return None
+
+    monkeypatch.setattr(_export_mod, "_build_precomputed", _noop_precompute)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test",
+    ) as client:
+        yield client, memory_db
