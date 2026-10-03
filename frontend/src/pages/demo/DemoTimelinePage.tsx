@@ -81,8 +81,8 @@ export default function DemoTimelinePage() {
     swimlanes?: Record<string, string[]>
     suggested_min_swimlane?: number
   }
-  const events = timelineData.events ?? []
-  const swimlanes = timelineData.swimlanes ?? {}
+  const events = useMemo(() => timelineData.events ?? [], [timelineData])
+  const swimlanes = useMemo(() => timelineData.swimlanes ?? {}, [timelineData])
 
   const {
     filterTypes, setFilterTypes,
@@ -104,7 +104,7 @@ export default function DemoTimelinePage() {
     if (typeof suggested === "number" && suggested > 0) {
       setMinSwimlaneEvents(suggested)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随小说切换播种一次后端建议值，避免覆盖用户后续的手动调整
   }, [novelSlug])
 
   const getNavPath = useCallback(
@@ -217,15 +217,16 @@ export default function DemoTimelinePage() {
 
   // Restore scroll on mount, save on unmount
   useEffect(() => {
-    if (savedScrollTop > 0 && containerRef.current) {
+    const el = containerRef.current
+    if (savedScrollTop > 0 && el) {
       requestAnimationFrame(() => {
-        if (containerRef.current) containerRef.current.scrollTop = savedScrollTop
+        el.scrollTop = savedScrollTop
       })
     }
     return () => {
-      if (containerRef.current) setScrollTop(containerRef.current.scrollTop)
+      if (el) setScrollTop(el.scrollTop)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时恢复滚动、卸载时保存，刻意只在 mount 运行一次
   }, [])
 
   const filteredPersons = useMemo(

@@ -889,7 +889,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       return () => {
         cancelled = true
       }
-    }, [mapReady, terrainUrl, canvasW, canvasH, darkBg])
+    }, [mapReady, terrainUrl, canvasW, canvasH, darkBg, spaceThemeProp])
 
     // ── Scatter terrain ground cover ─────────────────
     // Runs on the quantised LOD key, not on every zoom tick. The grid lives in
@@ -1119,7 +1119,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           .forEach((p) => p.setAttribute("vector-effect", "non-scaling-stroke"))
         ;(riversG.node() as Element).appendChild(node)
       }
-    }, [mapReady, rivers, darkBg])
+    }, [mapReady, rivers, darkBg, spaceThemeProp])
 
     // ── Render road network (rough.js dashed lines) ──────────
     useEffect(() => {
@@ -1475,7 +1475,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         coastNode.style.pointerEvents = "none"
         ;(coastG.node() as Element).appendChild(coastNode)
       }
-    }, [mapReady, landmasses, shelves, shelfDepth, allLayout, layout, canvasW, canvasH, darkBg])
+    }, [mapReady, landmasses, shelves, shelfDepth, allLayout, layout, canvasW, canvasH, darkBg, spaceThemeProp])
 
     // ── Render regions (text-only labels, no polygon boundaries) ───
     useEffect(() => {
@@ -1744,7 +1744,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .text(terr.name)
         }
       }
-    }, [mapReady, territories, canvasW, canvasH, darkBg])
+    }, [mapReady, territories, canvasW, canvasH, darkBg, spaceThemeProp])
 
     // ── Render trajectory (progressive drawing + pulse marker) ──
     useEffect(() => {
@@ -2021,7 +2021,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
             .attr("stroke-width", 1.5)
         }
       }
-    }, [mapReady, layout, locMap, visibleLocationNames, revealedLocationNames, currentLocation])
+    }, [mapReady, layout, locMap, visibleLocationNames, revealedLocationNames, currentLocation, darkBg])
 
     // ── Render location icons + labels (counter-scaled) ──
     useEffect(() => {
@@ -2332,10 +2332,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
       // Setup drag on location groups
       setupDrag(svg)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setupDrag 依赖 editMode，加入依赖会让编辑模式开关触发整层图标重绘；沿用现状：拖拽绑定随下一次数据渲染刷新
     }, [
       mapReady, layout, locMap, locations, iconDefs,
       visibleLocationNames, revealedLocationNames, currentLocation, darkBg,
-      collapsedChildCount, spaceThemeProp,
+      collapsedChildCount, spaceThemeProp, layoutMode,
     ])
 
     // ── Setup drag behavior (only in edit mode) ──────
@@ -2911,7 +2912,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         x: popup.x * t.k + t.x,
         y: popup.y * t.k + t.y,
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentScale 是 zoom tick 信号：zoom 变化时用 transformRef 最新值重算弹窗屏幕坐标，ref 本身无需入依赖
     }, [popup, currentScale])
 
     return (

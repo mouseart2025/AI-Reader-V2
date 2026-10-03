@@ -29,13 +29,4 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
-  {
-    // MapPage.tsx 属另一批次改动、本轮不可触碰；其 d3 命令式渲染与既有 memoization
-    // 与 react-hooks v7 新规则存在教义性冲突，本文件内降为 warn 待该批次自行处理。
-    files: ['src/pages/MapPage.tsx'],
-    rules: {
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/preserve-manual-memoization': 'warn',
-    },
-  },
 ])

@@ -349,7 +349,7 @@ export default function AnalysisPage() {
       cancelled = true
       disconnectWs()
     }
-  }, [novelId, setTask, connectWs, disconnectWs, resetProgress, loadPrescanData])
+  }, [novelId, setTask, connectWs, disconnectWs, resetProgress, loadPrescanData, setQualitySummary])
 
   // Poll prescan status when running
   useEffect(() => {

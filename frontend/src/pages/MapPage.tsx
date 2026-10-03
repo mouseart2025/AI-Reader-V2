@@ -48,6 +48,8 @@ const ICON_LEGEND: { icon: string; label: string }[] = [
   { icon: "generic", label: "其他" },
 ]
 
+const COLLAPSED_TIERS = new Set(["site", "building"])
+
 export default function MapPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
@@ -285,16 +287,15 @@ export default function MapPage() {
     return () => clearTimeout(t)
   }, [minMentions])
 
-  const locations = mapData?.locations ?? []
-  const trajectories = mapData?.trajectories ?? {}
-  const layout = mapData?.layout ?? []
+  const locations = useMemo(() => mapData?.locations ?? [], [mapData])
+  const trajectories = useMemo(() => mapData?.trajectories ?? {}, [mapData])
+  const layout = useMemo(() => mapData?.layout ?? [], [mapData])
   const layoutMode = mapData?.layout_mode ?? "hierarchy"
   const terrainUrl = mapData?.terrain_url ?? null
   const regionBoundaries = mapData?.region_boundaries
   const portals = mapData?.portals
 
   // ── Collapsed tiers ────────────────────────────────────
-  const COLLAPSED_TIERS = new Set(["site", "building"])
 
   // Scope locations to current layer (layout contains only current layer's positions)
   const layerLocationNames = useMemo(
@@ -665,7 +666,7 @@ export default function MapPage() {
   const handleEditLocation = useCallback((name: string) => {
     setEditingLocation(name)
     setFocusLocation(null)
-  }, [])
+  }, [setFocusLocation])
 
   // Handle drag end: save new lat/lng and exit edit mode
   const handleEditDragEnd = useCallback(

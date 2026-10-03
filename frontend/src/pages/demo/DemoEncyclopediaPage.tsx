@@ -206,7 +206,7 @@ export default function DemoEncyclopediaPage() {
   const encyclopediaData = data.encyclopedia as { entries: EncEntry[] }
   const worldStructure = data.worldStructure as unknown as WorldStructure | null
 
-  const entries = encyclopediaData?.entries ?? []
+  const entries = useMemo(() => encyclopediaData?.entries ?? [], [encyclopediaData])
 
   const [activeTab, setActiveTab] = useState<"entries" | "world">("entries")
   const [activeType, setActiveType] = useState<string | null>(null)
@@ -290,6 +290,7 @@ export default function DemoEncyclopediaPage() {
     return filterTree(locationTree)
   }, [locationTree, worldSearch])
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual 返回不可 memo 的函数，React Compiler 对该组件自动跳过 memoization，属安全降级
   const virtualizer = useVirtualizer({
     count: filteredEntries.length,
     getScrollElement: () => listRef.current,

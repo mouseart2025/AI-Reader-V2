@@ -39,15 +39,17 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
   const navigate = useNavigate()
   const aliasMap = useReadingStore((s) => s.aliasMap)
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1]
+  const crumbName = currentCrumb?.name
+  const crumbType = currentCrumb?.type
 
   // Fetch profile when breadcrumbs change (resolve alias to canonical name)
   useEffect(() => {
-    if (!open || !currentCrumb) return
+    if (!open || crumbName == null || crumbType == null) return
     let cancelled = false
 
-    const resolvedName = aliasMap[currentCrumb.name] ?? currentCrumb.name
+    const resolvedName = aliasMap[crumbName] ?? crumbName
     // Check cache first
-    const cached = getCachedProfile(currentCrumb.type, resolvedName)
+    const cached = getCachedProfile(crumbType, resolvedName)
     if (cached) {
       setProfile(cached)
       return
@@ -58,12 +60,12 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
         const data = await fetchEntityProfile(
           novelId,
           resolvedName,
-          currentCrumb.type,
+          crumbType,
         )
         if (!cancelled) {
           const p = data as unknown as EntityProfile
           setProfile(p)
-          setCachedProfile(currentCrumb.type, resolvedName, p)
+          setCachedProfile(crumbType, resolvedName, p)
         }
       } catch {
         if (!cancelled) setError("加载失败，请重试")
@@ -74,7 +76,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => {
       cancelled = true
     }
-  }, [novelId, open, currentCrumb?.name, currentCrumb?.type, aliasMap, reloadNonce, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
+  }, [novelId, open, crumbName, crumbType, aliasMap, reloadNonce, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {

@@ -170,6 +170,8 @@ export function DemoEntityCardDrawer() {
   } = useEntityCardStore()
 
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1]
+  const crumbName = currentCrumb?.name
+  const crumbType = currentCrumb?.type
 
   // Extract graph and encyclopedia data
   const graphData = data.graph as { nodes: GraphNode[]; edges: GraphEdge[] }
@@ -182,13 +184,13 @@ export function DemoEntityCardDrawer() {
   // back to a simplified profile built from graph+encyclopedia when the file
   // is missing (older demo exports without the entity-profile step).
   useEffect(() => {
-    if (!open || !currentCrumb || !novelSlug) return
+    if (!open || crumbName == null || crumbType == null || !novelSlug) return
     let cancelled = false
 
     const fallback = () => {
       const built = buildDemoProfile(
-        currentCrumb.name,
-        currentCrumb.type,
+        crumbName,
+        crumbType,
         graphData.nodes ?? [],
         graphData.edges ?? [],
         encEntries,
@@ -201,7 +203,7 @@ export function DemoEntityCardDrawer() {
       }
     }
 
-    if (currentCrumb.type === "concept") {
+    if (crumbType === "concept") {
       fallback()
       return
     }
@@ -209,8 +211,8 @@ export function DemoEntityCardDrawer() {
     setLoading(true)
     loadDemoEntityProfile<EntityProfile>(
       novelSlug,
-      currentCrumb.name,
-      currentCrumb.type as "person" | "location" | "item" | "org",
+      crumbName,
+      crumbType as "person" | "location" | "item" | "org",
     )
       .then((full) => {
         if (cancelled) return
@@ -231,7 +233,7 @@ export function DemoEntityCardDrawer() {
     return () => {
       cancelled = true
     }
-  }, [open, currentCrumb?.name, currentCrumb?.type, novelSlug, graphData, encEntries, setProfile, setError, setLoading])
+  }, [open, crumbName, crumbType, novelSlug, graphData, encEntries, setProfile, setError, setLoading])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
