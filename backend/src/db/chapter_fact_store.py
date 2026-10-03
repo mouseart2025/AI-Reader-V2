@@ -119,6 +119,49 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
         await conn.close()
 
 
+async def get_fact_stats(novel_id: str) -> dict:
+    """Aggregate stats/quality metrics for a novel's chapter facts in SQL.
+
+    Returns the same numbers the analysis/latest endpoint used to compute by
+    json.loads-ing every fact_json in Python (issue #51: 全量解析秒级阻塞).
+    Entity/relation/event counts come from json_array_length inside SQLite;
+    quality counters come from plain columns. Missing JSON keys count as 0,
+    matching ``fact.get("characters", [])`` semantics.
+    """
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(
+                    COALESCE(json_array_length(fact_json, '$.characters'), 0) +
+                    COALESCE(json_array_length(fact_json, '$.locations'), 0)
+                ), 0) AS entities,
+                COALESCE(SUM(COALESCE(json_array_length(fact_json, '$.relationships'), 0)), 0) AS relations,
+                COALESCE(SUM(COALESCE(json_array_length(fact_json, '$.events'), 0)), 0) AS events,
+                COALESCE(SUM(COALESCE(is_truncated, 0)), 0) AS truncated_chapters,
+                COALESCE(SUM(COALESCE(output_truncated, 0)), 0) AS output_truncated_chapters,
+                COALESCE(SUM(CASE WHEN COALESCE(segment_count, 1) > 1 THEN 1 ELSE 0 END), 0) AS segmented_chapters,
+                COALESCE(SUM(COALESCE(segment_count, 1)), 0) AS total_segments
+            FROM chapter_facts
+            WHERE novel_id = ?
+            """,
+            (novel_id,),
+        )
+        row = await cursor.fetchone()
+        return {
+            "entities": row["entities"],
+            "relations": row["relations"],
+            "events": row["events"],
+            "truncated_chapters": row["truncated_chapters"],
+            "output_truncated_chapters": row["output_truncated_chapters"],
+            "segmented_chapters": row["segmented_chapters"],
+            "total_segments": row["total_segments"],
+        }
+    finally:
+        await conn.close()
+
+
 async def update_scenes(
     novel_id: str, chapter_id: int, scenes: list[dict]
 ) -> None:

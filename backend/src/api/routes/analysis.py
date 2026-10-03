@@ -200,9 +200,9 @@ async def get_latest_task(novel_id: str):
         return {"task": None, "stats": None}
 
     # Compute cumulative stats from existing chapter facts.
-    # Note: get_all_chapter_facts already filters by novel_id, and chapter_id
-    # is the DB row ID (not chapter_num), so we count all facts without
-    # range filtering to avoid a chapter_id vs chapter_num mismatch.
+    # SQL 聚合(issue #51):不再把全量 fact_json 拉到 Python 逐行 json.loads,
+    # 1600 章时那是数十 MB 解析、秒级阻塞;数值与旧 Python 循环完全一致。
+    # chapter_id 是 DB 行 ID(非 chapter_num),故不做范围过滤。
     stats = {"entities": 0, "relations": 0, "events": 0}
     # truncated_chapters    = 输入侧(原文超长被切)
     # output_truncated_chapters = 输出侧(LLM 撞输出上限,尾部 section 缺失)
@@ -215,20 +215,18 @@ async def get_latest_task(novel_id: str):
         "output_truncated_chapters": 0,
     }
     if task["status"] in ("running", "paused", "completed", "completed_with_errors"):
-        all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
-        for ef in all_facts:
-            fact = ef.get("fact", {})
-            stats["entities"] += len(fact.get("characters", [])) + len(fact.get("locations", []))
-            stats["relations"] += len(fact.get("relationships", []))
-            stats["events"] += len(fact.get("events", []))
-            if ef.get("is_truncated"):
-                quality["truncated_chapters"] += 1
-            if ef.get("output_truncated"):
-                quality["output_truncated_chapters"] += 1
-            seg = ef.get("segment_count", 1)
-            if seg > 1:
-                quality["segmented_chapters"] += 1
-            quality["total_segments"] += seg
+        agg = await chapter_fact_store.get_fact_stats(novel_id)
+        stats = {
+            "entities": agg["entities"],
+            "relations": agg["relations"],
+            "events": agg["events"],
+        }
+        quality = {
+            "truncated_chapters": agg["truncated_chapters"],
+            "segmented_chapters": agg["segmented_chapters"],
+            "total_segments": agg["total_segments"],
+            "output_truncated_chapters": agg["output_truncated_chapters"],
+        }
 
     timing = None
     retry_progress = None
