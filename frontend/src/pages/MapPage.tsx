@@ -9,7 +9,6 @@ import { useMapDataStore, mapCacheKey, type MapCacheEntry } from "@/stores/mapDa
 import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { VisualizationLayout } from "@/components/visualization/VisualizationLayout"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
-// import { NovelMapGL } from "@/components/visualization/NovelMapGL"  // WebGL renderer — hidden until stable
 // GeoMap(真实地理模式)带 leaflet ~145KB,仅 geographic 布局用到 → 懒加载
 const GeoMap = lazy(() =>
   import("@/components/visualization/GeoMap").then((m) => ({ default: m.GeoMap }))
@@ -804,8 +803,6 @@ export default function MapPage() {
                 冲突 {conflictCount}
               </button>
             )}
-
-            {/* WebGL 渲染器切换 — 隐藏直到副本切换锁死问题修复 */}
 
             {/* Export map button (NovelMap only) */}
             {layoutMode !== "geographic" && (
