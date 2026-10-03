@@ -38,6 +38,25 @@ _ANTHROPIC_VERSION = "2023-06-01"
 from src.infra.openai_client import _get_cloud_semaphore  # noqa: E402
 
 
+def _system_with_cache_control(system: str) -> list[dict] | str:
+    """给 system prompt 加 Anthropic prompt caching 断点 (issue #78)。
+
+    抽取管线的 system prompt(规则 + JSON schema,~22KB)在逐章调用间完全
+    不变,以 {"type": "text", ..., "cache_control": {"type": "ephemeral"}}
+    块形式发送后,服务端可命中缓存,省去重复输入成本。空 system 保持
+    原字符串语义不变。请求其余部分不受影响。
+    """
+    if not system:
+        return system
+    return [
+        {
+            "type": "text",
+            "text": system,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
 class AnthropicClient:
     """Async client for Anthropic Claude API."""
 
@@ -78,7 +97,7 @@ class AnthropicClient:
             "model": self.model,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "system": system,
+            "system": _system_with_cache_control(system),
             "messages": [{"role": "user", "content": prompt}],
         }
 
@@ -178,7 +197,7 @@ class AnthropicClient:
             ],
         }
         if system:
-            payload["system"] = system
+            payload["system"] = _system_with_cache_control(system)
 
         sem = _get_cloud_semaphore()
         async with sem:
@@ -244,7 +263,7 @@ class AnthropicClient:
         payload = {
             "model": self.model,
             "max_tokens": 4096,
-            "system": system,
+            "system": _system_with_cache_control(system),
             "messages": [{"role": "user", "content": prompt}],
             "stream": True,
         }
