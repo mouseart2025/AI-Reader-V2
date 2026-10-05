@@ -106,6 +106,23 @@ ER_MAX_CLUSTER_SIZE: int = int(os.environ.get("ER_MAX_CLUSTER_SIZE", "12"))
 CONTEXT_WINDOW_SIZE: int = 8192
 
 
+def get_analysis_concurrency() -> int:
+    """窗口化并发抽取的 worker 数 (issue #61)。
+
+    ANALYSIS_CONCURRENCY 环境变量,默认 1 = 逐章串行(与旧版逐字节行为一致)。
+    仅云端 provider (LLM_PROVIDER=openai) 生效;本地 Ollama 全局信号量=1,
+    并发无意义,强制返回 1。上限 3:不超过云端全局 LLM 信号量
+    (openai_client.py / anthropic_client.py 共享)。
+    """
+    try:
+        k = int(os.environ.get("ANALYSIS_CONCURRENCY", "1"))
+    except ValueError:
+        k = 1
+    if LLM_PROVIDER != "openai":
+        return 1
+    return max(1, min(k, 3))
+
+
 def update_context_window(size: int) -> None:
     """Update CONTEXT_WINDOW_SIZE at runtime (called after detection)."""
     global CONTEXT_WINDOW_SIZE

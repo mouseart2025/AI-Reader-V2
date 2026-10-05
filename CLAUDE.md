@@ -87,7 +87,7 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 
 ### Analysis Pipeline
 
-`AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → `hallucination_reviewer` (LLM layer, FR-4.2) → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU).
+`AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → `hallucination_reviewer` (LLM layer, FR-4.2) → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU). Optional windowed concurrency (issue #61, `ANALYSIS_CONCURRENCY` > 1, cloud only): k extraction workers (context build + LLM extract, side-effect-free) + a single merger that runs all side-effecting steps (validation / hallucination review / name resolver / DB write / world structure / scenes / embeddings / cost / progress) in strict chapter order.
 
 **Post-analysis background tasks (non-fatal)**: on completion, `_schedule_post_analysis()` fires two background tasks. The geo chain (`_run_geo_pipeline`) is serialized — `_auto_rebuild_hierarchy` (GeoOrchestrator v2, no LLM, <1s) must finish before `_auto_spatial_completion` (LLM, 60–300s) starts, because both do load-modify-save whole-document writes to `world_structures`; concurrent execution let spatial completion overwrite the rebuilt hierarchy with its stale pre-rebuild baseline (last-writer-wins race, Epic 6). Entity resolution (Epic 2) stays concurrent — it never writes `world_structures`. Both rebuild chains (auto + `POST /rebuild-hierarchy-v2`) share `build_default_orchestrator()`.
 
@@ -307,6 +307,9 @@ HALLUCINATION_REVIEW_ENABLED   # FR-4.2 hallucinated-character LLM review layer
 
 # Cloud LLM mode (set LLM_PROVIDER=openai to use)
 LLM_PROVIDER          # "ollama" (default) or "openai"
+ANALYSIS_CONCURRENCY  # 窗口化并发抽取 worker 数 (issue #61). Default: 1 (逐章串行,
+                      # 与旧版逐字节行为一致). 仅云端 (LLM_PROVIDER=openai) 生效,
+                      # 上限 3 (不超过云端全局 LLM 信号量); 本地 Ollama 强制 1
 LLM_API_KEY           # API key for the cloud provider
 LLM_BASE_URL          # Base URL (e.g., https://api.deepseek.com/v1)
 LLM_MODEL             # Model name (e.g., deepseek-chat)

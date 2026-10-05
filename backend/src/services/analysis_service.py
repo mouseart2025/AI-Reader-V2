@@ -71,6 +71,31 @@ def _classify_error(exc: Exception) -> tuple[str, str]:
     return "unknown", msg[:500]
 
 
+class _ChapterFactsCache:
+    """窗口化并发下的前序 facts 读缓存 (issue #61)。
+
+    ContextSummaryBuilder.build() 每章都会全表读 + JSON 解析全部前序
+    facts;k 路 worker 并发构建上下文时产生 k 倍重复读。合并器每落库
+    一章调用 invalidate(),两次落库之间并发构建的 worker 共享同一份
+    快照。快照可能额外落后 1 章(worker 在合并落库前已取到旧快照),
+    与窗口并发"上下文最多落后 k-1 章"的既有质量权衡同质,可接受。
+    仅窗口化路径使用;串行路径(默认)仍走 build() 的 DB 直读,
+    行为与旧版逐字节一致。
+    """
+
+    def __init__(self) -> None:
+        self._facts: list[dict] | None = None
+
+    async def get(self, novel_id: str) -> list[dict]:
+        """facts_provider 协议: 同 chapter_fact_store.get_all_chapter_facts。"""
+        if self._facts is None:
+            self._facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+        return self._facts
+
+    def invalidate(self) -> None:
+        self._facts = None
+
+
 class _ConnectionManager:
     """Manage WebSocket connections per novel_id for analysis progress broadcasting."""
 
@@ -465,310 +490,342 @@ class AnalysisService:
         except Exception as e:
             logger.warning("Failed to load NameResolver from entity_dictionary: %s", e)
 
-        for chapter_num in range(chapter_start, chapter_end + 1):
-            # Check for pause/cancel signal
-            signal = self._task_signals.get(task_id, "running")
-            if signal == "paused":
-                # DB status and broadcast already handled by pause()
-                logger.info("Task %s loop stopping (paused) at chapter %d", task_id, chapter_num)
+        # ── 窗口化并发抽取 (issue #61) ──
+        # ANALYSIS_CONCURRENCY>1 且云端 provider 时: dispatcher 按章序投喂 →
+        # k 路抽取 worker(上下文构建 + LLM 抽取,无副作用纯计算) → 单合并
+        # 协程严格按章序执行全部有副作用环节。默认 k=1(及本地 Ollama)走
+        # 下方 else 分支的原逐章串行循环,行为与旧版逐字节一致。
+        _concurrency = _cfg.get_analysis_concurrency()
+        if _concurrency > 1:
+            _stopped_early = await self._run_windowed(
+                concurrency=_concurrency,
+                task_id=task_id,
+                novel_id=novel_id,
+                chapter_start=chapter_start,
+                chapter_end=chapter_end,
+                force=force,
+                total=total,
+                stats=stats,
+                cost_stats=cost_stats,
+                is_cloud=is_cloud,
+                input_price=_input_price,
+                output_price=_output_price,
+                world_agent=world_agent,
+                validator=validator,
+                name_resolver=name_resolver,
+                protected_names=_protected_names,
+                chapter_times=_chapter_times,
+                failed_in_run=_failed_in_run,
+                quality_stats=_quality_stats,
+                analysis_start_ms=_analysis_start_ms,
+            )
+            if _stopped_early:
                 return
-            if signal == "cancelled":
-                # DB status and broadcast already handled by cancel()
-                logger.info("Task %s loop stopping (cancelled) at chapter %d", task_id, chapter_num)
-                self._task_signals.pop(task_id, None)
-                self._live_timing.pop(novel_id, None)
-                return
+        else:
+            for chapter_num in range(chapter_start, chapter_end + 1):
+                # Check for pause/cancel signal
+                signal = self._task_signals.get(task_id, "running")
+                if signal == "paused":
+                    # DB status and broadcast already handled by pause()
+                    logger.info("Task %s loop stopping (paused) at chapter %d", task_id, chapter_num)
+                    return
+                if signal == "cancelled":
+                    # DB status and broadcast already handled by cancel()
+                    logger.info("Task %s loop stopping (cancelled) at chapter %d", task_id, chapter_num)
+                    self._task_signals.pop(task_id, None)
+                    self._live_timing.pop(novel_id, None)
+                    return
 
-            # Get chapter content
-            chapter = await analysis_task_store.get_chapter_content(novel_id, chapter_num)
-            if not chapter:
-                logger.warning("Chapter %d not found for novel %s, skipping", chapter_num, novel_id)
-                # Still broadcast progress so frontend updates
-                done_count = chapter_num - chapter_start + 1
+                # Get chapter content
+                chapter = await analysis_task_store.get_chapter_content(novel_id, chapter_num)
+                if not chapter:
+                    logger.warning("Chapter %d not found for novel %s, skipping", chapter_num, novel_id)
+                    # Still broadcast progress so frontend updates
+                    done_count = chapter_num - chapter_start + 1
+                    await manager.broadcast(novel_id, {
+                        "type": "progress",
+                        "chapter": chapter_num,
+                        "total": total,
+                        "done": done_count,
+                        "stats": stats,
+                    })
+                    continue
+
+                # Skip excluded chapters (user decision — always skip, even with force)
+                if chapter.get("is_excluded"):
+                    logger.debug("Skipping excluded chapter %d", chapter_num)
+                    await analysis_task_store.update_task_progress(task_id, chapter_num)
+                    done_count = chapter_num - chapter_start + 1
+                    await manager.broadcast(novel_id, {
+                        "type": "progress",
+                        "chapter": chapter_num,
+                        "total": total,
+                        "done": done_count,
+                        "stats": stats,
+                    })
+                    continue
+
+                # Skip already-completed chapters unless force=True
+                if not force and chapter["analysis_status"] == "completed":
+                    logger.debug("Skipping already-completed chapter %d", chapter_num)
+                    await analysis_task_store.update_task_progress(task_id, chapter_num)
+                    done_count = chapter_num - chapter_start + 1
+                    await manager.broadcast(novel_id, {
+                        "type": "progress",
+                        "chapter": chapter_num,
+                        "total": total,
+                        "done": done_count,
+                        "stats": stats,
+                    })
+                    continue
+
+                # Broadcast "processing" before LLM call so UI shows current chapter
                 await manager.broadcast(novel_id, {
-                    "type": "progress",
+                    "type": "processing",
                     "chapter": chapter_num,
                     "total": total,
-                    "done": done_count,
-                    "stats": stats,
+                    **({"timing": self._live_timing[novel_id]} if novel_id in self._live_timing else {}),
                 })
-                continue
 
-            # Skip excluded chapters (user decision — always skip, even with force)
-            if chapter.get("is_excluded"):
-                logger.debug("Skipping excluded chapter %d", chapter_num)
-                await analysis_task_store.update_task_progress(task_id, chapter_num)
-                done_count = chapter_num - chapter_start + 1
-                await manager.broadcast(novel_id, {
-                    "type": "progress",
-                    "chapter": chapter_num,
-                    "total": total,
-                    "done": done_count,
-                    "stats": stats,
-                })
-                continue
+                chapter_pk = chapter["id"]
+                start_ms = int(time.time() * 1000)
 
-            # Skip already-completed chapters unless force=True
-            if not force and chapter["analysis_status"] == "completed":
-                logger.debug("Skipping already-completed chapter %d", chapter_num)
-                await analysis_task_store.update_task_progress(task_id, chapter_num)
-                done_count = chapter_num - chapter_start + 1
-                await manager.broadcast(novel_id, {
-                    "type": "progress",
-                    "chapter": chapter_num,
-                    "total": total,
-                    "done": done_count,
-                    "stats": stats,
-                })
-                continue
-
-            # Broadcast "processing" before LLM call so UI shows current chapter
-            await manager.broadcast(novel_id, {
-                "type": "processing",
-                "chapter": chapter_num,
-                "total": total,
-                **({"timing": self._live_timing[novel_id]} if novel_id in self._live_timing else {}),
-            })
-
-            chapter_pk = chapter["id"]
-            start_ms = int(time.time() * 1000)
-
-            try:
-                # Build context summary (inject location hierarchy if available)
-                await self._broadcast_stage(novel_id, chapter_num, "构建上下文")
-                _loc_parents = (
-                    world_agent.structure.location_parents
-                    if world_agent.structure else None
-                )
-                _loc_tiers = (
-                    dict(world_agent.structure.location_tiers)
-                    if world_agent.structure and world_agent.structure.location_tiers
-                    else None
-                )
-                context = await self.context_builder.build(
-                    novel_id, chapter_num,
-                    location_parents=_loc_parents,
-                    location_tiers=_loc_tiers,
-                )
-
-                # Extract facts
-                await self._broadcast_stage(novel_id, chapter_num, "AI 提取中")
-                _genre = world_agent.structure.novel_genre_hint if world_agent.structure else None
-                fact, chapter_usage, extraction_meta = await self.extractor.extract(
-                    novel_id=novel_id,
-                    chapter_id=chapter_num,
-                    chapter_text=chapter["content"],
-                    context_summary=context,
-                    genre_hint=_genre,
-                )
-                # Track quality stats
-                if extraction_meta.is_truncated:
-                    _quality_stats["truncated_count"] += 1
-                if extraction_meta.segment_count > 1:
-                    _quality_stats["segmented_count"] += 1
-                _quality_stats["total_segments"] += extraction_meta.segment_count
-
-                # Accumulate cost (cloud mode)
-                if is_cloud:
-                    cost_stats["total_input_tokens"] += chapter_usage.prompt_tokens
-                    cost_stats["total_output_tokens"] += chapter_usage.completion_tokens
-                    spent_usd = (
-                        (chapter_usage.prompt_tokens / 1_000_000) * _input_price
-                        + (chapter_usage.completion_tokens / 1_000_000) * _output_price
+                try:
+                    # Build context summary (inject location hierarchy if available)
+                    await self._broadcast_stage(novel_id, chapter_num, "构建上下文")
+                    _loc_parents = (
+                        world_agent.structure.location_parents
+                        if world_agent.structure else None
                     )
-                    spent_cny = spent_usd * 7.2
-                    cost_stats["total_cost_usd"] = round(
-                        cost_stats["total_cost_usd"] + spent_usd, 4
+                    _loc_tiers = (
+                        dict(world_agent.structure.location_tiers)
+                        if world_agent.structure and world_agent.structure.location_tiers
+                        else None
                     )
-                    cost_stats["total_cost_cny"] = round(
-                        cost_stats["total_cost_usd"] * 7.2, 2
+                    context = await self.context_builder.build(
+                        novel_id, chapter_num,
+                        location_parents=_loc_parents,
+                        location_tiers=_loc_tiers,
                     )
-                    _chapters_done_with_cost += 1
-                    remaining = total - (chapter_num - chapter_start + 1)
-                    if _chapters_done_with_cost > 0 and remaining > 0:
-                        avg_cost = cost_stats["total_cost_usd"] / _chapters_done_with_cost
-                        cost_stats["estimated_remaining_usd"] = round(avg_cost * remaining, 4)
-                        cost_stats["estimated_remaining_cny"] = round(
-                            cost_stats["estimated_remaining_usd"] * 7.2, 2
+
+                    # Extract facts
+                    await self._broadcast_stage(novel_id, chapter_num, "AI 提取中")
+                    _genre = world_agent.structure.novel_genre_hint if world_agent.structure else None
+                    fact, chapter_usage, extraction_meta = await self.extractor.extract(
+                        novel_id=novel_id,
+                        chapter_id=chapter_num,
+                        chapter_text=chapter["content"],
+                        context_summary=context,
+                        genre_hint=_genre,
+                    )
+                    # Track quality stats
+                    if extraction_meta.is_truncated:
+                        _quality_stats["truncated_count"] += 1
+                    if extraction_meta.segment_count > 1:
+                        _quality_stats["segmented_count"] += 1
+                    _quality_stats["total_segments"] += extraction_meta.segment_count
+
+                    # Accumulate cost (cloud mode)
+                    if is_cloud:
+                        cost_stats["total_input_tokens"] += chapter_usage.prompt_tokens
+                        cost_stats["total_output_tokens"] += chapter_usage.completion_tokens
+                        spent_usd = (
+                            (chapter_usage.prompt_tokens / 1_000_000) * _input_price
+                            + (chapter_usage.completion_tokens / 1_000_000) * _output_price
                         )
-                    else:
-                        cost_stats["estimated_remaining_usd"] = 0.0
-                        cost_stats["estimated_remaining_cny"] = 0.0
+                        spent_cny = spent_usd * 7.2
+                        cost_stats["total_cost_usd"] = round(
+                            cost_stats["total_cost_usd"] + spent_usd, 4
+                        )
+                        cost_stats["total_cost_cny"] = round(
+                            cost_stats["total_cost_usd"] * 7.2, 2
+                        )
+                        _chapters_done_with_cost += 1
+                        remaining = total - (chapter_num - chapter_start + 1)
+                        if _chapters_done_with_cost > 0 and remaining > 0:
+                            avg_cost = cost_stats["total_cost_usd"] / _chapters_done_with_cost
+                            cost_stats["estimated_remaining_usd"] = round(avg_cost * remaining, 4)
+                            cost_stats["estimated_remaining_cny"] = round(
+                                cost_stats["estimated_remaining_usd"] * 7.2, 2
+                            )
+                        else:
+                            cost_stats["estimated_remaining_usd"] = 0.0
+                            cost_stats["estimated_remaining_cny"] = 0.0
 
-                    # Persist to monthly usage
-                    updated = await add_monthly_usage(
-                        spent_usd, spent_cny,
-                        chapter_usage.prompt_tokens,
-                        chapter_usage.completion_tokens,
+                        # Persist to monthly usage
+                        updated = await add_monthly_usage(
+                            spent_usd, spent_cny,
+                            chapter_usage.prompt_tokens,
+                            chapter_usage.completion_tokens,
+                        )
+                        cost_stats["monthly_used_cny"] = updated.get("cny", 0.0)
+                        # Refresh budget from DB (user may have changed it mid-analysis)
+                        _monthly_budget = await get_monthly_budget()
+                        cost_stats["monthly_budget_cny"] = _monthly_budget
+
+                    # Validate (传入本章原文:自动补 character 做原文锚定)
+                    await self._broadcast_stage(novel_id, chapter_num, "验证数据")
+                    fact = validator.validate(fact, chapter_text=chapter["content"])
+
+                    # 幻觉人物 LLM 判定层 (FR-4.2): 规则层之后、落库之前;
+                    # 已确立人物纳入白名单,后续章节不再判定(真实人物不误杀)
+                    fact = await self._review_hallucinations(
+                        novel_id, chapter_num, fact, chapter["content"], _protected_names,
                     )
-                    cost_stats["monthly_used_cny"] = updated.get("cny", 0.0)
-                    # Refresh budget from DB (user may have changed it mid-analysis)
-                    _monthly_budget = await get_monthly_budget()
-                    cost_stats["monthly_budget_cny"] = _monthly_budget
+                    _protected_names.update(ch.name for ch in fact.characters)
 
-                # Validate (传入本章原文:自动补 character 做原文锚定)
-                await self._broadcast_stage(novel_id, chapter_num, "验证数据")
-                fact = validator.validate(fact, chapter_text=chapter["content"])
+                    # Resolve name variants → canonical (upstream alias unification)
+                    fact = name_resolver.resolve(fact)
+                    # 双向原文锚定:不可定位的 canonical/别名声明不进入映射
+                    name_resolver.accumulate_from_chapter(fact, chapter_text=chapter["content"])
 
-                # 幻觉人物 LLM 判定层 (FR-4.2): 规则层之后、落库之前;
-                # 已确立人物纳入白名单,后续章节不再判定(真实人物不误杀)
-                fact = await self._review_hallucinations(
-                    novel_id, chapter_num, fact, chapter["content"], _protected_names,
-                )
-                _protected_names.update(ch.name for ch in fact.characters)
+                    await self._broadcast_stage(novel_id, chapter_num, "保存数据")
+                    elapsed_ms = int(time.time() * 1000) - start_ms
+                    _chapter_times.append(elapsed_ms)
+                    self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
 
-                # Resolve name variants → canonical (upstream alias unification)
-                fact = name_resolver.resolve(fact)
-                # 双向原文锚定:不可定位的 canonical/别名声明不进入映射
-                name_resolver.accumulate_from_chapter(fact, chapter_text=chapter["content"])
+                    # Per-chapter cost (cloud mode)
+                    _ch_cost_usd = 0.0
+                    _ch_cost_cny = 0.0
+                    if is_cloud:
+                        _ch_cost_usd = round(
+                            (chapter_usage.prompt_tokens / 1_000_000) * _input_price
+                            + (chapter_usage.completion_tokens / 1_000_000) * _output_price,
+                            6,
+                        )
+                        _ch_cost_cny = round(_ch_cost_usd * 7.2, 4)
 
-                await self._broadcast_stage(novel_id, chapter_num, "保存数据")
-                elapsed_ms = int(time.time() * 1000) - start_ms
-                _chapter_times.append(elapsed_ms)
-                self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
-
-                # Per-chapter cost (cloud mode)
-                _ch_cost_usd = 0.0
-                _ch_cost_cny = 0.0
-                if is_cloud:
-                    _ch_cost_usd = round(
-                        (chapter_usage.prompt_tokens / 1_000_000) * _input_price
-                        + (chapter_usage.completion_tokens / 1_000_000) * _output_price,
-                        6,
+                    # Store fact first (INSERT OR REPLACE creates the row)
+                    await chapter_fact_store.insert_chapter_fact(
+                        novel_id=novel_id,
+                        chapter_id=chapter_pk,
+                        fact=fact,
+                        llm_model=_cfg.get_model_name(),
+                        extraction_ms=elapsed_ms,
+                        input_tokens=chapter_usage.prompt_tokens,
+                        output_tokens=chapter_usage.completion_tokens,
+                        cost_usd=_ch_cost_usd,
+                        cost_cny=_ch_cost_cny,
+                        is_truncated=extraction_meta.is_truncated,
+                        segment_count=extraction_meta.segment_count,
+                        output_truncated=extraction_meta.output_truncated,
                     )
-                    _ch_cost_cny = round(_ch_cost_usd * 7.2, 4)
 
-                # Store fact first (INSERT OR REPLACE creates the row)
-                await chapter_fact_store.insert_chapter_fact(
-                    novel_id=novel_id,
-                    chapter_id=chapter_pk,
-                    fact=fact,
-                    llm_model=_cfg.get_model_name(),
-                    extraction_ms=elapsed_ms,
-                    input_tokens=chapter_usage.prompt_tokens,
-                    output_tokens=chapter_usage.completion_tokens,
-                    cost_usd=_ch_cost_usd,
-                    cost_cny=_ch_cost_cny,
-                    is_truncated=extraction_meta.is_truncated,
-                    segment_count=extraction_meta.segment_count,
-                    output_truncated=extraction_meta.output_truncated,
-                )
+                    # 章内并行:世界结构更新 / 场景抽取 / embedding 索引互不依赖。
+                    # 依赖关系:场景 UPDATE 依赖上面的 INSERT(行须已存在);
+                    # embedding 只用 fact 与原文,不消费场景结果;幻觉判定产出
+                    # 最终 fact,必须在此之前串行完成。异常隔离保持原容错语义
+                    # (各环节失败仅记日志,不阻塞管线)。
+                    await self._broadcast_stage(novel_id, chapter_num, "场景分析 · 世界结构更新")
 
-                # 章内并行:世界结构更新 / 场景抽取 / embedding 索引互不依赖。
-                # 依赖关系:场景 UPDATE 依赖上面的 INSERT(行须已存在);
-                # embedding 只用 fact 与原文,不消费场景结果;幻觉判定产出
-                # 最终 fact,必须在此之前串行完成。异常隔离保持原容错语义
-                # (各环节失败仅记日志,不阻塞管线)。
-                await self._broadcast_stage(novel_id, chapter_num, "场景分析 · 世界结构更新")
+                    world_res, scenes_res, embed_res = await asyncio.gather(
+                        self._update_world_structure(
+                            world_agent, chapter_num, chapter["content"], fact,
+                        ),
+                        self._extract_and_store_scenes(
+                            novel_id, chapter_pk, chapter["content"], chapter_num, fact,
+                        ),
+                        self._index_chapter_embeddings(
+                            novel_id, chapter_num, chapter["content"], fact,
+                        ),
+                        return_exceptions=True,
+                    )
+                    world_structure_updated = world_res is None
+                    for _res, _log_msg in (
+                        (world_res, "World structure agent error for chapter %d: %s"),
+                        (scenes_res, "场景提取失败 (chapter %d): %s"),
+                        (embed_res, "Embedding indexing failed for chapter %d: %s"),
+                    ):
+                        if _res is None:
+                            continue
+                        if isinstance(_res, Exception):
+                            logger.warning(_log_msg, chapter_num, _res)
+                        else:
+                            raise _res  # CancelledError 等 BaseException 不吞
 
-                world_res, scenes_res, embed_res = await asyncio.gather(
-                    self._update_world_structure(
-                        world_agent, chapter_num, chapter["content"], fact,
-                    ),
-                    self._extract_and_store_scenes(
-                        novel_id, chapter_pk, chapter["content"], chapter_num, fact,
-                    ),
-                    self._index_chapter_embeddings(
-                        novel_id, chapter_num, chapter["content"], fact,
-                    ),
-                    return_exceptions=True,
-                )
-                world_structure_updated = world_res is None
-                for _res, _log_msg in (
-                    (world_res, "World structure agent error for chapter %d: %s"),
-                    (scenes_res, "场景提取失败 (chapter %d): %s"),
-                    (embed_res, "Embedding indexing failed for chapter %d: %s"),
-                ):
-                    if _res is None:
-                        continue
-                    if isinstance(_res, Exception):
-                        logger.warning(_log_msg, chapter_num, _res)
-                    else:
-                        raise _res  # CancelledError 等 BaseException 不吞
+                    # Update chapter status
+                    await analysis_task_store.update_chapter_analysis_status(
+                        novel_id, chapter_num, "completed"
+                    )
 
-                # Update chapter status
-                await analysis_task_store.update_chapter_analysis_status(
-                    novel_id, chapter_num, "completed"
-                )
+                    # Invalidate map layout cache (spatial data may have changed)
+                    await invalidate_layout_cache(novel_id)
 
-                # Invalidate map layout cache (spatial data may have changed)
-                await invalidate_layout_cache(novel_id)
+                    # Update cumulative stats
+                    stats["entities"] += len(fact.characters) + len(fact.locations)
+                    stats["relations"] += len(fact.relationships)
+                    stats["events"] += len(fact.events)
 
-                # Update cumulative stats
-                stats["entities"] += len(fact.characters) + len(fact.locations)
-                stats["relations"] += len(fact.relationships)
-                stats["events"] += len(fact.events)
+                    # Broadcast chapter done
+                    await manager.broadcast(novel_id, {
+                        "type": "chapter_done",
+                        "chapter": chapter_num,
+                        "status": "completed",
+                        "world_structure_updated": world_structure_updated,
+                    })
 
-                # Broadcast chapter done
-                await manager.broadcast(novel_id, {
-                    "type": "chapter_done",
+                except ExtractionError as e:
+                    elapsed_ms = int(time.time() * 1000) - start_ms
+                    _chapter_times.append(elapsed_ms)
+                    self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
+                    err_type, err_msg = "parse_error", str(e)[:500]
+                    logger.error("Extraction failed for chapter %d [%s]: %s", chapter_num, err_type, e)
+                    await analysis_task_store.update_chapter_analysis_status(
+                        novel_id, chapter_num, "failed",
+                        error_msg=err_msg, error_type=err_type,
+                    )
+                    _failed_in_run.append({**chapter, "error_type": err_type})
+                    await manager.broadcast(novel_id, {
+                        "type": "chapter_done",
+                        "chapter": chapter_num,
+                        "status": "failed",
+                        "error": err_msg,
+                        "error_type": err_type,
+                    })
+
+                except Exception as e:
+                    elapsed_ms = int(time.time() * 1000) - start_ms
+                    _chapter_times.append(elapsed_ms)
+                    self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
+                    err_type, err_msg = _classify_error(e)
+                    logger.error("Unexpected error for chapter %d [%s]: %s", chapter_num, err_type, e)
+                    await analysis_task_store.update_chapter_analysis_status(
+                        novel_id, chapter_num, "failed",
+                        error_msg=err_msg, error_type=err_type,
+                    )
+                    _failed_in_run.append({**chapter, "error_type": err_type})
+                    await manager.broadcast(novel_id, {
+                        "type": "chapter_done",
+                        "chapter": chapter_num,
+                        "status": "failed",
+                        "error": err_msg,
+                        "error_type": err_type,
+                    })
+
+                # Update task progress
+                await analysis_task_store.update_task_progress(task_id, chapter_num)
+
+                # Broadcast overall progress
+                done_count = chapter_num - chapter_start + 1
+                progress_msg: dict = {
+                    "type": "progress",
                     "chapter": chapter_num,
-                    "status": "completed",
-                    "world_structure_updated": world_structure_updated,
-                })
-
-            except ExtractionError as e:
-                elapsed_ms = int(time.time() * 1000) - start_ms
-                _chapter_times.append(elapsed_ms)
-                self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
-                err_type, err_msg = "parse_error", str(e)[:500]
-                logger.error("Extraction failed for chapter %d [%s]: %s", chapter_num, err_type, e)
-                await analysis_task_store.update_chapter_analysis_status(
-                    novel_id, chapter_num, "failed",
-                    error_msg=err_msg, error_type=err_type,
-                )
-                _failed_in_run.append({**chapter, "error_type": err_type})
-                await manager.broadcast(novel_id, {
-                    "type": "chapter_done",
-                    "chapter": chapter_num,
-                    "status": "failed",
-                    "error": err_msg,
-                    "error_type": err_type,
-                })
-
-            except Exception as e:
-                elapsed_ms = int(time.time() * 1000) - start_ms
-                _chapter_times.append(elapsed_ms)
-                self._update_live_timing(novel_id, _chapter_times, _analysis_start_ms, total, chapter_num - chapter_start + 1)
-                err_type, err_msg = _classify_error(e)
-                logger.error("Unexpected error for chapter %d [%s]: %s", chapter_num, err_type, e)
-                await analysis_task_store.update_chapter_analysis_status(
-                    novel_id, chapter_num, "failed",
-                    error_msg=err_msg, error_type=err_type,
-                )
-                _failed_in_run.append({**chapter, "error_type": err_type})
-                await manager.broadcast(novel_id, {
-                    "type": "chapter_done",
-                    "chapter": chapter_num,
-                    "status": "failed",
-                    "error": err_msg,
-                    "error_type": err_type,
-                })
-
-            # Update task progress
-            await analysis_task_store.update_task_progress(task_id, chapter_num)
-
-            # Broadcast overall progress
-            done_count = chapter_num - chapter_start + 1
-            progress_msg: dict = {
-                "type": "progress",
-                "chapter": chapter_num,
-                "total": total,
-                "done": done_count,
-                "stats": stats,
-            }
-            if is_cloud:
-                progress_msg["cost"] = cost_stats
-            if _chapter_times:
-                avg_ms = sum(_chapter_times) // len(_chapter_times)
-                remaining = total - done_count
-                progress_msg["timing"] = {
-                    "last_chapter_ms": _chapter_times[-1],
-                    "avg_chapter_ms": avg_ms,
-                    "elapsed_total_ms": int(time.time() * 1000) - _analysis_start_ms,
-                    "eta_ms": avg_ms * remaining,
+                    "total": total,
+                    "done": done_count,
+                    "stats": stats,
                 }
-            await manager.broadcast(novel_id, progress_msg)
+                if is_cloud:
+                    progress_msg["cost"] = cost_stats
+                if _chapter_times:
+                    avg_ms = sum(_chapter_times) // len(_chapter_times)
+                    remaining = total - done_count
+                    progress_msg["timing"] = {
+                        "last_chapter_ms": _chapter_times[-1],
+                        "avg_chapter_ms": avg_ms,
+                        "elapsed_total_ms": int(time.time() * 1000) - _analysis_start_ms,
+                        "eta_ms": avg_ms * remaining,
+                    }
+                await manager.broadcast(novel_id, progress_msg)
 
         # ── Auto-retry failed chapters (1 attempt) ──
         if _failed_in_run:
@@ -1009,6 +1066,513 @@ class AnalysisService:
         # Auto-trigger post-analysis pipeline (non-fatal, independent background tasks)
         if final_status in ("completed", "completed_with_errors"):
             self._schedule_post_analysis(novel_id)
+
+    async def _run_windowed(
+        self,
+        *,
+        concurrency: int,
+        task_id: str,
+        novel_id: str,
+        chapter_start: int,
+        chapter_end: int,
+        force: bool,
+        total: int,
+        stats: dict,
+        cost_stats: dict,
+        is_cloud: bool,
+        input_price: float,
+        output_price: float,
+        world_agent: WorldStructureAgent,
+        validator: FactValidator,
+        name_resolver: NameResolver,
+        protected_names: set[str],
+        chapter_times: list[int],
+        failed_in_run: list[dict],
+        quality_stats: dict,
+        analysis_start_ms: int,
+    ) -> bool:
+        """窗口化并发分析 (issue #61, ANALYSIS_CONCURRENCY>1 且云端时启用)。
+
+        结构: dispatcher 按章号顺序投喂 → k 路抽取 worker(构建上下文 +
+        LLM 抽取,无副作用的纯计算) → 单合并协程严格按章号顺序执行全部
+        有副作用环节(FactValidator / 幻觉判定 / name_resolver / 落库 /
+        world_agent.process_chapter / 场景 / embedding / 成本 / 进度)。
+        各环节之间用 asyncio.Queue 连接;合并器把乱序到达的结果按
+        merge_order 缓冲,保证跨章可变状态(WorldStructureAgent 的
+        load-modify-save、_protected_names 白名单跨章累积、NameResolver
+        映射累积)的读写顺序与串行版完全一致。
+
+        上下文落后(已接受的质量权衡): worker 抽第 N 章时只能看到已落库
+        的前序 facts,最多落后 k-1 章(在飞章节未落库,被
+        ContextSummaryBuilder 的 chapter_id < chapter_num 过滤自动排除);
+        世界结构快照同理(worker 读到的是构建当下已合并的层级)。
+
+        暂停/恢复: 信号置位后 dispatcher 停止投喂新章,worker 跳过尚未
+        开始的抽取,在飞抽取完成后由合并器排空即停(排空期间落库的章节
+        保持完整合并,DB 始终一致);恢复由 resume() 从 current_chapter+1
+        重启,force=False 自动跳过已完成章。若 resume 在排空期间抢跑
+        (信号被重置回 running),本轮结束后重新从头扫描派发而不是退出,
+        避免任务卡在 running 状态。
+
+        Returns True if stopped early by pause/cancel (caller skips the
+        retry/post-analysis/finalization sections, mirroring the
+        sequential loop's early return).
+        """
+        from src.infra import config as _cfg
+
+        facts_cache = _ChapterFactsCache()
+        # 已完成计数制: 进度/ETA 按"已解决章数"(合并+跳过)而非章号,
+        # 窗口内乱序完成不会造成进度虚高。counted 跨轮去重(resume 抢跑
+        # 重扫时已完成章不重复计数)。
+        done_state = {"count": 0}
+        counted: set[int] = set()
+        _chapters_done_with_cost = 0  # 与串行版同名同口径: 成本均值的分母
+
+        def _bump_done(chapter_num: int) -> int:
+            if chapter_num not in counted:
+                counted.add(chapter_num)
+                done_state["count"] += 1
+            return done_state["count"]
+
+        async def _mark_failed(
+            chapter_num: int,
+            chapter: dict,
+            exc: Exception,
+            elapsed_ms: int,
+            done_count: int,
+        ) -> None:
+            """失败章节处理: 与串行版两个 except 分支同口径。"""
+            chapter_times.append(elapsed_ms)
+            self._update_live_timing(
+                novel_id, chapter_times, analysis_start_ms, total, done_count,
+            )
+            if isinstance(exc, ExtractionError):
+                err_type, err_msg = "parse_error", str(exc)[:500]
+                logger.error(
+                    "Extraction failed for chapter %d [%s]: %s",
+                    chapter_num, err_type, exc,
+                )
+            else:
+                err_type, err_msg = _classify_error(exc)
+                logger.error(
+                    "Unexpected error for chapter %d [%s]: %s",
+                    chapter_num, err_type, exc,
+                )
+            await analysis_task_store.update_chapter_analysis_status(
+                novel_id, chapter_num, "failed",
+                error_msg=err_msg, error_type=err_type,
+            )
+            failed_in_run.append({**chapter, "error_type": err_type})
+            await manager.broadcast(novel_id, {
+                "type": "chapter_done",
+                "chapter": chapter_num,
+                "status": "failed",
+                "error": err_msg,
+                "error_type": err_type,
+            })
+
+        async def _merge_one(
+            chapter_num: int,
+            chapter: dict,
+            fact,
+            chapter_usage,
+            extraction_meta,
+            elapsed_ms: int,
+            exc: Exception | None,
+        ) -> None:
+            """合并器主体: 单章的全部有副作用环节,严格按章序被调用。"""
+            nonlocal _chapters_done_with_cost
+            chapter_pk = chapter["id"]
+            done_count = _bump_done(chapter_num)
+            merge_start_ms = int(time.time() * 1000)
+
+            if exc is None:
+                try:
+                    # Track quality stats
+                    if extraction_meta.is_truncated:
+                        quality_stats["truncated_count"] += 1
+                    if extraction_meta.segment_count > 1:
+                        quality_stats["segmented_count"] += 1
+                    quality_stats["total_segments"] += extraction_meta.segment_count
+
+                    # Accumulate cost (cloud mode)。合并器按章序执行,
+                    # 累加顺序与串行版一致;章序合并下 chapter_end -
+                    # chapter_num 与串行版 remaining 公式等价。
+                    if is_cloud:
+                        cost_stats["total_input_tokens"] += chapter_usage.prompt_tokens
+                        cost_stats["total_output_tokens"] += chapter_usage.completion_tokens
+                        spent_usd = (
+                            (chapter_usage.prompt_tokens / 1_000_000) * input_price
+                            + (chapter_usage.completion_tokens / 1_000_000) * output_price
+                        )
+                        spent_cny = spent_usd * 7.2
+                        cost_stats["total_cost_usd"] = round(
+                            cost_stats["total_cost_usd"] + spent_usd, 4
+                        )
+                        cost_stats["total_cost_cny"] = round(
+                            cost_stats["total_cost_usd"] * 7.2, 2
+                        )
+                        _chapters_done_with_cost += 1
+                        remaining = chapter_end - chapter_num
+                        if _chapters_done_with_cost > 0 and remaining > 0:
+                            avg_cost = cost_stats["total_cost_usd"] / _chapters_done_with_cost
+                            cost_stats["estimated_remaining_usd"] = round(
+                                avg_cost * remaining, 4
+                            )
+                            cost_stats["estimated_remaining_cny"] = round(
+                                cost_stats["estimated_remaining_usd"] * 7.2, 2
+                            )
+                        else:
+                            cost_stats["estimated_remaining_usd"] = 0.0
+                            cost_stats["estimated_remaining_cny"] = 0.0
+
+                        # Persist to monthly usage
+                        updated = await add_monthly_usage(
+                            spent_usd, spent_cny,
+                            chapter_usage.prompt_tokens,
+                            chapter_usage.completion_tokens,
+                        )
+                        cost_stats["monthly_used_cny"] = updated.get("cny", 0.0)
+                        # Refresh budget from DB (user may have changed it mid-analysis)
+                        _monthly_budget = await get_monthly_budget()
+                        cost_stats["monthly_budget_cny"] = _monthly_budget
+
+                    # Validate (传入本章原文:自动补 character 做原文锚定)
+                    await self._broadcast_stage(novel_id, chapter_num, "验证数据")
+                    fact = validator.validate(fact, chapter_text=chapter["content"])
+
+                    # 幻觉人物 LLM 判定层 (FR-4.2): 规则层之后、落库之前;
+                    # 已确立人物纳入白名单,后续章节不再判定(真实人物不误杀)
+                    fact = await self._review_hallucinations(
+                        novel_id, chapter_num, fact, chapter["content"], protected_names,
+                    )
+                    protected_names.update(ch.name for ch in fact.characters)
+
+                    # Resolve name variants → canonical (upstream alias unification)
+                    fact = name_resolver.resolve(fact)
+                    # 双向原文锚定:不可定位的 canonical/别名声明不进入映射
+                    name_resolver.accumulate_from_chapter(fact, chapter_text=chapter["content"])
+
+                    await self._broadcast_stage(novel_id, chapter_num, "保存数据")
+                    chapter_times.append(elapsed_ms)
+                    self._update_live_timing(
+                        novel_id, chapter_times, analysis_start_ms, total, done_count,
+                    )
+
+                    # Per-chapter cost (cloud mode)
+                    _ch_cost_usd = 0.0
+                    _ch_cost_cny = 0.0
+                    if is_cloud:
+                        _ch_cost_usd = round(
+                            (chapter_usage.prompt_tokens / 1_000_000) * input_price
+                            + (chapter_usage.completion_tokens / 1_000_000) * output_price,
+                            6,
+                        )
+                        _ch_cost_cny = round(_ch_cost_usd * 7.2, 4)
+
+                    # Store fact first (INSERT OR REPLACE creates the row)
+                    await chapter_fact_store.insert_chapter_fact(
+                        novel_id=novel_id,
+                        chapter_id=chapter_pk,
+                        fact=fact,
+                        llm_model=_cfg.get_model_name(),
+                        extraction_ms=elapsed_ms,
+                        input_tokens=chapter_usage.prompt_tokens,
+                        output_tokens=chapter_usage.completion_tokens,
+                        cost_usd=_ch_cost_usd,
+                        cost_cny=_ch_cost_cny,
+                        is_truncated=extraction_meta.is_truncated,
+                        segment_count=extraction_meta.segment_count,
+                        output_truncated=extraction_meta.output_truncated,
+                    )
+                    # 新章落库后 worker 的前序 facts 缓存失效
+                    facts_cache.invalidate()
+
+                    # 章内并行:世界结构更新 / 场景抽取 / embedding 索引互不依赖。
+                    # 与串行版同一 gather 结构,异常隔离语义不变(各环节失败
+                    # 仅记日志,不阻塞管线;CancelledError 等 BaseException 不吞)。
+                    await self._broadcast_stage(novel_id, chapter_num, "场景分析 · 世界结构更新")
+
+                    world_res, scenes_res, embed_res = await asyncio.gather(
+                        self._update_world_structure(
+                            world_agent, chapter_num, chapter["content"], fact,
+                        ),
+                        self._extract_and_store_scenes(
+                            novel_id, chapter_pk, chapter["content"], chapter_num, fact,
+                        ),
+                        self._index_chapter_embeddings(
+                            novel_id, chapter_num, chapter["content"], fact,
+                        ),
+                        return_exceptions=True,
+                    )
+                    world_structure_updated = world_res is None
+                    for _res, _log_msg in (
+                        (world_res, "World structure agent error for chapter %d: %s"),
+                        (scenes_res, "场景提取失败 (chapter %d): %s"),
+                        (embed_res, "Embedding indexing failed for chapter %d: %s"),
+                    ):
+                        if _res is None:
+                            continue
+                        if isinstance(_res, Exception):
+                            logger.warning(_log_msg, chapter_num, _res)
+                        else:
+                            raise _res  # CancelledError 等 BaseException 不吞
+
+                    # Update chapter status
+                    await analysis_task_store.update_chapter_analysis_status(
+                        novel_id, chapter_num, "completed"
+                    )
+
+                    # Invalidate map layout cache (spatial data may have changed)
+                    await invalidate_layout_cache(novel_id)
+
+                    # Update cumulative stats
+                    stats["entities"] += len(fact.characters) + len(fact.locations)
+                    stats["relations"] += len(fact.relationships)
+                    stats["events"] += len(fact.events)
+
+                    # Broadcast chapter done
+                    await manager.broadcast(novel_id, {
+                        "type": "chapter_done",
+                        "chapter": chapter_num,
+                        "status": "completed",
+                        "world_structure_updated": world_structure_updated,
+                    })
+                except Exception as e:
+                    # 合并阶段失败与串行版 try 覆盖验证/落库/gather 同口径:
+                    # 标记本章失败并进入自动重试名单,不中断整轮分析
+                    exc = e
+                    elapsed_ms += int(time.time() * 1000) - merge_start_ms
+
+            if exc is not None:
+                await _mark_failed(chapter_num, chapter, exc, elapsed_ms, done_count)
+
+            # Update task progress
+            await analysis_task_store.update_task_progress(task_id, chapter_num)
+
+            # Broadcast overall progress (已完成计数制)
+            progress_msg: dict = {
+                "type": "progress",
+                "chapter": chapter_num,
+                "total": total,
+                "done": done_count,
+                "stats": stats,
+            }
+            if is_cloud:
+                progress_msg["cost"] = cost_stats
+            if chapter_times:
+                avg_ms = sum(chapter_times) // len(chapter_times)
+                remaining = total - done_count
+                progress_msg["timing"] = {
+                    "last_chapter_ms": chapter_times[-1],
+                    "avg_chapter_ms": avg_ms,
+                    "elapsed_total_ms": int(time.time() * 1000) - analysis_start_ms,
+                    "eta_ms": avg_ms * remaining,
+                }
+            await manager.broadcast(novel_id, progress_msg)
+
+        async def _run_round() -> str | None:
+            """一轮窗口化派发: 全范围扫描投喂 + k worker 抽取 + 合并器排空。
+            返回打断本轮的信号 ("paused"/"cancelled");正常跑完返回 None。"""
+            extract_q: asyncio.Queue = asyncio.Queue(maxsize=concurrency)
+            done_q: asyncio.Queue = asyncio.Queue()
+            merge_order: list[int] = []
+            pending: dict[int, tuple] = {}
+            stop_signal: str | None = None
+
+            async def _dispatch() -> None:
+                """按章序扫描并投喂抽取队列;跳过章(缺内容/排除/已完成)
+                就地处理进度,与串行版对应分支同口径。"""
+                nonlocal stop_signal
+                for chapter_num in range(chapter_start, chapter_end + 1):
+                    signal = self._task_signals.get(task_id, "running")
+                    if signal in ("paused", "cancelled"):
+                        stop_signal = signal
+                        break
+                    chapter = await analysis_task_store.get_chapter_content(
+                        novel_id, chapter_num,
+                    )
+                    if not chapter:
+                        logger.warning(
+                            "Chapter %d not found for novel %s, skipping",
+                            chapter_num, novel_id,
+                        )
+                        done_count = _bump_done(chapter_num)
+                        await manager.broadcast(novel_id, {
+                            "type": "progress",
+                            "chapter": chapter_num,
+                            "total": total,
+                            "done": done_count,
+                            "stats": stats,
+                        })
+                        continue
+
+                    # Skip excluded chapters (user decision — always skip, even with force)
+                    if chapter.get("is_excluded"):
+                        logger.debug("Skipping excluded chapter %d", chapter_num)
+                        await analysis_task_store.update_task_progress(task_id, chapter_num)
+                        done_count = _bump_done(chapter_num)
+                        await manager.broadcast(novel_id, {
+                            "type": "progress",
+                            "chapter": chapter_num,
+                            "total": total,
+                            "done": done_count,
+                            "stats": stats,
+                        })
+                        continue
+
+                    # Skip already-completed chapters unless force=True
+                    if not force and chapter["analysis_status"] == "completed":
+                        logger.debug("Skipping already-completed chapter %d", chapter_num)
+                        await analysis_task_store.update_task_progress(task_id, chapter_num)
+                        done_count = _bump_done(chapter_num)
+                        await manager.broadcast(novel_id, {
+                            "type": "progress",
+                            "chapter": chapter_num,
+                            "total": total,
+                            "done": done_count,
+                            "stats": stats,
+                        })
+                        continue
+
+                    merge_order.append(chapter_num)
+                    await extract_q.put((chapter_num, chapter))
+                # 投喂结束(或信号中断): 给每个 worker 发终止哨兵
+                for _ in range(concurrency):
+                    await extract_q.put(None)
+
+            async def _worker() -> None:
+                """抽取 worker: 上下文构建 + LLM 抽取,无副作用的纯计算。
+                结果(或异常)原样投递给合并器,DB 写/状态变更只发生在合并器。"""
+                while True:
+                    item = await extract_q.get()
+                    if item is None:
+                        return
+                    chapter_num, chapter = item
+                    signal = self._task_signals.get(task_id, "running")
+                    if signal in ("paused", "cancelled"):
+                        # 暂停/取消: 未开始的抽取直接放弃,恢复时重扫补齐
+                        continue
+                    start_ms = int(time.time() * 1000)
+                    try:
+                        # Broadcast "processing" before LLM call so UI shows current chapter
+                        await manager.broadcast(novel_id, {
+                            "type": "processing",
+                            "chapter": chapter_num,
+                            "total": total,
+                            **(
+                                {"timing": self._live_timing[novel_id]}
+                                if novel_id in self._live_timing else {}
+                            ),
+                        })
+
+                        # Build context summary (inject location hierarchy if available)
+                        await self._broadcast_stage(novel_id, chapter_num, "构建上下文")
+                        _loc_parents = (
+                            world_agent.structure.location_parents
+                            if world_agent.structure else None
+                        )
+                        _loc_tiers = (
+                            dict(world_agent.structure.location_tiers)
+                            if world_agent.structure and world_agent.structure.location_tiers
+                            else None
+                        )
+                        context = await self.context_builder.build(
+                            novel_id, chapter_num,
+                            location_parents=_loc_parents,
+                            location_tiers=_loc_tiers,
+                            facts_provider=facts_cache.get,
+                        )
+
+                        # Extract facts
+                        await self._broadcast_stage(novel_id, chapter_num, "AI 提取中")
+                        _genre = (
+                            world_agent.structure.novel_genre_hint
+                            if world_agent.structure else None
+                        )
+                        fact, chapter_usage, extraction_meta = await self.extractor.extract(
+                            novel_id=novel_id,
+                            chapter_id=chapter_num,
+                            chapter_text=chapter["content"],
+                            context_summary=context,
+                            genre_hint=_genre,
+                        )
+                        elapsed_ms = int(time.time() * 1000) - start_ms
+                        await done_q.put((
+                            chapter_num, chapter, fact, chapter_usage,
+                            extraction_meta, elapsed_ms, None,
+                        ))
+                    except Exception as e:
+                        elapsed_ms = int(time.time() * 1000) - start_ms
+                        await done_q.put((
+                            chapter_num, chapter, None, None, None, elapsed_ms, e,
+                        ))
+
+            async def _finish() -> None:
+                """dispatcher 与全部 worker 退出后给合并器发终止哨兵。
+                done_q 是 FIFO: worker 的结果入队先于自身退出,故哨兵
+                一定排在本轮所有已交付结果之后。"""
+                try:
+                    await dispatcher_task
+                    await asyncio.gather(*worker_tasks)
+                finally:
+                    await done_q.put(None)
+
+            worker_tasks = [
+                asyncio.create_task(
+                    _worker(), name=f"extract-worker-{i}-{task_id[:8]}",
+                )
+                for i in range(concurrency)
+            ]
+            dispatcher_task = asyncio.create_task(
+                _dispatch(), name=f"extract-dispatch-{task_id[:8]}",
+            )
+            finisher_task = asyncio.create_task(_finish())
+
+            # 合并器: 严格按 merge_order 章序消费结果;乱序到达的缓冲在
+            # pending,缺章(暂停时被 worker 放弃的)形成空洞,由哨兵终止。
+            idx = 0
+            while True:
+                item = await done_q.get()
+                if item is None:
+                    break
+                pending[item[0]] = item[1:]
+                while idx < len(merge_order) and merge_order[idx] in pending:
+                    mnum = merge_order[idx]
+                    args = pending.pop(mnum)
+                    idx += 1
+                    await _merge_one(mnum, *args)
+            await finisher_task  # 哨兵已收到,仅用于传播 worker/dispatcher 异常
+            if stop_signal is None and idx < len(merge_order):
+                # dispatcher 跑完了全程,但 pause/cancel 在排空前到达,
+                # worker 放弃了尚未开始的抽取(合并序列出现空洞)——
+                # 本轮同样是提前终止。占位值: 外层循环会重查实时信号,
+                # resume 抢跑 / cancelled 分支都由外层按当前信号分流。
+                stop_signal = "paused"
+            return stop_signal
+
+        # ── 轮次循环: 一轮 = 全范围扫描派发 + k worker 抽取 + 合并器排空。
+        # 正常跑完一轮即返回 False;被信号打断的轮次排空后重查信号,
+        # resume 抢跑(信号已重置为 running)时重扫继续而非退出。
+        while True:
+            stop_signal = await _run_round()
+            if stop_signal is None:
+                return False
+            current_signal = self._task_signals.get(task_id, "running")
+            if current_signal == "running":
+                # resume 在排空期间抢跑: 重扫派发,已完成章自动跳过
+                logger.info(
+                    "Task %s windowed loop re-dispatching after drained stop",
+                    task_id,
+                )
+                continue
+            if current_signal == "cancelled":
+                logger.info("Task %s windowed loop stopping (cancelled)", task_id)
+                self._task_signals.pop(task_id, None)
+                self._live_timing.pop(novel_id, None)
+                return True
+            logger.info("Task %s windowed loop stopping (paused)", task_id)
+            return True
 
     def _schedule_post_analysis(self, novel_id: str) -> None:
         """调度分析完成后的后台任务(全部非致命,失败不阻塞).
