@@ -16,10 +16,12 @@ import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
 
 // ── Tile layer (no labels — clean canvas for novel markers) ──
+// Esri World Light Gray Canvas: WGS-84（与 GeoNames 坐标一致）、免 key、
+// 国内可达。CARTO basemaps 旧端点已开始要求 API key 且在部分网络不可达。
 const TILE_URL =
-  "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
 const TILE_ATTR =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+  'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS'
 
 // ── Crosshair icon for editing mode ──────────────
 const CROSSHAIR_ICON = L.divIcon({
