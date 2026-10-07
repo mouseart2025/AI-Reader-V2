@@ -416,6 +416,13 @@ async def init_db() -> None:
             )
         except Exception:
             pass  # Column already exists
+        # Migration: normalize legacy chapter status vocabulary.
+        # 旧版本曾用 'done' 标记已分析章节,现行代码统一为 'completed';
+        # 残留的 'done' 行会让进度统计为 0(书架误显示"未分析"),
+        # 且分析跳过逻辑失效导致全书重抽。
+        await conn.execute(
+            "UPDATE chapters SET analysis_status = 'completed' WHERE analysis_status = 'done'"
+        )
         await conn.commit()
     finally:
         await conn.close()
