@@ -19,7 +19,12 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 class SceneLLMExtractor:
-    """Extract scenes from a chapter using LLM."""
+    """Extract scenes from a chapter using LLM.
+
+    issue #78 起,云端单段章的场景抽取并入主抽取 (chapter_fact_extractor
+    wrapper schema);本类保留用于回退路径: 本地 Ollama / 分段长章 / 截断章 /
+    合并结果为空时,仍由 analysis_service 发起独立 scene 调用。
+    """
 
     def __init__(self, llm=None):
         self.llm = llm or get_llm_client()
@@ -110,17 +115,33 @@ class SceneLLMExtractor:
 
         return scenes
 
+    @staticmethod
     def _parse_and_validate(
-        self,
         raw_text: str,
         chapter_num: int,
         total_paragraphs: int,
     ) -> list[dict]:
         """Parse LLM output and validate/fix scene data."""
         # Try to extract JSON array from response
-        scenes_raw = self._extract_json_array(raw_text)
+        scenes_raw = SceneLLMExtractor._extract_json_array(raw_text)
         if not scenes_raw:
             logger.warning("Failed to parse scene JSON for chapter %d", chapter_num)
+            return []
+        return SceneLLMExtractor._validate_scenes(
+            scenes_raw, chapter_num, total_paragraphs,
+        )
+
+    @staticmethod
+    def _validate_scenes(
+        scenes_raw: list,
+        chapter_num: int,
+        total_paragraphs: int,
+    ) -> list[dict]:
+        """Validate and fix raw scene dicts (clamp ranges, fix coverage, re-index).
+
+        单一事实源: 独立 scene 调用与主抽取合并模式 (issue #78) 共用本实现。
+        """
+        if total_paragraphs <= 0:
             return []
 
         # Validate and fix each scene
@@ -159,7 +180,7 @@ class SceneLLMExtractor:
         scenes.sort(key=lambda sc: sc["paragraph_range"][0])
 
         # Fix coverage: fill gaps and remove overlaps
-        scenes = self._fix_coverage(scenes, total_paragraphs)
+        scenes = SceneLLMExtractor._fix_coverage(scenes, total_paragraphs)
 
         # Re-index
         for i, sc in enumerate(scenes):

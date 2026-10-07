@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import functools
 import json
 import logging
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from src.extraction.scene_llm_extractor import SceneLLMExtractor
 from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import (
@@ -94,6 +97,12 @@ class ExtractionMeta:
     evidence_unlocated_spans: int = 0
     # q1-1 条目级宽容解析:按 section 计丢弃的坏条目数(坏条目单丢不废章)
     dropped_items: dict[str, int] = field(default_factory=dict)
+    # issue #78 场景并入主抽取: 合并模式(云端单段章)下由 wrapper schema
+    # 产出的场景列表;None = 本章未走合并(本地/分段/截断/开关关闭),
+    # 调用方回退独立 scene 调用。scenes 不属于 ChapterFact,不落 fact_json。
+    scenes: list[dict] | None = None
+    # 合并模式下注入正文的【Pn】段落标记总数(校验 scenes 坐标用)
+    scene_total_paragraphs: int = 0
 
 
 class ExtractionError(Exception):
@@ -524,9 +533,14 @@ def span_located(span: str, chapter_text: str) -> bool:
 # LLM 逐字引用时经常改写引号样式(“” ↔ '' ↔ ""),定位时与空白一样归一化掉。
 _SPAN_QUOTE_CHARS = "“”‘’\"'「」『』"
 
+# issue #78: 合并模式下注入正文的【P0】【P1】段落标记。证据 span 可能跨段
+# 或落在段首,归一化时剥离标记,否则跨段 span 永远定位失败。
+_PARAGRAPH_MARKER_RE = re.compile(r"【P\d+】")
+
 
 def _normalize_span_text(s: str) -> str:
-    """span 定位归一化:去空白 + 去引号(span_located 唯一口径)。"""
+    """span 定位归一化:去【Pn】段落标记 + 去空白 + 去引号(span_located 唯一口径)。"""
+    s = _PARAGRAPH_MARKER_RE.sub("", s)
     return "".join(
         ch for ch in s if not ch.isspace() and ch not in _SPAN_QUOTE_CHARS
     )
@@ -721,6 +735,15 @@ def _load_evidence_guide() -> str:
         return ""
 
 
+def _load_scene_merge_guide() -> str:
+    """Load scene-merge guide (issue #78). Returns empty string if file missing."""
+    from src.extraction.prompt_registry import get_prompt
+    try:
+        return get_prompt("scene_merge_guide")
+    except FileNotFoundError:
+        return ""
+
+
 def _load_examples() -> list[dict]:
     from src.extraction.prompt_registry import get_prompt_json
     return get_prompt_json("extraction_examples")
@@ -794,6 +817,76 @@ def _cached_extraction_schema(evidence_grounding: bool) -> dict:
     return schema
 
 
+# ── 场景并入主抽取 (issue #78): wrapper schema ──
+# scenes 不进 ChapterFact pydantic 模型(避免污染 recall/二审 schema、
+# fact_json 落库与导出 diff);改用 wrapper schema: 主抽取 schema 根上额外
+# 挂一个 scenes 数组,解析时在 ChapterFact.model_validate 之前拆出。
+
+_SCENE_ITEM_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "paragraph_range": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[起始, 结束] 闭区间, 从0开始, 对应正文【P0】【P1】段落标记",
+        },
+        "title": {"type": "string", "description": "5-15字场景标题"},
+        "location": {"type": "string"},
+        "time_of_day": {"type": "string", "description": "早/午/晚/夜, 不明确则空字符串"},
+        "characters": {"type": "array", "items": {"type": "string"}},
+        "emotional_tone": {"type": "string", "description": "平静/紧张/悲伤/欢乐/战斗/推理/恐怖/感动"},
+        "event_type": {"type": "string", "description": "对话/战斗/旅行/描写/回忆/推理/调查"},
+        "summary": {"type": "string", "description": "20-50字场景概括"},
+        "key_dialogue": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["paragraph_range", "title", "summary"],
+}
+
+
+def _build_extraction_schema_with_scenes() -> dict:
+    """主抽取 wrapper schema: ChapterFact 字段 + scenes(场景并入, issue #78)。
+
+    scenes 放在 new_concepts 之后、world_declarations 之前 —— 靠后但非最后:
+    world_declarations 可选且通常为空,充当输出撞顶(finish_reason=length)
+    时的牺牲尾部;scenes 若放最后会最先被截。
+    """
+    from src.infra.config import EVIDENCE_GROUNDING_ENABLED
+    return _cached_extraction_schema_with_scenes(bool(EVIDENCE_GROUNDING_ENABLED))
+
+
+@functools.cache
+def _cached_extraction_schema_with_scenes(evidence_grounding: bool) -> dict:
+    """惰性缓存的 wrapper schema(与主 schema 同理的进程内单例)。"""
+    schema = copy.deepcopy(_cached_extraction_schema(evidence_grounding))
+    props = schema.get("properties", {})
+    scenes_prop = {"type": "array", "items": copy.deepcopy(_SCENE_ITEM_SCHEMA), "minItems": 1}
+    new_props: dict = {}
+    inserted = False
+    for key, value in props.items():
+        if key == "world_declarations":
+            new_props["scenes"] = scenes_prop
+            inserted = True
+        new_props[key] = value
+    if not inserted:
+        new_props["scenes"] = scenes_prop
+    schema["properties"] = new_props
+    required = schema.setdefault("required", [])
+    if "scenes" not in required:
+        required.append("scenes")
+    return schema
+
+
+# 合并模式下追加到 user prompt 的场景拆分要求(细则在 scene_merge_guide,
+# 注入 system;这里给输出字段级的硬约束)。
+_SCENE_USER_REQ = (
+    "【场景拆分】scenes：将本章正文按时间/地点/参与人物的显著变化拆分为场景"
+    "（一章通常 3-8 个，短章最少 1 个），paragraph_range 对应正文中【P0】【P1】"
+    "段落标记（闭区间、从 0 开始），必须完整覆盖全部段落且不遗漏不重叠\n"
+)
+
+
 class ChapterFactExtractor:
     """Extract structured ChapterFact from a single chapter using LLM."""
 
@@ -803,6 +896,7 @@ class ChapterFactExtractor:
         self._vot_guide = _load_vot_guide()
         self._dimension_guide = _load_dimension_guide()
         self._evidence_guide = _load_evidence_guide()
+        self._scene_merge_guide = _load_scene_merge_guide()
         self.examples = _load_examples()
         self.source_pass_template = _load_source_pass_system_prompt()
         self._schema = _build_extraction_schema()
@@ -948,6 +1042,19 @@ class ChapterFactExtractor:
 
         meta.segment_count = len(segments)
 
+        # 场景并入主抽取 (issue #78): 仅云端 + 单段 + 未截断的章节合并;
+        # 分段章 paragraph_range 坐标系被分段破坏、截断章场景覆盖不全,
+        # 均回退 analysis_service 的独立 scene 调用。窗口化并发下多章共享
+        # 本实例,合并判定必须全部走局部变量/参数,不可写实例状态。
+        from src.infra.config import get_scene_merge_enabled
+        scene_merge = (
+            len(segments) == 1
+            and self._is_cloud
+            and not meta.is_truncated
+            and get_scene_merge_enabled()
+            and bool(self._scene_merge_guide)
+        )
+
         if len(segments) > 1:
             logger.info(
                 "Chapter %d: splitting %d chars into %d segments (%s)",
@@ -957,6 +1064,30 @@ class ChapterFactExtractor:
             fact, usage = await self._extract_segmented(
                 system, novel_id, chapter_id, segments, meta=meta,
             )
+        elif scene_merge:
+            marked_text, total_paragraphs = SceneLLMExtractor._add_paragraph_markers(
+                chapter_text,
+            )
+            if total_paragraphs == 0:
+                fact, usage = await self._extract_single(
+                    system, novel_id, chapter_id, chapter_text, meta=meta,
+                )
+            else:
+                meta.scene_total_paragraphs = total_paragraphs
+                merged_system = system + "\n\n" + self._scene_merge_guide
+                base_builder = self._build_user_prompt
+
+                def build_prompt(cid, text, example_text, segment_hint=""):
+                    return base_builder(
+                        cid, text, example_text, segment_hint=segment_hint,
+                    ) + _SCENE_USER_REQ
+
+                fact, usage = await self._extract_single(
+                    merged_system, novel_id, chapter_id, marked_text,
+                    prompt_builder=build_prompt,
+                    schema=_build_extraction_schema_with_scenes(),
+                    meta=meta,
+                )
         else:
             # Single segment — original flow with retry
             fact, usage = await self._extract_single(
@@ -1571,6 +1702,11 @@ class ChapterFactExtractor:
                 )
                 result = dict_items[0]
 
+        # issue #78 合并模式: scenes 是 wrapper schema 的附加产物,不属于
+        # ChapterFact —— 须在 Pydantic 校验前拆出,避免污染 fact_json 落库、
+        # recall 与二审 diff。非合并路径 LLM 误产 scenes 时同样在此剥离丢弃。
+        scenes_raw = result.pop("scenes", None)
+
         # Normalize LLM field name variants before Pydantic validation
         _normalize_field_names(result)
 
@@ -1599,6 +1735,25 @@ class ChapterFactExtractor:
             logger.warning(
                 "Chapter %d: LLM 输出被截断(finish_reason=length),"
                 "locations/spatial_relationships 可能缺失", chapter_id,
+            )
+            if meta.scene_total_paragraphs > 0:
+                logger.warning(
+                    "Chapter %d: 合并模式下输出截断,scenes 可能缺失或不全"
+                    "(将回退独立 scene 调用)", chapter_id,
+                )
+
+        # issue #78: 合并产物 scenes 校验入库候选(坐标钳制/覆盖修复/重排,
+        # 与独立 scene 调用同一实现)。scenes_raw 为空或非法时得到 [],
+        # 调用方据此回退独立 scene 调用。
+        if (
+            meta is not None
+            and meta.scene_total_paragraphs > 0
+            and scenes_raw is not None
+        ):
+            meta.scenes = SceneLLMExtractor._validate_scenes(
+                scenes_raw if isinstance(scenes_raw, list) else [],
+                chapter_id,
+                meta.scene_total_paragraphs,
             )
 
         return ChapterFact.model_validate(result), usage

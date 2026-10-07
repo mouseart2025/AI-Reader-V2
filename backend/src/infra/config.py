@@ -106,6 +106,22 @@ ER_MAX_CLUSTER_SIZE: int = int(os.environ.get("ER_MAX_CLUSTER_SIZE", "12"))
 CONTEXT_WINDOW_SIZE: int = 8192
 
 
+def get_scene_merge_enabled() -> bool:
+    """场景抽取并入主抽取 (issue #78): 单段云端章一次 LLM 调用同时产出
+    facts + scenes,省掉 scene_llm_extractor 单独重发整章原文的一次调用。
+
+    默认: 云端 (LLM_PROVIDER=openai) 开,本地 Ollama 关 (16K num_ctx 下
+    scenes 输出撞顶风险高)。SCENE_MERGE_ENABLED 显式设置时以 env 为准。
+    用函数而非模块常量: LLM_PROVIDER 运行时热切换 (update_cloud_config)。
+    """
+    env = os.environ.get("SCENE_MERGE_ENABLED", "").strip().lower()
+    if env in ("1", "true", "yes", "on"):
+        return True
+    if env in ("0", "false", "no", "off"):
+        return False
+    return LLM_PROVIDER == "openai"
+
+
 def get_analysis_concurrency() -> int:
     """窗口化并发抽取的 worker 数 (issue #61)。
 

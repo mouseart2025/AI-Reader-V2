@@ -199,6 +199,23 @@ def test_span_located_quote_style_normalized():
     assert not span_located("众猴听说，即拱伏无违，朝上礼拜，都称'百岁大王'", text)
 
 
+def test_span_located_paragraph_markers_stripped():
+    """issue #78 场景合并:原文注入【P0】【P1】段落标记后,跨段/段首 span
+    仍须照常定位(归一化剥离标记)。"""
+    marked = (
+        "【P0】宋江与武松在柴进庄上结拜为义兄弟。\n"
+        "【P1】两人把酒言欢,结为生死之交。"
+    )
+    # 跨段 span(标记落在 span 中间)
+    assert span_located("结拜为义兄弟。两人把酒言欢", marked)
+    # 段首 span
+    assert span_located("两人把酒言欢,结为生死之交", marked)
+    # LLM 连标记一起引用时,span 内的标记同样剥离
+    assert span_located("结拜为义兄弟。【P1】两人把酒言欢", CHAPTER_TEXT)
+    # 内容差异仍判不可定位
+    assert not span_located("结拜为义兄弟。两人大打出手", marked)
+
+
 # ── 开关(NFR-3 回退)──
 
 

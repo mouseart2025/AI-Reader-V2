@@ -212,10 +212,18 @@ class AnalysisService:
 
     async def _extract_and_store_scenes(
         self, novel_id: str, chapter_pk: int, chapter_text: str, chapter_num: int, fact,
+        merged_scenes: list[dict] | None = None,
     ) -> None:
         """场景抽取 + 落库(章内并行环节之一)。须在 insert_chapter_fact 之后
-        运行(chapter_facts 行须已存在,UPDATE 才生效)。"""
-        scenes = await self.scene_extractor.extract(chapter_text, chapter_num, fact)
+        运行(chapter_facts 行须已存在,UPDATE 才生效)。
+
+        merged_scenes 非空 = 主抽取合并产物 (issue #78, 云端单段章一次调用
+        同时产出 facts+scenes),直接落库,省掉独立 scene 调用;为 None/空
+        时回退独立 scene LLM 调用(本地模式 / 分段长章 / 截断章 / 合并产物
+        为空或被输出截断)。"""
+        scenes = merged_scenes
+        if not scenes:
+            scenes = await self.scene_extractor.extract(chapter_text, chapter_num, fact)
         if scenes:
             await chapter_fact_store.update_scenes(novel_id, chapter_pk, scenes)
 
@@ -724,6 +732,7 @@ class AnalysisService:
                         ),
                         self._extract_and_store_scenes(
                             novel_id, chapter_pk, chapter["content"], chapter_num, fact,
+                            merged_scenes=extraction_meta.scenes,
                         ),
                         self._index_chapter_embeddings(
                             novel_id, chapter_num, chapter["content"], fact,
@@ -1299,6 +1308,7 @@ class AnalysisService:
                         ),
                         self._extract_and_store_scenes(
                             novel_id, chapter_pk, chapter["content"], chapter_num, fact,
+                            merged_scenes=extraction_meta.scenes,
                         ),
                         self._index_chapter_embeddings(
                             novel_id, chapter_num, chapter["content"], fact,
