@@ -27,6 +27,9 @@ jobs:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: "backend/uv.lock"
+      # 裸环境（不装 embed/embed-torch extra）跑单测：chromadb /
+      # sentence-transformers 是可选重依赖（issue #80），此处验证无重
+      # 依赖时套件整体可过。
       - name: Install dependencies
         working-directory: backend
         run: uv sync

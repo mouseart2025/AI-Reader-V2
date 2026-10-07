@@ -129,10 +129,13 @@ jobs:
           fi
 
       # ── Backend sidecar ─────────────────────
+      # --extra embed: 桌面版需要 ChromaDB 语义搜索（ONNX 回退向量）。
+      # sentence-transformers/torch 在 embed-torch extra 中，桌面版不安装
+      # （ai-reader-sidecar.spec 的 excludes 也不打包它们）。
       - name: Install backend deps + PyInstaller
         run: |
           cd backend
-          uv sync
+          uv sync --extra embed
           uv pip install pyinstaller
 
       - name: Verify Python 3.11 in venv (Windows)
@@ -153,12 +156,6 @@ jobs:
             $_ -notmatch 'Python\\3\.(1[2-9]|[2-9][0-9])' -and $_ -notmatch 'Python3(1[2-9]|[2-9][0-9])'
           }) -join ';'
           echo "PATH=$newPath" >> $env:GITHUB_ENV
-
-      - name: Remove heavy packages before PyInstaller
-        shell: bash
-        run: |
-          cd backend
-          uv pip uninstall torch torchvision torchaudio sentence-transformers transformers safetensors huggingface-hub hf-xet sympy kubernetes || true
 
       - name: Build sidecar (macOS)
         if: runner.os == 'macOS'

@@ -8,8 +8,6 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "aiosqlite",
-    "chromadb",
-    "sentence-transformers",
     "pydantic>=2.0",
     "httpx",
     "websockets",
@@ -24,6 +22,24 @@ dependencies = [
     "matplotlib>=3.9.4",
     "anthropic>=0.86.0",
     "python-louvain>=0.16",
+    # 以下为 src 直接 import 的运行时依赖，原先由 chromadb/sentence-transformers
+    # 间接带入；issue #80 拆分为 optional extra 后必须显式声明（裸环境也要可用）
+    "scipy>=1.13.0",
+    "numpy>=1.26.0",
+    "networkx>=3.2.0",
+]
+
+# 嵌入/语义搜索重依赖（issue #80）：默认不安装，CI 单测保持裸环境。
+# embed       — ChromaDB + ONNX 回退向量（桌面版 sidecar 用，不含 torch）
+# embed-torch — 完整 BGE 中文向量（sentence-transformers + torch，数 GB），
+#               本地开发完整环境用 `uv sync --all-extras`
+[project.optional-dependencies]
+embed = [
+    "chromadb",
+]
+embed-torch = [
+    "chromadb",
+    "sentence-transformers",
 ]
 
 [dependency-groups]

@@ -3,16 +3,23 @@
 Uses BGE-base-zh-v1.5 (via sentence_transformers) when available,
 falls back to ChromaDB's built-in ONNX model (all-MiniLM-L6-v2) for
 desktop/PyInstaller builds where torch is not bundled.
+
+chromadb / sentence-transformers 是 optional extra（embed / embed-torch，
+issue #80）——本模块必须能在未安装这些包时被 import，只在首次真正
+使用时惰性导入并给出中文提示；语义搜索相关调用方均已做异常隔离。
 """
+
+from __future__ import annotations
 
 import logging
 import os
 import sys
-from typing import Any
-
-import chromadb
+from typing import TYPE_CHECKING, Any
 
 from src.infra.config import CHROMA_DIR, EMBEDDING_MODEL
+
+if TYPE_CHECKING:
+    import chromadb
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +28,22 @@ _client: chromadb.ClientAPI | None = None
 _embed_fn: Any = None
 
 
+def _import_chromadb() -> Any:
+    """惰性导入 chromadb；未安装 embed extra 时给出可操作的中文提示。"""
+    try:
+        import chromadb
+    except ImportError:
+        raise RuntimeError(
+            "未安装嵌入依赖（chromadb），语义搜索不可用。"
+            "请运行 `uv sync --extra embed`（本地完整环境用 `uv sync --all-extras`）后重启后端。"
+        ) from None
+    return chromadb
+
+
 def _get_client() -> chromadb.ClientAPI:
     global _client
     if _client is None:
+        chromadb = _import_chromadb()
         _client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     return _client
 
@@ -54,6 +74,7 @@ def _get_embed_fn() -> Any:
         pass
 
     # Fallback: ChromaDB built-in ONNX model (no torch needed)
+    _import_chromadb()  # 未安装 embed extra 时在此抛出中文提示
     from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 
     _embed_fn = ONNXMiniLM_L6_V2()
