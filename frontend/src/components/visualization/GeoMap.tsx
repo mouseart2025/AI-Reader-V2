@@ -14,14 +14,17 @@ import L from "leaflet"
 import type { LatLngBoundsExpression } from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
+import { gcj02ToWgs84, wgs84ToGcj02 } from "@/lib/gcj02"
 
-// ── Tile layer (no labels — clean canvas for novel markers) ──
-// Esri World Light Gray Canvas: WGS-84（与 GeoNames 坐标一致）、免 key、
-// 国内可达。CARTO basemaps 旧端点已开始要求 API key 且在部分网络不可达。
+// ── Tile layer ──
+// 高德矢量底图:中文标注(贴合中文小说语境)、按中国法规绘制(台湾是中国
+// 的一部分,无合规风险)、免 key、国内可达。注意高德使用 GCJ-02 火星坐标,
+// GeoNames 的 WGS-84 标记必须经 wgs84ToGcj02 转换后才能叠加;
+// 境外底图(CARTO 要 key/Esri 英文标注+画法问题)均不适合。
 const TILE_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-const TILE_ATTR =
-  'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS'
+  "https://webst0{s}.is.autonavi.com/appmaptile?style=7&x={x}&y={y}&z={z}"
+const TILE_SUBDOMAINS = ["1", "2", "3", "4"]
+const TILE_ATTR = '&copy; <a href="https://lbs.amap.com/">高德地图 AutoNavi</a>'
 
 // ── Crosshair icon for editing mode ──────────────
 const CROSSHAIR_ICON = L.divIcon({
@@ -269,35 +272,48 @@ export function GeoMap({
     [locations, geoCoords],
   )
 
+  // 高德底图为 GCJ-02 坐标系:所有 WGS-84 标记统一转换一次再渲染
+  const displayCoords = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(geoCoords).map(([name, c]) => [
+          name,
+          wgs84ToGcj02(c.lat, c.lng),
+        ]),
+      ),
+    [geoCoords],
+  )
+
   // Trajectory polyline coordinates
   const trajectoryLatLngs = useMemo(() => {
     if (!trajectoryPoints || trajectoryPoints.length === 0) return []
     const coords: [number, number][] = []
     for (const tp of trajectoryPoints) {
-      const gc = geoCoords[tp.location]
+      const gc = displayCoords[tp.location]
       if (gc) coords.push([gc.lat, gc.lng])
     }
     return coords
-  }, [trajectoryPoints, geoCoords])
+  }, [trajectoryPoints, displayCoords])
 
   // Current location highlight
-  const currentCoord = currentLocation ? geoCoords[currentLocation] : null
+  const currentCoord = currentLocation ? displayCoords[currentLocation] : null
 
   // Focus/fly target: editing location takes priority over focusLocation
   const flyTarget = editingLocation ?? focusLocation ?? null
 
   // Focus location for pulse
-  const focusCoord = focusLocation ? geoCoords[focusLocation] ?? null : null
+  const focusCoord = focusLocation ? displayCoords[focusLocation] ?? null : null
 
   // Default center (world center)
   const defaultCenter: [number, number] = [20, 0]
 
-  // Handle drag end on editable marker
+  // Handle drag end on editable marker — 地图读回的是 GCJ-02,存回 WGS-84
   const handleDragEnd = useCallback(
     (name: string, e: L.DragEndEvent) => {
       const marker = e.target as L.Marker
       const latlng = marker.getLatLng()
-      onEditDragEnd?.(name, latlng.lat, latlng.lng)
+      const wgs = gcj02ToWgs84(latlng.lat, latlng.lng)
+      onEditDragEnd?.(name, wgs.lat, wgs.lng)
     },
     [onEditDragEnd],
   )
@@ -326,14 +342,14 @@ export function GeoMap({
         zoomControl={true}
         scrollWheelZoom={true}
       >
-        <TileLayer url={TILE_URL} attribution={TILE_ATTR} />
-        <FitBounds coords={geoCoords} />
-        <FlyToLocation locationName={flyTarget} geoCoords={geoCoords} />
+        <TileLayer url={TILE_URL} subdomains={TILE_SUBDOMAINS} attribution={TILE_ATTR} />
+        <FitBounds coords={displayCoords} />
+        <FlyToLocation locationName={flyTarget} geoCoords={displayCoords} />
 
         {/* Location markers — rendered inside a zoom-aware wrapper */}
         <ZoomAwareMarkers
           geoLocations={geoLocations}
-          geoCoords={geoCoords}
+          geoCoords={displayCoords}
           currentLocation={currentLocation ?? null}
           focusLocation={focusLocation ?? null}
           editingLocation={editingLocation ?? null}
