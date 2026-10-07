@@ -23,8 +23,8 @@ AI Reader V2 is a Chinese novel analysis platform. Users upload TXT novels, the 
 ## Quick Start
 
 ```bash
-# Backend
-cd backend && uv sync && uv run uvicorn src.api.main:app --reload
+# Backend（--all-extras 安装 embed/embed-torch 语义搜索重依赖；裸开发可只 uv sync）
+cd backend && uv sync --all-extras && uv run uvicorn src.api.main:app --reload
 
 # Frontend (separate terminal)
 cd frontend && npm install && npm run dev
@@ -88,6 +88,8 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 ### Analysis Pipeline
 
 `AnalysisService` → per-chapter loop → `ContextSummaryBuilder` (prior chapter summary) → `ChapterFactExtractor` (LLM call, with entity dictionary injection if available) → `FactValidator` → `hallucination_reviewer` (LLM layer, FR-4.2) → write to DB → WebSocket progress push. Supports pause/resume/cancel. Concurrency controlled by asyncio semaphore (1 concurrent LLM call for single-GPU). Optional windowed concurrency (issue #61, `ANALYSIS_CONCURRENCY` > 1, cloud only): k extraction workers (context build + LLM extract, side-effect-free) + a single merger that runs all side-effecting steps (validation / hallucination review / name resolver / DB write / world structure / scenes / embeddings / cost / progress) in strict chapter order.
+
+**Scene merge (issue #78)**: cloud single-segment chapters extract scenes in the SAME LLM call as facts — a wrapper schema (`ChapterFact` fields + `scenes`, scenes NOT in the pydantic model) plus `【Pn】` paragraph markers injected into the chapter text. Scenes are split out before `ChapterFact.model_validate` and written via `chapter_fact_store.update_scenes` as before (downstream zero change). Fallback to the standalone `SceneLLMExtractor` call: local Ollama (default off, 16K num_ctx too tight), segmented long chapters (paragraph coordinates break), truncated chapters, or empty/truncated merged scenes. Evidence span normalization strips `【P\d+】` markers so citation grounding still locates cross-paragraph spans. Switch: `SCENE_MERGE_ENABLED` (default: cloud on / local off; env explicit setting wins).
 
 **Post-analysis background tasks (non-fatal)**: on completion, `_schedule_post_analysis()` fires two background tasks. The geo chain (`_run_geo_pipeline`) is serialized — `_auto_rebuild_hierarchy` (GeoOrchestrator v2, no LLM, <1s) must finish before `_auto_spatial_completion` (LLM, 60–300s) starts, because both do load-modify-save whole-document writes to `world_structures`; concurrent execution let spatial completion overwrite the rebuilt hierarchy with its stale pre-rebuild baseline (last-writer-wins race, Epic 6). Entity resolution (Epic 2) stays concurrent — it never writes `world_structures`. Both rebuild chains (auto + `POST /rebuild-hierarchy-v2`) share `build_default_orchestrator()`.
 
@@ -314,6 +316,9 @@ LLM_API_KEY           # API key for the cloud provider
 LLM_BASE_URL          # Base URL (e.g., https://api.deepseek.com/v1)
 LLM_MODEL             # Model name (e.g., deepseek-chat)
 LLM_MAX_TOKENS        # Default: 8192
+SCENE_MERGE_ENABLED   # 场景抽取并入主抽取 (issue #78): 云端单段章一次调用同时产出
+                      # facts+scenes, 省一次整章输入 token. 默认云端开/本地关,
+                      # env 显式设置优先; 分段/截断章自动回退独立 scene 调用
 # LLM_PROVIDER_FORMAT is set automatically by update_cloud_config() — not an env var.
 # "openai" (default, all OpenAI-compatible providers) or "anthropic" (Claude API).
 # Controls auth header (Bearer vs x-api-key) and endpoint (/chat/completions vs /v1/messages).
@@ -328,7 +333,7 @@ npm run build        # TypeScript check + Vite production build
 npm run lint         # ESLint
 
 # Backend
-uv sync              # Install/update Python dependencies
+uv sync --all-extras   # Install/update Python dependencies（含语义搜索重依赖；裸环境只跑 uv sync）
 uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
 ```
 
