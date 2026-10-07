@@ -2,23 +2,36 @@
  * DesktopNovelCard — 桌面版书架小说卡片（设计改版）
  *
  * 设计语言：
- * - 每本书由书名哈希出确定性色相，以 3px 书脊色条 + 顶部同色微光呈现——
- *   一整屏卡片因此可扫读、可辨识，而不是一排相同的灰块
- * - 状态用色彩分层：分析完成=emerald、分析中=blue 脉动+进度、失败=amber、
- *   未分析=muted；分析/阅读两条 2px 细进度轨沉在卡片底部，平时不抢眼
+ * - 每本书由书名哈希出「 curated 调色板」里的一个身份色（低饱和、
+ *   统一明度），以 3px 书脊色条 + 顶部同色微光呈现——可辨识但互不打架,
+ *   避免全谱随机色相造成的"嘉年华"感
+ * - 状态色是唯一的高饱和色：完成=emerald、分析中=blue、失败/暂停=amber,
+ *   即「颜色 = 语义」,装饰色全部压到低饱和
  * - 排版层级：标题(15px semibold, clamp-2) > 统计(xs tabular) > 状态(xs)
  */
 
 import type { Novel } from "@/api/types"
 import { CheckCircle2, Trash2 } from "lucide-react"
 
-/** 书名 → 0-360 确定性色相 */
-function titleHue(title: string): number {
+/** curated 身份色调色板：低饱和(30-40%)、统一明度(55-65%),邻近书不撞色 */
+const SPINE_TONES = [
+  "hsl(215, 38%, 62%)", // 雾蓝
+  "hsl(160, 30%, 55%)", // 鼠尾草
+  "hsl(35, 42%, 60%)",  // 暖沙
+  "hsl(268, 32%, 66%)", // 灰紫
+  "hsl(345, 36%, 66%)", // 黛粉
+  "hsl(190, 34%, 56%)", // 青
+  "hsl(12, 40%, 60%)",  // 陶土
+  "hsl(240, 34%, 66%)", // 靛
+]
+
+/** 书名 → 调色板下标（确定性） */
+function titleTone(title: string): string {
   let hash = 0
   for (let i = 0; i < title.length; i++) {
     hash = (hash * 31 + title.charCodeAt(i)) | 0
   }
-  return Math.abs(hash) % 360
+  return SPINE_TONES[Math.abs(hash) % SPINE_TONES.length]
 }
 
 function formatWordCount(count: number): string {
@@ -34,9 +47,8 @@ interface DesktopNovelCardProps {
 }
 
 export function DesktopNovelCard({ novel, analysisStatus, onClick, onDelete }: DesktopNovelCardProps) {
-  const hue = titleHue(novel.title)
-  const spine = `hsl(${hue}, 70%, 60%)`
-  const glow = `linear-gradient(180deg, hsl(${hue}, 70%, 60%, 0.16), transparent 60%)`
+  const spine = titleTone(novel.title)
+  const glow = `linear-gradient(180deg, color-mix(in srgb, ${spine} 14%, transparent), transparent 60%)`
   const progress = novel.analysis_progress
   const failed = novel.failed_count > 0
   const done = progress >= 1 && !failed
