@@ -25,7 +25,6 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     breadcrumbs,
     conceptPopup,
     setProfile,
-    setLoading,
     setError,
     navigateTo,
     goBack,
@@ -34,6 +33,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     getCachedProfile,
     setCachedProfile,
     reloadNonce,
+    refresh,
   } = useEntityCardStore()
 
   const navigate = useNavigate()
@@ -76,7 +76,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
     return () => {
       cancelled = true
     }
-  }, [novelId, open, crumbName, crumbType, aliasMap, reloadNonce, setProfile, setLoading, setError, getCachedProfile, setCachedProfile])
+  }, [novelId, open, crumbName, crumbType, aliasMap, reloadNonce, setProfile, setError, getCachedProfile, setCachedProfile])
 
   const handleEntityClick = useCallback(
     (name: string, type: string) => {
@@ -162,10 +162,7 @@ export function EntityCardDrawer({ novelId }: EntityCardDrawerProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setError(null)
-                  setLoading(true)
-                }}
+                onClick={refresh}
               >
                 重试
               </Button>
