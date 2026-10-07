@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   MapContainer,
-  TileLayer,
+  GeoJSON as LeafletGeoJSON,
   CircleMarker,
   Marker,
   Polyline,
@@ -12,19 +12,65 @@ import {
 } from "react-leaflet"
 import L from "leaflet"
 import type { LatLngBoundsExpression } from "leaflet"
+import type { FeatureCollection } from "geojson"
 import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
-import { gcj02ToWgs84, wgs84ToGcj02 } from "@/lib/gcj02"
+import chinaProvinces from "@/assets/china_provinces.json"
 
-// ── Tile layer ──
-// 高德矢量底图:中文标注(贴合中文小说语境)、按中国法规绘制(台湾是中国
-// 的一部分,无合规风险)、免 key、国内可达。注意高德使用 GCJ-02 火星坐标,
-// GeoNames 的 WGS-84 标记必须经 wgs84ToGcj02 转换后才能叠加;
-// 境外底图(CARTO 要 key/Esri 英文标注+画法问题)均不适合。
-const TILE_URL =
-  "https://webst0{s}.is.autonavi.com/appmaptile?style=7&x={x}&y={y}&z={z}"
-const TILE_SUBDOMAINS = ["1", "2", "3", "4"]
-const TILE_ATTR = '&copy; <a href="https://lbs.amap.com/">高德地图 AutoNavi</a>'
+// ── 底图:自绘素净画布 ──
+// 现代栅格底图(CARTO 要 key / Esri 英文标注+画法合规风险 / 高德有铁路与
+// 现代道路,时空错乱)都不适合小说地图。改为本地渲染中国省级轮廓
+// (阿里 DataV 边界数据,依据自然资源部标准地图,台湾省/港澳齐全),
+// 无现代基础设施、离线可用。坐标系已用 6 座 WGS-84 城市做点面校验,
+// 与 GeoNames 标记同一基准,无需 GCJ-02 转换。
+const CHINA_GEOJSON = chinaProvinces as unknown as FeatureCollection
+const MAP_ATTRIBUTION = "边界数据 © 阿里 DataV（依据自然资源部标准地图）"
+
+// 画布配色:浅海色面板 + 暖纸色陆地 + 低饱和描边,不抢小说标记
+const LAND_STYLE: L.PathOptions = {
+  color: "#a8b4bd",
+  weight: 1,
+  fillColor: "#f7f5f0",
+  fillOpacity: 1,
+}
+
+// ── 中国省级轮廓(素净画布底图) ──
+function ProvinceLayer() {
+  const zoom = useZoomLevel()
+  const map = useMap()
+  useEffect(() => {
+    map.attributionControl?.addAttribution(MAP_ATTRIBUTION)
+  }, [map])
+  return (
+    <>
+      <LeafletGeoJSON
+        data={CHINA_GEOJSON}
+        style={() => LAND_STYLE}
+        interactive={false}
+      />
+      {/* 省名标注:仅低缩放级别显示,高缩放让位给小说地点 */}
+      {zoom <= 5 &&
+        CHINA_GEOJSON.features.map((f) => {
+          const name = f.properties?.name as string | undefined
+          const centroid = f.properties?.centroid as [number, number] | undefined
+          if (!name || !centroid) return null
+          return (
+            <Marker
+              key={`prov-${name}`}
+              position={[centroid[1], centroid[0]]}
+              icon={L.divIcon({
+                className: "",
+                html: `<span style="font-size:11px;color:#7d8a95;white-space:nowrap">${name}</span>`,
+                iconSize: [0, 0],
+              })}
+              interactive={false}
+              keyboard={false}
+            />
+          )
+        })}
+    </>
+  )
+}
 
 // ── Crosshair icon for editing mode ──────────────
 const CROSSHAIR_ICON = L.divIcon({
@@ -272,48 +318,35 @@ export function GeoMap({
     [locations, geoCoords],
   )
 
-  // 高德底图为 GCJ-02 坐标系:所有 WGS-84 标记统一转换一次再渲染
-  const displayCoords = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(geoCoords).map(([name, c]) => [
-          name,
-          wgs84ToGcj02(c.lat, c.lng),
-        ]),
-      ),
-    [geoCoords],
-  )
-
   // Trajectory polyline coordinates
   const trajectoryLatLngs = useMemo(() => {
     if (!trajectoryPoints || trajectoryPoints.length === 0) return []
     const coords: [number, number][] = []
     for (const tp of trajectoryPoints) {
-      const gc = displayCoords[tp.location]
+      const gc = geoCoords[tp.location]
       if (gc) coords.push([gc.lat, gc.lng])
     }
     return coords
-  }, [trajectoryPoints, displayCoords])
+  }, [trajectoryPoints, geoCoords])
 
   // Current location highlight
-  const currentCoord = currentLocation ? displayCoords[currentLocation] : null
+  const currentCoord = currentLocation ? geoCoords[currentLocation] : null
 
   // Focus/fly target: editing location takes priority over focusLocation
   const flyTarget = editingLocation ?? focusLocation ?? null
 
   // Focus location for pulse
-  const focusCoord = focusLocation ? displayCoords[focusLocation] ?? null : null
+  const focusCoord = focusLocation ? geoCoords[focusLocation] ?? null : null
 
   // Default center (world center)
   const defaultCenter: [number, number] = [20, 0]
 
-  // Handle drag end on editable marker — 地图读回的是 GCJ-02,存回 WGS-84
+  // Handle drag end on editable marker
   const handleDragEnd = useCallback(
     (name: string, e: L.DragEndEvent) => {
       const marker = e.target as L.Marker
       const latlng = marker.getLatLng()
-      const wgs = gcj02ToWgs84(latlng.lat, latlng.lng)
-      onEditDragEnd?.(name, wgs.lat, wgs.lng)
+      onEditDragEnd?.(name, latlng.lat, latlng.lng)
     },
     [onEditDragEnd],
   )
@@ -338,18 +371,18 @@ export function GeoMap({
       <MapContainer
         center={defaultCenter}
         zoom={2}
-        style={{ height: "100%", width: "100%" }}
+        style={{ height: "100%", width: "100%", background: "#dbe4ea" }}
         zoomControl={true}
         scrollWheelZoom={true}
       >
-        <TileLayer url={TILE_URL} subdomains={TILE_SUBDOMAINS} attribution={TILE_ATTR} />
-        <FitBounds coords={displayCoords} />
-        <FlyToLocation locationName={flyTarget} geoCoords={displayCoords} />
+        <ProvinceLayer />
+        <FitBounds coords={geoCoords} />
+        <FlyToLocation locationName={flyTarget} geoCoords={geoCoords} />
 
         {/* Location markers — rendered inside a zoom-aware wrapper */}
         <ZoomAwareMarkers
           geoLocations={geoLocations}
-          geoCoords={displayCoords}
+          geoCoords={geoCoords}
           currentLocation={currentLocation ?? null}
           focusLocation={focusLocation ?? null}
           editingLocation={editingLocation ?? null}
