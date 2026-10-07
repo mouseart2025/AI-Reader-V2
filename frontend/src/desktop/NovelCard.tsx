@@ -36,7 +36,7 @@ interface DesktopNovelCardProps {
 export function DesktopNovelCard({ novel, analysisStatus, onClick, onDelete }: DesktopNovelCardProps) {
   const hue = titleHue(novel.title)
   const spine = `hsl(${hue}, 70%, 60%)`
-  const glow = `linear-gradient(180deg, hsl(${hue}, 70%, 60%, 0.10), transparent 55%)`
+  const glow = `linear-gradient(180deg, hsl(${hue}, 70%, 60%, 0.16), transparent 60%)`
   const progress = novel.analysis_progress
   const failed = novel.failed_count > 0
   const done = progress >= 1 && !failed
@@ -105,14 +105,16 @@ export function DesktopNovelCard({ novel, analysisStatus, onClick, onDelete }: D
           </div>
         </div>
 
-        {/* 底部双细进度轨：分析（上）+ 阅读（下，仅已开始阅读时可见） */}
+        {/* 底部细进度轨：分析（仅未完成时显示——满格无信息量）+ 阅读（已开始阅读时可见） */}
         <div className="relative mt-auto">
-          <div className="h-0.5 w-full bg-slate-700/30">
-            <div
-              className={`h-full transition-all ${done ? "bg-emerald-500/80" : "bg-blue-500/80"}`}
-              style={{ width: `${Math.min(progress * 100, 100)}%` }}
-            />
-          </div>
+          {progress < 1 && (
+            <div className="h-0.5 w-full bg-slate-700/30">
+              <div
+                className="h-full bg-blue-500/80 transition-all"
+                style={{ width: `${Math.min(progress * 100, 100)}%` }}
+              />
+            </div>
+          )}
           {novel.reading_progress > 0 && (
             <div className="h-0.5 w-full bg-slate-700/30">
               <div
