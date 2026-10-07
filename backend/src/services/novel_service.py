@@ -416,6 +416,110 @@ def get_available_modes() -> list[str]:
     return AVAILABLE_MODES
 
 
+def _chapter_fingerprint(title: str, content: str) -> str:
+    """Whitespace-insensitive content hash for append dedup (issue #69).
+
+    Title is included so two chapters with identical body but different
+    headings are still distinct; whitespace is stripped so re-pasted text
+    with different line breaks still matches.
+    """
+    normalized = re.sub(r"\s+", "", title + content)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+async def append_chapters(novel_id: str, text: str) -> dict:
+    """Append new chapters to an existing novel (issue #69).
+
+    Splits *text* with the same chapter splitter as upload, drops chapters
+    whose content duplicates any existing chapter (or duplicates within the
+    batch itself), numbers the rest continuing from max(chapter_num), and
+    marks them pending analysis. Existing chapters and their analysis data
+    (facts / world structure / embeddings) are never touched.
+
+    Returns a summary dict matching AppendChaptersResponse.
+    Raises ValueError for empty text or when no chapter can be split out.
+    """
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"\n{4,}", "\n\n\n", text)  # same normalization as upload
+    if not text.strip():
+        raise ValueError("追加内容为空")
+
+    split_result = split_chapters_ex(text)
+    chapters = split_result.chapters
+    if not chapters:
+        raise ValueError("未能从文本中识别出章节，请检查章节标题格式")
+
+    from src.db.sqlite_db import get_connection
+
+    conn = await get_connection()
+    try:
+        cur = await conn.execute(
+            "SELECT chapter_num, title, content FROM chapters"
+            " WHERE novel_id = ? ORDER BY chapter_num",
+            (novel_id,),
+        )
+        rows = await cur.fetchall()
+        max_num = rows[-1]["chapter_num"] if rows else 0
+
+        seen = {_chapter_fingerprint(r["title"], r["content"]) for r in rows}
+        kept: list[ChapterInfo] = []
+        skipped = 0
+        for ch in chapters:
+            fp = _chapter_fingerprint(ch.title, ch.content)
+            if fp in seen:
+                skipped += 1
+                continue
+            seen.add(fp)
+            ch.chapter_num = max_num + len(kept) + 1
+            kept.append(ch)
+
+        if kept:
+            await novel_store.insert_chapters(novel_id, kept, conn=conn)
+        # Recompute totals from the chapters table so excluded chapters and
+        # any prior drift stay consistent with existing import behavior.
+        await conn.execute(
+            """
+            UPDATE novels SET
+                total_chapters = (SELECT COUNT(*) FROM chapters WHERE novel_id = ?),
+                total_words = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE novel_id = ?),
+                updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (novel_id, novel_id, novel_id),
+        )
+        await conn.commit()
+    except Exception:
+        await conn.rollback()
+        raise
+    finally:
+        await conn.close()
+
+    total_chapters = max_num + len(kept)
+    if kept:
+        message = f"新增 {len(kept)} 章"
+        if skipped:
+            message += f"，跳过 {skipped} 章重复内容"
+    else:
+        message = f"未新增章节：{skipped} 章与已有内容重复"
+
+    from src.api.schemas.novels import AppendChaptersResponse, ChapterPreviewItem
+
+    return AppendChaptersResponse(
+        added=len(kept),
+        skipped=skipped,
+        total_chapters=total_chapters,
+        chapters=[
+            ChapterPreviewItem(
+                chapter_num=ch.chapter_num,
+                title=ch.title,
+                word_count=ch.word_count,
+            )
+            for ch in kept
+        ],
+        message=message,
+    ).model_dump()
+
+
 def get_cached_raw_text(file_hash: str) -> str | None:
     """Return cached raw text for a file_hash, or None if expired/missing."""
     _evict_expired()

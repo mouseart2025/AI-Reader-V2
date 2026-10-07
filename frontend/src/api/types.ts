@@ -127,6 +127,14 @@ export interface UploadPreviewResponse {
   matched_mode?: string | null
 }
 
+export interface AppendChaptersResponse {
+  added: number
+  skipped: number
+  total_chapters: number
+  chapters: ChapterPreview[]
+  message: string
+}
+
 export interface ConfirmImportRequest {
   file_hash: string
   title: string

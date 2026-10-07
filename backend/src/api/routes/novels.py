@@ -1,8 +1,11 @@
 """Novel management endpoints: upload, confirm, list, delete."""
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.api.schemas.novels import (
+    AppendChaptersResponse,
     CleanAndReSplitRequest,
     ConfirmImportRequest,
     NovelListItem,
@@ -300,6 +303,64 @@ async def get_novel_stats(novel_id: str):
         }
     finally:
         await conn.close()
+
+
+@router.post("/{novel_id}/chapters/append", response_model=AppendChaptersResponse)
+async def append_chapters(
+    novel_id: str,
+    file: Annotated[UploadFile | None, File()] = None,
+    text: Annotated[str | None, Form()] = None,
+):
+    """Append new chapters to an existing novel (issue #69).
+
+    Accepts either a .txt/.md file or raw pasted text (multipart form).
+    Chapters are split with the same splitter as upload, deduplicated
+    against existing content, numbered continuing from the current last
+    chapter, and marked pending analysis. Existing chapters and their
+    analysis data are never modified.
+    """
+    novel = await novel_store.get_novel(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="小说不存在")
+
+    # Appending mid-run would confuse the active task's chapter range
+    from src.db import analysis_task_store
+
+    active = await analysis_task_store.get_running_task(novel_id)
+    if active and active["status"] == "running":
+        raise HTTPException(
+            status_code=409,
+            detail="分析进行中，请先暂停或等待分析完成后再追加章节",
+        )
+
+    content_text: str | None = None
+    if file is not None and file.filename:
+        filename = file.filename
+        suffix = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if suffix not in _ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的文件格式 '{suffix}'，仅支持 .txt 和 .md",
+            )
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(status_code=400, detail="上传文件为空")
+        if len(raw) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="文件大小超过 100MB 限制")
+        from src.utils.text_processor import decode_text
+
+        content_text = decode_text(raw)
+    elif text is not None:
+        content_text = text
+
+    if content_text is None or not content_text.strip():
+        raise HTTPException(status_code=400, detail="请提供要追加的文本或文件")
+
+    try:
+        result = await novel_service.append_chapters(novel_id, content_text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return result
 
 
 @router.delete("/{novel_id}")

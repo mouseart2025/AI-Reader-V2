@@ -74,6 +74,15 @@ class CleanAndReSplitRequest(BaseModel):
     clean_mode: str = "conservative"  # "conservative" or "aggressive"
 
 
+class AppendChaptersResponse(BaseModel):
+    """Result of appending new chapters to an existing novel (issue #69)."""
+    added: int  # chapters actually appended
+    skipped: int  # chapters skipped as duplicates of existing content
+    total_chapters: int  # novel's total after append
+    chapters: list[ChapterPreviewItem]  # the newly appended chapters
+    message: str  # user-facing summary (Chinese)
+
+
 class NovelResponse(BaseModel):
     id: str
     title: str

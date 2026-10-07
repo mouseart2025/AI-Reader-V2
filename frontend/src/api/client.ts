@@ -121,6 +121,25 @@ export function uploadNovelWithProgress(
   })
 }
 
+export async function appendChapters(
+  novelId: string,
+  opts: { file?: File; text?: string },
+): Promise<import("./types").AppendChaptersResponse> {
+  const form = new FormData()
+  if (opts.file) form.append("file", opts.file)
+  if (opts.text) form.append("text", opts.text)
+  const res = await fetch(`${getBase()}/novels/${novelId}/chapters/append`, {
+    method: "POST",
+    headers: { ...sidecarAuthHeaders() },
+    body: form,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.detail ?? `追加失败: ${res.status}`)
+  }
+  return res.json() as Promise<import("./types").AppendChaptersResponse>
+}
+
 export function checkEnvironment(): Promise<EnvironmentCheck> {
   return apiFetch<EnvironmentCheck>("/settings/health-check")
 }

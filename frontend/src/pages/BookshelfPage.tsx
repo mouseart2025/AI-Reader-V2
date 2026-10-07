@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/select"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { UploadDialog } from "@/components/shared/UploadDialog"
+import { AppendChaptersDialog } from "@/components/shared/AppendChaptersDialog"
 import { WelcomeBanner } from "@/components/shared/WelcomeBanner"
 import { ContextualGuideCard } from "@/components/shared/ContextualGuideCard"
 
@@ -107,12 +108,14 @@ function NovelCard({
   onDelete,
   onClick,
   onNavigate,
+  onAppend,
 }: {
   novel: Novel
   analysisStatus: "running" | "paused" | null
   onDelete: (novel: Novel) => void
   onClick: (novel: Novel) => void
   onNavigate: (path: string) => void
+  onAppend: (novel: Novel) => void
 }) {
   return (
     <Card
@@ -231,6 +234,18 @@ function NovelCard({
               {link.label}
             </Button>
           ))}
+          <Button
+            variant="outline"
+            size="xs"
+            className="flex-1 text-[10px] h-6"
+            title="向本书追加新章节（连载追更）"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAppend(novel)
+            }}
+          >
+            追加
+          </Button>
         </div>
 
         <div className="flex w-full items-center justify-between">
@@ -282,6 +297,7 @@ export default function BookshelfPage() {
   const [deleteTarget, setDeleteTarget] = useState<Novel | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [appendTarget, setAppendTarget] = useState<Novel | null>(null)
   const [activeAnalysisMap, setActiveAnalysisMap] = useState<Map<string, "running" | "paused">>(new Map())
 
   // Drag-to-upload state
@@ -615,6 +631,7 @@ export default function BookshelfPage() {
               onDelete={setDeleteTarget}
               onClick={handleClick}
               onNavigate={(path) => navigate(path)}
+              onAppend={setAppendTarget}
             />
           ))}
         </div>
@@ -633,6 +650,16 @@ export default function BookshelfPage() {
         initialFile={dragFile}
         externalImportPreview={importPreviewData}
         externalImportFile={importFile}
+      />
+
+      {/* Append Chapters Dialog (issue #69 连载追更) */}
+      <AppendChaptersDialog
+        open={!!appendTarget}
+        onOpenChange={(open) => {
+          if (!open) setAppendTarget(null)
+        }}
+        novel={appendTarget}
+        onAppended={loadNovels}
       />
 
       {/* Delete Confirmation Dialog */}
