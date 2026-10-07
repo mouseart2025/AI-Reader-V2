@@ -11,6 +11,7 @@ import { fetchNovels, fetchActiveAnalyses } from "@/api/client"
 import type { Novel } from "@/api/types"
 import { DragDropOverlay } from "./DragDropOverlay"
 import { SecurityGuide } from "./SecurityGuide"
+import { DesktopNovelCard } from "./NovelCard"
 import { UploadDialog } from "@/components/shared/UploadDialog"
 import { WelcomeBanner } from "@/components/shared/WelcomeBanner"
 import { HelpCircle, Upload, Settings, FileUp, BookOpen } from "lucide-react"
@@ -389,57 +390,13 @@ export default function DesktopBookshelfPage() {
         {!loading && !error && novels.length > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {novels.map((novel) => (
-              <button
+              <DesktopNovelCard
                 key={novel.id}
+                novel={novel}
+                analysisStatus={activeAnalysisMap.get(String(novel.id)) ?? null}
                 onClick={() => navigate(`/novel/${novel.id}/reading`)}
-                className="group relative rounded-lg border border-border bg-card p-4 text-left transition hover:border-blue-500/50 hover:shadow-lg"
-              >
-                {activeAnalysisMap.get(String(novel.id)) === "running" && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-green-500/20 px-2 py-0.5">
-                    <span className="inline-block size-1.5 animate-pulse rounded-full bg-green-400" />
-                    <span className="text-[10px] font-medium text-green-400">分析中</span>
-                  </div>
-                )}
-                {activeAnalysisMap.get(String(novel.id)) === "paused" && (
-                  <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-2 py-0.5">
-                    <span className="inline-block size-1.5 rounded-full bg-yellow-400" />
-                    <span className="text-[10px] font-medium text-yellow-400">已暂停</span>
-                  </div>
-                )}
-                <h3 className="font-semibold text-foreground group-hover:text-blue-400 transition">
-                  {novel.title}
-                </h3>
-                {novel.author && (
-                  <p className="mt-1 text-xs text-muted-foreground">{novel.author}</p>
-                )}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {novel.total_chapters} 章
-                </p>
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {novel.analysis_progress >= 1 && !novel.failed_count ? "分析完成" :
-                     novel.analysis_progress >= 1 && novel.failed_count > 0
-                       ? <span className="text-yellow-400">分析完成（{novel.failed_count} 章失败）</span> :
-                     novel.analysis_progress > 0
-                       ? <>
-                           分析 {Math.round(novel.analysis_progress * 100)}%
-                           {novel.failed_count > 0 && (
-                             <span className="text-yellow-400 ml-1">({novel.failed_count} 章失败)</span>
-                           )}
-                         </> :
-                     "未分析"}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(String(novel.id), novel.title)
-                    }}
-                    className="text-xs text-muted-foreground hover:text-red-400 transition opacity-0 group-hover:opacity-100"
-                  >
-                    删除
-                  </button>
-                </div>
-              </button>
+                onDelete={() => handleDelete(String(novel.id), novel.title)}
+              />
             ))}
           </div>
         )}
