@@ -489,21 +489,21 @@ export default function SettingsPage() {
             {/* Active engine status banner */}
             {envCheck && !envLoading && (
               <div className={cn(
-                "mb-3 flex items-center gap-3 rounded-lg border px-4 py-2.5",
+                "mb-3 flex items-center gap-3 rounded-xl border px-4 py-2.5",
                 envCheck.llm_provider === "openai"
                   ? envCheck.api_available
-                    ? "border-green-200 bg-green-50/60 dark:border-green-900 dark:bg-green-950/20"
-                    : "border-yellow-200 bg-yellow-50/60 dark:border-yellow-900 dark:bg-yellow-950/20"
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-amber-500/30 bg-amber-500/10"
                   : envCheck.ollama_status === "running" && envCheck.model_available
-                    ? "border-green-200 bg-green-50/60 dark:border-green-900 dark:bg-green-950/20"
-                    : "border-yellow-200 bg-yellow-50/60 dark:border-yellow-900 dark:bg-yellow-950/20",
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-amber-500/30 bg-amber-500/10",
               )}>
                 <span className={cn(
                   "inline-block h-2.5 w-2.5 shrink-0 rounded-full",
                   envCheck.llm_provider === "openai"
-                    ? envCheck.api_available ? "bg-green-500" : "bg-yellow-500"
+                    ? envCheck.api_available ? "bg-emerald-500" : "bg-amber-500"
                     : envCheck.ollama_status === "running" && envCheck.model_available
-                      ? "bg-green-500" : "bg-yellow-500",
+                      ? "bg-emerald-500" : "bg-amber-500",
                 )} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -529,21 +529,21 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
               {/* Mode tabs — pure navigation, no backend switching */}
               <div className="flex border-b">
                 <button
                   className={cn(
                     "flex-1 py-2.5 text-sm font-medium text-center transition-colors relative",
                     viewTab === "ollama"
-                      ? "bg-background text-foreground border-b-2 border-blue-500"
+                      ? "bg-background text-foreground border-b-2 border-primary"
                       : "bg-muted/30 text-muted-foreground hover:text-foreground",
                   )}
                   onClick={() => setViewTab("ollama")}
                 >
                   本地 Ollama
                   {envCheck?.llm_provider !== "openai" && (
-                    <span className="ml-1.5 inline-block rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600 dark:bg-green-900/40 dark:text-green-300">
+                    <span className="ml-1.5 inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
                       使用中
                     </span>
                   )}
@@ -552,14 +552,14 @@ export default function SettingsPage() {
                   className={cn(
                     "flex-1 py-2.5 text-sm font-medium text-center transition-colors relative",
                     viewTab === "openai"
-                      ? "bg-background text-foreground border-b-2 border-blue-500"
+                      ? "bg-background text-foreground border-b-2 border-primary"
                       : "bg-muted/30 text-muted-foreground hover:text-foreground",
                   )}
                   onClick={() => setViewTab("openai")}
                 >
                   云端 API
                   {envCheck?.llm_provider === "openai" && (
-                    <span className="ml-1.5 inline-block rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600 dark:bg-green-900/40 dark:text-green-300">
+                    <span className="ml-1.5 inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
                       使用中
                     </span>
                   )}
@@ -579,10 +579,10 @@ export default function SettingsPage() {
                           className={cn(
                             "text-xs px-2 py-0.5 rounded-full",
                             envCheck?.ollama_status === "running"
-                              ? "bg-green-50 text-green-600 dark:bg-green-950/30"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                               : envCheck?.ollama_status === "installed_not_running"
-                                ? "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30"
-                                : "bg-red-50 text-red-600 dark:bg-red-950/30",
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : "bg-red-500/10 text-red-600 dark:text-red-400",
                           )}
                         >
                           {envCheck?.ollama_status === "running"
@@ -664,20 +664,20 @@ export default function SettingsPage() {
                               <div
                                 key={rec.name}
                                 className={cn(
-                                  "flex items-center justify-between p-2.5 rounded-md border",
-                                  rec.recommended && "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20",
+                                  "flex items-center justify-between p-2.5 rounded-lg border",
+                                  rec.recommended && "border-primary/30 bg-primary/5",
                                 )}
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium">{rec.display_name}</span>
                                     {rec.recommended && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300">
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
                                         推荐
                                       </span>
                                     )}
                                     {rec.installed && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300">
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                         已安装
                                       </span>
                                     )}
@@ -695,7 +695,7 @@ export default function SettingsPage() {
                                     <div className="w-24">
                                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                                         <div
-                                          className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                                          className="h-full bg-primary rounded-full transition-all duration-300"
                                           style={{
                                             width: pullProgress
                                               ? `${Math.round((pullProgress.completed / pullProgress.total) * 100)}%`
@@ -757,8 +757,8 @@ export default function SettingsPage() {
                             <div className="flex items-center gap-2">
                               <span>分析质量:</span>
                               <strong className={cn(
-                                benchmarkResult.quality.overall_score >= 80 ? "text-green-600" :
-                                benchmarkResult.quality.overall_score >= 60 ? "text-yellow-600" : "text-red-500"
+                                benchmarkResult.quality.overall_score >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                                benchmarkResult.quality.overall_score >= 60 ? "text-amber-600 dark:text-amber-400" : "text-red-500"
                               )}>
                                 {benchmarkResult.quality.overall_score}分
                               </strong>
@@ -811,8 +811,8 @@ export default function SettingsPage() {
                                         <td className="px-2 py-1 text-right font-mono">~{rec.estimated_chapter_time_s}秒</td>
                                         <td className={cn(
                                           "px-2 py-1 text-right font-mono",
-                                          rec.quality_score != null && rec.quality_score >= 80 ? "text-green-600" :
-                                          rec.quality_score != null && rec.quality_score >= 60 ? "text-yellow-600" :
+                                          rec.quality_score != null && rec.quality_score >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                                          rec.quality_score != null && rec.quality_score >= 60 ? "text-amber-600 dark:text-amber-400" :
                                           rec.quality_score != null ? "text-red-500" : "text-muted-foreground",
                                         )}>
                                           {rec.quality_score != null ? `${rec.quality_score}分` : "-"}
@@ -869,8 +869,8 @@ export default function SettingsPage() {
                           className={cn(
                             "text-xs px-2 py-0.5 rounded-full",
                             envCheck.api_available
-                              ? "bg-green-50 text-green-600 dark:bg-green-950/30"
-                              : "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30",
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                           )}
                         >
                           {envCheck.api_available ? "已连接" : "未连接"}
@@ -1017,7 +1017,7 @@ export default function SettingsPage() {
                           className={cn(
                             "text-xs mt-1",
                             cloudValidResult.valid
-                              ? cloudValidResult.warning ? "text-amber-600" : "text-green-600"
+                              ? cloudValidResult.warning ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                               : "text-red-500",
                           )}
                         >
@@ -1069,8 +1069,8 @@ export default function SettingsPage() {
                             <div className="flex items-center gap-2">
                               <span>分析质量:</span>
                               <strong className={cn(
-                                benchmarkResult.quality.overall_score >= 80 ? "text-green-600" :
-                                benchmarkResult.quality.overall_score >= 60 ? "text-yellow-600" : "text-red-500"
+                                benchmarkResult.quality.overall_score >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                                benchmarkResult.quality.overall_score >= 60 ? "text-amber-600 dark:text-amber-400" : "text-red-500"
                               )}>
                                 {benchmarkResult.quality.overall_score}分
                               </strong>
@@ -1123,8 +1123,8 @@ export default function SettingsPage() {
                                         <td className="px-2 py-1 text-right font-mono">~{rec.estimated_chapter_time_s}秒</td>
                                         <td className={cn(
                                           "px-2 py-1 text-right font-mono",
-                                          rec.quality_score != null && rec.quality_score >= 80 ? "text-green-600" :
-                                          rec.quality_score != null && rec.quality_score >= 60 ? "text-yellow-600" :
+                                          rec.quality_score != null && rec.quality_score >= 80 ? "text-emerald-600 dark:text-emerald-400" :
+                                          rec.quality_score != null && rec.quality_score >= 60 ? "text-amber-600 dark:text-amber-400" :
                                           rec.quality_score != null ? "text-red-500" : "text-muted-foreground",
                                         )}>
                                           {rec.quality_score != null ? `${rec.quality_score}分` : "-"}
@@ -1193,17 +1193,17 @@ export default function SettingsPage() {
             {/* Switch confirmation dialog */}
             {showSwitchDialog && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="mx-4 w-full max-w-sm rounded-lg border bg-background p-5 shadow-lg">
+                <div className="mx-4 w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg">
                   <h3 className="text-sm font-medium mb-3">
                     {runningTaskCount > 0 ? "⚠ 切换 AI 引擎" : "切换 AI 引擎"}
                   </h3>
 
                   {runningTaskCount > 0 && (
-                    <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50/60 px-3 py-2 text-xs dark:border-yellow-900 dark:bg-yellow-950/20">
-                      <p className="font-medium text-yellow-700 dark:text-yellow-300">
+                    <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+                      <p className="font-medium text-amber-700 dark:text-amber-300">
                         当前有 {runningTaskCount} 个分析任务正在运行
                       </p>
-                      <ul className="mt-1 space-y-0.5 text-yellow-600 dark:text-yellow-400">
+                      <ul className="mt-1 space-y-0.5 text-amber-600 dark:text-amber-400">
                         <li>· 进行中的分析将继续使用原引擎完成</li>
                         <li>· 新启动的分析将使用新引擎</li>
                       </ul>
@@ -1231,7 +1231,7 @@ export default function SettingsPage() {
           {/* Usage & Budget */}
           <section id="sec-usage" className="scroll-mt-12">
             <h2 className="text-base font-medium mb-4">使用统计</h2>
-            <div className="border rounded-lg p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm">月度预算</span>
                 <div className="flex items-center gap-2">
@@ -1277,8 +1277,8 @@ export default function SettingsPage() {
                         monthlyUsed / budgetAmount >= 1
                           ? "bg-red-500"
                           : monthlyUsed / budgetAmount >= 0.8
-                            ? "bg-yellow-500"
-                            : "bg-blue-500",
+                            ? "bg-amber-500"
+                            : "bg-primary",
                       )}
                       style={{ width: `${Math.min(100, (monthlyUsed / budgetAmount) * 100)}%` }}
                     />
@@ -1401,7 +1401,7 @@ export default function SettingsPage() {
           {/* Reading Preferences */}
           <section id="sec-reading" className="scroll-mt-12">
             <h2 className="text-base font-medium mb-4">阅读偏好</h2>
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-4">
               {/* Font size */}
               <div>
                 <span className="text-sm block mb-2">字号</span>
@@ -1464,7 +1464,7 @@ export default function SettingsPage() {
           {/* Data Management */}
           <section id="sec-data" className="scroll-mt-12">
             <h2 className="text-base font-medium mb-4">数据管理</h2>
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-4">
               {novels.length === 0 ? (
                 <p className="text-sm text-muted-foreground">暂无导入的小说</p>
               ) : (
@@ -1529,7 +1529,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{importPreview.title}</span>
                       {importPreview.existing_novel_id && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
                           同名小说已存在
                         </span>
                       )}
@@ -1585,7 +1585,7 @@ export default function SettingsPage() {
                 )}
 
                 {importResult && (
-                  <p className="mt-2 text-xs text-green-600">{importResult}</p>
+                  <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{importResult}</p>
                 )}
                 {importError && (
                   <p className="mt-2 text-xs text-red-600">{importError}</p>
@@ -1597,7 +1597,7 @@ export default function SettingsPage() {
           {/* Full Backup / Restore */}
           <section id="sec-backup" className="scroll-mt-12">
             <h2 className="text-base font-medium mb-4">全量备份</h2>
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-4">
               <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
@@ -1727,7 +1727,7 @@ export default function SettingsPage() {
                 )}
 
                 {backupResult && (
-                  <p className="mt-2 text-xs text-green-600">
+                  <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
                     导入完成: {backupResult.imported} 本新增
                     {backupResult.overwritten > 0 && `，${backupResult.overwritten} 本覆盖`}
                     {backupResult.skipped > 0 && `，${backupResult.skipped} 本跳过`}
@@ -1744,7 +1744,7 @@ export default function SettingsPage() {
           {/* Usage Analytics & Privacy */}
           <section id="sec-privacy" className="scroll-mt-12">
             <h2 className="text-base font-medium mb-4">使用统计与隐私</h2>
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-4">
               {/* Privacy toggle */}
               <div className="flex items-center justify-between">
                 <div>
@@ -1756,7 +1756,7 @@ export default function SettingsPage() {
                 <button
                   className={cn(
                     "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                    trackingEnabled ? "bg-blue-500" : "bg-muted",
+                    trackingEnabled ? "bg-primary" : "bg-muted",
                   )}
                   onClick={async () => {
                     const next = !trackingEnabled
@@ -1799,7 +1799,7 @@ export default function SettingsPage() {
                               </span>
                               <div className="flex-1 h-3 bg-muted rounded overflow-hidden">
                                 <div
-                                  className="h-full bg-blue-500 rounded"
+                                  className="h-full bg-primary rounded"
                                   style={{ width: `${(item.count / maxCount) * 100}%` }}
                                 />
                               </div>
@@ -1821,7 +1821,7 @@ export default function SettingsPage() {
                           return (
                             <div
                               key={d.day}
-                              className="flex-1 bg-blue-400 dark:bg-blue-600 rounded-t min-w-[2px]"
+                              className="flex-1 bg-primary/70 rounded-t min-w-[2px]"
                               style={{ height: `${(d.count / maxDay) * 100}%` }}
                               title={`${d.day}: ${d.count}`}
                             />
@@ -1866,9 +1866,9 @@ export default function SettingsPage() {
           <section className="text-center text-[10px] text-muted-foreground pb-8 space-y-1">
             <p>AI Reader v{__APP_VERSION__} · 本地运行 · 完全隐私</p>
             <p>
-              <a href="https://ai-reader.cc/docs/" target="_blank" rel="noopener" className="text-blue-500 hover:text-blue-400 transition">使用文档</a>
+              <a href="https://ai-reader.cc/docs/" target="_blank" rel="noopener" className="text-primary hover:underline transition">使用文档</a>
               {" · "}
-              <a href="https://ai-reader.cc/docs/faq" target="_blank" rel="noopener" className="text-blue-500 hover:text-blue-400 transition">常见问题</a>
+              <a href="https://ai-reader.cc/docs/faq" target="_blank" rel="noopener" className="text-primary hover:underline transition">常见问题</a>
             </p>
           </section>
         </div>

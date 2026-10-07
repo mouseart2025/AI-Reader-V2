@@ -204,7 +204,7 @@ export default function ExportPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="max-w-2xl mx-auto p-6 space-y-6">
-        <h1 className="text-lg font-medium">导出</h1>
+        <h1 className="text-xl font-semibold">导出</h1>
 
         {/* Tab bar */}
         <div className="flex gap-2 border-b pb-0">
@@ -212,7 +212,7 @@ export default function ExportPage() {
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
               activeTab === "bible"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
             onClick={() => setActiveTab("bible")}
@@ -223,7 +223,7 @@ export default function ExportPage() {
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
               activeTab === "data"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
             onClick={() => setActiveTab("data")}
@@ -243,11 +243,11 @@ export default function ExportPage() {
                   <button
                     key={f.id}
                     className={cn(
-                      "border rounded-lg p-3 text-center transition-colors",
+                      "border rounded-xl p-3 text-center transition-colors",
                       f.available
                         ? format === f.id
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                          : "hover:border-blue-300 cursor-pointer"
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-foreground/30 cursor-pointer"
                         : "opacity-40 cursor-not-allowed",
                     )}
                     onClick={() => f.available && setFormat(f.id)}
@@ -270,10 +270,10 @@ export default function ExportPage() {
                   <button
                     key={t.id}
                     className={cn(
-                      "w-full text-left border rounded-lg p-3 transition-colors",
+                      "w-full text-left border rounded-xl p-3 transition-colors",
                       template === t.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                        : "hover:border-blue-300",
+                        ? "border-primary bg-primary/5"
+                        : "hover:border-foreground/30",
                     )}
                     onClick={() => setTemplate(t.id)}
                   >
@@ -292,7 +292,7 @@ export default function ExportPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-medium">导出模块</h2>
                   <button
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-primary hover:underline"
                     onClick={selectAllModules}
                   >
                     全选
@@ -303,10 +303,10 @@ export default function ExportPage() {
                     <label
                       key={m.id}
                       className={cn(
-                        "flex items-center gap-2 border rounded-lg p-2.5 cursor-pointer transition-colors",
+                        "flex items-center gap-2 border rounded-xl p-2.5 cursor-pointer transition-colors",
                         selectedModules.includes(m.id)
-                          ? "border-blue-400 bg-blue-50/50 dark:bg-blue-950/10"
-                          : "hover:border-gray-400",
+                          ? "border-primary/50 bg-primary/5"
+                          : "hover:border-foreground/30",
                       )}
                     >
                       <input
@@ -371,7 +371,7 @@ export default function ExportPage() {
                 <div className="mb-3">
                   <p className="text-xs text-muted-foreground mb-1">{progress}</p>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full animate-pulse w-2/3" />
+                    <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
                   </div>
                 </div>
               )}
@@ -400,7 +400,7 @@ export default function ExportPage() {
         {/* ── Analysis Data Tab ── */}
         {activeTab === "data" && (
           <div className="space-y-6">
-            <section className="rounded-lg border p-5 space-y-4">
+            <section className="rounded-xl border border-border bg-card p-5 space-y-4">
               <div>
                 <h2 className="text-sm font-semibold">导出分析数据</h2>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -415,7 +415,7 @@ export default function ExportPage() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border bg-muted/30 p-4 space-y-2 text-sm">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm tabular-nums">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">章节</span>
                     <span>

@@ -83,16 +83,16 @@ const TIER_LABELS: Record<string, string> = {
   building: "建筑",
 }
 
+/** 地理层级徽章：装饰性分类统一收敛为中性色；仅架空特殊空间保留淡紫身份色 */
 const TIER_COLORS: Record<string, string> = {
-  world: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  // 架空特殊空间：降饱和紫 + 弱提示样式，区别于常规地理层级
-  realm: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300",
-  continent: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  kingdom: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  region: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  city: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  site: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  building: "bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300",
+  world: "bg-muted text-muted-foreground",
+  realm: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  continent: "bg-muted text-muted-foreground",
+  kingdom: "bg-muted text-muted-foreground",
+  region: "bg-muted text-muted-foreground",
+  city: "bg-muted text-muted-foreground",
+  site: "bg-muted text-muted-foreground",
+  building: "bg-muted text-muted-foreground",
 }
 
 export default function EncyclopediaPage() {
@@ -370,7 +370,7 @@ export default function EncyclopediaPage() {
                 )}
                 {item.label}
               </span>
-              <span className="text-muted-foreground">{item.count}</span>
+              <span className="text-muted-foreground tabular-nums">{item.count}</span>
             </button>
           ))}
         </div>
@@ -444,12 +444,12 @@ export default function EncyclopediaPage() {
             )}
             <div className="flex-1" />
             {rebuilding && rebuildProgress && (
-              <span className="text-xs text-blue-600 animate-pulse">{rebuildProgress}</span>
+              <span className="text-xs text-primary animate-pulse">{rebuildProgress}</span>
             )}
             {toast && (
-              <span className="text-xs text-green-600">{toast}</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">{toast}</span>
             )}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {filteredEntries.length} 条目
             </span>
           </div>
@@ -780,7 +780,7 @@ export default function EncyclopediaPage() {
                       {conceptDetail.related_entities.map((e) => (
                         <div key={e.name} className="text-xs flex items-center gap-1">
                           <button
-                            className="text-blue-600 hover:underline"
+                            className="text-primary hover:underline"
                             onClick={() =>
                               openEntityCard(e.name, e.type as "person" | "location" | "item" | "org")
                             }
@@ -812,14 +812,14 @@ export default function EncyclopediaPage() {
           <DialogHeader>
             <DialogTitle>层级变更预览</DialogTitle>
             {rebuildResult && (
-              <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                <span className="text-green-600">+{rebuildResult.summary.added} 新增</span>
-                <span className="text-yellow-600">~{rebuildResult.summary.changed} 变更</span>
-                <span className="text-red-600">-{rebuildResult.summary.removed} 移除</span>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 tabular-nums">
+                <span className="text-emerald-600 dark:text-emerald-400">+{rebuildResult.summary.added} 新增</span>
+                <span className="text-amber-600 dark:text-amber-400">~{rebuildResult.summary.changed} 变更</span>
+                <span className="text-red-600 dark:text-red-400">-{rebuildResult.summary.removed} 移除</span>
                 <span className="mx-1">|</span>
                 <span>根节点 {rebuildResult.summary.old_root_count} → {rebuildResult.summary.new_root_count}</span>
-                {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">场景分析</span>}
-                {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">LLM审查</span>}
+                {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-muted text-muted-foreground">场景分析</span>}
+                {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-muted text-muted-foreground">LLM审查</span>}
               </div>
             )}
           </DialogHeader>
@@ -877,9 +877,9 @@ export default function EncyclopediaPage() {
                       <td className="px-2 py-1.5">
                         <span className={cn(
                           "px-1.5 py-0.5 rounded text-[10px]",
-                          change.change_type === "added" && "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-                          change.change_type === "changed" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-                          change.change_type === "removed" && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+                          change.change_type === "added" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                          change.change_type === "changed" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          change.change_type === "removed" && "bg-red-500/10 text-red-600 dark:text-red-400",
                         )}>
                           {change.change_type === "added" ? "新增" : change.change_type === "changed" ? "变更" : "移除"}
                         </span>

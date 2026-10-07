@@ -462,7 +462,7 @@ export default function GraphPage() {
             路径查找
           </Button>
 
-          {/* Category filter chips */}
+          {/* Category filter chips — chrome 收敛为品牌蓝/描边两态，类别色缩为小圆点身份标识 */}
           <div className="w-px h-5 bg-border mx-0.5" />
           {ALL_CATEGORIES.map((cat) => {
             const count = categoryCounts[cat] ?? 0
@@ -474,16 +474,20 @@ export default function GraphPage() {
                 variant={hidden ? "outline" : "default"}
                 size="xs"
                 onClick={() => toggleCategory(cat)}
-                className={cn(hidden && "opacity-50")}
-                style={hidden ? undefined : { backgroundColor: CATEGORY_COLORS[cat], borderColor: CATEGORY_COLORS[cat] }}
+                className={cn(hidden && "opacity-60")}
               >
+                <span
+                  aria-hidden
+                  className="inline-block size-1.5 rounded-full"
+                  style={{ backgroundColor: CATEGORY_COLORS[cat] }}
+                />
                 {CATEGORY_LABELS[cat]} {count}
               </Button>
             )
           })}
 
           {showFilters && (
-            <div className="absolute top-8 left-0 w-56 rounded-lg border bg-background p-3 shadow-lg space-y-3">
+            <div className="absolute top-8 left-0 w-56 rounded-xl border border-border bg-card p-3 shadow-lg space-y-3">
               <div>
                 <label className="text-muted-foreground text-xs">
                   最少出场章节: {minChapters}
@@ -522,7 +526,7 @@ export default function GraphPage() {
           )}
 
           {showPathPanel && (
-            <div className="absolute top-8 left-0 w-64 rounded-lg border bg-background p-3 shadow-lg space-y-2">
+            <div className="absolute top-8 left-0 w-64 rounded-xl border border-border bg-card p-3 shadow-lg space-y-2">
               <p className="text-xs text-muted-foreground">
                 Shift+点击两个人物节点，或输入名字搜索
               </p>
@@ -574,7 +578,7 @@ export default function GraphPage() {
 
         {/* Path indicator bar */}
         {(hasPath || pathStart) && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 rounded-full border bg-background/95 px-4 py-1.5 shadow-lg flex items-center gap-2">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-border bg-card/95 px-4 py-1.5 shadow-lg flex items-center gap-2">
             {hasPath ? (
               <>
                 <span className="text-xs flex items-center gap-0.5 flex-wrap">
@@ -600,7 +604,7 @@ export default function GraphPage() {
 
         {/* Legend */}
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
-          <div className="rounded-lg border bg-background/90 p-2">
+          <div className="rounded-xl border border-border bg-card/90 p-2">
             <p className="text-muted-foreground mb-1 text-[10px]">关系线</p>
             {ALL_CATEGORIES.map((cat) => {
               const count = categoryCounts[cat] ?? 0
@@ -627,7 +631,7 @@ export default function GraphPage() {
           </div>
 
           {orgColorMap.size > 0 && (
-            <div className="rounded-lg border bg-background/90 p-2">
+            <div className="rounded-xl border border-border bg-card/90 p-2">
               <p className="text-muted-foreground mb-1 text-[10px]">组织</p>
               {Array.from(orgColorMap.entries()).map(([org, color]) => (
                 <div key={org} className="flex items-center gap-1.5 text-xs">

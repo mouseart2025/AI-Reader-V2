@@ -41,13 +41,14 @@ const TYPE_LABELS: Record<string, string> = {
   person: "人物", location: "地点", item: "物品",
   org: "组织", concept: "概念", unknown: "未知",
 }
+/** 实体类型身份色（与正文高亮一致），统一低饱和徽章样式——高饱和色只留给状态 */
 const TYPE_BADGE_COLORS: Record<string, string> = {
-  person: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  location: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  item: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  org: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  concept: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  unknown: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+  person: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  location: "bg-green-500/10 text-green-600 dark:text-green-400",
+  item: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  org: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  concept: "bg-muted text-muted-foreground",
+  unknown: "bg-muted text-muted-foreground/70",
 }
 
 function formatTokens(n: number): string {
@@ -571,8 +572,8 @@ export default function AnalysisPage() {
     <div className="mx-auto max-w-3xl overflow-auto p-8 h-full">
       {/* Novel info */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">{novel.title}</h1>
-        <p className="text-muted-foreground text-sm">
+        <h1 className="text-xl font-semibold">{novel.title}</h1>
+        <p className="text-muted-foreground text-sm tabular-nums">
           共 {novel.total_chapters} 章 &middot;{" "}
           {novel.total_words.toLocaleString()} 字
         </p>
@@ -591,7 +592,7 @@ export default function AnalysisPage() {
       />
 
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
@@ -610,10 +611,10 @@ export default function AnalysisPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {isRunning && (
-                <span className="inline-block size-2 animate-pulse rounded-full bg-green-500" />
+                <span className="inline-block size-2 animate-pulse rounded-full bg-blue-500" />
               )}
               {isPaused && (
-                <span className="inline-block size-2 rounded-full bg-yellow-500" />
+                <span className="inline-block size-2 rounded-full bg-amber-500" />
               )}
               {isRunning ? (
                 <>
@@ -634,7 +635,7 @@ export default function AnalysisPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <div className="mb-1 flex justify-between text-sm">
+              <div className="mb-1 flex justify-between text-sm tabular-nums">
                 <span>
                   第 {currentChapter} 章 / 共 {totalChapters} 章
                 </span>
@@ -642,7 +643,7 @@ export default function AnalysisPage() {
               </div>
               <Progress value={progress} />
               {timingStats && (
-                <div className="mt-1.5 text-muted-foreground text-sm flex flex-wrap gap-x-3">
+                <div className="mt-1.5 text-muted-foreground text-sm flex flex-wrap gap-x-3 tabular-nums">
                   <span>本章 {formatDuration(timingStats.last_chapter_ms)}</span>
                   <span>均速 {formatDuration(timingStats.avg_chapter_ms)}/章</span>
                   <span>已用 {formatDuration(timingStats.elapsed_total_ms)}</span>
@@ -658,7 +659,7 @@ export default function AnalysisPage() {
             </div>
 
             {costStats?.is_cloud && (
-              <div className="rounded-md border p-3 space-y-1.5 text-sm">
+              <div className="rounded-md border p-3 space-y-1.5 text-sm tabular-nums">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">已用 Token</span>
                   <span className="font-mono text-xs">
@@ -720,7 +721,7 @@ export default function AnalysisPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <span className={`inline-block size-2 rounded-full ${isCompletedWithErrors ? "bg-yellow-500" : "bg-blue-500"}`} />
+              <span className={`inline-block size-2 rounded-full ${isCompletedWithErrors ? "bg-amber-500" : "bg-emerald-500"}`} />
               {isCompletedWithErrors ? "分析完成（部分章节失败）" : "分析完成"}
             </CardTitle>
           </CardHeader>
@@ -736,11 +737,11 @@ export default function AnalysisPage() {
               <StatCard label="关系" value={stats.relations} />
               <StatCard label="事件" value={stats.events} />
             </div>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm tabular-nums">
               已分析第 {task?.chapter_start} - {task?.chapter_end} 章
             </p>
             {task?.timing_summary && (
-              <div className="rounded-md border p-3 text-sm flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+              <div className="rounded-md border p-3 text-sm flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground tabular-nums">
                 <span>总耗时 {formatDuration(task.timing_summary.total_ms)}</span>
                 <span>均速 {formatDuration(task.timing_summary.avg_chapter_ms)}/章</span>
                 <span>最快 {formatDuration(task.timing_summary.min_chapter_ms)}</span>
@@ -750,10 +751,10 @@ export default function AnalysisPage() {
             {qualitySummary && (totalChapters > 0) && (
               <div className="rounded-md border p-3 text-sm space-y-1">
                 <span className="text-muted-foreground text-xs font-medium">分析质量</span>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground">
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground tabular-nums">
                   <span>{totalChapters - (qualitySummary.truncated_chapters + qualitySummary.segmented_chapters)} 章完整提取</span>
                   {qualitySummary.truncated_chapters > 0 && (
-                    <span className="text-yellow-600 dark:text-yellow-400">
+                    <span className="text-amber-600 dark:text-amber-400">
                       {qualitySummary.truncated_chapters} 章被截断（Token不足）
                     </span>
                   )}
@@ -764,7 +765,7 @@ export default function AnalysisPage() {
               </div>
             )}
             {costStats?.is_cloud && costStats.total_cost_usd > 0 && (
-              <div className="rounded-md border p-3 text-sm flex justify-between">
+              <div className="rounded-md border p-3 text-sm flex justify-between tabular-nums">
                 <span className="text-muted-foreground">本次分析费用</span>
                 <span className="font-medium">
                   ¥{costStats.total_cost_cny}
@@ -795,7 +796,7 @@ export default function AnalysisPage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <span className="inline-block size-2 rounded-full bg-gray-400" />
+              <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
               分析已取消
             </CardTitle>
           </CardHeader>
@@ -859,11 +860,9 @@ export default function AnalysisPage() {
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     {fc.error_type && (
                       <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                        fc.error_type === "content_policy"
-                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                          : fc.error_type === "timeout"
-                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        fc.error_type === "content_policy" || fc.error_type === "timeout"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : "bg-red-500/10 text-red-600 dark:text-red-400"
                       }`}>
                         {fc.error_type === "content_policy" ? "内容审核"
                           : fc.error_type === "timeout" ? "超时"
@@ -1058,7 +1057,7 @@ export default function AnalysisPage() {
 
       {/* Budget toast (80%) */}
       {budgetToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-yellow-50 dark:bg-yellow-950/80 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800 rounded-lg px-4 py-2 text-sm shadow-lg">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 shadow-lg backdrop-blur dark:text-amber-300">
           {budgetToast}
         </div>
       )}
@@ -1069,7 +1068,7 @@ export default function AnalysisPage() {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border p-3">
-      <div className="text-2xl font-bold">{value.toLocaleString()}</div>
+      <div className="text-2xl font-semibold tabular-nums">{value.toLocaleString()}</div>
       <div className="text-muted-foreground text-xs">{label}</div>
     </div>
   )
@@ -1109,16 +1108,16 @@ function PrescanCard({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           {status === "pending" && (
-            <span className="inline-block size-2 rounded-full bg-gray-400" />
+            <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />
           )}
           {status === "running" && (
-            <span className="inline-block size-2 animate-pulse rounded-full bg-green-500" />
+            <span className="inline-block size-2 animate-pulse rounded-full bg-blue-500" />
           )}
           {status === "failed" && (
             <span className="inline-block size-2 rounded-full bg-red-500" />
           )}
           {status === "completed" && (
-            <span className="inline-block size-2 rounded-full bg-blue-500" />
+            <span className="inline-block size-2 rounded-full bg-emerald-500" />
           )}
           实体预扫描
         </CardTitle>
@@ -1176,7 +1175,7 @@ function PrescanCard({
           <div className="space-y-3">
             {/* Summary: total + type badges */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium tabular-nums">
                 共 {entityCount} 个实体
               </span>
               {Object.entries(typeCounts).map(([type, count]) => (
@@ -1216,7 +1215,7 @@ function PrescanCard({
                         ({e.aliases.join(", ")})
                       </span>
                     )}
-                    <span className="text-muted-foreground ml-auto shrink-0 text-xs">
+                    <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">
                       &times;{e.frequency}
                     </span>
                   </div>

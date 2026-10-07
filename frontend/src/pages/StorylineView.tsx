@@ -719,7 +719,7 @@ export default function StorylineView({
                     ))}
                     {selectedEvent.location && (
                       <button
-                        className="text-xs text-green-600 dark:text-green-400 hover:underline ml-2"
+                        className="text-xs text-primary hover:underline ml-2"
                         onClick={() => {
                           setFocusLocation(selectedEvent.location!, "timeline")
                           navigate(resolvePath("map"))

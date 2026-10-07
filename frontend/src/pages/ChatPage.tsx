@@ -148,11 +148,11 @@ export default function ChatPage() {
                 onClick={() => selectConversation(conv.id)}
               >
                 <span className="flex-1 truncate">{conv.title}</span>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground tabular-nums">
                   {conv.message_count ?? 0}
                 </span>
                 <button
-                  className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 text-xs"
+                  className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 text-xs"
                   onClick={(e) => {
                     e.stopPropagation()
                     removeConversation(conv.id)
@@ -177,7 +177,7 @@ export default function ChatPage() {
         {/* Header */}
         <div className="flex items-center gap-3 border-b px-4 py-2 flex-shrink-0">
           <button
-            className="text-muted-foreground hover:text-foreground text-sm"
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground text-sm transition-colors"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? "◁" : "▷"}
@@ -185,7 +185,7 @@ export default function ChatPage() {
           <span className="text-sm font-medium">智能问答</span>
           {analysisInfo && (
             <span
-              className="text-[11px] rounded-full border px-2 py-0.5 text-muted-foreground"
+              className="text-[11px] rounded-full border px-2 py-0.5 text-muted-foreground tabular-nums"
               title="问答仅能基于已分析章节的知识库回答"
             >
               已分析 {analysisInfo.analyzed}/{analysisInfo.total} 章
@@ -216,7 +216,7 @@ export default function ChatPage() {
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
           {messages.length === 0 && !streamHere && (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-              <p className="text-lg">向小说提问</p>
+              <p className="text-lg font-medium text-foreground">向小说提问</p>
               <p className="text-sm">基于已分析的章节内容回答</p>
               <div className="mt-4 flex flex-wrap gap-2 max-w-md justify-center">
                 {[
@@ -227,7 +227,7 @@ export default function ChatPage() {
                 ].map((q) => (
                   <button
                     key={q}
-                    className="text-xs border rounded-full px-3 py-1.5 hover:bg-muted transition-colors"
+                    className="text-xs border rounded-full px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                     onClick={() => setInput(q)}
                   >
                     {q}

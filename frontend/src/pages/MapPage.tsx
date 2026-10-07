@@ -740,7 +740,7 @@ export default function MapPage() {
 
           {/* Hierarchy mode hint */}
           {!loading && layoutMode === "hierarchy" && locations.length > 0 && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700 shadow">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-700 shadow backdrop-blur dark:text-amber-400">
               空间约束不足，使用层级布局
             </div>
           )}
@@ -754,12 +754,12 @@ export default function MapPage() {
 
             {/* Mention count filter slider */}
             {maxMentionCount > 1 && (
-              <div className="rounded-lg border bg-background/90 px-2.5 py-2 w-44">
+              <div className="rounded-xl border border-border bg-card/90 px-2.5 py-2 w-44">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-muted-foreground text-[11px]">
+                  <label className="text-muted-foreground text-[11px] tabular-nums">
                     最少提及: {minMentions}
                   </label>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
                     {filteredLocations.length} / {layerLocations.length}
                   </span>
                 </div>
@@ -779,7 +779,7 @@ export default function MapPage() {
               <div className="flex gap-1">
                 <button
                   onClick={expandedNodes.size > 0 ? handleCollapseAll : handleExpandAll}
-                  className="rounded-lg border bg-background/90 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                  className="rounded-xl border border-border bg-card/90 px-2.5 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {expandedNodes.size > 0 ? "全部折叠" : "全部展开"}
                 </button>
@@ -791,10 +791,10 @@ export default function MapPage() {
               <button
                 onClick={() => setShowConflicts((v) => !v)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
+                  "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] transition-colors",
                   showConflicts
-                    ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
-                    : "bg-background/90 text-muted-foreground hover:text-foreground",
+                    ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                    : "border-border bg-card/90 text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span className={cn(
@@ -811,8 +811,8 @@ export default function MapPage() {
                 onClick={handleExport}
                 disabled={exporting}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors",
-                  "bg-background/90 text-muted-foreground hover:text-foreground",
+                  "flex items-center gap-1.5 rounded-xl border border-border px-2.5 py-1.5 text-[11px] transition-colors",
+                  "bg-card/90 text-muted-foreground hover:text-foreground",
                   exporting && "opacity-60 cursor-not-allowed",
                 )}
               >
@@ -827,7 +827,7 @@ export default function MapPage() {
 
             {/* Legend (hide in geographic mode — icons are fantasy-specific) */}
             {layoutMode !== "geographic" && (
-              <div className="rounded-lg border bg-background/90 p-2">
+              <div className="rounded-xl border border-border bg-card/90 p-2">
                 <button
                   onClick={() => setLegendOpen((v) => !v)}
                   className="text-muted-foreground flex items-center gap-1 text-[10px] hover:text-foreground"
@@ -855,7 +855,7 @@ export default function MapPage() {
 
           {/* Toast (non-rebuild) */}
           {toast && !rebuilding && (
-            <div className="absolute top-3 right-3 z-20 rounded-lg border bg-background px-3 py-2 text-xs shadow-lg">
+            <div className="absolute top-3 right-3 z-20 rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-lg">
               {toast}
             </div>
           )}
@@ -865,10 +865,10 @@ export default function MapPage() {
             <>
               <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-sm" />
               <div className="absolute inset-0 z-40 flex items-center justify-center p-8">
-                <div className="w-full max-w-lg rounded-xl border bg-background shadow-2xl">
+                <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-2xl">
                   {/* Header */}
                   <div className="flex items-center gap-3 border-b px-5 py-4">
-                    <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+                    <RefreshCw className="h-5 w-5 text-primary animate-spin" />
                     <div>
                       <h3 className="font-medium">智能重绘进行中</h3>
                       <p className="text-xs text-muted-foreground">
@@ -883,7 +883,7 @@ export default function MapPage() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                       </span>
-                      <span className="text-sm font-medium text-blue-600">{rebuildProgress}</span>
+                      <span className="text-sm font-medium text-primary">{rebuildProgress}</span>
                     </div>
                   </div>
                   {/* Log area */}
@@ -891,9 +891,9 @@ export default function MapPage() {
                     {rebuildLogs.map((log, i) => (
                       <div key={i} className={cn(
                         "py-0.5",
-                        log.includes("✅") ? "text-green-600" :
+                        log.includes("✅") ? "text-emerald-600 dark:text-emerald-400" :
                         log.includes("❌") ? "text-red-500" :
-                        log.includes("Step") ? "text-blue-500 font-medium" :
+                        log.includes("Step") ? "text-primary font-medium" :
                         "text-muted-foreground",
                       )}>
                         {log}
@@ -912,7 +912,7 @@ export default function MapPage() {
 
           {/* Current trajectory info bar */}
           {hasTrajectory && currentLocation && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 rounded-full border bg-background/95 px-4 py-1.5 shadow-lg flex items-center gap-2">
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-border bg-card/95 px-4 py-1.5 shadow-lg flex items-center gap-2">
               <span className="text-xs">
                 {selectedPerson}: {currentLocation}
                 {playing && visibleTrajectory.length > 0 && (
@@ -1043,7 +1043,6 @@ export default function MapPage() {
                 variant={editMode ? "default" : "outline"}
                 size="xs"
                 onClick={() => setEditMode(prev => !prev)}
-                className={editMode ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
                 title="切换编辑模式 (E)"
               >
                 {editMode ? "✏️ 编辑中" : "🔒 查看"}
@@ -1237,14 +1236,14 @@ export default function MapPage() {
             <DialogHeader>
               <DialogTitle>层级变更预览</DialogTitle>
               {rebuildResult && (
-                <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                  <span className="text-green-600">+{rebuildResult.summary.added} 新增</span>
-                  <span className="text-yellow-600">~{rebuildResult.summary.changed} 变更</span>
-                  <span className="text-red-600">-{rebuildResult.summary.removed} 移除</span>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 tabular-nums">
+                  <span className="text-emerald-600 dark:text-emerald-400">+{rebuildResult.summary.added} 新增</span>
+                  <span className="text-amber-600 dark:text-amber-400">~{rebuildResult.summary.changed} 变更</span>
+                  <span className="text-red-600 dark:text-red-400">-{rebuildResult.summary.removed} 移除</span>
                   <span className="mx-1">|</span>
                   <span>根节点 {rebuildResult.summary.old_root_count} → {rebuildResult.summary.new_root_count}</span>
-                  {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">场景分析</span>}
-                  {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">LLM审查</span>}
+                  {rebuildResult.summary.scene_analysis_used && <span className="px-1 py-0.5 rounded bg-muted text-muted-foreground">场景分析</span>}
+                  {rebuildResult.summary.llm_review_used && <span className="px-1 py-0.5 rounded bg-muted text-muted-foreground">LLM审查</span>}
                 </div>
               )}
             </DialogHeader>
@@ -1302,9 +1301,9 @@ export default function MapPage() {
                         <td className="px-2 py-1.5">
                           <span className={cn(
                             "px-1.5 py-0.5 rounded text-[10px]",
-                            change.change_type === "added" && "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-                            change.change_type === "changed" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-                            change.change_type === "removed" && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+                            change.change_type === "added" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                            change.change_type === "changed" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                            change.change_type === "removed" && "bg-red-500/10 text-red-600 dark:text-red-400",
                           )}>
                             {change.change_type === "added" ? "新增" : change.change_type === "changed" ? "变更" : "移除"}
                           </span>

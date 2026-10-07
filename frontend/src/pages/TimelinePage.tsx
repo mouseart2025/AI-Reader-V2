@@ -30,31 +30,34 @@ interface TimelineEvent {
   emotional_tone?: string | null
 }
 
-// Color by event type
+// 事件类型身份色：保留色相做类别区分，但统一压低饱和度/明度，
+// 避免全谱高饱和色造成的"嘉年华"感（同书架 NovelCard 的 SPINE_TONES 思路）
 function eventColor(type: string): string {
   switch (type) {
-    case "战斗": return "#ef4444"
-    case "成长": return "#3b82f6"
-    case "社交": return "#10b981"
-    case "旅行": return "#f97316"
-    case "角色登场": return "#8b5cf6"
-    case "物品交接": return "#eab308"
-    case "组织变动": return "#ec4899"
-    case "关系变化": return "#06b6d4"
-    default: return "#6b7280"
+    case "战斗": return "hsl(0, 48%, 58%)"
+    case "成长": return "hsl(215, 45%, 58%)"
+    case "社交": return "hsl(160, 35%, 46%)"
+    case "旅行": return "hsl(25, 55%, 55%)"
+    case "角色登场": return "hsl(268, 38%, 62%)"
+    case "物品交接": return "hsl(45, 50%, 48%)"
+    case "组织变动": return "hsl(330, 42%, 60%)"
+    case "关系变化": return "hsl(190, 42%, 46%)"
+    default: return "hsl(220, 10%, 55%)"
   }
 }
 
+/** 情绪徽章：装饰性分类统一收敛为中性色（情绪文字本身已承载信息） */
+const TONE_BADGE = "bg-muted text-muted-foreground"
 const TONE_COLORS: Record<string, string> = {
-  "紧张": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "悲伤": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  "欢乐": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "温馨": "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
-  "愤怒": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-  "平静": "bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
-  "神秘": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  "恐惧": "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  "搞笑": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  "紧张": TONE_BADGE,
+  "悲伤": TONE_BADGE,
+  "欢乐": TONE_BADGE,
+  "温馨": TONE_BADGE,
+  "愤怒": TONE_BADGE,
+  "平静": TONE_BADGE,
+  "神秘": TONE_BADGE,
+  "恐惧": TONE_BADGE,
+  "搞笑": TONE_BADGE,
 }
 
 function importanceSize(importance: string, isMajor?: boolean): number {
@@ -360,7 +363,7 @@ export default function TimelinePage() {
 
           <div className="flex-1" />
 
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {filteredEvents.length} / {events.length} 事件
           </span>
 
@@ -411,25 +414,15 @@ export default function TimelinePage() {
 
             {!loading && flatItems.length > 0 && (
               <div className="p-4">
-                {/* Legend */}
+                {/* Legend — 颜色来自 eventColor，与事件圆点同源 */}
                 <div className="flex items-center gap-3 mb-4 text-[10px] text-muted-foreground flex-wrap">
-                  {[
-                    { label: "战斗", color: "#ef4444" },
-                    { label: "成长", color: "#3b82f6" },
-                    { label: "社交", color: "#10b981" },
-                    { label: "旅行", color: "#f97316" },
-                    { label: "关系变化", color: "#06b6d4" },
-                    { label: "角色登场", color: "#8b5cf6" },
-                    { label: "物品交接", color: "#eab308" },
-                    { label: "组织变动", color: "#ec4899" },
-                    { label: "其他", color: "#6b7280" },
-                  ].map((item) => (
-                    <span key={item.label} className="flex items-center gap-1">
+                  {["战斗", "成长", "社交", "旅行", "关系变化", "角色登场", "物品交接", "组织变动", "其他"].map((label) => (
+                    <span key={label} className="flex items-center gap-1">
                       <span
                         className="inline-block size-2 rounded-full"
-                        style={{ backgroundColor: item.color }}
+                        style={{ backgroundColor: eventColor(label) }}
                       />
-                      {item.label}
+                      {label}
                     </span>
                   ))}
                   <span className="ml-2">●大=关键 ●中=中 ·小=低</span>
@@ -463,10 +456,10 @@ export default function TimelinePage() {
                             Ch.{item.chapter}
                           </span>
                           <div className="size-2.5 rounded-full bg-border z-10" />
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
                             {item.eventCount} 事件 {item.isCollapsed ? "▸" : "▾"}
                             {item.isAutoCollapsed && (
-                              <span className="ml-1 text-yellow-600 dark:text-yellow-400">(低)</span>
+                              <span className="ml-1 text-amber-600 dark:text-amber-400">(低)</span>
                             )}
                           </span>
                         </div>
@@ -512,19 +505,19 @@ export default function TimelinePage() {
                               <span
                                 className="text-[10px] px-1.5 py-0.5 rounded"
                                 style={{
-                                  backgroundColor: eventColor(evt.type) + "20",
+                                  backgroundColor: `color-mix(in srgb, ${eventColor(evt.type)} 15%, transparent)`,
                                   color: eventColor(evt.type),
                                 }}
                               >
                                 {evt.type}
                               </span>
                               {evt.is_major && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 dark:bg-purple-950/30">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                                   关键
                                 </span>
                               )}
                               {!evt.is_major && evt.importance === "high" && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground">
                                   重要
                                 </span>
                               )}
@@ -538,7 +531,7 @@ export default function TimelinePage() {
                               )}
                               {evt.location && (
                                 <button
-                                  className="text-[10px] text-green-600 dark:text-green-400 hover:underline"
+                                  className="text-[10px] text-primary hover:underline"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     setFocusLocation(evt.location!, "timeline")
@@ -555,7 +548,7 @@ export default function TimelinePage() {
                                 {evt.participants.map((p) => (
                                   <button
                                     key={p}
-                                    className="text-[10px] text-blue-600 hover:underline"
+                                    className="text-[10px] text-primary hover:underline"
                                     onClick={(e) => { e.stopPropagation(); handlePersonClick(p) }}
                                   >
                                     {p}
@@ -599,7 +592,7 @@ export default function TimelinePage() {
                   </div>
                 </div>
 
-                <p className="text-[10px] text-muted-foreground mb-2">
+                <p className="text-[10px] text-muted-foreground mb-2 tabular-nums">
                   {filteredPersons.length} / {totalPersons} 人物
                 </p>
 

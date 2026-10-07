@@ -69,12 +69,12 @@ const ENTITY_TYPE_LABELS: { type: string; label: string; color: string }[] = [
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "completed"
-      ? "bg-green-500"
+      ? "bg-emerald-500"
       : status === "analyzing"
-        ? "bg-yellow-500 animate-pulse"
+        ? "bg-blue-500 animate-pulse"
         : status === "failed"
           ? "bg-red-500"
-          : "bg-gray-300 dark:bg-gray-600"
+          : "bg-muted-foreground/30"
   return <span className={cn("inline-block size-2 shrink-0 rounded-full", color)} />
 }
 
@@ -335,13 +335,13 @@ function TocSidebar({
 
       {/* Reading progress (2.5) */}
       <div className="border-t px-3 py-2">
-        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground tabular-nums">
           <span>已读 {readProgress}%</span>
           <span>{currentChapterNum}/{chapters.length}</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-primary transition-all"
+            className="h-full rounded-full bg-indigo-500 transition-all"
             style={{ width: `${readProgress}%` }}
           />
         </div>
@@ -1181,7 +1181,7 @@ export default function ReadingPage() {
 
           <div className="flex-1" />
 
-          <span className="text-muted-foreground text-xs">
+          <span className="text-muted-foreground text-xs tabular-nums">
             第 {currentChapterNum}/{totalChapters} 回
           </span>
 
@@ -1336,10 +1336,10 @@ export default function ReadingPage() {
           </div>
         )}
 
-        {/* Scroll progress bar (1.2) */}
+        {/* Scroll progress bar (1.2) — 阅读进度 = indigo */}
         <div className="relative h-0.5 w-full bg-transparent">
           <div
-            className="absolute top-0 left-0 h-full bg-primary transition-[width] duration-150"
+            className="absolute top-0 left-0 h-full bg-indigo-500 transition-[width] duration-150"
             style={{ width: `${scrollProgress * 100}%` }}
           />
         </div>
@@ -1532,7 +1532,7 @@ function AnnotationPopover({
 }) {
   return (
     <div
-      className="fixed z-50 w-64 -translate-x-1/2 rounded-lg border bg-background p-3 shadow-lg"
+      className="fixed z-50 w-64 -translate-x-1/2 rounded-xl border border-border bg-card p-3 shadow-lg"
       style={{ left: x, top: y }}
       onMouseUp={(e) => e.stopPropagation() /* 避免触发正文选区捕获 */}
     >
@@ -1615,7 +1615,7 @@ function ReadingSettingsPanel({
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute top-full right-0 z-40 mt-1 w-64 rounded-lg border bg-background p-3 shadow-lg">
+      <div className="absolute top-full right-0 z-40 mt-1 w-64 rounded-xl border border-border bg-card p-3 shadow-lg">
         <h4 className="mb-2 text-sm font-medium">阅读设置</h4>
 
         <div className="mb-3">
