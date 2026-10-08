@@ -30,6 +30,26 @@ _GEO_TYPE_KEYWORDS = (
 # (e.g., person names, abstract concepts)
 _EXCLUSION_SUFFIXES = ("坡", "风", "方", "侧", "边", "面", "向")
 
+# Strict canon pattern: name STARTS with a cardinal char AND ends with a
+# large-geo suffix (东胜神洲/南海/北俱芦洲). Used for strong canvas-anchored
+# priors — much safer than the loose "contains a direction char" heuristic.
+_STRICT_CARDINAL_DIRECTIONS: dict[str, str] = {
+    "东": "east", "南": "south", "西": "west", "北": "north",
+}
+_STRICT_CARDINAL_SUFFIXES = ("海湾", "洲", "海", "洋", "岛")
+
+
+def strict_cardinal_direction(location_name: str) -> str | None:
+    """Direction encoded by a strict cardinal name, else None.
+
+    "东胜神洲"→"east", "南海"→"south"; "西山居"/"北天门"/"南海普陀山"→None.
+    """
+    if not location_name or location_name[0] not in _STRICT_CARDINAL_DIRECTIONS:
+        return None
+    if not location_name.endswith(_STRICT_CARDINAL_SUFFIXES):
+        return None
+    return _STRICT_CARDINAL_DIRECTIONS[location_name[0]]
+
 
 def extract_direction_hint(
     location_name: str,

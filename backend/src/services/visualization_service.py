@@ -487,6 +487,13 @@ def _snap_sea_orphans_to_land(
                 continue
             if name in ocean_names:
                 continue
+            # Macro anchors are never "orphans": if the mask says ocean at a
+            # continent's position, the mask is wrong, not the geography.
+            # Snapping them teleports the map's skeleton into the nearest
+            # blob (西游记: all four continents collapsed to one point).
+            _tier = (loc_lookup.get(name) or {}).get("tier", "")
+            if _tier in ("world", "continent", "kingdom"):
+                continue
             if _is_on_land(item["x"], item["y"]):
                 land_items.append(item)
             else:
@@ -594,13 +601,55 @@ def _snap_sea_bodies_to_water(
         land2d, return_distances=False, return_indices=True,
     )
 
+    # Exact point-in-polygon land test for the candidate's own point. The
+    # gs=16 raster above samples cell *centres*: a sea sitting on a land
+    # tip narrower than a cell reads as water here while the plausibility
+    # audit (exact) still flags it — 南海 sat exactly on such a tip and was
+    # skipped by every run of this snap. Decision by exact test, target by
+    # raster EDT.
+    lm_paths = [
+        (_MplPath(np.asarray(lm["coastline"])),
+         [_MplPath(np.asarray(h)) for h in lm.get("holes") or [] if len(h) >= 3])
+        for lm in landmasses
+        if len(lm.get("coastline") or []) >= 3
+    ]
+
+    def _exact_on_land(x: float, y: float) -> bool:
+        pt = [(x, y)]
+        for ring_path, hole_paths in lm_paths:
+            if ring_path.contains_points(pt)[0] and not any(
+                hp.contains_points(pt)[0] for hp in hole_paths
+            ):
+                return True
+        return False
+
     snapped = 0
     for item in candidates:
+        if not _exact_on_land(item["x"], item["y"]):
+            continue
         ci = int(item["y"] / gs)
         cj = int(item["x"] / gs)
-        if not (0 <= ci < gh and 0 <= cj < gw) or not land2d[ci, cj]:
+        if not (0 <= ci < gh and 0 <= cj < gw):
             continue
         ti, tj = nearest_water[:, ci, cj]
+        if (ti, tj) == (ci, cj):
+            # Exact says land but the cell centre sampled water: borrow the
+            # nearest land cell's EDT target within a small window.
+            found = False
+            for r in range(1, 6):
+                for di in range(-r, r + 1):
+                    for dj in range(-r, r + 1):
+                        ni, nj = ci + di, cj + dj
+                        if 0 <= ni < gh and 0 <= nj < gw and land2d[ni, nj]:
+                            ti, tj = nearest_water[:, ni, nj]
+                            found = True
+                            break
+                    if found:
+                        break
+                if found:
+                    break
+            if not found:
+                continue
         item["x"] = round(float((tj + 0.5) * gs), 1)
         item["y"] = round(float((ti + 0.5) * gs), 1)
         snapped += 1
@@ -746,6 +795,66 @@ def _clean_spatial_constraints(
             fixed, removed, dangling, len(cleaned),
         )
     return cleaned
+
+
+# ── Cardinal name priors ──
+# Names like 东胜神洲/南海/北俱芦洲 encode their direction in the name itself.
+_CARDINAL_NAME_VALUES: dict[str, str] = {
+    "east": "east_of", "south": "south_of", "west": "west_of", "north": "north_of",
+}
+
+
+def _inject_cardinal_name_priors(
+    constraints: list[dict],
+    locations: list[dict],
+) -> list[dict]:
+    """Inject soft direction constraints for cardinal-named geography.
+
+    The LLM extraction frequently misses what the name already says (in
+    西游记, 北俱芦洲 ended up with zero constraints and drifted into the
+    eastern cluster with 东胜神洲/南赡部洲). Anchor each cardinal-named
+    location to its parent with a low-weight direction constraint so the
+    solver spreads same-parent siblings into their name-implied quadrants.
+
+    The prior never overrides text: when a direction constraint already
+    exists between the pair (either direction), injection is skipped, and
+    the low confidence keeps it below real evidence elsewhere in the graph.
+    """
+    from src.services.location_hint_service import strict_cardinal_direction
+
+    loc_names = {loc["name"] for loc in locations}
+    existing_pairs: set[tuple[str, str]] = set()
+    for c in constraints:
+        if c["relation_type"] == "direction":
+            existing_pairs.add((c["source"], c["target"]))
+            existing_pairs.add((c["target"], c["source"]))
+
+    injected = 0
+    for loc in locations:
+        name = loc["name"]
+        direction = strict_cardinal_direction(name)
+        if direction is None:
+            continue
+        parent = loc.get("parent")
+        if not parent or parent not in loc_names:
+            continue
+        if (name, parent) in existing_pairs:
+            continue
+        constraints.append({
+            "source": name,
+            "target": parent,
+            "relation_type": "direction",
+            "value": _CARDINAL_NAME_VALUES[direction],
+            "confidence": "low",
+            "confidence_score": 0.5,
+            "source_type": "name_prior",
+        })
+        existing_pairs.add((name, parent))
+        injected += 1
+
+    if injected:
+        logger.info("Cardinal name priors: injected %d soft direction constraints", injected)
+    return constraints
 
 
 # ── Direction opposites for contradiction detection ──
@@ -1311,6 +1420,9 @@ async def get_map_data(
 
     # Clean up common LLM extraction errors
     spatial_constraints = _clean_spatial_constraints(spatial_constraints, locations)
+
+    # Soft direction priors from cardinal names (东胜神洲→east, 南海→south)
+    spatial_constraints = _inject_cardinal_name_priors(spatial_constraints, locations)
 
     # Build first-chapter-appearance map for narrative axis
     first_chapter_map: dict[str, int] = {}

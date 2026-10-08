@@ -347,3 +347,114 @@ class TestContradictionDetection:
         ]
         filtered = agent._filter_relations(new_relations, {})
         assert len(filtered) == 0
+
+
+# ── _inject_cardinal_name_priors tests ──
+
+from src.services.visualization_service import (  # noqa: E402
+    _inject_cardinal_name_priors,
+)
+
+
+class TestCardinalNamePriors:
+    """Soft direction constraints injected from cardinal location names."""
+
+    def _make_locations(self, specs):
+        # specs: list of (name, parent)
+        return [{"name": n, "parent": p, "tier": "continent", "level": 0}
+                for n, p in specs]
+
+    def test_injects_for_cardinal_continent(self):
+        """东胜神洲 under 天下 gets east_of 天下 as a soft name_prior."""
+        locations = self._make_locations([("天下", None), ("东胜神洲", "天下")])
+        result = _inject_cardinal_name_priors([], locations)
+        assert len(result) == 1
+        c = result[0]
+        assert c["source"] == "东胜神洲"
+        assert c["target"] == "天下"
+        assert c["relation_type"] == "direction"
+        assert c["value"] == "east_of"
+        assert c["confidence"] == "low"
+        assert c["source_type"] == "name_prior"
+
+    def test_four_continents_spread_into_quadrants(self):
+        """All four 部洲 siblings get their own cardinal direction."""
+        locations = self._make_locations([
+            ("天下", None),
+            ("东胜神洲", "天下"), ("西牛贺洲", "天下"),
+            ("南赡部洲", "天下"), ("北俱芦洲", "天下"),
+        ])
+        result = _inject_cardinal_name_priors([], locations)
+        got = {(c["source"], c["value"]) for c in result}
+        assert got == {
+            ("东胜神洲", "east_of"), ("西牛贺洲", "west_of"),
+            ("南赡部洲", "south_of"), ("北俱芦洲", "north_of"),
+        }
+
+    def test_sea_and_island_suffixes(self):
+        """海/洋/岛/海湾 suffixes all qualify."""
+        locations = self._make_locations([
+            ("天下", None),
+            ("南海", "天下"), ("东洋大海", "天下"),
+            ("西海鸠鹚岛", "天下"), ("北冥海湾", "天下"),
+        ])
+        result = _inject_cardinal_name_priors([], locations)
+        got = {(c["source"], c["value"]) for c in result}
+        assert got == {
+            ("南海", "south_of"), ("东洋大海", "east_of"),
+            ("西海鸠鹚岛", "west_of"), ("北冥海湾", "north_of"),
+        }
+
+    def test_skips_existing_direction_pair(self):
+        """Text-extracted constraint for the same pair wins; no injection."""
+        locations = self._make_locations([("天下", None), ("北俱芦洲", "天下")])
+        existing = [{
+            "source": "北俱芦洲", "target": "天下",
+            "relation_type": "direction", "value": "south_of",
+            "confidence": "high",
+        }]
+        result = _inject_cardinal_name_priors(existing, locations)
+        assert len(result) == 1  # unchanged
+
+    def test_skips_existing_reverse_direction_pair(self):
+        """A reverse-direction constraint on the pair also blocks injection."""
+        locations = self._make_locations([("天下", None), ("东胜神洲", "天下")])
+        existing = [{
+            "source": "天下", "target": "东胜神洲",
+            "relation_type": "direction", "value": "west_of",
+            "confidence": "medium",
+        }]
+        result = _inject_cardinal_name_priors(existing, locations)
+        assert len(result) == 1
+
+    def test_ignores_non_cardinal_names(self):
+        """Names that merely contain a direction char don't qualify."""
+        locations = self._make_locations([
+            ("天下", None),
+            ("南海普陀山", "天下"),   # ends with 山, not a geo suffix
+            ("北天门", "天下"),       # ends with 门
+            ("西山居", "天下"),       # ends with 居
+            ("傲来国", "天下"),       # no cardinal char
+        ])
+        result = _inject_cardinal_name_priors([], locations)
+        assert result == []
+
+    def test_skips_missing_or_unknown_parent(self):
+        """No parent (or parent not in the location set) → no injection."""
+        locations = self._make_locations([
+            ("东胜神洲", None), ("西牛贺洲", "不存在的父级"),
+        ])
+        result = _inject_cardinal_name_priors([], locations)
+        assert result == []
+
+    def test_non_direction_constraint_does_not_block(self):
+        """A contains constraint on the pair must not block the prior."""
+        locations = self._make_locations([("天下", None), ("南赡部洲", "天下")])
+        existing = [{
+            "source": "天下", "target": "南赡部洲",
+            "relation_type": "contains", "value": "",
+            "confidence": "high",
+        }]
+        result = _inject_cardinal_name_priors(existing, locations)
+        assert len(result) == 2
+        assert result[1]["value"] == "south_of"

@@ -1614,8 +1614,12 @@ class ConstraintSolver:
         self._max_chapter = max(chapters) if chapters else 1
 
         # Compute direction hints for locations (weak positional preferences)
-        from src.services.location_hint_service import batch_extract_direction_hints
+        from src.services.location_hint_service import (
+            batch_extract_direction_hints,
+            strict_cardinal_direction,
+        )
         self._direction_hints = batch_extract_direction_hints(locations)
+        self._strict_cardinal_direction = strict_cardinal_direction
 
         # Separate non-geographic locations
         self._celestial: list[dict] = []
@@ -1655,6 +1659,22 @@ class ConstraintSolver:
 
         # Select locations for the solver: keep the most important ones
         self._select_solver_locations()
+
+        # Strict cardinal anchors (东胜神洲→east zone): precomputed
+        # (index, direction, weight) so _e_cardinal_anchor stays O(matches).
+        # Must run AFTER _select_solver_locations: solver order is re-sorted
+        # by score, so coords indices follow self.locations, not the input list.
+        _ANCHOR_TIER_W = {"world": 2.0, "continent": 2.0, "kingdom": 1.0, "region": 0.8}
+        self._cardinal_anchors: list[tuple[int, str, float]] = []
+        for i, loc in enumerate(self.locations):
+            name = loc["name"]
+            if name in self.user_overrides:
+                continue
+            direction = self._strict_cardinal_direction(name)
+            if direction is None:
+                continue
+            weight = _ANCHOR_TIER_W.get(loc.get("tier", ""), 0.3)
+            self._cardinal_anchors.append((i, direction, weight))
 
         # Pre-compute chapter array for vectorized energy functions
         self._chapter_arr = np.array(
@@ -2138,6 +2158,9 @@ class ConstraintSolver:
         # Direction hints: weak preference for locations with directional names
         e += self._e_direction_hints(coords) * 0.3
 
+        # Cardinal anchors: strict-pattern names pulled into their canvas zone
+        e += self._e_cardinal_anchor(coords)
+
         return e
 
     def _e_uniform_spread(self, coords: np.ndarray) -> float:
@@ -2267,6 +2290,40 @@ class ConstraintSolver:
             penalty = penalty / count * DIRECTION_MARGIN ** 2 * 5
 
         return penalty
+
+    # Zone boundary a strict cardinal name must stay beyond (normalized
+    # canvas coords): 东胜神洲 belongs past x=0.6, 北俱芦洲 above y=0.4.
+    # Canvas-anchored, unlike relative direction constraints which are
+    # satisfied anywhere on the correct side of their target and therefore
+    # cannot pull a node out of a foreign cluster (北俱芦洲 sat inside the
+    # eastern blob at nx≈0.84 with zero violated constraints of its own).
+    _CARDINAL_ZONE: ClassVar[dict[str, tuple[int, float, float]]] = {
+        # direction → (axis 0=x/1=y, boundary, required sign of (pos-boundary))
+        "east": (0, 0.60, 1.0),
+        "west": (0, 0.40, -1.0),
+        "north": (1, 0.40, -1.0),
+        "south": (1, 0.60, 1.0),
+    }
+
+    def _e_cardinal_anchor(self, coords: np.ndarray) -> float:
+        """Zone penalty for strict cardinal names (东胜神洲→east half+)."""
+        if not self._cardinal_anchors:
+            return 0.0
+        w = self._canvas_max_x - self._canvas_min_x
+        h = self._canvas_max_y - self._canvas_min_y
+        if w < 1 or h < 1:
+            return 0.0
+
+        e = 0.0
+        for i, direction, weight in self._cardinal_anchors:
+            axis, boundary, sign = self._CARDINAL_ZONE[direction]
+            span = w if axis == 0 else h
+            origin = self._canvas_min_x if axis == 0 else self._canvas_min_y
+            pos = (coords[i, axis] - origin) / span
+            violation = max(0.0, sign * (boundary - pos)) * span  # back to px
+            if violation > 0:
+                e += violation ** 2 * weight
+        return e
 
     def _e_direction(
         self, coords: np.ndarray, si: int, ti: int, value: str
@@ -2604,6 +2661,18 @@ class ConstraintSolver:
 
         return layout
 
+    # Direction hint → placement angle relative to the parent (SVG: +y is
+    # down, so south is +90°, north -90°). Children whose names encode a
+    # cardinal direction (东胜神洲→east) start on that side of the parent
+    # instead of the pure sunflower distribution, giving the optimizer a
+    # correctly oriented starting point.
+    _HINT_ANGLES: ClassVar[dict[str, float]] = {
+        "east": 0.0,
+        "south": math.pi / 2,
+        "west": math.pi,
+        "north": -math.pi / 2,
+    }
+
     def _place_children(
         self,
         layout: dict[str, tuple[float, float]],
@@ -2623,13 +2692,22 @@ class ConstraintSolver:
             # Adaptive radius: scale with sqrt(n_children) for better spread
             effective_radius = child_radius * max(1.0, math.sqrt(n / 5))
             effective_radius = min(effective_radius, min(canvas_w, canvas_h) * 0.3)
+            hint_count: dict[str, int] = {}
             for i, child in enumerate(children):
                 if child in layout:
                     continue
-                # Sunflower seed distribution: fills circle area organically
-                frac = (i + 0.5) / n
-                r = effective_radius * (0.3 + 0.7 * math.sqrt(frac))
-                angle = i * golden_angle
+                hint = self._direction_hints.get(child)
+                if hint in self._HINT_ANGLES:
+                    # Same-direction siblings fan out along the hint ray
+                    k = hint_count.get(hint, 0)
+                    hint_count[hint] = k + 1
+                    r = effective_radius * (0.55 + 0.2 * min(k, 2))
+                    angle = self._HINT_ANGLES[hint]
+                else:
+                    # Sunflower seed distribution: fills circle area organically
+                    frac = (i + 0.5) / n
+                    r = effective_radius * (0.3 + 0.7 * math.sqrt(frac))
+                    angle = i * golden_angle
                 cx = px + r * math.cos(angle)
                 cy = py + r * math.sin(angle)
                 # Clamp to canvas
@@ -2767,6 +2845,24 @@ class ConstraintSolver:
                                     nudge = v_n * abs(proj) * 0.03 * weight
                                     forces[indices[idx_i + 1]] += nudge
                                     forces[indices[idx_i]] -= nudge
+
+            # ── Cardinal anchors: pull strict-pattern names toward their zone ──
+            # The energy term alone cannot move a node out of a foreign
+            # cluster: DE's budget at this dimensionality barely perturbs the
+            # seed, so the seed itself must place 北俱芦洲 & co. correctly.
+            for i, direction, weight in self._cardinal_anchors:
+                if fixed[i]:
+                    continue
+                axis, boundary, sign = self._CARDINAL_ZONE[direction]
+                span = (self._canvas_max_x - self._canvas_min_x) if axis == 0 else (
+                    self._canvas_max_y - self._canvas_min_y)
+                origin = self._canvas_min_x if axis == 0 else self._canvas_min_y
+                pos = (positions[i, axis] - origin) / span
+                if sign * (boundary - pos) > 0:
+                    # Aim slightly past the boundary so the hinge energy
+                    # is satisfied with margin
+                    target_norm = boundary + sign * 0.08
+                    forces[i, axis] += sign * (target_norm - pos) * span * 0.05 * weight
 
             # ── Repulsion: O(n²) pairwise repulsion ──
             for i in range(n):
@@ -5106,16 +5202,28 @@ def generate_landmasses(
     # These create visible "inner sea" holes even when oceans are misplaced.
     if ocean_pts:
         ocean_r = max(round(threshold * 0.2), 3)
+        # A sea placed next to (or inside) a land cluster must not eat the
+        # cluster. Measured on 西游记: 南海 sat 50 px from 南赡部洲 and the
+        # user-pinned 东洋大海 sat inside the 花果山/傲来国 cluster; the
+        # 400 px holes carved 68 land locations — all four continents
+        # included — off the mask, and the sea-orphan snap then teleported
+        # them into the one surviving blob. Cap each hole so a protective
+        # land gap always survives around land anchors; the sea's own centre
+        # cell still goes to water, and genuinely misplaced seas are
+        # relocated by the separate sea-to-water snap downstream.
+        protect_gap = max(3, round(threshold * 0.06))
         for ox, oy in ocean_pts:
             gxi = round(ox / cell_size)
             gyi = round(oy / cell_size)
-            y_lo = max(0, gyi - ocean_r)
-            y_hi = min(grid_h, gyi + ocean_r + 1)
-            x_lo = max(0, gxi - ocean_r)
-            x_hi = min(grid_w, gxi + ocean_r + 1)
+            d_land_cells = float(tree.query([[ox, oy]], k=1)[0][0]) / cell_size
+            hole_r = max(1, min(ocean_r, round(d_land_cells) - protect_gap))
+            y_lo = max(0, gyi - hole_r)
+            y_hi = min(grid_h, gyi + hole_r + 1)
+            x_lo = max(0, gxi - hole_r)
+            x_hi = min(grid_w, gxi + hole_r + 1)
             yy, xx = np.ogrid[y_lo:y_hi, x_lo:x_hi]
             dist_sq = (xx - gxi) ** 2 + (yy - gyi) ** 2
-            land_mask[y_lo:y_hi, x_lo:x_hi][dist_sq <= ocean_r * ocean_r] = False
+            land_mask[y_lo:y_hi, x_lo:x_hi][dist_sq <= hole_r * hole_r] = False
 
     # ── Shelf rings ──
     #
@@ -5423,20 +5531,30 @@ def generate_landmasses(
 
         _lab, _n_comp = _nd_label(land_mask, structure=np.ones((3, 3), dtype=int))
         if _n_comp > 1:
+            # Tier lookup from `locations` (layout items carry no tier): a
+            # component holding a macro anchor is real geography, not a
+            # speck — dropping 北俱芦洲's lone northern component is what
+            # made the orphan snap teleport it back into the eastern blob.
+            _loc_tier = {loc["name"]: loc.get("tier", "") for loc in locations}
+            _TIER_KEEP = {"world", "continent", "kingdom"}
             _loc_per_comp: dict[int, int] = {}
-            for _lx, _ly in coords.values():
+            _keep_comp: set[int] = set()
+            for _lname, (_lx, _ly) in coords.items():
                 _gi = int(_lx / cell_size)
                 _gj = int(_ly / cell_size)
                 if 0 <= _gi < grid_w and 0 <= _gj < grid_h:
                     _cid = int(_lab[_gj, _gi])
                     if _cid:
                         _loc_per_comp[_cid] = _loc_per_comp.get(_cid, 0) + 1
+                        if _loc_tier.get(_lname) in _TIER_KEEP:
+                            _keep_comp.add(_cid)
             _comp_cells = np.bincount(_lab.ravel(), minlength=_n_comp + 1)
             _cell_area = float(cell_size * cell_size)
             _drop = [
                 _cid
                 for _cid in range(1, _n_comp + 1)
-                if _loc_per_comp.get(_cid, 0) < 2
+                if _cid not in _keep_comp
+                and _loc_per_comp.get(_cid, 0) < 2
                 and _comp_cells[_cid] * _cell_area < absorb_threshold
             ]
             if _drop:
