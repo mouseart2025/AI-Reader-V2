@@ -309,6 +309,17 @@ const BIOME_REACH: Record<TerrainCategory, number> = {
   plains: 0,
 }
 
+/**
+ * How far a water seed's biome vote carries ON LAND, in canvas px before
+ * `worldScale`. `BIOME_REACH.water` is calibrated for seas, where the
+ * landmask confines the disc to open water; on land that same 330 px disc
+ * carpets the fields around a river, a spring or a well with wave glyphs
+ * (measured on 西游记 at k=5 over 五行山: 334 of 334 emitted waves sat on
+ * dry ground). A watercourse is a ribbon, not a district: its vote stands
+ * only within a riverbank's width of the seed point.
+ */
+const RIVERBANK_REACH = 80
+
 /** Canvas size the reaches above are authored against. */
 const BIOME_REF_MIN_SIDE = 4500
 
@@ -1383,6 +1394,7 @@ export function generateTerrainHints(
     if (scat[i] === "water") waterIdx.push(i)
   }
   const waterReach = BIOME_REACH.water * worldScale
+  const riverbankReach = RIVERBANK_REACH * worldScale
   const nearestWaterFalloff = (px: number, py: number): number => {
     if (waterIdx.length === 0) return -1
     let bd2 = Infinity
@@ -1511,6 +1523,13 @@ export function generateTerrainHints(
         cat = "water"
         const wt = nearestWaterFalloff(px, py)
         density = wt > 0 ? 0.45 + 0.55 * Math.min(1, wt) : OCEAN_DENSITY
+      } else if (onLandHere && cat === "water" && Math.sqrt(bestD2) > riverbankReach) {
+        // The mirror promise: no waves inked on dry ground. A water seed on
+        // land is a river, spring or well, and its vote is only honoured a
+        // riverbank's width out (see RIVERBANK_REACH); further inland the
+        // cell falls back to open ground.
+        cat = "plains"
+        falloff = 0
       }
 
       // ── Relief ───────────────────────────────────

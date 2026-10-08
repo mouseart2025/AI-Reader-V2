@@ -262,16 +262,57 @@ function getVisibleTiers(scale: number, scaleDivisor = 1): string {
  * Terrain ground-cover LOD key.
  *
  * The ground grid is authored in *screen* pixels (see `CELL_PX`), so a zoom
- * step changes the canvas pitch of the grid, and a pan changes which cells fall
- * inside the viewport. Both therefore invalidate the scatter. Rebuilding on
- * every wheel tick would thrash a few hundred DOM nodes, so the transform is
- * quantised to half-octave zoom steps and ~96 px pan steps: a gesture triggers
- * a handful of rebuilds, and between them the cheap counter-scale effect keeps
- * the symbols at a constant on-screen size.
+ * step changes the canvas pitch of the grid and invalidates the scatter. A pan
+ * does not: it only slides which cells are in view, and the scatter is built
+ * to cover the viewport plus an overscan margin, so a pan rebuild is needed
+ * only when the viewport reaches the edge of the covered window (see
+ * `scatterLeftCover`). The key still quantises pan to ~96 px steps so that
+ * when a rebuild *is* due, a fast drag does not land two keys in one frame.
  */
+function terrainZoomStep(k: number): number {
+  return Math.round(Math.log2(Math.max(k, 1e-6)) * 2)
+}
+
 function terrainLodKey(t: d3Zoom.ZoomTransform): string {
-  const z = Math.round(Math.log2(Math.max(t.k, 1e-6)) * 2)
-  return `${z}:${Math.round(t.x / 96)}:${Math.round(t.y / 96)}`
+  return `${terrainZoomStep(t.k)}:${Math.round(t.x / 96)}:${Math.round(t.y / 96)}`
+}
+
+/** Fraction of the viewport added on each side when the scatter is laid down. */
+const SCATTER_OVERSCAN = 0.5
+
+/** Canvas-space rect a scatter rebuild actually covered, plus its zoom tier. */
+interface ScatterCover {
+  x: number
+  y: number
+  w: number
+  h: number
+  z: number
+}
+
+/**
+ * Whether transform `t` needs a ground-cover rebuild: yes when nothing is laid
+ * down yet, when the zoom tier changed (the cell pitch is authored in screen
+ * pixels, so a half-octave step re-lays the grid), or when the viewport has
+ * slid outside the rect the last rebuild covered.
+ */
+function scatterLeftCover(
+  t: d3Zoom.ZoomTransform,
+  cover: ScatterCover | null,
+  svgEl: SVGSVGElement | null,
+): boolean {
+  if (!cover || cover.z !== terrainZoomStep(t.k)) return true
+  const kz = t.k || 1
+  const vbW = svgEl?.clientWidth || 0
+  const vbH = svgEl?.clientHeight || 0
+  if (vbW <= 0 || vbH <= 0) return false
+  const vx = -t.x / kz
+  const vy = -t.y / kz
+  return (
+    vx < cover.x ||
+    vy < cover.y ||
+    vx + vbW / kz > cover.x + cover.w ||
+    vy + vbH / kz > cover.y + cover.h
+  )
 }
 
 /** SVG namespace, used when the ground layer builds nodes by hand. */
@@ -460,6 +501,10 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     // per-tick counter-scale effect can read the current array without making
     // the rebuild effect depend on the zoom.
     const hintsRef = useRef<TerrainHint[]>([])
+    // Canvas rect (viewport + SCATTER_OVERSCAN margin) the current scatter was
+    // built to cover, at the quantised zoom tier it was built for. The zoom
+    // handler reads this to skip pan rebuilds while the viewport stays inside.
+    const scatterCoverRef = useRef<ScatterCover | null>(null)
     // Signed relief sampled from the baked terrain image the reader is looking
     // at, in canvas coordinates. Ground cover reads it so its density follows the
     // ground instead of this module's own private noise field. See the note on
@@ -639,7 +684,18 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .attr("stop-color", darkBg ? "rgba(0,0,0,0.7)" : "rgba(10,8,5,0.55)")
 
       // Viewport group (transformed by zoom)
-      const viewport = svg.append("g").attr("id", "viewport")
+      //
+      // The transform is applied as a CSS transform, not the SVG attribute.
+      // The group carries a 4096px baked terrain PNG (~38 MB decoded), and an
+      // attribute transform re-rasterises the whole subtree — bitmap resample
+      // included — on every pan frame, which is what made dragging stutter.
+      // A CSS transform with will-change lets the compositor translate the
+      // cached layer instead, so a pure pan paints nothing.
+      const viewport = svg
+        .append("g")
+        .attr("id", "viewport")
+        .style("transform-origin", "0 0")
+        .style("will-change", "transform")
 
       // Background
       viewport
@@ -742,12 +798,36 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         .zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.2, 10])
         .on("zoom", (event: d3Zoom.D3ZoomEvent<SVGSVGElement, unknown>) => {
-          viewport.attr("transform", event.transform.toString())
-          transformRef.current = event.transform
-          setCurrentScale(event.transform.k)
-          // React bails out when the key is unchanged, so a pure pan does not
-          // re-render until it has actually moved the ground grid.
-          setLodKey(terrainLodKey(event.transform))
+          const t = event.transform
+          viewport.style("transform", `translate3d(${t.x}px,${t.y}px,0) scale(${t.k})`)
+          transformRef.current = t
+          setCurrentScale(t.k)
+          // The scatter covers the viewport plus a margin (see the rebuild
+          // effect), so a pan only re-lays the ground when the viewport is
+          // about to slide off the covered window — not on every 96 px step.
+          // React bails out when the key is unchanged.
+          if (scatterLeftCover(t, scatterCoverRef.current, svg.node())) {
+            setLodKey(terrainLodKey(t))
+          }
+        })
+        // Gesture degradation. Every pan/zoom frame re-rasterises the whole
+        // viewport subtree, and the two expensive items are the 4096px baked
+        // terrain PNG (~38 MB decoded) and the full-canvas feTurbulence
+        // parchment rects. WKWebView does not promote SVG subtrees to
+        // composited layers, so the repaint cannot be avoided — but it can be
+        // made cheap: for the duration of a gesture the bake is swapped for a
+        // 1024px stand-in (~1/16 of the pixels) and the parchment filters are
+        // hidden. Both are restored when the gesture ends, so the idle map is
+        // pixel-identical to before.
+        .on("start", () => {
+          svg.selectAll("image.terrain-img").style("visibility", "hidden")
+          svg.selectAll("image.terrain-proxy").style("visibility", null)
+          svg.selectAll("#bg-texture, #bg-stain").style("visibility", "hidden")
+        })
+        .on("end", () => {
+          svg.selectAll("image.terrain-img").style("visibility", null)
+          svg.selectAll("image.terrain-proxy").style("visibility", "hidden")
+          svg.selectAll("#bg-texture, #bg-stain").style("visibility", null)
         })
 
       svg.call(zoom)
@@ -783,8 +863,8 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       if (!svgRef.current || !mapReady || !resolvedTerrainUrl || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const terrainG = svg.select("#terrain-biome")
-      // Remove previous terrain image if any (keep hint symbols via class check)
-      terrainG.selectAll("image.terrain-img").remove()
+      // Remove previous terrain images if any (keep hint symbols via class check)
+      terrainG.selectAll("image.terrain-img, image.terrain-proxy").remove()
 
       // Opacity depends on whether the bake has structure to carry, not on the
       // bake alone. Measured on 西游记 over 0.40 -> 1.00:
@@ -825,6 +905,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // asked for a value per candidate cell, and the lattice is coarse anyway.
       if (!resolvedTerrainUrl) return
       let cancelled = false
+      let proxyUrl: string | null = null
       const probe = new Image()
       probe.crossOrigin = "anonymous"
       probe.onload = () => {
@@ -885,6 +966,39 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
           return Math.max(-1, Math.min(1, dev[y * W + x] / p95))
         }
         setReliefSamplerReady((n) => n + 1)
+
+        // Low-res stand-in swapped in during pan/zoom gestures (see the zoom
+        // "start"/"end" handlers). The probe image is already decoded here, so
+        // the downscale costs one drawImage; 1024px repaints at ~1/16 of the
+        // 4096px bake's price. JPEG because the bake is fully opaque.
+        const PW = 1024
+        const PH = Math.max(1, Math.round((PW * canvasH) / canvasW))
+        const pcv = document.createElement("canvas")
+        pcv.width = PW
+        pcv.height = PH
+        const pctx = pcv.getContext("2d")
+        if (!pctx) return
+        pctx.drawImage(probe, 0, 0, PW, PH)
+        pcv.toBlob(
+          (blob) => {
+            if (cancelled || !blob) return
+            proxyUrl = URL.createObjectURL(blob)
+            terrainG
+              .insert("image", ":first-child")
+              .attr("class", "terrain-proxy")
+              .attr("href", proxyUrl)
+              .attr("x", 0)
+              .attr("y", 0)
+              .attr("width", canvasW)
+              .attr("height", canvasH)
+              .attr("opacity", terrainOpacity)
+              .attr("preserveAspectRatio", "none")
+              .style("pointer-events", "none")
+              .style("visibility", "hidden")
+          },
+          "image/jpeg",
+          0.85,
+        )
       }
       probe.onerror = () => {
         // No sampler is a working configuration: the scatter falls back to its
@@ -894,6 +1008,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       probe.src = resolvedTerrainUrl
       return () => {
         cancelled = true
+        if (proxyUrl) URL.revokeObjectURL(proxyUrl)
       }
     }, [mapReady, resolvedTerrainUrl, canvasW, canvasH, darkBg, spaceThemeProp])
 
@@ -901,10 +1016,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     // Runs on the quantised LOD key, not on every zoom tick. The grid lives in
     // *canvas* space — a cell is `CELL_PX / k` wide, so it measures CELL_PX on
     // screen at any zoom — which means a pan does not re-lay the pattern, it
-    // only slides the window of cells in view. The LOD key quantises that
-    // window to ~96 px steps, and 96 px of pan is exactly six cells at the
-    // default pitch, so consecutive keys share most of their cells. Between
-    // steps the counter-scale effect below keeps sizes constant.
+    // only slides which cells are in view. The pattern is therefore built over
+    // the viewport plus a SCATTER_OVERSCAN margin, and the zoom handler only
+    // re-keys the LOD when the viewport slides off that covered window (or the
+    // zoom tier changes) — a plain drag rebuilds nothing. Between rebuilds the
+    // counter-scale effect below keeps sizes constant.
     //
     // There is deliberately no rAF coalescing here. It was added on the theory
     // that a brisk drag lands several changed keys inside one frame and each
@@ -929,11 +1045,23 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       const vbW = svgEl.clientWidth || svgEl.getBoundingClientRect().width || 0
       const vbH = svgEl.clientHeight || svgEl.getBoundingClientRect().height || 0
       // Canvas rect currently on screen = the viewport rect pushed back through
-      // translate(tx,ty) scale(k).
+      // translate(tx,ty) scale(k). The scatter is laid down over the viewport
+      // plus an overscan margin on every side, and that covered rect is what
+      // the zoom handler checks pans against — a drag inside the margin moves
+      // symbols that already exist instead of re-laying the grid.
       const viewRect =
         vbW > 0 && vbH > 0
           ? { x: -t.x / kz, y: -t.y / kz, w: vbW / kz, h: vbH / kz }
           : null
+      const coverRect = viewRect
+        ? {
+            x: viewRect.x - viewRect.w * SCATTER_OVERSCAN,
+            y: viewRect.y - viewRect.h * SCATTER_OVERSCAN,
+            w: viewRect.w * (1 + 2 * SCATTER_OVERSCAN),
+            h: viewRect.h * (1 + 2 * SCATTER_OVERSCAN),
+          }
+        : null
+      scatterCoverRef.current = coverRect ? { ...coverRect, z: terrainZoomStep(kz) } : null
 
       const { symbolDefs, hints } = generateTerrainHints(
         allLocations ?? locations,
@@ -941,7 +1069,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         { width: canvasW, height: canvasH },
         darkBg,
         kz,
-        viewRect,
+        coverRect,
         landmasses,
         reliefSamplerRef.current,
         // Mechanism probe, off unless a probe turns it on. See the note on
