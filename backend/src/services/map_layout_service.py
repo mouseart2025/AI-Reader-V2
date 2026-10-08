@@ -5035,7 +5035,13 @@ def generate_landmasses(
     # coast it is wobbling.
     _seed = _stable_seed(novel_id)
 
-    # Build coord + tier lookup from layout_data
+    # Build coord + tier lookup. Layout items carry no tier field
+    # (layout_to_list emits only name/x/y/radius), so reading it here used
+    # to make EVERY anchor a site: 北俱芦洲 (continent, weight 3.0) painted
+    # the same 250 px island as a roadside shrine, which is why the four
+    # continents rendered as fragmentary specks while the dense cluster
+    # swelled. Take tiers from `locations`; the item field wins if present.
+    _loc_tier_by_name = {loc["name"]: loc.get("tier", "") for loc in locations}
     coords: dict[str, tuple[float, float]] = {}
     tiers: dict[str, str] = {}
     for item in layout_data:
@@ -5043,7 +5049,7 @@ def generate_landmasses(
         if item.get("is_portal"):
             continue
         coords[name] = (item["x"], item["y"])
-        tiers[name] = item.get("tier", "site")
+        tiers[name] = item.get("tier") or _loc_tier_by_name.get(name) or "site"
 
     cell_size = 8.0  # grid cell size in canvas px (canvas_width // 8)
 
@@ -5531,11 +5537,10 @@ def generate_landmasses(
 
         _lab, _n_comp = _nd_label(land_mask, structure=np.ones((3, 3), dtype=int))
         if _n_comp > 1:
-            # Tier lookup from `locations` (layout items carry no tier): a
+            # Tier lookup (layout items carry no tier — see above): a
             # component holding a macro anchor is real geography, not a
             # speck — dropping 北俱芦洲's lone northern component is what
             # made the orphan snap teleport it back into the eastern blob.
-            _loc_tier = {loc["name"]: loc.get("tier", "") for loc in locations}
             _TIER_KEEP = {"world", "continent", "kingdom"}
             _loc_per_comp: dict[int, int] = {}
             _keep_comp: set[int] = set()
@@ -5546,7 +5551,7 @@ def generate_landmasses(
                     _cid = int(_lab[_gj, _gi])
                     if _cid:
                         _loc_per_comp[_cid] = _loc_per_comp.get(_cid, 0) + 1
-                        if _loc_tier.get(_lname) in _TIER_KEEP:
+                        if _loc_tier_by_name.get(_lname) in _TIER_KEEP:
                             _keep_comp.add(_cid)
             _comp_cells = np.bincount(_lab.ravel(), minlength=_n_comp + 1)
             _cell_area = float(cell_size * cell_size)
