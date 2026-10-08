@@ -4966,6 +4966,15 @@ def generate_landmasses(
             icon == "water"
             and loc_type in ("海", "洋", "海洋", "大海", "海域", "湖", "湖泊")
         ) or (
+            # Name suffix is the one dimension type drift cannot hide. 南海
+            # came back from extraction typed "region" (English, off-vocab),
+            # every type check above passed it through, and it became a land
+            # anchor that pulled the coastline onto itself. A water icon plus
+            # a *海/*洋 name is a sea whatever the type field says; cities
+            # like 上海/威海 do not carry a water icon, so they cannot match.
+            icon in ("water", "ocean")
+            and name.endswith(("海", "洋"))
+        ) or (
             any(kw in loc_type for kw in _OCEAN_TYPE_KEYWORDS)
             and not any(ex in loc_type for ex in _OCEAN_TYPE_EXCLUDE)
             # Only match actual seas/oceans, not rivers/springs with 海 in name

@@ -530,7 +530,109 @@ def _snap_sea_orphans_to_land(
     return total_snapped
 
 
+def _snap_sea_bodies_to_water(
+    layout_data: list[dict],
+    locations: list[dict],
+    landmass_result: dict,
+    canvas_width: float,
+    canvas_height: float,
+) -> int:
+    """Snap sea/ocean locations that sit on dry land to the nearest water.
+
+    Mirror of `_snap_sea_orphans_to_land`, which only rescues land locations
+    from the sea — nothing moves a sea off the land. Type drift makes this
+    reachable: 南海 came back from extraction typed "region", so the landmass
+    generator treated it as a land anchor and the coastline bent *towards*
+    it instead of around it.
+
+    Works from the persisted coastline polygons rather than `_land_mask`
+    (which only exists on the freshly-generated path), so cached maps are
+    covered too. Only sea-named bodies are moved: icon=water/ocean plus a
+    sea type or a *海/*洋 name. Lakes are deliberately excluded — a 湖 on
+    land is correct. Rivers are excluded the same way. Returns snap count.
+    """
+    import numpy as np
+    from matplotlib.path import Path as _MplPath
+    from scipy.ndimage import distance_transform_edt
+
+    landmasses = landmass_result.get("landmasses") or []
+    if not landmasses or not layout_data:
+        return 0
+
+    loc_lookup = {loc["name"]: loc for loc in locations}
+
+    candidates = [
+        item for item in layout_data
+        if not item.get("is_portal") and _is_sea_body_loc(loc_lookup.get(item.get("name", "")) or {})
+    ]
+    if not candidates:
+        return 0
+
+    # Rasterise the land polygons onto a coarse grid, then let the distance
+    # transform name each land cell's nearest water cell.
+    gs = 16.0
+    gw = max(1, int(canvas_width / gs))
+    gh = max(1, int(canvas_height / gs))
+    xs = (np.arange(gw) + 0.5) * gs
+    ys = (np.arange(gh) + 0.5) * gs
+    xx, yy = np.meshgrid(xs, ys)
+    grid_pts = np.column_stack([xx.ravel(), yy.ravel()])
+    land = np.zeros(len(grid_pts), dtype=bool)
+    for lm in landmasses:
+        ring = lm.get("coastline") or []
+        if len(ring) < 3:
+            continue
+        inside = _MplPath(np.asarray(ring)).contains_points(grid_pts)
+        for hole in lm.get("holes") or []:
+            if len(hole) >= 3:
+                inside &= ~_MplPath(np.asarray(hole)).contains_points(grid_pts)
+        land |= inside
+    land2d = land.reshape(gh, gw)
+    if land2d.all() or (~land2d).all():
+        return 0
+    nearest_water = distance_transform_edt(
+        land2d, return_distances=False, return_indices=True,
+    )
+
+    snapped = 0
+    for item in candidates:
+        ci = int(item["y"] / gs)
+        cj = int(item["x"] / gs)
+        if not (0 <= ci < gh and 0 <= cj < gw) or not land2d[ci, cj]:
+            continue
+        ti, tj = nearest_water[:, ci, cj]
+        item["x"] = round(float((tj + 0.5) * gs), 1)
+        item["y"] = round(float((ti + 0.5) * gs), 1)
+        snapped += 1
+        logger.info(
+            "Snapped sea body %s from land to water at (%.0f, %.0f)",
+            item["name"], item["x"], item["y"],
+        )
+    return snapped
+
+
 _CONFIDENCE_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
+def _is_sea_body_loc(loc: dict) -> bool:
+    """Sea/ocean body detection for map hygiene rules.
+
+    icon=water/ocean plus a sea type or a *海/*洋 name. Islands, rivers and
+    lakes are not seas (an island is land, a river runs through it, a 湖 sits
+    in it). The name suffix exists because type drift (南海 came back typed
+    "region") makes the type field unreliable on exactly the cases these
+    rules protect against; cities like 上海/威海 carry no water icon and so
+    cannot match.
+    """
+    icon = loc.get("icon", "generic")
+    if icon == "island":
+        return False
+    if icon == "ocean":
+        return True
+    if icon != "water":
+        return False
+    loc_type = loc.get("type", "")
+    return loc_type in ("海", "洋", "海洋", "大海", "海域") or loc.get("name", "").endswith(("海", "洋"))
 
 # Valid direction enum values expected by the constraint solver
 _VALID_DIRECTION_VALUES = {
@@ -569,6 +671,8 @@ def _clean_spatial_constraints(
     loc_level = {loc["name"]: loc.get("level", 0) for loc in locations}
     loc_parent = {loc["name"]: loc.get("parent") for loc in locations}
     loc_names_set = {loc["name"] for loc in locations}
+    loc_by_name = {loc["name"]: loc for loc in locations}
+    water_cache: dict[str, bool] = {}
 
     cleaned = []
     fixed = 0
@@ -600,6 +704,17 @@ def _clean_spatial_constraints(
                 # Higher level = deeper in hierarchy = smaller area → likely inverted
                 c = {**c, "source": tgt, "target": src}
                 fixed += 1
+
+            # Dry land cannot contain a sea. "南赡部洲 contains 南海" is a
+            # real extraction ("南海属于南赡部洲", evidence: "大慈悲回南海不题")
+            # and it anchored the sea inside the continent through the whole
+            # solver. The reverse — a sea containing an island or mountain
+            # (南海 contains 落伽山) — is ordinary geography and stays.
+            if _is_sea_body_loc(loc_by_name.get(c["target"]) or {}) and not _is_water_location(
+                c["source"], loc_by_name, water_cache,
+            ):
+                removed += 1
+                continue
 
             cleaned.append(c)
             continue
@@ -1940,13 +2055,73 @@ async def get_map_data(
             except Exception:
                 logger.warning("Failed to persist map geo artifacts", exc_info=True)
 
+    # ── Snap sea bodies that ended up on land back to water ──
+    # Mirror of the sea-orphan snap above, for the opposite failure (a sea
+    # anchored on land — see _snap_sea_bodies_to_water). Runs on the
+    # persisted-artifacts path too: it reads the coastline polygons, not
+    # `_land_mask`, so a cached map still gets its drifted seas moved.
+    if (
+        layout_mode != "geographic"
+        and _is_overworld_like
+        and landmass_result
+        and landmass_result.get("landmasses")
+    ):
+        try:
+            _sea_snap = _snap_sea_bodies_to_water(
+                layout_data, locations, landmass_result, _resp_cw, _resp_ch,
+            )
+            if _sea_snap:
+                logger.info("Snapped %d sea bodies from land to water", _sea_snap)
+                # Persist so cached-layout reads stay consistent, same as the
+                # sea-orphan snap write-back above.
+                try:
+                    if cached_layer is not None or layout_mode == "layered":
+                        await _save_cached_layer_layout(
+                            novel_id, target_layer, ch_hash, layout_data, layout_mode,
+                        )
+                    else:
+                        conn = await get_connection()
+                        try:
+                            await conn.execute(
+                                "UPDATE map_layouts SET layout_json = ? WHERE novel_id = ? AND chapter_hash = ?",
+                                (json.dumps(layout_data, ensure_ascii=False), novel_id, ch_hash),
+                            )
+                            await conn.commit()
+                        finally:
+                            await conn.close()
+                except Exception:
+                    logger.warning("Failed to write back sea-snapped layout", exc_info=True)
+        except Exception:
+            logger.warning("Failed to snap sea bodies to water", exc_info=True)
+
     # ── Fill missing layout coordinates ──
     # Some locations (sub-sites, buildings) may not get layout positions from
     # the layout engine. Assign them coordinates near their parent using
     # sunflower-seed angular distribution for organic spread.
+    #
+    # The fill must stay inside this response's layer: `layout_data` is the
+    # layout of `target_layer`, but `locations` spans EVERY layer, and the
+    # client renders whatever it is handed. Without the membership gate the
+    # celestial/underworld locations (which have no overworld coordinates by
+    # design) were scattered around 天下 and painted onto the main world.
+    # Merged layers (≤1 location, non-overworld) are the one exception: they
+    # have no tab of their own and are meant to show in the main world — this
+    # fill is in fact the mechanism that places them.
+    _loc_layer: dict[str, str] = dict(ws.location_layer_map) if ws else {}
+    _allowed_layer_ids: set[str] = {target_layer}
+    if ws:
+        for _layer_obj in ws.layers:
+            if _layer_obj.layer_id == "overworld":
+                continue
+            if sum(1 for lid in ws.location_layer_map.values() if lid == _layer_obj.layer_id) <= 1:
+                _allowed_layer_ids.add(_layer_obj.layer_id)
     _layout_map = {item["name"]: item for item in layout_data}
     _loc_map = {loc["name"]: loc for loc in locations}
-    _missing = [loc for loc in locations if loc["name"] not in _layout_map]
+    _missing = [
+        loc for loc in locations
+        if loc["name"] not in _layout_map
+        and _loc_layer.get(loc["name"], "overworld") in _allowed_layer_ids
+    ]
 
     if _missing:
         import math as _math
@@ -1988,6 +2163,19 @@ async def get_map_data(
                 len(_missing) - len([loc for loc in locations if loc["name"] not in _layout_map]),
                 len(_missing),
             )
+
+    # Response-boundary layer filter. The fill above stops injecting foreign
+    # locations now, but a layout loaded from a stale cache (solved before
+    # layered layout existed, or before a location changed layers) can still
+    # carry their coordinates — and the client renders `layout` verbatim.
+    # Portal markers stay: they are the cross-layer affordance by design.
+    if _loc_layer:
+        layout_data = [
+            it for it in layout_data
+            if it.get("is_portal")
+            or _loc_layer.get(it.get("name"), "overworld") in _allowed_layer_ids
+        ]
+        _layout_map = {item["name"]: item for item in layout_data}
 
     # Add placement_confidence to each location
     constrained_names: set[str] = set()
