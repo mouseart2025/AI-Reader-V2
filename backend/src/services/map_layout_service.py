@@ -3187,7 +3187,7 @@ def _spread_unit(field: np.ndarray) -> np.ndarray:
 # light half of the range with the mass pushed into the lowlands, shading
 # modulates instead of dominating, and the octave falloff is shallower so macro
 # form wins at fit.
-_TERRAIN_VERSION = 16
+_TERRAIN_VERSION = 17
 
 
 def terrain_path_for(novel_id: str) -> Path:
@@ -5007,6 +5007,110 @@ def _coast_relief_weight(
     return [float(v) for v in w]
 
 
+# Collective continent names (四大部洲 / 三界 …) are roll-up nodes, not geography:
+# as landmass anchors they would grow a bogus extra continent in the middle of
+# the map. 主世界-type nodes are excluded separately by their 界域 type.
+_COLLECTIVE_CONTINENT_RE = re.compile(r"^[一二三四五六七八九十百千万\d]+大?(部洲|洲|界|大陆|岛|天)$")
+
+
+def continent_anchor_names(locations: list[dict], layout_names: set[str]) -> list[str]:
+    """Names of continent-tier locations that should anchor their own landmass.
+
+    Excludes world-tier roots, 界域 realm nodes (e.g. the layer root 主世界) and
+    collective roll-ups (四大部洲) — those are hierarchy plumbing, and painting
+    land around them glues the real continents into one blob.
+    """
+    anchors: list[str] = []
+    for loc in locations:
+        name = loc.get("name", "")
+        if not name or name not in layout_names:
+            continue
+        if loc.get("tier") != "continent":
+            continue
+        if loc.get("type") == "界域" or _COLLECTIVE_CONTINENT_RE.match(name):
+            continue
+        anchors.append(name)
+    return anchors
+
+
+def landmass_base_radius(canvas_width: float, canvas_height: float, median_nn: float) -> float:
+    """Base land radius in canvas px (a site-tier location paints a disc of this size).
+
+    Scales with the canvas and gets a density floor so sparse layouts still
+    connect, but is deliberately NOT driven by a coverage guarantee: the old
+    "35 % of canvas must be land" floor resolved to ~250 on 西游记 and let every
+    continent anchor paint a 750 px-radius disc, merging four continents into
+    one mega-blob.
+    """
+    t = min(canvas_width, canvas_height) * 0.05
+    t = max(t, median_nn * 1.15)
+    return min(t, min(canvas_width, canvas_height) * 0.09)
+
+
+def _continent_group_map(
+    locations: list[dict],
+    layout_data: list[dict],
+    ocean_names: set[str],
+    anchors: list[str],
+    coords: dict[str, tuple[float, float]],
+) -> dict[str, list[str]]:
+    """Assign every land location to a continent anchor's group.
+
+    Membership comes from the parent chain (比丘国 → 西牛贺洲). Locations whose
+    chain reaches no anchor (hierarchy orphans attached to the layer root)
+    join the group of their nearest *grouped* neighbour — nearest-anchor would
+    drag the whole un-parented belt onto whichever continent anchor sits
+    closest on the canvas, inflating that group far beyond its subtree.
+    """
+    parent_of = {loc.get("name", ""): loc.get("parent") for loc in locations}
+    anchor_set = set(anchors)
+
+    def _root(name: str) -> str | None:
+        cur, seen = name, set()
+        while cur and cur not in seen and len(seen) < 12:
+            seen.add(cur)
+            if cur in anchor_set:
+                return cur
+            cur = parent_of.get(cur)
+        return None
+
+    groups: dict[str, list[str]] = {a: [] for a in anchors}
+    unassigned: list[str] = []
+    for item in layout_data:
+        name = item.get("name", "")
+        if item.get("is_portal") or name not in coords or name in ocean_names:
+            continue
+        root = _root(name)
+        if root is None:
+            unassigned.append(name)
+        else:
+            groups[root].append(name)
+
+    if unassigned:
+        from scipy.spatial import KDTree as _KDTree
+
+        grouped = [
+            item.get("name", "")
+            for item in layout_data
+            if not item.get("is_portal")
+            and item.get("name", "") in coords
+            and item.get("name", "") not in ocean_names
+            and _root(item.get("name", "")) is not None
+        ]
+        if grouped:
+            gtree = _KDTree(np.array([coords[n] for n in grouped]))
+            for name in unassigned:
+                _, gi = gtree.query(coords[name], k=1)
+                groups[_root(grouped[int(gi)])].append(name)  # type: ignore[index]
+        else:
+            # No grouped point at all: fall back to the nearest anchor.
+            atree = _KDTree(np.array([coords[a] for a in anchors]))
+            for name in unassigned:
+                _, ai = atree.query(coords[name], k=1)
+                groups[anchors[int(ai)]].append(name)
+    return groups
+
+
 def generate_landmasses(
     locations: list[dict],
     layout_data: list[dict],
@@ -5022,7 +5126,12 @@ def generate_landmasses(
     contour coordinate arrays).
     """
     from opensimplex import OpenSimplex
-    from scipy.ndimage import binary_closing, binary_fill_holes, binary_opening
+    from scipy.ndimage import (
+        binary_closing,
+        binary_fill_holes,
+        binary_opening,
+        distance_transform_edt,
+    )
     from scipy.spatial import KDTree
 
     # Deterministic per-novel seed, hoisted to the top on purpose. It used to be
@@ -5105,30 +5214,54 @@ def generate_landmasses(
         return {"landmasses": [], "shelves": []}
 
     points_arr = np.array(all_points, dtype=np.float64)
-    weights_arr = np.array(all_weights, dtype=np.float64)
 
-    # ── 1.1 Build weighted distance field ──
     grid_w = canvas_width // 8
     grid_h = canvas_height // 8
-    tree = KDTree(points_arr)
-
-    # Create grid coordinates
     gx = np.linspace(0, canvas_width, grid_w, endpoint=False) + 4  # center of cell
     gy = np.linspace(0, canvas_height, grid_h, endpoint=False) + 4
     grid_xx, grid_yy = np.meshgrid(gx, gy)
     grid_pts = np.column_stack([grid_xx.ravel(), grid_yy.ravel()])
 
-    # Query k nearest neighbors for each grid point
-    k = min(5, n)
-    dists, idxs = tree.query(grid_pts, k=k)
-    if k == 1:
-        dists = dists.reshape(-1, 1)
-        idxs = idxs.reshape(-1, 1)
+    # All-anchors tree: density stats + hole-carving proximity, both in px.
+    tree = KDTree(points_arr)
+    nn_dists, _ = tree.query(points_arr, k=2)
+    median_nn = float(np.median(nn_dists[:, 1]))
+    threshold = landmass_base_radius(canvas_width, canvas_height, median_nn)
 
-    # Weighted distance: effective_dist = min(dist / weight) over k neighbors
-    w_at_idx = weights_arr[idxs]  # shape (grid_pts, k)
-    effective = dists / np.maximum(w_at_idx, 0.1)
-    dist_field = effective.min(axis=1).reshape(grid_h, grid_w)
+    # ── 1.1 Continent-grouped distance fields ──
+    #
+    # One global field with one global threshold cannot separate continents:
+    # 西游记 spreads 600+ locations over the whole canvas, so any radius big
+    # enough to make solid continents also bridges the seas between them (the
+    # old 35 %-coverage floor forced exactly that mega-blob). The hierarchy
+    # knows which locations belong to which 洲, so each continent group gets
+    # its own field and its own mask; groups are merged only after a per-group
+    # closing, and cells two groups both claim become a water moat unless a
+    # real location sits right there. Novels without ≥2 continent anchors take
+    # the single-group path, which is the same field without the moat.
+    anchors = continent_anchor_names(locations, set(coords))
+    if len(anchors) >= 2:
+        groups = _continent_group_map(locations, layout_data, ocean_names, anchors, coords)
+    else:
+        groups = {"__all__": [name for name in coords
+                              if name not in ocean_names
+                              and any(item.get("name") == name and not item.get("is_portal")
+                                      for item in layout_data)]}
+    group_keys = list(groups)
+
+    def _group_field(member_names: list[str]) -> np.ndarray:
+        mp = np.array([coords[m] for m in member_names], dtype=np.float64)
+        mw = np.array([_TIER_WEIGHT.get(tiers.get(m, "site"), 1.0) for m in member_names])
+        gtree = KDTree(mp)
+        k = min(6, len(mp))
+        dists, idxs = gtree.query(grid_pts, k=k)
+        if k == 1:
+            dists = dists.reshape(-1, 1)
+            idxs = idxs.reshape(-1, 1)
+        eff = dists / np.maximum(mw[idxs], 0.1)
+        return eff.min(axis=1)
+
+    fields = np.array([_group_field(groups[gk]) for gk in group_keys])  # (G, grid_pts)
 
     # ── 1.2 Ocean/sea distance amplification (rivers/springs excluded) ──
     ocean_pts = [coords[name] for name in ocean_names if name in coords]
@@ -5136,60 +5269,63 @@ def generate_landmasses(
         ocean_arr = np.array(ocean_pts, dtype=np.float64)
         ocean_tree = KDTree(ocean_arr)
         ocean_dists, _ = ocean_tree.query(grid_pts, k=1)
-        ocean_dists = ocean_dists.reshape(grid_h, grid_w)
-        # Strong amplification near oceans/seas: creates coastline gaps
-        amplify_radius = max(grid_w, grid_h) * 0.15  # tighter radius for focused effect
+        # Strong amplification near oceans/seas: creates coastline gaps.
+        # Radius in px (was grid cells — same value on an 8000 px canvas).
+        amplify_radius = max(canvas_width, canvas_height) * 0.15
         ocean_factor = 1.0 + 1.5 * np.exp(-ocean_dists / max(amplify_radius, 1))
-        dist_field *= ocean_factor
+        fields *= ocean_factor[None, :]
 
-    # NOTE: Region-aware multi-continent separation (T4) was removed.
-    # The distance-field suppression approach fragments landmasses when locations
-    # are densely distributed. The natural distance field already creates
-    # separation based on point density gaps between region clusters.
+    # ── 1.3 Per-group mask + closing, then the moat ──
+    claimed = fields < threshold
+    min_field = fields.min(axis=0)
+    # Cells near a real location keep their land even in a contested zone —
+    # the moat runs *between* groups, not through a kingdom sitting on the seam.
+    strong = (min_field < threshold * 0.55).reshape(grid_h, grid_w)
 
-    # ── 1.3 Adaptive threshold ──
-    nn_dists, _ = tree.query(points_arr, k=2)
-    median_nn = float(np.median(nn_dists[:, 1]))
-
-    # Convert median_nn from canvas coords to grid coords
-    median_nn_grid = median_nn / cell_size
-    # Generous threshold: merge nearby clusters into larger continents.
-    # Higher k_factor = larger landmasses, fewer isolated islands.
-    # v0.68: raised cap from 4.0→5.5 to compensate for tighter child spread
-    k_factor = min(5.5, 1.8 + 0.6 * math.log2(max(2, n)))
-    #   n=3→k=2.7, n=10→k=3.8, n=100→k=5.2, n=200→k=5.5
-    threshold = median_nn_grid * k_factor
-
-    # Content-driven adjustment (ocean ratio — only actual seas count)
-    ocean_count = len(ocean_names)
-    ocean_ratio = ocean_count / max(1, n)
-    threshold *= max(0.6, 1.0 - ocean_ratio * 0.4)
-
-    # Minimum landmass coverage guarantee (35% of canvas)
-    # v0.68: raised from 25%→35% to ensure dense location clusters form connected land
-    canvas_area_grid = grid_w * grid_h
-    min_area = canvas_area_grid * 0.35
-    min_threshold = math.sqrt(min_area / math.pi)
-    threshold = max(threshold, min_threshold)
-
-    # ── 1.3b Binary mask + morphological cleanup ──
-    land_mask = dist_field < threshold
-    # Morphological cleanup: large closing kernel merges nearby islands into continents
     struct_small = np.ones((3, 3), dtype=bool)
-    struct_large = np.ones((7, 7), dtype=bool)   # 7x7 (was 5x5) for stronger merging
-    land_mask = binary_closing(land_mask, structure=struct_large, iterations=2)
+    struct_large = np.ones((7, 7), dtype=bool)
+    bridge_cells = threshold * 0.6 / cell_size
+    group_masks: list[np.ndarray] = []
+    for gi in range(len(group_keys)):
+        gm = claimed[gi].reshape(grid_h, grid_w)
+        if not gm.any():
+            group_masks.append(gm)
+            continue
+        # EDT closing: dilate then erode (erode = depth inside the dilation,
+        # i.e. edt(dil), NOT edt(~dil) — the complement measures distance to
+        # land, which inverts the operation and floods the mask).
+        dil = distance_transform_edt(~gm) <= bridge_cells
+        gm = dil & (distance_transform_edt(dil) > bridge_cells * 0.5)
+        group_masks.append(gm)
+    stack = np.array(group_masks)
+    land_any = stack.any(axis=0)
+    if len(group_keys) >= 2:
+        # Contested test runs on DILATED group masks: two groups whose claims
+        # merely *touch* (no overlap) still fuse into one visual landmass —
+        # 东胜神洲's junk-assigned belt touched the mainland exactly this way.
+        # Dilating each claim by ~0.4×threshold turns tangency into a carved
+        # water channel ~0.8×threshold wide along the group seam.
+        moat_cells = max(2.0, threshold * 0.4 / cell_size)
+        dilated_count = np.zeros((grid_h, grid_w), dtype=np.int16)
+        for gm in group_masks:
+            dilated_count += distance_transform_edt(~gm) <= moat_cells
+        contested = (dilated_count >= 2) & ~strong
+        land_mask = land_any & ~contested
+    else:
+        land_mask = land_any
     land_mask = binary_opening(land_mask, structure=struct_small)   # remove pixel noise
 
     # ── 1.3b2 Ensure all land locations are covered ──
-    # After morphological cleanup, some edge locations may fall outside the mask.
-    # Grow small circles around uncovered land points to guarantee they're on land.
+    # After the moat and opening, some locations (especially ones sitting on a
+    # contested seam) may fall outside the mask. Grow a tier-scaled circle
+    # around each: a continent anchor gets a real island, not a pixel speck.
     _uncovered = 0
-    _patch_r = max(3, round(threshold * 0.15))
-    for px, py in all_points:
+    for (px, py), w in zip(all_points, all_weights, strict=True):
         gxi = round(px / cell_size)
         gyi = round(py / cell_size)
         if 0 <= gyi < grid_h and 0 <= gxi < grid_w and not land_mask[gyi, gxi]:
             _uncovered += 1
+            _patch_r = max(3, round(threshold * min(w, 2.0) * 0.5 / cell_size))
             y_lo = max(0, gyi - _patch_r)
             y_hi = min(grid_h, gyi + _patch_r + 1)
             x_lo = max(0, gxi - _patch_r)
@@ -5203,21 +5339,13 @@ def generate_landmasses(
         logger.debug("Patched %d uncovered land locations", _uncovered)
 
     # ── 1.3c Ocean hole carving ──
-    # Ocean locations may be positioned among land by the layout engine.
-    # Carve small guaranteed ocean circles at each ocean position.
-    # These create visible "inner sea" holes even when oceans are misplaced.
+    # Misplaced seas are relocated off land upstream (_relocate_misplaced_seas
+    # in visualization_service), so this is a guarantee, not a repair: every
+    # sea gets a visible water disc even in open water, capped so a sea that
+    # still ended up next to a land anchor cannot eat the cluster around it.
     if ocean_pts:
-        ocean_r = max(round(threshold * 0.2), 3)
-        # A sea placed next to (or inside) a land cluster must not eat the
-        # cluster. Measured on 西游记: 南海 sat 50 px from 南赡部洲 and the
-        # user-pinned 东洋大海 sat inside the 花果山/傲来国 cluster; the
-        # 400 px holes carved 68 land locations — all four continents
-        # included — off the mask, and the sea-orphan snap then teleported
-        # them into the one surviving blob. Cap each hole so a protective
-        # land gap always survives around land anchors; the sea's own centre
-        # cell still goes to water, and genuinely misplaced seas are
-        # relocated by the separate sea-to-water snap downstream.
-        protect_gap = max(3, round(threshold * 0.06))
+        ocean_r = max(round(threshold * 2.2 / cell_size), 3)
+        protect_gap = max(3, round(threshold * 0.5 / cell_size))
         for ox, oy in ocean_pts:
             gxi = round(ox / cell_size)
             gyi = round(oy / cell_size)

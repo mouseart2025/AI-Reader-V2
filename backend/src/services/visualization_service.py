@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import math
 from collections import Counter, defaultdict
 
 from src.db import world_structure_store
@@ -682,6 +683,309 @@ def _is_sea_body_loc(loc: dict) -> bool:
         return False
     loc_type = loc.get("type", "")
     return loc_type in ("海", "洋", "海洋", "大海", "海域") or loc.get("name", "").endswith(("海", "洋"))
+
+
+# Cardinal direction hinted by a sea's name: 南海 should escape *south* of the
+# land it was misplaced into, not just away from the nearest centroid (which
+# for a sea sitting on a continent's centre is any direction at all).
+_SEA_NAME_DIRECTION = (
+    ("东北", (0.7, -0.7)), ("东南", (0.7, 0.7)), ("西北", (-0.7, -0.7)), ("西南", (-0.7, 0.7)),
+    ("东", (1.0, 0.0)), ("南", (0.0, 1.0)), ("西", (-1.0, 0.0)), ("北", (0.0, -1.0)),
+)
+
+
+def _relocate_misplaced_seas(
+    layout_data: list[dict],
+    locations: list[dict],
+    canvas_width: float,
+    canvas_height: float,
+) -> int:
+    """Push sea/ocean locations that sit inside (or right against) a land
+    cluster out into open water, along the name's cardinal direction when the
+    name carries one.
+
+    The layout engine places seas with the same scatter rules as land
+    locations, so a sea can land on the continent it should border — measured:
+    南海 43 px from 南赡部洲's anchor, i.e. deep inside the southern continent,
+    and 南洋苦海 64 px from 盱眙山. Downstream hole carving then had to choose
+    between an invisible 8 px puddle and eating the continent; relocating the
+    sea itself is the honest fix. Runs before landmass generation on the cold
+    path; `_snap_sea_bodies_to_water` stays as the polygon-level safety net.
+
+    A sea is "misplaced" when its nearest land anchor is closer than the land
+    that anchor will paint (base radius × its tier weight, with a margin).
+    Escape search: rays fanned around the preferred direction, first point far
+    enough from every land anchor wins. Returns the number of moved seas.
+    """
+    import numpy as np
+    from scipy.spatial import KDTree
+
+    from src.services.map_layout_service import _TIER_WEIGHT, landmass_base_radius
+
+    loc_lookup = {loc["name"]: loc for loc in locations}
+    land_items = [
+        it for it in layout_data
+        if not it.get("is_portal") and not _is_sea_body_loc(loc_lookup.get(it.get("name", "")) or {})
+    ]
+    sea_items = [
+        it for it in layout_data
+        if not it.get("is_portal") and _is_sea_body_loc(loc_lookup.get(it.get("name", "")) or {})
+    ]
+    if not sea_items or len(land_items) < 3:
+        return 0
+
+    land_pts = np.array([[it["x"], it["y"]] for it in land_items])
+    land_tree = KDTree(land_pts)
+    nn, _ = land_tree.query(land_pts, k=2)
+    base_r = landmass_base_radius(canvas_width, canvas_height, float(np.median(nn[:, 1])))
+    tiers = {loc.get("name", ""): loc.get("tier", "site") for loc in locations}
+    margin = base_r
+
+    moved = 0
+    for _pass in range(2):  # a moved sea can land against a different cluster
+        pass_moved = False
+        for item in sea_items:
+            name = item.get("name", "")
+            x, y = float(item["x"]), float(item["y"])
+            dists, idxs = land_tree.query([[x, y]], k=min(6, len(land_items)))
+            dists, idxs = np.atleast_1d(dists[0]), np.atleast_1d(idxs[0])
+            near_names = [land_items[int(i)].get("name", "") for i in idxs]
+            w_near = max(_TIER_WEIGHT.get(tiers.get(nm, "site"), 1.0) for nm in near_names[:1])
+            clearance = base_r * max(w_near, 1.5) * 1.2
+            if dists[0] >= clearance:
+                continue
+
+            # Preferred escape direction: cardinal from the name, else away
+            # from the centroid of the nearest land anchors.
+            base_dir = None
+            for kw, vec in _SEA_NAME_DIRECTION:
+                if kw in name:
+                    base_dir = np.array(vec, dtype=np.float64)
+                    break
+            if base_dir is None:
+                cx = float(np.mean([land_items[int(i)]["x"] for i in idxs]))
+                cy = float(np.mean([land_items[int(i)]["y"] for i in idxs]))
+                vx, vy = x - cx, y - cy
+                norm = math.hypot(vx, vy)
+                base_dir = np.array([vx / norm, vy / norm]) if norm >= 1 else np.array([0.0, 1.0])
+            base_dir = base_dir / np.linalg.norm(base_dir)
+
+            # Escape search: rays fanned around the preferred direction.
+            # Clearance is attempted at full strength first, then relaxed —
+            # 南海 sits inside the southern continent, which touches the canvas
+            # bottom edge, so no 810 px escape exists; at ~500 px the strait
+            # south-east of the continent qualifies. Best-effort fallback: the
+            # farthest-from-land point seen, if it improves on the current one.
+            best = None  # (cost, x, y)
+            fallback = (dists[0], x, y)  # (min land distance, x, y)
+            for clear_frac in (1.0, 0.75, 0.55, 0.4):
+                clear = max(clearance * clear_frac, base_r * 1.1)
+                for deg in (0, 20, -20, 45, -45, 75, -75, 105, -105, 150, -150, 180):
+                    rad = math.radians(deg)
+                    dvec = np.array([
+                        base_dir[0] * math.cos(rad) - base_dir[1] * math.sin(rad),
+                        base_dir[0] * math.sin(rad) + base_dir[1] * math.cos(rad),
+                    ])
+                    step = clear - dists[0] + base_r * 0.5
+                    while step <= clearance + base_r * 8:
+                        nx, ny = x + dvec[0] * step, y + dvec[1] * step
+                        if not (margin <= nx <= canvas_width - margin and margin <= ny <= canvas_height - margin):
+                            break
+                        d_land = float(land_tree.query([[nx, ny]], k=1)[0][0])
+                        if d_land > fallback[0]:
+                            fallback = (d_land, nx, ny)
+                        if d_land >= clear:
+                            cost = step + abs(deg) * base_r * 0.01
+                            if best is None or cost < best[0]:
+                                best = (cost, nx, ny)
+                            break
+                        step += base_r * 0.5
+                if best is not None:
+                    break
+            if best is None:
+                if fallback[0] <= dists[0] * 1.2:
+                    continue  # nowhere meaningfully wetter; hole carving handles it
+                best = (0.0, fallback[1], fallback[2])
+            item["x"], item["y"] = round(best[1], 1), round(best[2], 1)
+            moved += 1
+            pass_moved = True
+            logger.info(
+                "Relocated sea %s from (%.0f, %.0f) to open water at (%.0f, %.0f)",
+                name, x, y, item["x"], item["y"],
+            )
+        if not pass_moved:
+            break
+    return moved
+
+
+def _continent_subtree_members(locations: list[dict], anchors: list[str]) -> dict[str, set[str]]:
+    """Map each continent anchor to the names in its parent-chain subtree."""
+    parent_of = {loc.get("name", ""): loc.get("parent") for loc in locations}
+    anchor_set = set(anchors)
+
+    def _root(name: str) -> str | None:
+        cur, seen = name, set()
+        while cur and cur not in seen and len(seen) < 12:
+            seen.add(cur)
+            if cur in anchor_set:
+                return cur
+            cur = parent_of.get(cur)
+        return None
+
+    members: dict[str, set[str]] = {a: set() for a in anchors}
+    for loc in locations:
+        name = loc.get("name", "")
+        root = _root(name)
+        if root is not None:
+            members[root].add(name)
+    return members
+
+
+def _separate_merged_continents(
+    layout_data: list[dict],
+    locations: list[dict],
+    landmask_info: dict,
+    canvas_width: float,
+    canvas_height: float,
+) -> int:
+    """Translate a continent subtree when its anchor shares a landmass with
+    another continent's anchor.
+
+    西游记 measures why: the layout interleaves 东胜神洲's subtree with the
+    central belt, so the eastern island continent (花果山/傲来国 — overseas in
+    the text) fuses with the mainland. No field radius can separate groups
+    whose points touch; moving the compact subtree is the fix. The smaller
+    subtree moves, away from the other anchor(s) it merged with, one step per
+    call — the caller regenerates landmasses and calls again (≤3 rounds).
+
+    Uses the pre-warp land mask for component tests; the warp only roughens
+    coastlines and never merges components. Returns moved location count.
+    """
+    import numpy as np
+    from scipy.ndimage import label as _nd_label
+
+    from src.services.map_layout_service import (
+        continent_anchor_names,
+        landmass_base_radius,
+    )
+
+    land_mask = landmask_info.get("_land_mask")
+    cell_size = landmask_info.get("_cell_size") or 8.0
+    if land_mask is None:
+        return 0
+    items_by_name = {it.get("name", ""): it for it in layout_data if not it.get("is_portal")}
+    anchors = [a for a in continent_anchor_names(locations, set(items_by_name)) if a in items_by_name]
+    if len(anchors) < 2:
+        return 0
+
+    lab, _n = _nd_label(land_mask, structure=np.ones((3, 3), dtype=int))
+    comp_of: dict[str, int] = {}
+    for a in anchors:
+        it = items_by_name[a]
+        gi, gj = int(it["y"] / cell_size), int(it["x"] / cell_size)
+        comp_of[a] = int(lab[gi, gj]) if 0 <= gi < lab.shape[0] and 0 <= gj < lab.shape[1] else 0
+
+    by_comp: dict[int, list[str]] = {}
+    for a, cid in comp_of.items():
+        if cid > 0:
+            by_comp.setdefault(cid, []).append(a)
+    merged = [sorted(group) for group in by_comp.values() if len(group) >= 2]
+    if not merged:
+        return 0
+
+    members = _continent_subtree_members(locations, anchors)
+    # Distance to the nearest land cell, in px, for every water cell: the score
+    # table for "how much open water is there". A merged continent escapes to
+    # the best water pocket in its escape fan, not blindly away from its
+    # partner — the straight away-vector ran 东胜神洲 into the canvas edge,
+    # where clamping ate the whole move and three rounds changed nothing.
+    from scipy.ndimage import distance_transform_edt as _edt
+    from scipy.spatial import KDTree as _KDTree
+
+    water_edt = _edt(~land_mask) * cell_size
+    gh, gw = land_mask.shape
+    base_r = landmass_base_radius(canvas_width, canvas_height, 0.0)
+
+    def _water_clearance(x: float, y: float) -> float:
+        gi, gj = int(y / cell_size), int(x / cell_size)
+        if 0 <= gi < gh and 0 <= gj < gw:
+            return float(water_edt[gi, gj])
+        return 0.0
+
+    moved = 0
+    for group in merged:
+        # Move the smallest subtree; the big one stays put.
+        mover = min(group, key=lambda a: len(members.get(a) or {a}))
+        others = [a for a in group if a != mover]
+        mover_names = members.get(mover) or {mover}
+        mx, my = items_by_name[mover]["x"], items_by_name[mover]["y"]
+        ox = float(np.mean([items_by_name[a]["x"] for a in others]))
+        oy = float(np.mean([items_by_name[a]["y"] for a in others]))
+        vx, vy = mx - ox, my - oy
+        norm = math.hypot(vx, vy)
+        if norm < 1:
+            vx, vy, norm = 1.0, 0.0, 1.0
+        base_dir = (vx / norm, vy / norm)
+
+        sub = [items_by_name[n] for n in mover_names if n in items_by_name]
+        if not sub:
+            continue
+        # What the move must clear is not "water" in the abstract but the other
+        # side's *members*: the moat carves contested cells except within
+        # ~threshold*0.55 of a real location, so a bridge survives only if a
+        # moved member lands within ~2× that of a mainland member.
+        mainland_pts = np.array([
+            [it["x"], it["y"]]
+            for nm, it in items_by_name.items()
+            if nm not in mover_names
+        ])
+        mainland_tree = _KDTree(mainland_pts)
+        min_bridge = base_r * 1.1
+
+        best = None  # (score, dx, dy)
+        for deg in (0, 25, -25, 50, -50, 80, -80, 115, -115, 155, -155, 180):
+            rad = math.radians(deg)
+            dvec = (
+                base_dir[0] * math.cos(rad) - base_dir[1] * math.sin(rad),
+                base_dir[0] * math.sin(rad) + base_dir[1] * math.cos(rad),
+            )
+            step = base_r * 2.0
+            while step <= base_r * 16:
+                tx, ty = mx + dvec[0] * step, my + dvec[1] * step
+                if not (150 <= tx <= canvas_width - 150 and 150 <= ty <= canvas_height - 150):
+                    break
+                dx, dy = tx - mx, ty - my
+                new_pts = np.array([[it["x"] + dx, it["y"] + dy] for it in sub])
+                d_land = float(mainland_tree.query(new_pts, k=1)[0].min())
+                if d_land >= min_bridge and _water_clearance(tx, ty) >= base_r:
+                    score = d_land - 0.25 * step
+                    if best is None or score > best[0]:
+                        best = (score, dx, dy)
+                step += base_r
+        if best is None:
+            logger.warning("Continent %s merged with %s but no clear escape found; leaving as-is",
+                           mover, ", ".join(others))
+            continue
+        dx, dy = best[1], best[2]
+
+        # Clamp so the subtree bbox stays inside the canvas margins.
+        xs = [it["x"] for it in sub]
+        ys = [it["y"] for it in sub]
+        margin = 150.0
+        dx = min(dx, canvas_width - margin - max(xs)) if dx > 0 else max(dx, margin - min(xs))
+        dy = min(dy, canvas_height - margin - max(ys)) if dy > 0 else max(dy, margin - min(ys))
+        if math.hypot(dx, dy) < base_r:
+            logger.warning("Continent %s merged but no room to move; leaving as-is", mover)
+            continue
+        for it in sub:
+            it["x"] = round(it["x"] + dx, 1)
+            it["y"] = round(it["y"] + dy, 1)
+        moved += len(sub)
+        logger.info(
+            "Translated continent subtree %s (%d locations) by (%.0f, %.0f) to separate it from %s",
+            mover, len(sub), dx, dy, ", ".join(others),
+        )
+    return moved
 
 # Valid direction enum values expected by the constraint solver
 _VALID_DIRECTION_VALUES = {
@@ -2079,14 +2383,57 @@ async def get_map_data(
     else:
         if layout_mode != "geographic" and len(layout_data) >= 3 and _is_overworld_like and not _is_underwater:
             _lrm = ws.location_region_map if ws else None
+            _layout_mutated = False
             try:
+                # Move seas that landed inside land clusters out to open water
+                # BEFORE the mask is built — hole carving alone can only give a
+                # misplaced sea an invisible puddle (南海, 南洋苦海, …).
+                _layout_mutated = bool(
+                    _relocate_misplaced_seas(layout_data, locations, _resp_cw, _resp_ch)
+                )
                 landmass_result = generate_landmasses(
                     locations, layout_data, novel_id,
                     canvas_width=_resp_cw, canvas_height=_resp_ch,
                     location_region_map=_lrm,
                 )
+                # Two continent anchors on one landmass means the layout fused
+                # their subtrees (东胜神洲 vs the mainland). Translate the
+                # smaller subtree away and rebuild, bounded at 3 rounds.
+                for _sep_round in range(3):
+                    _moved = _separate_merged_continents(
+                        layout_data, locations, landmass_result, _resp_cw, _resp_ch,
+                    )
+                    if not _moved:
+                        break
+                    _layout_mutated = True
+                    landmass_result = generate_landmasses(
+                        locations, layout_data, novel_id,
+                        canvas_width=_resp_cw, canvas_height=_resp_ch,
+                        location_region_map=_lrm,
+                    )
+                    logger.info("Regenerated landmasses after continent separation round %d", _sep_round + 1)
             except Exception:
                 logger.warning("Failed to generate landmasses", exc_info=True)
+            if _layout_mutated:
+                # Persist relocated/translated positions so cached-layout reads
+                # stay consistent with the geo artifacts saved below.
+                try:
+                    if cached_layer is not None or layout_mode == "layered":
+                        await _save_cached_layer_layout(
+                            novel_id, target_layer, ch_hash, layout_data, layout_mode,
+                        )
+                    else:
+                        conn = await get_connection()
+                        try:
+                            await conn.execute(
+                                "UPDATE map_layouts SET layout_json = ? WHERE novel_id = ? AND chapter_hash = ?",
+                                (json.dumps(layout_data, ensure_ascii=False), novel_id, ch_hash),
+                            )
+                            await conn.commit()
+                        finally:
+                            await conn.close()
+                except Exception:
+                    logger.warning("Failed to write back relocated layout", exc_info=True)
 
         # ── Snap sea-orphan locations to nearest land ──
         # After landmass generation, some unconstrained locations may visually sit
