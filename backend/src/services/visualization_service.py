@@ -2244,6 +2244,29 @@ async def get_map_data(
     except Exception:
         logger.warning("Layout quality metrics failed", exc_info=True)
 
+    # ── Layout plausibility audit (read-only) ───────────────────────
+    # The pipeline used to end at rendering: the solver's own satisfaction
+    # score cannot see semantic absurdities (three continents piled at one
+    # point, a sea on land, a kingdom 3000 px from its capital). The audit
+    # runs on the final layout and reports them; it mutates nothing and a
+    # failure here must never break map serving.
+    plausibility = None
+    try:
+        from src.services.map_plausibility import audit_map_layout
+
+        plausibility = audit_map_layout(
+            locations, layout_data, spatial_constraints,
+            landmass_result.get("landmasses", []) if landmass_result else [],
+            float(_resp_cw), float(_resp_ch),
+        )
+        if not plausibility["ok"]:
+            logger.info(
+                "Map plausibility: %d violations %s",
+                plausibility["violation_count"], plausibility["summary"],
+            )
+    except Exception:
+        logger.warning("Map plausibility audit failed", exc_info=True)
+
     result: dict = {
         "locations": locations,
         "trajectories": dict(trajectories),
@@ -2252,6 +2275,7 @@ async def get_map_data(
         "layout_mode": layout_mode,
         "quality_metrics": satisfaction,
         "layout_quality": layout_quality,
+        "plausibility": plausibility,
         "terrain_url": terrain_url if not layer_id else None,
         "rivers": rivers,
         "roads": roads,
