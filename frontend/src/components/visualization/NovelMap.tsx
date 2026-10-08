@@ -27,6 +27,7 @@ import type { RoughSVG } from "roughjs/bin/svg"
 import { generateHullTerritories } from "@/lib/hullTerritoryGenerator"
 import { SPACE_THEME, getSpaceNodeColor, getSpaceGlowRadius, generateStarfield } from "@/lib/mapRenderer/spaceTheme"
 import { generateTerrainHints, type TerrainHint } from "@/lib/terrainHints"
+import { useAuthedAssetUrl } from "@/lib/useAuthedAsset"
 import type { Point } from "@/lib/edgeDistortion"
 import {
   convexHull,
@@ -448,6 +449,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
     const [mapReady, setMapReady] = useState(false)
     const [popup, setPopup] = useState<PopupState | null>(null)
     const [iconDefs, setIconDefs] = useState<Map<string, string>>(new Map())
+    // The API hands back an app-relative path (`/api/.../terrain/v16`). In the
+    // desktop app the page origin is not the sidecar and an `<image>` cannot
+    // carry the Bearer token anyway, so the bytes are fetched with auth and
+    // served from a blob URL instead (see useAuthedAsset).
+    const resolvedTerrainUrl = useAuthedAssetUrl(terrainUrl)
     // Quantised viewport descriptor for the ground-cover LOD — see terrainLodKey.
     const [lodKey, setLodKey] = useState("0:0:0")
     // Latest scattered ground hints. Held in a ref rather than in state so the
@@ -774,7 +780,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
 
     // ── Terrain image (Whittaker biome bottom layer) ──────────────
     useEffect(() => {
-      if (!svgRef.current || !mapReady || !terrainUrl || spaceThemeProp) return
+      if (!svgRef.current || !mapReady || !resolvedTerrainUrl || spaceThemeProp) return
       const svg = d3Selection.select(svgRef.current)
       const terrainG = svg.select("#terrain-biome")
       // Remove previous terrain image if any (keep hint symbols via class check)
@@ -803,7 +809,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       terrainG
         .insert("image", ":first-child")
         .attr("class", "terrain-img")
-        .attr("href", terrainUrl)
+        .attr("href", resolvedTerrainUrl)
         .attr("x", 0)
         .attr("y", 0)
         .attr("width", canvasW)
@@ -817,7 +823,7 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
       // cover and the terrain share one truth instead of two independent noise
       // fields. Downsampled to a few hundred px across because the sampler is
       // asked for a value per candidate cell, and the lattice is coarse anyway.
-      if (!terrainUrl) return
+      if (!resolvedTerrainUrl) return
       let cancelled = false
       const probe = new Image()
       probe.crossOrigin = "anonymous"
@@ -885,11 +891,11 @@ export const NovelMap = forwardRef<NovelMapHandle, NovelMapProps>(
         // own noise field, which is what it did before this existed.
         reliefSamplerRef.current = null
       }
-      probe.src = terrainUrl
+      probe.src = resolvedTerrainUrl
       return () => {
         cancelled = true
       }
-    }, [mapReady, terrainUrl, canvasW, canvasH, darkBg, spaceThemeProp])
+    }, [mapReady, resolvedTerrainUrl, canvasW, canvasH, darkBg, spaceThemeProp])
 
     // ── Scatter terrain ground cover ─────────────────
     // Runs on the quantised LOD key, not on every zoom tick. The grid lives in
