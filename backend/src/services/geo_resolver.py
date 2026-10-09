@@ -18,8 +18,10 @@ import asyncio
 import io
 import logging
 import math
+import os
 import random
 import re
+import sqlite3
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,7 +37,30 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded by _load_zh_alias_index(). Only used with "world" dataset.
 # Format: {zh_name: [(lat, lng, pop, feature_code, country_code, geonameid), ...]}
 _zh_alias_index: dict[str, list[tuple[float, float, int, str, str, int]]] | None = None
-_ZH_GEONAMES_TSV = Path(__file__).resolve().parent.parent.parent / "data" / "zh_geonames.tsv"
+
+
+def _geo_data_dir() -> Path:
+    """Directory holding zh_geonames.tsv / zh_wiki_geo.sqlite.
+
+    Packaged app: AI_READER_GEO_DIR points at the Tauri resource dir (the
+    files ship as app resources, NOT inside the onefile sidecar — onefile
+    would decompress 30MB+ to a temp dir on every launch). Dev: backend/data.
+    """
+    env = os.environ.get("AI_READER_GEO_DIR")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parent.parent.parent / "data"
+
+
+# Chinese Wikipedia geo index (scripts/build_zh_wiki_geo.py). Editor-curated,
+# so it takes PRIORITY over the crowd-sourced GeoNames aliases: covers
+# non-city features (rivers/mountains/regions) and corrects misattached
+# aliases (GeoNames: 彼得堡 → Peterborough CA).
+# Queried point-wise via SQLite (WITHOUT ROWID, name is the primary key) —
+# never loaded into memory (the full dict costs ~400MB RSS); geo resolution
+# only runs during analysis, so reading mode pays nothing.
+_wiki_geo_conn: sqlite3.Connection | None = None
+_wiki_geo_unavailable = False
 
 # ── Dataset configuration ────────────────────────────────
 
@@ -121,6 +146,49 @@ _NOTABLE_FEATURE_CODES = frozenset({
 # Genre hints that are definitively fantasy → skip geo resolution entirely
 _FANTASY_GENRES = frozenset({"fantasy", "xianxia"})
 
+# Location-type → allowed GeoNames feature classes.  Only natural-feature
+# types are restricted: a river or mountain must never resolve to an admin
+# area (A) or populated place (P).  Without this, a fictional river like
+# 东拉河 suffix-strips to 东拉 and matches a Tibetan township (ADM4).
+# Settlement/admin types stay unrestricted — the P vs A distinction in
+# GeoNames is too fuzzy to filter safely.
+_TYPE_TO_FEATURE_CLASSES: dict[str, frozenset[str]] = {
+    # H = hydrographic (rivers, lakes, seas, streams)
+    "河流": frozenset({"H"}),
+    "河": frozenset({"H"}),
+    "江": frozenset({"H"}),
+    "溪": frozenset({"H"}),
+    "湖泊": frozenset({"H"}),
+    "湖": frozenset({"H"}),
+    "海": frozenset({"H"}),
+    "海洋": frozenset({"H"}),
+    # T = mountains, hills, valleys, passes, islands
+    "山": frozenset({"T"}),
+    "山脉": frozenset({"T"}),
+    "山峰": frozenset({"T"}),
+    "峰": frozenset({"T"}),
+    "岭": frozenset({"T"}),
+    "山谷": frozenset({"T"}),
+    "峡谷": frozenset({"T"}),
+    "岛": frozenset({"T"}),
+    "岛屿": frozenset({"T"}),
+}
+
+
+def _filter_entries_by_type(
+    entries: list[GeoEntry], loc_type: str | None,
+) -> list[GeoEntry]:
+    """Drop GeoNames candidates whose feature class contradicts the location type.
+
+    Returns an empty list when every candidate is incompatible — the caller
+    treats the name as unresolved (better than a wrong-category coordinate).
+    """
+    allowed = _TYPE_TO_FEATURE_CLASSES.get(loc_type or "")
+    if not allowed:
+        return entries
+    return [e for e in entries if e.feature_class in allowed]
+
+
 # ── Supplementary geo data ──────────────────────────────
 # Supplementary geo data — entries NOT covered by zh_geonames.tsv or cities5000.
 # zh_geonames.tsv covers ~25K city-level Chinese names; these fill the gaps.
@@ -159,6 +227,8 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "波兰": (51.92, 19.15), "希腊": (39.07, 21.82),
     "土耳其": (38.96, 35.24), "俄罗斯": (61.52, 105.32),
     "苏联": (61.52, 105.32),  # historical
+    "西伯利亚": (63.0, 99.0),  # Siberia region (not a city; zh_geonames only has 新西伯利亚)
+    "高加索": (43.2, 44.0),    # Caucasus region (Russian novels: 卡拉马佐夫/安娜)
     "美国": (37.09, -95.71), "加拿大": (56.13, -106.35),
     "墨西哥": (23.63, -102.55), "巴西": (-14.24, -51.93),
     "阿根廷": (-38.42, -63.62), "澳大利亚": (-25.27, 133.78),
@@ -375,6 +445,9 @@ _SUPPLEMENT_GEO: dict[str, tuple[float, float]] = {
     "苏伊士": (29.97, 32.55),         # Suez
     "庞贝城": (40.75, 14.49),         # Pompeii
     "俄国": (55.75, 37.62),           # Russia (old name, Moscow center)
+    "彼得堡": (59.94, 30.31),         # St. Petersburg (zh_geonames misaliases 彼得堡 → Peterborough CA)
+    "涅瓦河": (60.0, 30.5),           # Neva river (St. Petersburg)
+    "君士坦丁堡": (41.01, 28.98),      # Constantinople/Istanbul (GeoNames aliases hit Constantine, Algeria)
     # ── European features ──
     "不列颠群岛": (54.0, -2.0),        # British Isles
     "翡翠岛": (53.4, -8.0),           # Ireland (Emerald Isle)
@@ -570,6 +643,9 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "关外": (42.0, 123.0),         # Beyond Shanhai Pass (Manchuria)
     "关内": (34.5, 109.0),         # Inside the passes (Guanzhong)
     "关中": (34.3, 108.9),         # Guanzhong Plain (Shaanxi)
+    "关西": (34.6, 109.8),         # West of Hangu Pass (Guanzhong/Longyou, NOT 江西关西镇)
+    "北邙山": (34.92, 113.36),     # Mang Hills north of Luoyang (GeoNames only has 北邙 ADM4)
+    "太行山": (37.8, 113.8),       # Taihang range (GeoNames CN lacks a T-class entry)
     "大漠": (42.0, 105.0),         # Gobi Desert
     "岭南": (23.1, 113.3),         # South of the Nanling Mountains (Guangdong)
     "塞北": (42.0, 112.0),         # North of the Great Wall
@@ -811,7 +887,7 @@ _NON_GEO_PATTERNS = re.compile(
     r"^井下$|^井口$|^井底$|^沟底$|^水库$|^水井$|^池塘$|^鱼池$|"
     r"^操场$|^体育场$|^阳台$|^院子$|院子里$|^食堂$|小食堂$|^宿舍$|"
     r"^图书馆$|^大礼堂$|^机场$|^矿区$|^砖场$|砖瓦厂$|"
-    r"^公路$|公路边$|^铁路$|^公社$|^街道$|^小镇$|^二楼$|"
+    r"^公路$|公路边$|^铁路$|^公社$|^街道$|^小镇$|^小城$|^二楼$|"
     r"^窑洞$|石窑洞$|^土窑$|^破庙$|^戏台$|^杂货铺$|^铁匠铺$|"
     r"^花坛$|^草滩$|^碾盘$|^坟地$|^烟地$|^土场$|"
     r"^山梁$|^山洼$|^山湾$|山背后$|^对面山$|^小山沟$|"
@@ -840,10 +916,40 @@ _NON_GEO_PATTERNS = re.compile(
 # ── Chinese alternate name index ─────────────────────────
 
 
+def _wiki_geo_lookup(name: str) -> tuple[float, float] | None:
+    """Point query for a name in the Chinese Wikipedia geo index (SQLite).
+
+    coord packs microdegrees into one int64: ((lat+90)*1e6 << 32) | ((lng+180)*1e6)
+    (mirrors scripts/build_zh_wiki_geo.py::_pack_coord). One row per name —
+    redirect/traditional variants are merged at build time, so no
+    disambiguation is needed here.
+    """
+    global _wiki_geo_conn, _wiki_geo_unavailable
+    if _wiki_geo_unavailable:
+        return None
+    if _wiki_geo_conn is None:
+        path = _geo_data_dir() / "zh_wiki_geo.sqlite"
+        if not path.exists():
+            logger.info("zh_wiki_geo.sqlite not found at %s — Wikipedia layer disabled", path)
+            _wiki_geo_unavailable = True
+            return None
+        _wiki_geo_conn = sqlite3.connect(
+            f"file:{path}?mode=ro", uri=True, check_same_thread=False
+        )
+        logger.info("zh_wiki_geo.sqlite opened: %s", path)
+    row = _wiki_geo_conn.execute(
+        "SELECT coord FROM geo WHERE name = ?", (name,)
+    ).fetchone()
+    if row is None:
+        return None
+    c = row[0]
+    return ((c >> 32) / 1e6 - 90.0, (c & 0xFFFFFFFF) / 1e6 - 180.0)
+
+
 def _load_zh_alias_index() -> dict[str, list[tuple[float, float, int, str, str, int]]]:
     """Lazy-load zh_geonames.tsv into an in-memory lookup dict.
 
-    TSV format (no header): zh_name \\t lat \\t lng \\t pop \\t feature_code \\t country_code \\t geonameid
+    zh_geonames.tsv format (no header): zh_name \\t lat \\t lng \\t pop \\t feature_code \\t country_code \\t geonameid
     Same zh_name can map to multiple geonames entries (e.g., 孟菲斯 → Memphis TN + Memphis FL).
     Entries per name are sorted by population descending (done at build time).
 
@@ -853,14 +959,16 @@ def _load_zh_alias_index() -> dict[str, list[tuple[float, float, int, str, str, 
     if _zh_alias_index is not None:
         return _zh_alias_index
 
-    if not _ZH_GEONAMES_TSV.exists():
-        logger.warning("zh_geonames.tsv not found at %s — Chinese alias lookup disabled", _ZH_GEONAMES_TSV)
-        _zh_alias_index = {}
-        return _zh_alias_index
-
     index: dict[str, list[tuple[float, float, int, str, str, int]]] = {}
     count = 0
-    with open(_ZH_GEONAMES_TSV, encoding="utf-8") as f:
+
+    tsv = _geo_data_dir() / "zh_geonames.tsv"
+    if not tsv.exists():
+        logger.warning("zh_geonames.tsv not found at %s — GeoNames alias lookup disabled", tsv)
+        _zh_alias_index = index
+        return _zh_alias_index
+
+    with open(tsv, encoding="utf-8") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 7:
@@ -887,13 +995,19 @@ def _resolve_from_zh_alias(
     name: str,
     parent_coord: tuple[float, float] | None = None,
 ) -> tuple[float, float] | None:
-    """Look up a name in the Chinese alternate name index.
+    """Look up a name in the Chinese alternate name sources.
 
-    Disambiguation:
+    Wikipedia (editor-curated) wins over GeoNames crowd aliases.
+
+    Disambiguation (GeoNames layer only, wiki has one row per name):
       - If parent_coord is provided and multiple entries exist, prefer the one
         closest to the parent (within 1000km).
       - Otherwise, pick the entry with the highest population.
     """
+    wiki = _wiki_geo_lookup(name)
+    if wiki is not None:
+        return wiki
+
     idx = _load_zh_alias_index()
     entries = idx.get(name)
     if not entries:
@@ -930,6 +1044,7 @@ class GeoEntry:
     feature_code: str
     population: int
     name: str  # primary name for logging
+    feature_class: str = ""  # A/H/P/S/T/V — used for type-aware filtering
 
 
 # ── GeoResolver ──────────────────────────────────────────
@@ -1045,6 +1160,7 @@ class GeoResolver:
                     feature_code=feature_code,
                     population=population,
                     name=primary_name,
+                    feature_class=parts[6] if len(parts) > 6 else "",
                 )
 
                 # Index by primary name
@@ -1092,6 +1208,7 @@ class GeoResolver:
     def resolve_names(
         self, names: list[str],
         parent_map: dict[str, str | None] | None = None,
+        type_map: dict[str, str | None] | None = None,
     ) -> dict[str, tuple[float, float]]:
         """Resolve a list of place names to (lat, lng) coordinates.
 
@@ -1103,13 +1220,23 @@ class GeoResolver:
           4. Suffix stripping (remove common Chinese geographic suffixes)
           5. Disambiguation: prefer higher admin level, then population
 
+        Natural-feature types (河流/山/...) never resolve to admin/populated
+        feature classes — a fictional river stripped to a rare transliterated
+        name would otherwise match a distant township (东拉河→西藏东拉乡).
+
         Two-pass strategy when parent_map is provided:
           - Pass 1: resolve all names (supplement + GeoNames)
-          - Pass 2: validate ALL non-supplement GeoNames matches against
-            parent coordinates. Threshold is dataset-aware: 1000km for CN
-            (tight — catches same-name cities in wrong provinces), 5000km
-            for world (loose — novel parent hierarchies are often wrong or
-            overly broad, and real locations can be far from country centroids).
+          - Pass 2: validate non-supplement GeoNames matches — any match far
+            from its resolved parent is discarded (threshold is
+            dataset-aware: 1000km for CN, 5000km for world), and matches
+            without a resolved parent must sit within that radius of some
+            trusted supplement anchor.  The parentless anchor check guards
+            both dangerous paths: suffix stripping (东拉河→东拉, a Tibetan
+            township whose fictional parent 庙坪三角洲 offers no proximity
+            check) and exact matches whose parent was itself discarded
+            (北坡 exact-matching a Guangdong hamlet in an Inner Mongolia
+            novel).  Far-flung real places survive because their region
+            normally has its own supplement anchor (洱海 is 30km from 大理).
             This catches false positives like 桃园→台湾 (should be near
             涿郡 in Hebei) and 巴西→Brazil (should be in Sichuan).
 
@@ -1120,6 +1247,7 @@ class GeoResolver:
         result: dict[str, tuple[float, float]] = {}
         supplement_names: set[str] = set()  # supplement matches (trusted, skip validation)
         geonames_matches: set[str] = set()  # GeoNames matches (need parent validation)
+        stripped_matches: set[str] = set()  # suffix-stripped matches (extra validation)
 
         # Dataset-aware supplement priority: CN dataset checks CN first,
         # world dataset checks GEO first. This handles ambiguous names like
@@ -1162,22 +1290,56 @@ class GeoResolver:
 
             # Level 3: exact match from GeoNames
             entries = index.get(name)
+            match_via = "exact" if entries else None
 
             # Level 4: suffix stripping
             if not entries:
                 stripped = _GEO_SUFFIXES.sub("", name)
                 if stripped and stripped != name and len(stripped) >= 2:
                     entries = index.get(stripped)
+                    match_via = "stripped" if entries else None
+
+            if entries and type_map:
+                filtered = _filter_entries_by_type(entries, type_map.get(name))
+                if filtered:
+                    entries = filtered
+                elif match_via == "stripped":
+                    # Stripped match with no type-compatible candidate →
+                    # unresolved (东拉河→东拉 would hit a Tibetan ADM4).
+                    logger.info(
+                        "Discarding %d suffix-stripped candidate(s) for %s: "
+                        "feature class contradicts type %r",
+                        len(entries), name, type_map.get(name),
+                    )
+                    entries = filtered
+                # Exact match with no type-compatible candidate → keep the
+                # original entries.  GeoNames misclassifies Chinese natural
+                # features (洱海 is PPL, 青城山 is ADM4, 梁山 is ADM3), so a
+                # full-name match is stronger evidence than the feature
+                # class.  Pass-2 validation still guards these.
 
             if entries:
                 # Disambiguation: pick best entry
                 best = _pick_best_entry(entries)
                 result[name] = (best.lat, best.lng)
                 geonames_matches.add(name)
+                if match_via == "stripped":
+                    stripped_matches.add(name)
 
-        # Pass 2: validate ALL non-supplement matches against parent proximity.
+        # Pass 2: validate non-supplement GeoNames matches.
         # GeoNames is noisy — common Chinese words match real places in wrong
-        # provinces (桃园→台湾, 平原→云南, 海滨→加州). Parent proximity catches these.
+        # provinces (桃园→台湾, 平原→云南, 海滨→加州).
+        #   1. Any match far from its RESOLVED parent is discarded
+        #      (unchanged long-standing behavior).
+        #   2. Matches with NO resolved parent must be within max_dist_km of
+        #      SOME trusted supplement anchor.  This guards both dangerous
+        #      paths: suffix stripping (东拉河→东拉, a rare transliterated
+        #      name that only exists in Tibet, with a fictional parent like
+        #      庙坪三角洲 providing no proximity check) and exact matches
+        #      whose parent was discarded earlier (北坡 exact-matching a
+        #      Guangdong hamlet after its mountain parent was dropped).
+        #      Far-flung real places survive because their region normally
+        #      has its own supplement anchor (洱海 is 30km from 大理).
         # Threshold is dataset-aware: CN=1000km (tight), world=5000km (loose).
         # World dataset needs larger radius because:
         #   1. Novel parent hierarchies are unreliable (旧金山→内布拉斯加州)
@@ -1185,26 +1347,46 @@ class GeoResolver:
         #   3. zh_geonames.tsv already disambiguates by population, reducing false positives
         max_dist_km = 1000 if self.dataset_key == "cn" else 5000
         if parent_map and geonames_matches:
+            anchor_coords = [
+                result[name] for name in supplement_names if name in result
+            ]
             to_remove: list[str] = []
             for name in geonames_matches:
                 if name not in result:
                     continue
                 parent = parent_map.get(name)
-                if not parent:
-                    continue
-                parent_coord = result.get(parent)
-                if not parent_coord:
-                    continue
+                parent_coord = result.get(parent) if parent else None
                 child_coord = result[name]
-                dist = _haversine_km(child_coord, parent_coord)
-                if dist > max_dist_km:
-                    logger.info(
-                        "Discarding GeoNames match %s→(%.1f,%.1f): "
-                        "%.0fkm from parent %s→(%.1f,%.1f)",
-                        name, child_coord[0], child_coord[1],
-                        dist, parent, parent_coord[0], parent_coord[1],
+                if parent_coord:
+                    dist = _haversine_km(child_coord, parent_coord)
+                    if dist > max_dist_km:
+                        logger.info(
+                            "Discarding GeoNames match %s→(%.1f,%.1f): "
+                            "%.0fkm from parent %s→(%.1f,%.1f)",
+                            name, child_coord[0], child_coord[1],
+                            dist, parent, parent_coord[0], parent_coord[1],
+                        )
+                        to_remove.append(name)
+                elif len(anchor_coords) >= 3:
+                    # No resolved parent → the match must sit within
+                    # max_dist_km of SOME trusted supplement anchor.  This
+                    # covers both stripped matches (东拉河→东拉, a Tibetan
+                    # township) and exact matches whose parent was discarded
+                    # earlier in this pass (北坡 exact-matching a Guangdong
+                    # hamlet in an Inner Mongolia novel).  Far-flung real
+                    # places survive because their region usually has its
+                    # own supplement anchor (洱海 is 30km from 大理).
+                    nearest = min(
+                        _haversine_km(child_coord, a) for a in anchor_coords
                     )
-                    to_remove.append(name)
+                    if nearest > max_dist_km:
+                        logger.info(
+                            "Discarding parentless GeoNames match %s→(%.1f,%.1f): "
+                            "%.0fkm from nearest anchor, parent %s unresolved",
+                            name, child_coord[0], child_coord[1],
+                            nearest, parent,
+                        )
+                        to_remove.append(name)
             for name in to_remove:
                 del result[name]
 
@@ -1404,6 +1586,31 @@ def detect_geo_scope(
     if genre in _FANTASY_GENRES:
         return "none"
 
+    # Foreign/translated novels are often genre-tagged "realistic"/"historical"
+    # (卡拉马佐夫兄弟 → realistic).  Before the genre default below pins them
+    # to the CN dataset, count strong world signals — but ONLY against the
+    # curated supplement (the GeoEvolve delta contains Chinese mansion
+    # interiors like 东厢/东门, which would trip every Chinese classic).
+    # Dual-listed Chinese-geography names (东海/南海/巴西) don't count, and
+    # the world signal must outnumber the CN signal: 狼图腾 mentions
+    # 埃及/法国/波斯 in narration but its geography is Chinese.
+    if location_names:
+        world_hits = {
+            n for n in location_names
+            if n in _SUPPLEMENT_GEO_CURATED and n not in _SUPPLEMENT_CN
+        }
+        cn_hits = {n for n in location_names if n in _SUPPLEMENT_CN}
+        if len(world_hits) >= 4 and len(world_hits) > len(cn_hits):
+            logger.info(
+                "detect_geo_scope: %d world-only supplement matches (%s) "
+                "vs %d CN matches → world scope (genre %r override)",
+                len(world_hits),
+                ",".join(sorted(world_hits)[:6]),
+                len(cn_hits),
+                genre or None,
+            )
+            return "world"
+
     # Known Chinese genre → CN dataset (checked BEFORE world-level signals,
     # because historical novels reference Chinese seas 渤海/东海/黄海/南海
     # and places like 巴西 that coincidentally match world-level entries).
@@ -1415,8 +1622,11 @@ def detect_geo_scope(
 
     # Check world-level signals for unknown/realistic/adventure genres.
     # If the novel mentions multiple countries/continents/oceans, it's world-scope.
+    # Curated set only — the GeoEvolve delta is full of Chinese micro-locations.
     if location_names:
-        world_matches = sum(1 for n in location_names if n in _SUPPLEMENT_GEO)
+        world_matches = sum(
+            1 for n in location_names if n in _SUPPLEMENT_GEO_CURATED
+        )
         if world_matches >= 3:
             logger.info(
                 "detect_geo_scope: %d names match supplement → world scope",
@@ -1447,6 +1657,7 @@ async def auto_resolve(
     major_names: list[str],
     parent_map: dict[str, str | None] | None = None,
     known_geo_type: str | None = None,
+    type_map: dict[str, str | None] | None = None,
 ) -> tuple[str, str, GeoResolver | None, dict[str, tuple[float, float]]]:
     """High-level entry point: detect scope, load dataset, resolve names.
 
@@ -1458,6 +1669,8 @@ async def auto_resolve(
         known_geo_type: if provided, skip detection and use this geo_type directly.
             Useful when geo_type is already cached on WorldStructure to avoid
             re-detection oscillation across different chapter ranges.
+        type_map: {location_name: location type} for feature-class filtering
+            (rivers/mountains never resolve to admin/populated entries).
 
     Returns:
         (geo_scope, geo_type, resolver_or_none, resolved_coords)
@@ -1488,7 +1701,7 @@ async def auto_resolve(
             return (geo_scope, known_geo_type, None, {})
         resolver = GeoResolver(dataset_key=geo_scope)
         await resolver.ensure_ready()
-        resolved = resolver.resolve_names(location_names, parent_map)
+        resolved = resolver.resolve_names(location_names, parent_map, type_map)
         return (geo_scope, known_geo_type, resolver, resolved)
 
     # ── Normal path: detect geo_type from scratch ──
@@ -1524,13 +1737,13 @@ async def auto_resolve(
         geo_type_world = resolver_world.detect_geo_type(major_names)
         if geo_type_world != "fantasy":
             # World dataset matched better — use it
-            resolved = resolver_world.resolve_names(location_names, parent_map)
+            resolved = resolver_world.resolve_names(location_names, parent_map, type_map)
             return "world", geo_type_world, resolver_world, resolved
 
     if geo_type == "fantasy":
         return geo_scope, "fantasy", None, {}
 
-    resolved = resolver.resolve_names(location_names, parent_map)
+    resolved = resolver.resolve_names(location_names, parent_map, type_map)
     return geo_scope, geo_type, resolver, resolved
 
 
@@ -1840,6 +2053,14 @@ def place_unresolved_geo_coords(
             len(result), len(unresolved_names),
         )
     return result
+
+# Curated supplement keys, snapshotted BEFORE the auto-generated GeoEvolve
+# delta below floods the dict with thousands of per-novel micro-locations
+# (东厢/东门/书院 → placeholder coords).  Geo-scope detection must only trust
+# this curated set — counting the full dict would flag every Chinese classic
+# as "world" because its mansion interiors happen to be GeoEvolve keys.
+_SUPPLEMENT_GEO_CURATED: frozenset[str] = frozenset(_SUPPLEMENT_GEO)
+
 # ── GeoEvolve delta begin（自动生成，勿手改）──
 _SUPPLEMENT_GEO.update({
     "一出坡": (34.2598, 117.277),
@@ -2074,7 +2295,7 @@ _SUPPLEMENT_GEO.update({
     "关东": (34.34516, 110.77297),
     "关公宅": (31.60596, 106.65094),
     "关公营寨": (31.60596, 106.65094),
-    "关外陇右": (30.5, 104.0),
+    "关外陇右": (35.0, 104.6),
     "关索寨": (33.1, 107.0),
     "其他诸侯国": (29.52, 103.33),
     "典赡所": (40.05756, 116.57455),
@@ -2271,7 +2492,7 @@ _SUPPLEMENT_GEO.update({
     "园后门": (36.66292, 116.99029),
     "园子·角门": (39.04589, 112.95579),
     "园门角门": (36.66292, 116.99029),
-    "围场": (28.98214, 109.66636),
+    "围场": (41.94, 117.76),
     "囹圄": (40.33333, 119.13333),
     "土井": (39.22237, 121.66548),
     "土冈子": (32.0, 116.0),
@@ -2927,7 +3148,7 @@ _SUPPLEMENT_GEO.update({
     "烈阵": (28.98214, 109.66636),
     "照墙": (35.60795, 114.19363),
     "燕国": (30.5482, 120.08),
-    "燕山": (28.98214, 109.66636),
+    "燕山": (40.3, 116.6),
     "牂牁": (30.5, 104.0),
     "牛渚": (31.0, 119.0),
     "牡丹丛": (33.88391, 120.28412),
@@ -3463,7 +3684,7 @@ _SUPPLEMENT_GEO.update({
     "阿会喃寨": (30.5, 104.0),
     "陆口寨外临江亭": (34.32071, 119.00178),
     "陇上": (30.5, 104.0),
-    "陇右": (30.5, 104.0),
+    "陇右": (35.0, 104.6),
     "陇西临洮": (35.0, 104.6),
     "陇西小路": (35.0, 104.6),
     "陇西诸郡": (35.0, 104.6),
@@ -3571,7 +3792,7 @@ _SUPPLEMENT_GEO.update({
     "黑水河水府之西": (26.1025, 105.879),
     "黑水河神府": (37.82707, 114.29897),
     "黑虎府": (29.50131, 121.01407),
-    "黑龙江": (30.5, 104.0),
+    "黑龙江": (48.9, 127.9),
     "黛山": (32.5, 117.0),
     "齐国": (30.5482, 120.08),
     "龙宫法界": (26.1025, 105.879),
