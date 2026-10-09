@@ -86,7 +86,7 @@ async fn sidecar_start(
   // 不打进 onefile sidecar —— 避免每次启动把 ~30MB SQLite 解压到临时目录；
   // sidecar 仅在分析（world 数据集地名解析）时打开它做点查询，阅读场景零开销。
   if let Ok(resource_dir) = app.path().resource_dir() {
-    let geo_dir = resource_dir.join("geo");
+    let geo_dir = resource_dir.join("resources/geo");
     if geo_dir.is_dir() {
       cmd = cmd.env("AI_READER_GEO_DIR", geo_dir);
     }

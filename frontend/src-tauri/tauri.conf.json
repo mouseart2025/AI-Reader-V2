@@ -43,7 +43,8 @@
     ],
     "resources": [
       "resources/novels/**/*",
-      "resources/geo/**/*"
+      "resources/geo/zh_wiki_geo.sqlite",
+      "resources/geo/zh_geonames.tsv"
     ],
     "fileAssociations": [
       {
