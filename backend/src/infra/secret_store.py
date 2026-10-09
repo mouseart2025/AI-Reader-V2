@@ -1,12 +1,23 @@
 """Secure API key storage — keyring with SQLite fallback."""
 
+import asyncio
 import base64
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 _SERVICE_NAME = "ai-reader-v2"
 _KEY_NAME = "llm-api-key"
+
+# macOS 上 ad-hoc 签名的 sidecar 访问他方创建的 keychain 条目时，Security
+# 框架会等待一个后台进程永远无法弹出的授权弹窗，get_password 永久阻塞
+# （启动挂死的根因）。keyring 调用统一走线程池并加上限，超时回退数据库。
+_KEYRING_TIMEOUT_S = 5.0
+
+# 一次超时后整个进程不再尝试 keyring：挂起原因（签名不匹配的授权弹窗）
+# 在进程生命周期内不会自愈，重复尝试只会反复付出 5s 停顿。
+_keyring_suspect = False
 
 
 def _try_keyring_save(api_key: str) -> bool:
@@ -94,9 +105,36 @@ async def _fallback_delete() -> None:
         await conn.close()
 
 
+async def _keyring_call(func, *args):
+    """Run a blocking keyring call in a thread with a hard timeout.
+
+    Returns None on timeout/error. A timed-out worker thread may stay stuck
+    inside the Security framework; it is a daemon-level leak, not a deadlock —
+    startup and shutdown proceed regardless.
+    """
+    global _keyring_suspect
+    if _keyring_suspect:
+        return None
+    loop = asyncio.get_running_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, func, *args), timeout=_KEYRING_TIMEOUT_S
+        )
+    except TimeoutError:
+        _keyring_suspect = True
+        logger.warning(
+            "keyring call timed out (%.0fs); keyring disabled for this process, "
+            "falling back to database", _KEYRING_TIMEOUT_S,
+        )
+        return None
+    except Exception as e:
+        logger.warning("keyring call failed (%s); falling back to database", e)
+        return None
+
+
 async def save_api_key(api_key: str) -> str:
     """Save API key. Returns storage method used: 'keyring' or 'database'."""
-    if _try_keyring_save(api_key):
+    if await _keyring_call(_try_keyring_save, api_key):
         # Clear any fallback entry
         await _fallback_delete()
         return "keyring"
@@ -114,11 +152,9 @@ async def load_api_key() -> str | None:
     provider requires bypassing it — deleting the keyring entry is unreliable
     on macOS (keychain raises error 100001). Default behaviour unchanged.
     """
-    import os
-
     if os.environ.get("AI_READER_FORCE_DB_KEY"):
         return await _fallback_load()
-    key = _try_keyring_load()
+    key = await _keyring_call(_try_keyring_load)
     if key:
         return key
     return await _fallback_load()
@@ -126,5 +162,5 @@ async def load_api_key() -> str | None:
 
 async def delete_api_key() -> None:
     """Delete API key from all stores."""
-    _try_keyring_delete()
+    await _keyring_call(_try_keyring_delete)
     await _fallback_delete()

@@ -384,6 +384,40 @@ def test_keyring_load_fallback_on_error():
     assert result is None
 
 
+@pytest.mark.asyncio(loop_scope="session")
+async def test_keyring_load_timeout_falls_back(monkeypatch):
+    """keyring 永久阻塞时（ad-hoc 签名二进制访问 keychain 授权弹窗挂起），
+    load_api_key 必须在超时上限内回退数据库而不是卡死启动。"""
+    import threading
+    import time
+
+    from src.infra import secret_store
+
+    stop = threading.Event()
+
+    def _hang():
+        stop.wait(60)
+        return None
+
+    monkeypatch.setattr(secret_store, "_try_keyring_load", _hang)
+    monkeypatch.setattr(secret_store, "_KEYRING_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(secret_store, "_fallback_load", AsyncMock(return_value=None))
+    monkeypatch.setattr(secret_store, "_keyring_suspect", False)
+
+    start = time.monotonic()
+    result = await secret_store.load_api_key()
+    elapsed = time.monotonic() - start
+    stop.set()  # 释放执行器里挂起的线程，避免测试会话退出时干等
+
+    assert result is None
+    assert elapsed < 5  # 远小于挂起的 60s；验证未被 keyring 阻塞
+    assert secret_store._keyring_suspect is True
+    # 超时后整个进程禁用 keyring：后续调用不再付出停顿
+    start2 = time.monotonic()
+    assert await secret_store.load_api_key() is None
+    assert time.monotonic() - start2 < 0.1
+
+
 # ── Mode switching ──────────────────────────────────
 
 
