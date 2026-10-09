@@ -16,6 +16,7 @@ import type { FeatureCollection } from "geojson"
 import "leaflet/dist/leaflet.css"
 import type { MapLocation, TrajectoryPoint } from "@/api/types"
 import chinaProvinces from "@/assets/china_provinces.json"
+import worldCountries from "@/assets/world_countries.json"
 
 // ── 底图:自绘素净画布 ──
 // 现代栅格底图(CARTO 要 key / Esri 英文标注+画法合规风险 / 高德有铁路与
@@ -23,8 +24,18 @@ import chinaProvinces from "@/assets/china_provinces.json"
 // (阿里 DataV 边界数据,依据自然资源部标准地图,台湾省/港澳齐全),
 // 无现代基础设施、离线可用。坐标系已用 6 座 WGS-84 城市做点面校验,
 // 与 GeoNames 标记同一基准,无需 GCJ-02 转换。
+// 世界范围的小说(卡拉马佐夫兄弟、海底两万里)地点遍布全球,只画中国
+// 轮廓会让外国地点飘在"海"里 → 叠加 Natural Earth 110m 国家轮廓作
+// 世界陆地底图(公有领域,离线可用),中国部分剔除以免与省级轮廓重边。
 const CHINA_GEOJSON = chinaProvinces as unknown as FeatureCollection
+const WORLD_GEOJSON = {
+  ...worldCountries,
+  features: (worldCountries as unknown as FeatureCollection).features.filter(
+    (f) => f.properties?.name !== "China",
+  ),
+} as unknown as FeatureCollection
 const MAP_ATTRIBUTION = "边界数据 © 阿里 DataV（依据自然资源部标准地图）"
+const WORLD_ATTRIBUTION = "世界陆地 © Natural Earth"
 
 // 画布配色:浅海色面板 + 暖纸色陆地 + 低饱和描边,不抢小说标记
 const LAND_STYLE: L.PathOptions = {
@@ -34,15 +45,21 @@ const LAND_STYLE: L.PathOptions = {
   fillOpacity: 1,
 }
 
-// ── 中国省级轮廓(素净画布底图) ──
+// ── 世界陆地 + 中国省级轮廓(素净画布底图) ──
 function ProvinceLayer() {
   const zoom = useZoomLevel()
   const map = useMap()
   useEffect(() => {
     map.attributionControl?.addAttribution(MAP_ATTRIBUTION)
+    map.attributionControl?.addAttribution(WORLD_ATTRIBUTION)
   }, [map])
   return (
     <>
+      <LeafletGeoJSON
+        data={WORLD_GEOJSON}
+        style={() => LAND_STYLE}
+        interactive={false}
+      />
       <LeafletGeoJSON
         data={CHINA_GEOJSON}
         style={() => LAND_STYLE}
