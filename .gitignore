@@ -68,7 +68,12 @@ backend/*.spec
 # Tauri
 frontend/src-tauri/target/
 frontend/src-tauri/binaries/
-frontend/src-tauri/resources/
+frontend/src-tauri/resources/*
+# Geo resources: the gzipped wiki geo index IS committed (build input);
+# the unpacked sqlite + copied zh_geonames.tsv are build artifacts.
+!frontend/src-tauri/resources/geo/
+frontend/src-tauri/resources/geo/*
+!frontend/src-tauri/resources/geo/zh_wiki_geo.sqlite.gz
 
 # Marketing system
 marketing/config.yaml
@@ -84,6 +89,11 @@ backend/scripts/apply_decisions.py
 backend/scripts/generate_review_page.py
 backend/scripts/audit_prompt.txt
 backend/audit_reports/
+# Generated geo index (from Wikimedia dumps) — regenerate with
+# scripts/build_zh_wiki_geo.py instead of committing. The packaged app ships
+# frontend/src-tauri/resources/geo/zh_wiki_geo.sqlite.gz (committed).
+backend/data/zh_wiki_geo.tsv
+backend/data/zh_wiki_geo.sqlite
 
 # BMAD claude commands
 .claude/commands/bmad*

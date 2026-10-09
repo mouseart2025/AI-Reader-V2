@@ -42,7 +42,8 @@
       "binaries/ai-reader-sidecar"
     ],
     "resources": [
-      "resources/novels/**/*"
+      "resources/novels/**/*",
+      "resources/geo/**/*"
     ],
     "fileAssociations": [
       {

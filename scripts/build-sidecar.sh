@@ -77,6 +77,25 @@ echo ""
 # ── Build with PyInstaller ──────────────────────
 cd "$BACKEND_DIR"
 
+# ── Prepare geo resources (ship as Tauri resources, NOT inside the onefile
+#    sidecar — onefile would decompress ~30MB to a temp dir on every launch,
+#    and the SQLite is only opened for point queries during analysis) ──
+GEO_RES_DIR="$PROJECT_ROOT/frontend/src-tauri/resources/geo"
+GEO_DB_GZ="$GEO_RES_DIR/zh_wiki_geo.sqlite.gz"
+GEO_DB="$GEO_RES_DIR/zh_wiki_geo.sqlite"
+mkdir -p "$GEO_RES_DIR"
+if [[ -f "$GEO_DB_GZ" && ( ! -f "$GEO_DB" || "$GEO_DB_GZ" -nt "$GEO_DB" ) ]]; then
+    echo ">> Unpacking zh_wiki_geo.sqlite.gz..."
+    gunzip -kf "$GEO_DB_GZ"
+fi
+if [[ -f "$BACKEND_DIR/data/zh_geonames.tsv" ]]; then
+    cp "$BACKEND_DIR/data/zh_geonames.tsv" "$GEO_RES_DIR/zh_geonames.tsv"
+fi
+if [[ ! -f "$GEO_DB" ]]; then
+    echo "WARNING: $GEO_DB missing — Wikipedia geo layer will be DISABLED in the packaged app"
+    echo "         Regenerate with: uv run python scripts/build_zh_wiki_geo.py"
+fi
+
 echo ">> Running PyInstaller..."
 uv run pyinstaller ai-reader-sidecar.spec --noconfirm --clean 2>&1
 

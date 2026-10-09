@@ -73,7 +73,7 @@ async fn sidecar_start(
   let token = generate_sidecar_token();
 
   // Spawn the sidecar binary — 令牌经环境变量传递（不出现在进程参数列表中）
-  let (mut rx, child) = app
+  let mut cmd = app
     .shell()
     .sidecar("ai-reader-sidecar")
     .map_err(|e| format!("Failed to create sidecar command: {e}"))?
@@ -81,7 +81,17 @@ async fn sidecar_start(
       "--port",
       &port.to_string(),
     ])
-    .env("AI_READER_SIDECAR_TOKEN", &token)
+    .env("AI_READER_SIDECAR_TOKEN", &token);
+  // 地理数据（zh_wiki_geo.sqlite / zh_geonames.tsv）作为 App resource 随包分发，
+  // 不打进 onefile sidecar —— 避免每次启动把 ~30MB SQLite 解压到临时目录；
+  // sidecar 仅在分析（world 数据集地名解析）时打开它做点查询，阅读场景零开销。
+  if let Ok(resource_dir) = app.path().resource_dir() {
+    let geo_dir = resource_dir.join("geo");
+    if geo_dir.is_dir() {
+      cmd = cmd.env("AI_READER_GEO_DIR", geo_dir);
+    }
+  }
+  let (mut rx, child) = cmd
     .spawn()
     .map_err(|e| format!("Failed to spawn sidecar: {e}"))?;
 
