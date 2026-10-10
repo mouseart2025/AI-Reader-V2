@@ -646,6 +646,11 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "关西": (34.6, 109.8),         # West of Hangu Pass (Guanzhong/Longyou, NOT 江西关西镇)
     "北邙山": (34.92, 113.36),     # Mang Hills north of Luoyang (GeoNames only has 北邙 ADM4)
     "太行山": (37.8, 113.8),       # Taihang range (GeoNames CN lacks a T-class entry)
+    "燕山": (40.3, 116.6),         # Yanshan range north of Beijing
+    "围场": (41.94, 117.76),       # 河北承德围场县（木兰围场）
+    "黑龙江": (48.9, 127.9),       # Heilongjiang (river/province)
+    "陇右": (35.0, 104.6),         # 陇山以西（甘肃东部，历史区域）
+    "关外陇右": (35.0, 104.6),     # 同陇右
     "大漠": (42.0, 105.0),         # Gobi Desert
     "岭南": (23.1, 113.3),         # South of the Nanling Mountains (Guangdong)
     "塞北": (42.0, 112.0),         # North of the Great Wall
@@ -2054,6 +2059,19 @@ def place_unresolved_geo_coords(
         )
     return result
 
+
+# Promoted out of the GeoEvolve auto delta (2026-10-10): these were hand-fixed
+# inside the generated block, where a generator re-run would silently revert
+# them.  Dual-listed in _SUPPLEMENT_CN (Chinese geography, same pattern as
+# 太行山/东海) so geo-scope detection doesn't count them as world evidence.
+_SUPPLEMENT_GEO.update({
+    "围场": (41.94, 117.76),
+    "燕山": (40.3, 116.6),
+    "黑龙江": (48.9, 127.9),
+    "陇右": (35.0, 104.6),
+    "关外陇右": (35.0, 104.6),
+})
+
 # Curated supplement keys, snapshotted BEFORE the auto-generated GeoEvolve
 # delta below floods the dict with thousands of per-novel micro-locations
 # (东厢/东门/书院 → placeholder coords).  Geo-scope detection must only trust
@@ -2063,7 +2081,8 @@ _SUPPLEMENT_GEO_CURATED: frozenset[str] = frozenset(_SUPPLEMENT_GEO)
 
 # ── GeoEvolve delta begin（自动生成，勿手改）──
 # 2026-10-09 清洗：删除 1013 条聚集垃圾（35 个坐标各被 >=10 个不相关地名共享，
-# 删除清单见 /tmp/geoevolve_removed.txt）；保留其余 727 条及手工修正（围场/燕山/黑龙江/陇右/关外陇右）。
+# 删除清单见 /tmp/geoevolve_removed.txt）。2026-10-10：5 条手工修正（围场/燕山/
+# 黑龙江/陇右/关外陇右）已提升进策划区（见 delta 之前的注释），防止生成器重跑覆盖。
 _SUPPLEMENT_GEO.update({
     "一出坡": (34.2598, 117.277),
     "一山坡": (27.0053, 114.355),
@@ -2187,7 +2206,6 @@ _SUPPLEMENT_GEO.update({
     "关东": (34.34516, 110.77297),
     "关公宅": (31.60596, 106.65094),
     "关公营寨": (31.60596, 106.65094),
-    "关外陇右": (35.0, 104.6),
     "其他诸侯国": (29.52, 103.33),
     "养性楼": (23.36558, 116.69761),
     "冀县": (33.0, 114.0),
@@ -2264,7 +2282,6 @@ _SUPPLEMENT_GEO.update({
     "园内厨房": (25.05379, 118.15261),
     "园内腰门": (25.05379, 118.15261),
     "园子·角门": (39.04589, 112.95579),
-    "围场": (41.94, 117.76),
     "囹圄": (40.33333, 119.13333),
     "土井": (39.22237, 121.66548),
     "土冈子": (32.0, 116.0),
@@ -2512,7 +2529,6 @@ _SUPPLEMENT_GEO.update({
     "灵鹫山元觉洞": (31.03054, 106.78437),
     "炮烙": (41.49235, 122.4116),
     "炮烙之刑": (41.49235, 122.4116),
-    "燕山": (40.3, 116.6),
     "牡丹丛": (33.88391, 120.28412),
     "独龙冈前": (39.54948, 113.57455),
     "独龙山前": (39.54948, 113.57455),
@@ -2725,7 +2741,6 @@ _SUPPLEMENT_GEO.update({
     "阴平桥": (34.27728, 118.61231),
     "阴间": (42.02639, 121.73194),
     "陆口寨外临江亭": (34.32071, 119.00178),
-    "陇右": (35.0, 104.6),
     "陇西临洮": (35.0, 104.6),
     "陇西小路": (35.0, 104.6),
     "陇西诸郡": (35.0, 104.6),
@@ -2786,7 +2801,6 @@ _SUPPLEMENT_GEO.update({
     "黑水河水府之西": (26.1025, 105.879),
     "黑水河神府": (37.82707, 114.29897),
     "黑虎府": (29.50131, 121.01407),
-    "黑龙江": (48.9, 127.9),
     "黛山": (32.5, 117.0),
     "龙宫法界": (26.1025, 105.879),
     "龙潭虎穴": (34.83333, 112.46667),
