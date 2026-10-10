@@ -651,6 +651,7 @@ _SUPPLEMENT_CN: dict[str, tuple[float, float]] = {
     "黑龙江": (48.9, 127.9),       # Heilongjiang (river/province)
     "陇右": (35.0, 104.6),         # 陇山以西（甘肃东部，历史区域）
     "关外陇右": (35.0, 104.6),     # 同陇右
+    "沙门岛": (37.93, 120.70),     # 北宋流放地，今烟台长岛（庙岛）；GeoNames 误配温州外海
     "大漠": (42.0, 105.0),         # Gobi Desert
     "岭南": (23.1, 113.3),         # South of the Nanling Mountains (Guangdong)
     "塞北": (42.0, 112.0),         # North of the Great Wall
@@ -881,6 +882,8 @@ _NON_GEO_PATTERNS = re.compile(
     # Generic/directional — matches GeoNames places in wrong locations
     r"^北方$|^南方$|^东方$|^西方$|^北岸$|^南岸$|^东岸$|^西岸$|^海滨$|"
     r"^中军帐$|^大寨$|^水寨$|^旱寨$|^蜀营$|^魏寨$|^吴营$|"
+    # Distance markers — 五十里/三十里 matched a Xinjiang hamlet in 水浒
+    r"^[零一二三四五六七八九十百千万两\d]+里$|"
     # Vessels / vehicles / ship interior — not geographic
     r"号船|号舰|客厅$|图书室$|舱房$|甲板$|^平台$|"
     r"^小艇$|^潜水船$|^潜水艇$|^牢狱$|楼梯$|铁梯$|^餐厅$|^走廊$|"
@@ -1308,20 +1311,24 @@ class GeoResolver:
                 filtered = _filter_entries_by_type(entries, type_map.get(name))
                 if filtered:
                     entries = filtered
-                elif match_via == "stripped":
+                elif match_via == "stripped" and not parent_map:
                     # Stripped match with no type-compatible candidate →
-                    # unresolved (东拉河→东拉 would hit a Tibetan ADM4).
+                    # unresolved (东拉河→东拉 would hit a Tibetan ADM4) —
+                    # but ONLY when no Pass-2 validation will run; see below.
                     logger.info(
                         "Discarding %d suffix-stripped candidate(s) for %s: "
                         "feature class contradicts type %r",
                         len(entries), name, type_map.get(name),
                     )
                     entries = filtered
-                # Exact match with no type-compatible candidate → keep the
-                # original entries.  GeoNames misclassifies Chinese natural
-                # features (洱海 is PPL, 青城山 is ADM4, 梁山 is ADM3), so a
-                # full-name match is stronger evidence than the feature
-                # class.  Pass-2 validation still guards these.
+                # Type-contradicted candidates are KEPT when Pass-2 validation
+                # is available (parent_map present): GeoNames misclassifies
+                # Chinese natural features (洱海 is PPL, 青城山 is ADM4, 虎丘
+                # is PPL), so the parent-proximity / anchor checks in Pass 2
+                # are the arbiter — 虎丘山→虎丘(PPL) survives 40km from 苏州,
+                # while 东拉河→东拉(Tibetan ADM4, fictional parent) is rejected
+                # by the anchor check.  Without parent_map there is no
+                # validation, so stripped matches stay strict (above).
 
             if entries:
                 # Disambiguation: pick best entry
