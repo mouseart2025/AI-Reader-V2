@@ -1,0 +1,112 @@
+name: Mirror Release Downloads to R2
+
+# 官网 (ai-reader.cc/zh/) 的下载按钮直接指向 GitHub Release 资产。仓库在 ARR 审稿期
+# 被临时私有化（2026-10-11 → 2026-12-18）后，这些直链对匿名访客全部 404。
+#
+# 本工作流把某个 tag 的安装包镜像到 Cloudflare R2 公共桶，官网再通过
+# https://ai-reader.cc/dl/<tag>/<file> 302 到 R2，下载不再依赖仓库可见性。
+#
+# 用法：Actions → Mirror Release Downloads to R2 → Run workflow（填 tag）。
+# 产物大小 ~120MB × N，R2 存储费约 $0.015/GB/月，出网免费。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要镜像的 release tag（例如 v0.82.0）'
+        required: true
+        type: string
+      bucket:
+        description: 'R2 bucket 名'
+        required: true
+        default: 'ai-reader-downloads'
+        type: string
+      assets:
+        description: '只镜像匹配这些 glob 的资产（空格分隔）'
+        required: true
+        default: '*.dmg *.exe'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-downloads-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag }}
+      BUCKET: ${{ inputs.bucket }}
+      ASSETS: ${{ inputs.assets }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Probe R2 permission (fails fast if the token is Pages-only)
+        run: npx --yes wrangler@4.70.0 r2 bucket list
+
+      - name: Ensure bucket exists
+        run: |
+          npx --yes wrangler@4.70.0 r2 bucket create "$BUCKET" || echo "bucket already exists or create skipped"
+
+      - name: Download release assets from this (private) repo
+        run: |
+          mkdir -p dl
+          args=()
+          for g in $ASSETS; do args+=(--pattern "$g"); done
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dl --clobber "${args[@]}"
+          ls -lh dl
+          test "$(ls -A dl)" || { echo "no assets matched"; exit 1; }
+
+      - name: Upload to R2 (immutable long cache)
+        run: |
+          for f in dl/*; do
+            name="$(basename "$f")"
+            case "$name" in
+              *.dmg) ct='application/x-apple-diskimage' ;;
+              *.exe) ct='application/vnd.microsoft.portable-executable' ;;
+              *)     ct='application/octet-stream' ;;
+            esac
+            echo "→ $BUCKET/$TAG/$name  ($ct)"
+            npx --yes wrangler@4.70.0 r2 object put "$BUCKET/$TAG/$name" \
+              --file "$f" --remote \
+              --content-type "$ct" \
+              --content-disposition "attachment; filename=\"$name\"" \
+              --cache-control 'public, max-age=31536000, immutable'
+          done
+
+      - name: Enable public r2.dev URL
+        run: |
+          npx --yes wrangler@4.70.0 r2 bucket dev-url enable "$BUCKET" || true
+          npx --yes wrangler@4.70.0 r2 bucket dev-url get "$BUCKET" | tee devurl.txt
+
+      - name: Verify public downloads and write summary
+        run: |
+          BASE="$(grep -oE 'https://pub-[a-z0-9]+\.r2\.dev' devurl.txt | head -1)"
+          if [ -z "$BASE" ]; then
+            echo "::error::could not parse the r2.dev public URL from wrangler output"
+            exit 1
+          fi
+          {
+            echo "### R2 mirror — \`$TAG\`"
+            echo ""
+            echo "Public base: \`$BASE\`"
+            echo ""
+            echo "| file | size | HTTP |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for f in dl/*; do
+            name="$(basename "$f")"
+            url="$BASE/$TAG/$name"
+            code="$(curl -sS -o /dev/null -w '%{http_code}' -r 0-65535 "$url")"
+            echo "| \`$name\` | $(du -h "$f" | cut -f1) | $code |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$url"
+          done
