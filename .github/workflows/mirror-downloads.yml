@@ -10,9 +10,27 @@ name: Mirror Release Downloads to R2
 # 产物大小 ~120MB × N，R2 存储费约 $0.015/GB/月，出网免费。
 
 on:
-  # 新版本发布时自动镜像，避免官网下载再次滞后/断档（手动 dispatch 仍可用于补历史版本）
+  # 注意：GitHub 不会让一个 workflow 用 GITHUB_TOKEN 发布 release 时触发另一个 workflow
+  # 的 release 事件（防递归）。因此 release.yml 通过 workflow_call 直接复用本 workflow，
+  # 这里的 release 触发器只对「网页上手动发布」或 PAT 发布的 release 生效。
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: '要镜像的 release tag'
+        required: true
+        type: string
+      bucket:
+        description: 'R2 bucket 名'
+        required: false
+        default: 'ai-reader-downloads'
+        type: string
+      assets:
+        description: '只镜像匹配这些 glob 的资产'
+        required: false
+        default: '*.dmg *.exe'
+        type: string
   workflow_dispatch:
     inputs:
       tag:

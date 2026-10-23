@@ -65,6 +65,20 @@ jobs:
     secrets: inherit
 
   # ═══════════════════════════════════════════════
+  # Mirror installers to R2 (官网/README 的 /dl/ 入口依赖它)
+  # 用 workflow_call 而不是等 release:published 事件——GITHUB_TOKEN 发布的
+  # release 不会触发其它 workflow。
+  # ═══════════════════════════════════════════════
+  mirror:
+    needs: [publish-release]
+    uses: ./.github/workflows/mirror-downloads.yml
+    with:
+      tag: ${{ github.ref_name }}
+      bucket: ai-reader-downloads
+      assets: '*.dmg *.exe'
+    secrets: inherit
+
+  # ═══════════════════════════════════════════════
   # Publish release (undraft)
   # ═══════════════════════════════════════════════
   publish-release:
