@@ -20,7 +20,8 @@
   <a href="https://ai-reader.cc"><strong>Website</strong></a> ·
   <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>Live Demo</strong></a> ·
   <a href="#quick-start"><strong>Quick Start</strong></a> ·
-  <a href="#desktop-download"><strong>Desktop Download</strong></a>
+  <a href="#desktop-download"><strong>Desktop Download</strong></a> ·
+  <a href="./ROADMAP.md"><strong>Roadmap</strong></a>
 </p>
 
 ## Key Features

@@ -22,7 +22,8 @@
   <a href="https://ai-reader.cc"><strong>官网</strong></a> ·
   <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>在线体验</strong></a> ·
   <a href="#快速开始"><strong>快速开始</strong></a> ·
-  <a href="#桌面应用下载"><strong>桌面下载</strong></a>
+  <a href="#桌面应用下载"><strong>桌面下载</strong></a> ·
+  <a href="./ROADMAP.md"><strong>路线图</strong></a>
 </p>
 
 ## 核心功能
