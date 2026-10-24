@@ -637,6 +637,32 @@ def _sanitize_relation_dimensions(fact: ChapterFact, chapter_id: int) -> None:
                 rel.closeness = None
 
 
+def _votes_are_unanimous(
+    relations: list, extra_votes: list[dict[int, str]],
+) -> bool:
+    """所有关系在已收集的票里都只有唯一取值 → 继续采样不会改变结论。
+
+    主抽取的 rel_subtype 计为第一票（与 _vote_rel_subtypes 的聚合口径一致）。
+    """
+    for i, rel in enumerate(relations):
+        seen: set[str] = set()
+        if rel.rel_subtype:
+            seen.add(rel.rel_subtype)
+        votes_for_rel: list[str] = []
+        for votes in extra_votes:
+            v = votes.get(i)
+            if v:
+                seen.add(v)
+                votes_for_rel.append(v)
+        # 该关系还没有任何有效采样票（例如本票被判为非法值丢弃）→ 不能早停，
+        # 否则会拿"没有证据"当成"意见一致"。
+        if not votes_for_rel:
+            return False
+        if len(seen) > 1:
+            return False
+    return bool(relations)
+
+
 def _pick_majority_subtype(counts: dict[str, int]) -> str:
     """Majority vote winner; ties go to the most conservative candidate.
 
@@ -1571,6 +1597,11 @@ class ChapterFactExtractor:
                 extra_votes.append(
                     _parse_vote_response(result, len(relations), chapter_id)
                 )
+                # 早停（成本优化）：本票与既有票全部一致时，再采样也不会改变
+                # 多数决结果，剩余样本直接跳过。84% 的关系最终三票一致，
+                # 这些章节因此省掉一次轻量投票调用（见成本基线 §5.8）。
+                if _votes_are_unanimous(relations, extra_votes):
+                    break
             except Exception as err:
                 logger.warning(
                     "Chapter %d: subtype vote sample %d/%d failed: %s",

@@ -69,6 +69,8 @@ def record_llm_usage(model: str, usage: LlmUsage) -> None:
         "completion_tokens": usage.completion_tokens,
         "total_tokens": usage.total_tokens,
         "truncated": bool(usage.truncated),
+        "cache_hit_tokens": usage.cache_hit_tokens,
+        "cache_miss_tokens": usage.cache_miss_tokens,
     }
     try:
         out = Path(path).expanduser()
@@ -93,6 +95,11 @@ class LlmUsage:
     # under concurrency. Consumers MUST surface it — a repaired response is
     # syntactically valid but silently missing trailing fields.
     truncated: bool = False
+    # 前缀缓存命中（DeepSeek 等提供 prompt_cache_hit_tokens / prompt_cache_miss_tokens）。
+    # 静态前缀（系统提示 + schema + few-shot）每次请求都一样，命中后这部分按
+    # cache 价计费；记录下来才能量化 L3（见 docs/analysis/analysis-cost-baseline）。
+    cache_hit_tokens: int = 0
+    cache_miss_tokens: int = 0
 
 
 @dataclass

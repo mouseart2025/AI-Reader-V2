@@ -271,3 +271,73 @@ def test_vote_schema_hidden_from_llm_output_schema():
     # 三维字段保留在输出 schema 中,供 LLM 填写
     for f in ("polarity", "rel_subtype", "closeness"):
         assert f in rel_props
+
+
+# ── FR-1.3 早停（成本优化） ──
+
+
+@pytest.mark.asyncio
+async def test_vote_early_stops_when_first_sample_agrees(monkeypatch):
+    """首个采样票与主抽取一致时不再采第二票（84% 的关系属于这种情形）。"""
+    monkeypatch.setattr(config, "RELATION_DIMENSIONS_ENABLED", True)
+    monkeypatch.setattr(config, "RELATION_SUBTYPE_VOTE_SAMPLES", 3)
+    monkeypatch.setattr(config, "RECALL_PASS_ENABLED", False)
+    llm = MockLLM(
+        _fact_response([_rel(subtype="结拜")]),
+        # 只排一票：若实现没有早停，会因"无票可用"抛 RuntimeError
+        vote_responses=[_votes("结拜")],
+    )
+    extractor = ChapterFactExtractor(llm=llm)
+    fact, usage, _ = await extractor.extract("test-novel", 1, "章节文本")
+
+    rel = fact.relationships[0]
+    assert rel.rel_subtype == "结拜"
+    assert rel.subtype_vote == {"结拜": 2}
+    # 1 次主抽取 + 1 次投票（而不是 2 次）
+    assert len(llm.prompts) == 2
+    assert usage.prompt_tokens == 100 + 10
+
+
+@pytest.mark.asyncio
+async def test_vote_keeps_sampling_when_first_sample_disagrees(monkeypatch):
+    """有分歧时必须把票采满，否则多数决会建立在不足的证据上。"""
+    monkeypatch.setattr(config, "RELATION_DIMENSIONS_ENABLED", True)
+    monkeypatch.setattr(config, "RELATION_SUBTYPE_VOTE_SAMPLES", 3)
+    monkeypatch.setattr(config, "RECALL_PASS_ENABLED", False)
+    llm = MockLLM(
+        _fact_response([_rel(subtype="结拜")]),
+        vote_responses=[_votes("朋友-社交"), _votes("朋友-社交")],
+    )
+    extractor = ChapterFactExtractor(llm=llm)
+    fact, usage, _ = await extractor.extract("test-novel", 1, "章节文本")
+
+    rel = fact.relationships[0]
+    assert rel.rel_subtype == "朋友-社交"
+    assert rel.subtype_vote == {"结拜": 1, "朋友-社交": 2}
+    assert len(llm.prompts) == 3
+    assert usage.prompt_tokens == 100 + 10 + 10
+
+
+@pytest.mark.asyncio
+async def test_vote_early_stop_requires_every_relation_to_have_a_sample(monkeypatch):
+    """多关系时只要有一条还没拿到有效票，就不能早停。"""
+    monkeypatch.setattr(config, "RELATION_DIMENSIONS_ENABLED", True)
+    monkeypatch.setattr(config, "RELATION_SUBTYPE_VOTE_SAMPLES", 3)
+    monkeypatch.setattr(config, "RECALL_PASS_ENABLED", False)
+    rels = [_rel(subtype="结拜"), _rel(subtype="敌对", polarity="negative")]
+    llm = MockLLM(
+        _fact_response(rels),
+        vote_responses=[
+            # 第 1 票只覆盖 index 0（index 1 缺票）
+            {"votes": [{"index": 0, "rel_subtype": "结拜"}]},
+            {"votes": [{"index": 0, "rel_subtype": "结拜"},
+                       {"index": 1, "rel_subtype": "敌对"}]},
+        ],
+    )
+    extractor = ChapterFactExtractor(llm=llm)
+    fact, _, _ = await extractor.extract("test-novel", 1, "章节文本")
+
+    # 没有在第 1 票后早停：两条关系最终都拿到了 ≥2 票
+    assert fact.relationships[0].subtype_vote == {"结拜": 3}
+    assert fact.relationships[1].subtype_vote == {"敌对": 2}
+    assert len(llm.prompts) == 3

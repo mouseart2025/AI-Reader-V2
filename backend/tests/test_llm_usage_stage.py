@@ -105,3 +105,26 @@ def test_record_usage_creates_parent_directories(tmp_path, monkeypatch):
     assert log.exists()
     row = json.loads(log.read_text(encoding="utf-8").strip())
     assert row["model"] == "MiniMax-M2.7"
+
+
+def test_usage_log_records_prefix_cache_fields(tmp_path, monkeypatch):
+    """DeepSeek 的 prompt_cache_hit/miss_tokens 必须落到日志里，否则 L3 无法量化。"""
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("AI_READER_LLM_USAGE_LOG", str(log))
+
+    usage = LlmUsage(
+        prompt_tokens=1200, completion_tokens=300, total_tokens=1500,
+        cache_hit_tokens=900, cache_miss_tokens=300,
+    )
+    record_llm_usage("deepseek-chat", usage)
+
+    row = json.loads(log.read_text(encoding="utf-8").strip())
+    assert row["cache_hit_tokens"] == 900
+    assert row["cache_miss_tokens"] == 300
+
+
+def test_usage_defaults_to_zero_cache_tokens():
+    """没有缓存字段的提供商（Ollama 等）保持 0，不制造假数据。"""
+    usage = LlmUsage(prompt_tokens=10)
+    assert usage.cache_hit_tokens == 0
+    assert usage.cache_miss_tokens == 0

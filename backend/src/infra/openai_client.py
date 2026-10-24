@@ -315,6 +315,9 @@ class OpenAICompatibleClient:
             prompt_tokens=usage_data.get("prompt_tokens", 0),
             completion_tokens=usage_data.get("completion_tokens", 0),
             total_tokens=usage_data.get("total_tokens", 0),
+            # 前缀缓存统计（DeepSeek 返回；其他提供商没有这两个字段时为 0）
+            cache_hit_tokens=usage_data.get("prompt_cache_hit_tokens", 0) or 0,
+            cache_miss_tokens=usage_data.get("prompt_cache_miss_tokens", 0) or 0,
         )
         from src.infra.llm_client import record_llm_usage
         record_llm_usage(self.model, usage)
