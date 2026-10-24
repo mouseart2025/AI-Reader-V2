@@ -384,7 +384,9 @@ def _schema_text(schema: dict) -> str:
     cached = _schema_text_cache.get(id(schema))
     if cached is not None and cached[0] is schema:
         return cached[1]
-    text = json.dumps(schema, ensure_ascii=False, indent=2)
+    # 紧凑序列化：缩进/换行对模型没有信息价值，但按 token 计费。
+    # 实测 recall 主 schema 从 14,692 字符 ≈ 4,497 tokens 降到 7,397 字符 ≈ 2,309 tokens。
+    text = json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
     _schema_text_cache[id(schema)] = (schema, text)
     return text
 
@@ -932,7 +934,8 @@ class ChapterFactExtractor:
         examples_to_show = [examples[0]]
         if len(examples) >= 4 and budget.context_window > 16384:
             examples_to_show.append(examples[3])
-        examples_json = json.dumps(examples_to_show, ensure_ascii=False, indent=2)
+        # 紧凑序列化：示例的缩进不携带信息，实测首个示例 1,635 → 1,253 tokens。
+        examples_json = json.dumps(examples_to_show, ensure_ascii=False, separators=(",", ":"))
         return f"## 参考示例\n```json\n{examples_json}\n```\n\n"
 
     def _build_user_prompt(

@@ -152,9 +152,9 @@ def test_schema_cache_keyed_by_grounding_flag(monkeypatch):
 
 
 def test_schema_text_serialized_once_per_object():
-    """同一 schema 对象的序列化文本只算一次;文本与直接 dumps 一致。"""
+    """同一 schema 对象的序列化文本只算一次；文本是紧凑 JSON（缩进不携带信息却计费）。"""
     schema = {"type": "object", "properties": {"a": {"type": "string"}}}
-    expected = json.dumps(schema, ensure_ascii=False, indent=2)
+    expected = json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
 
     text1 = cfe._schema_text(schema)
     text2 = cfe._schema_text(schema)
