@@ -12,6 +12,7 @@ import { useDemoData } from "@/app/DemoContext"
 import { useEntityCardStore } from "@/stores/entityCardStore"
 import { useVisualizationFocusStore } from "@/stores/visualizationFocusStore"
 import { loadDemoLayerMap } from "@/api/demoDataAdapter"
+import { resolveDemoAssetUrl } from "@/api/demoNovelMap"
 import type { MapData, MapLayerInfo } from "@/api/types"
 import { NovelMap, type NovelMapHandle } from "@/components/visualization/NovelMap"
 import { GeoMap } from "@/components/visualization/GeoMap"
@@ -159,7 +160,7 @@ export default function DemoMapPage() {
   const trajectories = useMemo(() => mapData?.trajectories ?? {}, [mapData])
   const layout = useMemo(() => mapData?.layout ?? [], [mapData])
   const layoutMode = mapData?.layout_mode ?? "hierarchy"
-  const terrainUrl = mapData?.terrain_url ?? null
+  const terrainUrl = resolveDemoAssetUrl(mapData?.terrain_url, import.meta.env.BASE_URL ?? "/")
   const regionBoundaries = mapData?.region_boundaries
   const portals = mapData?.portals
 

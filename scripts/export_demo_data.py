@@ -40,6 +40,9 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
+# demo 地形图最大宽度（烘焙图 4096 → 2048，体积降一个数量级）
+TERRAIN_MAX_WIDTH = 2048
+
 DEFAULT_BASE_URL = os.environ.get("AI_READER_API_BASE", "http://localhost:8000")
 
 
@@ -65,6 +68,71 @@ def api_get(base_url: str, path: str) -> dict | list | None:
         print(f"  Connection error for {path}: {e.reason}", file=sys.stderr)
         _failures.append(f"CONN {path} ({e.reason})")
         return None
+
+
+def fetch_bytes(base_url: str, path: str) -> bytes | None:
+    """GET 原始字节（用于地形 PNG 这类非 JSON 资源）。"""
+    url = f"{base_url}{path}"
+    try:
+        with urlopen(Request(url), timeout=120) as resp:
+            ctype = resp.headers.get("Content-Type", "")
+            data = resp.read()
+            if not ctype.startswith("image/") or not data:
+                print(f"  ⚠️ 地形不是图片: {path} (Content-Type={ctype})", file=sys.stderr)
+                _failures.append(f"TERRAIN {path} ({ctype})")
+                return None
+            return data
+    except (HTTPError, URLError) as e:
+        print(f"  ⚠️ 地形下载失败 {path}: {e}", file=sys.stderr)
+        _failures.append(f"TERRAIN {path}")
+        return None
+
+
+def export_terrain(
+    base_url: str, data: dict, output_dir: Path, slug: str, stem: str,
+) -> int:
+    """把地图的地形烘焙图存成 demo 静态资源，并把 terrain_url 改成站点相对路径。
+
+    背景（issue #120）：导出的地图 JSON 里 terrain_url 是后端 API 路径
+    （/api/novels/<id>/map/terrain）。demo 是纯静态站，这个请求会被 SPA 兜底成
+    200 text/html ⇒ 图片解码失败 ⇒ 官网上永远看不到地形。这里把 PNG 一起导出，
+    并把字段改写成 /demo-data/<slug>/<stem>.png。
+    """
+    url = data.get("terrain_url")
+    if not isinstance(url, str) or not url.startswith("/api/"):
+        return 0
+    png = fetch_bytes(base_url, url)
+    if png is None:
+        return 0
+    # 烘焙图是 4096 宽（约 7MB PNG）。demo 是网页，压到 2048 并转 JPEG：
+    # 视觉上足够（地图整体视口 ~1300px），体积从 7MB 降到数百 KB。
+    raw = png
+    try:
+        import io
+
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(png)).convert("RGB")
+        if img.width > TERRAIN_MAX_WIDTH:
+            ratio = TERRAIN_MAX_WIDTH / img.width
+            img = img.resize(
+                (TERRAIN_MAX_WIDTH, max(1, round(img.height * ratio))),
+                Image.LANCZOS,
+            )
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=82, optimize=True, progressive=True)
+        png = buf.getvalue()
+        out = output_dir / f"{stem}.jpg"
+    except Exception as e:  # Pillow 缺失/解码失败 → 原样落 PNG
+        print(f"  ⚠️ 地形压缩失败，改存原 PNG: {e}", file=sys.stderr)
+        out = output_dir / f"{stem}.png"
+    out.write_bytes(png)
+    data["terrain_url"] = f"/demo-data/{slug}/{out.name}"
+    print(
+        f"  🗺️ 地形已导出: {out.name} "
+        f"({len(raw) / 1024:.0f} KB → {len(png) / 1024:.0f} KB)"
+    )
+    return len(png)
 
 
 def _report_failures(count: int) -> None:
@@ -422,6 +490,9 @@ def export_demo(
                     "locations": _count_items(data, "locations"),
                     "trajectories": len(data.get("trajectories", {})),
                 }
+                total_size += export_terrain(
+                    base_url, data, output_dir, output_dir.name, "terrain"
+                )
                 # Export per-layer map data so demo layer-tab switches have
                 # something to render. Without this, switching to "天界" / "副本/秘境"
                 # etc. shows an empty map (the default response is overworld-only).
@@ -445,6 +516,10 @@ def export_demo(
                         print(f"  ⚠️ Skipped map-{layer_id} (no data)")
                         continue
                     strip_redundant_fields(layer_data, STRIP_FIELDS)
+                    total_size += export_terrain(
+                        base_url, layer_data, output_dir, output_dir.name,
+                        f"terrain-{layer_id}",
+                    )
                     layer_size = save_json(
                         layer_data,
                         output_dir / f"map-{layer_id}.json",

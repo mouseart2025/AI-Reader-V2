@@ -52,3 +52,22 @@ export const DEMO_FILES = {
 } as const
 
 export type DemoEndpoint = keyof typeof DEMO_FILES
+
+/**
+ * 把 demo 静态资源路径补上站点 base。
+ *
+ * 背景（issue #120）：导出的地图 JSON 里 terrain_url 是 `/demo-data/<slug>/…`，
+ * 而 demo 站部署在 `/demo/` 下（`import.meta.env.BASE_URL`）。其它数据走
+ * `demoDataAdapter` 时会被拼上 base，但地形图是直接塞给 `<image href>` 的，
+ * 所以必须在这里补，否则请求落到 `/demo-data/…` 被 SPA 兜底成 HTML，图片解码失败、
+ * 地形静默不显示。
+ */
+export function resolveDemoAssetUrl(
+  raw: string | null | undefined,
+  base: string = "/",
+): string | null {
+  if (!raw) return null
+  if (!raw.startsWith("/demo-data/")) return raw
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`
+  return `${normalizedBase}${raw.replace(/^\//, "")}`
+}
