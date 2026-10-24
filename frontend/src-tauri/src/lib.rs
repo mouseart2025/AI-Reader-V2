@@ -236,6 +236,27 @@ async fn sidecar_start(
   Ok(SidecarInfo { port: reported_port, token })
 }
 
+/// 把 sidecar 的导出结果保存到用户选择的路径（原生保存对话框之后调用）。
+///
+/// 为什么在 Rust 侧下载：导出包可能上百 MB，走 IPC 传字节会先 JSON 化再解析，
+/// 既慢又吃内存。这里由 Rust 直接向 localhost 的 sidecar 取流并落盘。
+#[tauri::command]
+async fn save_export(url: String, path: String, token: Option<String>) -> Result<String, String> {
+  let client = reqwest::Client::new();
+  let mut req = client.get(&url);
+  if let Some(t) = token.as_deref().filter(|t| !t.is_empty()) {
+    req = req.header("Authorization", format!("Bearer {t}"));
+  }
+  let resp = req.send().await.map_err(|e| format!("请求导出接口失败: {e}"))?;
+  if !resp.status().is_success() {
+    return Err(format!("导出接口返回 {}", resp.status()));
+  }
+  let bytes = resp.bytes().await.map_err(|e| format!("读取导出数据失败: {e}"))?;
+  std::fs::write(&path, &bytes).map_err(|e| format!("写入文件失败: {e}"))?;
+  log::info!("导出已保存: {} ({} bytes)", path, bytes.len());
+  Ok(path)
+}
+
 #[tauri::command]
 fn sidecar_stop(state: State<'_, Mutex<SidecarState>>) -> Result<(), String> {
   let mut s = state.lock().map_err(|e| format!("Lock error: {e}"))?;
@@ -994,6 +1015,7 @@ pub fn run() {
       sidecar_start,
       sidecar_stop,
       sidecar_status,
+      save_export,
     ])
     .setup(|app| {
       app.handle().plugin(

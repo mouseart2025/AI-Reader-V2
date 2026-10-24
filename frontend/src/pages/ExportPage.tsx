@@ -12,6 +12,7 @@ import {
 import type { Chapter, EntitySummary } from "@/api/types"
 import { SERIES_BIBLE_MODULES, SERIES_BIBLE_TEMPLATES } from "@/api/types"
 import { sidecarAuthHeaders } from "@/api/sidecarBridge"
+import { saveExportFile } from "@/lib/saveExport"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -49,8 +50,10 @@ export default function ExportPage() {
   const [relationCount, setRelationCount] = useState(0)
   const [airExporting, setAirExporting] = useState(false)
   const [airError, setAirError] = useState<string | null>(null)
+  const [airSavedPath, setAirSavedPath] = useState<string | null>(null)
   const [mdExporting, setMdExporting] = useState(false)
   const [mdError, setMdError] = useState<string | null>(null)
+  const [mdSavedPath, setMdSavedPath] = useState<string | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [novelTitle, setNovelTitle] = useState("")
 
@@ -143,6 +146,7 @@ export default function ExportPage() {
     if (!novelId) return
     setAirExporting(true)
     setAirError(null)
+    setAirSavedPath(null)
     try {
       // Fetch title fresh if not yet loaded
       let title = novelTitle
@@ -152,18 +156,14 @@ export default function ExportPage() {
           title = n.title || ""
         } catch { /* ignore */ }
       }
-      const resp = await fetch(exportNovelAirUrl(novelId), { headers: { ...sidecarAuthHeaders() } })
-      if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
-      const blob = await resp.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "")
-      a.download = title ? `${title}_${dateStr}.air` : `export_${dateStr}.air`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const result = await saveExportFile({
+        url: exportNovelAirUrl(novelId),
+        filename: title ? `${title}_${dateStr}.air` : `export_${dateStr}.air`,
+        filters: [{ name: "AIR 数据包", extensions: ["air"] }],
+        headers: { ...sidecarAuthHeaders() },
+      })
+      if (result.saved && result.path) setAirSavedPath(result.path)
     } catch (e) {
       setAirError(e instanceof Error ? e.message : "导出失败")
     } finally {
@@ -175,6 +175,7 @@ export default function ExportPage() {
     if (!novelId) return
     setMdExporting(true)
     setMdError(null)
+    setMdSavedPath(null)
     try {
       let title = novelTitle
       if (!title) {
@@ -183,17 +184,13 @@ export default function ExportPage() {
           title = n.title || ""
         } catch { /* ignore */ }
       }
-      const resp = await fetch(exportNovelMarkdownUrl(novelId), { headers: { ...sidecarAuthHeaders() } })
-      if (!resp.ok) throw new Error(`导出失败: ${resp.status}`)
-      const blob = await resp.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = title ? `${title}_分析报告.md` : `分析报告.md`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const result = await saveExportFile({
+        url: exportNovelMarkdownUrl(novelId),
+        filename: title ? `${title}_分析报告.md` : "分析报告.md",
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+        headers: { ...sidecarAuthHeaders() },
+      })
+      if (result.saved && result.path) setMdSavedPath(result.path)
     } catch (e) {
       setMdError(e instanceof Error ? e.message : "导出失败")
     } finally {
@@ -465,6 +462,11 @@ export default function ExportPage() {
               {airError && (
                 <p className="text-xs text-red-500">{airError}</p>
               )}
+              {airSavedPath && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 break-all">
+                  已保存到 {airSavedPath}
+                </p>
+              )}
 
               <div className="border-t pt-3 mt-1 space-y-2">
                 <p className="text-xs text-muted-foreground">
@@ -479,6 +481,11 @@ export default function ExportPage() {
                   {mdExporting ? "正在导出..." : "导出可读分析（.md）"}
                 </Button>
                 {mdError && <p className="text-xs text-red-500">{mdError}</p>}
+                {mdSavedPath && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 break-all">
+                    已保存到 {mdSavedPath}
+                  </p>
+                )}
               </div>
 
               {analyzedChapters === 0 && !statsLoading && (

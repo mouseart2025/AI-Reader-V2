@@ -73,3 +73,8 @@ export function sidecarWsQuery(): string {
 export function sidecarAuthHeaders(): Record<string, string> {
   return _sidecarToken ? { Authorization: `Bearer ${_sidecarToken}` } : {}
 }
+
+/** sidecar 令牌（原生导出命令需要它去取流）。未启动时返回 null。 */
+export function getSidecarToken(): string | null {
+  return _sidecarToken
+}
