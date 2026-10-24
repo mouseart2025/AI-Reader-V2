@@ -14,14 +14,23 @@ import logging
 from collections import Counter
 
 from src.extraction.fact_validator import _is_generic_location
-from src.models.chapter_fact import classify_spatial_relation
+from src.models.chapter_fact import (
+    classify_spatial_relation,
+    normalize_spatial_relation_type,
+)
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
 from src.services.world_structure_agent import TIER_ORDER, _get_suffix_rank
 from src.utils.location_names import (
+    is_mobile_container,
     is_passage_like,
     location_alias_map_for_title,
+)
+from src.utils.spatial_semantics import (
+    SOURCE_PARENT,
+    TARGET_PARENT,
+    contains_direction,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,6 +83,10 @@ class VoteBuilder(GeoSkill):
         loc_freq: Counter = Counter()
         chapter_settings: dict[int, str] = {}
         location_chapters: dict[str, list[int]] = {}
+        # 每个地点的类型(跨章多数、去掉 区域/地点 等模糊值):船只主场景
+        # 判断需要它 —— LLM 有时把诺第留斯号 typed 成"区域",只看当章会漏。
+        loc_types: dict[str, Counter] = {}
+        _VAGUE_TYPES = {"区域", "地点", "地方", "位置", "场景"}
 
         for row in rows:
             data = json.loads(row["fact_json"])
@@ -84,6 +97,9 @@ class VoteBuilder(GeoSkill):
                 if name:
                     loc_freq[name] += 1
                     location_chapters.setdefault(name, []).append(ch_id)
+                    loc_type = (loc.get("type") or "").strip()
+                    if loc_type and loc_type not in _VAGUE_TYPES:
+                        loc_types.setdefault(name, Counter())[loc_type] += 1
             # Primary setting
             settings = [
                 loc for loc in locations
@@ -195,16 +211,33 @@ class VoteBuilder(GeoSkill):
                     cs = sr.get("confidence_score")
                     if cs is not None:
                         weight = weight * (0.5 + float(cs))
-                # Direction validation
-                s_suf = _get_suffix_rank(src)
-                t_suf = _get_suffix_rank(tgt)
-                s_rank = s_suf if s_suf is not None else TIER_ORDER.get(tiers.get(src, "city"), 4)
-                t_rank = t_suf if t_suf is not None else TIER_ORDER.get(tiers.get(tgt, "city"), 4)
-                if s_rank > t_rank:
-                    src, tgt = tgt, src
-                votes.setdefault(tgt, Counter())[src] += weight * chapter_weight
-                evidence_pairs.add((tgt, src))
-                pair_chapters.setdefault(tgt, {}).setdefault(src, set()).add(ch_id)
+                # Direction: the value text wins over morphology. The
+                # extractor often writes contains when it means "located in"
+                # (内布拉斯加州位于美国中部), and same-rank pairs (州/国) are
+                # exactly where the rank fallback cannot catch it.
+                norm_rel = normalize_spatial_relation_type(rel)
+                if norm_rel == "located_in":
+                    parent, child = tgt, src
+                else:
+                    direction = contains_direction(
+                        src, tgt, str(sr.get("value") or ""),
+                    )
+                    if direction == TARGET_PARENT:
+                        parent, child = tgt, src
+                    elif direction == SOURCE_PARENT:
+                        parent, child = src, tgt
+                    else:
+                        s_suf = _get_suffix_rank(src)
+                        t_suf = _get_suffix_rank(tgt)
+                        s_rank = s_suf if s_suf is not None else TIER_ORDER.get(tiers.get(src, "city"), 4)
+                        t_rank = t_suf if t_suf is not None else TIER_ORDER.get(tiers.get(tgt, "city"), 4)
+                        if s_rank > t_rank:
+                            parent, child = tgt, src
+                        else:
+                            parent, child = src, tgt
+                votes.setdefault(child, Counter())[parent] += weight * chapter_weight
+                evidence_pairs.add((child, parent))
+                pair_chapters.setdefault(child, {}).setdefault(parent, set()).add(ch_id)
 
             # Primary setting inference
             locations = data.get("locations", [])
@@ -215,6 +248,7 @@ class VoteBuilder(GeoSkill):
                      or _canon(loc["name"]) == uber_root)
             ]
             primary = None
+            primary_type = ""
             if setting_candidates:
                 best_rank = 999
                 for loc in setting_candidates:
@@ -225,17 +259,26 @@ class VoteBuilder(GeoSkill):
                     if rank < best_rank:
                         best_rank = rank
                         primary = cname
+                        primary_type = loc.get("type") or ""
             elif locations:
                 for loc in locations:
                     ln = _canon(loc.get("name", ""))
                     if ln and (not _is_generic_location(ln) or ln == uber_root):
                         primary = ln
+                        primary_type = loc.get("type") or ""
                         break
 
             if primary and not self._is_realm(primary):
                 # Story 5.2: a passage-like primary setting must not become a
                 # parent of the chapter's other locations.
                 if is_passage_like(primary):
+                    continue
+                # 船只是移动载体,不能给当章国家/港口当爹。见
+                # 《海底两万里》加拿大 → 诺第留斯号。
+                resolved_type = self._most_specific_type(
+                    primary, primary_type, loc_types,
+                )
+                if is_mobile_container(primary, resolved_type):
                     continue
                 p_suf = _get_suffix_rank(primary)
                 p_rank = p_suf if p_suf is not None else TIER_ORDER.get(
@@ -415,6 +458,15 @@ class VoteBuilder(GeoSkill):
             if p not in children:
                 counts[p] += 1
         return counts.most_common(1)[0][0] if counts else None
+
+    @staticmethod
+    def _most_specific_type(
+        name: str, fallback: str, loc_types: dict[str, Counter],
+    ) -> str:
+        counts = loc_types.get(name)
+        if counts:
+            return counts.most_common(1)[0][0]
+        return fallback or ""
 
     @staticmethod
     def _is_realm(name: str) -> bool:

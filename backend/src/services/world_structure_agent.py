@@ -22,7 +22,11 @@ from src.db import world_structure_override_store, world_structure_store
 from src.extraction.fact_validator import _is_generic_location
 from src.infra.context_budget import get_budget
 from src.infra.llm_client import LLMClient, get_llm_client, llm_stage
-from src.models.chapter_fact import ChapterFact, classify_spatial_relation
+from src.models.chapter_fact import (
+    ChapterFact,
+    classify_spatial_relation,
+    normalize_spatial_relation_type,
+)
 from src.models.world_structure import (
     LayerType,
     LocationIcon,
@@ -35,7 +39,17 @@ from src.models.world_structure import (
 )
 from src.services.hierarchy_consolidator import consolidate_hierarchy
 from src.services.location_hint_service import extract_direction_hint
-from src.utils.location_names import is_passage_like, is_special_space
+from src.utils.location_names import (
+    is_mobile_container,
+    is_passage_like,
+    is_special_space,
+    name_containment_direction,
+)
+from src.utils.spatial_semantics import (
+    SOURCE_PARENT,
+    TARGET_PARENT,
+    contains_direction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1506,6 +1520,15 @@ class WorldStructureAgent:
 
         # Skip realm/fantasy primary settings to prevent dream chapters
         # from polluting real-world hierarchy.
+        _primary_type = ""
+        if primary_setting:
+            _primary_type = next(
+                (loc.type for loc in fact.locations if loc.name == primary_setting),
+                "",
+            )
+            if is_mobile_container(primary_setting, _primary_type):
+                # 船只是移动载体,不给当章国家/港口当父节点。
+                primary_setting = None
         if primary_setting and not _is_realm_location(primary_setting):
             _p_suf = _get_suffix_rank(primary_setting)
             p_rank = _p_suf if _p_suf is not None else TIER_ORDER.get(
@@ -1549,23 +1572,41 @@ class WorldStructureAgent:
                     self.structure.location_tiers.get(source, "city"), 4)
                 tgt_rank_eff = target_suf if target_suf is not None else TIER_ORDER.get(
                     self.structure.location_tiers.get(target, "city"), 4)
-                # Story 5.3 (AC2): special spaces are exempt from suffix-rank
-                # direction validation — a realm can contain or be contained by a
-                # conventional place without triggering rank-based inversion.
-                if not (is_special_space(source) or is_special_space(target)):
-                    if src_rank_eff > tgt_rank_eff:
-                        source, target = target, source
-                    elif src_rank_eff == tgt_rank_eff:
-                        # Name containment heuristic for tiebreak
-                        if source.startswith(target) and len(source) > len(target):
-                            source, target = target, source
-                        elif not (target.startswith(source) and len(target) > len(source)):
-                            weight = 1
+                # Direction: value text first (LLM often writes contains when
+                # it means "located in"), then suffix/tier rank as fallback.
+                norm_rel = normalize_spatial_relation_type(sr.relation_type)
+                if norm_rel == "located_in":
+                    parent, child = target, source
+                else:
+                    direction = contains_direction(
+                        source, target, sr.value or "",
+                    )
+                    if direction == TARGET_PARENT:
+                        parent, child = target, source
+                    elif direction == SOURCE_PARENT:
+                        parent, child = source, target
+                    else:
+                        parent, child = source, target
+                        # Story 5.3 (AC2): special spaces are exempt from
+                        # suffix-rank direction validation — a realm can
+                        # contain or be contained by a conventional place.
+                        if not (is_special_space(source) or is_special_space(target)):
+                            if src_rank_eff > tgt_rank_eff:
+                                parent, child = target, source
+                            elif src_rank_eff == tgt_rank_eff:
+                                # Name containment heuristic for tiebreak
+                                if source.startswith(target) and len(source) > len(target):
+                                    parent, child = target, source
+                                elif not (
+                                    target.startswith(source)
+                                    and len(target) > len(source)
+                                ):
+                                    weight = 1
                 # Story 5.2: passage-like node cannot be the container (parent).
-                if is_passage_like(source):
+                if is_passage_like(parent):
                     continue
-                # source is container (parent), target is contained (child)
-                self._parent_votes.setdefault(target, Counter())[source] += weight
+                # parent is container, child is contained
+                self._parent_votes.setdefault(child, Counter())[parent] += weight
 
         # (Removed, issue #70 D3) Adjacent/direction/in_between 不再产生 parent
         # 传播票:邻近 ≠ 包含,该通道曾把「B 距 A 两条街」误转为层级证据。
@@ -1593,9 +1634,18 @@ class WorldStructureAgent:
                         # "石圪节公社" is parent of "石圪节"
                         self._parent_votes.setdefault(other, Counter())[name] += 1
                     else:
-                        # suffix is descriptive → longer name is child
-                        # "黄原汽车站" is child of "黄原"
-                        self._parent_votes.setdefault(name, Counter())[other] += 1
+                        direction = name_containment_direction(other, name)
+                        if direction == "reverse":
+                            # 南极洲 (macro) is the parent of 南极
+                            self._parent_votes.setdefault(other, Counter())[name] += 1
+                        elif direction == "skip":
+                            # 长安城 vs 长安 / 中国海 vs 中国: same-scale
+                            # variant or water body, not a hierarchy edge.
+                            pass
+                        else:
+                            # suffix is descriptive → longer name is child
+                            # "黄原汽车站" is child of "黄原"
+                            self._parent_votes.setdefault(name, Counter())[other] += 1
 
         # ── Learn type hierarchy from parent-child type pairs ──
         self._learn_type_hierarchy(fact)
@@ -2408,6 +2458,14 @@ class WorldStructureAgent:
             # Skip realm/fantasy primary settings to prevent dream chapters
             # from polluting real-world hierarchy (e.g., 太虚幻境 chapter
             # assigning parent votes to 荣国府 interior locations).
+            if primary_setting:
+                _primary_type = next(
+                    (loc.get("type", "") for loc in locations
+                     if loc.get("name") == primary_setting),
+                    "",
+                )
+                if is_mobile_container(primary_setting, _primary_type):
+                    primary_setting = None
             if primary_setting and not _is_realm_location(primary_setting):
                 # Story 5.2: a passage-like primary setting cannot be a parent.
                 if is_passage_like(primary_setting):
@@ -3066,11 +3124,22 @@ class WorldStructureAgent:
         result: dict[str, str] = {}
         for child, parent in raw.items():
             if len(child) > len(parent) and child.startswith(parent):
-                # "黄原汽车站" startswith "黄原" → child⊂parent is correct
-                result[child] = parent
+                direction = name_containment_direction(parent, child)
+                if direction == "child":
+                    # "黄原汽车站" startswith "黄原" → child⊂parent is correct
+                    result[child] = parent
+                elif direction == "reverse":
+                    # "南极洲" startswith "南极" but is the macro parent
+                    result[parent] = child
+                # skip: same-scale variant/water body — let votes decide
             elif len(parent) > len(child) and parent.startswith(child):
-                # "黄原" is marked as child of "黄原汽车站" → reversed!
-                result[parent] = child
+                direction = name_containment_direction(child, parent)
+                if direction == "child":
+                    # "黄原" is marked as child of "黄原汽车站" → reversed!
+                    result[parent] = child
+                elif direction == "reverse":
+                    result[child] = parent
+                # skip: same-scale variant/water body
             else:
                 result[child] = parent
         return result

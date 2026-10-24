@@ -27,7 +27,12 @@ import networkx as nx
 from src.services.geo_skills.base import GeoSkill
 from src.services.geo_skills.evolve_params import evolve_param
 from src.services.geo_skills.snapshot import HierarchySnapshot, SkillResult
-from src.utils.location_names import is_passage_like
+from src.utils.location_names import (
+    is_mobile_container,
+    is_passage_like,
+    is_vessel_interior,
+    name_containment_direction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,14 +146,32 @@ class EdmondsResolver(GeoSkill):
                     # (e.g., "东" in "东土大唐" — too short/generic)
                     if len(candidate) < 2:
                         continue
-                    # Inject or boost edge: candidate → child
-                    if G.has_edge(candidate, child):
-                        G[candidate][child]["weight"] = max(
-                            G[candidate][child]["weight"],
+                    direction = name_containment_direction(candidate, child)
+                    if direction == "skip":
+                        break
+                    # A macro-looking longer name (大西洋洲) may still be a
+                    # *child* when the votes place it inside the shorter one
+                    # ("大西洋洲位于大西洋海底"). Votes beat morphology.
+                    if (
+                        direction == "reverse"
+                        and votes.get(child)
+                        and votes[child].get(candidate, 0) > 0
+                    ):
+                        direction = "child"
+                    # 南极洲 (macro) ⊃ 南极: the longer name is the parent.
+                    parent_name, sub_name = (
+                        (child, candidate) if direction == "reverse"
+                        else (candidate, child)
+                    )
+                    if G.has_edge(parent_name, sub_name):
+                        G[parent_name][sub_name]["weight"] = max(
+                            G[parent_name][sub_name]["weight"],
                             _NAME_CONTAIN_WEIGHT,
                         )
                     else:
-                        G.add_edge(candidate, child, weight=_NAME_CONTAIN_WEIGHT)
+                        G.add_edge(
+                            parent_name, sub_name, weight=_NAME_CONTAIN_WEIGHT,
+                        )
                     name_contain_injected += 1
                     break  # use longest match only
         if name_contain_injected:
@@ -206,12 +229,52 @@ class EdmondsResolver(GeoSkill):
         #     between runs, and many such edges are correct (e.g. LLM
         #     SET_PARENT ops or older legitimate resolutions like 涿郡→幽州).
         bare_dropped = 0
+        inversions_flipped = 0
+        # snapshot.apply() is a MERGE: deleting from base_parents alone leaves
+        # the legacy edge in the snapshot. The targeted deletions below
+        # (mobile/water/inversion/name-reverse) need an explicit None override
+        # at the end; the broad bare-edge cleanup keeps its historical semantics.
+        dropped_children: set[str] = set()
         for child, parent in list(base_parents.items()):
             # Story 5.2: a passage-like child must not be force-attached via a
             # legacy edge (e.g. 走廊→天下). Orphan it so it stays a topology node.
             if is_passage_like(child):
                 del base_parents[child]
                 bare_dropped += 1
+                continue
+            # A mobile carrier cannot own countries/oceans as legacy children
+            # (《海底两万里》加拿大 → 诺第留斯号). Keep its real interiors.
+            if is_mobile_container(parent) and not is_vessel_interior(child):
+                if (child, parent) not in prior_edge_set:
+                    del base_parents[child]
+                    dropped_children.add(child)
+                    bare_dropped += 1
+                    continue
+            # A sea/ocean cannot be a child of a land polity (中国海 → 中国).
+            # Rivers/lakes are allowed (西湖 → 杭州 is a valid containment).
+            if child.endswith(("海", "洋", "湾", "海峡")) and parent.endswith(
+                ("国", "洲", "省", "市", "州", "城")
+            ):
+                if (child, parent) not in prior_edge_set:
+                    del base_parents[child]
+                    dropped_children.add(child)
+                    bare_dropped += 1
+                    continue
+            # Same-rank inversions leave no forward vote but a clear reverse
+            # one (内布拉斯加州/美国). Flip the base edge instead of letting
+            # the stale direction win every incremental rebuild.
+            child_votes = votes.get(child)
+            parent_votes = votes.get(parent)
+            if (
+                (not child_votes or child_votes.get(parent, 0) <= 0)
+                and parent_votes
+                and parent_votes.get(child, 0) >= 1.0
+                and (child, parent) not in prior_edge_set
+            ):
+                del base_parents[child]
+                dropped_children.add(child)
+                base_parents[parent] = child
+                inversions_flipped += 1
                 continue
             # Story 5.2 (AC1): a passage-like node can never be a PARENT —
             # including via a legacy/base edge (e.g. 战船→华容道, 公安→华容道).
@@ -229,11 +292,11 @@ class EdmondsResolver(GeoSkill):
                     continue  # 确定性先验边不受裸边清除
                 del base_parents[child]
                 bare_dropped += 1
-        if bare_dropped:
+        if bare_dropped or inversions_flipped:
             logger.info(
                 "EdmondsResolver: dropped %d base parents contradicted by "
-                "current evidence (bare legacy edges)",
-                bare_dropped,
+                "current evidence (%d reversed by stronger reverse votes)",
+                bare_dropped, inversions_flipped,
             )
 
         # Apply name-containment overrides (high-confidence, covers 306+ cases)
@@ -254,10 +317,29 @@ class EdmondsResolver(GeoSkill):
                 if is_passage_like(candidate):
                     continue
                 if child.startswith(candidate) and candidate in all_locs:
-                    if base_parents.get(child) != candidate:
-                        base_parents[child] = candidate
+                    direction = name_containment_direction(candidate, child)
+                    if direction == "skip":
+                        break
+                    if (
+                        direction == "reverse"
+                        and votes.get(child)
+                        and votes[child].get(candidate, 0) > 0
+                    ):
+                        direction = "child"
+                    # 南极洲 (macro) ⊃ 南极: the longer name is the parent.
+                    target_child, target_parent = (
+                        (candidate, child) if direction == "reverse"
+                        else (child, candidate)
+                    )
+                    if direction == "reverse":
+                        # The old 南极洲→南极 base edge must be deleted
+                        # explicitly (apply() merges, it does not replace).
+                        if base_parents.pop(child, None) is not None:
+                            dropped_children.add(child)
+                    if base_parents.get(target_child) != target_parent:
+                        base_parents[target_child] = target_parent
                         name_contain_applied += 1
-                    protected.add(child)
+                    protected.add(target_child)
                     break
 
         # Apply prior overrides from votes (KnowledgePrior injected w=20+ edges)
@@ -429,6 +511,12 @@ class EdmondsResolver(GeoSkill):
                 "(Story 5.2 AC1 final gate): %s",
                 len(set(ac1_violations)), sorted(set(ac1_violations))[:10],
             )
+
+        # Deletions must be explicit None overrides: apply() merges, so a
+        # child missing from `parents` would silently keep its legacy edge.
+        for c in sorted(dropped_children):
+            if c not in parents:
+                parents[c] = None
 
         result = SkillResult(
             skill_name=self.name,

@@ -264,3 +264,87 @@ def is_special_space(name: str) -> bool:
     if name in _SPECIAL_SPACE_EXCLUDE:
         return False
     return any(kw in name for kw in _SPECIAL_SPACE_KEYWORDS)
+
+
+# ── Name-containment direction (2026-10) ──────────────────────────
+# "Longer name starts with shorter" is not always "longer is the child":
+#   花果山辕门 ⊂ 花果山   → child (辕门 is a feature)
+#   南极洲 ⊃ 南极        → reverse (洲 is a macro scale)
+#   长安城 ≈ 长安        → skip (same-scale variant/alias)
+#   中国海 ≠ 中国        → skip (water body is not inside the country)
+# Used by both the old agent's name-containment votes and the Edmonds
+# resolver's high-weight name edges.
+_NAME_CONTAIN_MACRO_SUFFIXES: tuple[str, ...] = (
+    "洲", "洋", "大陆",
+)
+_NAME_CONTAIN_SCALE_SUFFIXES: tuple[str, ...] = (
+    "山脉", "群岛", "半岛", "海峡", "大陆", "高原", "平原", "沙漠", "草原",
+    "森林", "洲", "洋", "海", "湾", "岛", "国", "省", "市", "县", "区",
+    "州", "城", "镇", "乡", "村", "山", "峰", "河", "湖", "江",
+)
+
+_NAME_CONTAIN_CHILD = "child"
+_NAME_CONTAIN_REVERSE = "reverse"
+_NAME_CONTAIN_SKIP = "skip"
+
+# Types that are mobile containers, not fixed geographic places. A chapter's
+# primary setting that is a ship must not parent the countries/ports mentioned
+# in that chapter (《海底两万里》尼德·兰的祖国"加拿大"曾挂到诺第留斯号下).
+_MOBILE_CONTAINER_TYPES: tuple[str, ...] = (
+    "船只", "潜水船", "舰船", "飞船", "列车", "车厢", "马车",
+)
+
+
+def name_containment_direction(short: str, long: str) -> str:
+    """How a longer name that starts with ``short`` relates to it.
+
+    Returns one of ``"child"`` / ``"reverse"`` / ``"skip"``:
+
+    * ``child``   — longer name is a sub-place (花果山辕门 ⊂ 花果山);
+    * ``reverse`` — longer name is a macro entity (南极洲 ⊃ 南极);
+    * ``skip``    — longer name is a same-scale variant/water body
+                    (长安城 vs 长安, 中国海 vs 中国); do not infer hierarchy.
+    """
+    if not short or not long:
+        return _NAME_CONTAIN_CHILD
+    if len(long) <= len(short) or not long.startswith(short):
+        return _NAME_CONTAIN_CHILD
+    if long.endswith(_NAME_CONTAIN_MACRO_SUFFIXES):
+        return _NAME_CONTAIN_REVERSE
+    if long.endswith(_NAME_CONTAIN_SCALE_SUFFIXES):
+        return _NAME_CONTAIN_SKIP
+    return _NAME_CONTAIN_CHILD
+
+
+def is_mobile_container(name: str, loc_type: str = "") -> bool:
+    """True for ships/vehicles that move and therefore cannot be a fixed parent.
+
+    Type is the primary signal; the name suffix ``号`` is the fallback because
+    the extractor sometimes types a vessel as vague "区域" (诺第留斯号).
+    Streets like 第四号路 are excluded by the node-type check and the explicit
+    road/street suffix guard below.
+    """
+    if loc_type and (
+        loc_type in _MOBILE_CONTAINER_TYPES
+        or any(kw in loc_type for kw in _MOBILE_CONTAINER_TYPES)
+    ):
+        return True
+    if not name:
+        return False
+    if name.endswith(("路", "街", "线", "桥", "站", "楼", "院", "门")):
+        return False
+    if name.endswith("号"):
+        return True
+    return any(kw in name for kw in ("战舰", "潜艇", "飞船", "列车"))
+
+
+# Interior parts of a vessel/ship. Used when a mobile parent (诺第留斯号) has
+# legacy base children: keep 客厅/平台/舱房, drop countries/oceans.
+_VESSEL_INTERIOR_SUFFIXES: tuple[str, ...] = (
+    "厅", "室", "房", "舱", "梯", "台", "廊", "间", "库", "艇", "甲板",
+)
+
+
+def is_vessel_interior(name: str) -> bool:
+    """True for a cabin/deck/compartment name inside a ship."""
+    return bool(name) and name.endswith(_VESSEL_INTERIOR_SUFFIXES)
