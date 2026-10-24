@@ -152,12 +152,25 @@ def recall_metrics(fact) -> dict:
     }
 
 
-def estimate_cost_usd(prompt_tokens: int, completion_tokens: int, model: str) -> float:
-    """估算成本:定价表复用 cost_service.get_pricing(单一实现)。"""
-    from src.services.cost_service import get_pricing
+def estimate_cost_usd(
+    prompt_tokens: int, completion_tokens: int, model: str,
+    cache_hit_tokens: int = 0,
+) -> float:
+    """成本估算:复用 cost_service.compute_cost_from_usage(单一实现)。
 
-    price_in, price_out = get_pricing(model)
-    return prompt_tokens / 1_000_000 * price_in + completion_tokens / 1_000_000 * price_out
+    前缀缓存命中按缓存价计费(DeepSeek 实测 98% 命中),不传命中量会高估约 40%。
+    """
+    from src.services.cost_service import compute_cost_from_usage
+
+    class _Usage:
+        pass
+
+    usage = _Usage()
+    usage.prompt_tokens = prompt_tokens
+    usage.completion_tokens = completion_tokens
+    usage.cache_hit_tokens = cache_hit_tokens
+    usd, _cny = compute_cost_from_usage(usage, model)
+    return usd
 
 
 # ── LLM 调用包装:累计 token 用量(不改 client 行为)─────────────────
@@ -171,6 +184,8 @@ class UsageTracker:
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.total_tokens = 0
+        self.cache_hit_tokens = 0
+        self.cache_miss_tokens = 0
 
     async def generate(self, *args, **kwargs):
         result, usage = await self._inner.generate(*args, **kwargs)
@@ -178,6 +193,8 @@ class UsageTracker:
         self.prompt_tokens += usage.prompt_tokens
         self.completion_tokens += usage.completion_tokens
         self.total_tokens += usage.total_tokens
+        self.cache_hit_tokens += usage.cache_hit_tokens
+        self.cache_miss_tokens += usage.cache_miss_tokens
         return result, usage
 
     def __getattr__(self, name):
@@ -374,6 +391,8 @@ async def run_smoke(
             "prompt_tokens": tracker.prompt_tokens,
             "completion_tokens": tracker.completion_tokens,
             "total_tokens": tracker.total_tokens,
+            "cache_hit_tokens": tracker.cache_hit_tokens,
+            "cache_miss_tokens": tracker.cache_miss_tokens,
         },
     }
 
@@ -393,7 +412,14 @@ def build_report(
     meta = smoke["meta"]
     usage = dict(smoke["usage"])
     usage["cost_usd"] = round(
-        estimate_cost_usd(usage["prompt_tokens"], usage["completion_tokens"], model), 6
+        estimate_cost_usd(
+            usage["prompt_tokens"], usage["completion_tokens"], model,
+            usage.get("cache_hit_tokens", 0),
+        ), 6
+    )
+    _prompt = usage["prompt_tokens"] or 0
+    usage["cache_hit_rate"] = round(
+        (usage.get("cache_hit_tokens", 0) / _prompt) if _prompt else 0.0, 4
     )
     return {
         "schema": SCHEMA_VERSION,
