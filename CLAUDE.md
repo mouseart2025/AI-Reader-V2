@@ -318,6 +318,10 @@ LLM_API_KEY           # API key for the cloud provider
 LLM_BASE_URL          # Base URL (e.g., https://api.deepseek.com/v1)
 LLM_MODEL             # Model name (e.g., deepseek-chat)
 LLM_MAX_TOKENS        # Default: 8192
+AI_READER_LLM_USAGE_LOG  # 诊断用：设为文件路径后，每次 LLM 调用追加一行 JSONL
+                      # {ts, stage, model, prompt_tokens, completion_tokens, total_tokens, truncated}。
+                      # stage 由调用点的 llm_stage() 标注（extract/recall/vote/scene/hallucination/
+                      # entity_resolve/world_structure/other），用于按阶段归因成本。默认关闭。
 SCENE_MERGE_ENABLED   # 场景抽取并入主抽取 (issue #78): 云端单段章一次调用同时产出
                       # facts+scenes, 省一次整章输入 token. 默认云端开/本地关,
                       # env 显式设置优先; 分段/截断章自动回退独立 scene 调用

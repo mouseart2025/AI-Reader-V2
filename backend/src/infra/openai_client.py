@@ -316,6 +316,8 @@ class OpenAICompatibleClient:
             completion_tokens=usage_data.get("completion_tokens", 0),
             total_tokens=usage_data.get("total_tokens", 0),
         )
+        from src.infra.llm_client import record_llm_usage
+        record_llm_usage(self.model, usage)
 
         if format is not None:
             if finish_reason == "length":

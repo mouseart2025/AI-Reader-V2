@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Any
 
 from src.infra import config
+from src.infra.llm_client import llm_stage
 from src.services import name_authority
 
 logger = logging.getLogger(__name__)
@@ -752,9 +753,10 @@ async def resolve_cluster(
 ) -> dict:
     """对单个候选簇调用 LLM 聚类,返回校验后的决策并落审计日志。"""
     prompt = build_cluster_prompt(cluster, hints)
-    content, usage = await llm.generate(
-        _SYSTEM_PROMPT, prompt, format=_CLUSTER_SCHEMA
-    )
+    with llm_stage("entity_resolve"):
+        content, usage = await llm.generate(
+            _SYSTEM_PROMPT, prompt, format=_CLUSTER_SCHEMA
+        )
     if record_cost:
         await _record_llm_cost(usage)
 

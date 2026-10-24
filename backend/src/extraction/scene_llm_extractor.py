@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.infra.anthropic_client import AnthropicClient
 from src.infra.context_budget import get_budget
-from src.infra.llm_client import get_llm_client
+from src.infra.llm_client import get_llm_client, llm_stage
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import ChapterFact
 
@@ -99,15 +99,16 @@ class SceneLLMExtractor:
             config as _cfg,  # dynamic read (avoids frozen module-level import)
         )
         max_out = min(_cfg.LLM_MAX_TOKENS, 4096) if self._is_cloud else 4096
-        result, _usage = await self.llm.generate(
-            system=system,
-            prompt=user_prompt,
-            # env override for multi-seed / temperature-sensitivity experiments
-            temperature=float(os.environ.get("LLM_EXTRACTION_TEMPERATURE", "0.1")),
-            max_tokens=max_out,
-            timeout=300,
-            num_ctx=budget.extraction_num_ctx,
-        )
+        with llm_stage("scene"):
+            result, _usage = await self.llm.generate(
+                system=system,
+                prompt=user_prompt,
+                # env override for multi-seed / temperature-sensitivity experiments
+                temperature=float(os.environ.get("LLM_EXTRACTION_TEMPERATURE", "0.1")),
+                max_tokens=max_out,
+                timeout=300,
+                num_ctx=budget.extraction_num_ctx,
+            )
 
         # 6. Parse response
         raw_text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)

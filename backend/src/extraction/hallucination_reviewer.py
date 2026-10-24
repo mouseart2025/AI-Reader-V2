@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from src.infra import config
+from src.infra.llm_client import llm_stage
 from src.models.chapter_fact import ChapterFact
 
 logger = logging.getLogger(__name__)
@@ -365,9 +366,10 @@ async def review_chapter_characters(
         # 判定只需上下文依据,按章节截断预算封顶,控制 token 成本 (NFR-2)
         text = chapter_text[: budget.max_chapter_len]
         prompt = build_review_prompt(llm_candidates, text)
-        result, usage = await llm.generate(
-            _SYSTEM_PROMPT, prompt, format=_VERDICT_SCHEMA,
-        )
+        with llm_stage("hallucination"):
+            result, usage = await llm.generate(
+                _SYSTEM_PROMPT, prompt, format=_VERDICT_SCHEMA,
+            )
         if record_cost:
             await _record_llm_cost(usage)
     except Exception as err:

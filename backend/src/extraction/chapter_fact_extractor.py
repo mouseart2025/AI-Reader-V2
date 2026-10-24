@@ -20,6 +20,7 @@ from src.infra.llm_client import (
     LLMError,
     LlmUsage,
     get_llm_client,
+    llm_stage,
 )
 from src.infra.openai_client import OpenAICompatibleClient
 from src.models.chapter_fact import (
@@ -1171,15 +1172,16 @@ class ChapterFactExtractor:
                 )
             user_prompt = _build_recall_user_prompt(chapter_id, chapter_text, fact)
             max_out = _cfg.LLM_MAX_TOKENS if self._is_cloud else 8192
-            result, call_usage = await self.llm.generate(
-                system=system,
-                prompt=user_prompt,
-                format=recall_schema,
-                temperature=0.1,
-                max_tokens=max_out,
-                timeout=600,
-                num_ctx=budget.extraction_num_ctx,
-            )
+            with llm_stage("recall"):
+                result, call_usage = await self.llm.generate(
+                    system=system,
+                    prompt=user_prompt,
+                    format=recall_schema,
+                    temperature=0.1,
+                    max_tokens=max_out,
+                    timeout=600,
+                    num_ctx=budget.extraction_num_ctx,
+                )
             total_usage.prompt_tokens += call_usage.prompt_tokens
             total_usage.completion_tokens += call_usage.completion_tokens
             total_usage.total_tokens += call_usage.total_tokens
@@ -1550,15 +1552,16 @@ class ChapterFactExtractor:
         extra_votes: list[dict[int, str]] = []
         for sample_idx in range(n_samples - 1):
             try:
-                result, usage = await self.llm.generate(
-                    system=system,
-                    prompt=user_prompt,
-                    format=_VOTE_RESPONSE_SCHEMA,
-                    temperature=0.7,  # higher temp for vote diversity (self-consistency)
-                    max_tokens=4096,
-                    timeout=300,
-                    num_ctx=budget.extraction_num_ctx,
-                )
+                with llm_stage("vote"):
+                    result, usage = await self.llm.generate(
+                        system=system,
+                        prompt=user_prompt,
+                        format=_VOTE_RESPONSE_SCHEMA,
+                        temperature=0.7,  # higher temp for vote diversity (self-consistency)
+                        max_tokens=4096,
+                        timeout=300,
+                        num_ctx=budget.extraction_num_ctx,
+                    )
                 total_usage.prompt_tokens += usage.prompt_tokens
                 total_usage.completion_tokens += usage.completion_tokens
                 total_usage.total_tokens += usage.total_tokens
@@ -1649,15 +1652,16 @@ class ChapterFactExtractor:
 
         for attempt in range(max_transient_retries + 1):
             try:
-                result, usage = await self.llm.generate(
-                    system=effective_system,
-                    prompt=prompt,
-                    format=active_schema,
-                    temperature=0.1,
-                    max_tokens=max_out,
-                    timeout=timeout,
-                    num_ctx=budget.extraction_num_ctx,
-                )
+                with llm_stage("extract"):
+                    result, usage = await self.llm.generate(
+                        system=effective_system,
+                        prompt=prompt,
+                        format=active_schema,
+                        temperature=0.1,
+                        max_tokens=max_out,
+                        timeout=timeout,
+                        num_ctx=budget.extraction_num_ctx,
+                    )
                 break  # success
             except Exception as err:
                 if self._is_transient_error(err) and attempt < max_transient_retries:

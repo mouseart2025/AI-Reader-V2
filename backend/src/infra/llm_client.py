@@ -5,9 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 from collections.abc import AsyncIterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
@@ -22,6 +27,56 @@ if TYPE_CHECKING:
     from src.infra.openai_client import OpenAICompatibleClient
 
 logger = logging.getLogger(__name__)
+
+
+# ── Usage attribution ───────────────────────────────
+# Cost analysis (docs/analysis/analysis-cost-baseline-2026-10.md) showed output
+# tokens are 58% of spend and the static prompt is ~52% of per-chapter input, but
+# the per-chapter totals cannot say WHICH stage spent what. Call sites tag their
+# work with `llm_stage(...)`; when AI_READER_LLM_USAGE_LOG points at a file, every
+# call appends one JSONL row. Off by default: normal runs pay no I/O.
+
+_USAGE_STAGE: ContextVar[str] = ContextVar("llm_usage_stage", default="other")
+
+
+@contextmanager
+def llm_stage(stage: str):
+    """Tag the LLM calls made inside this block (contextvar — async-safe)."""
+    token = _USAGE_STAGE.set(stage)
+    try:
+        yield
+    finally:
+        _USAGE_STAGE.reset(token)
+
+
+def current_llm_stage() -> str:
+    return _USAGE_STAGE.get()
+
+
+def record_llm_usage(model: str, usage: LlmUsage) -> None:
+    """Append one row per LLM call when AI_READER_LLM_USAGE_LOG is set.
+
+    Never raises: usage logging must not break an analysis.
+    """
+    path = os.environ.get("AI_READER_LLM_USAGE_LOG", "").strip()
+    if not path:
+        return
+    row = {
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "stage": current_llm_stage(),
+        "model": model,
+        "prompt_tokens": usage.prompt_tokens,
+        "completion_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+        "truncated": bool(usage.truncated),
+    }
+    try:
+        out = Path(path).expanduser()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with out.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except OSError as exc:  # disk full, permission, bad env value…
+        logger.debug("LLM usage log write failed (%s): %s", path, exc)
 
 
 @dataclass

@@ -143,6 +143,8 @@ class AnthropicClient:
             completion_tokens=usage_data.get("output_tokens", 0),
             total_tokens=usage_data.get("input_tokens", 0) + usage_data.get("output_tokens", 0),
         )
+        from src.infra.llm_client import record_llm_usage
+        record_llm_usage(self.model, usage)
 
         if format is not None:
             if stop_reason == "max_tokens":

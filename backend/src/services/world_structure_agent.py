@@ -21,7 +21,7 @@ from pathlib import Path
 from src.db import world_structure_override_store, world_structure_store
 from src.extraction.fact_validator import _is_generic_location
 from src.infra.context_budget import get_budget
-from src.infra.llm_client import LLMClient, get_llm_client
+from src.infra.llm_client import LLMClient, get_llm_client, llm_stage
 from src.models.chapter_fact import ChapterFact, classify_spatial_relation
 from src.models.world_structure import (
     LayerType,
@@ -962,15 +962,16 @@ class WorldStructureAgent:
         system = "你是一个小说世界观构建专家。请严格按照 JSON 格式输出。"
 
         budget = get_budget()
-        result, _usage = await self._llm.generate(
-            system=system,
-            prompt=prompt,
-            format=_LLM_OUTPUT_SCHEMA,
-            temperature=0.1,
-            max_tokens=budget.ws_max_tokens,
-            timeout=budget.ws_timeout,
-            num_ctx=min(budget.context_window, 16384),
-        )
+        with llm_stage("world_structure"):
+            result, _usage = await self._llm.generate(
+                system=system,
+                prompt=prompt,
+                format=_LLM_OUTPUT_SCHEMA,
+                temperature=0.1,
+                max_tokens=budget.ws_max_tokens,
+                timeout=budget.ws_timeout,
+                num_ctx=min(budget.context_window, 16384),
+            )
         self._llm_call_count += 1
 
         if isinstance(result, str):
