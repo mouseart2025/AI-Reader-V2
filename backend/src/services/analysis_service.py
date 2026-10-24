@@ -35,6 +35,7 @@ from src.models.world_structure import WorldStructure
 from src.services import embedding_service
 from src.services.cost_service import (
     add_monthly_usage,
+    compute_cost_from_usage,
     get_monthly_budget,
     get_monthly_usage,
     get_pricing,
@@ -637,11 +638,10 @@ class AnalysisService:
                     if is_cloud:
                         cost_stats["total_input_tokens"] += chapter_usage.prompt_tokens
                         cost_stats["total_output_tokens"] += chapter_usage.completion_tokens
-                        spent_usd = (
-                            (chapter_usage.prompt_tokens / 1_000_000) * _input_price
-                            + (chapter_usage.completion_tokens / 1_000_000) * _output_price
+                        # 按 usage 计费（含前缀缓存命中价，见 cost_service）
+                        spent_usd, spent_cny = compute_cost_from_usage(
+                            chapter_usage, _cfg.LLM_MODEL or ""
                         )
-                        spent_cny = spent_usd * 7.2
                         cost_stats["total_cost_usd"] = round(
                             cost_stats["total_cost_usd"] + spent_usd, 4
                         )
@@ -696,12 +696,9 @@ class AnalysisService:
                     _ch_cost_usd = 0.0
                     _ch_cost_cny = 0.0
                     if is_cloud:
-                        _ch_cost_usd = round(
-                            (chapter_usage.prompt_tokens / 1_000_000) * _input_price
-                            + (chapter_usage.completion_tokens / 1_000_000) * _output_price,
-                            6,
+                        _ch_cost_usd, _ch_cost_cny = compute_cost_from_usage(
+                            chapter_usage, _cfg.LLM_MODEL or ""
                         )
-                        _ch_cost_cny = round(_ch_cost_usd * 7.2, 4)
 
                     # Store fact first (INSERT OR REPLACE creates the row)
                     await chapter_fact_store.insert_chapter_fact(
@@ -881,12 +878,10 @@ class AnalysisService:
                     # (provider-reported usage × model pricing, cloud only)
                     _retry_cost_usd, _retry_cost_cny = 0.0, 0.0
                     if is_cloud:
-                        _retry_spent_usd = (
-                            (usage.prompt_tokens / 1_000_000) * _input_price
-                            + (usage.completion_tokens / 1_000_000) * _output_price
+                        _retry_cost_usd, _retry_cost_cny = compute_cost_from_usage(
+                            usage, _cfg.LLM_MODEL or ""
                         )
-                        _retry_cost_usd = round(_retry_spent_usd, 6)
-                        _retry_cost_cny = round(_retry_cost_usd * 7.2, 4)
+                        _retry_spent_usd = _retry_cost_usd
                         cost_stats["total_input_tokens"] += usage.prompt_tokens
                         cost_stats["total_output_tokens"] += usage.completion_tokens
                         cost_stats["total_cost_usd"] = round(

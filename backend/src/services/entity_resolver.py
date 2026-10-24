@@ -52,6 +52,7 @@ from typing import Any
 from src.infra import config
 from src.infra.llm_client import llm_stage
 from src.services import name_authority
+from src.services.cost_service import compute_cost_from_usage
 
 logger = logging.getLogger(__name__)
 
@@ -723,18 +724,14 @@ async def _record_llm_cost(usage: Any) -> None:
         if config.LLM_PROVIDER == "ollama":
             return
         from src.infra.config import get_model_name
-        from src.services.cost_service import add_monthly_usage, get_pricing
+        from src.services.cost_service import add_monthly_usage
 
         if usage is None:
             return
-        input_price, output_price = get_pricing(get_model_name())
-        spent_usd = (
-            (usage.prompt_tokens / 1_000_000) * input_price
-            + (usage.completion_tokens / 1_000_000) * output_price
-        )
+        spent_usd, spent_cny = compute_cost_from_usage(usage, get_model_name())
         await add_monthly_usage(
-            round(spent_usd, 4),
-            round(spent_usd * 7.2, 2),
+            spent_usd,
+            spent_cny,
             usage.prompt_tokens,
             usage.completion_tokens,
         )

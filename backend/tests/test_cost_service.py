@@ -69,3 +69,54 @@ def test_estimate_single_chapter():
     assert est.estimated_cost_usd > 0
     assert est.input_price_per_1m == 0.15
     assert est.output_price_per_1m == 0.60
+
+
+# ── 前缀缓存计价（2026-10 实测命中率 98%） ──
+
+
+def test_cost_with_cache_is_lower_than_without():
+    """命中缓存的部分按 cache 价计费，不能按输入价全额收。"""
+    from src.services.cost_service import compute_cost_from_usage
+
+    class _Usage:
+        prompt_tokens = 10_000
+        completion_tokens = 1_000
+
+    cached = _Usage()
+    cached.cache_hit_tokens = 9_000
+    uncached = _Usage()
+    uncached.cache_hit_tokens = 0
+
+    usd_cached, _ = compute_cost_from_usage(cached, "deepseek-chat")
+    usd_plain, _ = compute_cost_from_usage(uncached, "deepseek-chat")
+    assert usd_cached < usd_plain
+    # 9k 命中 + 1k 未命中 + 1k 输出：0.00063 + 0.00027 + 0.0011
+    assert abs(usd_cached - 0.002) < 1e-6
+
+
+def test_cost_ignores_cache_for_models_without_cache_pricing():
+    """未知模型不给折扣，避免制造假节省。"""
+    from src.services.cost_service import compute_cost_from_usage, get_cache_pricing
+
+    class _Usage:
+        prompt_tokens = 10_000
+        completion_tokens = 1_000
+        cache_hit_tokens = 9_000
+
+    assert get_cache_pricing("some-unknown-model") == get_pricing("some-unknown-model")[0]
+    usd, _ = compute_cost_from_usage(_Usage(), "some-unknown-model")
+    inp, out = get_pricing("some-unknown-model")
+    assert abs(usd - (0.01 * inp + 0.001 * out)) < 1e-6
+
+
+def test_cache_hit_tokens_clamped_to_prompt_tokens():
+    """提供商偶尔报出 hit > prompt，计价时不能变成负数 miss。"""
+    from src.services.cost_service import compute_cost_from_usage
+
+    class _Usage:
+        prompt_tokens = 1_000
+        completion_tokens = 0
+        cache_hit_tokens = 5_000  # 明显异常
+
+    usd, _ = compute_cost_from_usage(_Usage(), "deepseek-chat")
+    assert usd >= 0

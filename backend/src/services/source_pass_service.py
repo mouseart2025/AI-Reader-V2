@@ -33,6 +33,7 @@ from src.services.analysis_service import _classify_error, manager
 from src.services.cost_service import (
     SCOPE_SOURCE_PASS,
     add_monthly_usage,
+    compute_cost_from_usage,
     get_pricing,
 )
 
@@ -396,12 +397,9 @@ class SourcePassService:
                 _ch_cost_usd = 0.0
                 _ch_cost_cny = 0.0
                 if _is_cloud:
-                    _ch_cost_usd = round(
-                        (usage.prompt_tokens / 1_000_000) * _input_price
-                        + (usage.completion_tokens / 1_000_000) * _output_price,
-                        6,
+                    _ch_cost_usd, _ch_cost_cny = compute_cost_from_usage(
+                        usage, _pass_model
                     )
-                    _ch_cost_cny = round(_ch_cost_usd * 7.2, 4)
                     await add_monthly_usage(
                         _ch_cost_usd, _ch_cost_cny,
                         usage.prompt_tokens, usage.completion_tokens,

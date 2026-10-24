@@ -1133,6 +1133,8 @@ class ChapterFactExtractor:
                     fact, novel_id, chapter_id,
                 )
                 usage.prompt_tokens += vote_usage.prompt_tokens
+                usage.cache_hit_tokens += vote_usage.cache_hit_tokens
+                usage.cache_miss_tokens += vote_usage.cache_miss_tokens
                 usage.completion_tokens += vote_usage.completion_tokens
                 usage.total_tokens += vote_usage.total_tokens
 
@@ -1162,6 +1164,8 @@ class ChapterFactExtractor:
                     novel_id, chapter_id, chapter_text, fact,
                 )
                 usage.prompt_tokens += recall_usage.prompt_tokens
+                usage.cache_hit_tokens += recall_usage.cache_hit_tokens
+                usage.cache_miss_tokens += recall_usage.cache_miss_tokens
                 usage.completion_tokens += recall_usage.completion_tokens
                 usage.total_tokens += recall_usage.total_tokens
             else:
@@ -1212,6 +1216,8 @@ class ChapterFactExtractor:
                     num_ctx=budget.extraction_num_ctx,
                 )
             total_usage.prompt_tokens += call_usage.prompt_tokens
+            total_usage.cache_hit_tokens += call_usage.cache_hit_tokens
+            total_usage.cache_miss_tokens += call_usage.cache_miss_tokens
             total_usage.completion_tokens += call_usage.completion_tokens
             total_usage.total_tokens += call_usage.total_tokens
 
@@ -1491,6 +1497,8 @@ class ChapterFactExtractor:
                 )
                 segment_facts.append(fact)
                 total_usage.prompt_tokens += seg_usage.prompt_tokens
+                total_usage.cache_hit_tokens += seg_usage.cache_hit_tokens
+                total_usage.cache_miss_tokens += seg_usage.cache_miss_tokens
                 total_usage.completion_tokens += seg_usage.completion_tokens
                 total_usage.total_tokens += seg_usage.total_tokens
             except Exception as err:
@@ -1509,6 +1517,8 @@ class ChapterFactExtractor:
                     )
                     segment_facts.append(fact)
                     total_usage.prompt_tokens += seg_usage.prompt_tokens
+                    total_usage.cache_hit_tokens += seg_usage.cache_hit_tokens
+                    total_usage.cache_miss_tokens += seg_usage.cache_miss_tokens
                     total_usage.completion_tokens += seg_usage.completion_tokens
                     total_usage.total_tokens += seg_usage.total_tokens
                 except Exception as retry_err:
@@ -1592,6 +1602,8 @@ class ChapterFactExtractor:
                         num_ctx=budget.extraction_num_ctx,
                     )
                 total_usage.prompt_tokens += usage.prompt_tokens
+                total_usage.cache_hit_tokens += usage.cache_hit_tokens
+                total_usage.cache_miss_tokens += usage.cache_miss_tokens
                 total_usage.completion_tokens += usage.completion_tokens
                 total_usage.total_tokens += usage.total_tokens
                 extra_votes.append(

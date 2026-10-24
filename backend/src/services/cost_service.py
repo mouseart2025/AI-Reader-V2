@@ -29,6 +29,46 @@ _PRICING: dict[str, tuple[float, float]] = {
 
 _DEFAULT_PRICING = (0.50, 1.50)  # conservative fallback
 
+# 前缀缓存单价（USD / 1M tokens）。实测 DeepSeek 对静态前缀命中率 98%
+# （见 docs/analysis/analysis-cost-baseline-2026-10.md §5.9），不按缓存价计费会
+# 把输入成本高估 3-4 倍。未列出的模型按"无缓存折扣"处理（= 输入价），不制造假节省。
+_CACHE_PRICING: dict[str, float] = {
+    "deepseek-chat": 0.07,
+    "deepseek-reasoner": 0.14,
+}
+_DEFAULT_CACHE_RATIO = 0.26  # 仅对有已知缓存能力的模型族生效
+
+
+def get_cache_pricing(model: str) -> float:
+    """缓存命中单价；未知模型返回输入价（等于不打折）。"""
+    if model in _CACHE_PRICING:
+        return _CACHE_PRICING[model]
+    lowered = (model or "").lower()
+    if lowered.startswith("deepseek"):
+        input_price, _ = get_pricing(model)
+        return round(input_price * _DEFAULT_CACHE_RATIO, 4)
+    return get_pricing(model)[0]
+
+
+def compute_cost_from_usage(usage, model: str) -> tuple[float, float]:
+    """按真实 usage（含 cache_hit_tokens）算 (usd, cny)。
+
+    usage 可以是 LlmUsage 或任何带 prompt_tokens / completion_tokens /
+    cache_hit_tokens 属性的对象；缺少缓存字段时退化为原口径。
+    """
+    input_price, output_price = get_pricing(model)
+    cache_price = get_cache_pricing(model)
+    prompt = getattr(usage, "prompt_tokens", 0) or 0
+    completion = getattr(usage, "completion_tokens", 0) or 0
+    hit = min(getattr(usage, "cache_hit_tokens", 0) or 0, prompt)
+    miss = prompt - hit
+    usd = (
+        (hit / 1_000_000) * cache_price
+        + (miss / 1_000_000) * input_price
+        + (completion / 1_000_000) * output_price
+    )
+    return round(usd, 6), round(usd * 7.2, 4)
+
 # ── Token estimation constants ───────────────────────
 
 # Chinese text: ~1.5 tokens per character (varies by tokenizer)
