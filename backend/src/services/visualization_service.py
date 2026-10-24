@@ -1353,6 +1353,12 @@ def _enhance_constraints(
 _map_cache: dict[str, tuple[float, dict]] = {}  # key → (timestamp, data)
 _MAP_CACHE_TTL = 1800  # 30 minutes
 
+# 进程级一次性 geo 重试：旧版本把「海底/龙宫」层误判成幻想世界，跳过了地理
+# 布局并留下 geo_failed=1。判定修复后，缓存里仍是 layered，而 geo_failed 会
+# 永久阻止 stale-cache 自失效 —— 这里在判定不再偏好幻想层时放行一次重试，
+# 成功则清掉标记，失败则标记重新置位、本进程不再重试（下次重启再试一次）。
+_GEO_RETRY_DONE: set[str] = set()
+
 
 def canonicalize_map_names(
     loc_info: dict,
@@ -1461,6 +1467,7 @@ async def invalidate_map_response_cache(novel_id: str) -> None:
     prefix = f"{novel_id}:"
     for key in [k for k in _map_cache if k.startswith(prefix)]:
         _map_cache.pop(key, None)
+    _GEO_RETRY_DONE.discard(novel_id)
     await world_structure_store.delete_geo_artifacts(novel_id)
 
 
@@ -1469,17 +1476,61 @@ async def invalidate_map_response_cache(novel_id: str) -> None:
 # world, and every instance_* layer is one.
 _REALM_LAYER_TYPES = frozenset({"sky", "underground", "underwater", "sea", "spirit"})
 
+# 海底/海域层在现实题材里是同一颗地球的海面与海底，不是独立幻想空间。
+# 《海底两万里》的「海底/龙宫」层装有 11 个地点（11/411 = 2.7%），旧判定
+# 把整本真实地理小说踢出 Leaflet 地图，改画分层幻想图：南极出现在画面顶部、
+# 北冰洋落在亚洲下方、太平洋与大西洋挤在欧洲旁边。见
+# `_is_earthbound_sea_setting()` / `_prefers_fantasy_layers()`。
+_SEA_REALM_LAYER_TYPES = frozenset({"underwater", "sea"})
+_EARTHBOUND_GENRES = frozenset({"realistic", "adventure", "urban"})
 
-def _realm_layer_location_count(ws) -> tuple[int, int]:
+
+def _is_earthbound_sea_setting(ws) -> bool:
+    """True when an underwater/sea layer is just this Earth's ocean floor.
+
+    Realistic/adventure novels (20,000 Leagues, sea stories) put the ship and
+    its dive sites in an `underwater` layer, but they still happen on Earth and
+    every port/ocean resolves to real coordinates. Treating that layer as a
+    separate realm throws the whole book off the basemap.
+    """
+    if ws is None:
+        return False
+    genre = (ws.novel_genre_hint or "").strip().lower()
+    geo_type = (ws.geo_type or "").strip().lower()
+    return geo_type == "realistic" or genre in _EARTHBOUND_GENRES
+
+
+def _fantasy_forcing_layer_types(ws) -> frozenset[str]:
+    """Realm layer types that require a layered (non-geographic) map."""
+    if _is_earthbound_sea_setting(ws):
+        return _REALM_LAYER_TYPES - _SEA_REALM_LAYER_TYPES
+    return _REALM_LAYER_TYPES
+
+
+def _realm_layer_location_count(
+    ws, realm_types: frozenset[str] | None = None,
+) -> tuple[int, int]:
     """(locations mapped into a non-earth realm layer, total mapped locations)."""
+    types = _REALM_LAYER_TYPES if realm_types is None else realm_types
     realm_ids = {
         lyr.layer_id
         for lyr in (ws.layers or [])
-        if str(getattr(lyr.layer_type, "value", lyr.layer_type)) in _REALM_LAYER_TYPES
+        if str(getattr(lyr.layer_type, "value", lyr.layer_type)) in types
     }
     mapped = ws.location_layer_map or {}
     total = len(mapped)
     return sum(1 for lid in mapped.values() if lid in realm_ids), total
+
+
+def _has_sea_realm_layer(ws) -> bool:
+    """True when the world declares an underwater/sea layer (regardless of count)."""
+    if ws is None:
+        return False
+    return any(
+        str(getattr(lyr.layer_type, "value", lyr.layer_type))
+        in _SEA_REALM_LAYER_TYPES
+        for lyr in (ws.layers or [])
+    )
 
 
 def _prefers_fantasy_layers(ws) -> bool:
@@ -1496,11 +1547,56 @@ def _prefers_fantasy_layers(ws) -> bool:
     水浒传 declares a 天界 (sky) layer holding 0 locations, and 红楼梦 maps 2
     (0.3 %). Thresholds are >= 5 locations AND >= 1 % of the mapped ones, which
     封神 clears (10, 2.1 %) and 红楼 does not (2, 0.3 %) — so only 封神 flips.
+
+    Exception: in a realistic/adventure setting an `underwater`/`sea` layer is
+    the same Earth's ocean floor, not a separate realm. It must not force the
+    whole overworld off the basemap (《海底两万里》的误判).
     """
     if ws is None:
         return False
-    n, total = _realm_layer_location_count(ws)
+    n, total = _realm_layer_location_count(ws, _fantasy_forcing_layer_types(ws))
     return n >= 5 and n / max(total, 1) >= 0.01
+
+
+# 地理底图上没有坐标的对象：船只、船内舱室/构件、抽象世界节点、经纬线标记。
+# 它们保留在响应的 `locations` 里（实体卡片/分层图仍要用），但不进入 GeoNames
+# 解析与 Leaflet 标记 —— 否则《海底两万里》的 30+ 个舱室会被估算到船所在的
+# 同一个点上，「诺第留斯号」会被钉在南冰洋，而「世界」「地球」「赤道线」
+# 会变成地图上的一个坐标点。
+_GEO_NON_PLACE_TYPES = frozenset({
+    # 船是移动载体，不是固定坐标；把「诺第留斯号」钉在南冰洋会制造假地点。
+    "船只", "潜水船", "舰船", "船",
+    "甲板", "船舱", "舱房", "船构件", "灯具", "通道",
+    "界域", "地理标记", "经线",
+})
+_GEO_NON_PLACE_NAMES = frozenset({"世界", "地球", "主世界", "天下"})
+
+
+def _is_geographic_map_location(loc: dict) -> bool:
+    """Whether a location can be drawn as a point on a real-world basemap."""
+    name = (loc.get("name") or "").strip()
+    if not name or name in _GEO_NON_PLACE_NAMES:
+        return False
+    return (loc.get("type") or "").strip() not in _GEO_NON_PLACE_TYPES
+
+
+def _allowed_map_layers(ws, target_layer: str) -> set[str]:
+    """Layer ids rendered on the target layer's canvas.
+
+    The target layer plus merged layers (<=1 location, which have no tab of
+    their own). Shared by the geographic resolver and the layout fill below so
+    the two membership rules cannot drift apart.
+    """
+    allowed = {target_layer}
+    if ws is None:
+        return allowed
+    counts = Counter((ws.location_layer_map or {}).values())
+    for layer in ws.layers:
+        if layer.layer_id == "overworld":
+            continue
+        if counts.get(layer.layer_id, 0) <= 1:
+            allowed.add(layer.layer_id)
+    return allowed
 
 
 async def get_map_data(
@@ -1973,11 +2069,27 @@ async def get_map_data(
         and target_layer == "overworld"
         and ws and _effective_geo_type in ("realistic", "mixed")
         and cached_layer["layout_mode"] != "geographic"
-        and not await world_structure_store.get_geo_failed(novel_id)
     ):
-        logger.info("Invalidating stale overworld cache (geo_type=%s/%s but cached as %s)",
-                     ws.geo_type, _effective_geo_type, cached_layer["layout_mode"])
-        cached_layer = None
+        _geo_failed = await world_structure_store.get_geo_failed(novel_id)
+        if not _geo_failed:
+            _GEO_RETRY_DONE.discard(novel_id)
+            logger.info("Invalidating stale overworld cache (geo_type=%s/%s but cached as %s)",
+                        ws.geo_type, _effective_geo_type, cached_layer["layout_mode"])
+            cached_layer = None
+        elif (
+            novel_id not in _GEO_RETRY_DONE
+            and not _prefers_fantasy_layers(ws)
+            and _has_sea_realm_layer(ws)
+        ):
+            # 旧版 _prefers_fantasy_layers 把现实题材的「海底/龙宫」层当成幻想
+            # 世界，geo 从未真正尝试过，却留下了 geo_failed 标记。判定修复后
+            # 放行一次地理布局重试；若真的失败，标记会重新置位，本进程不再重试。
+            logger.info(
+                "Retrying geographic layout for %s: sea realm layer no longer "
+                "forces fantasy mode", novel_id,
+            )
+            _GEO_RETRY_DONE.add(novel_id)
+            cached_layer = None
 
     # The mirror case: the cache IS geographic but the world has real realm
     # layers, so it has to become layered. Without this the cached geographic
@@ -2115,9 +2227,20 @@ async def get_map_data(
         # below then builds the layered layout.
         if ws and target_layer == "overworld" and not _prefers_fantasy_layers(ws):
             try:
-                all_names = [loc["name"] for loc in locations]
+                # 只把真正能落在世界地图上的地点交给 GeoNames：舱室/构件/
+                # 界域/经纬线没有坐标，混进来会被估到船或父节点的同一个点；
+                # 其它层（海底/龙宫等）的地点也不属于主世界底图（≤1 个地点的
+                # 合并层仍显示在主世界，与分层布局的规则保持一致）。
+                _allowed_geo_layers = _allowed_map_layers(ws, target_layer)
+                geo_locations = [
+                    loc for loc in locations
+                    if _is_geographic_map_location(loc)
+                    and (ws.location_layer_map.get(loc["name"], "overworld")
+                         in _allowed_geo_layers)
+                ]
+                all_names = [loc["name"] for loc in geo_locations]
                 major_names = [
-                    loc["name"] for loc in locations
+                    loc["name"] for loc in geo_locations
                     if loc.get("level", 0) <= 3
                 ]
                 loc_parent_map = {
@@ -2126,7 +2249,7 @@ async def get_map_data(
                 }
                 loc_type_map = {
                     loc["name"]: loc.get("type")
-                    for loc in locations
+                    for loc in geo_locations
                 }
                 if ws.geo_type:
                     # Use cached geo_type — skip re-detection to avoid
@@ -2180,13 +2303,13 @@ async def get_map_data(
                         for name, coord in resolved.items()
                     }
                     layout_data = resolver.project_to_canvas(
-                        resolved, locations, _cw_hash, _ch_hash,
+                        resolved, geo_locations, _cw_hash, _ch_hash,
                     )
 
                     # Place unresolved names near their resolved neighbors
                     resolved_names = set(resolved.keys())
                     unresolved_names = [
-                        loc["name"] for loc in locations
+                        loc["name"] for loc in geo_locations
                         if loc["name"] not in resolved_names
                     ]
                     if unresolved_names:
@@ -2195,7 +2318,7 @@ async def get_map_data(
                             for loc in locations
                         }
                         extra = place_unresolved_near_neighbors(
-                            unresolved_names, layout_data, locations,
+                            unresolved_names, layout_data, geo_locations,
                             parent_map, _cw_hash, _ch_hash,
                         )
                         layout_data.extend(extra)
@@ -2231,6 +2354,12 @@ async def get_map_data(
                             logger.warning(
                                 "Failed to persist geo coords artifact", exc_info=True,
                             )
+                    # 地理布局成功：清掉历史失败标记（旧版可能在 geo 从未尝试时
+                    # 误置），否则后续 stale-cache 自失效会被永久压制。
+                    try:
+                        await world_structure_store.clear_geo_failed(novel_id)
+                    except Exception:
+                        logger.warning("Failed to clear geo_failed marker", exc_info=True)
             except Exception:
                 logger.warning(
                     "Geographic layout failed, falling back to solver",
@@ -2576,13 +2705,7 @@ async def get_map_data(
     # have no tab of their own and are meant to show in the main world — this
     # fill is in fact the mechanism that places them.
     _loc_layer: dict[str, str] = dict(ws.location_layer_map) if ws else {}
-    _allowed_layer_ids: set[str] = {target_layer}
-    if ws:
-        for _layer_obj in ws.layers:
-            if _layer_obj.layer_id == "overworld":
-                continue
-            if sum(1 for lid in ws.location_layer_map.values() if lid == _layer_obj.layer_id) <= 1:
-                _allowed_layer_ids.add(_layer_obj.layer_id)
+    _allowed_layer_ids: set[str] = _allowed_map_layers(ws, target_layer)
     _layout_map = {item["name"]: item for item in layout_data}
     _loc_map = {loc["name"]: loc for loc in locations}
     _missing = [
