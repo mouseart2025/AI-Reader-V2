@@ -12,7 +12,10 @@ describe("mapDataStore", () => {
   })
 
   it("builds cache keys from novel/range/layer", () => {
-    expect(mapCacheKey("n1", 1, 50, "overworld")).toBe("n1:1:50:overworld")
+    expect(mapCacheKey("n1", 1, 50, "overworld")).toBe("n1:1:50:overworld:auto")
+    expect(mapCacheKey("n1", 1, 50, "overworld", "geographic")).toBe(
+      "n1:1:50:overworld:geographic",
+    )
   })
 
   it("get/set roundtrip; missing keys return undefined", () => {

@@ -175,6 +175,8 @@ Includes numeric-prefix name recovery (e.g., "二愣子", "三太子") via POS r
 
 `GeoMap.tsx` — React-Leaflet component for geographic layout mode with CircleMarkers (size by mention_count, color by type), trajectory polylines, click-to-navigate from Geography panel, drag-to-reposition in edit mode, and auto fitBounds. `MapPage.tsx` switches between `GeoMap` (geographic) and `NovelMap` (all other modes).
 
+**Layout decision is explicit:** `get_map_data(..., force_layout=...)` returns `layout_reason` (`ok` / `realm_layers` / `low_geo_coverage` / `geo_unavailable` / `geo_error` / `no_geo_data` / `sublayer` / `manual_geographic` / `manual_layered`) plus `geo_coverage`. API `GET /map?layout=auto|geographic|layered`; the UI shows 自动/地理/层级 and explains any automatic fallback. Forced layouts use a `-geographic`/`-layered` cache hash so they never overwrite the automatic layout.
+
 ### Graph Readability — Dense Network Optimization
 
 `GraphPage.tsx` — relationship graph with readability features for complex novels (400+ characters):
@@ -341,6 +343,10 @@ npm run lint         # ESLint
 # Backend
 uv sync --all-extras   # Install/update Python dependencies（含语义搜索重依赖；裸环境只跑 uv sync）
 uv run uvicorn src.api.main:app --reload   # Dev server (localhost:8000)
+
+# Map layout audit (writes regenerated caches; use a DB copy for a production library)
+cd backend && .venv/bin/python scripts/map_quality_audit.py --novel 海底
+cd backend && .venv/bin/python scripts/map_quality_audit.py --all --json
 ```
 
 ### Quality Loop (质量改进循环)

@@ -3,6 +3,7 @@
 import csv
 import io
 import logging
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -349,6 +350,7 @@ async def get_cost_detail(novel_id: str):
     total_cost_usd = 0.0
     total_cost_cny = 0.0
     total_entities = 0
+    durations: list[int] = []
     model_used = ""
     truncated_count = 0
     output_truncated_count = 0
@@ -387,14 +389,19 @@ async def get_cost_detail(novel_id: str):
         if not model_used and ef.get("llm_model"):
             model_used = ef["llm_model"]
 
+        chapter_ms = int(ef.get("extraction_ms") or 0)
+        if chapter_ms > 0:
+            durations.append(chapter_ms)
         chapters.append({
             "chapter_id": ef["chapter_id"],
+            "chapter_num": ef.get("chapter_num") or ef["chapter_id"],
+            "chapter_title": ef.get("chapter_title") or "",
             "input_tokens": inp,
             "output_tokens": out,
             "cost_usd": round(c_usd, 6),
             "cost_cny": round(c_cny, 4),
             "entity_count": entity_count,
-            "extraction_ms": ef.get("extraction_ms", 0),
+            "extraction_ms": chapter_ms,
             "extracted_at": ef.get("extracted_at"),
             "llm_model": ef.get("llm_model", ""),
             "is_truncated": is_trunc,
@@ -413,6 +420,10 @@ async def get_cost_detail(novel_id: str):
             "total_cost_usd": round(total_cost_usd, 4),
             "total_cost_cny": round(total_cost_cny, 2),
             "total_entities": total_entities,
+            "total_ms": sum(durations),
+            "avg_chapter_ms": round(sum(durations) / len(durations)) if durations else 0,
+            "min_chapter_ms": min(durations) if durations else 0,
+            "max_chapter_ms": max(durations) if durations else 0,
         },
         "quality": {
             "truncated_chapters": truncated_count,
@@ -438,7 +449,7 @@ async def export_cost_csv(novel_id: str):
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        "章节", "输入Token", "输出Token",
+        "章节", "标题", "输入Token", "输出Token",
         "费用(USD)", "费用(CNY)", "实体数", "耗时(ms)", "模型", "分析时间",
     ])
 
@@ -447,6 +458,7 @@ async def export_cost_csv(novel_id: str):
     total_usd = 0.0
     total_cny = 0.0
     total_ent = 0
+    durations: list[int] = []
 
     for ef in all_facts:
         fact = ef.get("fact", {})
@@ -466,15 +478,19 @@ async def export_cost_csv(novel_id: str):
         total_usd += c_usd
         total_cny += c_cny
         total_ent += ent
+        chapter_ms = int(ef.get("extraction_ms") or 0)
+        if chapter_ms > 0:
+            durations.append(chapter_ms)
 
         writer.writerow([
-            ef["chapter_id"],
+            ef.get("chapter_num") or ef["chapter_id"],
+            ef.get("chapter_title") or "",
             inp,
             out,
             round(c_usd, 6),
             round(c_cny, 4),
             ent,
-            ef.get("extraction_ms", 0),
+            chapter_ms,
             ef.get("llm_model", ""),
             ef.get("extracted_at", ""),
         ])
@@ -482,18 +498,19 @@ async def export_cost_csv(novel_id: str):
     # Summary row
     writer.writerow([
         "合计",
+        "",
         total_inp,
         total_out,
         round(total_usd, 4),
         round(total_cny, 2),
         total_ent,
-        "",
+        sum(durations),
         "",
         "",
     ])
 
     buf.seek(0)
-    filename = f"{novel['title']}_成本明细.csv"
+    filename = quote(f"{novel['title']}_成本明细.csv")
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv; charset=utf-8-sig",
@@ -522,16 +539,21 @@ async def get_analysis_records():
         records = []
         for row in rows:
             # Get cost summary from chapter_facts for this task's range
+            # chapter_facts.chapter_id is the DB row id; chapter_num lives in
+            # chapters. Comparing row ids to the task's chapter range silently
+            # returned zero cost for novels whose ids don't start at 1.
             fact_cursor = await conn.execute(
                 """
-                SELECT COALESCE(SUM(input_tokens), 0) as total_input,
-                       COALESCE(SUM(output_tokens), 0) as total_output,
-                       COALESCE(SUM(cost_usd), 0) as total_usd,
-                       COALESCE(SUM(cost_cny), 0) as total_cny,
+                SELECT COALESCE(SUM(f.input_tokens), 0) as total_input,
+                       COALESCE(SUM(f.output_tokens), 0) as total_output,
+                       COALESCE(SUM(f.cost_usd), 0) as total_usd,
+                       COALESCE(SUM(f.cost_cny), 0) as total_cny,
+                       COALESCE(SUM(f.extraction_ms), 0) as total_ms,
                        COUNT(*) as chapter_count
-                FROM chapter_facts
-                WHERE novel_id = ?
-                  AND chapter_id >= ? AND chapter_id <= ?
+                FROM chapter_facts f
+                JOIN chapters c ON c.id = f.chapter_id
+                WHERE f.novel_id = ?
+                  AND c.chapter_num >= ? AND c.chapter_num <= ?
                 """,
                 (row["novel_id"], row["chapter_start"], row["chapter_end"]),
             )
@@ -548,6 +570,11 @@ async def get_analysis_records():
                 "total_output_tokens": cost_row["total_output"] if cost_row else 0,
                 "total_cost_usd": round(cost_row["total_usd"], 4) if cost_row else 0,
                 "total_cost_cny": round(cost_row["total_cny"], 2) if cost_row else 0,
+                "total_ms": int(cost_row["total_ms"]) if cost_row else 0,
+                "avg_chapter_ms": (
+                    round(cost_row["total_ms"] / cost_row["chapter_count"])
+                    if cost_row and cost_row["chapter_count"] else 0
+                ),
                 "started_at": row["created_at"],
                 "completed_at": row["updated_at"],
             })

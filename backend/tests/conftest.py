@@ -149,6 +149,7 @@ _CONNECTION_MODULES = (
     "src.db.usage_event_store",
     "src.db.world_structure_override_store",
     "src.db.world_structure_store",
+    "src.api.routes.analysis",
     "src.services.alias_resolver",
     "src.services.backup_service",
     "src.services.export_service",

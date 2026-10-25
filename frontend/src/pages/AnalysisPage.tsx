@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { InlineLlmSetup } from "@/components/shared/InlineLlmSetup"
+import { AnalysisCostReport } from "@/components/shared/AnalysisCostReport"
 import { PassPanel } from "@/components/passes/PassPanel"
 import {
   AlertDialog,
@@ -776,6 +777,7 @@ export default function AnalysisPage() {
                 </span>
               </div>
             )}
+            {novelId && <AnalysisCostReport novelId={novelId} />}
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleReanalyze}>
                 重新分析

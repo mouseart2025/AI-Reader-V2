@@ -1602,9 +1602,24 @@ def _allowed_map_layers(ws, target_layer: str) -> set[str]:
 async def get_map_data(
     novel_id: str, chapter_start: int, chapter_end: int,
     layer_id: str | None = None,
+    force_layout: str | None = None,
 ) -> dict:
+    """Build map data.
+
+    ``force_layout`` is an explicit user override:
+      * ``"geographic"`` — try real coordinates even for a world that would
+        normally be drawn layered (e.g. 封神's realm layers); falls back with
+        ``layout_reason=geo_unavailable`` if nothing resolves.
+      * ``"layered"`` — skip GeoNames and draw the hierarchical/layered map.
+      * ``None``/``"auto"`` — the previous automatic behaviour.
+    Forced layouts use their own cache hash so they never overwrite the
+    automatic layout for the same chapter range.
+    """
     import time as _time
-    cache_key = f"{novel_id}:{chapter_start}:{chapter_end}:{layer_id or ''}"
+    _force = force_layout if force_layout in ("geographic", "layered") else None
+    cache_key = (
+        f"{novel_id}:{chapter_start}:{chapter_end}:{layer_id or ''}:{_force or 'auto'}"
+    )
     if cache_key in _map_cache:
         ts, cached = _map_cache[cache_key]
         if _time.time() - ts < _MAP_CACHE_TTL:
@@ -2045,13 +2060,41 @@ async def get_map_data(
         _ws_scale_for_hash or "", (CANVAS_WIDTH, CANVAS_HEIGHT)
     )
     ch_hash = compute_chapter_hash(chapter_start, chapter_end, _cw_hash, _ch_hash)
+    if _force:
+        ch_hash = f"{ch_hash}-{_force}"
     target_layer = layer_id or "overworld"
+
+    # Automatic mode decides via realm layers; an explicit override wins.
+    _realm_forces_layers = _prefers_fantasy_layers(ws)
+    if _force == "geographic":
+        _realm_forces_layers = False
+    elif _force == "layered":
+        _realm_forces_layers = True
+
+    # Geographic coverage captured for `layout_reason` / `geo_coverage`.
+    _geo_total = 0
+    _geo_resolved = 0
+    _geo_low_coverage = False
+    _geo_error = False
 
     # Raw geo coordinates for Leaflet frontend (populated by geographic branch)
     geo_coords_raw: dict[str, dict[str, float]] | None = None
 
     # Try layer-level cache first
     cached_layer = await _load_cached_layer_layout(novel_id, target_layer, ch_hash)
+    # A manual override must not be short-circuited by a failed previous
+    # forced attempt (e.g. "try geographic" cached a layered fallback).
+    _manual_cache_mismatch = (
+        _force == "geographic"
+        and cached_layer is not None
+        and cached_layer["layout_mode"] != "geographic"
+    ) or (
+        _force == "layered"
+        and cached_layer is not None
+        and cached_layer["layout_mode"] == "geographic"
+    )
+    if _manual_cache_mismatch:
+        cached_layer = None
     # Invalidate stale cache: if world_structure says geographic but cache says otherwise.
     # Also handle historical/wuxia genre override: geo_type may be cached as "fantasy"
     # but the genre override will upgrade it to "mixed".
@@ -2078,7 +2121,7 @@ async def get_map_data(
             cached_layer = None
         elif (
             novel_id not in _GEO_RETRY_DONE
-            and not _prefers_fantasy_layers(ws)
+            and not _realm_forces_layers
             and _has_sea_realm_layer(ws)
         ):
             # 旧版 _prefers_fantasy_layers 把现实题材的「海底/龙宫」层当成幻想
@@ -2099,7 +2142,7 @@ async def get_map_data(
         cached_layer is not None
         and target_layer == "overworld"
         and cached_layer["layout_mode"] == "geographic"
-        and _prefers_fantasy_layers(ws)
+        and _realm_forces_layers
     ):
         logger.info(
             "Invalidating geographic overworld cache for %s: world has "
@@ -2225,7 +2268,12 @@ async def get_map_data(
         # 天界/冥界 locations have no coordinate on a real basemap and would simply
         # be dropped. Skipping geo here leaves geo_resolved False, and the block
         # below then builds the layered layout.
-        if ws and target_layer == "overworld" and not _prefers_fantasy_layers(ws):
+        if (
+            ws
+            and target_layer == "overworld"
+            and not _realm_forces_layers
+            and _force != "layered"
+        ):
             try:
                 # 只把真正能落在世界地图上的地点交给 GeoNames：舱室/构件/
                 # 界域/经纬线没有坐标，混进来会被估到船或父节点的同一个点；
@@ -2239,6 +2287,7 @@ async def get_map_data(
                          in _allowed_geo_layers)
                 ]
                 all_names = [loc["name"] for loc in geo_locations]
+                _geo_total = len(all_names)
                 major_names = [
                     loc["name"] for loc in geo_locations
                     if loc.get("level", 0) <= 3
@@ -2257,12 +2306,16 @@ async def get_map_data(
                     # Pass through auto_resolve even for non-realistic types,
                     # because auto_resolve applies genre-based overrides
                     # (e.g., historical novels with cached "fantasy" → "mixed").
+                    _known_geo_type = (
+                        "mixed" if _force == "geographic" else ws.geo_type
+                    )
                     _geo_scope, geo_type, resolver, resolved = await geo_auto_resolve(
                         ws.novel_genre_hint, all_names, major_names, loc_parent_map,
-                        known_geo_type=ws.geo_type, type_map=loc_type_map,
+                        known_geo_type=_known_geo_type, type_map=loc_type_map,
                     )
+                    _geo_resolved = len(resolved or {})
                     # Persist the (possibly overridden) geo_type back to cache
-                    if geo_type != ws.geo_type:
+                    if geo_type != ws.geo_type and not _force:
                         ws.geo_type = geo_type
                         await world_structure_store.save(novel_id, ws)
                 else:
@@ -2271,8 +2324,10 @@ async def get_map_data(
                         ws.novel_genre_hint, all_names, major_names, loc_parent_map,
                         type_map=loc_type_map,
                     )
-                    ws.geo_type = geo_type
-                    await world_structure_store.save(novel_id, ws)
+                    _geo_resolved = len(resolved or {})
+                    if not _force:
+                        ws.geo_type = geo_type
+                        await world_structure_store.save(novel_id, ws)
 
                 if resolver and resolved and geo_type in ("realistic", "mixed"):
                     # Guard: for "mixed" novels, if too few locations actually
@@ -2283,7 +2338,7 @@ async def get_map_data(
                     # because they have many micro-locations that dilute the ratio.
                     # Default 0.15 is lenient: geo_type=mixed already confirms
                     # real-world signal from detect_geo_type().
-                    if geo_type == "mixed":
+                    if geo_type == "mixed" and _force != "geographic":
                         resolve_ratio = len(resolved) / max(len(all_names), 1)
                         genre = (ws.novel_genre_hint or "").lower() if ws else ""
                         min_ratio = 0.10 if genre in (
@@ -2297,6 +2352,7 @@ async def get_map_data(
                                 min_ratio * 100,
                             )
                             resolver, resolved = None, None
+                            _geo_low_coverage = True
 
                 if resolver and resolved and geo_type in ("realistic", "mixed"):
                     # Store raw lat/lng for Leaflet frontend
@@ -2363,6 +2419,7 @@ async def get_map_data(
                     except Exception:
                         logger.warning("Failed to clear geo_failed marker", exc_info=True)
             except Exception:
+                _geo_error = True
                 logger.warning(
                     "Geographic layout failed, falling back to solver",
                     exc_info=True,
@@ -2860,8 +2917,40 @@ async def get_map_data(
     except Exception:
         logger.warning("Map plausibility audit failed", exc_info=True)
 
+    # Why this layout was chosen (the UI shows it instead of silently
+    # falling back to a fantasy/constraint map).
+    if layout_mode == "geographic":
+        layout_reason = "manual_geographic" if _force == "geographic" else "ok"
+    elif _force == "layered":
+        layout_reason = "manual_layered"
+    elif target_layer != "overworld":
+        layout_reason = "sublayer"
+    elif _realm_forces_layers:
+        layout_reason = "realm_layers"
+    elif _geo_error:
+        layout_reason = "geo_error"
+    elif _geo_total and _geo_resolved == 0:
+        layout_reason = "geo_unavailable"
+    elif _geo_low_coverage:
+        layout_reason = "low_geo_coverage"
+    else:
+        layout_reason = "no_geo_data"
+
+    geo_coverage = (
+        {
+            "resolved": _geo_resolved,
+            "total": _geo_total,
+            "ratio": round(_geo_resolved / max(_geo_total, 1), 4),
+        }
+        if _geo_total
+        else None
+    )
+
     result: dict = {
         "locations": locations,
+        "layout_reason": layout_reason,
+        "layout_choice": "manual" if _force else "auto",
+        "geo_coverage": geo_coverage,
         "trajectories": dict(trajectories),
         "spatial_constraints": spatial_constraints,
         "layout": layout_data,

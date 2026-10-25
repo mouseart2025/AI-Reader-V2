@@ -11,8 +11,9 @@ export function mapCacheKey(
   chapterStart: number,
   chapterEnd: number,
   layerId: string,
+  layout: "auto" | "geographic" | "layered" = "auto",
 ): string {
-  return `${novelId}:${chapterStart}:${chapterEnd}:${layerId}`
+  return `${novelId}:${chapterStart}:${chapterEnd}:${layerId}:${layout}`
 }
 
 interface MapDataState {

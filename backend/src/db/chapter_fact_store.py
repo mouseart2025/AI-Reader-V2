@@ -87,12 +87,15 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
     try:
         cursor = await conn.execute(
             """
-            SELECT chapter_id, fact_json, llm_model, extracted_at, extraction_ms,
-                   input_tokens, output_tokens, cost_usd, cost_cny,
-                   is_truncated, segment_count, output_truncated
-            FROM chapter_facts
-            WHERE novel_id = ?
-            ORDER BY chapter_id
+            SELECT f.chapter_id, f.fact_json, f.llm_model, f.extracted_at,
+                   f.extraction_ms, f.input_tokens, f.output_tokens,
+                   f.cost_usd, f.cost_cny, f.is_truncated, f.segment_count,
+                   f.output_truncated,
+                   c.chapter_num, c.title AS chapter_title
+            FROM chapter_facts f
+            LEFT JOIN chapters c ON c.id = f.chapter_id
+            WHERE f.novel_id = ?
+            ORDER BY c.chapter_num, f.chapter_id
             """,
             (novel_id,),
         )
@@ -100,6 +103,8 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
         return [
             {
                 "chapter_id": row["chapter_id"],
+                "chapter_num": row["chapter_num"] or row["chapter_id"],
+                "chapter_title": row["chapter_title"] or "",
                 "fact": json.loads(row["fact_json"]),
                 "llm_model": row["llm_model"],
                 "extracted_at": row["extracted_at"],

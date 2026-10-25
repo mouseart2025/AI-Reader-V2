@@ -50,6 +50,16 @@ const ICON_LEGEND: { icon: string; label: string }[] = [
 
 const COLLAPSED_TIERS = new Set(["site", "building"])
 
+const LAYOUT_REASON_TEXT: Record<string, string> = {
+  realm_layers: "含独立层（天界/海底等），自动使用分层图",
+  low_geo_coverage: "能定位的地名太少，自动使用分层图",
+  geo_unavailable: "地名无法解析到真实坐标",
+  geo_error: "地理布局失败，已回退分层图",
+  no_geo_data: "没有可用的真实地理数据",
+  sublayer: "子层使用分层图",
+  no_data: "暂无地点数据",
+}
+
 export default function MapPage() {
   const { novelId } = useParams<{ novelId: string }>()
   const { chapterStart, chapterEnd, setAnalyzedRange } = useChapterRangeStore()
@@ -66,7 +76,7 @@ export default function MapPage() {
   if (!initialCacheComputedRef.current) {
     initialCacheComputedRef.current = true
     initialCacheRef.current = novelId
-      ? useMapDataStore.getState().get(mapCacheKey(novelId, chapterStart, chapterEnd, "overworld")) ?? null
+      ? useMapDataStore.getState().get(mapCacheKey(novelId, chapterStart, chapterEnd, "overworld", "auto")) ?? null
       : null
   }
 
@@ -77,6 +87,7 @@ export default function MapPage() {
   // Layer state
   const [layers, setLayers] = useState<MapLayerInfo[]>(initialCacheRef.current?.layers ?? [])
   const [activeLayerId, setActiveLayerId] = useState("overworld")
+  const [layoutOverride, setLayoutOverride] = useState<"auto" | "geographic" | "layered">("auto")
 
   // World structure editor
   const [editorOpen, setEditorOpen] = useState(false)
@@ -184,7 +195,13 @@ export default function MapPage() {
     let cancelled = false
     trackEvent("view_map")
 
-    const cacheKey = mapCacheKey(novelId, chapterStart, chapterEnd, activeLayerId)
+    // A manual geographic/layered override only makes sense for the main
+    // world; sub-layers always use their own layered layout.
+    const effectiveLayout =
+      activeLayerId === "overworld" ? layoutOverride : "auto"
+    const cacheKey = mapCacheKey(
+      novelId, chapterStart, chapterEnd, activeLayerId, effectiveLayout,
+    )
     const forceRefresh = reloadTrigger !== lastReloadRef.current
     lastReloadRef.current = reloadTrigger
 
@@ -221,7 +238,7 @@ export default function MapPage() {
     setLoading(true)
     const layerParam =
       activeLayerId !== "overworld" ? activeLayerId : undefined
-    fetchMapData(novelId, chapterStart, chapterEnd, layerParam)
+    fetchMapData(novelId, chapterStart, chapterEnd, layerParam, effectiveLayout)
       .then((data) => {
         if (cancelled) return
         applyData(data)
@@ -237,7 +254,7 @@ export default function MapPage() {
     return () => {
       cancelled = true
     }
-  }, [novelId, chapterStart, chapterEnd, activeLayerId, setAnalyzedRange, reloadTrigger])
+  }, [novelId, chapterStart, chapterEnd, activeLayerId, layoutOverride, setAnalyzedRange, reloadTrigger])
 
   // Ensure the analysis WS is connected so map_prebuild messages arrive even
   // when the user navigated straight here (AnalysisPage owns it otherwise)
@@ -291,6 +308,7 @@ export default function MapPage() {
   const trajectories = useMemo(() => mapData?.trajectories ?? {}, [mapData])
   const layout = useMemo(() => mapData?.layout ?? [], [mapData])
   const layoutMode = mapData?.layout_mode ?? "hierarchy"
+  const layoutReason = mapData?.layout_reason ?? ""
   const terrainUrl = mapData?.terrain_url ?? null
   const regionBoundaries = mapData?.region_boundaries
   const portals = mapData?.portals
@@ -738,8 +756,72 @@ export default function MapPage() {
             </div>
           )}
 
+          {/* Layout override: auto / real map / layered */}
+          {!loading && activeLayerId === "overworld" && locations.length > 0 && (
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-0.5 rounded-xl border border-border bg-card/90 p-0.5 text-[11px] shadow backdrop-blur">
+              {(["auto", "geographic", "layered"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setLayoutOverride(mode)}
+                  title={
+                    mode === "auto"
+                      ? "自动：由数据决定"
+                      : mode === "geographic"
+                        ? "强制使用真实地理坐标"
+                        : "强制使用分层/约束布局"
+                  }
+                  className={cn(
+                    "rounded-lg px-2 py-1 transition-colors",
+                    layoutOverride === mode
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {mode === "auto" ? "自动" : mode === "geographic" ? "地理" : "层级"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Why the automatic layout fell back */}
+          {!loading && layoutReason && !["ok", "manual_geographic", "manual_layered"].includes(layoutReason) && (
+            <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex max-w-[90%] items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-700 shadow backdrop-blur dark:text-amber-400">
+              <span>
+                {LAYOUT_REASON_TEXT[layoutReason] ?? layoutReason}
+                {layoutReason === "low_geo_coverage" && mapData?.geo_coverage
+                  ? `（${Math.round(mapData.geo_coverage.ratio * 100)}%）`
+                  : ""}
+              </span>
+              {activeLayerId === "overworld" && (
+                <button
+                  className="rounded-full border border-amber-500/40 px-2 py-0.5 hover:bg-amber-500/10"
+                  onClick={() =>
+                    setLayoutOverride(
+                      layoutOverride === "geographic" ? "auto" : "geographic",
+                    )
+                  }
+                >
+                  {layoutOverride === "geographic" ? "恢复自动" : "尝试地理图"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Manual override indicator */}
+          {!loading && (layoutReason === "manual_geographic" || layoutReason === "manual_layered") && (
+            <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1 text-xs text-muted-foreground shadow backdrop-blur">
+              <span>手动：{layoutReason === "manual_geographic" ? "地理图" : "分层图"}</span>
+              <button
+                className="rounded-full border border-border px-2 py-0.5 hover:text-foreground"
+                onClick={() => setLayoutOverride("auto")}
+              >
+                恢复自动
+              </button>
+            </div>
+          )}
+
           {/* Hierarchy mode hint */}
-          {!loading && layoutMode === "hierarchy" && locations.length > 0 && (
+          {!loading && !layoutReason && layoutMode === "hierarchy" && locations.length > 0 && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-700 shadow backdrop-blur dark:text-amber-400">
               空间约束不足，使用层级布局
             </div>

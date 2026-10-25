@@ -756,6 +756,20 @@ export interface MapData {
   spatial_constraints: SpatialConstraint[]
   layout: MapLayoutItem[]
   layout_mode: "constraint" | "hierarchy" | "layered" | "geographic"
+  /** Why the layout mode was chosen; shown in the UI instead of a silent fallback. */
+  layout_reason?:
+    | "ok"
+    | "manual_geographic"
+    | "manual_layered"
+    | "realm_layers"
+    | "low_geo_coverage"
+    | "geo_unavailable"
+    | "geo_error"
+    | "sublayer"
+    | "no_geo_data"
+    | "no_data"
+  layout_choice?: "auto" | "manual"
+  geo_coverage?: { resolved: number; total: number; ratio: number } | null
   terrain_url: string | null
   rivers?: { points: number[][]; width: number }[]
   roads?: { from: string; to: string; points: number[][] }[]
@@ -929,6 +943,8 @@ export interface EntityDictionaryResponse {
 
 export interface ChapterCostDetail {
   chapter_id: number
+  chapter_num: number
+  chapter_title: string
   input_tokens: number
   output_tokens: number
   cost_usd: number
@@ -946,6 +962,10 @@ export interface CostDetailSummary {
   total_cost_usd: number
   total_cost_cny: number
   total_entities: number
+  total_ms: number
+  avg_chapter_ms: number
+  min_chapter_ms: number
+  max_chapter_ms: number
 }
 
 export interface CostDetailResponse {
@@ -969,6 +989,8 @@ export interface AnalysisRecord {
   total_output_tokens: number
   total_cost_usd: number
   total_cost_cny: number
+  total_ms: number
+  avg_chapter_ms: number
   started_at: string
   completed_at: string
 }

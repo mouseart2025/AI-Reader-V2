@@ -22,6 +22,10 @@ async def get_map(
     chapter_start: int | None = Query(None),
     chapter_end: int | None = Query(None),
     layer_id: str | None = Query(None),
+    layout: str | None = Query(
+        None, pattern="^(auto|geographic|layered)$",
+        description="Explicit map layout override; default auto",
+    ),
 ):
     novel = await novel_store.get_novel(novel_id)
     if not novel:
@@ -38,7 +42,9 @@ async def get_map(
         return {
             "locations": [], "trajectories": {},
             "spatial_constraints": [], "layout": [],
-            "layout_mode": "hierarchy", "terrain_url": None,
+            "layout_mode": "hierarchy", "layout_reason": "no_data",
+            "layout_choice": "auto", "geo_coverage": None,
+            "terrain_url": None,
             "analyzed_range": [0, 0],
             "rivers": [], "roads": [], "landmasses": [],
             "shelves": [], "region_boundaries": [],
@@ -53,7 +59,10 @@ async def get_map(
             "space_theme": False,
         }
 
-    data = await get_map_data(novel_id, start, end, layer_id=layer_id)
+    force_layout = None if layout in (None, "auto") else layout
+    data = await get_map_data(
+        novel_id, start, end, layer_id=layer_id, force_layout=force_layout,
+    )
     data["analyzed_range"] = [first, last]
     return data
 

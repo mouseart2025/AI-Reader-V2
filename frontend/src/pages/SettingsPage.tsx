@@ -30,6 +30,15 @@ function formatTokens(n: number): string {
   return String(n)
 }
 
+function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}秒`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}分${s % 60}秒`
+  const h = Math.floor(m / 60)
+  return `${h}小时${m % 60}分`
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return "-"
   const d = new Date(iso)
@@ -1315,6 +1324,11 @@ export default function SettingsPage() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
+                              {rec.total_ms > 0 && (
+                                <span className="text-[10px] text-muted-foreground font-mono">
+                                  {formatDuration(rec.total_ms)}
+                                </span>
+                              )}
                               {rec.total_cost_cny > 0 && (
                                 <span className="text-xs font-mono">¥{rec.total_cost_cny.toFixed(2)}</span>
                               )}
@@ -1332,31 +1346,37 @@ export default function SettingsPage() {
                             ) : costDetail ? (
                               <>
                                 {/* Summary row */}
-                                <div className="grid grid-cols-5 gap-1 text-[10px] text-muted-foreground font-medium border-b pb-1">
+                                <div className="grid grid-cols-6 gap-1 text-[10px] text-muted-foreground font-medium border-b pb-1">
                                   <span>章节</span>
                                   <span className="text-right">输入Token</span>
                                   <span className="text-right">输出Token</span>
                                   <span className="text-right">费用</span>
+                                  <span className="text-right">耗时</span>
                                   <span className="text-right">实体数</span>
                                 </div>
                                 <div className="max-h-48 overflow-auto space-y-0.5">
                                   {costDetail.chapters.map((ch) => (
                                     <div
                                       key={ch.chapter_id}
-                                      className="grid grid-cols-5 gap-1 text-[10px] py-0.5"
+                                      className="grid grid-cols-6 gap-1 text-[10px] py-0.5"
                                     >
-                                      <span className="text-muted-foreground">第{ch.chapter_id}章</span>
+                                      <span className="text-muted-foreground truncate" title={ch.chapter_title || undefined}>
+                                        第{ch.chapter_num}章
+                                      </span>
                                       <span className="text-right font-mono">{formatTokens(ch.input_tokens)}</span>
                                       <span className="text-right font-mono">{formatTokens(ch.output_tokens)}</span>
                                       <span className="text-right font-mono">
                                         {ch.cost_cny > 0 ? `¥${ch.cost_cny.toFixed(3)}` : "-"}
+                                      </span>
+                                      <span className="text-right font-mono">
+                                        {ch.extraction_ms > 0 ? formatDuration(ch.extraction_ms) : "-"}
                                       </span>
                                       <span className="text-right">{ch.entity_count}</span>
                                     </div>
                                   ))}
                                 </div>
                                 {/* Totals */}
-                                <div className="grid grid-cols-5 gap-1 text-[10px] font-medium border-t pt-1">
+                                <div className="grid grid-cols-6 gap-1 text-[10px] font-medium border-t pt-1">
                                   <span>合计</span>
                                   <span className="text-right font-mono">
                                     {formatTokens(costDetail.summary.total_input_tokens)}
@@ -1369,12 +1389,20 @@ export default function SettingsPage() {
                                       ? `¥${costDetail.summary.total_cost_cny.toFixed(2)}`
                                       : "-"}
                                   </span>
+                                  <span className="text-right font-mono">
+                                    {costDetail.summary.total_ms > 0
+                                      ? formatDuration(costDetail.summary.total_ms)
+                                      : "-"}
+                                  </span>
                                   <span className="text-right">{costDetail.summary.total_entities}</span>
                                 </div>
                                 {/* Model + CSV export */}
                                 <div className="flex items-center justify-between pt-1">
                                   <span className="text-[10px] text-muted-foreground">
                                     模型: {costDetail.model || "本地"}
+                                    {costDetail.summary.avg_chapter_ms > 0
+                                      ? ` · 均速 ${formatDuration(costDetail.summary.avg_chapter_ms)}/章`
+                                      : ""}
                                   </span>
                                   <Button
                                     variant="ghost"

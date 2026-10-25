@@ -284,6 +284,17 @@ class GeoOrchestrator:
             ws.location_parents, self.novel_title,
         )
         ws.location_parents = merged_parents
+        # 层名(主世界)不是地理地点:旧票可能把它挂到太平洋下,导致树根
+        # 变成太平洋。这里反转为 太平洋→主世界(幂等)。
+        from src.services.world_structure_agent import repair_layer_root_parents
+        _roots_fixed = repair_layer_root_parents(
+            ws.location_parents, ws.layers,
+        )
+        if _roots_fixed:
+            logger.info(
+                "Layer root repair: %d edge(s) inverted (root=%s)",
+                _roots_fixed, getattr(ws.layers[0], "name", "?"),
+            )
         # 被摘除的别名节点同步移出 tiers/layer/icon 表——否则
         # _inject_layer_roots 的 Phase 0 orphan 兜底会把它们重挂到根。
         if alias_merge_report:

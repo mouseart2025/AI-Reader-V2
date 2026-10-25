@@ -641,10 +641,14 @@ export function fetchMapData(
   start?: number,
   end?: number,
   layerId?: string,
+  layout?: "auto" | "geographic" | "layered",
 ): Promise<MapData> {
   let params = rangeParams(start, end)
   if (layerId) {
     params += (params ? "&" : "?") + `layer_id=${encodeURIComponent(layerId)}`
+  }
+  if (layout && layout !== "auto") {
+    params += (params ? "&" : "?") + `layout=${encodeURIComponent(layout)}`
   }
   return apiFetch<MapData>(`/novels/${novelId}/map${params}`)
 }

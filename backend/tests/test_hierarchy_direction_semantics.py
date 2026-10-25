@@ -15,6 +15,7 @@ import pytest
 from src.services.geo_skills.edmonds_resolver import EdmondsResolver
 from src.services.geo_skills.snapshot import HierarchySnapshot
 from src.services.geo_skills.vote_builder import VoteBuilder
+from src.services.world_structure_agent import repair_layer_root_parents
 from src.utils.location_names import (
     is_mobile_container,
     is_vessel_interior,
@@ -226,3 +227,43 @@ async def test_edmonds_fixes_inversion_vessel_and_water_parent():
     # 海域不挂在国家下; 海(大西洋洲)仍在大西洋里
     assert overrides.get("中国海") in (None, "主世界", "太平洋")
     assert overrides.get("大西洋洲") == "大西洋"
+
+
+# ── Layer display name must stay at the root ──────────────────────
+
+
+def test_layer_root_parent_is_inverted():
+    from src.models.world_structure import LayerType, MapLayer
+
+    layers = [
+        MapLayer(layer_id="overworld", name="主世界", layer_type=LayerType.overworld),
+    ]
+    parents = {"主世界": "太平洋"}
+    fixed = repair_layer_root_parents(parents, layers)
+    assert fixed == 1
+    assert parents == {"太平洋": "主世界"}
+    # Idempotent
+    assert repair_layer_root_parents(parents, layers) == 0
+
+
+def test_layer_root_under_world_root_is_kept():
+    """主世界 under 天下 is correct; only a place parent is an inversion."""
+    from src.models.world_structure import LayerType, MapLayer
+
+    layers = [
+        MapLayer(layer_id="overworld", name="主世界", layer_type=LayerType.overworld),
+    ]
+    parents = {"主世界": "天下"}
+    assert repair_layer_root_parents(parents, layers) == 0
+    assert parents == {"主世界": "天下"}
+
+
+def test_layer_root_repair_skips_cycles_and_absent_roots():
+    from src.models.world_structure import LayerType, MapLayer
+
+    layers = [
+        MapLayer(layer_id="overworld", name="主世界", layer_type=LayerType.overworld),
+    ]
+    assert repair_layer_root_parents({"太平洋": None}, layers) == 0
+    cyclic = {"主世界": "A", "A": "主世界"}
+    assert repair_layer_root_parents(cyclic, layers) == 0

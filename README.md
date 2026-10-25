@@ -1,6 +1,6 @@
 # AI Reader V2 — AI 小说分析可视化工具
 
-[![Version](https://img.shields.io/badge/version-0.83.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Version](https://img.shields.io/badge/version-0.85.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -89,6 +89,8 @@
 | macOS | [AI Reader_0.83.0_aarch64.dmg](https://ai-reader.cc/dl/v0.83.0/AI.Reader_0.83.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
 | Windows | [AI Reader_0.83.0_x64-setup.exe](https://ai-reader.cc/dl/v0.83.0/AI.Reader_0.83.0_x64-setup.exe) | x86_64 |
 
+> **v0.85.0 安装包正在做三平台冒烟；发布前请继续使用 v0.83.0 正式版。**
+>
 > **macOS 首次打开提示"已损坏"？** 在终端运行：`xattr -cr "/Applications/AI Reader.app"`，然后重新打开即可。
 >
 > 更多版本请查看 [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) 页面。
@@ -138,6 +140,7 @@ cd frontend && npm install && npm run dev
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| **v0.85.0** 🚧代码完成，待发布 | 2026-10-25 | **地图可解释/可切换 + 逐章成本耗时** — ①**地图不再静默回退**：`/map` 返回 `layout_reason`（realm_layers / low_geo_coverage / geo_unavailable / …）与 `geo_coverage`；前端新增「自动 / 地理 / 层级」切换，回退时说明原因并支持强制地理图。②**真实地图修正**：现实/冒险题材的「海底/龙宫」层不再把整本书拖成分层幻想图；`geo_failed` 旧标记可自愈；《白夜行》按 urban 题材回到日本地图，《边城》首次打开按高解析率探测回到中国地图；world 数据集的「东京」不再误用北宋汴梁坐标。③**层级方向修复**：`contains` 从 value 文本判断“位于/包括”，修掉 美国→内布拉斯加州、南极洲→南极、加拿大→诺第留斯号 等倒挂；`主世界` 不再挂在太平洋/丹麦下。④**地图审计**：`backend/scripts/map_quality_audit.py` 逐本输出 mode/reason/geo 覆盖率。⑤**v0.85 成本/耗时**：成本明细改用真实章节号+标题（此前显示 DB 行号），补每章耗时与总/均/最慢/最快；分析完成页新增「成本与耗时」报告（最慢/最贵章节 + CSV）；修复中文小说名 CSV 导出 500。1764 backend tests / 112 frontend tests 通过 |
 | **v0.83.0** ✅正式版 | 2026-10-24 | **地理坐标修正 + 工程清账（无新功能）** — ①**地名匹配不再误伤真地名**：GeoNames 把不少中国自然地貌标成 P 类（人口点），「虎丘山→虎丘」「临平山→临平」这类剥离后缀后的匹配原先被类型冲突**在检索阶段直接丢弃**（水浒一本书就丢 16 处）；现在有父地点证据时改为**流入第二遍校验**而不是查表即弃——虎丘保留在苏州 40km 内，而「东拉河→东拉」那类虚构父地点的误配仍被锚点检查拒绝（无 parent_map 时保持严格）。②**距离量词排除**：五十里/三十里这类不再当地名参与匹配（水浒里曾命中新疆一个小村）。③**沙门岛校正到长岛**（北宋流放地，GeoNames 把它错钉在温州外海）。④**5 个手工坐标转正**（围场/燕山/黑龙江/陇右/关外陇右）从生成块移入 curated，重跑生成器不再被静默覆盖。⑤**工程**：远端分支 18→2、依赖告警清零（含一条上游当日撤回的 advisory）、安装包体积审计（dmg 127MB = 运行时 98MB + 地理索引 29MB + 内置小说 3.5MB）、下载链路与仓库可见性彻底解耦（官网/README 均走 `ai-reader.cc/dl/` → R2 镜像）。1714 backend tests 通过 |
 | **v0.82.0** ✅正式版 | 2026-10-08 | **地图陆块生成重写：四大洲各自独立成陆，海不再刷在陆上** — ①**根因**：陆块距离场的阈值被「陆地须占画布 35%」的覆盖率下限绑架——西游记 605 个地点中位最近邻距仅 5px，密度阈值失效、地板值接管，每个大洲锚点刷 750px 半径的圆，四大洲粘成一个 1550 万 px²、含 596 地点的超级陆块；且层级里的伪锚点（`主世界` 界域节点、`四大部洲` 集合节点）+ ~150 个悬空点把各洲桥接，单纯调参无解。②**大洲分组场**：陆块改为按大洲分组构建——父链分组（比丘国→西牛贺洲，悬空点跟随最近已分组邻居）→ 组内各自 EDT 闭运算成形 → 组间**重叠与相切**处开凿水道（真实地点脚下的土地保留）；删掉 35% 地板，改为画布比例 + 密度下限的固定基准半径（`landmass_base_radius`）；集合名（四大部洲）与界域节点（主世界）不再当大陆锚点。③**错位海重定位**（`_relocate_misplaced_seas`）：布局把南海摆在距南赡部洲中心 43px 处（大陆正中心）、东洋大海贴花果山 252px，下游挖洞被保护盖限制只剩 8px 邮票格；现在冷路径上先按名称方位（南海往南、东洋大海往东）射线搜索迁到开阔水域（clearance 渐进放宽 + 兜底最远点），再生成陆块，位置随布局缓存持久化。④**粘连大洲分离**（`_separate_merged_continents`）：两个大洲锚点同陆块时，把较小子树整体平移到最近开阔水域（以东胜神洲为例，26 个地点迁往东北海域，成为符合原著的海中岛洲），≤3 轮迭代重建。⑤西游记实测：四大洲 **4/4 分离**、6 个海全部入水（clearance 317–550px）、审计 cardinal 10/10、sea_on_land 0、direction 22/44 持平；三国/红楼/平凡的世界新旧代码同数据对比无回归（覆盖率与未覆盖点数持平）；后端测试 1708 通过、ruff 零告警。`_TERRAIN_VERSION` 16→17。**注意**：曾被手钉到陆上的海（如东洋大海）会按「海必须在水中」规则被迁移；清缓存后首次打开地图需全量重建（约 35s），天界/地府等图层首次切换按需重建 |
 | **v0.81.0** ✅正式版 | 2026-10-07 | **章间并发 + 场景合并两大提速降费落地，追加章节功能上线** — ①**章间窗口化并发（#61）**：1600 章跑 3 天的正解——k 路 worker 并发做无副作用的抽取（上下文构建 + LLM 调用），单合并器严格按章序执行验证/幻觉判定/落库/世界结构投票/场景/embedding，跨章状态读写顺序与串行完全一致；`ANALYSIS_CONCURRENCY=2~3`（云端，与信号量对齐；本地强制 1）开启后理论耗时降至约 1/3。默认 k=1 走原路径逐字节不变（`git diff -w` 零删除行 + k=1/k=3 落库一致性测试钉死）；暂停改「排空即停」、进度/ETA 改完成计数制。②**场景抽取并入主抽取（#78-1）**：原先场景分析要把整章原文再发一遍 LLM（每章成本的重要组成）；云端单段章现一次调用同时产出 facts+scenes（wrapper schema，scenes 不进 ChapterFact 模型，recall/二审/落库/导出零影响；scenes 放 schema 靠后非末位，world_declarations 充当输出撞顶牺牲尾部，空/被截自动回退独立调用不丢场景）。`SCENE_MERGE_ENABLED` 开关，默认云端开/本地关（16K 窗口太挤）；分段长章/截断章自动回退旧路径。③**追加章节（#69）**：连载追更/分批导入不再整本重传——书架卡片「追加」入口贴文本或传文件，同一切章器切分、编号自动续接、SHA-256 指纹全书去重（贴上含已有章节的完整新稿也只会新增差额），已有章节的 facts/世界结构/向量索引零触碰，分析从上次处继续。④**工程**：chromadb/sentence-transformers 拆 optional extras（CI 单测不再装 torch 级依赖，桌面构建删除 uninstall hack；scipy/numpy/networkx 显式入主依赖）；前端测试 30→86（5 store + 3 组件冒烟），顺手修掉测试中暴露的实体卡「重试永远 Loading」真 bug。**已知待验**：场景合并的 −40%~60% token 节省与并发质量漂移为推断/设计值，建议云端灰度（先 `ANALYSIS_CONCURRENCY=2`）实测反馈 |

@@ -521,6 +521,45 @@ def _find_continent(
     return None
 
 
+def repair_layer_root_parents(parents: dict[str, str], layers) -> int:
+    """Keep a layer's display name from becoming a child of a real location.
+
+    ``主世界`` is the overworld layer name, not a geographic place. A stale
+    vote made it 主世界→太平洋, so the hierarchy root became 太平洋 and every
+    country hung off an ocean. Invert such edges: 太平洋→主世界.
+
+    Returns the number of repaired edges. Idempotent. A layer under a true
+    world root (``天下``/``世界``/…) is correct and left alone — only a layer
+    parented by a *place* (太平洋, 丹麦, 护城河, …) is inverted.
+    """
+    world_roots = {"天下", "世界", "寰宇", "三界", "宇宙"}
+    roots = {
+        getattr(lyr, "name", "")
+        for lyr in (layers or [])
+        if str(getattr(lyr, "layer_id", "")) == "overworld"
+        and getattr(lyr, "name", "")
+    }
+    fixed = 0
+    for root in roots:
+        parent = parents.get(root)
+        if not parent or parent == root or parent in roots or parent in world_roots:
+            continue
+        # Do not create a cycle if the parent chain already reaches the root.
+        cur, seen, cycle = parent, set(), False
+        while cur and cur not in seen:
+            if cur == root:
+                cycle = True
+                break
+            seen.add(cur)
+            cur = parents.get(cur)
+        if cycle:
+            continue
+        parents[parent] = root
+        parents.pop(root, None)
+        fixed += 1
+    return fixed
+
+
 def _get_suffix_rank(name: str) -> int | None:
     """Get geographic scale rank from Chinese location name suffix.
 
@@ -2983,6 +3022,8 @@ class WorldStructureAgent:
                 len(suspicious), len(self._suspicious_pairs),
             )
 
+        if self.structure is not None:
+            repair_layer_root_parents(result, self.structure.layers)
         return result
 
     @staticmethod
