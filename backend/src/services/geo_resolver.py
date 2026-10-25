@@ -1271,7 +1271,13 @@ class GeoResolver:
 
             # Level 1: curated supplement (highest priority — prevents mismatches
             # like 西域→浙江西域村, 长安→石家庄长安区, 天山→内蒙古天山镇)
-            sup = sup_order[0].get(name) or sup_order[1].get(name)
+            if self.dataset_key == "world" and name in _CN_ONLY_GEO_NAMES:
+                # 这些是中文历史语境下的读法（东京=北宋汴梁、临安=杭州…）。
+                # 世界数据集里同名地点通常是另一个真实城市（东京=Tokyo），
+                # 让 zh_geonames 别名索引决定，避免《白夜行》的东京落到开封。
+                sup = None
+            else:
+                sup = sup_order[0].get(name) or sup_order[1].get(name)
             if sup:
                 result[name] = sup
                 supplement_names.add(name)
@@ -1663,6 +1669,14 @@ def detect_geo_scope(
         return "world"
 
 
+# Cached fantasy is probed once: some Chinese novels are misclassified as
+# fantasy because their small-town names are not in the "notable" list, yet a
+# large share of their names still resolve (边城: 29/94 = 30.9%). Fantasy /
+# xianxia genres are exempt; low-resolution fantasy worlds stay layered.
+_FANTASY_PROBE_RATIO = 0.25
+_FANTASY_PROBE_MIN_NAMES = 20
+
+
 async def auto_resolve(
     genre_hint: str | None,
     location_names: list[str],
@@ -1689,15 +1703,16 @@ async def auto_resolve(
     """
     # ── Fast path: caller already knows the geo_type (cached) ──
     if known_geo_type:
-        # Apply genre override even on cached values — historical/realistic novels
-        # may have been incorrectly classified as "fantasy" before the supplement
-        # was expanded.  Upgrade to "mixed" so coordinate resolution runs.
+        # Apply genre override even on cached values — historical/realistic/urban
+        # novels may have been incorrectly classified as "fantasy" before the
+        # supplement was expanded (白夜行: 42/352 世 界地名仍被缓存成 fantasy).
+        # Upgrade to "mixed" so coordinate resolution runs.
         # NOTE: "wuxia" excluded — xianxia novels (凡人修仙传) are often
         # misclassified as wuxia, and the override incorrectly forces geographic mode.
         if (
             known_geo_type not in ("realistic", "mixed")
             and genre_hint
-            and genre_hint.lower() in ("historical", "realistic")
+            and genre_hint.lower() in ("historical", "realistic", "urban")
         ):
             logger.info(
                 "GeoResolver: cached geo_type '%s' overridden to 'mixed' "
@@ -1706,6 +1721,35 @@ async def auto_resolve(
             )
             known_geo_type = "mixed"
         if known_geo_type not in ("realistic", "mixed"):
+            # One-shot probe for a false-negative fantasy cache. Only if the
+            # genre is not explicitly fantasy/xianxia and enough names resolve.
+            genre = (genre_hint or "").strip().lower()
+            if (
+                known_geo_type == "fantasy"
+                and genre not in ("fantasy", "wuxia")
+                and len(location_names) >= _FANTASY_PROBE_MIN_NAMES
+            ):
+                probe_scope = detect_geo_scope(genre_hint, location_names)
+                if probe_scope != "none":
+                    try:
+                        probe = GeoResolver(dataset_key=probe_scope)
+                        await probe.ensure_ready()
+                        probe_resolved = probe.resolve_names(
+                            location_names, parent_map, type_map,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "GeoResolver: fantasy probe failed", exc_info=True,
+                        )
+                        probe_resolved = {}
+                    ratio = len(probe_resolved) / max(len(location_names), 1)
+                    if ratio >= _FANTASY_PROBE_RATIO:
+                        logger.info(
+                            "GeoResolver: cached fantasy upgraded to mixed "
+                            "(%.1f%% of names resolve, scope=%s)",
+                            ratio * 100, probe_scope,
+                        )
+                        return (probe_scope, "mixed", probe, probe_resolved)
             return ("", known_geo_type, None, {})
         # Need coordinate resolution — still need a dataset
         geo_scope = detect_geo_scope(genre_hint, location_names)
@@ -1727,16 +1771,21 @@ async def auto_resolve(
 
     geo_type = resolver.detect_geo_type(major_names)
 
-    # Historical/realistic novels are set in the real world — override fantasy to mixed.
-    # Ancient place names (荆州, 冀州, 许都) often fail modern GeoNames matching,
-    # causing false "fantasy" classification.  Realistic novels (平凡的世界) mix
-    # fictional place names with real geography, also triggering false "fantasy".
+    # Historical/realistic/urban novels are set in the real world — override
+    # fantasy to mixed. Ancient place names (荆州, 冀州, 许都) often fail modern
+    # GeoNames matching, causing false "fantasy" classification. Realistic
+    # novels (平凡的世界) and translated urban novels (白夜行) mix fictional
+    # names with real geography, also triggering false "fantasy".
     # NOTE: "wuxia" excluded — xianxia novels are often misclassified as wuxia,
     # and real wuxia novels have enough real place names for auto-detection.
-    if geo_type == "fantasy" and genre_hint and genre_hint.lower() in ("historical", "realistic"):
+    if (
+        geo_type == "fantasy"
+        and genre_hint
+        and genre_hint.lower() in ("historical", "realistic", "urban")
+    ):
         logger.info(
             "GeoResolver: genre '%s' overrides geo_type fantasy → mixed "
-            "(historical/wuxia novels use real-world geography)",
+            "(historical/realistic/urban novels use real-world geography)",
             genre_hint,
         )
         geo_type = "mixed"
@@ -2084,6 +2133,15 @@ _SUPPLEMENT_GEO.update({
 # (东厢/东门/书院 → placeholder coords).  Geo-scope detection must only trust
 # this curated set — counting the full dict would flag every Chinese classic
 # as "world" because its mansion interiors happen to be GeoEvolve keys.
+# 中文历史语境专属读法：只在 cn 数据集生效。world 数据集让 zh_geonames
+# 处理同名现代城市（东京→Tokyo，而不是北宋汴梁）。
+_CN_ONLY_GEO_NAMES: frozenset[str] = frozenset({
+    # 东京: the only true cross-country homonym here (Kaifeng vs Tokyo).
+    # Other historical names (长安/临安/金陵) keep the curated CN coordinate
+    # in both datasets — the world zh-index often resolves them to a village.
+    "东京",
+})
+
 _SUPPLEMENT_GEO_CURATED: frozenset[str] = frozenset(_SUPPLEMENT_GEO)
 
 # ── GeoEvolve delta begin（自动生成，勿手改）──

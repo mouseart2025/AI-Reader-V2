@@ -2061,7 +2061,7 @@ async def get_map_data(
         and _effective_geo_type not in ("realistic", "mixed")
         and ws
         and ws.novel_genre_hint
-        and ws.novel_genre_hint.lower() in ("historical", "wuxia")
+        and ws.novel_genre_hint.lower() in ("historical", "wuxia", "urban")
     ):
         _effective_geo_type = "mixed"
     if (
@@ -2286,7 +2286,9 @@ async def get_map_data(
                     if geo_type == "mixed":
                         resolve_ratio = len(resolved) / max(len(all_names), 1)
                         genre = (ws.novel_genre_hint or "").lower() if ws else ""
-                        min_ratio = 0.10 if genre in ("historical", "wuxia", "realistic", "adventure") else 0.15
+                        min_ratio = 0.10 if genre in (
+                            "historical", "wuxia", "realistic", "adventure", "urban",
+                        ) else 0.15
                         if resolve_ratio < min_ratio:
                             logger.info(
                                 "geo_type=mixed but only %d/%d (%.0f%%) locations "
