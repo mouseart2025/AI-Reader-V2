@@ -124,6 +124,58 @@ async def get_all_chapter_facts(novel_id: str) -> list[dict]:
         await conn.close()
 
 
+async def get_cost_rows(novel_id: str) -> list[dict]:
+    """Per-chapter cost/duration rows without parsing fact_json.
+
+    `get_cost_detail` / CSV only need counters and timings. Loading and
+    json.loads-ing every chapter fact for a 1600-chapter novel is tens of MB
+    and seconds of CPU; JSON1 counts the entity arrays in SQL instead.
+    """
+    conn = await get_connection()
+    try:
+        cursor = await conn.execute(
+            """
+            SELECT f.chapter_id, f.llm_model, f.extracted_at, f.extraction_ms,
+                   f.input_tokens, f.output_tokens, f.cost_usd, f.cost_cny,
+                   f.is_truncated, f.segment_count, f.output_truncated,
+                   c.chapter_num, c.title AS chapter_title,
+                   (
+                       COALESCE(json_array_length(f.fact_json, '$.characters'), 0)
+                     + COALESCE(json_array_length(f.fact_json, '$.locations'), 0)
+                     + COALESCE(json_array_length(f.fact_json, '$.item_events'), 0)
+                     + COALESCE(json_array_length(f.fact_json, '$.org_events'), 0)
+                   ) AS entity_count
+            FROM chapter_facts f
+            LEFT JOIN chapters c ON c.id = f.chapter_id
+            WHERE f.novel_id = ?
+            ORDER BY c.chapter_num, f.chapter_id
+            """,
+            (novel_id,),
+        )
+        rows = await cursor.fetchall()
+        return [
+            {
+                "chapter_id": row["chapter_id"],
+                "chapter_num": row["chapter_num"] or row["chapter_id"],
+                "chapter_title": row["chapter_title"] or "",
+                "llm_model": row["llm_model"] or "",
+                "extracted_at": row["extracted_at"],
+                "extraction_ms": int(row["extraction_ms"] or 0),
+                "input_tokens": row["input_tokens"] or 0,
+                "output_tokens": row["output_tokens"] or 0,
+                "cost_usd": row["cost_usd"] or 0.0,
+                "cost_cny": row["cost_cny"] or 0.0,
+                "is_truncated": bool(row["is_truncated"]),
+                "segment_count": row["segment_count"] or 1,
+                "output_truncated": bool(row["output_truncated"]),
+                "entity_count": int(row["entity_count"] or 0),
+            }
+            for row in rows
+        ]
+    finally:
+        await conn.close()
+
+
 async def get_fact_stats(novel_id: str) -> dict:
     """Aggregate stats/quality metrics for a novel's chapter facts in SQL.
 

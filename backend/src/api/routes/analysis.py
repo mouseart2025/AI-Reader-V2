@@ -339,7 +339,7 @@ async def get_cost_detail(novel_id: str):
     if not novel:
         raise HTTPException(status_code=404, detail="小说不存在")
 
-    all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    cost_rows = await chapter_fact_store.get_cost_rows(novel_id)
 
     # Get latest task for time range and model info
     task = await analysis_task_store.get_latest_task(novel_id)
@@ -357,14 +357,8 @@ async def get_cost_detail(novel_id: str):
     segmented_count = 0
     total_segments = 0
 
-    for ef in all_facts:
-        fact = ef.get("fact", {})
-        entity_count = (
-            len(fact.get("characters", []))
-            + len(fact.get("locations", []))
-            + len(fact.get("item_events", []))
-            + len(fact.get("org_events", []))
-        )
+    for ef in cost_rows:
+        entity_count = ef["entity_count"]
         inp = ef.get("input_tokens", 0)
         out = ef.get("output_tokens", 0)
         c_usd = ef.get("cost_usd", 0.0)
@@ -394,8 +388,8 @@ async def get_cost_detail(novel_id: str):
             durations.append(chapter_ms)
         chapters.append({
             "chapter_id": ef["chapter_id"],
-            "chapter_num": ef.get("chapter_num") or ef["chapter_id"],
-            "chapter_title": ef.get("chapter_title") or "",
+            "chapter_num": ef["chapter_num"],
+            "chapter_title": ef["chapter_title"],
             "input_tokens": inp,
             "output_tokens": out,
             "cost_usd": round(c_usd, 6),
@@ -444,7 +438,7 @@ async def export_cost_csv(novel_id: str):
     if not novel:
         raise HTTPException(status_code=404, detail="小说不存在")
 
-    all_facts = await chapter_fact_store.get_all_chapter_facts(novel_id)
+    cost_rows = await chapter_fact_store.get_cost_rows(novel_id)
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -460,14 +454,8 @@ async def export_cost_csv(novel_id: str):
     total_ent = 0
     durations: list[int] = []
 
-    for ef in all_facts:
-        fact = ef.get("fact", {})
-        ent = (
-            len(fact.get("characters", []))
-            + len(fact.get("locations", []))
-            + len(fact.get("item_events", []))
-            + len(fact.get("org_events", []))
-        )
+    for ef in cost_rows:
+        ent = ef["entity_count"]
         inp = ef.get("input_tokens", 0)
         out = ef.get("output_tokens", 0)
         c_usd = ef.get("cost_usd", 0.0)
@@ -483,8 +471,8 @@ async def export_cost_csv(novel_id: str):
             durations.append(chapter_ms)
 
         writer.writerow([
-            ef.get("chapter_num") or ef["chapter_id"],
-            ef.get("chapter_title") or "",
+            ef["chapter_num"],
+            ef["chapter_title"],
             inp,
             out,
             round(c_usd, 6),
@@ -523,13 +511,26 @@ async def get_analysis_records():
     """List all completed analysis tasks with summary cost info."""
     conn = await get_connection()
     try:
+        # One grouped query instead of N+1 per task. chapter_facts.chapter_id
+        # is the DB row id; the range filter must use chapters.chapter_num.
         cursor = await conn.execute(
             """
             SELECT t.id, t.novel_id, t.status, t.chapter_start, t.chapter_end,
-                   t.created_at, t.updated_at, n.title as novel_title
+                   t.created_at, t.updated_at, n.title as novel_title,
+                   COALESCE(SUM(f.input_tokens), 0) as total_input,
+                   COALESCE(SUM(f.output_tokens), 0) as total_output,
+                   COALESCE(SUM(f.cost_usd), 0) as total_usd,
+                   COALESCE(SUM(f.cost_cny), 0) as total_cny,
+                   COALESCE(SUM(f.extraction_ms), 0) as total_ms,
+                   COUNT(f.chapter_id) as chapter_count
             FROM analysis_tasks t
-            LEFT JOIN novels n ON t.novel_id = n.id
+            LEFT JOIN novels n ON n.id = t.novel_id
+            LEFT JOIN chapters c
+                   ON c.novel_id = t.novel_id
+                  AND c.chapter_num BETWEEN t.chapter_start AND t.chapter_end
+            LEFT JOIN chapter_facts f ON f.chapter_id = c.id
             WHERE t.status IN ('completed', 'cancelled')
+            GROUP BY t.id
             ORDER BY t.created_at DESC
             LIMIT 50
             """
@@ -538,42 +539,22 @@ async def get_analysis_records():
 
         records = []
         for row in rows:
-            # Get cost summary from chapter_facts for this task's range
-            # chapter_facts.chapter_id is the DB row id; chapter_num lives in
-            # chapters. Comparing row ids to the task's chapter range silently
-            # returned zero cost for novels whose ids don't start at 1.
-            fact_cursor = await conn.execute(
-                """
-                SELECT COALESCE(SUM(f.input_tokens), 0) as total_input,
-                       COALESCE(SUM(f.output_tokens), 0) as total_output,
-                       COALESCE(SUM(f.cost_usd), 0) as total_usd,
-                       COALESCE(SUM(f.cost_cny), 0) as total_cny,
-                       COALESCE(SUM(f.extraction_ms), 0) as total_ms,
-                       COUNT(*) as chapter_count
-                FROM chapter_facts f
-                JOIN chapters c ON c.id = f.chapter_id
-                WHERE f.novel_id = ?
-                  AND c.chapter_num >= ? AND c.chapter_num <= ?
-                """,
-                (row["novel_id"], row["chapter_start"], row["chapter_end"]),
-            )
-            cost_row = await fact_cursor.fetchone()
-
+            chapter_count = int(row["chapter_count"] or 0)
+            total_ms = int(row["total_ms"] or 0)
             records.append({
                 "task_id": row["id"],
                 "novel_id": row["novel_id"],
                 "novel_title": row["novel_title"] or "",
                 "status": row["status"],
                 "chapter_range": [row["chapter_start"], row["chapter_end"]],
-                "chapter_count": cost_row["chapter_count"] if cost_row else 0,
-                "total_input_tokens": cost_row["total_input"] if cost_row else 0,
-                "total_output_tokens": cost_row["total_output"] if cost_row else 0,
-                "total_cost_usd": round(cost_row["total_usd"], 4) if cost_row else 0,
-                "total_cost_cny": round(cost_row["total_cny"], 2) if cost_row else 0,
-                "total_ms": int(cost_row["total_ms"]) if cost_row else 0,
+                "chapter_count": chapter_count,
+                "total_input_tokens": int(row["total_input"] or 0),
+                "total_output_tokens": int(row["total_output"] or 0),
+                "total_cost_usd": round(row["total_usd"] or 0, 4),
+                "total_cost_cny": round(row["total_cny"] or 0, 2),
+                "total_ms": total_ms,
                 "avg_chapter_ms": (
-                    round(cost_row["total_ms"] / cost_row["chapter_count"])
-                    if cost_row and cost_row["chapter_count"] else 0
+                    round(total_ms / chapter_count) if chapter_count else 0
                 ),
                 "started_at": row["created_at"],
                 "completed_at": row["updated_at"],
