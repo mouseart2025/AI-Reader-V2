@@ -206,8 +206,8 @@ check_contains "frontend/src-tauri/Cargo.toml" "Cargo.toml" "$VERSION"
 check_contains "frontend/src-tauri/Cargo.lock" "Cargo.lock" "$VERSION"
 check_contains "backend/uv.lock" "uv.lock (PEP 440)" "$(_to_pep440 "$VERSION")"
 check_contains "frontend/package-lock.json" "package-lock.json" "$VERSION"
-check_contains "README.md" "README.md badge" "source-$(_to_badge "$VERSION")-blue"
-check_contains "README_EN.md" "README_EN.md badge" "source-$(_to_badge "$VERSION")-blue"
+check_contains "README.md" "README.md badge" "-$(_to_badge "$VERSION")-blue"
+check_contains "README_EN.md" "README_EN.md badge" "-$(_to_badge "$VERSION")-blue"
 
 if [ $ERRORS -gt 0 ]; then
   echo ""
