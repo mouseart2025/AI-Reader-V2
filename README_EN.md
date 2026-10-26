@@ -1,135 +1,202 @@
-# AI Reader V2 — AI-Powered Novel Analysis & Visualization
+# AI Reader V2 — Turn Novels into Explorable Knowledge
 
-[![Version](https://img.shields.io/badge/version-0.75.0-blue)](https://github.com/mouseart2025/AI-Reader-V2)
+[![Tests](https://github.com/mouseart2025/AI-Reader-V2/actions/workflows/test.yml/badge.svg)](https://github.com/mouseart2025/AI-Reader-V2/actions/workflows/test.yml)
+[![Version](https://img.shields.io/badge/source-0.85.0-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
-[![Python](https://img.shields.io/badge/python-≥3.9-3776ab?logo=python&logoColor=white)](https://www.python.org/)
-[![Node.js](https://img.shields.io/badge/node-≥22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/react-19-61dafb?logo=react&logoColor=white)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/typescript-5.9-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Ollama](https://img.shields.io/badge/ollama-supported-FF6B35)](https://ollama.com/)
+[![Python](https://img.shields.io/badge/python-3.10+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![Node.js](https://img.shields.io/badge/node-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Tauri](https://img.shields.io/badge/tauri-2-FFC131?logo=tauri&logoColor=white)](https://v2.tauri.app/)
 
 > **[Chinese Version / 中文版](./README.md)**
 
-> **Notice:** This project is under active development with rapid iteration focused on improving analysis quality. It has **not yet reached production readiness**. The web dev build and desktop installers are provided for **early preview only** — analysis results may contain significant errors. Feedback is welcome, but please do not rely on the output for formal academic research or literary analysis.
+**Upload a novel. Get a character graph, world map, timeline, encyclopedia, and source-grounded Q&A.**
 
-**Open-source AI novel analysis tool** — Upload any TXT/Markdown novel and let AI automatically extract character relationships, location hierarchies, and event timelines, generating interactive knowledge graphs, world maps, timelines, and more. Supports local Ollama and cloud LLMs. 100% local data storage, no telemetry.
+AI Reader V2 does more than chapter summaries: it turns a whole book into structured `ChapterFact` records — characters, relationships, location hierarchies, item flows, organization events, timelines — then builds an interactive knowledge base you can explore, correct, and export. Data stays on your machine by default.
+
+> **Status (2026-10-26):** source **v0.85.0 is public**; the stable desktop build is still **v0.83.0**, with v0.85 installers awaiting three-platform smoke tests. The project is under active development; verify analysis output against the source text before using it in formal research.
 
 <p align="center">
   <a href="https://ai-reader.cc"><strong>Website</strong></a> ·
   <a href="https://ai-reader.cc/demo/honglou/graph?v=3"><strong>Live Demo</strong></a> ·
-  <a href="#quick-start"><strong>Quick Start</strong></a> ·
-  <a href="#desktop-download"><strong>Desktop Download</strong></a> ·
+  <a href="#download"><strong>Download</strong></a> ·
+  <a href="https://github.com/mouseart2025/AI-Reader-V2"><strong>Source</strong></a> ·
   <a href="./ROADMAP.md"><strong>Roadmap</strong></a>
 </p>
 
-## Key Features
+## Contents
 
-### 🕸️ Character Relationship Knowledge Graph
+- [Status](#status)
+- [What It Is](#what-it-is)
+- [Features](#features)
+- [Download](#download)
+- [Run from Source](#run-from-source)
+- [Tech Stack](#tech-stack)
+- [Quality & Reproducibility](#quality--reproducibility)
+- [Docs](#docs)
+- [License](#license)
 
-Force-directed relationship network with 70+ relation types automatically detected, colored by 6 categories (family, intimate, hierarchical, social, hostile, other). Smart entity alias merging, path finding, category filtering, and edge weight adjustment.
+## Status
 
-<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="Character Relationship Knowledge Graph" />
+| Channel | Version | Notes |
+|---------|---------|-------|
+| Desktop stable | **v0.83.0** | Recommended for most users; macOS / Windows |
+| Latest source | **v0.85.0** | Public; explainable map layouts + per-chapter cost/time |
+| Live demo | Honglou / Journey to the West | No install required |
+| v0.85 installers | Pending | Three-platform smoke tests; use v0.83.0 for now |
 
-### 🗺️ Auto-Generated World Map
+- Source & releases: <https://github.com/mouseart2025/AI-Reader-V2>
+- v0.85.0 source release: <https://github.com/mouseart2025/AI-Reader-V2/releases/tag/v0.85.0>
+- Full history: [CHANGELOG.md](./CHANGELOG.md)
 
-Fully automated multi-layer interactive world map built from novel text. Supports multiple spatial layers (celestial/underworld/underwater/pocket dimensions), portal connections, procedural terrain (biomes, rivers, roads, continental shelves), character trajectory animation, and rough.js hand-drawn style rendering. **v0.58: Cross-chapter spatial completion + adaptive spatial scale (9 canvas levels) + smart redraw.**
+## What It Is
 
-<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="Novel World Map - Auto-generated Fiction Map" />
+Most "AI reads a novel" tools stop at summaries. AI Reader V2 goes one step further and makes the result **computable**:
 
-### ⏳ Multi-Lane Timeline / Storyline View
+- **Structured** — every chapter yields characters, relationships, locations, items, organizations, events, and concepts; entities are aggregated across chapters.
+- **Explainable** — relationships carry evidence spans; the map explains why it chose a real geographic view or a layered fantasy view; hierarchy rebuilds have snapshots and audits.
+- **Correctable** — merge/split aliases, rename/hide/retype entities. Corrections layer on top of the automatic result without mutating the original facts.
+- **Local-first** — SQLite + ChromaDB on your machine; use local Ollama or an OpenAI-compatible cloud API.
 
-Multi-source event aggregation (character appearances, item transfers, relationship changes, organization events), intelligent noise filtering, emotional tone badges, auto-collapsing chapters. Storyline swimlane view tracks parallel character narratives.
+## Features
 
-<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="Novel Timeline - Multi-character Narrative Timeline" />
+### 🕸️ Character Relationship Graph
+
+Force-directed network with 70+ relation types, colored by six categories (family, intimate, hierarchical, social, hostile, other). Automatic alias merging (Sun Wukong = Monkey King = Pilgrim), path finding, category filters, and edge-weight controls.
+
+<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="Character relationship graph generated from a novel" />
+
+### 🗺️ Novel World Map
+
+Automatically builds a multi-layer map: real-world geographic view (Leaflet + GeoNames) or layered fantasy maps (heaven, underworld, underwater, pocket realms). Procedural terrain, rivers, continental shelves, trajectory playback, and rough.js hand-drawn styling.
+
+Since v0.84 the map no longer falls back silently: the API returns `layout_reason` / `geo_coverage`, and the UI offers **Auto / Geographic / Layered** with an explanation. An "underwater" layer in a realistic novel no longer turns the whole book into a fantasy map.
+
+<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="Novel world map generated from text" />
+
+### ⏳ Multi-Lane Timeline
+
+Aggregates events from six sources (character appearances, item transfers, relationship changes, organization events, original events, scene tone), with noise filtering, emotional-tone badges, chapter folding, and story-line swimlanes.
+
+<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="Multi-character novel timeline" />
 
 ### 📖 Novel Encyclopedia
 
-Five entity types with categorized browsing (characters, locations, items, organizations, concepts), location hierarchy tree with spatial relationship panel, scene index for source text lookup, world structure overview.
+Browse characters, locations, items, organizations, and concepts; inspect the location hierarchy and spatial relationships; jump from a scene index to the original text; view the world structure.
 
-<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="Novel Encyclopedia - Characters, Locations, Items" />
+<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="Novel encyclopedia — characters, locations, items, organizations" />
 
-### More Features
+### More
 
-- 🖥️ **Desktop App** — Tauri 2 native desktop client, download and run, fully offline
-- 📚 **Bookshelf** — Drag-and-drop upload .txt/.md, smart chapter splitting (50+ formats), search, sort, import/export/backup
-- 🔍 **Entity Pre-scan** — jieba Chinese word segmentation + LLM classification for improved extraction quality
-- 📖 **Smart Reading** — Entity highlighting (5 color types), alias resolution, bookmarks, scene/screenplay panel
-- ⚔️ **Faction Map** — Organization structure and faction relationship network
-- 💬 **RAG Q&A** — Retrieval-augmented Q&A based on source text, streaming chat, source attribution
-- 📤 **Series Bible Export** — Markdown / Word / Excel / PDF with template selection
-- 🤖 **Multi-LLM Support** — Local Ollama (qwen3:8b etc.) + 10 cloud providers (DeepSeek, MiniMax, Claude, OpenAI, Gemini, etc.)
-- 📊 **Full Analysis Pipeline** — Entity pre-scan → per-chapter extraction → aggregation → visualization, async execution, pause/resume, auto-retry, token budget auto-scaling
+| Capability | What it does |
+|------------|--------------|
+| 🖥️ Desktop app | Tauri 2 client with a bundled Python sidecar |
+| 📚 Bookshelf | Drag-and-drop `.txt`/`.md`, 50+ chapter formats, search, sort, import/export/backup |
+| 🔍 Entity pre-scan | jieba segmentation + LLM classification to build an entity dictionary |
+| 📖 Smart reading | Entity highlighting, alias resolution, bookmarks, annotations, scene/screenplay panel |
+| ⚔️ Faction map | Organization structures and faction relationships |
+| 💬 RAG Q&A | Source-grounded retrieval Q&A with streaming answers and citations |
+| 📤 Series bible export | Markdown / Word / Excel / PDF, templates, chapter ranges |
+| 🤖 Multi-LLM | Local Ollama + 10 cloud OpenAI-compatible providers |
+| 🔁 Independent second pass | Optional independent re-read, chapter-level diff, separate cost accounting |
+| 💰 Cost & time | Per-chapter tokens, cost, duration, totals, CSV export |
+| 🛠️ Manual correction | Alias merge/split, rename/hide/retype, reversible |
+| 🧪 Reproducible | 1764 backend / 112 frontend tests, golden fixtures, CI |
 
-## Use Cases
+## Download
 
-| Scenario | Description |
-|----------|-------------|
-| Web Novel / Fiction Analysis | Automatically organize character relationships, location hierarchies, faction distributions |
-| Literary Research | Character relationship network analysis, narrative structure visualization |
-| Writing Aid | Series bible export, world-building consistency check |
-| Fan Fiction Reference | Quickly understand source material's character relationships and world structure |
-| Reading Notes | Highlight entities, bookmark, scene index during reading |
-| Teaching & Presentation | Visual demonstration of novel structure |
+The desktop build bundles the Python backend; install [Ollama](https://ollama.com/) or configure a cloud API.
 
-## Desktop Download
+| Platform | Stable download | Architecture |
+|----------|-----------------|--------------|
+| macOS | [AI Reader 0.83.0 (dmg)](https://ai-reader.cc/dl/v0.83.0/AI.Reader_0.83.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader 0.83.0 (exe)](https://ai-reader.cc/dl/v0.83.0/AI.Reader_0.83.0_x64-setup.exe) | x86_64 |
 
-No development environment needed — download and run. Built-in Python backend, just install [Ollama](https://ollama.com/) or configure a cloud API.
+> **Why 0.83?** v0.85.0 source is public, but installers are still going through three-platform smoke tests. Use the source build or the live demo to try the new features now.
 
-| Platform | Download | Architecture |
-|----------|----------|-------------|
-| macOS | [AI Reader_0.75.0_aarch64.dmg](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.75.0/AI.Reader_0.75.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader_0.75.0_x64-setup.exe](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.75.0/AI.Reader_0.75.0_x64-setup.exe) | x86_64 |
-
-> **macOS says "damaged"?** Run in Terminal: `xattr -cr "/Applications/AI Reader.app"`, then reopen.
->
-> See [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases) for all versions.
-
-## Quick Start
-
-**Requirements:** Python 3.10+ / Node.js 22+ / [uv](https://docs.astral.sh/uv/) / [Ollama](https://ollama.com/) (or cloud API)
+<details>
+<summary>macOS says the app is “damaged”?</summary>
 
 ```bash
-# 1. Start Ollama (local LLM)
-ollama pull qwen3:8b && ollama serve
-
-# 2. Start backend
-cd backend && uv sync && uv run uvicorn src.api.main:app --reload
-
-# 3. Start frontend (new terminal)
-cd frontend && npm install && npm run dev
+xattr -cr "/Applications/AI Reader.app"
 ```
 
-Open http://localhost:5173. Upload a TXT novel → Analyze → View visualizations.
+Then reopen it.
+</details>
 
-> Don't want to set up locally? Try the [Live Demo](https://ai-reader.cc/demo/honglou/graph?v=3) with pre-analyzed classic Chinese novels.
+More versions and pre-releases: [Releases](https://github.com/mouseart2025/AI-Reader-V2/releases).
+
+## Run from Source
+
+**Requirements:** Python 3.10+, Node.js 22+, [uv](https://docs.astral.sh/uv/), [Ollama](https://ollama.com/) (or a cloud API).
+
+```bash
+git clone https://github.com/mouseart2025/AI-Reader-V2.git
+cd AI-Reader-V2
+
+# Backend (use --all-extras for semantic-search dependencies)
+cd backend
+uv sync --all-extras
+uv run uvicorn src.api.main:app --reload
+
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173>, upload a TXT/Markdown novel, and start analysis.
+
+- **Local model:** `ollama pull qwen3:8b && ollama serve`, then select Ollama in Settings.
+- **Cloud model:** set API key / base URL / model in Settings (DeepSeek, MiniMax, Claude, OpenAI, Gemini, etc.).
+- **No setup:** try the [live demo](https://ai-reader.cc/demo/honglou/graph?v=3).
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for desktop builds, tests, and development conventions.
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Frontend | React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui |
 | Desktop | Tauri 2 (Rust) + Python sidecar (PyInstaller) |
-| Visualization | D3.js + SVG (map) / react-force-graph-2d (graph) / react-leaflet (geographic) |
+| Visualization | react-force-graph-2d (graph) / Leaflet (geographic) / D3 + SVG (map, timeline) |
 | State | Zustand 5 |
 | Backend | Python + FastAPI (async) + aiosqlite |
-| Database | SQLite (structured) + ChromaDB (vector search) |
-| LLM | Ollama (local) or OpenAI-compatible API (cloud, 10 providers) |
-| Chinese NLP | jieba segmentation + entity pre-scanning |
+| Data | SQLite (structured) + ChromaDB (vector search) |
+| LLM | Ollama (local) or OpenAI-compatible cloud APIs (10 providers) |
+| Chinese NLP | jieba + entity pre-scan |
 
-## Documentation
+## Quality & Reproducibility
 
-- 📋 [Contributing](./CONTRIBUTING.md) — Development setup, code conventions, PR process
-- 🏗️ [Architecture](./CLAUDE.md) — Full architecture design, code conventions, data models
-- 💼 [Commercial License](./LICENSE-COMMERCIAL.md) — Commercial usage terms
+- **Tests:** 1764 backend, 112 frontend; CI runs ruff, eslint, pytest, vitest, build, and repo-boundary checks.
+- **Golden data:** location hierarchies and character review fixtures for Journey to the West, Dream of the Red Chamber, Water Margin, Romance of the Three Kingdoms, and Investiture of the Gods.
+- **Map audit:** `backend/scripts/map_quality_audit.py` reports layout mode, fallback reason, and geo coverage per novel.
+- **Quality loop:** `backend/scripts/quality_loop.py` aggregates Q0/judge/relation-dimension/smoke artifacts and fails on hard regressions.
+
+```bash
+cd backend && uv run pytest tests/ -q
+cd frontend && npx vitest run && npm run build
+```
+
+See [CLAUDE.md](./CLAUDE.md) and [ROADMAP.md](./ROADMAP.md) for details.
+
+## Docs
+
+- [Contributing](./CONTRIBUTING.md)
+- [Architecture](./CLAUDE.md)
+- [Roadmap](./ROADMAP.md)
+- [Changelog](./CHANGELOG.md)
+- [Security](./SECURITY.md)
+- [Commercial license](./LICENSE-COMMERCIAL.md)
+- [Third-party notices](./NOTICE)
+- [Development story (Chinese)](https://zhuanlan.zhihu.com/p/2016598051163218226)
 
 ## License
 
-[GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0)
+[GNU Affero General Public License v3.0](./LICENSE) (AGPL-3.0).
 
-Free for personal, educational, and research use. For commercial closed-source deployment, see [Commercial License](./LICENSE-COMMERCIAL.md).
+Free for personal, educational, and research use. For closed-source commercial deployment, see the [commercial license](./LICENSE-COMMERCIAL.md). The source is public — forks and PRs are welcome.
 
 ---
 
-**Keywords:** novel analysis tool / fiction analysis / AI reader / knowledge graph generator / character relationship graph / novel world map / timeline visualization / NLP text analysis / LLM application / Ollama / Chinese novel / web novel tool / character relationship mapping / world-building / story analysis / book visualization
+**Keywords:** novel analysis / literary analysis / AI reading / knowledge graph / character relationships / novel world map / timeline visualization / NLP / LLM / Ollama / Chinese novels / RAG / local-first

@@ -146,17 +146,21 @@ echo "  ✅ backend/uv.lock (PEP 440: $OLD_PEP440 → $NEW_PEP440)"
 
 # ── 6. README.md badge + download links ──────────────
 FILE="$PROJECT_ROOT/README.md"
+FILE_EN="$PROJECT_ROOT/README_EN.md"
 # The badge value is shields.io-escaped: a literal '-' is written '--', so the
 # raw version NEVER appears in the badge text (0.78.0-beta.2 -> 0.78.0--beta.2).
 # Match the escaped form, or the badge silently keeps the old version while the
 # rest of the repo moves on.
 OLD_BADGE="$(_to_badge "$OLD_VERSION")"
 NEW_BADGE="$(_to_badge "$VERSION")"
-_sed_i "s/version-$OLD_BADGE-blue/version-$NEW_BADGE-blue/g" "$FILE"
+for f in "$FILE" "$FILE_EN"; do
+  _sed_i "s/version-$OLD_BADGE-blue/version-$NEW_BADGE-blue/g" "$f"
+  _sed_i "s/source-$OLD_BADGE-blue/source-$NEW_BADGE-blue/g" "$f"
+done
 # Download links: ONLY lines containing releases/download/ — cannot reach the
 # changelog rows (those carry "vX.Y.Z" with no download path).
 _sed_i "/releases\/download\//s/$OLD_VERSION/$VERSION/g" "$FILE"
-echo "  ✅ README.md (badge + download links; changelog untouched)"
+echo "  ✅ README.md / README_EN.md (badge + download links; changelog untouched)"
 
 # ── 7. frontend/package-lock.json (deterministic, offline) ─
 # Patch the two "version" fields directly instead of shelling out to npm.
@@ -202,7 +206,8 @@ check_contains "frontend/src-tauri/Cargo.toml" "Cargo.toml" "$VERSION"
 check_contains "frontend/src-tauri/Cargo.lock" "Cargo.lock" "$VERSION"
 check_contains "backend/uv.lock" "uv.lock (PEP 440)" "$(_to_pep440 "$VERSION")"
 check_contains "frontend/package-lock.json" "package-lock.json" "$VERSION"
-check_contains "README.md" "README.md badge" "version-$(_to_badge "$VERSION")-blue"
+check_contains "README.md" "README.md badge" "source-$(_to_badge "$VERSION")-blue"
+check_contains "README_EN.md" "README_EN.md badge" "source-$(_to_badge "$VERSION")-blue"
 
 if [ $ERRORS -gt 0 ]; then
   echo ""
