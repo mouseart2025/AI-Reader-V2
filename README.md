@@ -66,7 +66,7 @@ AI Reader V2 不是让 LLM 写一篇读后感，而是把整本书拆成结构�
 
 力导向关系网络，自动识别 70+ 种关系类型，按血亲/亲密/师承/社交/敌对/其他六类着色。实体别名自动合并（孙悟空 = 美猴王 = 行者 = 齐天大圣），支持路径查找、分类过滤、边权重调节。
 
-<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="人物关系图谱 — 自动生成的小说角色关系网络" />
+<img src="./assets/screenshots/feature-graph.webp" width="720" alt="人物关系图谱 — 自动生成的小说角色关系网络" />
 
 ### 🗺️ 小说世界地图
 
@@ -74,19 +74,19 @@ AI Reader V2 不是让 LLM 写一篇读后感，而是把整本书拆成结构�
 
 v0.84 起，地图不再“静默回退”：接口返回 `layout_reason` / `geo_coverage`，界面提供**自动 / 地理 / 层级**切换，回退时说明原因；现实题材的“海底”层不会再被误判成整本幻想地图。
 
-<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="小说世界地图 — 自动生成的虚构世界地图" />
+<img src="./assets/screenshots/feature-map.webp" width="720" alt="小说世界地图 — 自动生成的虚构世界地图" />
 
 ### ⏳ 多泳道时间线
 
 多源事件聚合（角色登场、物品流转、关系变迁、组织变动），智能降噪、情绪基调标签、章节自动折叠；故事线泳道追踪多角色并行叙事。
 
-<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="小说时间线 — 多角色叙事时间线可视化" />
+<img src="./assets/screenshots/feature-timeline.webp" width="720" alt="小说时间线 — 多角色叙事时间线可视化" />
 
 ### 📖 小说百科全书
 
 人物/地点/物品/组织/概念五类实体，地点层级树与空间关系面板，场景索引定位原文，世界观总览。
 
-<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="小说百科 — 人物、地点、物品、组织" />
+<img src="./assets/screenshots/feature-encyclopedia.webp" width="720" alt="小说百科 — 人物、地点、物品、组织" />
 
 ### 更多能力
 

@@ -64,7 +64,7 @@ Most "AI reads a novel" tools stop at summaries. AI Reader V2 goes one step furt
 
 Force-directed network with 70+ relation types, colored by six categories (family, intimate, hierarchical, social, hostile, other). Automatic alias merging (Sun Wukong = Monkey King = Pilgrim), path finding, category filters, and edge-weight controls.
 
-<img src="https://ai-reader.cc/assets/feature-graph.png" width="720" alt="Character relationship graph generated from a novel" />
+<img src="./assets/screenshots/feature-graph.webp" width="720" alt="Character relationship graph generated from a novel" />
 
 ### 🗺️ Novel World Map
 
@@ -72,19 +72,19 @@ Automatically builds a multi-layer map: real-world geographic view (Leaflet + Ge
 
 Since v0.84 the map no longer falls back silently: the API returns `layout_reason` / `geo_coverage`, and the UI offers **Auto / Geographic / Layered** with an explanation. An "underwater" layer in a realistic novel no longer turns the whole book into a fantasy map.
 
-<img src="https://ai-reader.cc/assets/feature-map.png" width="720" alt="Novel world map generated from text" />
+<img src="./assets/screenshots/feature-map.webp" width="720" alt="Novel world map generated from text" />
 
 ### ⏳ Multi-Lane Timeline
 
 Aggregates events from six sources (character appearances, item transfers, relationship changes, organization events, original events, scene tone), with noise filtering, emotional-tone badges, chapter folding, and story-line swimlanes.
 
-<img src="https://ai-reader.cc/assets/feature-timeline.png" width="720" alt="Multi-character novel timeline" />
+<img src="./assets/screenshots/feature-timeline.webp" width="720" alt="Multi-character novel timeline" />
 
 ### 📖 Novel Encyclopedia
 
 Browse characters, locations, items, organizations, and concepts; inspect the location hierarchy and spatial relationships; jump from a scene index to the original text; view the world structure.
 
-<img src="https://ai-reader.cc/assets/feature-encyclopedia.png" width="720" alt="Novel encyclopedia — characters, locations, items, organizations" />
+<img src="./assets/screenshots/feature-encyclopedia.webp" width="720" alt="Novel encyclopedia — characters, locations, items, organizations" />
 
 ### More
 
