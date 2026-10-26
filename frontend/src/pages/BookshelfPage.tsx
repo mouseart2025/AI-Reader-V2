@@ -119,13 +119,13 @@ function NovelCard({
 }) {
   return (
     <Card
-      className="group cursor-pointer transition-shadow hover:shadow-md"
+      className="group min-w-0 cursor-pointer transition-shadow hover:shadow-md"
       onClick={() => onClick(novel)}
     >
       <CardHeader className="pb-0">
         {/* Book Cover */}
         <div
-          className={`bg-gradient-to-br ${coverColor(novel.title)} relative mb-3 flex h-36 items-center justify-center rounded-lg`}
+          className={`bg-gradient-to-br ${coverColor(novel.title)} relative mb-3 flex h-36 min-w-0 items-center justify-center overflow-hidden rounded-lg`}
         >
           {novel.is_sample && (
             <div className="absolute top-2 left-2 rounded-full bg-white/20 px-2 py-0.5 backdrop-blur-sm">
@@ -144,20 +144,32 @@ function NovelCard({
               <span className="text-[10px] font-medium text-white/90">已暂停</span>
             </div>
           )}
-          <div className="px-4 text-center text-white">
-            <p className="text-lg font-bold leading-tight drop-shadow">
+          <div className="w-full min-w-0 px-4 text-center text-white">
+            <p
+              className="line-clamp-2 break-words text-lg font-bold leading-tight drop-shadow"
+              title={novel.title}
+            >
               {novel.title}
             </p>
             {novel.author && (
-              <p className="mt-1 text-sm opacity-80">{novel.author}</p>
+              <p
+                className="mt-1 line-clamp-2 break-words text-sm opacity-80"
+                title={novel.author}
+              >
+                {novel.author}
+              </p>
             )}
           </div>
         </div>
-        <CardTitle className="truncate text-base">{novel.title}</CardTitle>
+        <CardTitle className="truncate text-base" title={novel.title}>
+          {novel.title}
+        </CardTitle>
         {novel.author && (
-          <div className="text-muted-foreground flex items-center gap-1 text-sm">
-            <User className="h-3 w-3" />
-            <span className="truncate">{novel.author}</span>
+          <div className="text-muted-foreground flex min-w-0 items-center gap-1 text-sm">
+            <User className="h-3 w-3 shrink-0" />
+            <span className="min-w-0 truncate" title={novel.author}>
+              {novel.author}
+            </span>
           </div>
         )}
       </CardHeader>
