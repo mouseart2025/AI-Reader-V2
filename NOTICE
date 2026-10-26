@@ -1,0 +1,35 @@
+AI Reader V2
+Copyright (C) 2026 mouseart2025 and contributors
+
+This product is licensed under the GNU Affero General Public License v3.0
+(see LICENSE). A separate commercial license is available (see
+LICENSE-COMMERCIAL.md).
+
+Third-party data and assets
+---------------------------
+
+1. GeoNames
+   `backend/data/zh_geonames.tsv` and related geographic lookups are derived
+   from the GeoNames geographical database (https://www.geonames.org/),
+   licensed under the Creative Commons Attribution 4.0 License
+   (https://creativecommons.org/licenses/by/4.0/).
+   GeoNames data is used unmodified except for extraction/indexing into the
+   formats used by this application.
+
+2. Chinese Wikipedia geographic index
+   If `zh_wiki_geo.sqlite` or related Wikipedia-derived indexes are present,
+   they are derived from Chinese Wikipedia content, licensed under
+   CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
+   Attribution: Chinese Wikipedia contributors.
+
+3. Sample and demo novels
+   The bundled sample texts (e.g. 三国演义, 西游记, 红楼梦) are public-domain
+   Chinese classical novels. They are included for demonstration only.
+
+4. Open-source dependencies
+   Python and JavaScript dependencies retain their own licenses. See
+   `backend/pyproject.toml`, `frontend/package.json`, and the respective
+   package metadata for the full list.
+
+If you redistribute this application or a modified version, keep this NOTICE
+and comply with the upstream licenses above.
