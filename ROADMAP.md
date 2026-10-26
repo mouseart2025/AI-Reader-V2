@@ -29,15 +29,15 @@
 
 | 版本 | 方向 | 说明 |
 |---|---|---|
-| v0.86 | **学术与复现** | DOI / CITATION、gold 数据版本化、Docker 一键部署（[#27](https://github.com/mouseart2025/AI-Reader-V2/issues/27)） |
-| v0.87 | **人工修正闭环** | 事件级编辑、词条编辑与设置保存位置、预扫描候选合并（[#66](https://github.com/mouseart2025/AI-Reader-V2/issues/66)、[#42](https://github.com/mouseart2025/AI-Reader-V2/issues/42)）；#50 导出保存位置已在 v0.83 完成 |
+| v0.86 | **学术与复现** | DOI / CITATION、gold 数据版本化、Docker 一键部署（#27） |
+| v0.87 | **人工修正闭环** | 事件级编辑、词条编辑与设置保存位置、预扫描候选合并（#66、#42）；#50 导出保存位置已在 v0.83 完成 |
 | v0.88 | **地图余项** | 封神主世界地理化（天界/龙宫保留为层标签）、跨语言同名地点消歧、逐章“诺第留斯号”航线/船内子图 |
 
 ## 探索中（不排期）
 
 - 地图瓦片化（按缩放级别渲染高分辨率地形）——已有原型，仍存在与主烘焙图的数值偏差
-- 多语言界面（[#11](https://github.com/mouseart2025/AI-Reader-V2/issues/11)）——取决于使用场景是否出现英文需求
-- 动态知识库同步（[#56](https://github.com/mouseart2025/AI-Reader-V2/issues/56)）
+- 多语言界面（#11）——取决于使用场景是否出现英文需求
+- 动态知识库同步（#56）
 - 多小说批量分析队列（当前按单本任务 + 失败章节重试；批量的可见/可恢复需要独立设计）
 
 ## 明确不做
@@ -54,4 +54,4 @@
 
 ## License
 
-AGPL v3。桌面版二进制可在[下载页](https://ai-reader.cc/#download)获取；对应源代码见仓库，或按下载页说明书面申请。
+AGPL v3。桌面版二进制可在[下载页](https://ai-reader.cc/#download)获取；对应源代码见[公开仓库](https://github.com/mouseart2025/AI-Reader-V2)的对应 tag。
