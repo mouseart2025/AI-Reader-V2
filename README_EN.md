@@ -157,7 +157,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for desktop builds, tests, and developm
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui |
+| Frontend | React 19 + TypeScript 5.9 + Vite 8 + Tailwind CSS 4 + shadcn/ui |
 | Desktop | Tauri 2 (Rust) + Python sidecar (PyInstaller) |
 | Visualization | react-force-graph-2d (graph) / Leaflet (geographic) / D3 + SVG (map, timeline) |
 | State | Zustand 5 |

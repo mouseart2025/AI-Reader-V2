@@ -173,7 +173,7 @@ npm run dev
 
 | 层 | 技术 |
 |----|------|
-| 前端 | React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui |
+| 前端 | React 19 + TypeScript 5.9 + Vite 8 + Tailwind CSS 4 + shadcn/ui |
 | 桌面 | Tauri 2（Rust）+ Python sidecar（PyInstaller） |
 | 可视化 | react-force-graph-2d（图谱）/ Leaflet（地理）/ D3 + SVG（地图、时间线） |
 | 状态 | Zustand 5 |
