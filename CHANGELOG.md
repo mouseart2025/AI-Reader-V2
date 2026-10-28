@@ -5,6 +5,10 @@
 > 当前发布状态：**v0.85.0 正式版**（macOS Apple Silicon / Windows x64 安装包已发布）。
 > 最新源码与发布见 <https://github.com/mouseart2025/AI-Reader-V2/releases>。
 
+## Unreleased
+
+- **依赖安全加固**：ChromaDB 1.5.0 → 1.5.9、Pillow 12.3 → 13.0（Python ≥3.11 分支）；清理 backoff/distro/posthog 等旧传递依赖。1764 backend tests 通过，Chroma 持久化/查询冒烟通过。安装包待下一补丁版重出。
+
 ## 版本记录
 
 | 版本 | 日期 | 主要更新 |
