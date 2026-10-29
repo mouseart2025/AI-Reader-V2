@@ -1,7 +1,7 @@
 # AI Reader V2 — 把小说变成可探索的知识世界
 
 [![Tests](https://github.com/mouseart2025/AI-Reader-V2/actions/workflows/test.yml/badge.svg)](https://github.com/mouseart2025/AI-Reader-V2/actions/workflows/test.yml)
-[![Version](https://img.shields.io/badge/version-0.85.0-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
+[![Version](https://img.shields.io/badge/version-0.85.1-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-3.11+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -14,7 +14,7 @@
 
 AI Reader V2 不是让 LLM 写一篇读后感，而是把整本书拆成结构化的 `ChapterFact`：人物、关系、地点层级、物品流转、组织事件、时间线。然后把这些数据变成可以点、可以查、可以导出的交互式知识库。数据默认只存在本机。
 
-> **当前状态（2026-10-27）**：**v0.85.0 已正式发布**，macOS（Apple Silicon）与 Windows x64 安装包已提供。项目仍在快速迭代，分析结果请结合原文核对，不建议直接作为学术结论。
+> **当前状态（2026-10-30）**：**v0.85.1 补丁版已发布**，macOS（Apple Silicon）与 Windows x64 安装包已提供。项目仍在快速迭代，分析结果请结合原文核对，不建议直接作为学术结论。
 
 <p align="center">
   <a href="https://ai-reader.cc"><strong>官网</strong></a> ·
@@ -42,12 +42,12 @@ AI Reader V2 不是让 LLM 写一篇读后感，而是把整本书拆成结构�
 
 | 渠道 | 版本 | 说明 |
 |------|------|------|
-| 桌面正式版 | **v0.85.0** | 推荐普通用户；macOS / Windows |
-| 最新源码 | **v0.85.0** | 含地图可解释/切换与逐章成本耗时 |
+| 桌面正式版 | **v0.85.1** | 推荐普通用户；macOS / Windows |
+| 最新源码 | **v0.85.1** | 依赖告警 65→0 的安全收口 + CodeQL 接入 |
 | 在线 Demo | 红楼梦 / 西游记 | 免安装，浏览器直接看 |
 
 - 源码与发布：<https://github.com/mouseart2025/AI-Reader-V2>
-- v0.85.0 release：<https://github.com/mouseart2025/AI-Reader-V2/releases/tag/v0.85.0>
+- v0.85.1 release：<https://github.com/mouseart2025/AI-Reader-V2/releases/tag/v0.85.1>
 - 完整版本历史：[CHANGELOG.md](./CHANGELOG.md)
 
 ## 它是什么
@@ -121,12 +121,12 @@ v0.84 起，地图不再“静默回退”：接口返回 `layout_reason` / `geo
 
 | 平台 | 稳定版下载 | 架构 |
 |------|------------|------|
-| macOS | [AI Reader 0.85.0 (dmg)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.0/AI.Reader_0.85.0_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader 0.85.0 (exe)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.0/AI.Reader_0.85.0_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader 0.85.1 (dmg)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.1/AI.Reader_0.85.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader 0.85.1 (exe)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.1/AI.Reader_0.85.1_x64-setup.exe) | x86_64 |
 
 > **安装包说明**：当前构建为 ad-hoc / 未签名（签名 secrets 尚未迁移到公开仓）。macOS 首次打开可能提示“已损坏”，按下方命令处理后重开；Windows SmartScreen 可能提示未知发布者，选择“更多信息 → 仍要运行”。
 >
-> 校验文件：[SHA256SUMS.txt](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.0/SHA256SUMS.txt)。
+> 校验文件：[SHA256SUMS.txt](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.1/SHA256SUMS.txt)。
 
 <details>
 <summary>macOS 首次打开提示“已损坏”？</summary>

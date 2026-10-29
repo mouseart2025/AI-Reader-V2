@@ -2,25 +2,18 @@
 
 所有值得注意的版本变更。版本号遵循语义化版本；`-beta.N` 为体验版。
 
-> 当前发布状态：**v0.85.0 正式版**（macOS Apple Silicon / Windows x64 安装包已发布）。
+> 当前发布状态：**v0.85.1 补丁版**（安全修复版；macOS Apple Silicon / Windows x64 安装包随本版重出）。
 > 最新源码与发布见 <https://github.com/mouseart2025/AI-Reader-V2/releases>。
 
 ## Unreleased
 
-- **依赖安全加固**：ChromaDB 1.5.0 → 1.5.9、Pillow 12.3 → 13.0（Python ≥3.11 分支）；清理 backoff/distro/posthog 等旧传递依赖。1764 backend tests 通过，Chroma 持久化/查询冒烟通过。安装包待下一补丁版重出。
-- **依赖告警清理：65 → 7**（2026-10-29，Dependabot 面板）：
-  - **Python 3.10 EOL（2026-10）→ `requires-python >=3.11`**：`uv.lock` 里 py<3.11 的 `pillow 12.3.0` 兜底分支随之消失，Pillow 13.0.0 全域生效，一次清掉 **41 条** Pillow 公告（此前因 3.10 分支一直挂着）。桌面构建本就用 `UV_PYTHON=3.11`，源码用户需 3.11+。`uv.lock` 同步把 3.10/3.11 双解析分支合并（−918 行）。
-  - **filelock 3.32.4 → 4.2.4**（12 条，均为 Windows 锁文件/符号链接权限类）：仅由可选 extra 的 torch / huggingface-hub 引入，二者无 `<4` 上限。
-  - **setuptools 84.0.0 → 84.2.1**（1 条，仅 PyInstaller 构建期）、**opentelemetry 1.39.1 → 1.45.1**（1 条，Chroma 遥测栈）。
-  - **前端**：vitest `^4.1.12`（@vitest/mocker 2 条）；`overrides` 把 `@hono/node-server` 提到 2.1.5（1 条，其上游 @modelcontextprotocol/sdk 声明范围本就直接允许 `^2`，非强制覆盖）。
-  - **剩余 7 条无可修版本**：chromadb 1.5.9 ×4（上游最新版仍受影响；本项目只用嵌入式 `PersistentClient`，不起 HTTP 服务、不启用 RBAC/`trust_remote_code`，相关端点不可达）、deepmerge ×1（仅 shadcn CLI 开发期）、`frontend/src-tauri/Cargo.lock` 的 rand 0.7 / glib 0.18 ×2（前者是 tauri-utils→kuchikiki 的构建期 phf 依赖，后者仅 Linux/GTK 目标）——均需上游动作。已在 Dependabot 面板按「`not_used`（代码路径不可达）/ `tolerable_risk`」逐条 dismiss 并写入依据与复核日期（2026-10-30），上游发布修复版后升级并重开复核；Dependabot 开放告警由此归零。
-  - ruff 目标仍留 `py310`：升 `py311` 会新增 49 条 UP 告警（含 6 条 `str+Enum → StrEnum` 的语义变更），与本次依赖提交分开排期。
-  - 验证：1764 backend tests / ruff 0 告警 / frontend `tsc -b` + 112 vitest + `vite build` 全通过。
+- （暂无）
 
 ## 版本记录
 
 | 版本 | 日期 | 主要更新 |
 |------|------|---------|
+| **v0.85.1** ✅补丁版 | 2026-10-30 | **安全收口：依赖告警 65 → 0（无功能变更）** — ①**Pillow 41 条归零**：`requires-python` 提至 **3.11**（Python 3.10 于 2026-10 EOL），`uv.lock` 中 py<3.11 的 `pillow 12.3.0` 兜底分支随之消失，Pillow 13.0.0 全域生效，lock 同时合并 3.10/3.11 双解析分支（−918 行）。②其余可修告警：filelock 3.32.4 → 4.2.4（12 条，仅可选 extra 的 torch / huggingface-hub 引入）、setuptools → 84.2.1、opentelemetry → 1.45.1、前端 vitest → 4.1.12（@vitest/mocker）、`overrides` 将 @hono/node-server 提到 2.1.5（上游 MCP SDK 声明范围本就允许 `^2`）。③剩余 7 条上游无修复版本，按 `not_used`（chromadb ×4：仅嵌入式 `PersistentClient`，不起 HTTP 服务、不用 RBAC/`trust_remote_code`）/ `tolerable_risk`（deepmerge 仅 shadcn CLI 开发期；rand 0.7.3 为 tauri-utils 构建期 phf 依赖；glib 0.18.5 仅 Linux/GTK 目标）逐条 dismiss 并写入依据与复核日期。④**CodeQL 接入**：新增 `.github/workflows/codeql.yml`（python + javascript-typescript，`build-mode: none`，push/PR + 每周一全量），补上此前空着的 Code scanning 标签页；查询集保持默认 security 套件，基线 triage 完再提档。⑤ruff 目标仍留 `py310`：升 `py311` 会新增 49 条 UP 告警（含 6 条 `str+Enum → StrEnum` 语义变更），另排期。1764 backend tests / ruff 0 / 112 frontend tests + `tsc -b` + `vite build` 通过。**安装包随本补丁版重出，含 Pillow 13 等安全修复** |
 | **v0.85.0** ✅正式版 | 2026-10-25 | **地图可解释/可切换 + 逐章成本耗时** — ①**地图不再静默回退**：`/map` 返回 `layout_reason`（realm_layers / low_geo_coverage / geo_unavailable / …）与 `geo_coverage`；前端新增「自动 / 地理 / 层级」切换，回退时说明原因并支持强制地理图。②**真实地图修正**：现实/冒险题材的「海底/龙宫」层不再把整本书拖成分层幻想图；`geo_failed` 旧标记可自愈；《白夜行》按 urban 题材回到日本地图，《边城》首次打开按高解析率探测回到中国地图；world 数据集的「东京」不再误用北宋汴梁坐标。③**层级方向修复**：`contains` 从 value 文本判断“位于/包括”，修掉 美国→内布拉斯加州、南极洲→南极、加拿大→诺第留斯号 等倒挂；`主世界` 不再挂在太平洋/丹麦下。④**地图审计**：`backend/scripts/map_quality_audit.py` 逐本输出 mode/reason/geo 覆盖率。⑤**v0.85 成本/耗时**：成本明细改用真实章节号+标题（此前显示 DB 行号），补每章耗时与总/均/最慢/最快；分析完成页新增「成本与耗时」报告（最慢/最贵章节 + CSV）；修复中文小说名 CSV 导出 500；成本明细改 SQL 聚合、分析记录改单查询。1764 backend tests / 112 frontend tests 通过 |
 | **v0.83.0** ✅正式版 | 2026-10-24 | **地理坐标修正 + 工程清账（无新功能）** — ①**地名匹配不再误伤真地名**：GeoNames 把不少中国自然地貌标成 P 类（人口点），「虎丘山→虎丘」「临平山→临平」这类剥离后缀后的匹配原先被类型冲突**在检索阶段直接丢弃**（水浒一本书就丢 16 处）；现在有父地点证据时改为**流入第二遍校验**而不是查表即弃——虎丘保留在苏州 40km 内，而「东拉河→东拉」那类虚构父地点的误配仍被锚点检查拒绝（无 parent_map 时保持严格）。②**距离量词排除**：五十里/三十里这类不再当地名参与匹配（水浒里曾命中新疆一个小村）。③**沙门岛校正到长岛**（北宋流放地，GeoNames 把它错钉在温州外海）。④**5 个手工坐标转正**（围场/燕山/黑龙江/陇右/关外陇右）从生成块移入 curated，重跑生成器不再被静默覆盖。⑤**工程**：远端分支 18→2、依赖告警清零（含一条上游当日撤回的 advisory）、安装包体积审计（dmg 127MB = 运行时 98MB + 地理索引 29MB + 内置小说 3.5MB）、下载链路与仓库可见性彻底解耦（官网/README 均走 `ai-reader.cc/dl/` → R2 镜像）。1714 backend tests 通过 |
 | **v0.82.0** ✅正式版 | 2026-10-08 | **地图陆块生成重写：四大洲各自独立成陆，海不再刷在陆上** — ①**根因**：陆块距离场的阈值被「陆地须占画布 35%」的覆盖率下限绑架——西游记 605 个地点中位最近邻距仅 5px，密度阈值失效、地板值接管，每个大洲锚点刷 750px 半径的圆，四大洲粘成一个 1550 万 px²、含 596 地点的超级陆块；且层级里的伪锚点（`主世界` 界域节点、`四大部洲` 集合节点）+ ~150 个悬空点把各洲桥接，单纯调参无解。②**大洲分组场**：陆块改为按大洲分组构建——父链分组（比丘国→西牛贺洲，悬空点跟随最近已分组邻居）→ 组内各自 EDT 闭运算成形 → 组间**重叠与相切**处开凿水道（真实地点脚下的土地保留）；删掉 35% 地板，改为画布比例 + 密度下限的固定基准半径（`landmass_base_radius`）；集合名（四大部洲）与界域节点（主世界）不再当大陆锚点。③**错位海重定位**（`_relocate_misplaced_seas`）：布局把南海摆在距南赡部洲中心 43px 处（大陆正中心）、东洋大海贴花果山 252px，下游挖洞被保护盖限制只剩 8px 邮票格；现在冷路径上先按名称方位（南海往南、东洋大海往东）射线搜索迁到开阔水域（clearance 渐进放宽 + 兜底最远点），再生成陆块，位置随布局缓存持久化。④**粘连大洲分离**（`_separate_merged_continents`）：两个大洲锚点同陆块时，把较小子树整体平移到最近开阔水域（以东胜神洲为例，26 个地点迁往东北海域，成为符合原著的海中岛洲），≤3 轮迭代重建。⑤西游记实测：四大洲 **4/4 分离**、6 个海全部入水（clearance 317–550px）、审计 cardinal 10/10、sea_on_land 0、direction 22/44 持平；三国/红楼/平凡的世界新旧代码同数据对比无回归（覆盖率与未覆盖点数持平）；后端测试 1708 通过、ruff 零告警。`_TERRAIN_VERSION` 16→17。**注意**：曾被手钉到陆上的海（如东洋大海）会按「海必须在水中」规则被迁移；清缓存后首次打开地图需全量重建（约 35s），天界/地府等图层首次切换按需重建 |

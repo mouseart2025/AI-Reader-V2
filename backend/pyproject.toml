@@ -1,6 +1,6 @@
 [project]
 name = "ai-reader-v2-backend"
-version = "0.85.0"
+version = "0.85.1"
 description = "AI Reader V2 Backend - Novel analysis with local LLM"
 readme = "README.md"
 # Python 3.10 于 2026-10 EOL；且 Pillow 13（含 40+ 条 Pillow 安全公告的修复）
