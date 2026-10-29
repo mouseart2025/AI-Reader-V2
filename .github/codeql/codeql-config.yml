@@ -1,0 +1,25 @@
+# CodeQL 配置：只扫产品源码，不扫依赖产物与离线数据。
+#
+# 说明：
+# - backend/data 下有 GeoNames 索引（~29MB TSV）与金标注释，属数据不是代码；
+# - demo-data / sample-data 是内置小说样本，体积大且无代码语义；
+# - frontend/src-tauri/target 与 gen 是 Rust/前端构建产物；
+# - audit_reports 是运行期审计日志（可能含小说原文）。
+#
+# 查询集保持默认（code scanning 的 security 套件）。只有把首轮基线告警
+# triage 干净之后，再考虑切 security-and-quality 提档——否则一上来就是
+# 几百条可维护性提示，没人会看。
+name: "AI Reader V2 CodeQL"
+
+paths-ignore:
+  - frontend/node_modules
+  - frontend/dist
+  - frontend/src-tauri/target
+  - frontend/src-tauri/gen
+  - backend/.venv
+  - backend/data
+  - demo-data
+  - sample-data
+  - audit_reports
+  - "**/*.min.js"
+  - "**/*.bundle.js"

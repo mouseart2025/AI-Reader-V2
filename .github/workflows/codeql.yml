@@ -1,0 +1,57 @@
+name: CodeQL
+
+# 代码扫描：补上 security 页面里一直空着的 Code scanning 标签页。
+# 与 test.yml 的 secret-scan / repo-hygiene 互补——那两者查的是泄密与仓库边界，
+# CodeQL 查的是代码本身的注入、路径穿越、不安全反序列化等问题。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 每周一 03:17 UTC（北京时间 11:17）全量重扫，覆盖新的查询集
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write # 上传 SARIF 到 code scanning
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 两种语言都用 build-mode: none —— Python 不需要装 torch/chromadb 级
+          # 依赖，前端也不需要 vite 构建；CodeQL 直接做源码级抽取，CI 时间可控。
+          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
