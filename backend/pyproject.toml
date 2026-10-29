@@ -3,7 +3,9 @@ name = "ai-reader-v2-backend"
 version = "0.85.0"
 description = "AI Reader V2 Backend - Novel analysis with local LLM"
 readme = "README.md"
-requires-python = ">=3.10"
+# Python 3.10 于 2026-10 EOL；且 Pillow 13（含 40+ 条 Pillow 安全公告的修复）
+# 要求 >=3.11，桌面版构建固定 UV_PYTHON=3.11，故下限随之上调。
+requires-python = ">=3.11"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
@@ -53,6 +55,10 @@ dev = [
 ]
 
 [tool.ruff]
+# 运行下限已提到 3.11（见 requires-python），但 lint 目标暂时留在 py310：
+# 升到 py311 会新引入 33×UP017（datetime.UTC）、9×UP041、6×UP042（str+Enum →
+# StrEnum，会改变 str()/序列化行为）共 49 条告警。现代化改造与本次依赖安全
+# 清理分开做，避免在依赖提交里混入枚举语义变更。
 target-version = "py310"
 
 [tool.ruff.lint]

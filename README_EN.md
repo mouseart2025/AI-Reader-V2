@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/badge/version-0.85.0-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
-[![Python](https://img.shields.io/badge/python-3.10+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/node-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Tauri](https://img.shields.io/badge/tauri-2-FFC131?logo=tauri&logoColor=white)](https://v2.tauri.app/)
 
@@ -129,7 +129,7 @@ More versions and pre-releases: [Releases](https://github.com/mouseart2025/AI-Re
 
 ## Run from Source
 
-**Requirements:** Python 3.10+, Node.js 22+, [uv](https://docs.astral.sh/uv/), [Ollama](https://ollama.com/) (or a cloud API).
+**Requirements:** Python 3.11+, Node.js 22+, [uv](https://docs.astral.sh/uv/), [Ollama](https://ollama.com/) (or a cloud API).
 
 ```bash
 git clone https://github.com/mouseart2025/AI-Reader-V2.git

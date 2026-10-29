@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/badge/version-0.85.0-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
-[![Python](https://img.shields.io/badge/python-3.10+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/node-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Tauri](https://img.shields.io/badge/tauri-2-FFC131?logo=tauri&logoColor=white)](https://v2.tauri.app/)
 
@@ -144,7 +144,7 @@ xattr -cr "/Applications/AI Reader.app"
 
 ## 从源码运行
 
-**环境要求：** Python 3.10+、Node.js 22+、[uv](https://docs.astral.sh/uv/)、[Ollama](https://ollama.com/)（或云端 API）。
+**环境要求：** Python 3.11+、Node.js 22+、[uv](https://docs.astral.sh/uv/)、[Ollama](https://ollama.com/)（或云端 API）。
 
 ```bash
 # 1. 克隆
