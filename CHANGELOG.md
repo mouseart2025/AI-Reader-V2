@@ -13,7 +13,7 @@
   - **filelock 3.32.4 → 4.2.4**（12 条，均为 Windows 锁文件/符号链接权限类）：仅由可选 extra 的 torch / huggingface-hub 引入，二者无 `<4` 上限。
   - **setuptools 84.0.0 → 84.2.1**（1 条，仅 PyInstaller 构建期）、**opentelemetry 1.39.1 → 1.45.1**（1 条，Chroma 遥测栈）。
   - **前端**：vitest `^4.1.12`（@vitest/mocker 2 条）；`overrides` 把 `@hono/node-server` 提到 2.1.5（1 条，其上游 @modelcontextprotocol/sdk 声明范围本就直接允许 `^2`，非强制覆盖）。
-  - **剩余 7 条无可修版本**：chromadb 1.5.9 ×4（上游最新版仍受影响；本项目只用嵌入式 `PersistentClient`，不起 HTTP 服务、不启用 RBAC/`trust_remote_code`，相关端点不可达）、deepmerge ×1（仅 shadcn CLI 开发期）、`frontend/src-tauri/Cargo.lock` 的 rand 0.7 / glib 0.18 ×2（前者是 tauri-utils→kuchikiki 的构建期 phf 依赖，后者仅 Linux/GTK 目标）——均需上游动作，按「受影响但不可达」保留观察。
+  - **剩余 7 条无可修版本**：chromadb 1.5.9 ×4（上游最新版仍受影响；本项目只用嵌入式 `PersistentClient`，不起 HTTP 服务、不启用 RBAC/`trust_remote_code`，相关端点不可达）、deepmerge ×1（仅 shadcn CLI 开发期）、`frontend/src-tauri/Cargo.lock` 的 rand 0.7 / glib 0.18 ×2（前者是 tauri-utils→kuchikiki 的构建期 phf 依赖，后者仅 Linux/GTK 目标）——均需上游动作。已在 Dependabot 面板按「`not_used`（代码路径不可达）/ `tolerable_risk`」逐条 dismiss 并写入依据与复核日期（2026-10-30），上游发布修复版后升级并重开复核；Dependabot 开放告警由此归零。
   - ruff 目标仍留 `py310`：升 `py311` 会新增 49 条 UP 告警（含 6 条 `str+Enum → StrEnum` 的语义变更），与本次依赖提交分开排期。
   - 验证：1764 backend tests / ruff 0 告警 / frontend `tsc -b` + 112 vitest + `vite build` 全通过。
 
