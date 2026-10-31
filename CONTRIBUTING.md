@@ -188,6 +188,12 @@ Signed-off-by: Your Name <your.email@example.com>
 
 ---
 
+## 发版 Release
+
+安装包的构建与发布是手工流程（`Release` / `Mirror` 两个 workflow 当前处于禁用状态，推 tag 不会出包）。完整步骤见 [RELEASING.md](./RELEASING.md)：版本同步 → 测试门禁 → dispatch 两端构建 → 收 artifact → 组装 release → 冒烟。
+
+---
+
 ## 获得帮助 Getting Help
 
 - **Bug / 功能建议**: [GitHub Issues](https://github.com/mouseart2025/AI-Reader-V2/issues)
