@@ -932,11 +932,20 @@ export interface EntityDictItem {
   aliases: string[]
   source: string
   sample_context: string | null
+  /** issue #18：被用户合并进本条目的候选名（空数组 = 自动结果） */
+  merged_from?: string[]
+}
+
+export interface EntityDictionaryMerge {
+  source: string
+  target: string
 }
 
 export interface EntityDictionaryResponse {
   data: EntityDictItem[]
   total: number
+  /** 生效中的预扫描合并，用于展示与撤销 */
+  merges?: EntityDictionaryMerge[]
 }
 
 // ── Cost Detail ──────────────────────────────

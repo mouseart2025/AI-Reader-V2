@@ -3,11 +3,12 @@
 import logging
 from collections import Counter
 
-from src.db import entity_dictionary_store, world_structure_store
+from src.db import world_structure_store
 from src.db.chapter_fact_store import get_all_chapter_facts
 from src.infra.context_budget import get_budget
 from src.models.chapter_fact import ChapterFact
 from src.models.world_structure import WorldStructure
+from src.services.prescan_merge import get_merged_dictionary
 
 logger = logging.getLogger(__name__)
 
@@ -724,7 +725,9 @@ class ContextSummaryBuilder:
         extraction LLM treats them as hints rather than ground truth.
         """
         try:
-            dictionary = await entity_dictionary_store.get_all(novel_id)
+            # issue #18: apply the user's pre-scan merges (translation variants
+            # etc.) so the prompt sees one entry per person, not N.
+            dictionary, _absorbed, _merges = await get_merged_dictionary(novel_id)
         except Exception:
             return ""
         if not dictionary:

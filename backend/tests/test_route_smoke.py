@@ -312,7 +312,7 @@ async def test_prescan_status_and_dictionary(api_client):
 
     resp = await client.get(f"/api/novels/{NOVEL}/entity-dictionary")
     assert resp.status_code == 200
-    assert resp.json() == {"data": [], "total": 0}
+    assert resp.json() == {"data": [], "total": 0, "merges": []}
 
 
 @pytest.mark.asyncio

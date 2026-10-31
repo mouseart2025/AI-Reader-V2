@@ -8,13 +8,22 @@ import {
   fetchNovel,
   fetchPrescanStatus,
   getLatestAnalysisTask,
+  mergeEntityDictionary,
   patchAnalysisTask,
   retryFailedChapters,
   startAnalysis,
   triggerPrescan,
+  unmergeEntityDictionary,
 } from "@/api/client"
-import type { CostEstimate, EntityDictItem, Novel, PrescanStatus } from "@/api/types"
+import type {
+  CostEstimate,
+  EntityDictItem,
+  EntityDictionaryMerge,
+  Novel,
+  PrescanStatus,
+} from "@/api/types"
 import { CostPreviewDialog } from "@/components/shared/CostPreviewDialog"
+import { PrescanMergeDialog } from "@/components/shared/PrescanMergeDialog"
 import { useAnalysisStore } from "@/stores/analysisStore"
 import { useLlmInfoStore, formatLlmLabel } from "@/stores/llmInfoStore"
 import { Button } from "@/components/ui/button"
@@ -110,6 +119,9 @@ export default function AnalysisPage() {
   const [prescanStatus, setPrescanStatus] = useState<PrescanStatus>("pending")
   const [prescanEntityCount, setPrescanEntityCount] = useState(0)
   const [prescanEntities, setPrescanEntities] = useState<EntityDictItem[]>([])
+  const [prescanMerges, setPrescanMerges] = useState<EntityDictionaryMerge[]>([])
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
+  const [mergingCandidates, setMergingCandidates] = useState(false)
   const [prescanLoading, setPrescanLoading] = useState(false)
   const [prescanExpanded, setPrescanExpanded] = useState(false)
   const prescanPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -208,11 +220,49 @@ export default function AnalysisPage() {
       if (res.status === "completed" && res.entity_count > 0) {
         const dict = await fetchEntityDictionary(nId, undefined, 50)
         setPrescanEntities(dict.data)
+        setPrescanMerges(dict.merges ?? [])
       }
     } catch {
       // Prescan API may not exist yet — silently ignore
     }
   }, [])
+
+  // issue #18：预扫描候选合并 / 撤销（覆盖层，可随时恢复自动结果）
+  const handleMergeCandidates = useCallback(
+    async (pairs: { source: string; target: string }[]) => {
+      if (!novelId || pairs.length === 0) return
+      setMergingCandidates(true)
+      try {
+        for (const { source, target } of pairs) {
+          await mergeEntityDictionary(novelId, source, target)
+        }
+        await loadPrescanData(novelId)
+        setMergeDialogOpen(false)
+      } catch (e) {
+        setError?.(e instanceof Error ? e.message : "合并失败")
+      } finally {
+        setMergingCandidates(false)
+      }
+    },
+    // loadPrescanData 是稳定引用，setError 来自 store
+    [novelId, loadPrescanData],
+  )
+
+  const handleUnmergeCandidate = useCallback(
+    async (source: string) => {
+      if (!novelId) return
+      setMergingCandidates(true)
+      try {
+        await unmergeEntityDictionary(novelId, source)
+        await loadPrescanData(novelId)
+      } catch (e) {
+        setError?.(e instanceof Error ? e.message : "撤销合并失败")
+      } finally {
+        setMergingCandidates(false)
+      }
+    },
+    [novelId, loadPrescanData],
+  )
 
   const handleTriggerPrescan = useCallback(async () => {
     if (!novelId) return
@@ -585,11 +635,24 @@ export default function AnalysisPage() {
         status={prescanStatus}
         entityCount={prescanEntityCount}
         entities={prescanEntities}
+        merges={prescanMerges}
+        merging={mergingCandidates}
         loading={prescanLoading}
         expanded={prescanExpanded}
         llmLabel={llmLabel}
         onToggleExpand={() => setPrescanExpanded((v) => !v)}
         onTrigger={handleTriggerPrescan}
+        onOpenMerge={() => setMergeDialogOpen(true)}
+        onUnmerge={handleUnmergeCandidate}
+      />
+
+      <PrescanMergeDialog
+        key={mergeDialogOpen ? "open" : "closed"}
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        entities={prescanEntities}
+        busy={mergingCandidates}
+        onSubmit={handleMergeCandidates}
       />
 
       {error && (
@@ -1080,20 +1143,28 @@ function PrescanCard({
   status,
   entityCount,
   entities,
+  merges,
+  merging,
   loading,
   expanded,
   llmLabel,
   onToggleExpand,
   onTrigger,
+  onOpenMerge,
+  onUnmerge,
 }: {
   status: PrescanStatus
   entityCount: number
   entities: EntityDictItem[]
+  merges: EntityDictionaryMerge[]
+  merging: boolean
   loading: boolean
   expanded: boolean
   llmLabel: string
   onToggleExpand: () => void
   onTrigger: () => void
+  onOpenMerge: () => void
+  onUnmerge: (source: string) => void
 }) {
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -1212,6 +1283,11 @@ function PrescanCard({
                       {TYPE_LABELS[e.entity_type] || e.entity_type}
                     </Badge>
                     <span className="font-medium">{e.name}</span>
+                    {(e.merged_from?.length ?? 0) > 0 && (
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        已合并 {e.merged_from!.length} 个
+                      </span>
+                    )}
                     {e.aliases.length > 0 && (
                       <span className="text-muted-foreground truncate text-xs">
                         ({e.aliases.join(", ")})
@@ -1235,8 +1311,46 @@ function PrescanCard({
               </button>
             )}
 
-            {/* Re-scan button */}
-            <div className="pt-1">
+            {/* issue #18：生效中的合并，可逐条撤销 */}
+            {merges.length > 0 && (
+              <div className="space-y-1 rounded-md border border-dashed p-2">
+                <p className="text-muted-foreground text-xs">
+                  已合并 {merges.length} 组（只影响提示词注入的字典，可撤销）：
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {merges.map((m) => (
+                    <span
+                      key={m.source}
+                      className="bg-muted inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs"
+                    >
+                      <span className="line-through opacity-70">{m.source}</span>
+                      <span>→</span>
+                      <span className="font-medium">{m.target}</span>
+                      <button
+                        type="button"
+                        disabled={merging}
+                        onClick={() => onUnmerge(m.source)}
+                        className="text-muted-foreground hover:text-foreground ml-0.5 disabled:opacity-50"
+                        title="撤销这条合并"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Re-scan + merge entry */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onOpenMerge}
+                disabled={merging || entities.length < 2}
+              >
+                合并重复候选
+              </Button>
               <Button size="sm" variant="outline" onClick={onTrigger} disabled={loading}>
                 重新扫描
               </Button>

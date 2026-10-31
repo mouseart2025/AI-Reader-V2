@@ -9,6 +9,7 @@ import type {
   CleanAndReSplitRequest,
   ConfirmImportRequest,
   Conversation,
+  EntityDictionaryMerge,
   EntityDictionaryResponse,
   EntitySummary,
   EntityOverride,
@@ -1036,6 +1037,27 @@ export function fetchEntityDictionary(
   if (limit != null) parts.push(`limit=${limit}`)
   const qs = parts.length > 0 ? `?${parts.join("&")}` : ""
   return apiFetch<EntityDictionaryResponse>(`/novels/${novelId}/entity-dictionary${qs}`)
+}
+
+export function mergeEntityDictionary(
+  novelId: string,
+  source: string,
+  target: string,
+): Promise<{ status: string; merges: EntityDictionaryMerge[]; canonical: string; total: number }> {
+  return apiFetch(`/novels/${novelId}/entity-dictionary/merge`, {
+    method: "POST",
+    body: JSON.stringify({ source, target }),
+  })
+}
+
+export function unmergeEntityDictionary(
+  novelId: string,
+  source: string,
+): Promise<{ status: string; merges: EntityDictionaryMerge[]; total: number }> {
+  return apiFetch(
+    `/novels/${novelId}/entity-dictionary/merge/${encodeURIComponent(source)}`,
+    { method: "DELETE" },
+  )
 }
 
 // ── Chat / Conversations ─────────────────────

@@ -7,6 +7,7 @@
 
 ## Unreleased
 
+- **预扫描候选合并（issue #18）**：分析前把同一人物的多个候选（译名不统一、绰号被单独切出）合并成一条，实体字典注入提示词时只出现一次。实现为 `entity_overrides` 覆盖层（`prescan_merge`），原始 `entity_dictionary` 行不改动，删除覆盖即恢复自动结果；合并规则：频次累加、别名并集、`naming` 来源优先级保留、链式与环安全（环由 API 直接拒绝）。API `POST /novels/{id}/entity-dictionary/merge` 与 `DELETE …/merge/{source}`，分析页预扫描卡片新增「合并重复候选」入口、生效合并的逐条撤销、以及条目上的「已合并 N 个」标记；提示词构建改用合并视图。新增 11 条测试（纯函数 + 服务 + API + 提示词注入）。
 - **工程债：ruff 目标 `py310` → `py311`**（issue #12）：自动修复 79 处（33× UP017 `datetime.UTC`、9× UP041 内置 `TimeoutError`、import 排序等），6 个 `class X(str, Enum)` 改为 `StrEnum`（`LayerType` / `LocationTier` / `LocationIcon` / `SpatialScale` / `Terrain` / `Landmark`）。已核实无 `str(enum)` 依赖：`json.dumps` 与 Pydantic 序列化输出不变（仍是 `"sea"`），仅 `str()` 从 `"LayerType.sea"` 变为 `"sea"`。1764 backend tests / ruff 0 告警。
 
 ## 版本记录
