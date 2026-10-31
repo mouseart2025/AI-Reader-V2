@@ -1,7 +1,7 @@
 # AI Reader V2 — Turn Novels into Explorable Knowledge
 
 [![Tests](https://github.com/mouseart2025/AI-Reader-V2/actions/workflows/test.yml/badge.svg)](https://github.com/mouseart2025/AI-Reader-V2/actions/workflows/test.yml)
-[![Version](https://img.shields.io/badge/version-0.85.1-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
+[![Version](https://img.shields.io/badge/version-0.85.2-blue)](https://github.com/mouseart2025/AI-Reader-V2/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![GitHub Stars](https://img.shields.io/github/stars/mouseart2025/AI-Reader-V2?style=social)](https://github.com/mouseart2025/AI-Reader-V2)
 [![Python](https://img.shields.io/badge/python-3.11+-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -14,7 +14,7 @@
 
 AI Reader V2 does more than chapter summaries: it turns a whole book into structured `ChapterFact` records — characters, relationships, location hierarchies, item flows, organization events, timelines — then builds an interactive knowledge base you can explore, correct, and export. Data stays on your machine by default.
 
-> **Status (2026-10-30):** **v0.85.1 is released**, with macOS (Apple Silicon) and Windows x64 installers available. The project is under active development; verify analysis output against the source text before using it in formal research.
+> **Status (2026-10-31):** **v0.85.2 is released**, with macOS (Apple Silicon) and Windows x64 installers available. The project is under active development; verify analysis output against the source text before using it in formal research.
 
 <p align="center">
   <a href="https://ai-reader.cc"><strong>Website</strong></a> ·
@@ -40,12 +40,12 @@ AI Reader V2 does more than chapter summaries: it turns a whole book into struct
 
 | Channel | Version | Notes |
 |---------|---------|-------|
-| Desktop release | **v0.85.1** | Recommended for most users; macOS / Windows |
-| Latest source | **v0.85.1** | Security cleanup (65 -> 0 dependency advisories) + CodeQL |
+| Desktop release | **v0.85.2** | Recommended for most users; macOS / Windows |
+| Latest source | **v0.85.2** | DeepSeek long-chapter truncation fix (events +46%) + measured pipeline switches |
 | Live demo | Honglou / Journey to the West | No install required |
 
 - Source & releases: <https://github.com/mouseart2025/AI-Reader-V2>
-- v0.85.1 release: <https://github.com/mouseart2025/AI-Reader-V2/releases/tag/v0.85.1>
+- v0.85.2 release: <https://github.com/mouseart2025/AI-Reader-V2/releases/tag/v0.85.2>
 - Full history: [CHANGELOG.md](./CHANGELOG.md)
 
 ## What It Is
@@ -108,12 +108,12 @@ The desktop build bundles the Python backend; install [Ollama](https://ollama.co
 
 | Platform | Stable download | Architecture |
 |----------|-----------------|--------------|
-| macOS | [AI Reader 0.85.1 (dmg)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.1/AI.Reader_0.85.1_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
-| Windows | [AI Reader 0.85.1 (exe)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.1/AI.Reader_0.85.1_x64-setup.exe) | x86_64 |
+| macOS | [AI Reader 0.85.2 (dmg)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.2/AI.Reader_0.85.2_aarch64.dmg) | Apple Silicon (M1/M2/M3/M4) |
+| Windows | [AI Reader 0.85.2 (exe)](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.2/AI.Reader_0.85.2_x64-setup.exe) | x86_64 |
 
 > **Installer note:** these builds are ad-hoc / unsigned (signing secrets have not been migrated to the public repo yet). On macOS, if the app is reported as damaged, run the command below and reopen it. On Windows, SmartScreen may show an unknown publisher — choose **More info → Run anyway**.
 >
-> Checksums: [SHA256SUMS.txt](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.1/SHA256SUMS.txt).
+> Checksums: [SHA256SUMS.txt](https://github.com/mouseart2025/AI-Reader-V2/releases/download/v0.85.2/SHA256SUMS.txt).
 
 <details>
 <summary>macOS says the app is “damaged”?</summary>

@@ -1,6 +1,6 @@
 # 路线图 Roadmap
 
-> 最近更新：2026-10-30 · 当前版本 **v0.85.1**（正式版；macOS Apple Silicon / Windows x64 安装包已发布）
+> 最近更新：2026-10-31 · 当前版本 **v0.85.2**（补丁版；macOS Apple Silicon / Windows x64 安装包已发布）
 > 这是方向性计划，不是承诺：优先级会随用户反馈和实际质量数据调整。
 
 ## 版本节奏
@@ -16,10 +16,11 @@
 - **CodeQL 接入**：python + javascript-typescript 双语言，首轮 16 条基线告警已逐条 triage。
 - 安装包随本版重出（macOS Apple Silicon / Windows x64）。
 
-### v0.85.2 · 发版链路 + 质量基线（11 月上）
-- **发版链路**：恢复 R2 镜像、官网下载指向 v0.85.1、签名密钥迁移决策，并把「dispatch 两端构建 → 组装 release」的流程固化成 `docs/releasing.md`。
-- **质量基线**：跑通 `backend/scripts/quality_loop.py`，把 v0.81 两条推断值（场景合并的 token 节省、窗口并发的质量漂移）变成实测数字并留档。
-- **遗留登记**：封神 geographic 误判、深缩放 LOD、区域边界墨线、求解器大尺度离群边、ruff py311 升级等转为可跟踪 issue（本版只登记，修复排入后续版本）。
+### v0.85.2 · 截断修复 + 开关实测（已发布 2026-10-31）
+- **DeepSeek 长章截断修复**：客户端对 `deepseek` 的 8192 输出上限提到 16384，15 章实测截断 7/15 → 0/15，**事件抽取 +46%**。
+- **优化开关首次实测**：场景合并 −17.5% token / −17% 成本（关系 −11% 待重复验证）；窗口并发 k=2 **2.16x**、k=3 **2.49x**。
+- **发版流程固化**：`RELEASING.md`（Release / Mirror 两个 workflow 处于 disabled，推 tag 不会出包）。
+- 剩余：chromadb 上游修复跟踪（#11，月度巡检）。
 
 ## 中期
 
