@@ -228,10 +228,17 @@ class OpenAICompatibleClient:
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ]
-        # Cap max_tokens to provider limit (DeepSeek: 8192, most others: 16384+)
+        # Cap max_tokens to the provider's real limit. DeepSeek used to cap at
+        # 8192 (v3 era); the current API (deepseek-chat now routes to v4-flash)
+        # accepts ≥32K — verified 2026-10-31: max_tokens=16384 produced a 14,000
+        # token completion with finish_reason=stop. The old 8192 clamp truncated
+        # the extraction JSON on ~half of long chapters (a 15-chapter 西游记 A/B:
+        # 7/15 chapters hit exactly 8192 completion tokens and lost entities).
+        # Keep 16384 here to match the default LLM_MAX_TOKENS; users can lower it
+        # via config for legacy/proxied endpoints.
         effective_max = max_tokens
         if "deepseek" in self.base_url.lower():
-            effective_max = min(max_tokens, 8192)
+            effective_max = min(max_tokens, 16384)
         payload: dict = {
             "model": self.model,
             "messages": messages,
