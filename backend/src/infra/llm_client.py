@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -62,7 +62,7 @@ def record_llm_usage(model: str, usage: LlmUsage) -> None:
     if not path:
         return
     row = {
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
         "stage": current_llm_stage(),
         "model": model,
         "prompt_tokens": usage.prompt_tokens,

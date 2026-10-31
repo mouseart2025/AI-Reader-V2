@@ -21,7 +21,7 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _BACKEND = Path(__file__).resolve().parents[1]
@@ -93,7 +93,7 @@ def stratified_sample(parents: dict, tiers: dict, n: int = PER_STRATUM) -> list[
 
 
 def main() -> None:
-    stamp = os.environ.get("STAMP", datetime.now(timezone.utc).strftime("%Y%m%d"))
+    stamp = os.environ.get("STAMP", datetime.now(UTC).strftime("%Y%m%d"))
     all_rows: list[dict] = []
     summary = []
     for slug, (nid, title) in BOOKS.items():
@@ -118,7 +118,7 @@ def main() -> None:
     lines = [
         "# Story 5.5 人工抽查表（180 条分层抽样）",
         "",
-        f"- 生成时间: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"- 生成时间: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         f"- 数据库: `{DB_PATH}`",
         "- 分层口径: 核心(world/continent/kingdom/region) / 常规(city) / "
         "微观(site/building)，每层目标 60 条",

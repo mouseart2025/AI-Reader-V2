@@ -7,7 +7,7 @@
 
 ## Unreleased
 
-- （暂无）
+- **工程债：ruff 目标 `py310` → `py311`**（issue #12）：自动修复 79 处（33× UP017 `datetime.UTC`、9× UP041 内置 `TimeoutError`、import 排序等），6 个 `class X(str, Enum)` 改为 `StrEnum`（`LayerType` / `LocationTier` / `LocationIcon` / `SpatialScale` / `Terrain` / `Landmark`）。已核实无 `str(enum)` 依赖：`json.dumps` 与 Pydantic 序列化输出不变（仍是 `"sea"`），仅 `str()` 从 `"LayerType.sea"` 变为 `"sea"`。1764 backend tests / ruff 0 告警。
 
 ## 版本记录
 

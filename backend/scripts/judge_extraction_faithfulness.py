@@ -36,7 +36,7 @@ import logging
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -353,7 +353,7 @@ def write_judge_audit(entry: dict, log_path: Path | None = None) -> Path:
     path = log_path or AUDIT_LOG_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "prompt_version": PROMPT_VERSION,
         **entry,
     }
@@ -501,7 +501,7 @@ async def run_judge_for_novel(
         "novel_id": novel_id,
         "title": title,
         "slug": slug,
-        "judged_at": datetime.now(timezone.utc).isoformat(),
+        "judged_at": datetime.now(UTC).isoformat(),
         "judge_prompt_version": PROMPT_VERSION,
         # judge 模型必须落报告:跨厂商/跨模型对比与校准(NFR-5 可审计)依赖它,
         # 同名报告换 judge 模型时以此区分(如 20260827-deepseek vs -qwen)。
@@ -624,7 +624,7 @@ async def run_calibration(
         "judge_model": os.environ.get("LLM_MODEL", ""),
         "judge_base_url": os.environ.get("LLM_BASE_URL", ""),
         "iaa_file": iaa_file.name,
-        "calibrated_at": datetime.now(timezone.utc).isoformat(),
+        "calibrated_at": datetime.now(UTC).isoformat(),
         **overall,
         "by_kind": {k: compute_calibration_kappa(p) for k, p in by_kind_pairs.items()},
         "note": "judge 分数只作相对指标,不进论文冻结数字",

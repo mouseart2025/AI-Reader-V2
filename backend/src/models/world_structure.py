@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class LayerType(str, Enum):
+class LayerType(StrEnum):
     overworld = "overworld"
     underground = "underground"
     sky = "sky"
@@ -17,7 +17,7 @@ class LayerType(str, Enum):
     underwater = "underwater"    # 海底/龙宫/水下（蓝色调）
 
 
-class LocationTier(str, Enum):
+class LocationTier(StrEnum):
     world = "world"           # 整个世界 — 仅容器，不显示为点
     realm = "realm"           # 架空特殊空间（仙界/魔域/秘境/洞天…）— 非地理尺度，弱提示呈现
     continent = "continent"   # 大洲/大陆/界/域 — zoom 6+
@@ -28,7 +28,7 @@ class LocationTier(str, Enum):
     building = "building"     # 建筑内部/房间 — zoom 11+
 
 
-class LocationIcon(str, Enum):
+class LocationIcon(StrEnum):
     capital = "capital"
     city = "city"
     town = "town"
@@ -50,7 +50,7 @@ class LocationIcon(str, Enum):
     generic = "generic"
 
 
-class SpatialScale(str, Enum):
+class SpatialScale(StrEnum):
     room = "room"                # 密室、单个建筑
     building = "building"        # 大观园、学校
     district = "district"        # 城区、街道

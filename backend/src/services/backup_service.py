@@ -26,7 +26,6 @@ def _get_app_version() -> str:
         try:
             # Fallback: read pyproject.toml
             import pathlib
-
             import tomllib
             pyproject = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
             if pyproject.exists():

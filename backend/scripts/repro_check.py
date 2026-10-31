@@ -48,7 +48,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -620,7 +620,7 @@ async def amain(argv: list[str] | None = None) -> int:
 
     report = {
         "schema": SCHEMA_VERSION,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "novel_file": str(args.novel_file),
         "chapters": args.chapters,
         "model": model,

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _EVOLVE_DIR = Path(__file__).resolve().parent
@@ -108,7 +108,7 @@ def main() -> int:
     baseline["ood_guard"] = {
         "note": "OOD 跨体裁护栏基线(单一古典分布过拟合修正,用户提出 2026-09-18);"
                 "级 3/4 变异门禁对照此值,级 1 豁免(保留抽检),级 2 沿用分小说记账",
-        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "measured_at": datetime.now(UTC).isoformat(),
         "novels": metrics,
     }
     baseline_path.write_text(json.dumps(baseline, ensure_ascii=False, indent=2) + "\n",

@@ -23,7 +23,7 @@ import re
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _EVOLVE_DIR = Path(__file__).resolve().parent
@@ -213,7 +213,7 @@ def build_baseline(skip_golden: bool = False, skip_geo: bool = False,
 
     return {
         "version": 1,
-        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "measured_at": datetime.now(UTC).isoformat(),
         "db_md5": db_md5,
         "db_path": "~/.ai-reader-v2/data.db（只读；测量在 scratch 副本上进行）",
         "scratch_db": str(SCRATCH_DB),

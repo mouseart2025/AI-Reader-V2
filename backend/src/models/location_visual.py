@@ -20,12 +20,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class Terrain(str, Enum):
+class Terrain(StrEnum):
     MOUNTAIN = "mountain"
     WATER = "water"
     FOREST = "forest"
@@ -37,7 +37,7 @@ class Terrain(str, Enum):
     UNDERGROUND = "underground"
 
 
-class Landmark(str, Enum):
+class Landmark(StrEnum):
     PALACE = "palace"          # 宫殿/王府/官署
     RESIDENCE = "residence"    # 宅院/民居/府邸
     TEMPLE = "temple"          # 寺庙/道观/庵

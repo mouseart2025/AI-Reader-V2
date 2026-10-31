@@ -399,7 +399,7 @@ async def rebuild_hierarchy(novel_id: str):
                     # LLM returned empty result (internal error or no suggestions)
                     # Fall through to cache check below
                     raise ValueError("骨架生成无建议")
-            except (_asyncio_skel.TimeoutError, Exception) as _skel_err:
+            except (TimeoutError, Exception) as _skel_err:
                 is_timeout = isinstance(_skel_err, _asyncio_skel.TimeoutError)
                 # v0.63.0: Reuse cached skeleton on timeout/failure
                 if ws.cached_skeleton and ws.cached_skeleton.get("votes"):
@@ -497,7 +497,7 @@ async def rebuild_hierarchy(novel_id: str):
                         yield _sse("llm", f"LLM 审查完成，获得 {len(review_votes)} 条建议")
                     else:
                         yield _sse("llm", "LLM 审查完成，无新建议")
-                except _asyncio_review.TimeoutError:
+                except TimeoutError:
                     logger.warning("LLM hierarchy review timed out for %s", novel_id)
                     yield _sse("llm", "LLM 审查超时(>90s)，使用纯算法结果")
                 except Exception:
@@ -632,7 +632,7 @@ async def rebuild_hierarchy(novel_id: str):
                     )
                 else:
                     yield _sse("reflection", "无可疑关系，跳过反思")
-            except _asyncio_reflect.TimeoutError:
+            except TimeoutError:
                 logger.warning("LLM reflection timed out for %s", novel_id)
                 yield _sse("reflection", "LLM 反思超时，已跳过")
             except Exception:
@@ -660,7 +660,7 @@ async def rebuild_hierarchy(novel_id: str):
                     yield _sse("validate", f"LLM 验证修正 {len(corrections)} 处")
                 else:
                     yield _sse("validate", "LLM 验证完成，层级结构合理")
-            except _asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("LLM hierarchy validation timed out for %s", novel_id)
                 yield _sse("validate", "LLM 层级验证超时，已跳过")
             except Exception:

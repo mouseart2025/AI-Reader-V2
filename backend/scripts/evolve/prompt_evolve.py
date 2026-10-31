@@ -20,7 +20,7 @@ import asyncio
 import hashlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _EVOLVE_DIR = Path(__file__).resolve().parent
@@ -99,7 +99,7 @@ def load_state(path: Path | None = None) -> dict:
 
 def save_state(state: dict, path: Path | None = None) -> None:
     path = path or STATE_PATH
-    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+    state["updated_at"] = datetime.now(UTC).isoformat()
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8")
 

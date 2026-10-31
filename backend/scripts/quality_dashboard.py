@@ -53,6 +53,7 @@ import random
 import sqlite3
 import sys
 from collections import Counter
+from datetime import UTC
 from pathlib import Path
 
 _BACKEND_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -1040,7 +1041,7 @@ async def run_novel(
 
 
 async def main() -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from dotenv import load_dotenv
 
@@ -1056,7 +1057,7 @@ async def main() -> None:
 
     real_db = Path.home() / ".ai-reader-v2" / "data.db"
     freeze = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "db_md5": md5_file(real_db),
         "db_path": str(real_db),
     }

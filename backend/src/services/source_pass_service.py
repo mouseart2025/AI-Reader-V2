@@ -15,7 +15,7 @@ import copy
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.db import (
     analysis_pass_store,
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 def _utc_now_iso() -> str:
     """history 埋点时间戳(UTC, ISO 格式)。"""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _build_pass_llm(model_override: str | None = None):

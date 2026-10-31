@@ -8,7 +8,7 @@ chapter_facts 零改动;diff 由 PassDiffService 生成并回填 history 埋点
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -266,7 +266,7 @@ async def record_adjudication(
     log.append({
         "entry_id": body.entry_id,
         "verdict": body.verdict,
-        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
     })
     await analysis_pass_store.update_chapter_history(pass_id, body.chapter, {
         "adjudication": counts,

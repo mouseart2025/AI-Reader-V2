@@ -17,7 +17,7 @@ import os
 import re
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _EVOLVE_DIR = Path(__file__).resolve().parent
@@ -67,13 +67,13 @@ def mark_rejected(store: dict, names: list[str], reason: str,
     for name in names:
         store.setdefault("rejected", {})[name] = {
             "reason": reason,
-            "at": datetime.now(timezone.utc).isoformat(),
+            "at": datetime.now(UTC).isoformat(),
         }
     save_delta(store, path)
 
 
 def save_delta(store: dict, path: Path = DELTA_PATH) -> None:
-    store["updated_at"] = datetime.now(timezone.utc).isoformat()
+    store["updated_at"] = datetime.now(UTC).isoformat()
     path.write_text(json.dumps(store, ensure_ascii=False, indent=2,
                                sort_keys=True) + "\n", encoding="utf-8")
 

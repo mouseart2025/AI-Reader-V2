@@ -40,7 +40,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.db import analysis_pass_store, chapter_fact_store, chapter_store
 from src.services.alias_resolver import build_alias_map
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 def _utc_now_iso() -> str:
     """history 埋点时间戳(UTC, ISO 格式,与 source_pass_service 同口径)。"""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _content_hash(fact: dict) -> str:

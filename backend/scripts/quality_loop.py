@@ -33,7 +33,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -244,7 +244,7 @@ def current_switches() -> dict:
 def build_record(tag: str | None, gates: dict) -> dict:
     """组装一条 history 记录(纯函数,git 信息由调用方传入)。"""
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "tag": tag,
         "git": gates.get("git", {}),
         "switches": gates.get("switches", {}),

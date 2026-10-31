@@ -45,7 +45,7 @@ import json
 import logging
 import math
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -553,7 +553,7 @@ def write_decision_log(entry: dict, log_path: Path | None = None) -> Path:
     path = log_path or AUDIT_LOG_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "prompt_version": PROMPT_VERSION,
         **entry,
     }

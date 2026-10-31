@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.models.chapter_fact import ChapterFact
@@ -57,7 +57,7 @@ def write_audit_records(records: list[dict], log_path: Path | None = None) -> Pa
         return None
     path = log_path or AUDIT_LOG_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     with open(path, "a", encoding="utf-8") as f:
         for rec in records:
             f.write(json.dumps({"timestamp": ts, **rec}, ensure_ascii=False) + "\n")

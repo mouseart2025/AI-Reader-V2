@@ -170,7 +170,7 @@ class LocationHierarchyReviewer:
                     ),
                     timeout=self._REFLECTION_TIMEOUT,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "Reflection batch %d timed out (%.0fs)",
                     batch_idx + 1, self._REFLECTION_TIMEOUT,
@@ -571,7 +571,7 @@ class LocationHierarchyReviewer:
                     ),
                     timeout=self._SUBTREE_TIMEOUT,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "Subtree validation timed out (%.0fs): %s",
                     self._SUBTREE_TIMEOUT, label,

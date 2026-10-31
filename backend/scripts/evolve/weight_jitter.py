@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _EVOLVE_DIR = Path(__file__).resolve().parent
@@ -42,7 +42,7 @@ def load_weights_state(path: Path = WEIGHTS_STATE_PATH) -> dict:
 
 
 def save_weights_state(state: dict, path: Path = WEIGHTS_STATE_PATH) -> None:
-    state["updated_at"] = datetime.now(timezone.utc).isoformat()
+    state["updated_at"] = datetime.now(UTC).isoformat()
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2,
                                sort_keys=True) + "\n", encoding="utf-8")
 

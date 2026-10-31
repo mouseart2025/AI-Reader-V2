@@ -42,7 +42,7 @@ import hashlib
 import json
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -320,7 +320,7 @@ def build_manifest(repo_root: Path = _REPO_ROOT) -> dict:
         files[rel] = _sha256_file(p)
     return {
         "version": 0,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "files": files,
     }
 
@@ -695,7 +695,7 @@ def archive_candidate(frontier: list[dict], candidate: dict,
         "operator": candidate.get("operator"),
         "genome_diff": candidate.get("genome_diff", {}),
         "metrics": cvec,
-        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "archived_at": datetime.now(UTC).isoformat(),
     }
     new_frontier.append(entry)
 
@@ -927,7 +927,7 @@ def run_evolution(generations: int, eval_backend: str, dry_run: bool,
         # 7. COMMIT（journal lineage；不打 git commit，由人决定）
         record = {
             "generation": generation,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "operator": candidate["operator"],
             "hypothesis": candidate["hypothesis"],
             "genome_diff": candidate["genome_diff"],
@@ -1068,7 +1068,7 @@ def run_evolution_stage1(generations: int, no_pytest: bool = False,
         if not kept:
             record = {
                 "generation": generation,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "operator": candidate["operator"],
                 "hypothesis": candidate["hypothesis"],
                 "genome_diff": candidate["genome_diff"],
@@ -1174,7 +1174,7 @@ def run_evolution_stage1(generations: int, no_pytest: bool = False,
         # 7. COMMIT（journal 完整 lineage）
         record = {
             "generation": generation,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "operator": candidate["operator"],
             "hypothesis": candidate["hypothesis"],
             "genome_diff": {"vocab_delta.add": kept,
@@ -1495,7 +1495,7 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
         # 7. COMMIT（journal 完整 lineage）
         record = {
             "generation": generation,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "operator": candidate["operator"],
             "hypothesis": candidate["hypothesis"],
             "genome_diff": candidate["genome_diff"],
@@ -1543,7 +1543,7 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
                 operator = mechanisms[mech_idx]
                 switch_record = {
                     "generation": generation,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "operator": "mechanism_switch",
                     "hypothesis": (
                         f"§4.3 停滞护栏:weight_jitter 连续 {no_improve_streak} 代 "
@@ -1589,7 +1589,7 @@ def run_evolution_stage2(generations: int, no_pytest: bool = False,
             wj.save_weights_state(state)
         stab_record = {
             "generation": "stability-check",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "operator": "stability_check",
             "hypothesis": "§6.3 换序复测当前最优",
             "genome_diff": {},
@@ -1939,7 +1939,7 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
             candidate = None
             record = {
                 "generation": generation,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "operator": "prompt_gepa_reflect", "hypothesis": "",
                 "genome_diff": {}, "eval_backend": "live", "metrics": None,
                 "gate": {"passed": False, "failures": ["llm_budget"]},
@@ -1960,7 +1960,7 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
             print(f"[evolve][propose] ❌ 提议异常: {type(err).__name__}: {err}")
             record = {
                 "generation": generation,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "operator": "prompt_gepa_reflect", "hypothesis": "",
                 "genome_diff": {}, "eval_backend": "live", "metrics": None,
                 "gate": {"passed": False, "failures": ["proposal_error"]},
@@ -1986,7 +1986,7 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
                   f"{candidate['rejected_anti_hack']}")
             record = {
                 "generation": generation,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "operator": candidate["operator"],
                 "hypothesis": candidate["hypothesis"],
                 "genome_diff": {}, "eval_backend": "live", "metrics": None,
@@ -2145,7 +2145,7 @@ def run_evolution_stage3(generations: int, verbose: bool = True) -> int:
         # 8. COMMIT + review.md
         record = {
             "generation": generation,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "operator": candidate["operator"],
             "hypothesis": candidate["hypothesis"],
             "genome_diff": candidate["genome_diff"],

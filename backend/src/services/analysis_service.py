@@ -972,7 +972,7 @@ class AnalysisService:
                             ),
                             timeout=60.0,
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning("Post-analysis LLM hierarchy review timed out (>60s), skipping")
                         await self._broadcast_stage(novel_id, chapter_end, "地点层级优化超时，已跳过")
                         review_votes = None
@@ -1045,7 +1045,7 @@ class AnalysisService:
                         logger.info("Synopsis auto-generated for novel %s", novel_id)
                 finally:
                     await conn_syn.close()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Synopsis auto-generation timed out (>120s), skipping")
         except Exception as e:
             logger.warning("Synopsis auto-generation failed: %s", e)
@@ -1720,7 +1720,7 @@ class AnalysisService:
                 "Auto spatial completion for %s: %s",
                 novel_id, result.get("status", "unknown"),
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Auto spatial completion timed out for %s (300s)", novel_id)
         except Exception:
             logger.warning(
