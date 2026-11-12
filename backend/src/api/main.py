@@ -47,7 +47,9 @@ async def _restore_persisted_settings() -> None:
         try:
             settings: dict[str, str] = {}
             for key in ("llm_mode", "ollama_default_model", "llm_max_tokens",
-                         "cloud_base_url", "cloud_model"):
+                         "cloud_base_url", "cloud_model",
+                         "embedding_provider", "embedding_base_url",
+                         "embedding_cloud_model", "embedding_dimensions"):
                 row = await conn.execute(
                     "SELECT value FROM app_settings WHERE key=?", (key,),
                 )
@@ -79,6 +81,18 @@ async def _restore_persisted_settings() -> None:
         else:
             model = settings.get("ollama_default_model", "qwen3:8b")
             config.switch_to_ollama(model)
+
+        if settings.get("embedding_provider"):
+            from src.infra.secret_store import load_api_key
+
+            embed_key = await load_api_key(slot="embedding") or ""
+            config.update_embedding_config(
+                provider=settings["embedding_provider"],
+                api_key=embed_key,
+                base_url=settings.get("embedding_base_url", ""),
+                model=settings.get("embedding_cloud_model", ""),
+                dimensions=int(settings.get("embedding_dimensions", "0") or "0"),
+            )
     except Exception:
         pass  # Don't block startup on settings restore errors
 

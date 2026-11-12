@@ -16,7 +16,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Any
 
-from src.infra.config import CHROMA_DIR, EMBEDDING_MODEL
+from src.infra import config
 
 if TYPE_CHECKING:
     import chromadb
@@ -44,13 +44,69 @@ def _get_client() -> chromadb.ClientAPI:
     global _client
     if _client is None:
         chromadb = _import_chromadb()
-        _client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+        _client = chromadb.PersistentClient(path=str(config.CHROMA_DIR))
     return _client
+
+
+def reset_embed_fn() -> None:
+    """Drop the cached embedding function so a config change takes effect.
+
+    Collections are re-fetched with the current embedding function on every
+    call, so resetting this singleton is enough; the PersistentClient itself
+    is deliberately kept alive to avoid disturbing an in-flight analysis.
+    """
+    global _embed_fn
+    _embed_fn = None
+
+
+def _get_remote_embed_fn() -> Any:
+    """Build an OpenAI-compatible / Ollama embedding function (issue #20).
+
+    Raises a Chinese RuntimeError on incomplete config instead of falling
+    back to local models: a silently ignored setting is worse than an error.
+    """
+    provider = config.EMBEDDING_PROVIDER
+    _import_chromadb()
+
+    if provider == "ollama":
+        from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
+
+        url = config.EMBEDDING_BASE_URL or "http://localhost:11434"
+        model = config.EMBEDDING_CLOUD_MODEL
+        if not model:
+            raise RuntimeError("自定义 Embeddings 配置不完整：缺少模型名。请在「设置 → Embeddings」补齐。")
+        logger.info("Embedding: Ollama (%s @ %s)", model, url)
+        return OllamaEmbeddingFunction(url=url, model_name=model)
+
+    from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+
+    api_key = config.EMBEDDING_API_KEY
+    base_url = config.EMBEDDING_BASE_URL
+    model = config.EMBEDDING_CLOUD_MODEL
+    missing = [
+        name for name, value in (
+            ("API Key", api_key), ("Base URL", base_url), ("模型名", model),
+        ) if not value
+    ]
+    if missing:
+        raise RuntimeError(
+            "自定义 Embeddings 配置不完整：" + "、".join(missing)
+            + "。请在「设置 → Embeddings」补齐，或把提供方改回「本地模型」。"
+        )
+    kwargs = {"api_key": api_key, "model_name": model, "api_base": base_url}
+    if config.EMBEDDING_DIMENSIONS:
+        kwargs["dimensions"] = config.EMBEDDING_DIMENSIONS
+    logger.info("Embedding: OpenAI-compatible (%s @ %s)", model, base_url)
+    return OpenAIEmbeddingFunction(**kwargs)
 
 
 def _get_embed_fn() -> Any:
     global _embed_fn
     if _embed_fn is not None:
+        return _embed_fn
+
+    if config.EMBEDDING_PROVIDER != "local":
+        _embed_fn = _get_remote_embed_fn()
         return _embed_fn
 
     # Try sentence_transformers (best quality for Chinese, needs torch)
@@ -65,10 +121,13 @@ def _get_embed_fn() -> Any:
 
         device = "mps" if sys.platform == "darwin" else "cpu"
         _embed_fn = SentenceTransformerEmbeddingFunction(
-            model_name=EMBEDDING_MODEL,
+            model_name=config.EMBEDDING_MODEL,
             device=device,
         )
-        logger.info("Embedding: sentence_transformers (%s, device=%s)", EMBEDDING_MODEL, device)
+        logger.info(
+            "Embedding: sentence_transformers (%s, device=%s)",
+            config.EMBEDDING_MODEL, device,
+        )
         return _embed_fn
     except Exception:
         pass
