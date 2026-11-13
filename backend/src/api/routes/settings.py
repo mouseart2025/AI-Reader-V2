@@ -1208,3 +1208,123 @@ async def _check_openai() -> dict:
         result["cloud_error"] = str(e)[:200]
 
     return result
+
+
+# ── Embedding provider configuration (issue #20) ─────────
+# Kept separate from the cloud LLM key: secret_store slot="embedding".
+
+_EMBEDDING_KEYS = (
+    "embedding_provider", "embedding_base_url", "embedding_cloud_model",
+    "embedding_dimensions", "embedding_signature",
+)
+
+
+class EmbeddingConfigRequest(BaseModel):
+    provider: str = "local"      # local | openai | ollama
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""            # empty = keep existing key
+    dimensions: int = 0
+
+
+async def _read_embedding_settings() -> dict:
+    from src.db.sqlite_db import get_connection
+
+    conn = await get_connection()
+    try:
+        row = await conn.execute(
+            "SELECT key, value FROM app_settings WHERE key IN (?,?,?,?,?)",
+            _EMBEDDING_KEYS,
+        )
+        return {r[0]: r[1] for r in await row.fetchall()}
+    finally:
+        await conn.close()
+
+
+@router.get("/embedding/config")
+async def get_embedding_config():
+    """Return embedding config with the API key masked."""
+    from src.infra import config
+    from src.infra.secret_store import load_api_key
+
+    stored = await _read_embedding_settings()
+    api_key = await load_api_key(slot="embedding")
+    return {
+        "provider": stored.get("embedding_provider", config.EMBEDDING_PROVIDER),
+        "base_url": stored.get("embedding_base_url", config.EMBEDDING_BASE_URL),
+        "model": stored.get("embedding_cloud_model", config.EMBEDDING_CLOUD_MODEL),
+        "dimensions": int(stored.get("embedding_dimensions", config.EMBEDDING_DIMENSIONS) or 0),
+        "has_api_key": bool(api_key),
+        "api_key_masked": (
+            api_key[:4] + "****" + api_key[-4:] if len(api_key) > 8 else "****"
+        ) if api_key else "",
+        "active_signature": config.embedding_signature(),
+    }
+
+
+@router.post("/embedding/config")
+async def save_embedding_config(req: EmbeddingConfigRequest):
+    """Persist + hot-apply embedding config; warn when the vector space changes.
+
+    Index compatibility (rebuild / per-model collections) is deliberately
+    deferred; ``index_warning`` makes the incompatibility explicit instead of
+    silently mixing vectors from different embedding spaces.
+    """
+    from src.infra import config
+    from src.infra.secret_store import load_api_key, save_api_key
+
+    provider = (req.provider or "local").strip().lower()
+    if provider not in ("local", "openai", "ollama"):
+        raise HTTPException(status_code=400, detail="provider 必须是 local / openai / ollama")
+    if provider == "openai" and not req.base_url.strip():
+        raise HTTPException(status_code=400, detail="自定义渠道需要填写 Base URL")
+
+    stored = await _read_embedding_settings()
+    # Old installs never persisted embedding_signature, but their Chroma index
+    # was built with the local model. Falling back to the *currently active*
+    # signature makes the first provider switch warn instead of silently
+    # mixing vectors from different embedding spaces.
+    old_signature = stored.get("embedding_signature") or config.embedding_signature()
+
+    storage = "unchanged"
+    if req.api_key:
+        storage = await save_api_key(req.api_key, slot="embedding")
+    effective_key = req.api_key or (await load_api_key(slot="embedding") or "")
+
+    model = req.model.strip() or config.EMBEDDING_CLOUD_MODEL
+    base_url = req.base_url.strip()
+    dimensions = max(int(req.dimensions or 0), 0)
+
+    config.update_embedding_config(
+        provider=provider, api_key=effective_key, base_url=base_url,
+        model=model, dimensions=dimensions,
+    )
+    new_signature = config.embedding_signature()
+
+    from src.db.sqlite_db import get_connection
+
+    conn = await get_connection()
+    try:
+        for key, value in (
+            ("embedding_provider", provider),
+            ("embedding_base_url", base_url),
+            ("embedding_cloud_model", model),
+            ("embedding_dimensions", str(dimensions)),
+            ("embedding_signature", new_signature),
+        ):
+            await conn.execute(
+                """INSERT INTO app_settings (key, value, updated_at)
+                   VALUES (?, ?, datetime('now'))
+                   ON CONFLICT(key) DO UPDATE SET value=excluded.value,
+                   updated_at=excluded.updated_at""",
+                (key, value),
+            )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+    return {
+        "success": True,
+        "storage": storage,
+        "index_warning": bool(old_signature and old_signature != new_signature),
+    }
