@@ -1,5 +1,8 @@
 """Tests for the configurable embedding providers (issue #20)."""
 
+import sys
+import types
+
 import pytest
 
 from src.infra import config, secret_store
@@ -15,6 +18,37 @@ def _restore_config(monkeypatch):
     ):
         monkeypatch.setattr(config, name, getattr(config, name))
     yield
+
+
+@pytest.fixture
+def fake_chromadb(monkeypatch):
+    """CI does not install the optional ``embed`` extra (no chromadb).
+
+    Inject a minimal module tree so the remote-provider branch is still
+    exercised for real. Skipping these tests on CI would hide exactly the
+    config validation they are meant to protect.
+    """
+    pkg = types.ModuleType("chromadb")
+    utils = types.ModuleType("chromadb.utils")
+    ef = types.ModuleType("chromadb.utils.embedding_functions")
+
+    class OpenAIEmbeddingFunction:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class OllamaEmbeddingFunction:
+        def __init__(self, url, model_name):
+            self.url = url
+            self.model_name = model_name
+
+    ef.OpenAIEmbeddingFunction = OpenAIEmbeddingFunction
+    ef.OllamaEmbeddingFunction = OllamaEmbeddingFunction
+    pkg.utils = utils
+    utils.embedding_functions = ef
+    monkeypatch.setitem(sys.modules, "chromadb", pkg)
+    monkeypatch.setitem(sys.modules, "chromadb.utils", utils)
+    monkeypatch.setitem(sys.modules, "chromadb.utils.embedding_functions", ef)
+    return ef
 
 
 def test_default_llm_secret_slot_unchanged():
@@ -56,7 +90,9 @@ def test_signature_changes_with_embedding_space():
     assert "text-embedding-3-large" in after
 
 
-def test_incomplete_remote_config_fails_loudly_not_silent_local_fallback(monkeypatch):
+def test_incomplete_remote_config_fails_loudly_not_silent_local_fallback(
+    fake_chromadb, monkeypatch
+):
     """A quietly ignored setting is worse than an explicit error."""
     monkeypatch.setattr(config, "EMBEDDING_PROVIDER", "openai")
     monkeypatch.setattr(config, "EMBEDDING_API_KEY", "")
@@ -66,7 +102,15 @@ def test_incomplete_remote_config_fails_loudly_not_silent_local_fallback(monkeyp
         embedding_service._get_remote_embed_fn()
 
 
-def test_ollama_provider_uses_default_local_url(monkeypatch):
+def test_missing_chromadb_gives_actionable_hint(monkeypatch):
+    """Negative control: no optional extra -> actionable message, not silent skip."""
+    monkeypatch.setitem(sys.modules, "chromadb", None)
+    monkeypatch.setattr(config, "EMBEDDING_PROVIDER", "openai")
+    with pytest.raises(RuntimeError, match="uv sync --extra embed"):
+        embedding_service._get_remote_embed_fn()
+
+
+def test_ollama_provider_uses_default_local_url(fake_chromadb, monkeypatch):
     captured = {}
 
     class FakeFn:
@@ -74,15 +118,29 @@ def test_ollama_provider_uses_default_local_url(monkeypatch):
             captured["url"] = url
             captured["model"] = model_name
 
-    import chromadb.utils.embedding_functions as ef
-
-    monkeypatch.setattr(ef, "OllamaEmbeddingFunction", FakeFn, raising=False)
+    monkeypatch.setattr(fake_chromadb, "OllamaEmbeddingFunction", FakeFn, raising=False)
     monkeypatch.setattr(config, "EMBEDDING_PROVIDER", "ollama")
     monkeypatch.setattr(config, "EMBEDDING_BASE_URL", "")
     monkeypatch.setattr(config, "EMBEDDING_CLOUD_MODEL", "nomic-embed-text")
     fn = embedding_service._get_remote_embed_fn()
     assert isinstance(fn, FakeFn)
     assert captured == {"url": "http://localhost:11434", "model": "nomic-embed-text"}
+
+
+def test_openai_compatible_forwards_base_url_and_dimensions(fake_chromadb, monkeypatch):
+    """The custom channel must actually reach chromadb, not just be stored."""
+    monkeypatch.setattr(config, "EMBEDDING_PROVIDER", "openai")
+    monkeypatch.setattr(config, "EMBEDDING_API_KEY", "sk-x")
+    monkeypatch.setattr(config, "EMBEDDING_BASE_URL", "https://example/v1")
+    monkeypatch.setattr(config, "EMBEDDING_CLOUD_MODEL", "text-embedding-3-small")
+    monkeypatch.setattr(config, "EMBEDDING_DIMENSIONS", 768)
+    fn = embedding_service._get_remote_embed_fn()
+    assert fn.kwargs == {
+        "api_key": "sk-x",
+        "model_name": "text-embedding-3-small",
+        "api_base": "https://example/v1",
+        "dimensions": 768,
+    }
 
 
 @pytest.fixture
