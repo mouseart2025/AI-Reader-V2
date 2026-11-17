@@ -18,6 +18,7 @@ from src.infra.config import (
     OLLAMA_BASE_URL,
     get_model_name,
 )
+from src.infra.endpoint_url import is_anthropic_endpoint
 from src.infra.model_catalog import (
     MODEL_DATA_AS_OF,
     PRESET_VERSION,
@@ -464,7 +465,7 @@ async def list_cloud_models(provider: str = "", base_url: str = ""):
     if not api_key:
         return {"models": catalogue, "source": "catalogue", "warning": "尚未保存 API Key"}
 
-    is_anthropic = provider_id == "anthropic" or "anthropic.com" in url
+    is_anthropic = is_anthropic_endpoint(provider_id, url)
     base = url.rstrip("/")
     if is_anthropic:
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
@@ -605,7 +606,7 @@ async def validate_cloud_api(req: ValidateCloudRequest):
     if not req.api_key and not is_local:
         return {"valid": False, "error": "API Key 不能为空"}
 
-    is_anthropic = req.provider == "anthropic" or "anthropic.com" in req.base_url
+    is_anthropic = is_anthropic_endpoint(req.provider, req.base_url)
     # A model probe is a real completion; thinking models can exceed 10s.
     timeout_s = 30.0
     api_key = req.api_key or "local-no-auth"  # 本地服务允许空 key
