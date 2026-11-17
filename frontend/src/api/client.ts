@@ -36,6 +36,28 @@ function getBase(): string {
   return "/api"
 }
 
+/**
+ * FastAPI puts the actionable message in `detail`; `statusText` is usually
+ * empty in Chromium. Showing only "API error: 503" hid the upstream cause
+ * (e.g. a 400 about an unsupported parameter), which made field debugging
+ * impossible from the UI.
+ */
+async function describeApiError(res: Response): Promise<string> {
+  let detail = ""
+  try {
+    const body: unknown = await res.clone().json()
+    if (typeof body === "object" && body !== null && "detail" in body) {
+      const value = (body as { detail?: unknown }).detail
+      if (typeof value === "string") detail = value
+      else if (value !== undefined && value !== null) detail = JSON.stringify(value)
+    }
+  } catch {
+    // Non-JSON body (proxy error page / empty body) — keep the status line.
+  }
+  const head = `API error: ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`
+  return detail ? `${head} — ${detail}` : head
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
     ...init,
@@ -46,7 +68,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     },
   })
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw new Error(await describeApiError(res))
   }
   return res.json() as Promise<T>
 }
@@ -722,7 +744,7 @@ export function rebuildHierarchy(
       headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+        if (!res.ok) throw new Error(await describeApiError(res))
         const reader = res.body?.getReader()
         if (!reader) throw new Error("No response body")
         const decoder = new TextDecoder()
@@ -788,7 +810,7 @@ export function spatialCompletion(
       headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+        if (!res.ok) throw new Error(await describeApiError(res))
         const reader = res.body?.getReader()
         if (!reader) throw new Error("No response body")
         const decoder = new TextDecoder()

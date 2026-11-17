@@ -11,11 +11,13 @@ import httpx
 
 from src.infra.llm_client import (
     LLMError,
+    LLMHTTPError,
     LLMTimeoutError,
     LlmUsage,
     ToolCall,
     _extract_json,
 )
+from src.infra.model_catalog import resolve_capability
 
 logger = logging.getLogger(__name__)
 
@@ -239,19 +241,34 @@ class OpenAICompatibleClient:
         effective_max = max_tokens
         if "deepseek" in self.base_url.lower():
             effective_max = min(max_tokens, 16384)
+        cap = resolve_capability(self.model)
         payload: dict = {
             "model": self.model,
             "messages": messages,
-            "temperature": temperature,
-            "max_tokens": effective_max,
             "stream": False,
         }
-        if format is not None:
+        # Kimi K3 pins temperature/top_p/n server-side: sending an explicit
+        # value is an error, so omit it for families that forbid it. Unknown
+        # models keep the old behaviour (send it).
+        if cap.sampling_params:
+            payload["temperature"] = temperature
+        payload[cap.max_tokens_field] = effective_max
+        if format is not None and cap.response_format != "none":
             # Some providers (Zhipu GLM, Yi) don't fully support response_format
             # and may hang or error. Only use it for known-compatible providers.
             _RESPONSE_FORMAT_BLOCKLIST = ("bigmodel.cn", "lingyiwanwu.com")
             if not any(blocked in self.base_url for blocked in _RESPONSE_FORMAT_BLOCKLIST):
-                payload["response_format"] = {"type": "json_object"}
+                if cap.response_format == "json_schema":
+                    # strict left off on purpose: it demands every property be
+                    # required with additionalProperties=false, which the
+                    # extraction schema does not guarantee. The 400-fallback
+                    # below still drops the field if a proxy rejects it.
+                    payload["response_format"] = {
+                        "type": "json_schema",
+                        "json_schema": {"name": "extraction", "schema": format},
+                    }
+                else:
+                    payload["response_format"] = {"type": "json_object"}
 
         sem = _get_cloud_semaphore()
         async with sem:
@@ -299,9 +316,11 @@ class OpenAICompatibleClient:
                     f"Cloud API request timed out after {timeout}s"
                 ) from exc
             except httpx.HTTPStatusError as exc:
-                raise LLMError(
+                raise LLMHTTPError(
                     f"Cloud API HTTP error {exc.response.status_code}: "
-                    f"{exc.response.text[:300]}"
+                    f"{exc.response.text[:300]}",
+                    status_code=exc.response.status_code,
+                    body=exc.response.text[:1000],
                 ) from exc
 
         data = resp.json()
@@ -401,9 +420,11 @@ class OpenAICompatibleClient:
                     f"Cloud API request timed out after {timeout}s"
                 ) from exc
             except httpx.HTTPStatusError as exc:
-                raise LLMError(
+                raise LLMHTTPError(
                     f"Cloud API HTTP error {exc.response.status_code}: "
-                    f"{exc.response.text[:300]}"
+                    f"{exc.response.text[:300]}",
+                    status_code=exc.response.status_code,
+                    body=exc.response.text[:1000],
                 ) from exc
 
         data = resp.json()

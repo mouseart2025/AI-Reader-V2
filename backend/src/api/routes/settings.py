@@ -18,6 +18,11 @@ from src.infra.config import (
     OLLAMA_BASE_URL,
     get_model_name,
 )
+from src.infra.model_catalog import (
+    MODEL_DATA_AS_OF,
+    PRESET_VERSION,
+    PROVIDERS,
+)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -54,141 +59,26 @@ MODEL_CATALOG = [
 
 # TODO: replace with live /v1/models lookup per-provider at settings page load.
 # These hard-coded lists go stale every 3-6 months. Last audit: 2026-04-18.
-CLOUD_PROVIDERS = [
-    # 国产模型
-    {
-        "id": "deepseek",
-        "name": "DeepSeek",
-        "base_url": "https://api.deepseek.com",
-        "default_model": "deepseek-chat",
-        "models": ["deepseek-chat", "deepseek-reasoner"],
-        "api_format": "openai",
-    },
-    {
-        "id": "minimax",
-        "name": "MiniMax",
-        "base_url": "https://api.minimax.chat/v1",
-        "default_model": "MiniMax-M2.7",
-        "models": ["MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-Text-01"],
-        "api_format": "openai",
-    },
-    {
-        "id": "qwen",
-        "name": "阿里云百炼（Qwen）",
-        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "default_model": "qwen-max",
-        "models": ["qwen-max", "qwen-plus", "qwen-turbo", "qwen-long", "qwen3-235b-a22b"],
-        "api_format": "openai",
-    },
-    {
-        "id": "moonshot",
-        "name": "Moonshot / Kimi",
-        "base_url": "https://api.moonshot.cn/v1",
-        "default_model": "kimi-latest",
-        "models": ["kimi-latest", "moonshot-v1-32k", "moonshot-v1-128k"],
-        "api_format": "openai",
-    },
-    {
-        "id": "zhipu",
-        "name": "智谱 GLM",
-        "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "default_model": "glm-4-plus",
-        "models": ["glm-4-plus", "glm-4-air", "glm-4-flash", "glm-4-long"],
-        "api_format": "openai",
-    },
-    {
-        "id": "siliconflow",
-        "name": "SiliconFlow",
-        "base_url": "https://api.siliconflow.cn/v1",
-        "default_model": "deepseek-ai/DeepSeek-V3-0324",
-        "models": ["deepseek-ai/DeepSeek-V3-0324", "Qwen/Qwen2.5-72B-Instruct", "Qwen/QwQ-32B"],
-        "api_format": "openai",
-    },
-    {
-        "id": "yi",
-        "name": "零一万物（Yi）",
-        "base_url": "https://api.lingyiwanwu.com/v1",
-        "default_model": "yi-large",
-        "models": ["yi-large", "yi-large-turbo", "yi-medium"],
-        "api_format": "openai",
-    },
-    # 海外模型
-    {
-        "id": "openai",
-        "name": "OpenAI",
-        "base_url": "https://api.openai.com/v1",
-        "default_model": "gpt-5-mini",
-        "models": [
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "o3-mini",
-        ],
-        "api_format": "openai",
-    },
-    {
-        "id": "anthropic",
-        "name": "Anthropic（Claude）",
-        "base_url": "https://api.anthropic.com",
-        "default_model": "claude-sonnet-4-6",
-        "models": [
-            "claude-opus-4-7",
-            "claude-opus-4-6",
-            "claude-opus-4-5",
-            "claude-sonnet-4-6",
-            "claude-sonnet-4-5",
-            "claude-haiku-4-5",
-        ],
-        "api_format": "anthropic",
-    },
-    {
-        "id": "gemini",
-        "name": "Google Gemini",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "default_model": "gemini-2.5-flash",
-        "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
-        "api_format": "openai",
-    },
-    # 本地 OpenAI 兼容服务（无需 API Key，需先在对应应用里加载模型）
-    {
-        "id": "lmstudio",
-        "name": "LM Studio（本地）",
-        "base_url": "http://localhost:1234/v1",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-    {
-        "id": "vllm",
-        "name": "vLLM（本地）",
-        "base_url": "http://localhost:8000/v1",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-    {
-        "id": "ollama_openai",
-        "name": "Ollama OpenAI 端点（本地）",
-        "base_url": "http://localhost:11434/v1",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-    # 自定义
-    {
-        "id": "custom",
-        "name": "自定义",
-        "base_url": "",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-]
+# Provider/model presets live in src/infra/model_catalog.py so the list and
+# the per-model request constraints stay in one place.
+CLOUD_PROVIDERS = PROVIDERS
+
+# Upstream status codes passed through to the UI unchanged (benchmark errors).
+# Anything else becomes 502 so the browser never shows a misleading code.
+_UPSTREAM_PASSTHROUGH = frozenset(
+    {400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504}
+)
+
+
+def _benchmark_error_status(exc: Exception) -> int:
+    """Status the UI should see for a benchmark failure.
+
+    The old code always answered 503, which made a bad-parameter 400 look
+    like an overloaded server. Pass known upstream codes through; anything
+    else becomes 502 (we are a gateway to the provider).
+    """
+    upstream = getattr(exc, "status_code", None)
+    return upstream if upstream in _UPSTREAM_PASSTHROUGH else 502
 
 
 class PullModelRequest(BaseModel):
@@ -451,8 +341,12 @@ async def set_default_model(req: SetDefaultModelRequest):
 
 @router.get("/cloud/providers")
 async def get_cloud_providers():
-    """Return list of cloud LLM provider presets."""
-    return {"providers": CLOUD_PROVIDERS}
+    """Return cloud LLM provider presets plus catalogue provenance."""
+    return {
+        "providers": CLOUD_PROVIDERS,
+        "preset_version": PRESET_VERSION,
+        "model_data_as_of": MODEL_DATA_AS_OF,
+    }
 
 
 @router.get("/cloud/config")
@@ -997,9 +891,12 @@ async def run_model_benchmark():
             num_ctx=budget.extraction_num_ctx,
         )
     except LLMError as e:
-        raise HTTPException(status_code=503, detail=f"模型调用失败: {e}") from e
+        raise HTTPException(
+            status_code=_benchmark_error_status(e),
+            detail=f"模型调用失败: {e}",
+        ) from e
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"未知错误: {e}") from e
+        raise HTTPException(status_code=502, detail=f"未知错误: {e}") from e
 
     elapsed_ms = int((time.time() - start) * 1000)
     output_tokens = usage.completion_tokens
