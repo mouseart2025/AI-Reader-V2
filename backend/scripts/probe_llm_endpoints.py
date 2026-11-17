@@ -78,6 +78,30 @@ async def _list_models(base_url: str, key: str) -> list[str]:
     return sorted(m.get("id", "") for m in data.get("data", []) if m.get("id"))
 
 
+async def _deepseek_balance(base_url: str, key: str) -> str:
+    """DeepSeek exposes an account balance endpoint; other vendors do not.
+
+    Without this, an empty account makes every model look broken (402 for each
+    id) and the real problem — no credit — stays invisible.
+    """
+    if "deepseek" not in base_url.lower():
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=20, trust_env=True) as client:
+            resp = await client.get(
+                f"{base_url.rstrip('/')}/user/balance",
+                headers={"Authorization": f"Bearer {key}"},
+            )
+            if resp.status_code != 200:
+                return ""
+            data = resp.json()
+    except Exception:  # balance is a bonus, never fatal
+        return ""
+    infos = data.get("balance_infos") or []
+    parts = [f"{i.get('currency')}={i.get('total_balance')}" for i in infos]
+    return f"available={data.get('is_available')} " + " ".join(parts)
+
+
 async def _probe_one(base_url: str, key: str, model: str) -> tuple[bool, str]:
     """One real completion, shaped exactly like production requests."""
     from src.infra.openai_client import OpenAICompatibleClient
@@ -117,6 +141,17 @@ async def main() -> int:
     if not key:
         print("\nNo API key in the secret store; cannot probe.")
         return 1
+
+    balance = await _deepseek_balance(base_url, key)
+    if balance:
+        print(f"balance  : {balance}")
+        if "available=False" in balance:
+            print(
+                "\n!! the account has no usable balance; every completion will "
+                "return 402. Top up before trusting any probe result."
+            )
+            if args.probe:
+                return 1
 
     try:
         live = await _list_models(base_url, key)
