@@ -13,7 +13,7 @@ import json
 import httpx
 import pytest
 
-from src.api.routes.settings import _benchmark_error_status
+from src.api.routes.settings import _benchmark_error_status, _model_known_flags
 from src.infra import model_catalog
 from src.infra.llm_client import LLMError, LLMHTTPError
 from src.infra.openai_client import OpenAICompatibleClient
@@ -45,7 +45,7 @@ def test_kimi_k3_forbids_sampling_params():
     cap = model_catalog.resolve_capability("kimi-k3.1-pro")
     assert cap.sampling_params is False
     assert cap.max_tokens_field == "max_completion_tokens"
-    assert cap.response_format == "json_schema"
+    assert cap.response_format == "json_object"
 
 
 def test_longest_prefix_wins():
@@ -113,8 +113,9 @@ async def test_kimi_payload_omits_temperature_and_uses_completion_tokens():
     assert "temperature" not in body, "K3 rejects explicit sampling params"
     assert body["max_completion_tokens"] > 0
     assert "max_tokens" not in body
-    assert body["response_format"]["type"] == "json_schema"
-    assert body["response_format"]["json_schema"]["name"] == "extraction"
+    # Official parameter reference lists json_object as supported; json_schema
+    # is deferred until the extraction schema is verified against strict mode.
+    assert body["response_format"] == {"type": "json_object"}
 
 
 @pytest.mark.asyncio
@@ -161,3 +162,78 @@ def test_benchmark_error_status_hides_unknown_codes():
     """418/451 etc. become 502 rather than leaking a confusing code."""
     assert _benchmark_error_status(LLMHTTPError("x", status_code=418)) == 502
     assert _benchmark_error_status(RuntimeError("x")) == 502
+
+
+def test_benchmark_error_status_passes_payment_and_size_codes():
+    """402 (balance) and 413 (prompt too large) must reach the user verbatim."""
+    assert _benchmark_error_status(LLMHTTPError("x", status_code=402)) == 402
+    assert _benchmark_error_status(LLMHTTPError("x", status_code=413)) == 413
+
+
+def test_retired_model_id_is_flagged_with_suggestion():
+    flags = _model_known_flags("moonshot", "kimi-latest")
+    assert flags == {"model_known": False, "suggested_model": "kimi-k3.1-pro"}
+    assert _model_known_flags("moonshot", "kimi-k3.1-pro") == {"model_known": True}
+    assert _model_known_flags("custom", "whatever") == {"model_known": True}
+    assert _model_known_flags("moonshot", "") == {"model_known": True}
+
+
+def test_legacy_id_is_not_reported_as_healthy():
+    """deepseek-chat still routes but vanished from GET /models.
+
+    Claiming ``model_known: True`` alone would hide that the vendor stopped
+    listing it; the UI needs the extra flag to suggest the new default.
+    """
+    flags = _model_known_flags("deepseek", "deepseek-chat")
+    assert flags == {
+        "model_known": True,
+        "model_legacy": True,
+        "suggested_model": "deepseek-flash",
+    }
+    assert _model_known_flags("deepseek", "deepseek-flash") == {"model_known": True}
+
+
+def test_deepseek_preset_matches_official_models_endpoint():
+    """GET /models on 2026-11-17 returned exactly deepseek-flash + deepseek-v4-pro."""
+    deepseek = next(p for p in model_catalog.PROVIDERS if p["id"] == "deepseek")
+    assert deepseek["default_model"] == "deepseek-flash"
+    assert "deepseek-v4-pro" in deepseek["models"]
+    assert "deepseek-v4.1-flash" not in deepseek["models"]
+
+
+@pytest.mark.asyncio
+async def test_json_schema_branch_still_works(monkeypatch):
+    """No shipped model uses it today, but the branch must not rot."""
+    monkeypatch.setattr(
+        model_catalog,
+        "_MODEL_RULES",
+        (
+            (
+                "js-test-model",
+                model_catalog.ModelCapability(response_format="json_schema"),
+            ),
+        ),
+    )
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content.decode()))
+        return httpx.Response(200, json=_reply({"ok": True}))
+
+    client = _client(handler, "https://example.test/v1", "js-test-model")
+    await client.generate("sys", "usr", format={"type": "object"})
+
+    assert seen[0]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "extraction", "schema": {"type": "object"}},
+    }
+
+
+@pytest.mark.asyncio
+async def test_providers_endpoint_exposes_catalogue_provenance():
+    from src.api.routes.settings import get_cloud_providers
+
+    payload = await get_cloud_providers()
+    assert payload["preset_version"] == model_catalog.PRESET_VERSION
+    assert payload["model_data_as_of"] == model_catalog.MODEL_DATA_AS_OF
+    assert len(payload["providers"]) >= 10

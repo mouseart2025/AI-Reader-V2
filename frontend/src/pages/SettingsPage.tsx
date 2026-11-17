@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, downloadBackupExport, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
-import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
+import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, downloadBackupExport, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord, type CloudConfigWithCatalog } from "@/api/client"
+import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
 import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
@@ -120,7 +120,7 @@ export default function SettingsPage() {
 
   // Cloud config
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([])
-  const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null)
+  const [cloudConfig, setCloudConfig] = useState<CloudConfigWithCatalog | null>(null)
   const [cloudProvider, setCloudProvider] = useState("")
   const [cloudBaseUrl, setCloudBaseUrl] = useState("")
   const [cloudModel, setCloudModel] = useState("")
@@ -1037,6 +1037,16 @@ export default function SettingsPage() {
                         </p>
                       )}
                     </div>
+
+                    {cloudConfig && (cloudConfig.model_known === false || cloudConfig.model_legacy) && (
+                      <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">
+                        当前保存的模型 <span className="font-mono">{cloudConfig.model}</span>
+                        {cloudConfig.model_known === false
+                          ? " 不在最新预设中，可能已下线"
+                          : " 已从官方模型列表移除，仍可能可用"}
+                        ；建议改为 <span className="font-mono">{cloudConfig.suggested_model}</span>。
+                      </p>
+                    )}
 
                     {/* Save cloud config */}
                     <div className="flex items-center gap-3 pt-2">

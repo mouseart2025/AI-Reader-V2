@@ -62,23 +62,27 @@ DEFAULT_CAPABILITY = ModelCapability()
 # Longest-prefix wins, so "kimi-k3" matches "kimi-k3.1-pro-highspeed" too.
 _MODEL_RULES: tuple[tuple[str, ModelCapability], ...] = (
     # ── Moonshot / Kimi ────────────────────────────────────────────────
-    # K3 family: temperature/top_p/n fixed (1.0 / 0.95 / 1), output cap moved
-    # to max_completion_tokens, structured output via json_schema.
+    # K3 family: the official parameter reference lists no temperature/top_p/n
+    # (they are fixed server-side), and max_tokens is deprecated in favour of
+    # max_completion_tokens. response_format=json_object is documented as
+    # supported (it is only unsafe to combine with Partial Mode, which we do
+    # not use); json_schema is left for a later round because it would require
+    # the extraction schema to satisfy strict-mode rules we have not verified.
     (
         "kimi-k3",
         ModelCapability(
             sampling_params=False,
             max_tokens_field="max_completion_tokens",
-            response_format="json_schema",
+            response_format="json_object",
         ),
     ),
-    # K2.x thinking models share the same fixed-sampling rule.
+    # K2.6 / K2.7-code share the fixed-sampling rule and the new cap field.
     (
         "kimi-k2",
         ModelCapability(
             sampling_params=False,
             max_tokens_field="max_completion_tokens",
-            response_format="json_schema",
+            response_format="json_object",
         ),
     ),
     # ── Others ────────────────────────────────────────────────────────
@@ -118,10 +122,15 @@ PROVIDERS: list[dict] = [
         "id": "deepseek",
         "name": "DeepSeek",
         "base_url": "https://api.deepseek.com",
-        "default_model": "deepseek-v4.1-flash",
-        # deepseek-chat kept as a compatibility alias: the vendor routes the
-        # old name to the current model, and existing installs have it saved.
-        "models": ["deepseek-v4.1-flash", "deepseek-v4-pro", "deepseek-chat"],
+        # Verified against GET /models on 2026-11-17 with a real key: the
+        # account listed exactly ["deepseek-flash", "deepseek-v4-pro"].
+        # "deepseek-v4.1-flash" (seen on aggregator sites) does not exist.
+        "default_model": "deepseek-flash",
+        "models": ["deepseek-flash", "deepseek-v4-pro"],
+        # Kept only so an already-saved "deepseek-chat" keeps working if the
+        # vendor still routes the alias. The endpoint no longer lists it, so
+        # the UI flags it as legacy rather than pretending it is healthy.
+        "legacy_models": ["deepseek-chat"],
         "api_format": "openai",
     },
     {

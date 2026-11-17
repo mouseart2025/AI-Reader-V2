@@ -22,6 +22,7 @@ from src.infra.model_catalog import (
     MODEL_DATA_AS_OF,
     PRESET_VERSION,
     PROVIDERS,
+    resolve_capability,
 )
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -66,8 +67,46 @@ CLOUD_PROVIDERS = PROVIDERS
 # Upstream status codes passed through to the UI unchanged (benchmark errors).
 # Anything else becomes 502 so the browser never shows a misleading code.
 _UPSTREAM_PASSTHROUGH = frozenset(
-    {400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504}
+    {
+        400,  # bad parameter (e.g. K3 rejects explicit temperature)
+        401,  # key wrong / region mismatch
+        402,  # insufficient balance — must reach the user verbatim
+        403,
+        404,  # model id no longer exists
+        409,
+        413,  # prompt too large
+        422,
+        429,  # rate limit / tier
+        500,
+        502,
+        503,
+        504,
+    }
 )
+
+
+def _model_known_flags(provider_id: str, saved_model: str) -> dict:
+    """Catalogue health for an already-saved model id.
+
+    Returns ``{"model_known": True}`` when there is nothing to compare against
+    (custom/local providers, empty model), otherwise flags a retired id and
+    suggests the current default.
+    """
+    preset = next((p for p in PROVIDERS if p["id"] == provider_id), None)
+    if not (saved_model and preset and preset["models"]):
+        return {"model_known": True}
+    if saved_model in preset["models"]:
+        return {"model_known": True}
+    # Legacy ids still route on some vendors but are no longer listed. Say so
+    # instead of claiming health (verified 2026-11-17: deepseek-chat is absent
+    # from GET /models while the catalogue used to advertise it).
+    if saved_model in preset.get("legacy_models", []):
+        return {
+            "model_known": True,
+            "model_legacy": True,
+            "suggested_model": preset["default_model"],
+        }
+    return {"model_known": False, "suggested_model": preset["default_model"]}
 
 
 def _benchmark_error_status(exc: Exception) -> int:
@@ -377,6 +416,11 @@ async def get_cloud_config():
     else:
         config["api_key_masked"] = ""
 
+    # Flag a saved model that left the catalogue. The 2026-11 refresh retired
+    # e.g. "kimi-latest"; without this the settings page looks healthy while
+    # every analysis fails upstream with 404/400.
+    config.update(_model_known_flags(config.get("provider", ""), config.get("model", "")))
+
     return config
 
 
@@ -435,6 +479,40 @@ def _is_local_base_url(url: str) -> bool:
     return any(host in url for host in ("localhost", "127.0.0.1", "0.0.0.0"))
 
 
+def _probe_payload(model: str) -> dict:
+    """Minimal completion request shaped by the model's capability rules.
+
+    Must go through the same constraints as real calls, otherwise a probe can
+    "pass" while every real call fails (Kimi K3 rejects explicit temperature).
+    """
+    cap = resolve_capability(model)
+    payload: dict = {
+        "model": model,
+        "messages": [{"role": "user", "content": "ping"}],
+        "stream": False,
+    }
+    if cap.sampling_params:
+        payload["temperature"] = 0
+    # 64 rather than 1: thinking models spend the budget on reasoning first.
+    payload[cap.max_tokens_field] = 64
+    return payload
+
+
+def _probe_error(resp, model: str) -> str:
+    """Turn a failed probe into something a user can act on."""
+    message = ""
+    try:
+        body = resp.json()
+        error = body.get("error") if isinstance(body, dict) else None
+        if isinstance(error, dict):
+            message = error.get("message") or ""
+        elif isinstance(body, dict):
+            message = body.get("message") or ""
+    except Exception:
+        message = (resp.text or "")[:200]
+    return f"模型 {model} 调用失败（HTTP {resp.status_code}）：{message or '无错误详情'}"
+
+
 @router.post("/cloud/validate")
 async def validate_cloud_api(req: ValidateCloudRequest):
     """Test cloud LLM API connectivity with provided credentials.
@@ -453,7 +531,8 @@ async def validate_cloud_api(req: ValidateCloudRequest):
         return {"valid": False, "error": "API Key 不能为空"}
 
     is_anthropic = req.provider == "anthropic" or "anthropic.com" in req.base_url
-    timeout_s = 30.0 if is_local else 10.0
+    # A model probe is a real completion; thinking models can exceed 10s.
+    timeout_s = 30.0
     api_key = req.api_key or "local-no-auth"  # 本地服务允许空 key
 
     try:
@@ -477,18 +556,30 @@ async def validate_cloud_api(req: ValidateCloudRequest):
                     probe = await client.post(
                         f"{base}/chat/completions",
                         headers={**headers, "Content-Type": "application/json"},
-                        json={
-                            "model": probe_model,
-                            "messages": [{"role": "user", "content": "hi"}],
-                            "max_tokens": 1,
-                        },
+                        json=_probe_payload(probe_model),
                     )
                     if probe.status_code == 401:
                         return {"valid": False, "error": "API Key 无效（401 Unauthorized）"}
-                    # 任何非 401 响应（包括 400/422 模型不存在）都说明 key 有效、接口可达
+                    # With a real model name, any 4xx/5xx means it cannot run.
+                    # Without one (__probe__), a 400 only proves the key is
+                    # accepted, which is the most we can claim.
+                    if req.model and probe.status_code >= 400:
+                        return {"valid": False, "error": _probe_error(probe, req.model)}
                     return {"valid": True}
 
             if resp.status_code == 200:
+                # GET /models only proves the key is accepted. When the user
+                # has picked a model, spend one tiny completion so parameter
+                # and retired-id problems surface here instead of later in
+                # 性能测试 (the 2026-11 Kimi K3 case).
+                if req.model and not is_anthropic:
+                    probe = await client.post(
+                        f"{base}/chat/completions",
+                        headers={**headers, "Content-Type": "application/json"},
+                        json=_probe_payload(req.model),
+                    )
+                    if probe.status_code >= 400:
+                        return {"valid": False, "error": _probe_error(probe, req.model)}
                 return {"valid": True}
             elif resp.status_code == 401:
                 return {"valid": False, "error": "API Key 无效（401 Unauthorized）"}

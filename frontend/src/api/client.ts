@@ -7,6 +7,7 @@ import type {
   ChapterEntity,
   ChatMessage,
   CleanAndReSplitRequest,
+  CloudConfig,
   ConfirmImportRequest,
   Conversation,
   EntityDictionaryMerge,
@@ -245,8 +246,20 @@ export function fetchCloudProviders(): Promise<{ providers: import("./types").Cl
   return apiFetch("/settings/cloud/providers")
 }
 
-export function fetchCloudConfig(): Promise<import("./types").CloudConfig> {
-  return apiFetch("/settings/cloud/config")
+/**
+ * Cloud config plus catalogue health. `model_known === false` means the saved
+ * model id is no longer in the preset list (e.g. `kimi-latest` retired in
+ * 2026), so the UI can offer the new default before the next analysis fails.
+ */
+export interface CloudConfigWithCatalog extends CloudConfig {
+  model_known?: boolean
+  /** Still routed by the vendor but no longer listed by GET /models. */
+  model_legacy?: boolean
+  suggested_model?: string
+}
+
+export function fetchCloudConfig(): Promise<CloudConfigWithCatalog> {
+  return apiFetch<CloudConfigWithCatalog>("/settings/cloud/config")
 }
 
 export function saveCloudConfig(config: {
