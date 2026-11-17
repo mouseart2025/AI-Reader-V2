@@ -266,3 +266,17 @@ def test_minimax_omits_sampling_params():
     """Official docs: temperature is ignored (always 1), top_p fixed at 0.95."""
     cap = model_catalog.resolve_capability("MiniMax-M3.1-Flash")
     assert cap.sampling_params is False
+
+
+def test_moonshot_matches_real_models_endpoint():
+    """GET /models on 2026-11-17 returned these five ids exactly."""
+    moonshot = next(p for p in model_catalog.PROVIDERS if p["id"] == "moonshot")
+    assert moonshot["models"] == [
+        "kimi-k3.1-pro",
+        "kimi-k3",
+        "kimi-k2.7-code",
+        "kimi-k2.7-code-highspeed",
+        "kimi-k2.6",
+    ]
+    # Documented by the vendor but 404 for a normal account — must not be offered.
+    assert "kimi-k3.1-pro-highspeed" not in moonshot["models"]

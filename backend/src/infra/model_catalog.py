@@ -169,11 +169,18 @@ PROVIDERS: list[dict] = [
         "default_model": "kimi-k3.1-pro",
         # kimi-latest and the moonshot-v1 series were retired (2026-01-28 /
         # 2026-08-31); kimi-k2 series retires end of 2026.
+        # Verified 2026-11-17 with a real key: GET /models returned exactly
+        # kimi-k3.1-pro, kimi-k3, kimi-k2.7-code, kimi-k2.7-code-highspeed,
+        # kimi-k2.6. "kimi-k3.1-pro-highspeed" is in the Chat API docs but
+        # answered 404 "Not found the model ... or Permission denied" for this
+        # account, so it is deliberately NOT offered — a menu entry that fails
+        # on first click is worse than a missing one.
         "models": [
             "kimi-k3.1-pro",
-            "kimi-k3.1-pro-highspeed",
             "kimi-k3",
             "kimi-k2.7-code",
+            "kimi-k2.7-code-highspeed",
+            "kimi-k2.6",
         ],
         "api_format": "openai",
     },
