@@ -237,3 +237,32 @@ async def test_providers_endpoint_exposes_catalogue_provenance():
     assert payload["preset_version"] == model_catalog.PRESET_VERSION
     assert payload["model_data_as_of"] == model_catalog.MODEL_DATA_AS_OF
     assert len(payload["providers"]) >= 10
+
+
+def test_qwen_preset_matches_official_model_page():
+    """官方模型大全（更新 2026-11-16）首推 qwen4-max；qwen3.8-max 未出现。"""
+    qwen = next(p for p in model_catalog.PROVIDERS if p["id"] == "qwen")
+    assert qwen["default_model"] == "qwen4-max"
+    assert "qwen3.8-flash" in qwen["models"]
+    assert "qwen3.8-max" not in qwen["models"]
+
+
+def test_minimax_preset_matches_official_docs():
+    mm = next(p for p in model_catalog.PROVIDERS if p["id"] == "minimax")
+    assert mm["default_model"] == "MiniMax-M3.1-Flash"
+    assert "MiniMax-M3" in mm["models"]
+    assert "MiniMax-M2.7" in mm["legacy_models"]
+    assert "MiniMax-M2.7" not in mm["models"]
+
+
+def test_gemini_preset_excludes_preview_models():
+    """3.1 Pro is preview per Vertex AI docs; keep only GA ids in the list."""
+    gemini = next(p for p in model_catalog.PROVIDERS if p["id"] == "gemini")
+    assert "gemini-3.1-pro" not in gemini["models"]
+    assert gemini["default_model"] == "gemini-3.8-flash"
+
+
+def test_minimax_omits_sampling_params():
+    """Official docs: temperature is ignored (always 1), top_p fixed at 0.95."""
+    cap = model_catalog.resolve_capability("MiniMax-M3.1-Flash")
+    assert cap.sampling_params is False

@@ -93,6 +93,10 @@ _MODEL_RULES: tuple[tuple[str, ModelCapability], ...] = (
         "glm-5",
         ModelCapability(response_format="none"),  # GLM historically rejects it
     ),
+    # MiniMax M3 family: official docs state temperature is ignored (always 1)
+    # and top_p is fixed at 0.95. Sending them does not fail, but omitting them
+    # keeps the request honest about what the server honours.
+    ("minimax-m3", ModelCapability(sampling_params=False)),
     ("yi-", ModelCapability(response_format="none")),
 )
 
@@ -136,17 +140,26 @@ PROVIDERS: list[dict] = [
     {
         "id": "minimax",
         "name": "MiniMax",
+        # Official docs show api.minimax.io/v1 for the OpenAI-compatible path;
+        # the mainland console may hand out a different host, so users in China
+        # should keep whatever their console displays.
         "base_url": "https://api.minimax.chat/v1",
-        "default_model": "MiniMax-M3",
-        "models": ["MiniMax-M3", "MiniMax-M3.1-Flash", "MiniMax-M2.7"],
+        # Verified 2026-11-17 on the official API docs: the language lineup is
+        # M3.1-Flash + M3 (both 1M context); M2.x moved to legacy.
+        "default_model": "MiniMax-M3.1-Flash",
+        "models": ["MiniMax-M3.1-Flash", "MiniMax-M3"],
+        "legacy_models": ["MiniMax-M2.7", "MiniMax-M2.5"],
         "api_format": "openai",
     },
     {
         "id": "qwen",
         "name": "阿里云百炼（Qwen）",
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "default_model": "qwen3.8-max",
-        "models": ["qwen3.8-max", "qwen3.8-flash", "qwen3.7-plus", "qwen-max"],
+        # Verified 2026-11-17 on the official 模型大全 page (updated 11-16):
+        # qwen4-max is the featured flagship, qwen3.8-flash the fast tier,
+        # qwen3.7-plus still listed. "qwen3.8-max" was NOT on that page.
+        "default_model": "qwen4-max",
+        "models": ["qwen4-max", "qwen3.8-flash", "qwen3.7-plus", "qwen-max"],
         "api_format": "openai",
     },
     {
@@ -168,8 +181,15 @@ PROVIDERS: list[dict] = [
         "id": "zhipu",
         "name": "智谱 GLM",
         "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        # Verified 2026-11-17 on docs.bigmodel.cn (GLM-5.3 model page) and the
+        # platform home page (GLM-5.3 / 5.3-Flash / 5.3-FlashX).
+        # Note: GLM-5.3 fails the request if thinking.type is "disabled"; we
+        # never send that field, so the default (enabled) applies.
         "default_model": "glm-5.3",
-        "models": ["glm-5.3", "glm-5.3-flash", "glm-5.2", "glm-5-turbo"],
+        # glm-5-turbo kept from the aggregator listings: not on the platform
+        # home page today, but removing a working id is worse than carrying one
+        # extra option.
+        "models": ["glm-5.3", "glm-5.3-flash", "glm-5.3-flashx", "glm-5.2", "glm-5-turbo"],
         "api_format": "openai",
     },
     {
@@ -214,8 +234,12 @@ PROVIDERS: list[dict] = [
         "id": "gemini",
         "name": "Google Gemini",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        # Verified 2026-11-17 on the Vertex AI model page: 4 Carbon / 4 Argon /
+        # 3.8 Flash are GA, while **3.1 Pro is preview** and was therefore
+        # dropped. That page lists display names only, not id strings, so the
+        # ids below are transliterations — confirm with GET /models.
         "default_model": "gemini-3.8-flash",
-        "models": ["gemini-3.8-flash", "gemini-3.1-pro", "gemini-4-carbon"],
+        "models": ["gemini-3.8-flash", "gemini-4-carbon", "gemini-4-argon"],
         "api_format": "openai",
     },
     # 本地 OpenAI 兼容服务（无需 API Key，需先在对应应用里加载模型）
