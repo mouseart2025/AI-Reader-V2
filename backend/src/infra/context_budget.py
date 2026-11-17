@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 _CTX_MIN = 8192      # 8K  -> min values
 _CTX_MAX = 131072    # 128K -> max values
 
+# Cloud default when the model's window is unknown (or larger than _CTX_MAX,
+# where it would make no difference anyway).
+_CLOUD_CTX_DEFAULT = _CTX_MAX
+
 # Practical cap for local Ollama models.  Many models (qwen3:4b/8b) report
 # huge theoretical context windows (262K) that cause KV cache bloat and
 # generation timeouts on consumer hardware.  16K keeps KV cache small enough
@@ -165,10 +169,19 @@ async def detect_and_update_context_window() -> int:
             ctx, config.get_model_name(),
         )
     elif config.LLM_PROVIDER == "openai":
-        ctx = 131072
+        from src.infra.model_catalog import resolve_capability
+
+        declared = resolve_capability(config.get_model_name()).context_window
+        # Only a *smaller* declared window changes behaviour: compute_budget()
+        # clamps at 128K, so 1M and 128K produce identical budgets. A smaller
+        # one matters because it stops us from feeding a 50K-char chapter to a
+        # short-context model.
+        ctx = declared if 0 < declared < _CLOUD_CTX_DEFAULT else _CLOUD_CTX_DEFAULT
         logger.info(
-            "Context window: %d (cloud mode, model=%s)",
-            ctx, config.get_model_name(),
+            "Context window: %d (cloud mode, model=%s%s)",
+            ctx,
+            config.get_model_name(),
+            f", declared {declared}" if declared else "",
         )
     else:
         raw_ctx = await detect_context_window_ollama(

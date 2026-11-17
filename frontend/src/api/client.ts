@@ -301,6 +301,24 @@ export function saveEmbeddingConfig(config: {
   })
 }
 
+export interface CloudModelsResponse {
+  models: string[]
+  /** "live" = authoritative list from the provider; "catalogue" = fallback. */
+  source: "live" | "catalogue"
+  warning?: string
+}
+
+/** Ask the provider what it actually serves right now (P3 refresh). */
+export function fetchCloudModels(
+  params: { provider?: string; base_url?: string } = {},
+): Promise<CloudModelsResponse> {
+  const q = new URLSearchParams()
+  if (params.provider) q.set("provider", params.provider)
+  if (params.base_url) q.set("base_url", params.base_url)
+  const qs = q.toString()
+  return apiFetch<CloudModelsResponse>(`/settings/cloud/models${qs ? `?${qs}` : ""}`)
+}
+
 export function validateCloudApi(
   base_url: string,
   api_key: string,

@@ -424,6 +424,81 @@ async def get_cloud_config():
     return config
 
 
+@router.get("/cloud/models")
+async def list_cloud_models(provider: str = "", base_url: str = ""):
+    """Fetch the endpoint's live model list, falling back to the catalogue.
+
+    Never raises on upstream failure: the settings page has to stay usable when
+    a key is missing or the provider is down. ``source`` tells the UI whether
+    the list is authoritative ("live") or just the shipped catalogue.
+    """
+    from src.db.sqlite_db import get_connection
+    from src.infra.secret_store import load_api_key
+
+    provider_id = provider
+    url = base_url.strip()
+    if not provider_id or not url:
+        conn = await get_connection()
+        try:
+            for key in ("cloud_provider", "cloud_base_url"):
+                row = await conn.execute(
+                    "SELECT value FROM app_settings WHERE key=?", (key,)
+                )
+                result = await row.fetchone()
+                if not result:
+                    continue
+                if key == "cloud_provider" and not provider_id:
+                    provider_id = result[0]
+                if key == "cloud_base_url" and not url:
+                    url = result[0]
+        finally:
+            await conn.close()
+
+    preset = next((p for p in PROVIDERS if p["id"] == provider_id), None)
+    catalogue = list(preset["models"]) if preset else []
+
+    if not url:
+        return {"models": catalogue, "source": "catalogue", "warning": "Base URL 为空"}
+
+    api_key = await load_api_key()
+    if not api_key:
+        return {"models": catalogue, "source": "catalogue", "warning": "尚未保存 API Key"}
+
+    is_anthropic = provider_id == "anthropic" or "anthropic.com" in url
+    base = url.rstrip("/")
+    if is_anthropic:
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+        endpoint = f"{base}/v1/models"
+    else:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        endpoint = f"{base}/models"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=True) as client:
+            resp = await client.get(endpoint, headers=headers)
+        if resp.status_code != 200:
+            return {
+                "models": catalogue,
+                "source": "catalogue",
+                "warning": f"服务商返回 {resp.status_code}，已回退到内置列表",
+            }
+        data = resp.json()
+        models = sorted({m.get("id") for m in data.get("data", []) if m.get("id")})
+        if not models:
+            return {
+                "models": catalogue,
+                "source": "catalogue",
+                "warning": "服务商未返回任何模型",
+            }
+        return {"models": models, "source": "live"}
+    except Exception as exc:
+        return {
+            "models": catalogue,
+            "source": "catalogue",
+            "warning": f"拉取失败：{type(exc).__name__}",
+        }
+
+
 @router.post("/cloud/config")
 async def save_cloud_config(req: CloudConfigRequest):
     """Save cloud LLM configuration and update runtime config."""

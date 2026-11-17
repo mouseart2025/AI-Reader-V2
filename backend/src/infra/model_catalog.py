@@ -56,6 +56,12 @@ class ModelCapability:
     #: ``none`` (do not send the field).
     response_format: str = "json_object"
 
+    #: Total context window in tokens; 0 = unknown. Only values *below* the
+    #: budget's 128K interpolation ceiling change behaviour (they lower the
+    #: chapter budget). Anything larger is a no-op by design — compute_budget()
+    #: clamps at 128K, so recording 1M here would be decoration.
+    context_window: int = 0
+
 
 DEFAULT_CAPABILITY = ModelCapability()
 
@@ -74,6 +80,7 @@ _MODEL_RULES: tuple[tuple[str, ModelCapability], ...] = (
             sampling_params=False,
             max_tokens_field="max_completion_tokens",
             response_format="json_object",
+            context_window=1_048_576,
         ),
     ),
     # K2.6 / K2.7-code share the fixed-sampling rule and the new cap field.
@@ -83,6 +90,7 @@ _MODEL_RULES: tuple[tuple[str, ModelCapability], ...] = (
             sampling_params=False,
             max_tokens_field="max_completion_tokens",
             response_format="json_object",
+            context_window=262_144,
         ),
     ),
     # ── Others ────────────────────────────────────────────────────────

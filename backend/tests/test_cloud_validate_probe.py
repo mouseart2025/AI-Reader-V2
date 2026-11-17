@@ -10,7 +10,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.api.routes.settings import ValidateCloudRequest, validate_cloud_api
+from src.api.routes.settings import (
+    ValidateCloudRequest,
+    list_cloud_models,
+    validate_cloud_api,
+)
 
 
 def _client_mock(*, get_status: int = 200, post_status: int = 200, post_body=None):
@@ -113,3 +117,59 @@ async def test_anthropic_skips_openai_style_probe():
 
     assert result["valid"] is True
     client.post.assert_not_awaited()
+
+
+# ── live model list endpoint ─────────────────────────────────────────
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_cloud_models_returns_live_sorted(monkeypatch):
+    from src.infra import secret_store
+
+    monkeypatch.setattr(secret_store, "load_api_key", AsyncMock(return_value="sk-x"))
+    client = _client_mock(get_status=200)
+    client.get.return_value.json.return_value = {
+        "data": [{"id": "b-model"}, {"id": "a-model"}]
+    }
+
+    with patch("src.api.routes.settings.httpx.AsyncClient", return_value=client):
+        result = await list_cloud_models(
+            provider="deepseek", base_url="https://api.deepseek.com"
+        )
+
+    assert result["source"] == "live"
+    assert result["models"] == ["a-model", "b-model"]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_cloud_models_falls_back_to_catalogue_on_error(monkeypatch):
+    from src.infra import secret_store
+
+    monkeypatch.setattr(secret_store, "load_api_key", AsyncMock(return_value="sk-x"))
+    client = _client_mock(get_status=401)
+
+    with patch("src.api.routes.settings.httpx.AsyncClient", return_value=client):
+        result = await list_cloud_models(
+            provider="deepseek", base_url="https://api.deepseek.com"
+        )
+
+    assert result["source"] == "catalogue"
+    assert "401" in result["warning"]
+    assert "deepseek-flash" in result["models"]
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_list_cloud_models_without_key_skips_network(monkeypatch):
+    from src.infra import secret_store
+
+    monkeypatch.setattr(secret_store, "load_api_key", AsyncMock(return_value=""))
+    client = _client_mock(get_status=200)
+
+    with patch("src.api.routes.settings.httpx.AsyncClient", return_value=client):
+        result = await list_cloud_models(
+            provider="moonshot", base_url="https://api.moonshot.cn/v1"
+        )
+
+    assert result["source"] == "catalogue"
+    assert "API Key" in result["warning"]
+    client.get.assert_not_awaited()
