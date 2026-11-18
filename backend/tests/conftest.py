@@ -126,7 +126,27 @@ async def mock_get_connection(memory_db):
 
     with patch("src.services.export_service.get_connection", _factory), \
          patch.object(_export_mod, "_build_precomputed", _noop_precompute), \
-         patch("src.services.sample_data_service.get_connection", _factory):
+         patch("src.services.sample_data_service.get_connection", _factory), \
+         patch("src.services.backup_service.get_connection", _factory):
+        yield memory_db
+
+
+@pytest_asyncio.fixture
+async def real_precompute_connection(memory_db):
+    """Same wiring as ``mock_get_connection`` but WITHOUT stubbing the
+    precomputed builder.
+
+    issue #27: the default fixture replaced ``_build_precomputed`` with a stub
+    returning ``None``, so no export test ever executed that branch. A ``set``
+    entering the payload therefore went unnoticed for two months, and every
+    ``.air`` export shipped from v0.77.0 onward returned HTTP 500.
+    """
+    async def _factory():
+        return _NonClosingConnection(memory_db)
+
+    with patch("src.services.export_service.get_connection", _factory), \
+         patch("src.services.sample_data_service.get_connection", _factory), \
+         patch("src.services.backup_service.get_connection", _factory):
         yield memory_db
 
 

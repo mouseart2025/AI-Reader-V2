@@ -8,6 +8,7 @@ API Keys are NEVER included in backups.
 
 import io
 import json
+import logging
 import zipfile
 from datetime import datetime
 
@@ -15,6 +16,8 @@ from src.db.sqlite_db import get_connection
 from src.services.export_service import export_novel, import_novel
 
 BACKUP_FORMAT_VERSION = 1
+
+logger = logging.getLogger(__name__)
 
 
 def _get_app_version() -> str:
@@ -52,6 +55,7 @@ async def export_all() -> io.BytesIO:
         await conn.close()
 
     buf = io.BytesIO()
+    failures: list[dict] = []
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
         exported_novels = []
 
@@ -67,9 +71,23 @@ async def export_all() -> io.BytesIO:
                     "title": novel["title"],
                     "total_chapters": data["novel"].get("total_chapters", 0),
                 })
-            except Exception:
-                # Skip novels that fail to export
-                pass
+            except Exception as e:
+                # Never swallow silently: a backup that reports success while
+                # containing nothing is worse than a visible failure (issue
+                # #27 shipped a manifest with novel_count: 0 for two months).
+                failures.append({
+                    "id": novel["id"],
+                    "title": novel["title"],
+                    "error": str(e)[:300],
+                })
+                logger.warning("Backup skipped novel %s: %s", novel["id"], e)
+
+        if novels and not exported_novels:
+            # The route already prefixes "备份导出失败: " — keep this message
+            # about the cause only.
+            raise RuntimeError(
+                f"{len(failures)} 本小说全部导出失败，首个错误：{failures[0]['error']}"
+            )
 
         manifest = {
             "backup_format_version": BACKUP_FORMAT_VERSION,
@@ -77,6 +95,8 @@ async def export_all() -> io.BytesIO:
             "app_version": _get_app_version(),
             "novel_count": len(exported_novels),
             "novels": exported_novels,
+            "failed_count": len(failures),
+            "failed": failures,
         }
         zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
 
