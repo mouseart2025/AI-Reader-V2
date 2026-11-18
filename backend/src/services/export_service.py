@@ -47,7 +47,11 @@ async def _build_precomputed(novel_id: str) -> dict | None:
         encyclopedia_stats = await get_category_stats(novel_id)
 
         ws = await load_with_overrides(novel_id)
-        world_structure = ws.model_dump() if ws else None
+        # mode="json" is mandatory here: pydantic's python mode keeps `set`
+        # intact (e.g. WorldStructure.virtual_locations), and this dict is
+        # handed to json.dumps() by the .air / format=json branches. That
+        # mismatch broke every export from v0.77.0 onward (issue #27).
+        world_structure = ws.model_dump(mode="json") if ws else None
 
         return {
             "graph": graph,
