@@ -1,6 +1,6 @@
 # 路线图 Roadmap
 
-> 最近更新：2026-10-31 · 当前版本 **v0.85.2**（补丁版；macOS Apple Silicon / Windows x64 安装包已发布）
+> 最近更新：2026-11-19 · 当前版本 **v0.86.0**（正式版；macOS Apple Silicon / Windows x64 安装包已发布）
 > 这是方向性计划，不是承诺：优先级会随用户反馈和实际质量数据调整。
 
 ## 版本节奏
@@ -15,6 +15,12 @@
 - **依赖告警 65 → 0**：`requires-python` 提到 3.11（Python 3.10 已 EOL），`uv.lock` 里 py<3.11 的 `pillow 12.3.0` 兜底分支消失、Pillow 13 全域生效；filelock 4.2.4、setuptools 84.2.1、opentelemetry 1.45.1、vitest 4.1.12、`@hono/node-server` 2.1.5。
 - **CodeQL 接入**：python + javascript-typescript 双语言，首轮 16 条基线告警已逐条 triage。
 - 安装包随本版重出（macOS Apple Silicon / Windows x64）。
+
+### v0.86.0 · 导出修复 + 预扫描合并（已发布 2026-11-19）
+- **`.air` 导出修复（#27）**：`WorldStructure.virtual_locations` 是 `set`，python 模式 `model_dump()` 原样带入导出包 ⇒ `json.dumps` 抛 `TypeError`，**v0.77.0 起约 2 个月、9 个正式版**的 `.air` 与 `format=json` 导出全部 500。备份导出同因静默产出空包（`novel_count: 0`），现已改为失败可见、全部失败即报错。
+- **测试脚手架根因**：`mock_get_connection` 曾把 `_build_precomputed` 换成返回 `None` 的桩，1775 个测试未覆盖该分支；新增 `real_precompute_connection` 与 4 个回归用例。
+- **预扫描候选合并（#18）**：`entity_overrides` 覆盖层合并同人候选，可逐条撤销。
+- **ruff 目标 py310 → py311（#12）**、oauthlib 4.0.1（high）。
 
 ### v0.85.2 · 截断修复 + 开关实测（已发布 2026-10-31）
 - **DeepSeek 长章截断修复**：客户端对 `deepseek` 的 8192 输出上限提到 16384，15 章实测截断 7/15 → 0/15，**事件抽取 +46%**。
