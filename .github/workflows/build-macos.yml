@@ -9,7 +9,9 @@ jobs:
   build-macos:
     uses: ./.github/workflows/build-desktop.yml
     with:
-      runner: macos-14
+      # macos-14 was retired upstream: dispatching it now fails with
+      # "The configuration 'macos-14-arm64-us-default' is not supported".
+      runner: macos-15
       target: aarch64-apple-darwin
       upload: artifact
     secrets: inherit
