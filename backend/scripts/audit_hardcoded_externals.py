@@ -94,10 +94,13 @@ def classify(file_path: Path, label: str, line_text: str = "") -> str:
     """Downgrade severity based on file context."""
     path_str = str(file_path)
 
-    # settings.py CLOUD_PROVIDERS is the centralized model registry —
-    # hits there are intentional and not "hardcoded drift" concerns.
-    # Only model-name + url labels get this exemption.
-    if path_str.endswith("settings.py") and label.endswith(("-model-name", "-api-url")):
+    # model_catalog.py is the centralized model registry (moved out of
+    # settings.py in 2026-11) — hits there are intentional and not
+    # "hardcoded drift" concerns. Only model-name + url labels get this
+    # exemption; settings.py stays listed for older branches.
+    if path_str.endswith(("settings.py", "model_catalog.py")) and label.endswith(
+        ("-model-name", "-api-url")
+    ):
         return "LOW"  # still track (so we can audit the registry itself) but not HIGH
 
     # cost_service.py pricing dict — model names appear as dict keys to look up

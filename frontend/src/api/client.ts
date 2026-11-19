@@ -7,6 +7,7 @@ import type {
   ChapterEntity,
   ChatMessage,
   CleanAndReSplitRequest,
+  CloudConfig,
   ConfirmImportRequest,
   Conversation,
   EntityDictionaryMerge,
@@ -36,6 +37,28 @@ function getBase(): string {
   return "/api"
 }
 
+/**
+ * FastAPI puts the actionable message in `detail`; `statusText` is usually
+ * empty in Chromium. Showing only "API error: 503" hid the upstream cause
+ * (e.g. a 400 about an unsupported parameter), which made field debugging
+ * impossible from the UI.
+ */
+async function describeApiError(res: Response): Promise<string> {
+  let detail = ""
+  try {
+    const body: unknown = await res.clone().json()
+    if (typeof body === "object" && body !== null && "detail" in body) {
+      const value = (body as { detail?: unknown }).detail
+      if (typeof value === "string") detail = value
+      else if (value !== undefined && value !== null) detail = JSON.stringify(value)
+    }
+  } catch {
+    // Non-JSON body (proxy error page / empty body) — keep the status line.
+  }
+  const head = `API error: ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`
+  return detail ? `${head} — ${detail}` : head
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
     ...init,
@@ -46,7 +69,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     },
   })
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw new Error(await describeApiError(res))
   }
   return res.json() as Promise<T>
 }
@@ -223,8 +246,20 @@ export function fetchCloudProviders(): Promise<{ providers: import("./types").Cl
   return apiFetch("/settings/cloud/providers")
 }
 
-export function fetchCloudConfig(): Promise<import("./types").CloudConfig> {
-  return apiFetch("/settings/cloud/config")
+/**
+ * Cloud config plus catalogue health. `model_known === false` means the saved
+ * model id is no longer in the preset list (e.g. `kimi-latest` retired in
+ * 2026), so the UI can offer the new default before the next analysis fails.
+ */
+export interface CloudConfigWithCatalog extends CloudConfig {
+  model_known?: boolean
+  /** Still routed by the vendor but no longer listed by GET /models. */
+  model_legacy?: boolean
+  suggested_model?: string
+}
+
+export function fetchCloudConfig(): Promise<CloudConfigWithCatalog> {
+  return apiFetch<CloudConfigWithCatalog>("/settings/cloud/config")
 }
 
 export function saveCloudConfig(config: {
@@ -264,6 +299,24 @@ export function saveEmbeddingConfig(config: {
     method: "POST",
     body: JSON.stringify(config),
   })
+}
+
+export interface CloudModelsResponse {
+  models: string[]
+  /** "live" = authoritative list from the provider; "catalogue" = fallback. */
+  source: "live" | "catalogue"
+  warning?: string
+}
+
+/** Ask the provider what it actually serves right now (P3 refresh). */
+export function fetchCloudModels(
+  params: { provider?: string; base_url?: string } = {},
+): Promise<CloudModelsResponse> {
+  const q = new URLSearchParams()
+  if (params.provider) q.set("provider", params.provider)
+  if (params.base_url) q.set("base_url", params.base_url)
+  const qs = q.toString()
+  return apiFetch<CloudModelsResponse>(`/settings/cloud/models${qs ? `?${qs}` : ""}`)
 }
 
 export function validateCloudApi(
@@ -722,7 +775,7 @@ export function rebuildHierarchy(
       headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+        if (!res.ok) throw new Error(await describeApiError(res))
         const reader = res.body?.getReader()
         if (!reader) throw new Error("No response body")
         const decoder = new TextDecoder()
@@ -788,7 +841,7 @@ export function spatialCompletion(
       headers: { "Content-Type": "application/json", ...sidecarAuthHeaders() },
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+        if (!res.ok) throw new Error(await describeApiError(res))
         const reader = res.body?.getReader()
         if (!reader) throw new Error("No response body")
         const decoder = new TextDecoder()

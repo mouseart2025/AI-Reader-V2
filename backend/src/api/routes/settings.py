@@ -18,6 +18,13 @@ from src.infra.config import (
     OLLAMA_BASE_URL,
     get_model_name,
 )
+from src.infra.endpoint_url import is_anthropic_endpoint
+from src.infra.model_catalog import (
+    MODEL_DATA_AS_OF,
+    PRESET_VERSION,
+    PROVIDERS,
+    resolve_capability,
+)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -54,141 +61,64 @@ MODEL_CATALOG = [
 
 # TODO: replace with live /v1/models lookup per-provider at settings page load.
 # These hard-coded lists go stale every 3-6 months. Last audit: 2026-04-18.
-CLOUD_PROVIDERS = [
-    # 国产模型
+# Provider/model presets live in src/infra/model_catalog.py so the list and
+# the per-model request constraints stay in one place.
+CLOUD_PROVIDERS = PROVIDERS
+
+# Upstream status codes passed through to the UI unchanged (benchmark errors).
+# Anything else becomes 502 so the browser never shows a misleading code.
+_UPSTREAM_PASSTHROUGH = frozenset(
     {
-        "id": "deepseek",
-        "name": "DeepSeek",
-        "base_url": "https://api.deepseek.com",
-        "default_model": "deepseek-chat",
-        "models": ["deepseek-chat", "deepseek-reasoner"],
-        "api_format": "openai",
-    },
-    {
-        "id": "minimax",
-        "name": "MiniMax",
-        "base_url": "https://api.minimax.chat/v1",
-        "default_model": "MiniMax-M2.7",
-        "models": ["MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-Text-01"],
-        "api_format": "openai",
-    },
-    {
-        "id": "qwen",
-        "name": "阿里云百炼（Qwen）",
-        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "default_model": "qwen-max",
-        "models": ["qwen-max", "qwen-plus", "qwen-turbo", "qwen-long", "qwen3-235b-a22b"],
-        "api_format": "openai",
-    },
-    {
-        "id": "moonshot",
-        "name": "Moonshot / Kimi",
-        "base_url": "https://api.moonshot.cn/v1",
-        "default_model": "kimi-latest",
-        "models": ["kimi-latest", "moonshot-v1-32k", "moonshot-v1-128k"],
-        "api_format": "openai",
-    },
-    {
-        "id": "zhipu",
-        "name": "智谱 GLM",
-        "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "default_model": "glm-4-plus",
-        "models": ["glm-4-plus", "glm-4-air", "glm-4-flash", "glm-4-long"],
-        "api_format": "openai",
-    },
-    {
-        "id": "siliconflow",
-        "name": "SiliconFlow",
-        "base_url": "https://api.siliconflow.cn/v1",
-        "default_model": "deepseek-ai/DeepSeek-V3-0324",
-        "models": ["deepseek-ai/DeepSeek-V3-0324", "Qwen/Qwen2.5-72B-Instruct", "Qwen/QwQ-32B"],
-        "api_format": "openai",
-    },
-    {
-        "id": "yi",
-        "name": "零一万物（Yi）",
-        "base_url": "https://api.lingyiwanwu.com/v1",
-        "default_model": "yi-large",
-        "models": ["yi-large", "yi-large-turbo", "yi-medium"],
-        "api_format": "openai",
-    },
-    # 海外模型
-    {
-        "id": "openai",
-        "name": "OpenAI",
-        "base_url": "https://api.openai.com/v1",
-        "default_model": "gpt-5-mini",
-        "models": [
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "o3-mini",
-        ],
-        "api_format": "openai",
-    },
-    {
-        "id": "anthropic",
-        "name": "Anthropic（Claude）",
-        "base_url": "https://api.anthropic.com",
-        "default_model": "claude-sonnet-4-6",
-        "models": [
-            "claude-opus-4-7",
-            "claude-opus-4-6",
-            "claude-opus-4-5",
-            "claude-sonnet-4-6",
-            "claude-sonnet-4-5",
-            "claude-haiku-4-5",
-        ],
-        "api_format": "anthropic",
-    },
-    {
-        "id": "gemini",
-        "name": "Google Gemini",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "default_model": "gemini-2.5-flash",
-        "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
-        "api_format": "openai",
-    },
-    # 本地 OpenAI 兼容服务（无需 API Key，需先在对应应用里加载模型）
-    {
-        "id": "lmstudio",
-        "name": "LM Studio（本地）",
-        "base_url": "http://localhost:1234/v1",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-    {
-        "id": "vllm",
-        "name": "vLLM（本地）",
-        "base_url": "http://localhost:8000/v1",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-    {
-        "id": "ollama_openai",
-        "name": "Ollama OpenAI 端点（本地）",
-        "base_url": "http://localhost:11434/v1",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-    # 自定义
-    {
-        "id": "custom",
-        "name": "自定义",
-        "base_url": "",
-        "default_model": "",
-        "models": [],
-        "api_format": "openai",
-    },
-]
+        400,  # bad parameter (e.g. K3 rejects explicit temperature)
+        401,  # key wrong / region mismatch
+        402,  # insufficient balance — must reach the user verbatim
+        403,
+        404,  # model id no longer exists
+        409,
+        413,  # prompt too large
+        422,
+        429,  # rate limit / tier
+        500,
+        502,
+        503,
+        504,
+    }
+)
+
+
+def _model_known_flags(provider_id: str, saved_model: str) -> dict:
+    """Catalogue health for an already-saved model id.
+
+    Returns ``{"model_known": True}`` when there is nothing to compare against
+    (custom/local providers, empty model), otherwise flags a retired id and
+    suggests the current default.
+    """
+    preset = next((p for p in PROVIDERS if p["id"] == provider_id), None)
+    if not (saved_model and preset and preset["models"]):
+        return {"model_known": True}
+    if saved_model in preset["models"]:
+        return {"model_known": True}
+    # Legacy ids still route on some vendors but are no longer listed. Say so
+    # instead of claiming health (verified 2026-11-17: deepseek-chat is absent
+    # from GET /models while the catalogue used to advertise it).
+    if saved_model in preset.get("legacy_models", []):
+        return {
+            "model_known": True,
+            "model_legacy": True,
+            "suggested_model": preset["default_model"],
+        }
+    return {"model_known": False, "suggested_model": preset["default_model"]}
+
+
+def _benchmark_error_status(exc: Exception) -> int:
+    """Status the UI should see for a benchmark failure.
+
+    The old code always answered 503, which made a bad-parameter 400 look
+    like an overloaded server. Pass known upstream codes through; anything
+    else becomes 502 (we are a gateway to the provider).
+    """
+    upstream = getattr(exc, "status_code", None)
+    return upstream if upstream in _UPSTREAM_PASSTHROUGH else 502
 
 
 class PullModelRequest(BaseModel):
@@ -451,8 +381,12 @@ async def set_default_model(req: SetDefaultModelRequest):
 
 @router.get("/cloud/providers")
 async def get_cloud_providers():
-    """Return list of cloud LLM provider presets."""
-    return {"providers": CLOUD_PROVIDERS}
+    """Return cloud LLM provider presets plus catalogue provenance."""
+    return {
+        "providers": CLOUD_PROVIDERS,
+        "preset_version": PRESET_VERSION,
+        "model_data_as_of": MODEL_DATA_AS_OF,
+    }
 
 
 @router.get("/cloud/config")
@@ -483,7 +417,87 @@ async def get_cloud_config():
     else:
         config["api_key_masked"] = ""
 
+    # Flag a saved model that left the catalogue. The 2026-11 refresh retired
+    # e.g. "kimi-latest"; without this the settings page looks healthy while
+    # every analysis fails upstream with 404/400.
+    config.update(_model_known_flags(config.get("provider", ""), config.get("model", "")))
+
     return config
+
+
+@router.get("/cloud/models")
+async def list_cloud_models(provider: str = "", base_url: str = ""):
+    """Fetch the endpoint's live model list, falling back to the catalogue.
+
+    Never raises on upstream failure: the settings page has to stay usable when
+    a key is missing or the provider is down. ``source`` tells the UI whether
+    the list is authoritative ("live") or just the shipped catalogue.
+    """
+    from src.db.sqlite_db import get_connection
+    from src.infra.secret_store import load_api_key
+
+    provider_id = provider
+    url = base_url.strip()
+    if not provider_id or not url:
+        conn = await get_connection()
+        try:
+            for key in ("cloud_provider", "cloud_base_url"):
+                row = await conn.execute(
+                    "SELECT value FROM app_settings WHERE key=?", (key,)
+                )
+                result = await row.fetchone()
+                if not result:
+                    continue
+                if key == "cloud_provider" and not provider_id:
+                    provider_id = result[0]
+                if key == "cloud_base_url" and not url:
+                    url = result[0]
+        finally:
+            await conn.close()
+
+    preset = next((p for p in PROVIDERS if p["id"] == provider_id), None)
+    catalogue = list(preset["models"]) if preset else []
+
+    if not url:
+        return {"models": catalogue, "source": "catalogue", "warning": "Base URL 为空"}
+
+    api_key = await load_api_key()
+    if not api_key:
+        return {"models": catalogue, "source": "catalogue", "warning": "尚未保存 API Key"}
+
+    is_anthropic = is_anthropic_endpoint(provider_id, url)
+    base = url.rstrip("/")
+    if is_anthropic:
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+        endpoint = f"{base}/v1/models"
+    else:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        endpoint = f"{base}/models"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=True) as client:
+            resp = await client.get(endpoint, headers=headers)
+        if resp.status_code != 200:
+            return {
+                "models": catalogue,
+                "source": "catalogue",
+                "warning": f"服务商返回 {resp.status_code}，已回退到内置列表",
+            }
+        data = resp.json()
+        models = sorted({m.get("id") for m in data.get("data", []) if m.get("id")})
+        if not models:
+            return {
+                "models": catalogue,
+                "source": "catalogue",
+                "warning": "服务商未返回任何模型",
+            }
+        return {"models": models, "source": "live"}
+    except Exception as exc:
+        return {
+            "models": catalogue,
+            "source": "catalogue",
+            "warning": f"拉取失败：{type(exc).__name__}",
+        }
 
 
 @router.post("/cloud/config")
@@ -541,6 +555,40 @@ def _is_local_base_url(url: str) -> bool:
     return any(host in url for host in ("localhost", "127.0.0.1", "0.0.0.0"))
 
 
+def _probe_payload(model: str) -> dict:
+    """Minimal completion request shaped by the model's capability rules.
+
+    Must go through the same constraints as real calls, otherwise a probe can
+    "pass" while every real call fails (Kimi K3 rejects explicit temperature).
+    """
+    cap = resolve_capability(model)
+    payload: dict = {
+        "model": model,
+        "messages": [{"role": "user", "content": "ping"}],
+        "stream": False,
+    }
+    if cap.sampling_params:
+        payload["temperature"] = 0
+    # 64 rather than 1: thinking models spend the budget on reasoning first.
+    payload[cap.max_tokens_field] = 64
+    return payload
+
+
+def _probe_error(resp, model: str) -> str:
+    """Turn a failed probe into something a user can act on."""
+    message = ""
+    try:
+        body = resp.json()
+        error = body.get("error") if isinstance(body, dict) else None
+        if isinstance(error, dict):
+            message = error.get("message") or ""
+        elif isinstance(body, dict):
+            message = body.get("message") or ""
+    except Exception:
+        message = (resp.text or "")[:200]
+    return f"模型 {model} 调用失败（HTTP {resp.status_code}）：{message or '无错误详情'}"
+
+
 @router.post("/cloud/validate")
 async def validate_cloud_api(req: ValidateCloudRequest):
     """Test cloud LLM API connectivity with provided credentials.
@@ -558,8 +606,9 @@ async def validate_cloud_api(req: ValidateCloudRequest):
     if not req.api_key and not is_local:
         return {"valid": False, "error": "API Key 不能为空"}
 
-    is_anthropic = req.provider == "anthropic" or "anthropic.com" in req.base_url
-    timeout_s = 30.0 if is_local else 10.0
+    is_anthropic = is_anthropic_endpoint(req.provider, req.base_url)
+    # A model probe is a real completion; thinking models can exceed 10s.
+    timeout_s = 30.0
     api_key = req.api_key or "local-no-auth"  # 本地服务允许空 key
 
     try:
@@ -583,18 +632,30 @@ async def validate_cloud_api(req: ValidateCloudRequest):
                     probe = await client.post(
                         f"{base}/chat/completions",
                         headers={**headers, "Content-Type": "application/json"},
-                        json={
-                            "model": probe_model,
-                            "messages": [{"role": "user", "content": "hi"}],
-                            "max_tokens": 1,
-                        },
+                        json=_probe_payload(probe_model),
                     )
                     if probe.status_code == 401:
                         return {"valid": False, "error": "API Key 无效（401 Unauthorized）"}
-                    # 任何非 401 响应（包括 400/422 模型不存在）都说明 key 有效、接口可达
+                    # With a real model name, any 4xx/5xx means it cannot run.
+                    # Without one (__probe__), a 400 only proves the key is
+                    # accepted, which is the most we can claim.
+                    if req.model and probe.status_code >= 400:
+                        return {"valid": False, "error": _probe_error(probe, req.model)}
                     return {"valid": True}
 
             if resp.status_code == 200:
+                # GET /models only proves the key is accepted. When the user
+                # has picked a model, spend one tiny completion so parameter
+                # and retired-id problems surface here instead of later in
+                # 性能测试 (the 2026-11 Kimi K3 case).
+                if req.model and not is_anthropic:
+                    probe = await client.post(
+                        f"{base}/chat/completions",
+                        headers={**headers, "Content-Type": "application/json"},
+                        json=_probe_payload(req.model),
+                    )
+                    if probe.status_code >= 400:
+                        return {"valid": False, "error": _probe_error(probe, req.model)}
                 return {"valid": True}
             elif resp.status_code == 401:
                 return {"valid": False, "error": "API Key 无效（401 Unauthorized）"}
@@ -997,9 +1058,12 @@ async def run_model_benchmark():
             num_ctx=budget.extraction_num_ctx,
         )
     except LLMError as e:
-        raise HTTPException(status_code=503, detail=f"模型调用失败: {e}") from e
+        raise HTTPException(
+            status_code=_benchmark_error_status(e),
+            detail=f"模型调用失败: {e}",
+        ) from e
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"未知错误: {e}") from e
+        raise HTTPException(status_code=502, detail=f"未知错误: {e}") from e
 
     elapsed_ms = int((time.time() - start) * 1000)
     output_tokens = usage.completion_tokens

@@ -180,9 +180,11 @@ def update_cloud_config(
     LLM_BASE_URL = base_url or _ENV_LLM_BASE_URL
     LLM_MODEL = model or _ENV_LLM_MODEL
     # Detect API format from provider id or base_url
-    LLM_PROVIDER_FORMAT = "anthropic" if (
-        provider == "anthropic" or "anthropic.com" in (base_url or "")
-    ) else "openai"
+    from src.infra.endpoint_url import is_anthropic_endpoint
+
+    LLM_PROVIDER_FORMAT = (
+        "anthropic" if is_anthropic_endpoint(provider, base_url) else "openai"
+    )
 
     _reset_llm_client()
 

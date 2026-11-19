@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, downloadBackupExport, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord } from "@/api/client"
-import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, CloudConfig, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
+import { apiFetch, checkEnvironment, startOllama, fetchModelRecommendations, pullOllamaModel, setDefaultModel, fetchCloudProviders, fetchCloudConfig, saveCloudConfig, fetchCloudModels, validateCloudApi, fetchNovels, exportNovelUrl, previewImport, confirmDataImport, fetchSettings, switchLlmMode, fetchRunningTasks, restoreDefaults, fetchBudget, setBudget, fetchAnalysisRecords, fetchCostDetail, costDetailCsvUrl, downloadBackupExport, previewBackupImport, confirmBackupImport, runModelBenchmark, fetchBenchmarkHistory, deleteBenchmarkRecord, type CloudConfigWithCatalog } from "@/api/client"
+import type { BenchmarkResult, BenchmarkRecord, EnvironmentCheck, OllamaModel, ModelRecommendation, CloudProvider, Novel, ImportPreview, AnalysisRecord, CostDetailResponse, BackupPreview, BackupImportResult } from "@/api/types"
 import { useReadingSettingsStore, FONT_SIZE_MAP, LINE_HEIGHT_MAP } from "@/stores/readingSettingsStore"
 import { novelPath } from "@/lib/novelPaths"
 import { useLlmInfoStore } from "@/stores/llmInfoStore"
@@ -120,7 +120,7 @@ export default function SettingsPage() {
 
   // Cloud config
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([])
-  const [cloudConfig, setCloudConfig] = useState<CloudConfig | null>(null)
+  const [cloudConfig, setCloudConfig] = useState<CloudConfigWithCatalog | null>(null)
   const [cloudProvider, setCloudProvider] = useState("")
   const [cloudBaseUrl, setCloudBaseUrl] = useState("")
   const [cloudModel, setCloudModel] = useState("")
@@ -129,6 +129,10 @@ export default function SettingsPage() {
   const [cloudValidating, setCloudValidating] = useState(false)
   const [cloudValidResult, setCloudValidResult] = useState<{ valid: boolean; error?: string; warning?: string } | null>(null)
   const [cloudSaveMsg, setCloudSaveMsg] = useState<string | null>(null)
+  // Live model list fetched from the provider; null = fall back to presets.
+  const [liveModels, setLiveModels] = useState<{ provider: string; models: string[] } | null>(null)
+  const [refreshingModels, setRefreshingModels] = useState(false)
+  const [modelsWarning, setModelsWarning] = useState<string | null>(null)
 
   // Mode tab & advanced settings
   // viewTab: which tab panel is visible (pure UI navigation)
@@ -282,6 +286,22 @@ export default function SettingsPage() {
       setCloudSaving(false)
     }
   }, [cloudProvider, cloudBaseUrl, cloudModel, cloudApiKey])
+
+  const handleRefreshModels = useCallback(async () => {
+    setRefreshingModels(true)
+    setModelsWarning(null)
+    try {
+      const res = await fetchCloudModels({ provider: cloudProvider, base_url: cloudBaseUrl })
+      if (res.models.length > 0) {
+        setLiveModels({ provider: cloudProvider, models: res.models })
+      }
+      if (res.warning) setModelsWarning(res.warning)
+    } catch (err) {
+      setModelsWarning(err instanceof Error ? err.message : "刷新失败")
+    } finally {
+      setRefreshingModels(false)
+    }
+  }, [cloudProvider, cloudBaseUrl])
 
   // Initiate switch: check running tasks, then show confirmation dialog
   const handleRequestSwitch = useCallback(async () => {
@@ -960,10 +980,28 @@ export default function SettingsPage() {
                     {/* Model */}
                     {(() => {
                       const selectedProvider = cloudProviders.find((p) => p.id === cloudProvider)
-                      const hasPresets = selectedProvider?.models && selectedProvider.models.length > 0
+                      // A live list wins, but only for the provider it was fetched for.
+                      const providerModels =
+                        liveModels && liveModels.provider === cloudProvider
+                          ? liveModels.models
+                          : selectedProvider?.models
+                      const hasPresets = !!providerModels && providerModels.length > 0
                       return (
                         <div>
-                          <span className="text-sm block mb-1.5">模型</span>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-sm">模型</span>
+                            {!isCustomModel && (
+                              <button
+                                type="button"
+                                className="text-xs text-primary hover:underline disabled:opacity-50"
+                                onClick={handleRefreshModels}
+                                disabled={refreshingModels || !cloudBaseUrl}
+                                title="向服务商查询当前可用的模型列表"
+                              >
+                                {refreshingModels ? "刷新中..." : "从服务商刷新"}
+                              </button>
+                            )}
+                          </div>
                           {hasPresets && !isCustomModel ? (
                             <select
                               className="w-full border rounded px-2 py-1.5 text-sm bg-background font-mono"
@@ -977,7 +1015,7 @@ export default function SettingsPage() {
                                 }
                               }}
                             >
-                              {selectedProvider!.models!.map((m) => (
+                              {providerModels!.map((m) => (
                                 <option key={m} value={m}>{m}</option>
                               ))}
                               <option value="__custom__">自定义...</option>
@@ -989,6 +1027,11 @@ export default function SettingsPage() {
                               onChange={(e) => setCloudModel(e.target.value)}
                               placeholder="model-name"
                             />
+                          )}
+                          {modelsWarning && (
+                            <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">
+                              {modelsWarning}
+                            </p>
                           )}
                         </div>
                       )
@@ -1037,6 +1080,16 @@ export default function SettingsPage() {
                         </p>
                       )}
                     </div>
+
+                    {cloudConfig && (cloudConfig.model_known === false || cloudConfig.model_legacy) && (
+                      <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">
+                        当前保存的模型 <span className="font-mono">{cloudConfig.model}</span>
+                        {cloudConfig.model_known === false
+                          ? " 不在最新预设中，可能已下线"
+                          : " 已从官方模型列表移除，仍可能可用"}
+                        ；建议改为 <span className="font-mono">{cloudConfig.suggested_model}</span>。
+                      </p>
+                    )}
 
                     {/* Save cloud config */}
                     <div className="flex items-center gap-3 pt-2">
