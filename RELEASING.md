@@ -168,5 +168,6 @@ gh release view --repo mouseart2025/AI-Reader-V2 --json tagName,isDraft,isPrerel
 | `gh release create` 报 tag 已存在 | 正常 | 不用 `--target`，直接指向现有 tag |
 | Windows 资产名带空格 | NSIS 用 productName 拼接 | 上传前重命名 |
 | 下载 404 | 把 `AI.Reader_` 写成了 `AI Reader_`，或版本号不一致 | 以 release 页实际资产名为准 |
+| 触发 workflow 后 **1 秒内**就 `cancelled` | runner 标签被上游弃用（不是代码问题） | 先读 check-run 的 annotation：`gh api repos/<owner>/<repo>/check-runs/<job_id>/annotations`。2026-11 实测 `macos-14` 被弃用（`The configuration 'macos-14-arm64-us-default' is not supported`），换成 `macos-15` 立刻恢复 |
 | 安装后版本没变 | 用户装了旧 DMG | 用 `CFBundleShortVersionString` 核对，必要时先卸载旧版 |
 | 大文件下载超时 | GitHub release 走 objects.githubusercontent.com，国内网络可能慢 | 重试；或走 R2 镜像（需先补 token） |

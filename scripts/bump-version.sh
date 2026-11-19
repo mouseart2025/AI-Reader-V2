@@ -159,7 +159,11 @@ for f in "$FILE" "$FILE_EN"; do
 done
 # Download links: ONLY lines containing releases/download/ — cannot reach the
 # changelog rows (those carry "vX.Y.Z" with no download path).
-_sed_i "/releases\/download\//s/$OLD_VERSION/$VERSION/g" "$FILE"
+# MUST cover README_EN.md too: v0.86.0 shipped with the English badge updated
+# but its download rows still pointing at the previous release.
+for f in "$FILE" "$FILE_EN"; do
+  _sed_i "/releases\/download\//s/$OLD_VERSION/$VERSION/g" "$f"
+done
 echo "  ✅ README.md / README_EN.md (badge + download links; changelog untouched)"
 
 # ── 7. frontend/package-lock.json (deterministic, offline) ─
@@ -208,6 +212,7 @@ check_contains "backend/uv.lock" "uv.lock (PEP 440)" "$(_to_pep440 "$VERSION")"
 check_contains "frontend/package-lock.json" "package-lock.json" "$VERSION"
 check_contains "README.md" "README.md badge" "-$(_to_badge "$VERSION")-blue"
 check_contains "README_EN.md" "README_EN.md badge" "-$(_to_badge "$VERSION")-blue"
+check_contains "README_EN.md" "README_EN.md download link" "releases/download/v$VERSION/"
 
 if [ $ERRORS -gt 0 ]; then
   echo ""
