@@ -239,6 +239,33 @@ export function saveCloudConfig(config: {
   })
 }
 
+export interface EmbeddingConfigResponse {
+  provider: string
+  base_url: string
+  model: string
+  dimensions: number
+  has_api_key: boolean
+  api_key_masked: string
+  active_signature: string
+}
+
+export function fetchEmbeddingConfig(): Promise<EmbeddingConfigResponse> {
+  return apiFetch("/settings/embedding/config")
+}
+
+export function saveEmbeddingConfig(config: {
+  provider: string
+  base_url: string
+  model: string
+  api_key: string
+  dimensions: number
+}): Promise<{ success: boolean; storage: string; index_warning: boolean }> {
+  return apiFetch("/settings/embedding/config", {
+    method: "POST",
+    body: JSON.stringify(config),
+  })
+}
+
 export function validateCloudApi(
   base_url: string,
   api_key: string,

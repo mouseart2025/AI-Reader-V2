@@ -9,6 +9,20 @@ logger = logging.getLogger(__name__)
 
 _SERVICE_NAME = "ai-reader-v2"
 _KEY_NAME = "llm-api-key"
+_DB_KEY = "llm_api_key_b64"
+
+
+def _slot_names(slot: str) -> tuple[str, str]:
+    """Return (keyring key, app_settings key) for a secret slot.
+
+    ``slot="llm"`` keeps the historical names byte-for-byte so existing
+    installs keep reading the same keychain entry / DB row. Issue #20 adds
+    ``slot="embedding"`` so a custom embeddings key never overwrites the
+    chat LLM key.
+    """
+    if slot == "llm":
+        return _KEY_NAME, _DB_KEY
+    return f"{slot}-api-key", f"{slot}_api_key_b64"
 
 # macOS 上 ad-hoc 签名的 sidecar 访问他方创建的 keychain 条目时，Security
 # 框架会等待一个后台进程永远无法弹出的授权弹窗，get_password 永久阻塞
@@ -20,41 +34,41 @@ _KEYRING_TIMEOUT_S = 5.0
 _keyring_suspect = False
 
 
-def _try_keyring_save(api_key: str) -> bool:
+def _try_keyring_save(api_key: str, key_name: str = _KEY_NAME) -> bool:
     """Try saving via keyring. Returns True on success."""
     try:
         import keyring
 
-        keyring.set_password(_SERVICE_NAME, _KEY_NAME, api_key)
+        keyring.set_password(_SERVICE_NAME, key_name, api_key)
         # Verify it was actually saved
-        stored = keyring.get_password(_SERVICE_NAME, _KEY_NAME)
+        stored = keyring.get_password(_SERVICE_NAME, key_name)
         return stored == api_key
     except Exception as e:
         logger.debug("keyring save failed: %s", e)
         return False
 
 
-def _try_keyring_load() -> str | None:
+def _try_keyring_load(key_name: str = _KEY_NAME) -> str | None:
     """Try loading from keyring. Returns None if unavailable."""
     try:
         import keyring
 
-        return keyring.get_password(_SERVICE_NAME, _KEY_NAME)
+        return keyring.get_password(_SERVICE_NAME, key_name)
     except Exception:
         return None
 
 
-def _try_keyring_delete() -> bool:
+def _try_keyring_delete(key_name: str = _KEY_NAME) -> bool:
     try:
         import keyring
 
-        keyring.delete_password(_SERVICE_NAME, _KEY_NAME)
+        keyring.delete_password(_SERVICE_NAME, key_name)
         return True
     except Exception:
         return False
 
 
-async def _fallback_save(api_key: str) -> None:
+async def _fallback_save(api_key: str, db_key: str = _DB_KEY) -> None:
     """Save API key to app_settings table (base64 obfuscated)."""
     from src.db.sqlite_db import get_connection
 
@@ -63,23 +77,23 @@ async def _fallback_save(api_key: str) -> None:
     try:
         await conn.execute(
             """INSERT INTO app_settings (key, value, updated_at)
-               VALUES ('llm_api_key_b64', ?, datetime('now'))
+               VALUES (?, ?, datetime('now'))
                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at""",
-            (encoded,),
+            (db_key, encoded),
         )
         await conn.commit()
     finally:
         await conn.close()
 
 
-async def _fallback_load() -> str | None:
+async def _fallback_load(db_key: str = _DB_KEY) -> str | None:
     """Load API key from app_settings table."""
     from src.db.sqlite_db import get_connection
 
     conn = await get_connection()
     try:
         row = await conn.execute(
-            "SELECT value FROM app_settings WHERE key='llm_api_key_b64'",
+            "SELECT value FROM app_settings WHERE key=?", (db_key,),
         )
         result = await row.fetchone()
         if result and result[0]:
@@ -92,13 +106,13 @@ async def _fallback_load() -> str | None:
     return None
 
 
-async def _fallback_delete() -> None:
+async def _fallback_delete(db_key: str = _DB_KEY) -> None:
     from src.db.sqlite_db import get_connection
 
     conn = await get_connection()
     try:
         await conn.execute(
-            "DELETE FROM app_settings WHERE key='llm_api_key_b64'",
+            "DELETE FROM app_settings WHERE key=?", (db_key,),
         )
         await conn.commit()
     finally:
@@ -132,18 +146,29 @@ async def _keyring_call(func, *args):
         return None
 
 
-async def save_api_key(api_key: str) -> str:
-    """Save API key. Returns storage method used: 'keyring' or 'database'."""
-    if await _keyring_call(_try_keyring_save, api_key):
-        # Clear any fallback entry
-        await _fallback_delete()
+async def save_api_key(api_key: str, slot: str = "llm") -> str:
+    """Save API key into ``slot``. Returns 'keyring' or 'database'.
+
+    The default ``llm`` slot keeps the historical zero-extra-argument call
+    shape so existing wrappers/monkeypatches of the private helpers keep
+    working. Only non-default slots pass an explicit key name.
+    """
+    key_name, db_key = _slot_names(slot)
+    if slot == "llm":
+        saved = await _keyring_call(_try_keyring_save, api_key)
+        if saved:
+            await _fallback_delete()
+            return "keyring"
+        await _fallback_save(api_key)
+        return "database"
+    if await _keyring_call(_try_keyring_save, api_key, key_name):
+        await _fallback_delete(db_key)
         return "keyring"
-    # Fallback to database
-    await _fallback_save(api_key)
+    await _fallback_save(api_key, db_key)
     return "database"
 
 
-async def load_api_key() -> str | None:
+async def load_api_key(slot: str = "llm") -> str | None:
     """Load API key from keyring or fallback.
 
     Set ``AI_READER_FORCE_DB_KEY=1`` to read the key from the app_settings
@@ -152,15 +177,28 @@ async def load_api_key() -> str | None:
     provider requires bypassing it — deleting the keyring entry is unreliable
     on macOS (keychain raises error 100001). Default behaviour unchanged.
     """
-    if os.environ.get("AI_READER_FORCE_DB_KEY"):
+    key_name, db_key = _slot_names(slot)
+    if slot == "llm":
+        if os.environ.get("AI_READER_FORCE_DB_KEY"):
+            return await _fallback_load()
+        key = await _keyring_call(_try_keyring_load)
+        if key:
+            return key
         return await _fallback_load()
-    key = await _keyring_call(_try_keyring_load)
+    if os.environ.get("AI_READER_FORCE_DB_KEY"):
+        return await _fallback_load(db_key)
+    key = await _keyring_call(_try_keyring_load, key_name)
     if key:
         return key
-    return await _fallback_load()
+    return await _fallback_load(db_key)
 
 
-async def delete_api_key() -> None:
-    """Delete API key from all stores."""
-    await _keyring_call(_try_keyring_delete)
-    await _fallback_delete()
+async def delete_api_key(slot: str = "llm") -> None:
+    """Delete an API key from all stores."""
+    key_name, db_key = _slot_names(slot)
+    if slot == "llm":
+        await _keyring_call(_try_keyring_delete)
+        await _fallback_delete()
+        return
+    await _keyring_call(_try_keyring_delete, key_name)
+    await _fallback_delete(db_key)

@@ -8,6 +8,7 @@ import { useLlmInfoStore } from "@/stores/llmInfoStore"
 import { useThemeStore } from "@/stores/themeStore"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { EmbeddingConfigCard } from "@/components/settings/EmbeddingConfigCard"
 import { isTauri } from "@/api/sidecarBridge"
 
 function openExternal(url: string) {
@@ -1049,6 +1050,11 @@ export default function SettingsPage() {
                       {cloudSaveMsg && (
                         <span className="text-xs text-muted-foreground">{cloudSaveMsg}</span>
                       )}
+                    </div>
+
+                    {/* Custom embeddings provider (issue #20) */}
+                    <div className="border-t pt-4 mt-4">
+                      <EmbeddingConfigCard />
                     </div>
 
                     {/* Performance benchmark (cloud) */}

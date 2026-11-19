@@ -14,6 +14,16 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-base-zh-v1.5")
 
+# Embedding provider (issue #20):
+#   "local"   — sentence_transformers(BGE) with built-in ONNX fallback (default)
+#   "openai"  — OpenAI-compatible /embeddings endpoint (custom channel)
+#   "ollama"  — local/remote Ollama /api/embeddings
+EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "local")
+EMBEDDING_BASE_URL = os.environ.get("EMBEDDING_BASE_URL", "")
+EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY", "")
+EMBEDDING_CLOUD_MODEL = os.environ.get("EMBEDDING_CLOUD_MODEL", "text-embedding-3-small")
+EMBEDDING_DIMENSIONS = int(os.environ.get("EMBEDDING_DIMENSIONS", "0") or "0")
+
 # LLM Provider: "ollama" (default, local) or "openai" (cloud, OpenAI-compatible)
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
 
@@ -39,6 +49,7 @@ SIDECAR_TOKEN: str = os.environ.get("AI_READER_SIDECAR_TOKEN", "")
 _ENV_LLM_API_KEY = LLM_API_KEY
 _ENV_LLM_BASE_URL = LLM_BASE_URL
 _ENV_LLM_MODEL = LLM_MODEL
+_ENV_EMBEDDING_API_KEY = EMBEDDING_API_KEY
 
 
 # VoT (Visualization-of-Thought) spatial reasoning guide injection.
@@ -204,6 +215,46 @@ def update_max_tokens(max_tokens: int) -> None:
     global LLM_MAX_TOKENS
 
     LLM_MAX_TOKENS = max_tokens
+
+
+def update_embedding_config(
+    provider: str,
+    api_key: str,
+    base_url: str,
+    model: str,
+    dimensions: int = 0,
+) -> None:
+    """Hot-update embedding config and drop the cached embedding function.
+
+    Empty api_key falls back to the .env value. Never silently falls back to
+    local models when a remote provider is selected: an incomplete remote
+    config must fail loudly at first use instead of quietly computing local
+    embeddings the user did not ask for.
+    """
+    global EMBEDDING_PROVIDER, EMBEDDING_API_KEY, EMBEDDING_BASE_URL
+    global EMBEDDING_CLOUD_MODEL, EMBEDDING_DIMENSIONS
+
+    EMBEDDING_PROVIDER = provider or "local"
+    EMBEDDING_API_KEY = api_key or _ENV_EMBEDDING_API_KEY
+    EMBEDDING_BASE_URL = base_url
+    EMBEDDING_CLOUD_MODEL = model or "text-embedding-3-small"
+    EMBEDDING_DIMENSIONS = max(int(dimensions or 0), 0)
+
+    from src.services.embedding_service import reset_embed_fn
+
+    reset_embed_fn()
+
+
+def embedding_signature() -> str:
+    """Identity of the current embedding space.
+
+    Used to warn (never silently swap) when a config change would invalidate
+    vectors already stored in Chroma. Full index compatibility is deferred.
+    """
+    model = EMBEDDING_CLOUD_MODEL if EMBEDDING_PROVIDER != "local" else EMBEDDING_MODEL
+    base = EMBEDDING_BASE_URL if EMBEDDING_PROVIDER != "local" else ""
+    dims = str(EMBEDDING_DIMENSIONS) if EMBEDDING_DIMENSIONS else ""
+    return "|".join((EMBEDDING_PROVIDER, model, base, dims))
 
 
 def ensure_data_dir() -> None:
